@@ -4,31 +4,31 @@
 <template>
     <div class="coupon-area">
         <div class="coupon-area__top-container">
-            <h1 class="coupon-area__title">coupons</h1>
+            <h1 class="coupon-area__title">Coupon</h1>
             <VLoader v-if="isCouponFetching" />
             <div class="coupon-area__container">
                 <div
                     v-if="coupon"
                     class="coupon-area__container__existing-coupons"
                 >
-                    <div class="coupon-area__container__existing-coupons__discount-top-container active">
-                        <span class="coupon-area__container__existing-coupons__discount-top-container active">
-                            ${{ coupon.getDescription() }}
+                    <div class="coupon-area__container__existing-coupons__discount-top-container ">
+                        <span :class="`coupon-area__container__existing-coupons__discount-top-container__discount ${status}-discount`">
+                            {{ coupon.getDescription().slice(0, coupon.getDescription().indexOf(' ')) }}
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__status-container">
-                        <span class="coupon-area__container__existing-coupons__discount-top-container active">
-                            Active
+                        <span :class="`coupon-area__container__existing-coupons__status-container__status ${status}-status`">
+                            {{ status }}
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__discount-black-container">
                         <span class="coupon-area__container__existing-coupons__discount-black-container__discount">
-                            ${{ coupon.getDescription() }} off
+                            {{ coupon.getDescription().slice(0, coupon.getDescription().indexOf(' ')) }} off
                         </span>
                     </div>
                     <div class="coupon-area__container__existing-coupons__expiration-container">
-                        <span class="coupon-area__container__existing-coupons__expiration-container__text">
-                            Expiration in {{ expiration }}
+                        <span class="coupon-area__container__existing-coupons__expiration-container__expiration">
+                            {{ expirationHelper }}
                         </span>
                     </div>
                 </div>
@@ -59,7 +59,7 @@ import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue'
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { Coupon, CouponDuration } from '@/types/payments';
+import { Coupon } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -68,11 +68,9 @@ import { Coupon, CouponDuration } from '@/types/payments';
         AddCoupon2,
     },
 })
-export default class CouponArea extends Vue {
+export default class Coupons extends Vue {
     public isCouponFetching = true;
     public showCreateCode = false;
-
-    public testData = [{index: 1, status: "Active", discount: 3.25, expiration: 'Jul 2023'},{index: 2, status: "Inactive", discount: 1000, expiration: 'Mar 2023'},{index: 3, status: "Inactive", discount: 28.95, expiration: 'Jan 2023'}]
 
     /**
      * Lifecycle hook after initial render.
@@ -84,6 +82,7 @@ export default class CouponArea extends Vue {
             this.isCouponFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isCouponFetching = false;
         }
     }
 
@@ -109,42 +108,6 @@ export default class CouponArea extends Vue {
     }
 
     /**
-     * Indicates if coupon code ui is enabled on the billing page.
-     */
-    public get couponCodeBillingUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeBillingUIEnabled;
-    }
-
-    /**
-     * Returns the start date of the coupon.
-     */
-    public get startDate(): string {
-        return this.coupon?.addedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) || '';
-    }
-
-    /**
-     * Returns the expiration date of the coupon.
-     */
-    public get endDate(): string {
-        if (!this.coupon) {
-            return '';
-        }
-
-        let date: Date;
-
-        if (this.coupon.duration == CouponDuration.Once) {
-            // Last day of billing period is last day of the month
-            date = new Date(this.coupon.addedAt.getFullYear(), this.coupon.addedAt.getMonth() + 1, 0);
-        } else if (this.coupon.duration == CouponDuration.Repeating && this.coupon.expiresAt) {
-            date = this.coupon.expiresAt;
-        } else {
-            return '';
-        }
-        
-        return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    }
-
-    /**
      * Returns the expiration date of the coupon.
      */
     public get expiration(): string {
@@ -155,16 +118,44 @@ export default class CouponArea extends Vue {
         if (this.coupon.expiresAt) {
             return 'Expires ' + this.coupon.expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         } else {
-            switch (this.coupon.duration) {
-            case CouponDuration.Once:
-                return 'Expires after first use';
-            case CouponDuration.Forever:
-                return 'Never expires';
-            default:
-                return 'Unknown expiration';
-            }
+            return 'Unknown expiration';
         }
     }
+
+    /**
+     * Returns the whether the coupon is active or not.
+     */
+    public get status(): string {
+        if (!this.coupon) {
+            return '';
+        }
+
+        const today = new Date()
+        if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
+            return 'active';
+        } else {
+            return 'inactive';
+        }
+    }
+
+    /**
+     * Returns the whether the coupon is active or not.
+     */
+    public get expirationHelper(): string {
+        if (!this.coupon) {
+            return '';
+        }
+
+        switch (this.coupon.duration) {
+        case "once":
+            return 'Expires after first use';
+        case "forever":
+            return 'No expiration';
+        default:
+            return this.expiration;
+        }
+    }
+
 }
 </script>
 
@@ -223,7 +214,7 @@ export default class CouponArea extends Vue {
                     &__discount {
                         height: 60px;
                         width: fit-content;
-                        min-width: 60px;
+                        min-width: 50px;
                         border-radius: 10px;
                         display: flex;
                         align-items: center;
@@ -231,7 +222,7 @@ export default class CouponArea extends Vue {
                         padding: 0 8px;
                         font-family: sans-serif;
                         font-weight: 700;
-                        font-size: 18px;
+                        font-size: 16px;
                     }
                 }
 
@@ -252,6 +243,7 @@ export default class CouponArea extends Vue {
                         font-weight: 700;
                         font-size: 14px;
                         color: #fff;
+                        text-transform: capitalize;
                     }
                 }
 
@@ -262,7 +254,7 @@ export default class CouponArea extends Vue {
                     &__discount {
                         font-family: sans-serif;
                         font-weight: 1000;
-                        font-size: 28px;
+                        font-size: 22px;
                     }
                 }
 
