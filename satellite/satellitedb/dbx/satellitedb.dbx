@@ -1218,6 +1218,8 @@ model storjscan_wallet (
     field user_id              blob
     field wallet_address       blob
     field created_at           timestamp ( autoinsert )
+
+    index ( fields wallet_address )
 )
 
 create storjscan_wallet ( noreturn )
