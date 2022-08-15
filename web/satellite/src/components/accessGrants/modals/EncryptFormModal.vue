@@ -6,7 +6,7 @@
         <div class="access-grant__modal-container__header-container">
             <h2 class="access-grant__modal-container__header-container__title">Select Encryption</h2>
             <div
-                class="access-grant__modal-container__header-container__close-cross-container" 
+                class="access-grant__modal-container__header-container__close-cross-container"
                 @click="onCloseClick"
             >
                 <CloseCrossIcon />
@@ -203,7 +203,7 @@ export default class GrantCreatedModal extends Vue {
         this.isPassphraseDownloaded = false;
         this.passphrase = '';
 
-        if (this.encryptSelect === "generate") {
+        if (this.encryptSelect === 'generate') {
             this.passphrase = generateMnemonic();
         }
     }
@@ -211,7 +211,7 @@ export default class GrantCreatedModal extends Vue {
     public backAction(): void {
         this.$emit('backAction')
     }
-    
+
     public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
