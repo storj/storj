@@ -3,7 +3,7 @@
 
 <template>
     <table-item
-        :item="{ name: itemData.name, date: formattedDate }"
+        :item="itemToRender"
         :on-click="onClick"
     >
         <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
@@ -33,9 +33,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 
 import TableItem from "@/components/common/TableItem.vue";
+import Resizable from "@/components/common/Resizable.vue";
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
@@ -53,7 +54,7 @@ import { LocalData } from "@/utils/localData";
         DetailsIcon,
     },
 })
-export default class BucketItem extends Vue {
+export default class BucketItem extends Resizable {
     @Prop({ default: null })
     public readonly itemData: Bucket;
     @Prop({ default: () => () => {} })
@@ -82,8 +83,14 @@ export default class BucketItem extends Vue {
     /**
      * Returns formatted date.
      */
-    public get formattedDate(): string | undefined {
-        return this.itemData.since.toLocaleString();
+    public get formattedDate(): string {
+        return this.itemData.since.toLocaleString() || '';
+    }
+
+    public get itemToRender(): { [key: string]: string | string[] } {
+        if (!this.isMobile) return { name: this.itemData.name, date: this.formattedDate };
+
+        return { info: [ this.itemData.name, `Created ${this.formattedDate}` ] };
     }
 
     public hideGuide(): void {
@@ -121,9 +128,10 @@ export default class BucketItem extends Vue {
             name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
             params: {
                 bucketName: this.itemData.name,
-                backRoute: this.$route.name ? this.$route.name : ''
+                backRoute: this.$route.name || ''
             },
         });
+
         this.closeDropdown();
     }
 }

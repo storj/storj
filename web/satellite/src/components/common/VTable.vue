@@ -6,7 +6,7 @@
         <table class="base-table" border="0" cellpadding="0" cellspacing="0">
             <thead>
                 <tr>
-                    <th v-if="selectable" class="icon" />
+                    <th v-if="selectable" class="icon select" />
                     <slot name="head" />
                 </tr>
             </thead>
@@ -62,7 +62,7 @@ export default class VTable extends Vue {
 <style lang="scss">
 .table-wrapper {
     background: #fff;
-    box-shadow: 0 4px 32px rgb(0 0 0 / 4%);
+    box-shadow: 0 4px 2rem rgb(0 0 0 / 4%);
     border-radius: 12px;
 }
 
@@ -73,7 +73,7 @@ export default class VTable extends Vue {
 
     th {
         box-sizing: border-box;
-        padding: 16px;
+        padding: 1.125rem;
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -84,9 +84,13 @@ export default class VTable extends Vue {
         background: var(--c-block-gray);
         text-transform: uppercase;
 
+        @media screen and (max-width: 550px) {
+            display: none;
+        }
+
         tr {
             height: 52px;
-            font-size: 12px;
+            font-size: 0.875rem;
             color: #6b7280;
         }
     }
@@ -100,8 +104,13 @@ export default class VTable extends Vue {
         th {
             font-family: 'font_regular', sans-serif;
             color: #111827;
-            font-size: 14px;
+            font-size: 1rem;
             border-top: solid 1px #e5e7eb;
+
+            @media screen and (max-width: 550px) {
+                border-top: none;
+                border-bottom: solid 1px #e5e7eb;
+            }
         }
 
         .data {
@@ -132,9 +141,21 @@ export default class VTable extends Vue {
     align-items: center;
     justify-content: space-between;
     padding: 15px 20px;
-    font-size: 14px;
-    line-height: 24px;
+    font-size: 1rem;
+    line-height: 1.7rem;
     color: rgb(44 53 58 / 60%);
     border-top: solid 1px #e5e7eb;
+    font-family: 'font-medium', sans-serif;
+
+    @media screen and (max-width: 550px) {
+        border-top: none;
+    }
+}
+
+@media screen and (max-width: 768px) {
+
+    .select {
+        display: none;
+    }
 }
 </style>

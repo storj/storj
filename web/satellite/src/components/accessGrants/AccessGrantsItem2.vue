@@ -3,7 +3,7 @@
 
 <template>
     <table-item
-        :item="{ name: itemData.name, date: itemData.localDate() }"
+        :item="itemToRender"
         :on-click="onClick"
     >
         <th slot="options" v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
@@ -19,8 +19,9 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 import { AccessGrant } from '@/types/accessGrants';
+import Resizable from "@/components/common/Resizable.vue";
 import TableItem from "@/components/common/TableItem.vue";
 
 import DeleteIcon from "../../../static/images/objects/delete.svg";
@@ -34,7 +35,7 @@ import DotsIcon from "../../../static/images/objects/dots.svg";
         DotsIcon,
     },
 })
-export default class AccessGrantsItem extends Vue {
+export default class AccessGrantsItem extends Resizable {
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
     private readonly itemData: AccessGrant;
     @Prop({ default: () => () => {} })
@@ -43,6 +44,12 @@ export default class AccessGrantsItem extends Vue {
     public readonly isDropdownOpen: boolean;
     @Prop({ default: -1 })
     public readonly dropdownKey: number;
+
+    public get itemToRender(): { [key: string]: string | string[] } {
+        if (!this.isMobile) return { name: this.itemData.name, date: this.itemData.localDate() };
+
+        return { info: [ this.itemData.name, `Created ${this.itemData.localDate()}` ] };
+    }
 
     /**
      * Closes dropdown.

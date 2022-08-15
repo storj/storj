@@ -30,7 +30,7 @@
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left">Date Added</th>
+                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
             </template>
             <template #body>
@@ -219,6 +219,13 @@ export default class ProjectMembersArea extends Vue {
             &__image {
                 margin-top: 40px;
             }
+        }
+    }
+
+    @media screen and (max-width: 800px) and (min-width: 500px) {
+
+        .date-added {
+            display: none;
         }
     }
 </style>

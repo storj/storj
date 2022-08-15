@@ -83,6 +83,7 @@ export default class App extends Vue {
 <style lang="scss">
     html {
         overflow: hidden;
+        font-size: 14px;
     }
 
     body {

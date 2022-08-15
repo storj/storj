@@ -3,17 +3,18 @@
 
 <template>
     <table-item
-        :item="{ name: itemData.name, memberCount: itemData.memberCount, date: itemData.createdDate() }"
+        :item="itemToRender"
         :on-click="onClick"
         class="container__item"
     />
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 
 import { Project } from '@/types/projects';
 import TableItem from "@/components/common/TableItem.vue";
+import Resizable from "@/components/common/Resizable.vue";
 
 // @vue/component
 @Component({
@@ -21,11 +22,17 @@ import TableItem from "@/components/common/TableItem.vue";
         TableItem,
     },
 })
-export default class ProjectsListItem extends Vue {
+export default class ProjectsListItem extends Resizable {
     @Prop({default: () => new Project('123', 'name', 'desc')})
     private readonly itemData: Project;
     @Prop({ default: () => (_: string) => {} })
     public readonly onClick: (project: string) => void;
+
+    public get itemToRender(): { [key: string]: string | string[] } {
+        if (!this.isMobile) return { name: this.itemData.name, memberCount: this.itemData.memberCount.toString(), date: this.itemData.createdDate() };
+
+        return { info: [ this.itemData.name, `Created ${this.itemData.createdDate()}` ] };
+    }
 }
 </script>
 
