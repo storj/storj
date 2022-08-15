@@ -135,7 +135,7 @@ func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType
 	}
 
 	if lastTransaction == nil {
-		return time.Time{}, []byte{}, nil
+		return time.Time{}, nil, billing.ErrNoTransactions
 	}
 
 	return lastTransaction.Timestamp, lastTransaction.Metadata, nil

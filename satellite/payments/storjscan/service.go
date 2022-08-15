@@ -55,6 +55,16 @@ func NewService(log *zap.Logger, walletsDB WalletsDB, paymentsDB PaymentsDB, cli
 func (service *Service) Claim(ctx context.Context, userID uuid.UUID) (_ blockchain.Address, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	wallet, err := service.walletsDB.GetWallet(ctx, userID)
+	switch {
+	case err == nil:
+		return wallet, nil
+	case errs.Is(err, billing.ErrNoWallet):
+		// do nothing and continue
+	default:
+		return blockchain.Address{}, err
+	}
+
 	address, err := service.client.ClaimNewEthAddress(ctx)
 	if err != nil {
 		return blockchain.Address{}, ErrService.Wrap(err)
@@ -113,11 +123,13 @@ func (service *Service) Type() billing.TransactionType {
 	return billing.TransactionTypeCredit
 }
 
-// GetNewTransactions returns the storjscan payments since the given timestamp as billing transactions type.
+// GetNewTransactions returns the storjscan payments since the given block number and index as billing transactions type.
 func (service *Service) GetNewTransactions(ctx context.Context, _ time.Time, lastPaymentMetadata []byte) ([]billing.Transaction, error) {
 
 	var latestMetadata storjscanMetadata
-	if err := json.Unmarshal(lastPaymentMetadata, &latestMetadata); err != nil {
+	if lastPaymentMetadata == nil {
+		latestMetadata = storjscanMetadata{}
+	} else if err := json.Unmarshal(lastPaymentMetadata, &latestMetadata); err != nil {
 		service.log.Error("error retrieving metadata from latest recorded billing payment")
 		return nil, err
 	}

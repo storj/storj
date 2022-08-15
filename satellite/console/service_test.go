@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -911,13 +910,13 @@ func TestLockAccount(t *testing.T) {
 func TestWalletJsonMarshall(t *testing.T) {
 	wi := console.WalletInfo{
 		Address: blockchain.Address{1, 2, 3},
-		Balance: big.NewInt(100),
+		Balance: monetary.AmountFromBaseUnits(10000, monetary.USDollars).AsDecimal().String(),
 	}
 
 	out, err := json.Marshal(wi)
 	require.NoError(t, err)
 	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
-	require.Contains(t, string(out), "\"balance\":100")
+	require.Contains(t, string(out), "\"balance\":\"100\"")
 
 }
 

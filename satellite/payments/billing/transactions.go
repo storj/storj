@@ -19,6 +19,12 @@ type TransactionStatus string
 // ErrInsufficientFunds represents err when a user balance is too low for some transaction.
 var ErrInsufficientFunds = errs.New("Insufficient funds for this transaction")
 
+// ErrNoWallet represents err when there is no wallet in the DB.
+var ErrNoWallet = errs.New("no wallet in the database")
+
+// ErrNoTransactions represents err when there is no billing transactions in the DB.
+var ErrNoTransactions = errs.New("no transactions in the database")
+
 const (
 	// TransactionStatusPending indicates that status of this transaction is pending.
 	TransactionStatusPending = "pending"

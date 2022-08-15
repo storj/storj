@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/big"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -34,6 +33,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/rewards"
 )
@@ -126,6 +126,7 @@ type Service struct {
 	partners                   *rewards.PartnersService
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
+	billing                    billing.TransactionsDB
 	registrationCaptchaHandler CaptchaHandler
 	loginCaptchaHandler        CaptchaHandler
 	analytics                  *analytics.Service
@@ -195,7 +196,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -234,6 +235,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		partners:                   partners,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
+		billing:                    billing,
 		registrationCaptchaHandler: registrationCaptchaHandler,
 		loginCaptchaHandler:        loginCaptchaHandler,
 		analytics:                  analytics,
@@ -2744,7 +2746,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
-	Balance *big.Int           `json:"balance"`
+	Balance string             `json:"balance"`
 }
 
 // PaymentInfo includes token payment information required by GUI.
@@ -2785,9 +2787,13 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
 	}
+	balance, err := payment.service.billing.GetBalance(ctx, user.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, // TODO: populate with call to billing table
+		Balance: balance.AsDecimal().String(),
 	}, nil
 }
 
@@ -2803,9 +2809,13 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
 	}
+	balance, err := payment.service.billing.GetBalance(ctx, user.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, // TODO: populate with call to billing table
+		Balance: balance.AsDecimal().String(),
 	}, nil
 }
 

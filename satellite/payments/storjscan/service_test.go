@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/monetary"
@@ -128,6 +130,53 @@ func TestServicePayments(t *testing.T) {
 			require.Equal(t, expected, actual)
 		})
 	})
+}
+
+func TestServiceWallets(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		userID1 := testrand.UUID()
+		userID2 := testrand.UUID()
+		userID3 := testrand.UUID()
+		walletAddress1, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		walletAddress2, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		walletAddress3, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+
+		err = db.Wallets().Add(ctx, userID1, walletAddress1)
+		require.NoError(t, err)
+		err = db.Wallets().Add(ctx, userID2, walletAddress2)
+		require.NoError(t, err)
+		err = db.Wallets().Add(ctx, userID3, walletAddress3)
+		require.NoError(t, err)
+
+		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), db.StorjscanPayments(), nil)
+
+		t.Run("get Wallet", func(t *testing.T) {
+			actual, err := service.Get(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+
+			actual, err = service.Get(ctx, userID2)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress2, actual)
+
+			actual, err = service.Get(ctx, userID3)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress3, actual)
+		})
+		t.Run("claim Wallet already assigned", func(t *testing.T) {
+			actual, err := service.Get(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+
+			actual, err = service.Claim(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+		})
+	})
+
 }
 
 func TestListPayments(t *testing.T) {

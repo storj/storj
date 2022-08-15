@@ -51,7 +51,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		for _, paymentType := range chore.paymentTypes {
 			lastTransactionTime, lastTransactionMetadata, err := chore.transactionsDB.LastTransaction(ctx, paymentType.Source(), paymentType.Type())
-			if err != nil {
+			if err != nil && !errs.Is(err, ErrNoTransactions) {
 				chore.log.Error("unable to determine timestamp of last transaction", zap.Error(ChoreErr.Wrap(err)))
 				continue
 			}
