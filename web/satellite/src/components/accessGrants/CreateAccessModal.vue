@@ -5,7 +5,7 @@
     <div class="access-grant">
         <div class="access-grant__modal-container">
             <!-- ********* Create Form Modal ********* -->
-            <form v-if="accessGrantStep === 'create'">
+            <form v-if="isCreateStep">
                 <CreateFormModal
                     :checked-type="checkedType"
                     @close-modal="onCloseClick"
@@ -15,7 +15,7 @@
                 />
             </form>
             <!-- *********   Encrypt Form Modal  ********* -->
-            <form v-if="accessGrantStep === 'encrypt'">
+            <form v-if="isEncryptStep">
                 <EncryptFormModal 
                     @close-modal="onCloseClick"
                     @create-access="createAccessGrant"
@@ -23,7 +23,7 @@
                 />
             </form>
             <!-- *********   Grant Created Modal  ********* -->
-            <form v-if="accessGrantStep === 'grantCreated'">
+            <form v-if="isGrantCreatedStep">
                 <GrantCreatedModal
                     :checked-type="checkedType"
                     :restricted-key="restrictedKey"
@@ -287,6 +287,19 @@ export default class CreateAccessModal extends Vue {
      */
     private get notAfterPermission(): Date | null {
         return this.$store.state.accessGrantsModule.permissionNotAfter;
+    }
+
+    /**
+     * Returns which step should be rendered.
+     */
+    public get isCreateStep(): boolean {
+        return this.accessGrantStep === 'create';
+    }
+    public get isEncryptStep(): boolean {
+        return this.accessGrantStep === 'encrypt';
+    }
+    public get isGrantCreatedStep(): boolean {
+        return this.accessGrantStep === 'grantCreated';
     }
 }
 </script>

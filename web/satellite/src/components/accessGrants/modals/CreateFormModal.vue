@@ -218,6 +218,17 @@ import DurationSelection from '@/components/accessGrants/permissions/DurationSel
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 
+type ShowPermissions = {
+    show: boolean,
+    position: string
+}
+
+type Permissions = {
+    Read: boolean,
+    Write: boolean,
+    List: boolean,
+    Delete: boolean
+}
 
 // @vue/component
 @Component({
@@ -241,12 +252,12 @@ export default class CreateFormModal extends Vue {
     @Prop({ default: '' })
     private checkedType: string;
 
-    public showAllPermissions = {show: false, position: "up"};
+    public showAllPermissions: ShowPermissions = {show: false, position: "up"};
     private accessName = '';
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
-    private permissionsList = ["Read","Write","List","Delete"];
-    private checkedPermissions = {Read: false, Write: false, List: false, Delete: false};
+    private permissionsList: string[] = ["Read","Write","List","Delete"];
+    private checkedPermissions: Permissions = {Read: false, Write: false, List: false, Delete: false};
     private accessGrantList = this.accessGrantsList;
     private addDateSelected = false;
     public tooltipHover = '';
@@ -647,7 +658,7 @@ export default class CreateFormModal extends Vue {
     }
 
     .s3-tooltip {
-        top: 175px;
+        top: 188px;
         left: 121px;
 
         @include tooltip-container;
@@ -662,7 +673,7 @@ export default class CreateFormModal extends Vue {
     }
 
     .api-tooltip {
-        top: 204px;
+        top: 215px;
         left: 96px;
 
         @include tooltip-container;
