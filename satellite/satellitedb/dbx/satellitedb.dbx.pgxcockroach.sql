@@ -554,6 +554,7 @@ CREATE TABLE user_credits (
 	UNIQUE ( id, offer_id )
 );
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
 CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
