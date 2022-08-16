@@ -9,7 +9,7 @@
         >
             <div class="register-area__intro-area">
                 <div class="register-area__logo-wrapper">
-                    <div v-if="!!viewConfig.partnerLogoTopUrl" class="register-area__logo-wrapper__container mright">
+                    <div v-if="!!viewConfig.partnerLogoTopUrl" class="register-area__logo-wrapper__container">
                         <a :href="viewConfig.partnerUrl">
                             <img
                                 :src="viewConfig.partnerLogoTopUrl"
@@ -19,28 +19,31 @@
                             >
                         </a>
                     </div>
-                    <div class="register-area__logo-wrapper__container right">
-                        <LogoWithPartnerIcon v-if="viewConfig.partnerLogoTopUrl" class="logo" @click="onLogoClick" />
-                        <LogoIcon v-else class="logo" @click="onLogoClick" />
+                    <div v-if="viewConfig.partnerLogoTopUrl" class="logo-divider" />
+                    <div class="register-area__logo-wrapper__container">
+                        <LogoWithPartnerIcon v-if="viewConfig.partnerLogoTopUrl" class="logo-with-partner" @click="onLogoClick" />
+                        <LogoIcon v-else class="logo-no-partner" @click="onLogoClick" />
                     </div>
                 </div>
                 <h1 class="register-area__intro-area__title">{{ viewConfig.title }}</h1>
                 <p v-if="viewConfig.description" class="register-area__intro-area__sub-title">{{ viewConfig.description }}</p>
-                <div
-                    v-if="viewConfig.customHtmlDescription"
-                    class="register-area__intro-area__custom-html-container"
-                    v-html="$sanitize(viewConfig.customHtmlDescription)"
-                />
-                <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper bottom">
-                    <div class="register-area__logo-wrapper__container">
-                        <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                <div class="register-area__intro-area__large-content">
+                    <div
+                        v-if="viewConfig.customHtmlDescription"
+                        class="register-area__intro-area__large-content__custom-html-container"
+                        v-html="$sanitize(viewConfig.customHtmlDescription)"
+                    />
+                    <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper bottom">
+                        <div class="register-area__logo-wrapper__container">
+                            <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                        </div>
                     </div>
+                    <RegisterGlobe
+                        v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
+                        class="register-area__intro-area__large-content__globe-image"
+                        :class="{'professional-globe': isProfessional}"
+                    />
                 </div>
-                <RegisterGlobe
-                    v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
-                    class="register-area__intro-area__globe-image"
-                    :class="{'professional-globe': isProfessional}"
-                />
             </div>
             <div class="register-area__input-area">
                 <div
@@ -255,6 +258,20 @@
                     </v-button>
                     <div class="register-area__input-area__login-container">
                         Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
+                    </div>
+                </div>
+            </div>
+            <div class="register-area__container__mobile-content">
+                <div
+                    v-if="viewConfig.customHtmlDescription"
+                    class="register-area__container__mobile-content__custom-html-container"
+                    v-html="$sanitize(viewConfig.customHtmlDescription)"
+                />
+                <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper">
+                    <div class="register-area__logo-wrapper__container">
+                        <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                        <div class="logo-divider" />
+                        <LogoIcon class="logo" @click="onLogoClick" />
                     </div>
                 </div>
             </div>
@@ -705,6 +722,21 @@ export default class RegisterArea extends Vue {
 </script>
 
 <style scoped lang="scss">
+    %subtitle-text {
+        max-width: 550px;
+        margin-top: 27px;
+        font-size: 16px;
+        font-family: 'font_regular', sans-serif;
+        line-height: 24px;
+        text-align: left;
+    }
+
+    .logo-divider {
+        border-left: 1px solid #b3c5ff;
+        height: 40px;
+        margin: 0 10px;
+    }
+
     .register-area {
         display: flex;
         flex-direction: column;
@@ -733,14 +765,6 @@ export default class RegisterArea extends Vue {
                 align-items: center;
                 justify-content: flex-end;
                 height: 100%;
-
-                &.mright {
-                    margin-right: 30px;
-                }
-
-                &.right {
-                    justify-content: flex-start;
-                }
             }
 
             &__logo {
@@ -753,6 +777,11 @@ export default class RegisterArea extends Vue {
                     width: auto;
                     height: 56px;
                     max-width: unset;
+
+                    @media screen and (max-width: 1024px) {
+                        object-fit: contain;
+                        max-width: 45%;
+                    }
                 }
             }
 
@@ -773,6 +802,36 @@ export default class RegisterArea extends Vue {
 
             @media screen and (max-width: 1600px) {
                 width: 90%;
+            }
+
+            &__mobile-content {
+                @media screen and (min-width: 1025px) {
+                    display: none;
+                }
+
+                .register-area__logo-wrapper {
+                    display: block;
+                    margin-top: 24px;
+
+                    &__container {
+                        justify-content: center;
+                    }
+                }
+
+                &__custom-html-container {
+                    margin-top: 27px;
+
+                    ::v-deep p {
+                        @extend %subtitle-text;
+
+                        text-align: center;
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
+                    }
+                }
             }
         }
 
@@ -797,34 +856,35 @@ export default class RegisterArea extends Vue {
                 text-align: left;
             }
 
-            &__sub-title,
-            &__custom-html-container {
-                max-width: 550px;
-                margin-top: 27px;
-                font-size: 16px;
-                font-family: 'font_regular', sans-serif;
-                line-height: 24px;
-                text-align: left;
+            &__sub-title {
+                @extend %subtitle-text;
             }
 
-            &__custom-html-container {
-                padding-bottom: 27px;
+            &__large-content {
 
-                ::v-deep a {
-                    text-decoration: underline !important;
-                    color: inherit !important;
+                &__custom-html-container {
+                    padding-bottom: 27px;
+
+                    ::v-deep p {
+                        @extend %subtitle-text;
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
+                    }
                 }
-            }
 
-            &__globe-image {
-                position: relative;
-                top: 140px;
-                left: 40px;
-            }
+                &__globe-image {
+                    position: relative;
+                    top: 140px;
+                    left: 40px;
+                }
 
-            &__globe-image.professional-globe {
-                top: 110px;
-                left: 40px;
+                &__globe-image.professional-globe {
+                    top: 110px;
+                    left: 40px;
+                }
             }
         }
 
@@ -1122,8 +1182,16 @@ export default class RegisterArea extends Vue {
 
     .logo {
         cursor: pointer;
-        width: 207px;
-        height: 37px;
+    }
+
+    .logo-with-partner {
+        cursor: pointer;
+        max-width: 100%;
+    }
+
+    .logo-no-partner {
+        cursor: pointer;
+        width: 100%;
     }
 
     .register-input {
@@ -1244,7 +1312,7 @@ export default class RegisterArea extends Vue {
             display: block;
             position: relative;
             width: 100%;
-            padding: 30px;
+            padding: 10px;
 
             &__container {
                 display: flex;
@@ -1254,6 +1322,10 @@ export default class RegisterArea extends Vue {
                 overflow: visible;
                 width: 85%;
                 margin: 0 auto;
+            }
+
+            .register-area__logo-wrapper.bottom {
+                display: none;
             }
 
             &__intro-area {
@@ -1275,9 +1347,12 @@ export default class RegisterArea extends Vue {
                     text-align: center;
                 }
 
-                &__globe-image,
-                &__custom-html-container {
-                    display: none;
+                &__large-content {
+
+                    &__globe-image,
+                    &__custom-html-container {
+                        display: none;
+                    }
                 }
             }
 
@@ -1356,46 +1431,36 @@ export default class RegisterArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 450px) {
+    @media screen and (max-width: 1024px) {
 
         .register-area {
 
             &__container {
-                padding: 0;
+                padding: 40px 10px 20px;
             }
 
             &__logo-wrapper {
                 height: auto;
-                flex-direction: column;
+                justify-content: center;
 
                 img {
-                    max-height: 100%;
+                    height: 62px;
                     max-width: 100%;
                 }
 
                 &__container {
-                    margin-top: 20px;
 
                     a {
                         width: 100%;
                         height: 100%;
-                    }
-
-                    &.mright {
-                        margin-right: 0;
                     }
                 }
             }
 
             &__intro-area {
                 flex-direction: column;
-                padding: 0 0 80px;
+                padding: 0 0 20px;
                 height: auto;
-
-                .right,
-                .bottom {
-                    height: 42px;
-                }
 
                 &__title {
                     font-size: 28px;
@@ -1410,7 +1475,6 @@ export default class RegisterArea extends Vue {
 
             &__container {
                 width: 90%;
-                padding: 60px 10px 20px;
             }
 
             &__intro-area__title {
@@ -1435,7 +1499,6 @@ export default class RegisterArea extends Vue {
 
                 &__login-container {
                     margin-top: 40px;
-                    padding-bottom: 40px;
                 }
             }
         }
