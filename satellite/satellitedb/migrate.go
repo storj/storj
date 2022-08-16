@@ -2053,6 +2053,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on billing transaction timestamp to improve queries.",
+				Version:     208,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS billing_transactions_timestamp_index ON billing_transactions ( timestamp );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
