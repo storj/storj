@@ -527,7 +527,6 @@ func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *paym
 	}
 
 	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
-
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -797,7 +796,9 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (consoleauth.Token, error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (_ consoleauth.Token, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	sessionID, err := uuid.New()
 	if err != nil {
 		return consoleauth.Token{}, Error.Wrap(err)
@@ -1129,7 +1130,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) error {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	updateRequest := UpdateUserRequest{}
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
