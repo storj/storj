@@ -116,48 +116,56 @@ export default class OverviewStep extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .overview-area {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+.overview-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'font_regular', sans-serif;
+
+    &__title {
+        font-family: 'font_bold', sans-serif;
+        color: #14142b;
+        font-size: 32px;
+        line-height: 39px;
+        margin-bottom: 12.5px;
+    }
+
+    &__subtitle {
         font-family: 'font_regular', sans-serif;
+        font-weight: 400;
+        text-align: center;
+        color: #354049;
+        font-size: 16px;
+        line-height: 21px;
+    }
 
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            color: #14142b;
-            font-size: 32px;
-            line-height: 39px;
-            margin-bottom: 12.5px;
-        }
+    &__routes {
+        margin-top: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        column-gap: 38px;
+        row-gap: 38px;
+    }
 
-        &__subtitle {
-            font-family: 'font_regular', sans-serif;
-            font-weight: 400;
-            text-align: center;
-            color: #354049;
-            font-size: 16px;
-            line-height: 21px;
-        }
+    &__skip-button {
+        margin-top: 58px;
+        color: #b7c1ca;
+        cursor: pointer;
+        text-decoration: underline !important;
 
-        &__routes {
-            margin-top: 35px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            column-gap: 38px;
-            row-gap: 38px;
-        }
-
-        &__skip-button {
-            margin-top: 58px;
-            color: #b7c1ca;
-            cursor: pointer;
-            text-decoration: underline !important;
-
-            &:hover {
-                text-decoration: underline;
-            }
+        &:hover {
+            text-decoration: underline;
         }
     }
+}
+
+@media screen and (max-width: 760px) {
+
+    .overview-area {
+        width: 250px;
+        text-align: center;
+    }
+}
 </style>

@@ -224,14 +224,13 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 
 // partialQuery corresponds to a query.
 //
-//   distinct=false
+//	distinct=false
 //
-//      $selection WHERE $condition ORDER BY $orderBy, RANDOM() LIMIT $limit
+//	   $selection WHERE $condition ORDER BY $orderBy, RANDOM() LIMIT $limit
 //
-//   distinct=true
+//	distinct=true
 //
-//      SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
-//
+//	   SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
 type partialQuery struct {
 	selection string
 	condition condition

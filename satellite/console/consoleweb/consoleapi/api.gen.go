@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -19,7 +20,7 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-const dateLayout = "2006-01-02T15:04:05.000Z"
+const dateLayout = "2006-01-02T15:04:05.999Z"
 
 var ErrProjectsAPI = errs.Class("consoleapi projects api")
 var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
@@ -45,6 +46,7 @@ type UserManagementService interface {
 // ProjectManagementHandler is an api handler that exposes all projects related functionality.
 type ProjectManagementHandler struct {
 	log     *zap.Logger
+	mon     *monkit.Scope
 	service ProjectManagementService
 	auth    api.Auth
 }
@@ -52,6 +54,7 @@ type ProjectManagementHandler struct {
 // APIKeyManagementHandler is an api handler that exposes all apikeys related functionality.
 type APIKeyManagementHandler struct {
 	log     *zap.Logger
+	mon     *monkit.Scope
 	service APIKeyManagementService
 	auth    api.Auth
 }
@@ -59,13 +62,15 @@ type APIKeyManagementHandler struct {
 // UserManagementHandler is an api handler that exposes all users related functionality.
 type UserManagementHandler struct {
 	log     *zap.Logger
+	mon     *monkit.Scope
 	service UserManagementService
 	auth    api.Auth
 }
 
-func NewProjectManagement(log *zap.Logger, service ProjectManagementService, router *mux.Router, auth api.Auth) *ProjectManagementHandler {
+func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectManagementService, router *mux.Router, auth api.Auth) *ProjectManagementHandler {
 	handler := &ProjectManagementHandler{
 		log:     log,
+		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
@@ -81,9 +86,10 @@ func NewProjectManagement(log *zap.Logger, service ProjectManagementService, rou
 	return handler
 }
 
-func NewAPIKeyManagement(log *zap.Logger, service APIKeyManagementService, router *mux.Router, auth api.Auth) *APIKeyManagementHandler {
+func NewAPIKeyManagement(log *zap.Logger, mon *monkit.Scope, service APIKeyManagementService, router *mux.Router, auth api.Auth) *APIKeyManagementHandler {
 	handler := &APIKeyManagementHandler{
 		log:     log,
+		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
@@ -94,9 +100,10 @@ func NewAPIKeyManagement(log *zap.Logger, service APIKeyManagementService, route
 	return handler
 }
 
-func NewUserManagement(log *zap.Logger, service UserManagementService, router *mux.Router, auth api.Auth) *UserManagementHandler {
+func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagementService, router *mux.Router, auth api.Auth) *UserManagementHandler {
 	handler := &UserManagementHandler{
 		log:     log,
+		mon:     mon,
 		service: service,
 		auth:    auth,
 	}
@@ -110,23 +117,24 @@ func NewUserManagement(log *zap.Logger, service UserManagementService, router *m
 func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+	payload := console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenCreateProject(ctx, *projectInfo)
+	retVal, httpErr := h.service.GenCreateProject(ctx, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -141,7 +149,7 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -164,13 +172,13 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 		return
 	}
 
-	projectInfo := &console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&projectInfo); err != nil {
+	payload := console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenUpdateProject(ctx, id, *projectInfo)
+	retVal, httpErr := h.service.GenUpdateProject(ctx, id, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -185,7 +193,7 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -217,12 +225,13 @@ func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter,
 func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
+		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
@@ -242,7 +251,7 @@ func (h *ProjectManagementHandler) handleGenGetUsersProjects(w http.ResponseWrit
 func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -253,7 +262,13 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -265,13 +280,25 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -292,7 +319,7 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -303,19 +330,37 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	since, err := time.Parse(dateLayout, r.URL.Query().Get("since"))
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	before, err := time.Parse(dateLayout, r.URL.Query().Get("before"))
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
@@ -336,7 +381,7 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -347,13 +392,13 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 		return
 	}
 
-	apikeyInfo := &console.CreateAPIKeyRequest{}
-	if err = json.NewDecoder(r.Body).Decode(&apikeyInfo); err != nil {
+	payload := console.CreateAPIKeyRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	retVal, httpErr := h.service.GenCreateAPIKey(ctx, *apikeyInfo)
+	retVal, httpErr := h.service.GenCreateAPIKey(ctx, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -368,7 +413,7 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 func (h *UserManagementHandler) handleGenGetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 

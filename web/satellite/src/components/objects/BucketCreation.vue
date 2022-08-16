@@ -213,4 +213,11 @@ export default class BucketCreation extends Vue {
         width: 460px;
     }
 }
+
+@media screen and (max-width: 760px) {
+
+    .bucket-creation {
+        width: 300px;
+    }
+}
 </style>

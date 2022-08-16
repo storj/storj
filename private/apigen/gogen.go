@@ -6,7 +6,6 @@ package apigen
 import (
 	"fmt"
 	"go/format"
-	"net/http"
 	"os"
 	"reflect"
 	"sort"
@@ -19,6 +18,9 @@ import (
 
 	"storj.io/common/uuid"
 )
+
+// DateFormat is the layout of dates passed into and out of the API.
+const DateFormat = "2006-01-02T15:04:05.999Z"
 
 // MustWriteGo writes generated Go code into a file.
 func (a *API) MustWriteGo(path string) {
@@ -57,12 +59,12 @@ func (a *API) generateGo() ([]byte, error) {
 
 	i := func(paths ...string) {
 		for _, path := range paths {
-			if getPackageName(path) == a.PackageName {
-				return
+			if path == "" || getPackageName(path) == a.PackageName {
+				continue
 			}
 
 			if _, ok := imports.All[path]; ok {
-				return
+				continue
 			}
 			imports.All[path] = true
 
@@ -82,16 +84,13 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		for _, method := range group.endpoints {
 			if method.Request != nil {
-				i(reflect.TypeOf(method.Request).Elem().PkgPath())
+				i(getElementaryType(reflect.TypeOf(method.Request)).PkgPath())
 			}
 			if method.Response != nil {
-				i(reflect.TypeOf(method.Response).Elem().PkgPath())
+				i(getElementaryType(reflect.TypeOf(method.Response)).PkgPath())
 			}
 		}
 	}
-
-	p("const dateLayout = \"2006-01-02T15:04:05.000Z\"")
-	p("")
 
 	for _, group := range a.EndpointGroups {
 		i("github.com/zeebo/errs")
@@ -100,20 +99,31 @@ func (a *API) generateGo() ([]byte, error) {
 
 	p("")
 
+	params := make(map[*fullEndpoint][]Param)
+
 	for _, group := range a.EndpointGroups {
 		p("type %sService interface {", group.Name)
 		for _, e := range group.endpoints {
-			var params string
-			for _, param := range e.Params {
-				params += param.Type.String() + ", "
+			params[e] = append(e.QueryParams, e.PathParams...)
+
+			var paramStr string
+			for _, param := range params[e] {
+				paramStr += param.Type.String() + ", "
+			}
+			if e.Request != nil {
+				paramStr += reflect.TypeOf(e.Request).String() + ", "
 			}
 
 			i("context", "storj.io/storj/private/api")
 			if e.Response != nil {
 				responseType := reflect.TypeOf(e.Response)
-				p("%s(context.Context, "+params+") (%s, api.HTTPError)", e.MethodName, a.handleTypesPackage(responseType))
+				returnParam := a.handleTypesPackage(responseType)
+				if responseType == getElementaryType(responseType) {
+					returnParam = "*" + returnParam
+				}
+				p("%s(context.Context, "+paramStr+") (%s, api.HTTPError)", e.MethodName, returnParam)
 			} else {
-				p("%s(context.Context, "+params+") (api.HTTPError)", e.MethodName)
+				p("%s(context.Context, "+paramStr+") (api.HTTPError)", e.MethodName)
 			}
 		}
 		p("}")
@@ -121,10 +131,11 @@ func (a *API) generateGo() ([]byte, error) {
 	}
 
 	for _, group := range a.EndpointGroups {
-		i("go.uber.org/zap")
+		i("go.uber.org/zap", "github.com/spacemonkeygo/monkit/v3")
 		p("// %sHandler is an api handler that exposes all %s related functionality.", group.Name, group.Prefix)
 		p("type %sHandler struct {", group.Name)
 		p("log *zap.Logger")
+		p("mon *monkit.Scope")
 		p("service %sService", group.Name)
 		p("auth api.Auth")
 		p("}")
@@ -134,13 +145,14 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		i("github.com/gorilla/mux")
 		p(
-			"func New%s(log *zap.Logger, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
+			"func New%s(log *zap.Logger, mon *monkit.Scope, service %sService, router *mux.Router, auth api.Auth) *%sHandler {",
 			group.Name,
 			group.Name,
 			group.Name,
 		)
 		p("handler := &%sHandler{", group.Name)
 		p("log: log,")
+		p("mon: mon,")
 		p("service: service,")
 		p("auth: auth,")
 		p("}")
@@ -164,7 +176,7 @@ func (a *API) generateGo() ([]byte, error) {
 			p("func (h *%sHandler) %s(w http.ResponseWriter, r *http.Request) {", group.Name, handlerName)
 			p("ctx := r.Context()")
 			p("var err error")
-			p("defer mon.Task()(&ctx)(&err)")
+			p("defer h.mon.Task()(&ctx)(&err)")
 			p("")
 
 			p("w.Header().Set(\"Content-Type\", \"application/json\")")
@@ -182,39 +194,9 @@ func (a *API) generateGo() ([]byte, error) {
 				p("")
 			}
 
-			switch endpoint.Method {
-			case http.MethodGet:
-				for _, param := range endpoint.Params {
-					switch param.Type {
-					case reflect.TypeOf(uuid.UUID{}):
-						i("storj.io/common/uuid")
-						handleUUIDQuery(p, param)
-						continue
-					case reflect.TypeOf(time.Time{}):
-						i("time")
-						handleTimeQuery(p, param)
-						continue
-					case reflect.TypeOf(""):
-						handleStringQuery(p, param)
-						continue
-					}
-				}
-			case http.MethodPatch:
-				for _, param := range endpoint.Params {
-					if param.Type == reflect.TypeOf(uuid.UUID{}) {
-						handleUUIDParam(p, param)
-					} else {
-						handleBody(p, param)
-					}
-				}
-			case http.MethodPost:
-				for _, param := range endpoint.Params {
-					handleBody(p, param)
-				}
-			case http.MethodDelete:
-				for _, param := range endpoint.Params {
-					handleUUIDParam(p, param)
-				}
+			handleParams(p, i, endpoint.QueryParams, endpoint.PathParams)
+			if endpoint.Request != nil {
+				handleBody(p, endpoint.Request)
 			}
 
 			var methodFormat string
@@ -224,27 +206,11 @@ func (a *API) generateGo() ([]byte, error) {
 				methodFormat = "httpErr := h.service.%s(ctx, "
 			}
 
-			switch endpoint.Method {
-			case http.MethodGet:
-				for _, methodParam := range endpoint.Params {
-					methodFormat += methodParam.Name + ", "
-				}
-			case http.MethodPatch:
-				for _, methodParam := range endpoint.Params {
-					if methodParam.Type == reflect.TypeOf(uuid.UUID{}) {
-						methodFormat += methodParam.Name + ", "
-					} else {
-						methodFormat += "*" + methodParam.Name + ", "
-					}
-				}
-			case http.MethodPost:
-				for _, methodParam := range endpoint.Params {
-					methodFormat += "*" + methodParam.Name + ", "
-				}
-			case http.MethodDelete:
-				for _, methodParam := range endpoint.Params {
-					methodFormat += methodParam.Name + ", "
-				}
+			for _, param := range params[endpoint] {
+				methodFormat += param.Name + ", "
+			}
+			if endpoint.Request != nil {
+				methodFormat += "payload"
 			}
 
 			methodFormat += ")"
@@ -293,6 +259,11 @@ func (a *API) generateGo() ([]byte, error) {
 	p(")")
 	p("")
 
+	if _, ok := imports.All["time"]; ok {
+		p("const dateLayout = \"%s\"", DateFormat)
+		p("")
+	}
+
 	result += fileBody
 
 	output, err := format.Source([]byte(result))
@@ -306,67 +277,77 @@ func (a *API) generateGo() ([]byte, error) {
 // handleTypesPackage handles the way some type is used in generated code.
 // If type is from the same package then we use only type's name.
 // If type is from external package then we use type along with its appropriate package name.
-func (a *API) handleTypesPackage(t reflect.Type) interface{} {
+func (a *API) handleTypesPackage(t reflect.Type) string {
 	if strings.HasPrefix(t.String(), a.PackageName) {
 		return t.Elem().Name()
 	}
 
-	return t
+	return t.String()
 }
 
-// handleStringQuery handles request query param of type string.
-func handleStringQuery(p func(format string, a ...interface{}), param Param) {
-	p("%s := r.URL.Query().Get(\"%s\")", param.Name, param.Name)
-	p("if %s == \"\" {", param.Name)
-	p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
-	p("return")
-	p("}")
-	p("")
-}
+// handleParams handles parsing of URL query parameters or path parameters.
+func handleParams(p func(format string, a ...interface{}), i func(paths ...string), queryParams, pathParams []Param) {
+	for _, params := range []*[]Param{&queryParams, &pathParams} {
+		for _, param := range *params {
+			varName := param.Name
+			if param.Type != reflect.TypeOf("") {
+				varName += "Param"
+			}
 
-// handleUUIDQuery handles request query param of type uuid.UUID.
-func handleUUIDQuery(p func(format string, a ...interface{}), param Param) {
-	p("%s, err := uuid.FromString(r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
-	p("if err != nil {")
-	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-	p("return")
-	p("}")
-	p("")
-}
+			switch params {
+			case &queryParams:
+				p("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
+				p("if %s == \"\" {", varName)
+				p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
+				p("return")
+				p("}")
+				p("")
+			case &pathParams:
+				p("%s, ok := mux.Vars(r)[\"%s\"]", varName, param.Name)
+				p("if !ok {")
+				p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"missing %s route param\"))", param.Name)
+				p("return")
+				p("}")
+				p("")
+			}
 
-// handleTimeQuery handles request query param of type time.Time.
-func handleTimeQuery(p func(format string, a ...interface{}), param Param) {
-	p("%s, err := time.Parse(dateLayout, r.URL.Query().Get(\"%s\"))", param.Name, param.Name)
-	p("if err != nil {")
-	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-	p("return")
-	p("}")
-	p("")
-}
+			switch param.Type {
+			case reflect.TypeOf(uuid.UUID{}):
+				i("storj.io/common/uuid")
+				p("%s, err := uuid.FromString(%s)", param.Name, varName)
+			case reflect.TypeOf(time.Time{}):
+				i("time")
+				p("%s, err := time.Parse(dateLayout, %s)", param.Name, varName)
+			default:
+				p("")
+				continue
+			}
 
-// handleUUIDParam handles request inline param of type uuid.UUID.
-func handleUUIDParam(p func(format string, a ...interface{}), param Param) {
-	p("%sParam, ok := mux.Vars(r)[\"%s\"]", param.Name, param.Name)
-	p("if !ok {")
-	p("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"missing %s route param\"))", param.Name)
-	p("return")
-	p("}")
-	p("")
-
-	p("%s, err := uuid.FromString(%sParam)", param.Name, param.Name)
-	p("if err != nil {")
-	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-	p("return")
-	p("}")
-	p("")
+			p("if err != nil {")
+			p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+			p("return")
+			p("}")
+			p("")
+		}
+	}
 }
 
 // handleBody handles request body.
-func handleBody(p func(format string, a ...interface{}), param Param) {
-	p("%s := &%s{}", param.Name, param.Type)
-	p("if err = json.NewDecoder(r.Body).Decode(&%s); err != nil {", param.Name)
+func handleBody(p func(format string, a ...interface{}), body interface{}) {
+	p("payload := %s{}", reflect.TypeOf(body).String())
+	p("if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {")
 	p("api.ServeError(h.log, w, http.StatusBadRequest, err)")
 	p("return")
 	p("}")
 	p("")
+}
+
+// getElementaryType simplifies a Go type.
+func getElementaryType(t reflect.Type) reflect.Type {
+	switch t.Kind() {
+	case reflect.Array, reflect.Chan, reflect.Map, reflect.Ptr, reflect.Slice:
+		return getElementaryType(t.Elem())
+	default:
+		return t
+	}
 }

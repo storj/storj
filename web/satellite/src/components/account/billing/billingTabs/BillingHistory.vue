@@ -17,7 +17,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import VList from '@/components/common/VList.vue';
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryShape from '@/components/account/billing/billingTabs/BillingHistoryShape.vue';
-import { PaymentsHistoryItem } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -28,8 +28,11 @@ import { PaymentsHistoryItem } from '@/types/payments';
 })
 
 export default class BillingArea extends Vue {
+
     public get historyItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistory;
+        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
+        });
     }
 
     public get billingHistoryStructure() {

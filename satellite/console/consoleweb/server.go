@@ -100,6 +100,7 @@ type Config struct {
 	InactivityTimerDelay            int                `help:"inactivity timer delay in seconds" default:"600"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled      bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -244,9 +245,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	router.Use(newTraceRequestMiddleware(logger, router))
 
 	if server.config.GeneratedAPIEnabled {
-		consoleapi.NewProjectManagement(logger, server.service, router, &apiAuth{&server})
-		consoleapi.NewAPIKeyManagement(logger, server.service, router, &apiAuth{&server})
-		consoleapi.NewUserManagement(logger, server.service, router, &apiAuth{&server})
+		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
@@ -298,7 +299,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/wallet", paymentController.GetWallet).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/transactions", paymentController.Transactions).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
@@ -453,6 +454,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		InactivityTimerDelay            int
 		OptionalSignupSuccessURL        string
 		HomepageURL                     string
+		NativeTokenPaymentsEnabled      bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -494,6 +496,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.InactivityTimerDelay = server.config.InactivityTimerDelay
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
+	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
@@ -987,7 +990,7 @@ func (w *responseWriterStatusCode) WriteHeader(code int) {
 // newTraceRequestMiddleware returns middleware for tracing each request to a
 // registered endpoint through Monkit.
 //
-// It also log in DEBUG level each request.
+// It also log in INFO level each request.
 func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.MiddlewareFunc {
 	log = log.Named("trace-request-middleware")
 
@@ -1013,7 +1016,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 					fields = append(fields, zap.Int64("trace-id", span.Trace().Id()))
 				}
 
-				log.Debug("client HTTP request", fields...)
+				log.Info("client HTTP request", fields...)
 			}()
 
 			match := mux.RouteMatch{}

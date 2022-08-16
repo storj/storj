@@ -21,16 +21,15 @@
                 </p>
                 <div class="disable-mfa__buttons">
                     <VButton
-                        class="disable-mfa__buttons__cancel-button"
                         label="Cancel"
-                        width="50%"
+                        width="100%"
                         height="44px"
                         is-white="true"
                         :on-press="closeModal"
                     />
                     <VButton
                         label="Disable 2FA"
-                        width="50%"
+                        width="100%"
                         height="44px"
                         :on-press="disable"
                         :is-disabled="!(request.recoveryCode || request.passcode) || isLoading"
@@ -134,6 +133,10 @@ export default class DisableMFAModal extends Vue {
         align-items: center;
         font-family: 'font_regular', sans-serif;
 
+        @media screen and (max-width: 550px) {
+            padding: 48px 24px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 28px;
@@ -141,6 +144,12 @@ export default class DisableMFAModal extends Vue {
             text-align: center;
             color: #000;
             margin: 0 0 30px;
+
+            @media screen and (max-width: 550px) {
+                font-size: 24px;
+                line-height: 28px;
+                margin-bottom: 15px;
+            }
         }
 
         &__subtitle {
@@ -149,6 +158,12 @@ export default class DisableMFAModal extends Vue {
             text-align: center;
             color: #000;
             margin: 0 0 45px;
+
+            @media screen and (max-width: 550px) {
+                font-size: 14px;
+                line-height: 18px;
+                margin-bottom: 20px;
+            }
         }
 
         &__confirm {
@@ -191,9 +206,13 @@ export default class DisableMFAModal extends Vue {
             align-items: center;
             width: 100%;
             margin-top: 30px;
+            column-gap: 15px;
 
-            &__cancel-button {
-                margin-right: 15px;
+            @media screen and (max-width: 550px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 10px;
+                margin-top: 15px;
             }
         }
     }

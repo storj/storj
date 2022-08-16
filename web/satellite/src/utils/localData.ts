@@ -10,6 +10,7 @@ export class LocalData {
     private static userIdPassSalt = 'userIdPassSalt';
     private static serverSideEncryptionAcknowledge = 'serverSideEncryptionAcknowledge';
     private static demoBucketCreated = 'demoBucketCreated';
+    private static bucketGuideHidden = 'bucketGuideHidden';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);
@@ -61,6 +62,18 @@ export class LocalData {
 
     public static setDemoBucketCreatedStatus(): void {
         localStorage.setItem(LocalData.demoBucketCreated, "true");
+    }
+
+    /*
+   * "Disable" showing the upload guide tooltip on the bucket page
+   * */
+    public static setBucketGuideHidden() {
+        localStorage.setItem(LocalData.bucketGuideHidden, "true");
+    }
+
+    public static getBucketGuideHidden(): boolean {
+        const value = localStorage.getItem(LocalData.bucketGuideHidden);
+        return value === "true";
     }
 }
 

@@ -422,15 +422,15 @@ func (p *Payments) ClaimWallet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Transactions returns with the list of storjscan transactions.
-func (p *Payments) Transactions(w http.ResponseWriter, r *http.Request) {
+// WalletPayments returns with the list of storjscan transactions for user`s wallet.
+func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
-	transactions, err := p.service.Payments().Transactions(ctx)
+	walletPayments, err := p.service.Payments().WalletPayments(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -441,8 +441,8 @@ func (p *Payments) Transactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(transactions); err != nil {
-		p.log.Error("failed to encode transactions", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	if err = json.NewEncoder(w).Encode(walletPayments); err != nil {
+		p.log.Error("failed to encode payments", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

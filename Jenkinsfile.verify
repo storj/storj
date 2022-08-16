@@ -90,82 +90,27 @@ pipeline {
             }
         }
 
-        stage('Build and Lint Web') {
-            options {
-                timeout(time: 6, unit: "MINUTES")
-            }
-
+        stage('Build Web') {
             // The build code depends on the following assets being loaded.
             parallel {
                 stage('web/satellite') {
-                    when {
-                        changeset "web/satellite/**"
-                    }
                     steps {
-                        dir('web/satellite') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
-
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-
-                        }
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
+                        sh './web/satellite/build-if-changed.sh'
                     }
                 }
-
                 stage('web/storagenode') {
-                    when {
-                        changeset "web/storagenode/**"
-                    }
                     steps {
-                        dir("web/storagenode") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
+                        sh './web/storagenode/build-if-changed.sh'
                     }
                 }
-
                 stage('web/multinode') {
-                    when {
-                        changeset "web/multinode/**"
-                    }
                     steps {
-                        dir("web/multinode") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
+                        sh './web/multinode/build-if-changed.sh'
                     }
                 }
-
                 stage('satellite/admin/ui') {
-                    when {
-                        changeset "satellite/admin/ui/**"
-                    }
                     steps {
-                        dir("satellite/admin/ui") {
-                            sh 'npm install --prefer-offline --no-audit --loglevel silly'
-                            sh 'touch ./node_modules/go.mod' // prevent Go from scanning this dir
-                            sh 'npm run build'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run check'
-                            sh 'npm run lint'
-                        }
+                        sh './satellite/admin/ui/build-if-changed.sh'
                     }
                 }
             }

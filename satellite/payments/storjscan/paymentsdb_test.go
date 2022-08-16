@@ -150,7 +150,7 @@ func TestPaymentsDBList(t *testing.T) {
 		t.Run("ListWallet", func(t *testing.T) {
 			var expectedW []storjscan.CachedPayment
 			expectedW = append(expectedW,
-				expected[0], expected[1], expected[2], expected[3], expected[6], expected[7])
+				expected[7], expected[6], expected[3], expected[2], expected[1], expected[0])
 
 			actual, err := paymentsDB.ListWallet(ctx, wallet1, 10, 0)
 			require.NoError(t, err)

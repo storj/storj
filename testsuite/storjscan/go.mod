@@ -11,7 +11,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
-	storj.io/private v0.0.0-20220725143645-8515ce4e6b70
+	storj.io/private v0.0.0-20220801080548-639387a299f7
 	storj.io/storj v1.59.1
 	storj.io/storjscan v0.0.0-20220722004446-7e3c50357dc2
 	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876
@@ -117,7 +117,10 @@ require (
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
+	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
+	github.com/zeebo/float16 v0.1.0 // indirect
+	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/mwc v0.0.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.opentelemetry.io/otel v0.18.0 // indirect

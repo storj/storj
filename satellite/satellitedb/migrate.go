@@ -2036,6 +2036,23 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					); `,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.salt",
+				Version:     206,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN salt bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on wallet address to improve queries.",
+				Version:     207,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -45,6 +45,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
@@ -135,10 +136,12 @@ type Core struct {
 	}
 
 	Payments struct {
-		Accounts        payments.Accounts
-		Chore           *stripecoinpayments.Chore
-		StorjscanClient *storjscan.Client
-		StorjscanChore  *storjscan.Chore
+		Accounts         payments.Accounts
+		BillingChore     *billing.Chore
+		Chore            *stripecoinpayments.Chore
+		StorjscanClient  *storjscan.Client
+		StorjscanService *storjscan.Service
+		StorjscanChore   *storjscan.Chore
 	}
 
 	GracefulExit struct {
@@ -559,6 +562,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.Storjscan.Auth.Identifier,
 			pc.Storjscan.Auth.Secret)
 
+		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+			peer.DB.Wallets(),
+			peer.DB.StorjscanPayments(),
+			peer.Payments.StorjscanClient)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Payments.StorjscanChore = storjscan.NewChore(
 			peer.Log.Named("payments.storjscan:chore"),
 			peer.Payments.StorjscanClient,
@@ -574,6 +585,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Payments Storjscan", peer.Payments.StorjscanChore.TransactionCycle),
 		)
+
+		peer.Payments.BillingChore = billing.NewChore(
+			peer.Log.Named("payments.billing:chore"),
+			[]billing.PaymentType{peer.Payments.StorjscanService},
+			peer.DB.Billing(),
+			config.Payments.BillingConfig.Interval,
+			config.Payments.BillingConfig.DisableLoop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "billing:chore",
+			Run:   peer.Payments.BillingChore.Run,
+			Close: peer.Payments.BillingChore.Close,
+		})
 	}
 
 	{ // setup graceful exit

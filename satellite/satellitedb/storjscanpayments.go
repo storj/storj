@@ -5,7 +5,10 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/private/blockchain"
@@ -113,10 +116,13 @@ func (storjscanPayments *storjscanPayments) List(ctx context.Context) (_ []storj
 
 // ListWallet returns list of storjscan payments order by block number and log index desc.
 func (storjscanPayments *storjscanPayments) ListWallet(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]storjscan.CachedPayment, error) {
-	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Asc_BlockNumber_Asc_LogIndex(ctx,
+	dbxPmnts, err := storjscanPayments.db.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx,
 		dbx.StorjscanPayment_ToAddress(wallet[:]),
 		limit, offset)
 	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return []storjscan.CachedPayment{}, nil
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -149,6 +155,30 @@ func (storjscanPayments storjscanPayments) DeletePending(ctx context.Context) er
 	_, err := storjscanPayments.db.Delete_StorjscanPayment_By_Status(ctx,
 		dbx.StorjscanPayment_Status(payments.PaymentStatusPending))
 	return err
+}
+
+func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, blockNumber int64, logIndex int) (_ []storjscan.CachedPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
+              FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?`
+	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), blockNumber, logIndex, payments.PaymentStatusConfirmed)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var payments []storjscan.CachedPayment
+	for rows.Next() {
+		var payment dbx.StorjscanPayment
+		err = rows.Scan(&payment.BlockHash, &payment.BlockNumber, &payment.Transaction, &payment.LogIndex,
+			&payment.FromAddress, &payment.ToAddress, &payment.TokenValue, &payment.UsdValue, &payment.Status, &payment.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+		payments = append(payments, fromDBXPayment(&payment))
+	}
+	return payments, rows.Err()
 }
 
 // fromDBXPayment converts dbx storjscan payment type to storjscan.CachedPayment.

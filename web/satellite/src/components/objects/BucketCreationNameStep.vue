@@ -206,4 +206,11 @@ export default class BucketCreationNameStep extends Vue {
     width: 100%;
     justify-content: space-between;
 }
+
+@media screen and (max-width: 760px) {
+
+    .bucket-name-creation {
+        width: 200px;
+    }
+}
 </style>

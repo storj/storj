@@ -326,7 +326,7 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		require.NoError(t, err)
 		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
 			UserID:      userID,
-			Amount:      monetary.AmountFromBaseUnits(10, monetary.USDollars),
+			Amount:      monetary.AmountFromBaseUnits(1000, monetary.USDollars),
 			Description: "token payment credit",
 			Source:      "storjscan",
 			Status:      billing.TransactionStatusCompleted,

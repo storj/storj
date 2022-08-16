@@ -47,19 +47,31 @@ const (
 type TransactionsDB interface {
 	// Insert inserts the provided transaction.
 	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
-	// InsertBatch inserts the provided transactions.
-	// Only transactions that increase the user balance can be inserted using batching.
-	InsertBatch(ctx context.Context, billingTXs []Transaction) (err error)
+	// InsertBatchCreditTXs inserts the provided credit transactions into the billing table.
+	InsertBatchCreditTXs(ctx context.Context, billingTXs []Transaction) (err error)
 	// UpdateStatus updates the status of the transaction.
 	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
 	// UpdateMetadata updates the metadata of the transaction.
 	UpdateMetadata(ctx context.Context, txID int64, metadata []byte) error
-	// LastTransaction returns the timestamp of the last known transaction for given source and type.
-	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, error)
+	// LastTransaction returns the timestamp and metadata of the last known transaction for given source and type.
+	LastTransaction(ctx context.Context, txSource string, txType TransactionType) (time.Time, []byte, error)
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
 	GetBalance(ctx context.Context, userID uuid.UUID) (int64, error)
+}
+
+// PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
+// include but are not limited to Bitcoin, Ether, credit or debit card, ACH transfer, or even physical transfer of live
+// goats. In each case, a source, type, and method to get new transactions must be defined by the service, though
+// metadata specific to each payment type is also supported (i.e. goat hair type).
+type PaymentType interface {
+	// Source the source of the payment
+	Source() string
+	// Type the type of the payment
+	Type() TransactionType
+	// GetNewTransactions returns new transactions that occurred after the provided last transaction received.
+	GetNewTransactions(ctx context.Context, lastTransactionTime time.Time, metadata []byte) ([]Transaction, error)
 }
 
 // Transaction defines billing related transaction info that is stored in the DB.

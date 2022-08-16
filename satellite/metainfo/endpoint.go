@@ -13,12 +13,14 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/encryption"
+	"storj.io/common/eventstat"
 	"storj.io/common/lrucache"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/private/debug"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -81,6 +83,15 @@ type Endpoint struct {
 	defaultRS            *pb.RedundancyScheme
 	config               Config
 	versionCollector     *versionCollector
+	top                  endpointTop
+}
+
+// endpointTop represents in-memory counter stats.
+// Cached info can be retrieved from the /mon monitoring endpoint.
+type endpointTop struct {
+	Project   eventstat.Sink
+	Partner   eventstat.Sink
+	UserAgent eventstat.Sink
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -131,6 +142,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		defaultRS:            defaultRSScheme,
 		config:               config,
 		versionCollector:     newVersionCollector(log),
+		top: endpointTop{
+			Project:   debug.Top.NewTagCounter("auth_request_project", "project"),
+			Partner:   debug.Top.NewTagCounter("auth_request_partner", "partner"),
+			UserAgent: debug.Top.NewTagCounter("auth_request_user_agent", "agent"),
+		},
 	}, nil
 }
 

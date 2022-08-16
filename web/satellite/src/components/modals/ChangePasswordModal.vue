@@ -12,7 +12,7 @@
                 <VInput
                     class="full-input"
                     label="Old Password"
-                    placeholder="Enter Old Password"
+                    placeholder="Old Password"
                     is-password="true"
                     :error="oldPasswordError"
                     @setData="setOldPassword"
@@ -21,7 +21,7 @@
                     <VInput
                         class="full-input"
                         label="New Password"
-                        placeholder="Enter New Password"
+                        placeholder="New Password"
                         is-password="true"
                         :error="newPasswordError"
                         @setData="setNewPassword"
@@ -44,14 +44,14 @@
                 <div class="change-password__buttons">
                     <VButton
                         label="Cancel"
-                        width="205px"
+                        width="100%"
                         height="48px"
                         :on-press="closeModal"
                         is-transparent="true"
                     />
                     <VButton
                         label="Update"
-                        width="205px"
+                        width="100%"
                         height="48px"
                         :on-press="onUpdateClick"
                     />
@@ -215,10 +215,21 @@ export default class ChangePasswordModal extends Vue {
         flex-direction: column;
         padding: 48px;
 
+        @media screen and (max-width: 600px) {
+            padding: 48px 24px;
+        }
+
         &__row {
             display: flex;
             align-items: center;
             margin-bottom: 20px;
+
+            @media screen and (max-width: 600px) {
+
+                svg {
+                    display: none;
+                }
+            }
 
             &__label {
                 font-family: 'font_bold', sans-serif;
@@ -226,6 +237,12 @@ export default class ChangePasswordModal extends Vue {
                 line-height: 60px;
                 color: #384b65;
                 margin: 0 0 0 32px;
+
+                @media screen and (max-width: 600px) {
+                    font-size: 24px;
+                    line-height: 28px;
+                    margin: 0;
+                }
             }
         }
 
@@ -235,6 +252,13 @@ export default class ChangePasswordModal extends Vue {
             align-items: center;
             margin-top: 32px;
             column-gap: 20px;
+
+            @media screen and (max-width: 600px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 10px;
+                margin-top: 15px;
+            }
         }
     }
 
@@ -245,5 +269,22 @@ export default class ChangePasswordModal extends Vue {
 
     .full-input {
         margin-bottom: 15px;
+    }
+
+    @media screen and (max-width: 600px) {
+
+        ::v-deep .password-strength-container {
+            width: unset;
+            height: unset;
+
+            &__header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            &__rule-area__rule {
+                text-align: left;
+            }
+        }
     }
 </style>

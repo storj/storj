@@ -124,10 +124,18 @@ export default class EditProfileModal extends Vue {
         flex-direction: column;
         padding: 48px;
 
+        @media screen and (max-width: 400px) {
+            padding: 24px;
+        }
+
         &__row {
             display: flex;
             align-items: center;
             margin-bottom: 30px;
+
+            @media screen and (max-width: 400px) {
+                margin-bottom: 0;
+            }
 
             &__avatar {
                 width: 60px;
@@ -138,6 +146,10 @@ export default class EditProfileModal extends Vue {
                 justify-content: center;
                 background: #e8eaf2;
                 margin-right: 20px;
+
+                @media screen and (max-width: 400px) {
+                    display: none;
+                }
 
                 &__letter {
                     font-family: 'font_medium', sans-serif;
@@ -162,6 +174,13 @@ export default class EditProfileModal extends Vue {
             align-items: center;
             margin-top: 40px;
             column-gap: 20px;
+
+            @media screen and (max-width: 400px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 10px;
+                margin-top: 20px;
+            }
         }
     }
 </style>

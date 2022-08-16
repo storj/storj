@@ -197,6 +197,22 @@ func (step GetObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, 
 	require.Zero(t, diff)
 }
 
+// GetObjectLastCommitted is for testing metabase.GetObjectLastCommitted.
+type GetObjectLastCommitted struct {
+	Opts     metabase.GetObjectLastCommitted
+	Result   metabase.Object
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommitted(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 // GetSegmentByPosition is for testing metabase.GetSegmentByPosition.
 type GetSegmentByPosition struct {
 	Opts     metabase.GetSegmentByPosition

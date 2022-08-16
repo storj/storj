@@ -135,7 +135,7 @@ export default class ProjectMembersArea extends Vue {
      * Returns team members limit from store.
      */
     public get projectMemberLimit(): number {
-        return this.$store.state.projectMembersModule.page.totalCount;
+        return this.$store.state.projectMembersModule.page.limit;
     }
 
     /**

@@ -52,17 +52,16 @@ export default class VModal extends Vue {
                 display: inline-block;
                 position: relative;
                 background: #fff;
-                border-radius: 20px;
+                border-radius: 10px;
                 box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+                margin: 0 24px;
 
                 &__close {
-                    display: flex;
                     position: absolute;
-                    right: 30px;
-                    top: 30px;
-                    height: 24px;
-                    width: 24px;
+                    right: 24px;
+                    top: 24px;
                     cursor: pointer;
+                    opacity: 0.55;
                 }
             }
         }

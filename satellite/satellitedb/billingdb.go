@@ -10,11 +10,12 @@ import (
 	"errors"
 	"time"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/monetary"
@@ -33,71 +34,84 @@ type billingDB struct {
 
 func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (txID int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	balance, err := db.GetBalance(ctx, billingTX.UserID)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	if balance+billingTX.Amount.BaseUnits() < 0 {
-		return 0, billing.ErrInsufficientFunds
-	}
-
 	var dbxTX *dbx.BillingTransaction
-
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		rows, err := tx.Update_BillingBalance_By_UserId_And_Balance(ctx,
-			dbx.BillingBalance_UserId(billingTX.UserID[:]),
-			dbx.BillingBalance_Balance(balance),
-			dbx.BillingBalance_Update_Fields{
-				Balance: dbx.BillingBalance_Balance(balance + billingTX.Amount.BaseUnits()),
-			})
+	var retryCount int
+	for {
+		balance, err := db.GetBalance(ctx, billingTX.UserID)
 		if err != nil {
-			return Error.Wrap(err)
+			return 0, Error.Wrap(err)
 		}
-		if rows == nil {
-			// Try an insert here, in case the user never had a record in the table.
-			// If the user already had a record, and the balance was not as expected,
-			// the insert will fail anyways.
-			err = tx.CreateNoReturn_BillingBalance(ctx,
+		if balance+billingTX.Amount.BaseUnits() < 0 {
+			return 0, billing.ErrInsufficientFunds
+		}
+
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			updatedRow, err := tx.Update_BillingBalance_By_UserId_And_Balance(ctx,
 				dbx.BillingBalance_UserId(billingTX.UserID[:]),
-				dbx.BillingBalance_Balance(balance+billingTX.Amount.BaseUnits()))
+				dbx.BillingBalance_Balance(balance),
+				dbx.BillingBalance_Update_Fields{
+					Balance: dbx.BillingBalance_Balance(balance + billingTX.Amount.BaseUnits()),
+				})
 			if err != nil {
 				return Error.Wrap(err)
 			}
-		}
+			if updatedRow == nil {
+				// Try an insert here, in case the user never had a record in the table.
+				// If the user already had a record, and the balance was not as expected,
+				// the insert will fail anyways.
+				err = tx.CreateNoReturn_BillingBalance(ctx,
+					dbx.BillingBalance_UserId(billingTX.UserID[:]),
+					dbx.BillingBalance_Balance(balance+billingTX.Amount.BaseUnits()))
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
 
-		dbxTX, err = tx.Create_BillingTransaction(ctx,
-			dbx.BillingTransaction_UserId(billingTX.UserID[:]),
-			dbx.BillingTransaction_Amount(billingTX.Amount.BaseUnits()),
-			dbx.BillingTransaction_Currency(monetary.USDollars.Symbol()),
-			dbx.BillingTransaction_Description(billingTX.Description),
-			dbx.BillingTransaction_Source(billingTX.Source),
-			dbx.BillingTransaction_Status(string(billingTX.Status)),
-			dbx.BillingTransaction_Type(string(billingTX.Type)),
-			dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
-			dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
-		return err
-	})
-	if err != nil {
-		return 0, err
-	}
-	if dbxTX == nil {
-		return 0, err
+			dbxTX, err = tx.Create_BillingTransaction(ctx,
+				dbx.BillingTransaction_UserId(billingTX.UserID[:]),
+				dbx.BillingTransaction_Amount(billingTX.Amount.BaseUnits()),
+				dbx.BillingTransaction_Currency(monetary.USDollars.Symbol()),
+				dbx.BillingTransaction_Description(billingTX.Description),
+				dbx.BillingTransaction_Source(billingTX.Source),
+				dbx.BillingTransaction_Status(string(billingTX.Status)),
+				dbx.BillingTransaction_Type(string(billingTX.Type)),
+				dbx.BillingTransaction_Metadata(handleMetaDataZeroValue(billingTX.Metadata)),
+				dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
+			return err
+		})
+		if isDuplicateEntryError(err) {
+			retryCount++
+			if retryCount > 5 {
+				return 0, Error.New("Unable to insert new billing transaction after several retries: %v", err)
+			}
+			continue
+		} else if err != nil {
+			return 0, err
+		}
+		if dbxTX == nil {
+			return 0, Error.New("Unable to insert new billing transaction")
+		}
+		break
 	}
 	return dbxTX.Id, err
 }
 
-func (db billingDB) InsertBatch(ctx context.Context, billingTXs []billing.Transaction) (err error) {
+func (db billingDB) InsertBatchCreditTXs(ctx context.Context, billingTXs []billing.Transaction) (err error) {
 	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 		for _, billingTX := range billingTXs {
-			statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() )`)
-			batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits(), monetary.USDollars.Symbol(), billingTX.Description, billingTX.Source,
-				billingTX.Status, billingTX.Type, handleMetaDataZeroValue(billingTX.Metadata), billingTX.Timestamp)
-			if err != nil {
-				db.db.log.Warn("invalid metadata skipped in query ", zap.String("statement query", statement))
+			// only credits to the users balance are added in batch
+			if billingTX.Amount.BaseUnits() > 0 && billingTX.Type == billing.TransactionTypeCredit {
+				statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() )`)
+				batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits(), monetary.USDollars.Symbol(), billingTX.Description, billingTX.Source,
+					billingTX.Status, billingTX.Type, handleMetaDataZeroValue(billingTX.Metadata), billingTX.Timestamp)
+				batch.Queue(`
+				INSERT INTO billing_balances ( user_id, balance, last_updated ) 
+				VALUES ( $1, $2, NOW() ) ON CONFLICT (user_id) 
+				DO UPDATE SET balance = billing_balances.balance + $2 
+				WHERE billing_balances.user_id = $1 AND billing_balances.balance + $2 >= 0`,
+					billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits())
 			}
-			statement = db.db.Rebind(`INSERT INTO billing_balances ( user_id, balance, last_updated ) VALUES ( $1, $2, NOW() ) ON CONFLICT (user_id) DO UPDATE SET balance = billing_balances.balance + $2 WHERE billing_balances.user_id = $1`)
-			batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits())
 		}
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
@@ -107,11 +121,11 @@ func (db billingDB) InsertBatch(ctx context.Context, billingTXs []billing.Transa
 			_, err := results.Exec()
 			errGroup.Add(err)
 		}
-
 		return errGroup.Err()
 	})
 	return err
 }
+
 func (db billingDB) UpdateStatus(ctx context.Context, txID int64, status billing.TransactionStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.db.UpdateNoReturn_BillingTransaction_By_Id(ctx, dbx.BillingTransaction_Id(txID), dbx.BillingTransaction_Update_Fields{
@@ -136,18 +150,23 @@ func (db billingDB) UpdateMetadata(ctx context.Context, txID int64, newMetadata 
 	})
 }
 
-func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType billing.TransactionType) (_ time.Time, err error) {
+func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType billing.TransactionType) (_ time.Time, metadata []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastTransactionTime, err := db.db.First_BillingTransaction_Timestamp_By_Source_And_Type_OrderBy_Desc_Timestamp(
+	lastTransaction, err := db.db.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(
 		ctx,
 		dbx.BillingTransaction_Source(txSource),
 		dbx.BillingTransaction_Type(string(txType)))
+
 	if err != nil {
-		return time.Time{}, Error.Wrap(err)
+		return time.Time{}, nil, Error.Wrap(err)
 	}
 
-	return lastTransactionTime.Timestamp, nil
+	if lastTransaction == nil {
+		return time.Time{}, []byte{}, nil
+	}
+
+	return lastTransaction.Timestamp, lastTransaction.Metadata, nil
 }
 
 func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.Transaction, err error) {
@@ -224,4 +243,8 @@ func handleMetaDataZeroValue(metaData []byte) []byte {
 		return metaData
 	}
 	return []byte(`{}`)
+}
+
+func isDuplicateEntryError(err error) bool {
+	return pgerrcode.FromError(err) == pgxerrcode.UniqueViolation
 }

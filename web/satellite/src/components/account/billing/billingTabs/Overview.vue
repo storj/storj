@@ -48,14 +48,36 @@
         </div>
         <div class="cost-by-project">
             <h3 class="cost-by-project__title">Cost by Project</h3>
-            <UsageAndChargesItem2
-                v-for="usageAndCharges in projectUsageAndCharges"
-                :key="usageAndCharges.projectId"
-                :item="usageAndCharges"
-                class="cost-by-project__item"
-            />
+            <div class="cost-by-project__buttons">
+                <v-button
+                    label="Edit Payment Method"
+                    font-size="13px"
+                    width="auto"
+                    height="30px"
+                    icon="lock"
+                    :is-transparent="true"
+                    class="cost-by-project__buttons__none-assigned"
+                />
+                <v-button
+                    label="See Payment"
+                    font-size="13px"
+                    width="auto"
+                    height="30px"
+                    icon="document"
+                    :is-transparent="true"
+                    class="cost-by-project__buttons__none-assigned"
+                />
+            </div>
+            <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
+                <UsageAndChargesItem2
+                    v-for="usageAndCharges in projectUsageAndCharges"
+                    :key="usageAndCharges.projectId"
+                    :item="usageAndCharges"
+                    class="cost-by-project__item"
+                />
+            </div>
+            <router-view />
         </div>
-        <router-view />
     </div>
 </template>
 
@@ -64,7 +86,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 
 import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
-
+import VButton from '@/components/common/VButton.vue';
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
@@ -83,6 +105,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
         AvailableBalanceIcon,
         UsageAndChargesItem2,
         CalendarIcon,
+        VButton,
     },
 })
 export default class BillingArea extends Vue {
@@ -90,6 +113,7 @@ export default class BillingArea extends Vue {
     public showChargesTooltip = false;
     public isDataFetching = true;
     public currentDate = ""
+
 
     /**
      * Lifecycle hook after initial render.
@@ -275,6 +299,17 @@ export default class BillingArea extends Vue {
 
         &__title {
             padding-bottom: 10px;
+        }
+
+        &__buttons {
+            display: flex;
+            align-self: center;
+            flex-wrap: wrap;
+
+            &__none-assigned {
+                padding: 5px 10px;
+                margin-right: 5px;
+            }
         }
     }
 </style>

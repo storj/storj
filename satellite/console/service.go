@@ -527,8 +527,13 @@ func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *paym
 	}
 
 	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return tx, Error.Wrap(err)
+	payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
+
+	return tx, nil
 }
 
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
@@ -791,7 +796,9 @@ func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUI
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
-func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (consoleauth.Token, error) {
+func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, email, ip, userAgent string) (_ consoleauth.Token, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	sessionID, err := uuid.New()
 	if err != nil {
 		return consoleauth.Token{}, Error.Wrap(err)
@@ -945,6 +952,11 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -970,7 +982,6 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 		valid, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 		if err != nil {
 			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
-			s.log.Error("captcha authorization failed", zap.Error(err))
 			return consoleauth.Token{}, ErrCaptcha.Wrap(err)
 		}
 		if !valid {
@@ -983,8 +994,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	if user == nil {
 		if len(unverified) > 0 {
 			mon.Counter("login_email_unverified").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed email unverified", nil, request.Email)
 		} else {
 			mon.Counter("login_email_invalid").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed invalid email", nil, request.Email)
 		}
 		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
@@ -993,6 +1006,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 	if user.LoginLockoutExpiration.After(now) {
 		mon.Counter("login_locked_out").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed account locked out", &user.ID, request.Email)
 		return consoleauth.Token{}, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
@@ -1007,10 +1021,12 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 
 		if user.FailedLoginCount == s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_initiated").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed login count reached maximum attempts", &user.ID, request.Email)
 		}
 
 		if user.FailedLoginCount > s.config.LoginAttemptsWithoutPenalty {
 			mon.Counter("login_lockout_reinitiated").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed locked account", &user.ID, request.Email)
 		}
 
 		return nil
@@ -1023,12 +1039,14 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 			return consoleauth.Token{}, err
 		}
 		mon.Counter("login_invalid_password").Inc(1) //mon:locked
+		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
 		return consoleauth.Token{}, ErrLoginPassword.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {
 		if request.MFARecoveryCode != "" && request.MFAPasscode != "" {
 			mon.Counter("login_mfa_conflict").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa conflict", &user.ID, user.Email)
 			return consoleauth.Token{}, ErrMFAConflict.New(mfaConflictErrMsg)
 		}
 
@@ -1048,6 +1066,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 					return consoleauth.Token{}, err
 				}
 				mon.Counter("login_mfa_recovery_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa recovery", &user.ID, user.Email)
 				return consoleauth.Token{}, ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 			}
 
@@ -1077,11 +1096,13 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 					return consoleauth.Token{}, err
 				}
 				mon.Counter("login_mfa_passcode_failure").Inc(1) //mon:locked
+				s.auditLog(ctx, "login: failed mfa passcode invalid", &user.ID, user.Email)
 				return consoleauth.Token{}, ErrMFAPasscode.New(mfaPasscodeInvalidErrMsg)
 			}
 			mon.Counter("login_mfa_passcode_success").Inc(1) //mon:locked
 		} else {
 			mon.Counter("login_mfa_missing").Inc(1) //mon:locked
+			s.auditLog(ctx, "login: failed mfa missing", &user.ID, user.Email)
 			return consoleauth.Token{}, ErrMFAMissing.New(mfaRequiredErrMsg)
 		}
 	}
@@ -1109,7 +1130,9 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 }
 
 // UpdateUsersFailedLoginState updates User's failed login state.
-func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) error {
+func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	updateRequest := UpdateUserRequest{}
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
@@ -1297,6 +1320,11 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	err = s.store.Users().Update(ctx, user.ID, UpdateUserRequest{
 		PasswordHash: hash,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -2698,19 +2726,26 @@ type WalletInfo struct {
 	Balance *big.Int           `json:"balance"`
 }
 
-// TokenTransactions represents the list of ERC-20 token payments.
-type TokenTransactions struct {
-	Transactions []TokenTransaction `json:"transactions"`
+// PaymentInfo includes token payment information required by GUI.
+type PaymentInfo struct {
+	ID        string
+	Type      string
+	Wallet    string
+	Amount    monetary.Amount
+	Received  monetary.Amount
+	Status    string
+	Link      string
+	Timestamp time.Time
 }
 
-// TokenTransaction contains the data of one single ERC-20 token payment.
-type TokenTransaction struct {
-	Origin  blockchain.Address `json:"origin"`
-	Address blockchain.Address `json:"address"`
-	TxHash  blockchain.Hash    `json:"tx_hash"`
-	Status  string             `json:"status"`
-	Date    time.Time          `json:"date"`
-	Amount  monetary.Amount    `json:"amount"`
+// WalletPayments represents the list of ERC-20 token payments.
+type WalletPayments struct {
+	Payments []PaymentInfo `json:"payments"`
+}
+
+// EtherscanURL creates etherscan transaction URI.
+func EtherscanURL(tx string) string {
+	return "https://etherscan.io/tx/" + tx
 }
 
 // ErrWalletNotClaimed shows that no address is claimed by the user.
@@ -2753,9 +2788,56 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}, nil
 }
 
-// Transactions returns with all the native blockchain transactions.
-func (payment Payments) Transactions(ctx context.Context) (TokenTransactions, error) {
-	panic("Not yet implemented")
+// WalletPayments returns with all the native blockchain payments for a user's wallet.
+func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+	address, err := payment.service.depositWallets.Get(ctx, user.ID)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+
+	walletPayments, err := payment.service.depositWallets.Payments(ctx, address, 3000, 0)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+	txInfos, err := payment.service.accounts.StorjTokens().ListTransactionInfos(ctx, user.ID)
+	if err != nil {
+		return WalletPayments{}, Error.Wrap(err)
+	}
+
+	var paymentInfos []PaymentInfo
+	for _, walletPayment := range walletPayments {
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        fmt.Sprintf("%s#%d", walletPayment.Transaction.Hex(), walletPayment.LogIndex),
+			Type:      "storjscan",
+			Wallet:    walletPayment.To.Hex(),
+			Amount:    walletPayment.USDValue,
+			Status:    string(walletPayment.Status),
+			Link:      EtherscanURL(walletPayment.Transaction.Hex()),
+			Timestamp: walletPayment.Timestamp,
+		})
+	}
+	for _, txInfo := range txInfos {
+		paymentInfos = append(paymentInfos, PaymentInfo{
+			ID:        txInfo.ID.String(),
+			Type:      "coinpayments",
+			Wallet:    txInfo.Address,
+			Amount:    monetary.AmountFromBaseUnits(txInfo.AmountCents, monetary.USDollars),
+			Received:  monetary.AmountFromBaseUnits(txInfo.ReceivedCents, monetary.USDollars),
+			Status:    txInfo.Status.String(),
+			Link:      txInfo.Link,
+			Timestamp: txInfo.CreatedAt.UTC(),
+		})
+	}
+
+	return WalletPayments{
+		Payments: paymentInfos,
+	}, nil
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {

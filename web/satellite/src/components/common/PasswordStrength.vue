@@ -174,13 +174,13 @@ export default class PasswordStrength extends Vue {
     private get barWidth(): string {
         switch (this.passwordStrength) {
         case 'Weak':
-            return '81px';
+            return '25%';
         case 'Good':
-            return '162px';
+            return '50%';
         case 'Strong':
-            return '243px';
+            return '75%';
         case 'Very Strong':
-            return '325px';
+            return '100%';
         }
 
         return '0px';
@@ -198,7 +198,6 @@ export default class PasswordStrength extends Vue {
         top: 96px;
         right: -3px;
         padding: 25px 20px;
-        opacity: 0.97;
         border: 1px solid rgb(193 193 193 / 30%);
         box-shadow: 0 4px 20px rgb(204 208 214 / 25%);
         border-radius: 6px;
@@ -242,6 +241,7 @@ export default class PasswordStrength extends Vue {
             line-height: 16px;
             color: #afb7c1;
             margin: 10px 0 0;
+            text-align: left;
         }
 
         &__rule-area {

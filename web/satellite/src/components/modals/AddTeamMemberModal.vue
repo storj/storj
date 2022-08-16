@@ -7,16 +7,17 @@
             <div class="add-user">
                 <div class="add-user__main">
                     <div class="add-user__info-panel-container">
-                        <h2 class="add-user__info-panel-container__main-label-text">Add Team Member</h2>
+                        <h2 class="add-user__info-panel-container__title">Add Team Member</h2>
                         <img src="@/../static/images/team/addMember.jpg" alt="add team member image">
                     </div>
                     <div class="add-user__form-container">
+                        <h2 class="add-user__form-container__title">Add Team Member</h2>
                         <p v-if="!formError" class="add-user__form-container__common-label">Email Address</p>
                         <div v-if="formError" class="add-user__form-container__label">
                             <ErrorIcon alt="Red error icon" />
                             <p class="add-user__form-container__label__error">{{ formError }}</p>
                         </div>
-                        <div class="add-user__form-container__inputs-group" :class="{ 'scrollable': isInputsGroupScrollable }">
+                        <div class="add-user__form-container__inputs-group">
                             <div
                                 v-for="(input, index) in inputs"
                                 :key="index"
@@ -46,14 +47,14 @@
                         <div class="add-user__form-container__button-container">
                             <VButton
                                 label="Cancel"
-                                width="205px"
+                                width="100%"
                                 height="48px"
                                 :on-press="closeModal"
                                 is-transparent="true"
                             />
                             <VButton
                                 label="Add Team Members"
-                                width="205px"
+                                width="100%"
                                 height="48px"
                                 :on-press="onAddUsersClick"
                                 :is-disabled="!isButtonActive"
@@ -257,10 +258,6 @@ export default class AddTeamMemberModal extends Vue {
         return location.host + RouteConfig.Register.path;
     }
 
-    public get isInputsGroupScrollable(): boolean {
-        return this.inputs.length > 4;
-    }
-
     /**
      * Removes error for selected input.
      */
@@ -293,14 +290,17 @@ export default class AddTeamMemberModal extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__main {
-            border-top-left-radius: 6px;
-            border-top-right-radius: 6px;
+            border-radius: 6px 6px 0 0;
             display: flex;
             align-items: flex-start;
             justify-content: center;
             background-color: #fff;
-            padding: 80px 20px 80px 30px;
-            width: calc(100% - 50px);
+            padding: 80px 24px;
+            width: calc(100% - 48px);
+
+            @media screen and (max-width: 950px) {
+                padding: 48px 24px;
+            }
         }
 
         &__info-panel-container {
@@ -310,7 +310,11 @@ export default class AddTeamMemberModal extends Vue {
             align-items: center;
             margin-right: 150px;
 
-            &__main-label-text {
+            @media screen and (max-width: 950px) {
+                display: none;
+            }
+
+            &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 29px;
@@ -330,23 +334,56 @@ export default class AddTeamMemberModal extends Vue {
             width: 100%;
             max-width: 600px;
 
+            @media screen and (max-width: 950px) {
+                max-width: unset;
+            }
+
+            &__title {
+                display: none;
+                font-family: 'font_bold', sans-serif;
+                font-size: 28px;
+                color: #384b65;
+                margin-bottom: 20px;
+                text-align: left;
+
+                @media screen and (max-width: 950px) {
+                    display: block;
+                }
+            }
+
             &__label {
                 display: flex;
-                flex-direction: row;
                 padding-left: 50px;
                 margin-bottom: 15px;
 
+                @media screen and (max-width: 950px) {
+                    padding: 0;
+                }
+
+                @media screen and (max-width: 550px) {
+
+                    svg {
+                        display: none;
+                    }
+                }
+
                 &__error {
-                    margin: 0;
-                    padding-left: 10px;
+                    margin-left: 10px;
                     color: #eb5757;
+                    text-align: left;
+
+                    @media screen and (max-width: 550px) {
+                        margin: 0;
+                    }
                 }
             }
 
             &__inputs-group {
-                max-height: 35vh;
-                overflow-y: hidden;
                 padding: 3px 50px 0;
+
+                @media screen and (max-width: 950px) {
+                    padding: 0;
+                }
 
                 &__item {
                     display: flex;
@@ -395,15 +432,29 @@ export default class AddTeamMemberModal extends Vue {
                 line-height: 25px;
                 padding-left: 50px;
                 text-align: left;
+
+                @media screen and (max-width: 950px) {
+                    padding-left: unset;
+                }
             }
 
             &__button-container {
                 display: flex;
-                flex-direction: row;
                 justify-content: space-between;
                 align-items: center;
                 margin-top: 30px;
                 padding: 0 80px 0 50px;
+                column-gap: 20px;
+
+                @media screen and (max-width: 950px) {
+                    padding: 0;
+                }
+
+                @media screen and (max-width: 420px) {
+                    flex-direction: column-reverse;
+                    row-gap: 10px;
+                    column-gap: unset;
+                }
             }
         }
     }
@@ -413,6 +464,10 @@ export default class AddTeamMemberModal extends Vue {
         align-items: center;
         justify-content: space-between;
         padding: 0 80px 0 50px;
+
+        @media screen and (max-width: 950px) {
+            padding: 0;
+        }
 
         &__item {
             display: flex;
@@ -477,12 +532,20 @@ export default class AddTeamMemberModal extends Vue {
         justify-content: flex-start;
         padding: 0 50px;
         align-items: center;
-        border-bottom-left-radius: 6px;
-        border-bottom-right-radius: 6px;
+        border-radius: 0 0 6px 6px;
+
+        @media screen and (max-width: 950px) {
+            height: unset;
+            padding: 24px;
+        }
 
         &__image {
             margin-right: 40px;
             min-width: 40px;
+
+            @media screen and (max-width: 500px) {
+                display: none;
+            }
         }
 
         &__text-area {
@@ -493,11 +556,22 @@ export default class AddTeamMemberModal extends Vue {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
                 text-align: left;
+
+                @media screen and (max-width: 500px) {
+                    font-size: 14px;
+                }
             }
         }
     }
 
-    .scrollable {
-        overflow-y: scroll;
+    ::v-deep .container {
+        padding: 0 10px;
+    }
+
+    @media screen and (max-width: 500px) {
+
+        ::v-deep .container {
+            padding: 0;
+        }
     }
 </style>

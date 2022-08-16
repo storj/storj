@@ -42,13 +42,13 @@ import (
 )
 
 // TestDataRepair does the following:
-// - Uploads test data
-// - Kills some nodes and disqualifies 1
-// - Triggers data repair, which repairs the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Shuts down several nodes, but keeping up a number equal to the minim
-//	 threshold
-// - Downloads the data from those left nodes and check that it's the same than the uploaded one.
+//   - Uploads test data
+//   - Kills some nodes and disqualifies 1
+//   - Triggers data repair, which repairs the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Shuts down several nodes, but keeping up a number equal to the minim
+//     threshold
+//   - Downloads the data from those left nodes and check that it's the same than the uploaded one.
 func TestDataRepairInMemory(t *testing.T) {
 	testDataRepair(t, true)
 }
@@ -204,14 +204,14 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 }
 
 // TestDataRepairPendingObject does the following:
-// - Starts new multipart upload with one part of test data. Does not complete the multipart upload.
-// - Kills some nodes and disqualifies 1
-// - Triggers data repair, which repairs the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Shuts down several nodes, but keeping up a number equal to the minim
-//	 threshold
-// - Completes the multipart upload.
-// - Downloads the data from those left nodes and check that it's the same than the uploaded one.
+//   - Starts new multipart upload with one part of test data. Does not complete the multipart upload.
+//   - Kills some nodes and disqualifies 1
+//   - Triggers data repair, which repairs the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Shuts down several nodes, but keeping up a number equal to the minim
+//     threshold
+//   - Completes the multipart upload.
+//   - Downloads the data from those left nodes and check that it's the same than the uploaded one.
 func TestDataRepairPendingObject(t *testing.T) {
 	const (
 		RepairMaxExcessRateOptimalThreshold = 0.05
@@ -351,12 +351,12 @@ func TestDataRepairPendingObject(t *testing.T) {
 }
 
 // TestMinRequiredDataRepair does the following:
-// - Uploads test data
-// - Kills all but the minimum number of nodes carrying the uploaded segment
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills all but the minimum number of nodes carrying the uploaded segment
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair succeed.
+//     Reputation info to be updated for all remaining nodes.
 func TestMinRequiredDataRepair(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -453,14 +453,14 @@ func TestMinRequiredDataRepair(t *testing.T) {
 }
 
 // TestFailedDataRepair does the following:
-// - Uploads test data
-// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
-// - On one of the remaining nodes, return unknown error during downloading of the piece
-// - Stop one of the remaining nodes, for it to be offline during repair
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+//   - On one of the remaining nodes, return unknown error during downloading of the piece
+//   - Stop one of the remaining nodes, for it to be offline during repair
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair failed and the pointer was not updated.
+//     Reputation info to be updated for all remaining nodes.
 func TestFailedDataRepair(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -574,13 +574,13 @@ func TestFailedDataRepair(t *testing.T) {
 }
 
 // TestOfflineNodeDataRepair does the following:
-// - Uploads test data
-// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
-// - Stop one of the remaining nodes, for it to be offline during repair
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should contain the offline piece.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+//   - Stop one of the remaining nodes, for it to be offline during repair
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair succeed and the pointer should contain the offline piece.
+//     Reputation info to be updated for all remaining nodes.
 func TestOfflineNodeDataRepair(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -691,13 +691,13 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 }
 
 // TestUnknownErrorDataRepair does the following:
-// - Uploads test data
-// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
-// - On one of the remaining nodes, return unknown error during downloading of the piece
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should contain the unknown piece.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+//   - On one of the remaining nodes, return unknown error during downloading of the piece
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair succeed and the pointer should contain the unknown piece.
+//     Reputation info to be updated for all remaining nodes.
 func TestUnknownErrorDataRepair(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -813,13 +813,13 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 }
 
 // TestMissingPieceDataRepair_Succeed does the following:
-// - Uploads test data
-// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
-// - On one of the remaining nodes, delete the piece data being stored by that node
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should not contain the missing piece.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+//   - On one of the remaining nodes, delete the piece data being stored by that node
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair succeed and the pointer should not contain the missing piece.
+//     Reputation info to be updated for all remaining nodes.
 func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -928,13 +928,13 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 }
 
 // TestMissingPieceDataRepair_Failed does the following:
-// - Uploads test data
-// - Kills all but the minimum number of nodes carrying the uploaded segment
-// - On one of the remaining nodes, delete the piece data being stored by that node
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated.
-//   Reputation info to be updated for node missing the piece.
+//   - Uploads test data
+//   - Kills all but the minimum number of nodes carrying the uploaded segment
+//   - On one of the remaining nodes, delete the piece data being stored by that node
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair failed and the pointer was not updated.
+//     Reputation info to be updated for node missing the piece.
 func TestMissingPieceDataRepair(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -1043,13 +1043,13 @@ func TestMissingPieceDataRepair(t *testing.T) {
 }
 
 // TestCorruptDataRepair_Succeed does the following:
-// - Uploads test data
-// - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
-// - On one of the remaining nodes, corrupt the piece data being stored by that node
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair succeed and the pointer should not contain the corrupted piece.
-//   Reputation info to be updated for all remaining nodes.
+//   - Uploads test data
+//   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
+//   - On one of the remaining nodes, corrupt the piece data being stored by that node
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair succeed and the pointer should not contain the corrupted piece.
+//     Reputation info to be updated for all remaining nodes.
 func TestCorruptDataRepair_Succeed(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -1157,13 +1157,13 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 }
 
 // TestCorruptDataRepair_Failed does the following:
-// - Uploads test data
-// - Kills all but the minimum number of nodes carrying the uploaded segment
-// - On one of the remaining nodes, corrupt the piece data being stored by that node
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
-// - Expects that the repair failed and the pointer was not updated.
-//   Reputation info to be updated for corrupted node.
+//   - Uploads test data
+//   - Kills all but the minimum number of nodes carrying the uploaded segment
+//   - On one of the remaining nodes, corrupt the piece data being stored by that node
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//     the numbers of nodes determined by the upload repair max threshold
+//   - Expects that the repair failed and the pointer was not updated.
+//     Reputation info to be updated for corrupted node.
 func TestCorruptDataRepair_Failed(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
@@ -1908,7 +1908,7 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 //   - Uploads test data
 //   - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
 //   - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	   the numbers of nodes determined by the upload repair max threshold
+//     the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_HigherLimit(t *testing.T) {
 	const repairOverride = 6
 
@@ -1995,7 +1995,7 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 //   - Starts Checker and Repairer and ensures this is the case.
 //   - Kills more nodes to fall to the Override Value to trigger repair
 //   - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	   the numbers of nodes determined by the upload repair max threshold
+//     the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_LowerLimit(t *testing.T) {
 	const repairOverride = 4
 
@@ -3076,9 +3076,9 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 // - run the checker and check the segment is in the repair queue
 // - run the repairer
 // - check the segment has been repaired and that:
-//		- piece in excluded is still there
-//		- piece held by offline node is not
-//		- there are no duplicate
+//   - piece in excluded is still there
+//   - piece held by offline node is not
+//   - there are no duplicate
 func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,

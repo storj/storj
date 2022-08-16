@@ -205,6 +205,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of times user can try to login without penalty
 # console.login-attempts-without-penalty: 3
 
+# indicates if storj native token payments system is enabled
+# console.native-token-payments-enabled: false
+
 # indicates if new access grant flow should be used
 # console.new-access-grant-flow: true
 
@@ -657,6 +660,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
+
+# flag to disable querying for new billing transactions by billing chore
+# payments.billing-config.disable-loop: true
+
+# billing chore interval to query for new transactions from all payment types
+# payments.billing-config.interval: 1m0s
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
