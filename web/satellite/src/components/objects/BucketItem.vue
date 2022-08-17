@@ -175,12 +175,10 @@ export default class BucketItem extends Vue {
                 flex-direction: column;
                 align-items: start;
                 top: 80%;
-                right: 12px;
-                transform: translateX(-311%);
+                transform: translateX(-100%);
                 background-color: #0149ff;
                 text-align: center;
                 border-radius: 8px;
-                width: 300px;
                 box-sizing: border-box;
                 padding: 20px;
                 z-index: 1001;
@@ -225,6 +223,7 @@ export default class BucketItem extends Vue {
                         padding: 6px 12px;
                         border-radius: 8px;
                         background-color: white;
+                        margin-left: 10px;
 
                         &__label {
                             font-weight: 700;
