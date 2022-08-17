@@ -115,6 +115,7 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26261 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
                         }
                     }
                 }
@@ -123,54 +124,6 @@ pipeline {
 
         stage('Verification') {
             parallel {
-                stage('Lint') {
-                    steps {
-                        sh 'check-mod-tidy'
-                        sh 'check-copyright'
-                        sh 'check-imports -race ./...'
-                        sh 'check-peer-constraints -race'
-                        sh 'check-atomic-align ./...'
-                        sh 'check-monkit ./...'
-                        sh 'check-errs ./...'
-                        sh 'staticcheck ./...'
-                        sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                        sh 'make check-monitoring'
-                        sh 'make test-wasm-size'
-
-                        sh 'protolock status'
-
-                        dir("testsuite/ui") {
-                            sh 'check-imports ./...'
-                            sh 'check-atomic-align ./...'
-                            sh 'check-monkit ./...'
-                            sh 'check-errs ./...'
-                            sh 'staticcheck ./...'
-                            sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                        }
-
-                        dir("satellite/admin/ui") {
-                            sh 'npm run check'
-                            sh 'npm run lint'
-                        }
-
-                        sh './scripts/check-package-lock.sh'
-                    }
-                }
-                stage('Cross Compile') {
-                    steps {
-                        // verify most of the commands, we cannot check everything since some of them
-                        // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'GOOS=linux   GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=linux   GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=386   go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=windows GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=amd64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                        sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
-                    }
-                }
                 stage('Tests') {
                     environment {
                         STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
@@ -217,96 +170,6 @@ pipeline {
                                 }
                             }
                         }
-                    }
-                }
-
-                stage('Check Benchmark') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database benchstorj;\''
-                        sh 'go test -tags noembed -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                    }
-                }
-
-                stage('Integration') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.2'
-                        STORJ_NETWORK_HOST6 = '127.0.0.2'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
-                        sh 'make test-sim'
-
-                        // sh 'make test-certificates' // flaky
-                    }
-                }
-
-                stage('Cockroach Integration') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.4'
-                        STORJ_NETWORK_HOST6 = '127.0.0.4'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        sh 'make test-sim'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
-                    }
-                }
-
-                stage('Integration Redis unavailability') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.6'
-                        STORJ_NETWORK_HOST6 = '127.0.0.6'
-                        STORJ_REDIS_PORT = '7379'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj6;\''
-                        sh 'make test-sim-redis-unavailability'
-                    }
-                }
-
-                stage('Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
-                stage('Cockroach Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.5'
-                        STORJ_NETWORK_HOST6 = '127.0.0.5'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                        sh 'make test-sim-backwards-compatible'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }
 
@@ -359,19 +222,7 @@ pipeline {
                 }
             }
         }
-/*
         stage('UI') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch pattern: "release-.*", comparator: "REGEXP"
-                    changeset "testsuite/ui/**"
-                    changeset "web/**"
-                    changeset "satellite/console/**"
-                    changeset "storagenode/console/**"
-                    changeset "multinode/console/**"
-                }
-            }
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
@@ -393,7 +244,6 @@ pipeline {
                 }
             }
         }
-*/
         stage('Post') {
             parallel {
                 stage('Lint') {
