@@ -398,8 +398,7 @@ export default class DashboardArea extends Vue {
                     min-width: 0;
 
                     &__container {
-                        height: calc(100% - 5vh);
-                        margin-bottom: 5vh;
+                        height: 100%;
                         overflow-y: auto;
 
                         &__content {
