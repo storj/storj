@@ -4,7 +4,7 @@
 <template>
     <div>
         <div class="total-cost">
-            <div class="total-cost__header-container"> 
+            <div class="total-cost__header-container">
                 <h3 class="total-cost__header-container__title">Total Cost</h3>
                 <div class="total-cost__header-container__date"><CalendarIcon />&nbsp;&nbsp;{{ currentDate }}</div>
             </div>
@@ -13,14 +13,14 @@
                     <EstimatedChargesIcon class="total-cost__card__main-icon" />
                     <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">
-                        Total Estimated Charges 
-                        <img 
+                        Total Estimated Charges
+                        <img
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
                             @mouseenter="showChargesTooltip = true"
                             @mouseleave="showChargesTooltip = false"
                         >
                     </p>
-                    <div 
+                    <div
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
@@ -57,15 +57,17 @@
                     icon="lock"
                     :is-transparent="true"
                     class="cost-by-project__buttons__none-assigned"
+                    :on-press="routeToPaymentMethods"
                 />
                 <v-button
-                    label="See Payment"
+                    label="See Payments"
                     font-size="13px"
                     width="auto"
                     height="30px"
                     icon="document"
                     :is-transparent="true"
                     class="cost-by-project__buttons__none-assigned"
+                    :on-press="routeToBillingHistory"
                 />
             </div>
             <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
