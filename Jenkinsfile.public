@@ -148,28 +148,7 @@ pipeline {
 
                         sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                    }
-
-                    post {
-                        always {
-                            archiveArtifacts artifacts: '.build/tests.json'
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
-                            junit '.build/tests.xml'
-
-                            script {
-                                if(fileExists(".build/coverprofile")){
-                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                                    cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '70, 60, 50',
-                                        autoUpdateHealth: false,
-                                        autoUpdateStability: false,
-                                        failUnhealthy: true
-                                }
-                            }
-                        }
+                        // sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
                     }
                 }
 
