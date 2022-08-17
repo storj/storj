@@ -74,6 +74,7 @@ import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -105,7 +106,11 @@ export default class AccountArea extends Vue {
      */
     public navigateToBilling(): void {
         this.closeDropdown();
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
+
+        this.isNewBillingScreen ?
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path) :
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
 
     /**
@@ -167,6 +172,14 @@ export default class AccountArea extends Vue {
      */
     public closeDropdown(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === "true";
     }
 
     /**
