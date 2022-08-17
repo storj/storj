@@ -653,10 +653,12 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var captchaScore *float64
+
 	mon.Counter("create_user_attempt").Inc(1) //mon:locked
 
 	if s.config.Captcha.Registration.Recaptcha.Enabled || s.config.Captcha.Registration.Hcaptcha.Enabled {
-		valid, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
+		valid, score, err := s.registrationCaptchaHandler.Verify(ctx, user.CaptchaResponse, user.IP)
 		if err != nil {
 			mon.Counter("create_user_captcha_error").Inc(1) //mon:locked
 			s.log.Error("captcha authorization failed", zap.Error(err))
@@ -666,6 +668,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			mon.Counter("create_user_captcha_unsuccessful").Inc(1) //mon:locked
 			return nil, ErrCaptcha.New("captcha validation unsuccessful")
 		}
+		captchaScore = score
 	}
 
 	if err := user.IsValid(); err != nil {
@@ -715,6 +718,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			EmployeeCount:    user.EmployeeCount,
 			HaveSalesContact: user.HaveSalesContact,
 			SignupPromoCode:  user.SignupPromoCode,
+			SignupCaptcha:    captchaScore,
 		}
 
 		if user.UserAgent != nil {
@@ -979,7 +983,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token consoleaut
 	mon.Counter("login_attempt").Inc(1) //mon:locked
 
 	if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
-		valid, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
+		valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 		if err != nil {
 			mon.Counter("login_user_captcha_error").Inc(1) //mon:locked
 			return consoleauth.Token{}, ErrCaptcha.Wrap(err)

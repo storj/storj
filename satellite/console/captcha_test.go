@@ -20,8 +20,9 @@ const validResponseToken = "myResponseToken"
 
 type mockRecaptcha struct{}
 
-func (r mockRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (bool, error) {
-	return responseToken == validResponseToken, nil
+func (r mockRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (bool, *float64, error) {
+	score := 1.0
+	return responseToken == validResponseToken, &score, nil
 }
 
 // TestRegistrationRecaptcha ensures that registration reCAPTCHA service is working properly.
@@ -52,6 +53,8 @@ func TestRegistrationRecaptcha(t *testing.T) {
 
 		require.NotNil(t, user)
 		require.NoError(t, err)
+		require.NotNil(t, user.SignupCaptcha)
+		require.Equal(t, 1.0, *user.SignupCaptcha)
 
 		regToken2, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)

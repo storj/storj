@@ -155,6 +155,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.EmployeeCount = dbx.User_EmployeeCount(user.EmployeeCount)
 		optional.HaveSalesContact = dbx.User_HaveSalesContact(user.HaveSalesContact)
 	}
+	if user.SignupCaptcha != nil {
+		optional.SignupCaptcha = dbx.User_SignupCaptcha(*user.SignupCaptcha)
+	}
 
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
@@ -368,6 +371,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		HaveSalesContact:      user.HaveSalesContact,
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
+		SignupCaptcha:         user.SignupCaptcha,
 	}
 
 	if user.PartnerId != nil {

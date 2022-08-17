@@ -176,6 +176,7 @@ type User struct {
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
+	SignupCaptcha          *float64  `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
