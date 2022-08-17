@@ -164,7 +164,6 @@ export default class AddTokenCard extends Vue {
         border-radius: 10px;
         width: 227px;
         height: 126px;
-        margin: 0 10px 10px 0;
         padding: 20px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         background: #fff;

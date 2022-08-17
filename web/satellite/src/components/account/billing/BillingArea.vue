@@ -3,13 +3,13 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="isNewBillingScreen">
+        <div v-if="isNewBillingScreen" class="account-billing-area__header__div">
             <div class="account-billing-area__title">
                 <h1 class="account-billing-area__title__text">Billing</h1>
             </div>
             <div class="account-billing-area__header">
                 <div
-                    :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab first-header-tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
                     @click="routeToOverview"
                 >
                     <p>Overview</p>
@@ -27,7 +27,7 @@
                     <p>Billing History</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab last-header-tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
                     @click="routeToCoupons"
                 >
                     <p>Coupons</p>
@@ -376,6 +376,17 @@ export default class BillingArea extends Vue {
             align-content: center;
             justify-content: space-between;
             padding-top: 25px;
+            overflow-y: auto;
+
+            /* Hide scrollbar for IE, Edge and Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+
+            /* Hide scrollbar for Chrome, Safari and Opera */
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
 
             &__tab {
                 font-family: sans-serif;
@@ -384,6 +395,8 @@ export default class BillingArea extends Vue {
                 height: auto;
                 width: auto;
                 transition-duration: 50ms;
+                white-space: nowrap;
+                padding: 0 8px;
             }
 
             &__tab:hover {
@@ -474,5 +487,25 @@ export default class BillingArea extends Vue {
     .icon {
         min-width: 14px;
         margin-left: 10px;
+    }
+
+    @media only screen and (max-width: 625px) {
+
+        .account-billing-area__header__div {
+            margin-right: -24px;
+            margin-left: -24px;
+        }
+
+        .account-billing-area__title {
+            margin-left: 24px;
+        }
+
+        .first-header-tab {
+            margin-left: 24px;
+        }
+
+        .last-header-tab {
+            margin-right: 24px;
+        }
     }
 </style>

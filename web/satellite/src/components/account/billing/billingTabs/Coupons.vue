@@ -188,7 +188,7 @@ export default class Coupons extends Vue {
 
         &__container {
             display: flex;
-            flex-wrap: wrap;
+            gap: 10px;
 
             &__existing-coupons {
                 border-radius: 10px;
@@ -201,7 +201,6 @@ export default class Coupons extends Vue {
                 display: grid;
                 grid-template-columns: 4fr 1fr;
                 grid-template-rows: 2fr 1fr 1fr;
-                margin: 0 10px 10px 0;
                 padding: 20px;
                 box-shadow: 0 0 20px rgb(0 0 0 / 4%);
                 background: #fff;
@@ -303,6 +302,27 @@ export default class Coupons extends Vue {
                         text-decoration: underline;
                     }
                 }
+            }
+        }
+    }
+
+    @media only screen and (max-width: 768px) {
+
+        .coupon-area__container {
+            flex-direction: column;
+
+            &__existing-coupons {
+                max-width: unset;
+                width: 90%;
+
+                &__discount-black-container {
+                    margin-top: 24px;
+                }
+            }
+
+            &__new-coupon {
+                max-width: 100%;
+                width: 90%;
             }
         }
     }

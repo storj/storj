@@ -62,7 +62,6 @@ export default class BillingHistoryHeader extends Vue {
 <style scoped lang="scss">
     .sort-header-container {
         display: flex;
-        width: 75%;
         height: 40px;
         background-color: #fff;
         margin-top: 31px;
@@ -140,6 +139,14 @@ export default class BillingHistoryHeader extends Vue {
             align-items: center;
             margin: 0;
             cursor: pointer;
+        }
+
+        @media only screen and (max-width: 768px) {
+
+            .sort-header-container__status-item__title,
+            .sort-header-container__status-item {
+                display: none;
+            }
         }
     }
 </style>

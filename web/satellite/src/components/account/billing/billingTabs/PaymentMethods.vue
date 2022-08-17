@@ -865,6 +865,8 @@ $align: center;
     &__container {
         display: flex;
         flex-wrap: wrap;
+        gap: 10px;
+        justify-content: space-between;
 
         &__cards {
             width: 227px;

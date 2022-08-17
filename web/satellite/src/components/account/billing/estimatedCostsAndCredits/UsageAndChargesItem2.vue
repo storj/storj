@@ -394,10 +394,16 @@ export default class UsageAndChargesItem2 extends Vue {
         }
     }
 
-    @media only screen and (max-width: 625px) {
+    @media only screen and (max-width: 768px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__period-container,
-        .period-header,
+        .period-header {
+            display: none;
+        }
+    }
+
+    @media only screen and (max-width: 625px) {
+
         .usage-charges-item-container__detailed-info-container__content-area__usage-container,
         .usage-header {
             display: none;
