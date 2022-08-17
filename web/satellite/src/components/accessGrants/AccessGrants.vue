@@ -171,7 +171,7 @@
                     class="access-grants-items2__empty-state"
                 >
                     <span class="access-grants-items2__empty-state__text">
-                        No Results Found
+                        {{ emptyStateLabel }}
                     </span>
                 </div>
             </div>
@@ -430,6 +430,23 @@ export default class AccessGrants extends Vue {
     }
 
     /**
+     * Returns search query from store.
+     */
+    private get searchQuery(): string {
+        return this.$store.state.accessGrantsModule.cursor.search;
+    }
+
+    /**
+     * Returns correct empty state label.
+     */
+    private get emptyStateLabel(): string {
+        const noGrants = 'No accesses were created yet.';
+        const noSearchResults = 'No results found.';
+
+        return this.searchQuery ? noSearchResults : noGrants;
+    }
+
+    /**
      * Access grant button click.
      */
     public accessGrantClick(): void {
@@ -598,9 +615,8 @@ export default class AccessGrants extends Vue {
             }
 
             &__empty-state {
-                height: 75px;
-                width: auto;
-                background: white;
+                padding: 48px 0;
+                background: #fff;
                 border-radius: 6px;
                 margin-top: 10px;
                 border: 1px solid #dadfe7;
@@ -608,10 +624,9 @@ export default class AccessGrants extends Vue {
                 justify-content: center;
 
                 &__text {
-                    font-family: sans-serif;
-                    font-size: 40px;
-                    font-weight: 700;
-                    margin: auto 0;
+                    font-size: 14px;
+                    line-height: 20px;
+                    color: #56606d;
                 }
             }
         }
