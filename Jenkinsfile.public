@@ -8,7 +8,7 @@ pipeline {
         }
     }
     options {
-        timeout(time: 4, unit: 'HOURS')
+        timeout(time: 40, unit: 'MINUTES')
         skipDefaultCheckout(true)
     }
     environment {
@@ -63,7 +63,7 @@ pipeline {
                         sh './web/multinode/build.sh'
                     }
                 }
-                
+
                 stage('satellite/admin/ui') {
                     steps {
                         sh './satellite/admin/ui/build.sh'
@@ -112,6 +112,7 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26261 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
                         }
                     }
                 }
@@ -161,6 +162,8 @@ pipeline {
                         sh 'GOOS=darwin  GOARCH=arm64 go vet ./cmd/uplink ./cmd/satellite ./cmd/storagenode-updater ./cmd/storj-sim'
                     }
                 }
+        stage('Verification') {
+            parallel {
                 stage('Tests') {
                     environment {
                         STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
@@ -210,6 +213,25 @@ pipeline {
                     }
                 }
 
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
+                        }
+                    }
+                }
+
+                stage('web/satellite') {
+                    steps {
+                        dir("web/satellite") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
                 stage('Check Benchmark') {
                     environment {
                         STORJ_TEST_COCKROACH = 'omit'
@@ -301,19 +323,37 @@ pipeline {
                 }
 
 
-/*
-        stage('UI') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch pattern: "release-.*", comparator: "REGEXP"
-                    changeset "testsuite/ui/**"
-                    changeset "web/**"
-                    changeset "satellite/console/**"
-                    changeset "storagenode/console/**"
-                    changeset "multinode/console/**"
+                stage('web/storagenode') {
+                    steps {
+                        dir("web/storagenode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('web/multinode') {
+                    steps {
+                        dir("web/multinode") {
+                            sh 'npm run lint-ci'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('satellite/admin/ui') {
+                    steps {
+                        dir("satellite/admin/ui") {
+                            sh script: 'npm audit', returnStatus: true
+                        }
+                    }
                 }
             }
+        }
+/*
+        stage('UI') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
@@ -335,7 +375,6 @@ pipeline {
                 }
             }
         }
-*/
         stage('Post') {
             parallel {
                 stage('Lint') {
