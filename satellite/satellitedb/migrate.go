@@ -2071,6 +2071,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						WHERE disqualified IS NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add signup_captcha column to users table",
+				Version:     210,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_captcha double precision;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

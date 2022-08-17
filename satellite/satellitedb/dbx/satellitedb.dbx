@@ -310,9 +310,11 @@ model user (
 
     field last_verification_reminder timestamp ( updatable, nullable )
 	field verification_reminders int ( updatable, default 0 )
-	
+
     field failed_login_count int ( updatable, nullable )
     field login_lockout_expiration timestamp ( updatable, nullable )
+
+    field signup_captcha     float64    ( nullable )
 )
 
 create user ( )

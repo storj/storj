@@ -475,6 +475,7 @@ CREATE TABLE users (
 	verification_reminders integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
+	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
