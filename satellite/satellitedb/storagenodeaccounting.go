@@ -475,25 +475,30 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
+	// TODO: remove COALESCE when we're sure the interval_end_time in the
+	// accounting_rollups table are fully populated or back-filled with
+	// the start_time, and the interval_end_time is non-nullable
 	query := `
-		SELECT SUM(at_rest_total), (start_time at time zone 'UTC')::date as start_time, MAX(interval_end_time) AS interval_end_time
-		FROM accounting_rollups
-		WHERE node_id = $1
-		AND $2 <= start_time AND start_time <= $3
-		GROUP BY (start_time at time zone 'UTC')::date
+		SELECT SUM(r1.at_rest_total) as at_rest_total, 
+				(r1.start_time at time zone 'UTC')::date as start_time,
+				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
+		FROM accounting_rollups r1
+		WHERE r1.node_id = $1
+		AND $2 <= r1.start_time AND r1.start_time <= $3
+		GROUP BY (r1.start_time at time zone 'UTC')::date
 		UNION
-		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time,
-				MAX(interval_end_time) AS interval_end_time
-				FROM storagenode_storage_tallies
-				WHERE node_id = $1
+		SELECT SUM(t.data_total) AS at_rest_total, (t.interval_end_time at time zone 'UTC')::date AS start_time,
+				MAX(t.interval_end_time) AS interval_end_time
+				FROM storagenode_storage_tallies t
+				WHERE t.node_id = $1
 				AND NOT EXISTS (
-					SELECT 1 FROM accounting_rollups
-					WHERE node_id = $1
-					AND $2 <= start_time AND start_time <= $3
-					AND (start_time at time zone 'UTC')::date = (interval_end_time at time zone 'UTC')::date
+					SELECT 1 FROM accounting_rollups r2
+					WHERE r2.node_id = $1
+					AND $2 <= r2.start_time AND r2.start_time <= $3
+					AND (r2.start_time at time zone 'UTC')::date = (t.interval_end_time at time zone 'UTC')::date
 				)
-				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
-				GROUP BY (interval_end_time at time zone 'UTC')::date
+				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < t.interval_end_time AND t.interval_end_time <= $3
+				GROUP BY (t.interval_end_time at time zone 'UTC')::date
 		ORDER BY start_time;
 	`
 
