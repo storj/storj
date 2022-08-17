@@ -43,7 +43,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 		Headless(!showBrowser).
 		Leakless(true).
 		Devtools(false).
-		NoSandbox(true).
+		NoSandbox(false).
 		UserDataDir(ctx.Dir("browser")).
 		Logger(zapWriter{Logger: logLauncher})
 
