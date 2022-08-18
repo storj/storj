@@ -13,23 +13,8 @@
             <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
-            <p class="token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
-            <TokenDepositSelection
-                class="token__add-funds__dropdown"
-                :payment-options="paymentOptions"
-                selection-style="new"
-                @onChangeTokenValue="onChangeTokenValue"
-            />
-            
             <div class="token__add-funds__button-container">
-                <VButton
-                    class="token__add-funds__button"
-                    label="Continue to CoinPayments"
-                    width="150px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="onConfirmAddSTORJ"
-                />
+                <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
                 <VButton
                     v-if="totalCount > 0"
                     class="token__add-funds__button"
@@ -50,7 +35,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 import VButton from '@/components/common/VButton.vue';
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -67,7 +51,6 @@ const {
         StorjLarge,
         VButton,
         VLoader,
-        TokenDepositSelection,
     },
 })
 export default class AddTokenCard extends Vue {
@@ -231,6 +214,20 @@ export default class AddTokenCard extends Vue {
                 margin-top: 10px;
                 display: flex;
                 justify-content: space-between;
+            }
+
+            &__support-info {
+                font-family: sans-serif;
+                font-weight: 600;
+                font-size: 14px;
+                line-height: 20px;
+                color: #000;
+                position: relative;
+                top: 14px;
+
+                a {
+                    color: #0149ff;
+                }
             }
         }
     }
