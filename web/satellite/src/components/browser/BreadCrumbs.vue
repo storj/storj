@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="my-3">
+    <div class="mb-3">
         <div class="d-inline">
-            <p class="d-inline path-buckets">Buckets</p>
+            <a class="d-inline path-buckets" @click="() => $emit('bucketClick')">Buckets</a>
             <svg
                 class="mx-3"
                 width="6"
@@ -96,8 +96,9 @@ export default class BreadCrumbs extends Vue {
 
 <style scoped lang="css">
 .path {
-    font-size: 18px;
-    color: #232b34;
+    font-family: 'font_bold', sans-serif;
+    font-size: 14px;
+    color: #1b2533;
     font-weight: bold;
     cursor: pointer;
 }
@@ -107,7 +108,12 @@ export default class BreadCrumbs extends Vue {
 }
 
 .path-buckets {
-    font-size: 18px;
-    color: #232b34;
+    font-size: 14px;
+    color: #232a34;
+    cursor: pointer;
+}
+
+.path-buckets:hover {
+    color: #376fff;
 }
 </style>

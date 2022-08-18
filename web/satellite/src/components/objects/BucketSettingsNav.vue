@@ -4,7 +4,7 @@
 <template>
     <div class="bucket-settings-nav" @click.stop.prevent="isDropdownOpen = !isDropdownOpen">
         <div class="bucket-settings-nav__button">
-            <settings-icon />
+            <GearIcon />
             <arrow-down-icon />
         </div>
         <div v-show="isDropdownOpen" v-click-outside="closeDropdown" class="bucket-settings-nav__dropdown">
@@ -20,16 +20,16 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import SettingsIcon from '@/../static/images/objects/settings.svg';
 import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
+import GearIcon from '@/../static/images/common/gearIcon.svg';
 import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
     components: {
         ArrowDownIcon,
-        SettingsIcon,
+        GearIcon,
         DetailsIcon,
     },
 })

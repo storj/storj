@@ -3,7 +3,6 @@
 
 <template>
     <div>
-        <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
         <div class="file-browser">
             <FileBrowser />
         </div>
@@ -85,14 +84,6 @@ export default class UploadFile extends Vue {
             fetchObjectPreview: this.fetchObjectPreview,
             fetchSharedLink: this.generateShareLinkUrl,
         });
-    }
-
-    /**
-     * Redirects to buckets list view.
-     */
-    public goToBuckets(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     }
 
     /**
