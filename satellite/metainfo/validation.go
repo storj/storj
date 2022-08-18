@@ -28,9 +28,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
-var (
-	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
-)
+var ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -382,6 +380,10 @@ func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectI
 
 func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size int64, segmentCount int64) error {
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, size); err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
 		// log it and continue. it's most likely our own fault that we couldn't
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth and storage limits.
