@@ -4,6 +4,8 @@
 package monetary
 
 import (
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -95,5 +97,81 @@ func TestAmountFromDecimalAndAmountAsDecimal(t *testing.T) {
 			assert.Truef(t, tt.decimalValue.Equal(got.AsDecimal()),
 				"%v != %v", tt.decimalValue, got.AsDecimal())
 		})
+	}
+}
+
+func TestAmountJSONMarshal(t *testing.T) {
+	tests := []struct {
+		Amount Amount
+		JSON   string
+	}{
+		{
+			Amount: AmountFromBaseUnits(100000000000, StorjToken),
+			JSON:   fmt.Sprintf(`{"value":"1000","currency":"%s"}`, StorjToken.Symbol()),
+		},
+		{
+			Amount: AmountFromBaseUnits(10055, USDollars),
+			JSON:   fmt.Sprintf(`{"value":"100.55","currency":"%s"}`, USDollars.Symbol()),
+		},
+		{
+			Amount: AmountFromBaseUnits(100555500, USDollarsMicro),
+			JSON:   fmt.Sprintf(`{"value":"100.5555","currency":"%s"}`, USDollarsMicro.Symbol()),
+		},
+		{
+			Amount: AmountFromBaseUnits(100555555, USDollarsMicro),
+			JSON:   fmt.Sprintf(`{"value":"100.555555","currency":"%s"}`, USDollarsMicro.Symbol()),
+		},
+	}
+	for _, test := range tests {
+		b, err := json.Marshal(test.Amount)
+		require.NoError(t, err)
+		require.Equal(t, test.JSON, string(b))
+	}
+}
+
+func TestAmountJSONUnmarshal(t *testing.T) {
+	tests := []struct {
+		JSON      string
+		BaseUnits int64
+		Currency  *Currency
+	}{
+		{
+			JSON:      fmt.Sprintf(`{"value":"100","currency":"%s"}`, StorjToken.Symbol()),
+			BaseUnits: 10000000000,
+			Currency:  StorjToken,
+		},
+		{
+			JSON:      fmt.Sprintf(`{"value":"50","currency":"%s"}`, Bitcoin.Symbol()),
+			BaseUnits: 5000000000,
+			Currency:  Bitcoin,
+		},
+		{
+			JSON:      fmt.Sprintf(`{"value":"100.55","currency":"%s"}`, USDollars.Symbol()),
+			BaseUnits: 10055,
+			Currency:  USDollars,
+		},
+		{
+			JSON:      fmt.Sprintf(`{"value":"100.5555","currency":"%s"}`, USDollarsMicro.Symbol()),
+			BaseUnits: 100555500,
+			Currency:  USDollarsMicro,
+		},
+		{
+			JSON:      fmt.Sprintf(`{"value":"100.555555","currency":"%s"}`, USDollarsMicro.Symbol()),
+			BaseUnits: 100555555,
+			Currency:  USDollarsMicro,
+		},
+		{
+			JSON:      fmt.Sprintf(`{"value":"10","currency":"%s"}`, LiveGoats.Symbol()),
+			BaseUnits: 10,
+			Currency:  LiveGoats,
+		},
+	}
+	for _, test := range tests {
+		var amount Amount
+
+		err := json.Unmarshal([]byte(test.JSON), &amount)
+		require.NoError(t, err)
+		require.Equal(t, test.BaseUnits, amount.BaseUnits())
+		require.Equal(t, test.Currency, amount.Currency())
 	}
 }

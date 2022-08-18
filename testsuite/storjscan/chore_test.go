@@ -62,6 +62,7 @@ func TestChore(t *testing.T) {
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
 			TokenValue:  monetary.AmountFromBaseUnits(10000, monetary.StorjToken),
+			USDValue:    monetary.AmountFromBaseUnits(1000000, monetary.USDollars),
 			Status:      payments.PaymentStatusPending,
 			BlockHash:   blockchain2.Hash(block.Hash()),
 			BlockNumber: block.Number().Int64(),

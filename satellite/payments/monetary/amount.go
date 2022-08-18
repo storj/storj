@@ -4,6 +4,7 @@
 package monetary
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/big"
@@ -43,6 +44,9 @@ var (
 	// USDollars is the currency of United States dollars, where fractional
 	// cents are not supported.
 	USDollars = NewCurrency("US dollars", "USD", 2)
+	// USDollarsMicro is the currency of United States dollars, where fractional
+	// cents are supported with 2 decimal places.
+	USDollarsMicro = NewCurrency("US dollars", "USDMicro", 6)
 	// Bitcoin is the currency for the well-known cryptocurrency Bitcoin
 	// (a.k.a. BTC).
 	Bitcoin = NewCurrency("Bitcoin (BTC)", "BTC", 8)
@@ -53,6 +57,24 @@ var (
 	// Error is a class of errors encountered in the monetary package.
 	Error = errs.Class("monetary error")
 )
+
+// CurrencyFromSymbol returns currency based on symbol.
+func CurrencyFromSymbol(symbol string) (*Currency, error) {
+	switch symbol {
+	case "STORJ":
+		return StorjToken, nil
+	case "BTC":
+		return Bitcoin, nil
+	case "USD":
+		return USDollars, nil
+	case "USDMicro":
+		return USDollarsMicro, nil
+	case "goats":
+		return LiveGoats, nil
+	default:
+		return nil, errs.New("invalid currency symbol")
+	}
+}
 
 // Amount represents a monetary amount, encapsulating a value and a currency.
 //
@@ -113,6 +135,38 @@ func (a Amount) Currency() *Currency {
 // same value.
 func (a Amount) Equal(other Amount) bool {
 	return a.currency == other.currency && a.baseUnits == other.baseUnits
+}
+
+// amountJSON is amount json data structure.
+type amountJSON struct {
+	Value    decimal.Decimal `json:"value"`
+	Currency string          `json:"currency"`
+}
+
+// UnmarshalJSON unmarshals json bytes into amount.
+func (a *Amount) UnmarshalJSON(data []byte) error {
+	var amountJSON amountJSON
+	if err := json.Unmarshal(data, &amountJSON); err != nil {
+		return err
+	}
+
+	curr, err := CurrencyFromSymbol(amountJSON.Currency)
+	if err != nil {
+		return err
+	}
+
+	*a = AmountFromDecimal(amountJSON.Value, curr)
+	return nil
+}
+
+// MarshalJSON marshals amount into json.
+func (a Amount) MarshalJSON() ([]byte, error) {
+	amountJSON := amountJSON{
+		Value:    a.AsDecimal(),
+		Currency: a.currency.symbol,
+	}
+
+	return json.Marshal(amountJSON)
 }
 
 // AmountFromBaseUnits creates a new Amount instance from the given count of
