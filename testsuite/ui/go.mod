@@ -10,9 +10,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
+	storj.io/common v0.0.0-20220802175255-aae0c09ec9d4
 	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
-	storj.io/private v0.0.0-20220801080548-639387a299f7
+	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
 	storj.io/storj v0.12.1-0.20220705102727-0f626a59c103
 )
 
@@ -106,11 +106,12 @@ require (
 	github.com/klauspost/readahead v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.9 // indirect
 	github.com/lib/pq v1.10.2 // indirect
-	github.com/lucas-clemente/quic-go v0.27.1 // indirect
+	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
@@ -197,7 +198,7 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect

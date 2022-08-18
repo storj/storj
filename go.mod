@@ -42,7 +42,7 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
@@ -51,10 +51,10 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
+	storj.io/common v0.0.0-20220802175255-aae0c09ec9d4
 	storj.io/drpc v0.0.32
 	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca
-	storj.io/private v0.0.0-20220801080548-639387a299f7
+	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
 	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876
 )
 
@@ -87,11 +87,12 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
-	github.com/lucas-clemente/quic-go v0.27.1 // indirect
+	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
