@@ -1046,7 +1046,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 				boundMethod = "INVALID"
 			}
 
-			stop := mon.TaskNamed(pathTpl, monkit.NewSeriesTag("method", boundMethod))(&ctx)
+			stop := mon.TaskNamed("visit_task", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))(&ctx)
 			r = r.WithContext(ctx)
 
 			defer func() {
@@ -1057,14 +1057,15 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 
 				stop(&err)
 				// Count the status codes returned by each endpoint.
-				mon.Event(pathTpl,
+				mon.Event("visit_event_by_code",
+					monkit.NewSeriesTag("path", pathTpl),
 					monkit.NewSeriesTag("method", boundMethod),
 					monkit.NewSeriesTag("code", strconv.Itoa(respWCode.code)),
 				)
 			}()
 
 			// Count the requests to each endpoint.
-			mon.Event(pathTpl, monkit.NewSeriesTag("method", boundMethod))
+			mon.Event("visit_event", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))
 
 			next.ServeHTTP(&respWCode, r)
 		})
