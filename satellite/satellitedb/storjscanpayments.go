@@ -185,7 +185,7 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, bl
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
 		TokenValue:  monetary.AmountFromBaseUnits(dbxPmnt.TokenValue, monetary.StorjToken),
-		USDValue:    monetary.AmountFromBaseUnits(dbxPmnt.UsdValue, monetary.USDollars),
+		USDValue:    monetary.AmountFromBaseUnits(dbxPmnt.UsdValue, monetary.USDollarsMicro),
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,

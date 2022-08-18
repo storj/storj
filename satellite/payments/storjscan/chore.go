@@ -89,7 +89,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				From:        payment.From,
 				To:          payment.To,
 				TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
-				USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollars),
+				USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollarsMicro),
 				Status:      status,
 				BlockHash:   payment.BlockHash,
 				BlockNumber: payment.BlockNumber,

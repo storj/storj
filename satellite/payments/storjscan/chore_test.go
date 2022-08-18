@@ -62,7 +62,7 @@ func TestChore(t *testing.T) {
 					From:        payment.From,
 					To:          payment.To,
 					TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
-					USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollars),
+					USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollarsMicro),
 					Status:      payments.PaymentStatusPending,
 					BlockHash:   payment.BlockHash,
 					BlockNumber: payment.BlockNumber,

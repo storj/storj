@@ -1007,7 +1007,7 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
 				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				USDValue:    monetary.AmountFromBaseUnits(1000, monetary.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
