@@ -7,6 +7,12 @@
         <div class="file-browser">
             <FileBrowser />
         </div>
+        <info-notification v-if="isMultiplePassphraseNotificationShown">
+            <template #text>
+                <p class="medium">Do you know a bucket can have multiple passphrases?</p>
+                <p>If you don’t see the objects you’re looking for, <router-link class="link" :to="bucketsManagementPath">try opening the bucket again</router-link> with a different passphrase.</p>
+            </template>
+        </info-notification>
         <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
     </div>
 </template>
@@ -26,10 +32,13 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
+import { Bucket } from "@/types/buckets";
+import InfoNotification from "@/components/common/InfoNotification.vue";
 
 // @vue/component
 @Component({
     components: {
+        InfoNotification,
         FileBrowser,
         UploadCancelPopup,
     },
@@ -39,6 +48,21 @@ export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    public readonly bucketsManagementPath: string = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
+
+    /**
+     * Indicates if we have objects in this bucket but not for inputted passphrase.
+     */
+    public get isMultiplePassphraseNotificationShown(): boolean {
+        const name: string = this.$store.state.files.bucket;
+        const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+
+        const objectCount: number = data?.objectCount || 0;
+        const ownObjects = this.$store.getters["files/sortedFiles"];
+
+        return objectCount > 0 && !ownObjects.length;
+    }
 
     /**
      * Lifecycle hook after vue instance was created.

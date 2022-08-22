@@ -35,13 +35,14 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import TableItem from "@/components/common/TableItem.vue";
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
-import {RouteConfig} from "@/router";
-import {Bucket} from "@/types/buckets";
-import TableItem from "@/components/common/TableItem.vue";
-import {LocalData} from "@/utils/localData";
+
+import { RouteConfig } from "@/router";
+import { Bucket } from "@/types/buckets";
+import { LocalData } from "@/utils/localData";
 
 // @vue/component
 @Component({
