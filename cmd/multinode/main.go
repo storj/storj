@@ -7,13 +7,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 
 	"storj.io/common/fpath"
 	"storj.io/common/peertls/tlsopts"
@@ -210,7 +212,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		var nodesJSONData []byte
 		if path == "-" {
 			stdin := cmd.InOrStdin()
-			data, err := ioutil.ReadAll(stdin)
+			data, err := io.ReadAll(stdin)
 			if err != nil {
 				return err
 			}
@@ -243,8 +245,22 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+// decodeUTF16or8 decodes the b as UTF-16 if the special byte order mark is present.
+func decodeUTF16or8(b []byte) ([]byte, error) {
+	r := bytes.NewReader(b)
+	// fallback to r if no BOM sequence is located in the source text.
+	t := unicode.BOMOverride(transform.Nop)
+	return io.ReadAll(transform.NewReader(r, t))
+}
+
 func unmarshalJSONNodes(nodesJSONData []byte) ([]nodes.Node, error) {
 	var nodesInfo []nodes.Node
+	var err error
+
+	nodesJSONData, err = decodeUTF16or8(nodesJSONData)
+	if err != nil {
+		return nil, err
+	}
 	nodesJSONData = bytes.TrimLeft(nodesJSONData, " \t\r\n")
 
 	switch {
