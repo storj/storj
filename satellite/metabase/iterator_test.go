@@ -910,6 +910,34 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				})
 			}
 		})
+
+		t.Run("prefix longer than key", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"aaaa/a",
+				"aaaa/b",
+				"aaaa/c",
+			})
+
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             false,
+					Prefix:                "aaaa/",
+					Status:                metabase.Committed,
+					BatchSize:             2,
+					IncludeSystemMetadata: true,
+				},
+				Result: withoutPrefix("aaaa/",
+					objects["aaaa/a"],
+					objects["aaaa/b"],
+					objects["aaaa/c"],
+				),
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1442,6 +1470,11 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
 		}
 
+		for i := 0; i < 50; i++ {
+			baseObj.ObjectKey = metabase.ObjectKey("boo/foo" + strconv.Itoa(i) + "/object")
+			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
+		}
+
 		b.Run("listing no prefix", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
@@ -1465,6 +1498,24 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "foo/",
+					BatchSize:  5,
+					Status:     metabase.Committed,
+				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for oi.Next(ctx, &entry) {
+					}
+					return nil
+				})
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("listing only prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+					ProjectID:  baseObj.ProjectID,
+					BucketName: baseObj.BucketName,
+					Prefix:     "boo/",
 					BatchSize:  5,
 					Status:     metabase.Committed,
 				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
