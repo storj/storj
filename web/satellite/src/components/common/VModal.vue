@@ -56,6 +56,10 @@ export default class VModal extends Vue {
                 box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 margin: 0 24px;
 
+                @media screen and (max-width: 400px) {
+                    margin: 0;
+                }
+
                 &__close {
                     position: absolute;
                     right: 24px;
