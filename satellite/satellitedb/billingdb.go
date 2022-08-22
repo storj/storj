@@ -10,7 +10,6 @@ import (
 	"errors"
 	"time"
 
-	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
@@ -79,7 +78,7 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 				dbx.BillingTransaction_Timestamp(billingTX.Timestamp))
 			return err
 		})
-		if isDuplicateEntryError(err) {
+		if pgerrcode.IsConstraintViolation(err) {
 			retryCount++
 			if retryCount > 5 {
 				return 0, Error.New("Unable to insert new billing transaction after several retries: %v", err)
@@ -243,8 +242,4 @@ func handleMetaDataZeroValue(metaData []byte) []byte {
 		return metaData
 	}
 	return []byte(`{}`)
-}
-
-func isDuplicateEntryError(err error) bool {
-	return pgerrcode.FromError(err) == pgxerrcode.UniqueViolation
 }
