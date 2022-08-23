@@ -10,7 +10,7 @@
                     :checked-type="checkedType"
                     @close-modal="onCloseClick"
                     @encrypt="encryptStep"
-                    @propogateInfo="createAccessGrantHelper"
+                    @propagateInfo="createAccessGrantHelper"
                     @input="inputHandler"
                 />
             </form>
@@ -110,10 +110,10 @@ export default class CreateAccessModal extends Vue {
 
     /**
      * Sends "trackPageVisit" event to segment and opens link.
-     */ 
+     */
     public trackPageVisit(link: string): void {
         this.analytics.pageVisit(link);
-    }  
+    }
 
     /**
      * Checks which type was selected and retrieves buckets on mount.
@@ -134,7 +134,7 @@ export default class CreateAccessModal extends Vue {
     }
 
     public inputHandler(e): void {
-        this.checkedType = e; 
+        this.checkedType = e;
     }
 
     public applyPassphrase(passphrase: string) {
@@ -161,7 +161,7 @@ export default class CreateAccessModal extends Vue {
         this.selectedPermissions = await data.selectedPermissions;
         if (type === 'api') {
             await this.createAccessGrant();
-        }   
+        }
     }
 
     /**
@@ -237,19 +237,23 @@ export default class CreateAccessModal extends Vue {
         this.access = accessEvent.data.value;
         await this.$notify.success('Access Grant was generated successfully');
 
-        if (this.checkedType === 's3') {
+        const createS3Credentials = async () => {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: this.access });
 
                 await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 
                 await this.$notify.success('Gateway credentials were generated successfully');
-                
+
                 this.areKeysVisible = true;
             } catch (error) {
                 await this.$notify.error(error.message);
             }
-        } else if (this.checkedType === 'api') {
+        };
+
+        if (this.checkedType === 's3' || (this.checkedType.includes('s3') && this.checkedType.includes('access'))) {
+            await createS3Credentials();
+        } else {
             await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
         }
         this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
