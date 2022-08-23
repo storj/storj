@@ -560,6 +560,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if oldInfo == nil {
+		if !node.IsUp {
+			// this is a previously unknown node, and we couldn't pingback to verify that it even
+			// exists. Don't bother putting it in the db.
+			return nil
+		}
+
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
