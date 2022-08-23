@@ -175,52 +175,6 @@
                                 </td>
                             </tr>
 
-                            <tr
-                                v-if="showCreateFolderInput"
-                                class="new-folder-row"
-                            >
-                                <td span="3">
-                                    <input
-                                        v-model="createFolderInput"
-                                        class="form-control input-folder"
-                                        :class="{
-                                            'folder-input':
-                                                createFolderInput.length > 0 &&
-                                                !createFolderEnabled
-                                        }"
-                                        type="text"
-                                        placeholder="Name of the folder"
-                                        @keypress.enter="createFolder"
-                                    >
-                                </td>
-                                <td span="3">
-                                    <button
-                                        type="button"
-                                        :disabled="!createFolderEnabled"
-                                        class="btn btn-primary btn-sm px-4"
-                                        @click="createFolder"
-                                    >
-                                        Save Folder
-                                    </button>
-                                    <span class="mx-1" />
-                                    <button
-                                        type="button"
-                                        class="btn btn-light btn-sm px-4"
-                                        @click="cancelFolderCreation"
-                                    >
-                                        Cancel
-                                    </button>
-                                </td>
-                                <td span="3" />
-                                <td span="3">
-                                    <div
-                                        v-if="creatingFolderSpinner"
-                                        class="spinner-border"
-                                        role="status"
-                                    />
-                                </td>
-                            </tr>
-
                             <file-entry
                                 v-for="file in folders"
                                 :key="file.Key"
@@ -402,6 +356,8 @@
                 <file-modal v-if="showFileModal" />
 
                 <file-share-modal v-if="showFileShareModal" />
+
+                <new-folder-modal v-if="showCreateFolderInput" />
             </div>
         </div>
     </div>
@@ -414,6 +370,7 @@ import FileEntry from "./FileEntry.vue";
 import BreadCrumbs from "./BreadCrumbs.vue";
 import FileModal from "./FileModal.vue";
 import FileShareModal from "./FileShareModal.vue";
+import NewFolderModal from "./NewFolderModal.vue";
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
@@ -436,6 +393,7 @@ import VTable from '@/components/common/VTable.vue';
         FileShareModal,
         BlackArrowExpand,
         BlackArrowHide,
+        NewFolderModal
     },
 })
 export default class FileBrowser extends Vue {

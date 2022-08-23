@@ -288,6 +288,10 @@ export const makeFilesModule = (): FilesModule => ({
         addUploadToChain(state: FilesState, fn) {
             state.uploadChain = state.uploadChain.then(fn);
         },
+
+        closeNewFolderModal(state: FilesState) {
+            state.createFolderInputShow = false;
+        },
     },
     actions: {
         async list({ commit, state }, path = state.path) {
@@ -730,6 +734,10 @@ export const makeFilesModule = (): FilesModule => ({
 
             if (state.selectedAnchorFile) {
                 dispatch("clearAllSelectedFiles");
+            }
+
+            if(state.createFolderInputShow) {
+                commit("closeNewFolderModal");
             }
         },
     },
