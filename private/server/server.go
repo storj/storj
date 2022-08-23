@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"net/http"
 	"os"
 	"runtime"
 	"sync"
@@ -17,6 +18,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -48,7 +50,10 @@ type public struct {
 	disableQUIC   bool
 
 	drpc *drpcserver.Server
-	mux  *drpcmux.Mux
+	// http fallback for the public endpoint
+	http http.HandlerFunc
+
+	mux *drpcmux.Mux
 }
 
 type private struct {
@@ -139,6 +144,11 @@ func (p *Server) Close() error {
 	return nil
 }
 
+// AddHTTPFallback adds http fallback to the drpc endpoint.
+func (p *Server) AddHTTPFallback(httpHandler http.HandlerFunc) {
+	p.public.http = httpHandler
+}
+
 // Run will run the server and all of its services.
 func (p *Server) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -165,10 +175,15 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	var (
 		publicMux          *drpcmigrate.ListenMux
 		publicDRPCListener net.Listener
+		publicHTTPListener net.Listener
 	)
 	if p.public.tcpListener != nil {
 		publicMux = drpcmigrate.NewListenMux(p.public.tcpListener, len(drpcmigrate.DRPCHeader))
 		publicDRPCListener = tls.NewListener(publicMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
+
+		if p.public.http != nil {
+			publicHTTPListener = NewPrefixedListener([]byte("GET / HT"), publicMux.Route("GET / HT"))
+		}
 	}
 
 	if p.public.udpConn != nil {
@@ -225,6 +240,26 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		group.Go(func() error {
 			defer cancel()
 			return p.public.drpc.Serve(ctx, wrapListener(p.public.quicListener))
+		})
+	}
+
+	if publicHTTPListener != nil {
+		// this http server listens on the filtered messages of the incoming DRPC port, instead of a separated port
+		httpServer := http.Server{
+			Handler: p.public.http,
+		}
+
+		group.Go(func() error {
+			<-ctx.Done()
+			return httpServer.Shutdown(context.Background())
+		})
+		group.Go(func() error {
+			defer cancel()
+			err := httpServer.Serve(publicHTTPListener)
+			if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+				err = nil
+			}
+			return err
 		})
 	}
 

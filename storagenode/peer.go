@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
@@ -127,6 +128,8 @@ type Config struct {
 
 	Console consoleserver.Config
 
+	Healthcheck healthcheck.Config
+
 	Version checker.Config
 
 	Bandwidth bandwidth.Config
@@ -210,6 +213,11 @@ type Peer struct {
 	Version struct {
 		Chore   *version2.Chore
 		Service *checker.Service
+	}
+
+	Healthcheck struct {
+		Service  *healthcheck.Service
+		Endpoint *healthcheck.Endpoint
 	}
 
 	Debug struct {
@@ -351,6 +359,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 	}
 
+	{
+
+		peer.Healthcheck.Service = healthcheck.NewService(peer.DB.Reputation(), config.Healthcheck.Details)
+		peer.Healthcheck.Endpoint = healthcheck.NewEndpoint(peer.Healthcheck.Service)
+	}
+
 	{ // setup listener and server
 		sc := config.Server
 
@@ -364,6 +378,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		if config.Healthcheck.Enabled {
+			peer.Server.AddHTTPFallback(peer.Healthcheck.Endpoint.HandleHTTP)
 		}
 
 		peer.Servers.Add(lifecycle.Item{
