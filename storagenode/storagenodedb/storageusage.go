@@ -61,7 +61,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	// hour_difference = current row interval_end_time - previous row interval_end_time
 	// Rows with 0-hour difference are assumed to be 24 hours.
 	query := `SELECT satellite_id,
-					 24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)),
+					 COALESCE(24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)), at_rest_total),
 					 timestamp
 				FROM storage_usage
 				WHERE satellite_id = ?
@@ -111,7 +111,7 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	query := `SELECT SUM(usages.at_rest_total), usages.timestamp
 				FROM (
 					SELECT timestamp,
-						   24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)) AS at_rest_total
+						   COALESCE(24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)), at_rest_total) AS at_rest_total
 					FROM storage_usage
 					WHERE ? <= timestamp AND timestamp <= ?
 				) as usages
