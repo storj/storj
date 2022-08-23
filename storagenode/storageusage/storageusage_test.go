@@ -150,6 +150,42 @@ func TestEmptyStorageUsage(t *testing.T) {
 	})
 }
 
+func TestZeroStorageUsage(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		storageUsageDB := db.StorageUsage()
+		now := time.Now().UTC()
+
+		satelliteID := testrand.NodeID()
+		stamp := storageusage.Stamp{
+			SatelliteID:     satelliteID,
+			AtRestTotal:     0,
+			IntervalStart:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+			IntervalEndTime: now,
+		}
+
+		expectedStamp := []storageusage.Stamp{stamp}
+
+		t.Run("store", func(t *testing.T) {
+			err := storageUsageDB.Store(ctx, []storageusage.Stamp{stamp})
+			assert.NoError(t, err)
+		})
+
+		t.Run("get daily", func(t *testing.T) {
+			res, err := storageUsageDB.GetDaily(ctx, satelliteID, time.Time{}, now)
+			assert.NoError(t, err)
+			assert.Equal(t, len(res), 1)
+			assert.Equal(t, expectedStamp[0].AtRestTotal, res[0].AtRestTotal)
+		})
+
+		t.Run("get daily total", func(t *testing.T) {
+			res, err := storageUsageDB.GetDailyTotal(ctx, time.Time{}, now)
+			assert.NoError(t, err)
+			assert.Equal(t, len(res), 1)
+			assert.Equal(t, expectedStamp[0].AtRestTotal, res[0].AtRestTotal)
+		})
+	})
+}
+
 // makeStorageUsageStamps creates storage usage stamps and expected summaries for provided satellites.
 // Creates one entry per day for 30 days with last date as beginning of provided endDate.
 func makeStorageUsageStamps(satellites []storj.NodeID, days int, endDate time.Time) ([]storageusage.Stamp, map[storj.NodeID]float64) {
