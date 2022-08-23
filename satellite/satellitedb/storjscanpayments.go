@@ -161,7 +161,8 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, bl
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT block_hash, block_number, transaction, log_index, from_address, to_address, token_value, usd_value, status, timestamp
-              FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?`
+              FROM storjscan_payments WHERE (storjscan_payments.block_number, storjscan_payments.log_index) > (?, ?) AND storjscan_payments.status = ?
+              ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
 	rows, err := storjscanPayments.db.Query(ctx, storjscanPayments.db.Rebind(query), blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	if err != nil {
 		return nil, err

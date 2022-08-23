@@ -47,8 +47,6 @@ const (
 type TransactionsDB interface {
 	// Insert inserts the provided transaction.
 	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
-	// InsertBatchCreditTXs inserts the provided credit transactions into the billing table.
-	InsertBatchCreditTXs(ctx context.Context, billingTXs []Transaction) (err error)
 	// UpdateStatus updates the status of the transaction.
 	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
 	// UpdateMetadata updates the metadata of the transaction.

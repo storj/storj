@@ -10,12 +10,10 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
-	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -95,36 +93,6 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 	return dbxTX.Id, err
 }
 
-func (db billingDB) InsertBatchCreditTXs(ctx context.Context, billingTXs []billing.Transaction) (err error) {
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, billingTX := range billingTXs {
-			// only credits to the users balance are added in batch
-			if billingTX.Amount.BaseUnits() > 0 && billingTX.Type == billing.TransactionTypeCredit {
-				statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() )`)
-				batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits(), monetary.USDollars.Symbol(), billingTX.Description, billingTX.Source,
-					billingTX.Status, billingTX.Type, handleMetaDataZeroValue(billingTX.Metadata), billingTX.Timestamp)
-				batch.Queue(`
-				INSERT INTO billing_balances ( user_id, balance, last_updated ) 
-				VALUES ( $1, $2, NOW() ) ON CONFLICT (user_id) 
-				DO UPDATE SET balance = billing_balances.balance + $2 
-				WHERE billing_balances.user_id = $1 AND billing_balances.balance + $2 >= 0`,
-					billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits())
-			}
-		}
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		var errGroup errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			_, err := results.Exec()
-			errGroup.Add(err)
-		}
-		return errGroup.Err()
-	})
-	return err
-}
-
 func (db billingDB) UpdateStatus(ctx context.Context, txID int64, status billing.TransactionStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return db.db.UpdateNoReturn_BillingTransaction_By_Id(ctx, dbx.BillingTransaction_Id(txID), dbx.BillingTransaction_Update_Fields{
@@ -152,7 +120,7 @@ func (db billingDB) UpdateMetadata(ctx context.Context, txID int64, newMetadata 
 func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType billing.TransactionType) (_ time.Time, metadata []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastTransaction, err := db.db.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(
+	lastTransaction, err := db.db.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(
 		ctx,
 		dbx.BillingTransaction_Source(txSource),
 		dbx.BillingTransaction_Type(string(txType)))

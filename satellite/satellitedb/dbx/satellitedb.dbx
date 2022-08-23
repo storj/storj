@@ -1213,7 +1213,7 @@ read first (
     select billing_transaction
     where billing_transaction.source = ?
     where billing_transaction.type = ?
-    orderby ( desc billing_transaction.timestamp)
+    orderby ( desc billing_transaction.created_at)
 )
 
 model storjscan_wallet (

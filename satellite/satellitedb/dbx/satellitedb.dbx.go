@@ -15652,13 +15652,13 @@ func (obj *pgxImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx 
 
 }
 
-func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+func (obj *pgxImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx context.Context,
 	billing_transaction_source BillingTransaction_Source_Field,
 	billing_transaction_type BillingTransaction_Type_Field) (
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.timestamp DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
@@ -23065,13 +23065,13 @@ func (obj *pgxcockroachImpl) All_BillingTransaction_By_UserId_OrderBy_Desc_Times
 
 }
 
-func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+func (obj *pgxcockroachImpl) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx context.Context,
 	billing_transaction_source BillingTransaction_Source_Field,
 	billing_transaction_type BillingTransaction_Type_Field) (
 	billing_transaction *BillingTransaction, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.timestamp DESC LIMIT 1 OFFSET 0")
+	var __embed_stmt = __sqlbundle_Literal("SELECT billing_transactions.id, billing_transactions.user_id, billing_transactions.amount, billing_transactions.currency, billing_transactions.description, billing_transactions.source, billing_transactions.status, billing_transactions.type, billing_transactions.metadata, billing_transactions.timestamp, billing_transactions.created_at FROM billing_transactions WHERE billing_transactions.source = ? AND billing_transactions.type = ? ORDER BY billing_transactions.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, billing_transaction_source.value(), billing_transaction_type.value())
@@ -27711,7 +27711,7 @@ func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	return tx.Find_AccountingTimestamps_Value_By_Name(ctx, accounting_timestamps_name)
 }
 
-func (rx *Rx) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+func (rx *Rx) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx context.Context,
 	billing_transaction_source BillingTransaction_Source_Field,
 	billing_transaction_type BillingTransaction_Type_Field) (
 	billing_transaction *BillingTransaction, err error) {
@@ -27719,7 +27719,7 @@ func (rx *Rx) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(ctx, billing_transaction_source, billing_transaction_type)
+	return tx.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx, billing_transaction_source, billing_transaction_type)
 }
 
 func (rx *Rx) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
@@ -29142,7 +29142,7 @@ type Methods interface {
 		accounting_timestamps_name AccountingTimestamps_Name_Field) (
 		row *Value_Row, err error)
 
-	First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(ctx context.Context,
+	First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx context.Context,
 		billing_transaction_source BillingTransaction_Source_Field,
 		billing_transaction_type BillingTransaction_Type_Field) (
 		billing_transaction *BillingTransaction, err error)

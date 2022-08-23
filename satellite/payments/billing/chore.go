@@ -60,10 +60,13 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				chore.log.Error("unable to get new billing transactions", zap.Error(ChoreErr.Wrap(err)))
 				continue
 			}
-			err = chore.transactionsDB.InsertBatchCreditTXs(ctx, transactions)
-			if err != nil {
-				chore.log.Error("error storing transactions to db", zap.Error(ChoreErr.Wrap(err)))
-				continue
+			for _, transaction := range transactions {
+				_, err = chore.transactionsDB.Insert(ctx, transaction)
+				if err != nil {
+					chore.log.Error("error storing transaction to db", zap.Error(ChoreErr.Wrap(err)))
+					// we need to halt storing transactions if one fails, so that it can be tried again on the next loop.
+					break
+				}
 			}
 		}
 		return nil

@@ -93,7 +93,6 @@ func TestTransactionsDBBalance(t *testing.T) {
 	twentyUSD := monetary.AmountFromBaseUnits(2000, monetary.USDollars)
 	thirtyUSD := monetary.AmountFromBaseUnits(3000, monetary.USDollars)
 	fortyUSD := monetary.AmountFromBaseUnits(4000, monetary.USDollars)
-	fiftyUSD := monetary.AmountFromBaseUnits(5000, monetary.USDollars)
 	negativeTwentyUSD := monetary.AmountFromBaseUnits(-2000, monetary.USDollars)
 
 	userID := testrand.UUID()
@@ -191,22 +190,6 @@ func TestTransactionsDBBalance(t *testing.T) {
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
 			require.Equal(t, twentyUSD.BaseUnits(), balance)
-		})
-	})
-
-	t.Run("insert batch", func(t *testing.T) {
-		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			err = db.Billing().InsertBatchCreditTXs(ctx, []billing.Transaction{credit10TX, credit30TX, credit10TX})
-			require.NoError(t, err)
-			txs, err := db.Billing().List(ctx, userID)
-			require.NoError(t, err)
-			require.Len(t, txs, 3)
-			compareTransactions(t, credit30TX, txs[0])
-			compareTransactions(t, credit10TX, txs[1])
-			compareTransactions(t, credit10TX, txs[2])
-			balance, err := db.Billing().GetBalance(ctx, userID)
-			require.NoError(t, err)
-			require.Equal(t, fiftyUSD.BaseUnits(), balance)
 		})
 	})
 }
