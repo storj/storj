@@ -18,7 +18,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
@@ -29,8 +29,6 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
     },
 })
 export default class AddTokenCard extends Vue {
-    @Prop({ default: 0 })
-    private readonly totalCount: number;
 }
 </script>
 
@@ -72,6 +70,8 @@ export default class AddTokenCard extends Vue {
         &__add-funds {
             display: flex;
             flex-direction: column;
+            justify-content: center;
+            gap: 1rem;
             height: 100%;
             width: 100%;
 

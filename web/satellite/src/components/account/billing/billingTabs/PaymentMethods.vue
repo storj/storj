@@ -5,42 +5,21 @@
     <div class="payments-area">
         <div class="payments-area__top-container">
             <h1 class="payments-area__title">
-                Payment Methods{{ showTransactions? ' > Storj Tokens':null }}
+                <span class="payments-area__title__back" @click="hideTransactionsTable">Payment Methods</span>{{ showTransactions? ' > Storj Tokens':null }}
             </h1>
-            <VButton
-                v-if="showTransactions"
-                label="Add Funds with CoinPayments"
-                font-size="13px"
-                height="40px"
-                width="220px"
-                :on-press="showAddFundsCard"
-            />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
-            <add-token-card-native v-if="nativeTokenPaymentsEnabled" />
-            <template v-else>
-                <v-loader
-                    v-if="!tokensAreLoaded"
-                />
-                <div v-else-if="!showAddFunds">
-                    <balance-token-card
-                        v-for="item in mostRecentTransaction"
-                        :key="item.id"
-                        :v-if="tokensAreLoaded"
-                        :billing-item="item"
-                        :show-add-funds="showAddFunds"
-                        @showTransactions="toggleTransactionsTable"
-                        @toggleShowAddFunds="toggleShowAddFunds"
-                    />
-                </div>
-                <div v-else>
-                    <add-token-card
-                        :total-count="transactionCount"
-                        @toggleShowAddFunds="toggleShowAddFunds"
-                        @fetchHistory="addTokenHelper"
-                    />
-                </div>
-            </template>
+            <v-loader
+                v-if="nativePayIsLoading"
+            />
+            <add-token-card-native
+                v-else-if="nativeTokenPaymentsEnabled && wallet.address"
+                @showTransactions="showTransactionsTable"
+            />
+            <add-token-card
+                v-else
+                :total-count="transactionCount"
+            />
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
                     :credit-card="card"
@@ -135,50 +114,66 @@
             </div>
         </div>
         <div v-if="showTransactions">
-            <div class="payments-area__container__transactions">
-                <SortingHeader2
-                    @sortFunction="sortFunction"
-                />
-                <token-transaction-item
-                    v-for="item in displayedHistory"
-                    :key="item.id"
-                    :billing-item="item"
-                />
-                <div class="divider" />
-                <div class="pagination">
-                    <div class="pagination__total">
-                        <p>
-                            {{ transactionCount }} transactions found
+            <div class="payments-area__address-card">
+                <div class="payments-area__address-card__left">
+                    <canvas ref="canvas" class="payments-area__address-card__left__canvas" />
+                    <div class="payments-area__address-card__left__balance">
+                        <p class="payments-area__address-card__left__balance__label">
+                            Available Balance (USD)
+                        </p>
+                        <p class="payments-area__address-card__left__balance__value">
+                            {{ wallet.balance.value }}
                         </p>
                     </div>
-                    <div class="pagination__right-container">
-                        <div
-                            v-if="transactionCount > 0"
-                            class="pagination__right-container__count"
-                        >
-                            <span v-if="transactionCount > 10 && paginationLocation.end !== transactionCount">
-                                {{ paginationLocation.start + 1 }} - {{ paginationLocation.end }} of {{ transactionCount }}
-                            </span>
-                            <span v-else>
-                                {{ paginationLocation.start + 1 }} - {{ transactionCount }} of {{ transactionCount }}
-                            </span>
-                        </div>
-                        <div
-                            v-if="transactionCount > 10"
-                            class="pagination__right-container__buttons"
-                        >
-                            <ArrowIcon
-                                class="pagination__right-container__buttons__left"
-                                @click="paginationController(-10)"
-                            />
-                            <ArrowIcon
-                                v-if="paginationLocation.end < transactionCount - 1"
-                                class="pagination__right-container__buttons__right"
-                                @click="paginationController(10)"
-                            />
-                        </div>
+                </div>
+
+                <div class="payments-area__address-card__right">
+                    <div class="payments-area__address-card__right__address">
+                        <p class="payments-area__address-card__right__address__label">
+                            Deposit Address
+                        </p>
+                        <p class="payments-area__address-card__right__address__value">
+                            {{ wallet.address }}
+                        </p>
+                    </div>
+                    <div class="payments-area__address-card__right__copy">
+                        <VButton
+                            class="modal__address__copy-button"
+                            label="Copy Address"
+                            width="8.6rem"
+                            height="2.5rem"
+                            font-size="0.9rem"
+                            icon="copy"
+                            :on-press="onCopyAddressClick"
+                        />
                     </div>
                 </div>
+            </div>
+
+            <div class="payments-area__transactions-area">
+                <h2 class="payments-area__transactions-area__title">Transactions</h2>
+                <v-table
+                    class="payments-area__transactions-area__table"
+                    items-label="transactions"
+                    :items="displayedHistory"
+                    :limit="pageSize"
+                    :total-page-count="pageCount"
+                    :total-items-count="transactionCount"
+                    :on-page-click-callback="paginationController"
+                >
+                    <template #head>
+                        <SortingHeader2
+                            @sortFunction="sortFunction"
+                        />
+                    </template>
+                    <template #body>
+                        <token-transaction-item
+                            v-for="item in displayedHistory"
+                            :key="item.id"
+                            :item="item"
+                        />
+                    </template>
+                </v-table>
             </div>
         </div>
     </div>
@@ -186,8 +181,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import QRCode from 'qrcode';
 
-import { CreditCard, PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import {
+    CreditCard,
+    Wallet,
+    NativePaymentHistoryItem,
+} from '@/types/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
@@ -200,12 +200,11 @@ import VLoader from '@/components/common/VLoader.vue';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
-import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue';
 import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
 import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
+import VTable from '@/components/common/VTable.vue';
 
-import ArrowIcon from '@/../static/images/common/arrowRight.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
 import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
@@ -229,15 +228,13 @@ const {
     GET_CREDIT_CARDS,
     REMOVE_CARD,
     MAKE_CARD_DEFAULT,
-    GET_PAYMENTS_HISTORY,
+    GET_NATIVE_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
-
-const paginationStartNumber = 0;
-const paginationEndNumber = 10;
 
 // @vue/component
 @Component({
     components: {
+        VTable,
         AmericanExpressIcon,
         DiscoverIcon,
         JCBIcon,
@@ -247,14 +244,12 @@ const paginationEndNumber = 10;
         VButton,
         TokenTransactionItem,
         SortingHeader2,
-        ArrowIcon,
         CloseCrossIcon,
         CreditCardImage,
         StripeCardInput,
         DinersIcon,
         Trash,
         CreditCardContainer,
-        BalanceTokenCard,
         AddTokenCard,
         AddTokenCardNative,
         VLoader,
@@ -267,14 +262,10 @@ export default class PaymentMethods extends Vue {
      * controls token inputs and transaction table
      */
     public showTransactions = false;
-    public showAddFunds = false;
-    public mostRecentTransaction: PaymentsHistoryItem[] = [];
-    public paginationLocation: {start: number, end: number} = { start: paginationStartNumber, end: paginationEndNumber };
-    public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
-    public displayedHistory: Record<string, unknown>[] = [];
+    public displayedHistory: NativePaymentHistoryItem[] = [];
     public transactionCount = 0;
-    public tokensAreLoaded = false;
-    public reloadKey = 0;
+    public nativePayIsLoading = true;
+    public pageSize = 10;
 
     /**
      * controls card inputs
@@ -286,61 +277,67 @@ export default class PaymentMethods extends Vue {
     public isChangeDefaultPaymentModalOpen = false;
     public defaultCreditCardSelection = '';
     public isRemovePaymentMethodsModalOpen = false;
-    public isAddCardClicked = false;
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
+        canvas: HTMLCanvasElement;
     };
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public beforeMount() {
-        this.fetchHistory();
+    public mounted(): void {
+        this.claimWallet();
     }
 
-    public addTokenHelper(): void {
-        this.fetchHistory();
-        this.toggleShowAddFunds();
+    private get wallet(): Wallet {
+        return this.$store.state.paymentsModule.wallet;
     }
 
-    public async fetchHistory(): Promise<void> {
-        this.tokensAreLoaded = false;
+    public onCopyAddressClick(): void {
+        this.$copyText(this.wallet.address);
+        this.$notify.success('Address copied to your clipboard');
+    }
+
+    public async claimWallet(): Promise<void> {
         try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-            this.fetchHelper(this.depositHistoryItems);
-            this.reloadKey = this.reloadKey + 1;
+            if (this.nativeTokenPaymentsEnabled && !this.wallet.address)
+                await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
         } catch (error) {
             await this.$notify.error(error.message);
+        } finally {
+            this.nativePayIsLoading = false;
         }
     }
 
-    public fetchHelper(tokenArray): void {
-        this.mostRecentTransaction = [tokenArray[0]];
-        this.tokenHistory = tokenArray;
-        this.transactionCount = tokenArray.length;
-        this.displayedHistory = tokenArray.slice(0,10);
-        this.tokensAreLoaded = true;
-        this.showAddFunds = this.transactionCount <= 0;
+    public async fetchHistory(): Promise<void> {
+        this.nativePayIsLoading = true;
+        try {
+            await this.$store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
+            this.transactionCount = this.nativePaymentHistoryItems.length;
+            this.displayedHistory = this.nativePaymentHistoryItems.slice(0,this.pageSize);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        } finally {
+            this.nativePayIsLoading = false;
+        }
     }
 
-    public toggleShowAddFunds(): void {
-        this.showAddFunds = !this.showAddFunds;
-    }
-
-    public showAddFundsCard(): void {
+    public async hideTransactionsTable(): Promise<void> {
         this.showTransactions = false;
-        this.showAddFunds = true;
     }
 
-    public toggleTransactionsTable(): void {
-        this.showAddFunds = true;
-        this.showTransactions = !this.showTransactions;
+    public async showTransactionsTable(): Promise<void> {
+        await this.fetchHistory();
+        this.showTransactions = true;
+        await Vue.nextTick();
+        await this.prepQRCode();
     }
 
-    /**
-     * Returns TokenTransactionItem item component.
-     */
-    public get itemComponent(): typeof TokenTransactionItem {
-        return TokenTransactionItem;
+    public async prepQRCode() {
+        try {
+            await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     public async updatePaymentMethod(): Promise<void> {
@@ -459,73 +456,51 @@ export default class PaymentMethods extends Vue {
      * controls sorting the transaction table
      */
     public sortFunction(key) {
-        this.paginationLocation = { start: 0, end: 10 };
-        this.displayedHistory = this.tokenHistory.slice(0,10);
         switch (key) {
         case 'date-ascending':
-            this.tokenHistory.sort((a,b) => {return a.start.getTime() - b.start.getTime();});
+            this.nativePaymentHistoryItems.sort((a,b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
             break;
         case 'date-descending':
-            this.tokenHistory.sort((a,b) => {return b.start.getTime() - a.start.getTime();});
+            this.nativePaymentHistoryItems.sort((a,b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
             break;
         case 'amount-ascending':
-            this.tokenHistory.sort((a,b) => {return a.amount - b.amount;});
+            this.nativePaymentHistoryItems.sort((a,b) => {return a.amount.value - b.amount.value;});
             break;
         case 'amount-descending':
-            this.tokenHistory.sort((a,b) => {return b.amount - a.amount;});
+            this.nativePaymentHistoryItems.sort((a,b) => {return b.amount.value - a.amount.value;});
             break;
         case 'status-ascending':
-            this.tokenHistory.sort((a, b) => {
+            this.nativePaymentHistoryItems.sort((a, b) => {
                 if (a.status < b.status) {return -1;}
                 if (a.status > b.status) {return 1;}
                 return 0;});
             break;
         case 'status-descending':
-            this.tokenHistory.sort((a, b) => {
+            this.nativePaymentHistoryItems.sort((a, b) => {
                 if (b.status < a.status) {return -1;}
                 if (b.status > a.status) {return 1;}
                 return 0;});
             break;
         }
+        this.displayedHistory = this.nativePaymentHistoryItems.slice(0,10);
     }
 
     /**
      * controls transaction table pagination
      */
     public paginationController(i): void {
-        let diff = this.transactionCount - this.paginationLocation.start;
-        if (this.paginationLocation.start + i >= 0 && this.paginationLocation.end + i <= this.transactionCount && this.paginationLocation.end !== this.transactionCount){
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.paginationLocation.end + i,
-            };
-        } else if (this.paginationLocation.start + i < 0 ) {
-            this.paginationLocation = {
-                start: 0,
-                end: 10,
-            };
-        } else if (this.paginationLocation.end + i > this.transactionCount) {
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.transactionCount,
-            };
-        }   else if (this.paginationLocation.end === this.transactionCount) {
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.transactionCount - (diff),
-            };
-        }
+        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize,((i - 1) * this.pageSize) + this.pageSize);
+    }
 
-        this.displayedHistory = this.tokenHistory.slice(this.paginationLocation.start, this.paginationLocation.end);
+    public get pageCount(): number {
+        return Math.ceil(this.transactionCount / this.pageSize);
     }
 
     /**
      * Returns deposit history items.
      */
-    public get depositHistoryItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
-        });
+    public get nativePaymentHistoryItems(): NativePaymentHistoryItem[] {
+        return this.$store.state.paymentsModule.nativePaymentsHistory;
     }
 }
 </script>
@@ -841,6 +816,14 @@ $align: center;
         font-family: sans-serif;
         font-size: 24px;
         margin: 20px 0;
+
+        &__back {
+            cursor: pointer;
+
+            &:hover {
+                color: #000000bd;
+            }
+        }
     }
 
     &__container {
@@ -932,6 +915,94 @@ $align: center;
                     cursor: pointer;
                 }
             }
+        }
+    }
+
+    &__address-card {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        background: #fff;
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+        border-radius: 0.6rem;
+        padding: 1rem 1.5rem;
+        font-family: 'font_regular', sans-serif;
+
+        &__left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+
+            &__canvas {
+                height: 4rem !important;
+                width: 4rem !important;
+            }
+
+            &__balance {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.3rem;
+
+                &__label {
+                    font-size: 0.9rem;
+                    color: rgb(0 0 0 / 75%);
+                }
+
+                &__value {
+                    font-family: 'font_bold', sans-serif;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
+
+                    @media screen and (max-width: 375px) {
+                        width: 16rem;
+                    }
+                }
+            }
+        }
+
+        &__right {
+            width: 60%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+
+            &__address {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.3rem;
+
+                &__label {
+                    font-size: 0.9rem;
+                    color: rgb(0 0 0 / 75%);
+                }
+
+                &__value {
+                    font-family: 'font_bold', sans-serif;
+                }
+            }
+        }
+    }
+
+    &__transactions-area {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        gap: 1.5rem;
+
+        &__title {
+            font-family: 'font_regular', sans-serif;
+            font-size: 1.5rem;
+            line-height: 1.8rem;
+        }
+
+        &__table {
+            width: 100%;
         }
     }
 }

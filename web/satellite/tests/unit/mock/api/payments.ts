@@ -9,6 +9,7 @@ import {
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
     TokenDeposit,
+    NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
 
@@ -51,6 +52,10 @@ export class PaymentsMock implements PaymentsApi {
     }
 
     paymentsHistory(): Promise<PaymentsHistoryItem[]> {
+        return Promise.resolve([]);
+    }
+
+    nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
         return Promise.resolve([]);
     }
 

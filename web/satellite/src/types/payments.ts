@@ -63,6 +63,14 @@ export interface PaymentsApi {
     paymentsHistory(): Promise<PaymentsHistoryItem[]>;
 
     /**
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
+     *
+     * @returns list of payments history items
+     * @throws Error
+     */
+    nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
+
+    /**
      * Creates token transaction in CoinPayments
      *
      * @param amount
@@ -361,6 +369,41 @@ export enum CouponDuration {
 export class Wallet {
     public constructor(
       public address: string = '',
-      public balance: number = 0,
+      public balance: TokenAmount = new TokenAmount(),
     ) { }
+}
+
+/**
+ * TokenPaymentHistoryItem holds all public information about token payments history line.
+ */
+export class NativePaymentHistoryItem {
+    public constructor(
+        public readonly id: string = '',
+        public readonly wallet: string = '',
+        public readonly type: string = '',
+        public readonly amount: TokenAmount = new TokenAmount(),
+        public readonly received: TokenAmount = new TokenAmount(),
+        public readonly status: string = '',
+        public readonly link: string = '',
+        public readonly timestamp: Date = new Date(),
+    ) { }
+
+    public get formattedStatus(): string {
+        return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
+    public get formattedType(): string {
+        return this.type.charAt(0).toUpperCase() + this.type.substring(1);
+    }
+}
+
+export class TokenAmount {
+    public constructor(
+        private readonly _value: string = '0.0',
+        public readonly currency: string = '',
+    ) { }
+
+    public get value(): number {
+        return Number.parseFloat(this._value);
+    }
 }

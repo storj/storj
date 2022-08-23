@@ -26,10 +26,15 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryItem from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
 import VTable from '@/components/common/VTable.vue';
+
+const {
+    GET_PAYMENTS_HISTORY,
+} = PAYMENTS_ACTIONS;
 
 // @vue/component
 @Component({
@@ -41,6 +46,18 @@ import VTable from '@/components/common/VTable.vue';
 })
 
 export default class BillingArea extends Vue {
+
+    mounted(): void {
+        this.fetchHistory();
+    }
+
+    public async fetchHistory(): Promise<void> {
+        try {
+            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
 
     public get historyItems(): PaymentsHistoryItem[] {
         return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
