@@ -12,6 +12,7 @@ import {
     PaymentsHistoryItemType,
     ProjectUsageAndCharges,
     TokenDeposit,
+    NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
 import { StoreModule } from '@/types/store';
@@ -25,6 +26,7 @@ export const PAYMENTS_MUTATIONS = {
     UPDATE_CARDS_SELECTION: 'UPDATE_CARDS_SELECTION',
     UPDATE_CARDS_DEFAULT: 'UPDATE_CARDS_DEFAULT',
     SET_PAYMENTS_HISTORY: 'SET_PAYMENTS_HISTORY',
+    SET_NATIVE_PAYMENTS_HISTORY: 'SET_NATIVE_PAYMENTS_HISTORY',
     SET_PROJECT_USAGE_AND_CHARGES: 'SET_PROJECT_USAGE_AND_CHARGES',
     SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
@@ -46,6 +48,7 @@ export const PAYMENTS_ACTIONS = {
     MAKE_CARD_DEFAULT: 'makeCardDefault',
     REMOVE_CARD: 'removeCard',
     GET_PAYMENTS_HISTORY: 'getPaymentsHistory',
+    GET_NATIVE_PAYMENTS_HISTORY: 'getNativePaymentsHistory',
     MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
@@ -63,6 +66,7 @@ const {
     UPDATE_CARDS_SELECTION,
     UPDATE_CARDS_DEFAULT,
     SET_PAYMENTS_HISTORY,
+    SET_NATIVE_PAYMENTS_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
@@ -82,6 +86,7 @@ const {
     MAKE_CARD_DEFAULT,
     REMOVE_CARD,
     GET_PAYMENTS_HISTORY,
+    GET_NATIVE_PAYMENTS_HISTORY,
     MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
@@ -96,6 +101,7 @@ export class PaymentsState {
     public balance: AccountBalance = new AccountBalance();
     public creditCards: CreditCard[] = [];
     public paymentsHistory: PaymentsHistoryItem[] = [];
+    public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
     public priceSummary = 0;
     public priceSummaryForSelectedProject = 0;
@@ -166,6 +172,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [SET_PAYMENTS_HISTORY](state: PaymentsState, paymentsHistory: PaymentsHistoryItem[]): void {
                 state.paymentsHistory = paymentsHistory;
             },
+            [SET_NATIVE_PAYMENTS_HISTORY](state: PaymentsState, paymentsHistory: NativePaymentHistoryItem[]): void {
+                state.nativePaymentsHistory = paymentsHistory;
+            },
             [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, usageAndCharges: ProjectUsageAndCharges[]): void {
                 state.usageAndCharges = usageAndCharges;
             },
@@ -200,6 +209,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
                 state.paymentsHistory = [];
+                state.nativePaymentsHistory = [];
                 state.usageAndCharges = [];
                 state.priceSummary = 0;
                 state.creditCards = [];
@@ -260,9 +270,14 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 commit(CLEAR);
             },
             [GET_PAYMENTS_HISTORY]: async function({ commit }: PaymentsContext): Promise<void> {
-                const paymentsHistory: PaymentsHistoryItem[] = await api.paymentsHistory();
+                const paymentsHistory = await api.paymentsHistory();
 
                 commit(SET_PAYMENTS_HISTORY, paymentsHistory);
+            },
+            [GET_NATIVE_PAYMENTS_HISTORY]: async function({ commit }: PaymentsContext): Promise<void> {
+                const paymentsHistory = await api.nativePaymentsHistory();
+
+                commit(SET_NATIVE_PAYMENTS_HISTORY, paymentsHistory);
             },
             [MAKE_TOKEN_DEPOSIT]: async function(_context: PaymentsContext, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);

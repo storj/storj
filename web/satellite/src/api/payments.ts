@@ -11,7 +11,9 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
+    TokenAmount,
     TokenDeposit,
+    NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
@@ -229,6 +231,43 @@ export class PaymentsHttpApi implements PaymentsApi {
                     new Date(item.end),
                     item.type,
                     item.remaining,
+                ),
+            );
+        }
+
+        return [];
+    }
+
+    /**
+     * Returns a list of native token payments.
+     *
+     * @returns list of native token payment history items
+     * @throws Error
+     */
+    public async nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/wallet/payments`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+            throw new Error('Can not list token payment history');
+        }
+
+        const json = await response.json();
+        if (!json) return  [];
+        if (json.payments) {
+            return json.payments.map(item =>
+                new NativePaymentHistoryItem(
+                    item.ID,
+                    item.Wallet,
+                    item.Type,
+                    new TokenAmount(item.Amount.value, item.Amount.currency),
+                    new TokenAmount(item.Received.value, item.Received.currency),
+                    item.Status,
+                    item.Link,
+                    new Date(item.Timestamp),
                 ),
             );
         }

@@ -2,76 +2,130 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="container">
-        <div class="divider" />
-        <div class="container__row">
-            <div class="container__row__item__date-container">
-                <p class="container__row__item date">{{ billingItem.start.toLocaleDateString() }}</p>
-                <p class="container__row__item time">{{ billingItem.start.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) }}</p>
+    <tr @click="goToTxn">
+        <th class="align-left data mobile">
+            <div class="few-items">
+                <p class="array-val">
+                    Deposit on {{ item.formattedType }}
+                </p>
+                <p class="array-val">
+                    <span v-if="item.type === 'storjscan'">{{ item.amount.value }}</span>
+                    <span v-else>{{ item.received.value }}</span>
+                </p>
+                <p
+                    class="array-val" :class="{
+                        pending_txt: item.status === 'pending',
+                        confirmed_txt: item.status === 'confirmed',
+                        rejected_txt: item.status === 'rejected',
+                    }"
+                >
+                    {{ item.formattedStatus }}
+                </p>
+                <p class="array-val">
+                    {{ item.timestamp.toLocaleDateString() }}
+                </p>
             </div>
-            <div class="container__row__item__description"> 
-                <p class="container__row__item__description__text">CoinPayments {{ billingItem.description.includes("Deposit")? "Deposit": "Withdrawal" }}</p>
-                <p class="container__row__item__description__id">{{ billingItem.id }}</p>
-            </div>
-            <p class="container__row__item amount">
-                <b>
-                    <span v-if="billingItem.type === 1">
-                        ${{ billingItem.quantity.received.toFixed(2) }}
-                    </span>
-                    <span v-else>
-                        ${{ billingItem.quantity.total.toFixed(2) }}
-                    </span>     
-                </b>
-            </p>
-            <p class="container__row__item status">
-                <span :class="`container__row__item__circle-icon ${billingItem.status}`">
-                    &#9679;
-                </span>
-                {{ billingItem.formattedStatus }}
-            </p>
-            <p class="container__row__item download">
-                <a v-if="billingItem.link" class="download-link" target="_blank" :href="billingItem.link">View On CoinPayments</a>
-            </p>
-        </div>
-    </div>
+        </th>
+
+        <fragment>
+            <th class="align-left data tablet-laptop">
+                <p>{{ item.timestamp.toLocaleDateString() }}</p>
+            </th>
+            <th class="align-left data tablet-laptop">
+                <p>Deposit on {{ item.formattedType }}</p>
+                <p class="laptop">{{ item.wallet }}</p>
+            </th>
+
+            <th class="align-right data tablet-laptop">
+                <p v-if="item.type === 'storjscan'">{{ item.amount.value }}</p>
+                <p v-else>{{ item.received.value }}</p>
+            </th>
+
+            <th class="align-left data tablet-laptop">
+                <div class="status">
+                    <span
+                        class="status__dot" :class="{
+                            pending: item.status === 'pending',
+                            confirmed: item.status === 'confirmed',
+                            rejected: item.status === 'rejected'
+                        }"
+                    />
+                    <span class="status__text">{{ item.formattedStatus }}</span>
+                </div>
+            </th>
+
+            <th class="align-left data laptop">
+                <a
+                    v-if="item.link" class="download-link" target="_blank"
+                    rel="noopener noreferrer" :href="item.link"
+                >View on {{ item.formattedType }}</a>
+            </th>
+        </fragment>
+    </tr>
 </template>
 
 <script lang="ts">
-import { Prop, Vue, Component } from 'vue-property-decorator';
+import { Prop, Component } from 'vue-property-decorator';
+import { Fragment } from 'vue-fragment';
 
-import { PaymentsHistoryItem } from '@/types/payments';
+import { NativePaymentHistoryItem } from '@/types/payments';
+
+import Resizable from '@/components/common/Resizable.vue';
 
 // @vue/component
-@Component
-export default class TokenTransactionItem extends Vue {
-    @Prop({ default: () => new PaymentsHistoryItem() })
-    private readonly billingItem: PaymentsHistoryItem;
+@Component({
+    components: { Fragment },
+})
+export default class TokenTransactionItem extends Resizable {
+    @Prop({ default: () => new NativePaymentHistoryItem() })
+    private readonly item: NativePaymentHistoryItem;
+
+    public goToTxn() {
+        if (this.isMobile || this.isTablet)
+            window.open(this.item.link, '_blank', 'noreferrer');
+    }
 }
 </script>
 
 <style scoped lang="scss">
     .pending {
+        background: #ffa800;
+    }
+
+    .pending_txt {
         color: #ffa800;
     }
 
     .confirmed {
+        background: #00ac26;
+    }
+
+    .confirmed_txt {
         color: #00ac26;
     }
 
     .rejected {
+        background: #ac1a00;
+    }
+
+    .rejected_txt {
         color: #ac1a00;
     }
 
-    .divider {
-        height: 1px;
-        width: calc(100% + 30px);
-        background-color: #e5e7eb;
-        align-self: center;
+    .status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        &__dot {
+            height: 0.8rem;
+            width: 0.8rem;
+            border-radius: 100%;
+        }
     }
 
     .download-link {
         color: #2683ff;
-        font-family: 'font_bold', sans-serif;
         text-decoration: underline !important;
 
         &:hover {
@@ -79,69 +133,58 @@ export default class TokenTransactionItem extends Vue {
         }
     }
 
-    .container {
+    .few-items {
         display: flex;
         flex-direction: column;
+        justify-content: space-between;
+    }
 
-        &__row {
-            display: flex;
-            align-items: center;
-            width: 100%;
+    .array-val {
+        font-family: 'font_regular', sans-serif;
+        font-size: 0.75rem;
+        line-height: 1.25rem;
 
-            &__item {
-                font-family: sans-serif;
-                font-weight: 300;
-                font-size: 16px;
-                text-align: left;
-                margin: 30px 0;
-
-                &__description {
-                    width: 35%;
-                    display: flex;
-                    flex-direction: column;
-                    text-align: left;
-
-                    &__text,
-                    &__id {
-                        font-family: 'font_medium', sans-serif;
-                    }
-                }
-
-                &__date-container {
-                    width: 15%;
-                    display: flex;
-                    flex-direction: column;
-                }
-            }
+        &:first-of-type {
+            font-family: 'font_bold', sans-serif;
+            font-size: 0.875rem;
+            margin-bottom: 3px;
         }
     }
 
-    .date {
-        font-family: 'font_bold', sans-serif;
-        margin: 0;
+    @media only screen and (max-width: 425px) {
+
+        .mobile {
+            display: table-cell;
+        }
+
+        .laptop,
+        .tablet-laptop {
+            display: none;
+        }
     }
 
-    .time {
-        color: #6b7280;
-        margin: 0;
-        font-size: 14px;
+    @media only screen and (min-width: 426px) {
+
+        .tablet-laptop {
+            display: table-cell;
+        }
+
+        .mobile {
+            display: none;
+        }
     }
 
-    .description {
-        font-family: 'font_medium', sans-serif;
-        overflow: ellipse;
+    @media only screen and (max-width: 1024px) and (min-width: 426px) {
+
+        .laptop {
+            display: none;
+        }
     }
 
-    .status {
-        width: 15%;
-    }
+    @media only screen and (min-width: 1024px) {
 
-    .amount {
-        width: 15%;
-    }
-
-    .download {
-        text-align: left;
-        width: 20%;
+        .laptop {
+            display: table-cell;
+        }
     }
 </style>
