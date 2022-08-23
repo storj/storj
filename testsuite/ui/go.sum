@@ -1492,10 +1492,11 @@ storj.io/common v0.0.0-20200424175742-65ac59022f4f/go.mod h1:pZyXiIE7bGETIRXtfs0
 storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66RfXNz19zbyr/uEDVWHJH8dHog=
 storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
-storj.io/common v0.0.0-20220621110021-1cde7e384e77/go.mod h1:PdwPrX+QWAm4vgVyka5U13vA0jKk49MpV4tzW4HTaz0=
+storj.io/common v0.0.0-20220708152916-e2f08365ed65/go.mod h1:PdwPrX+QWAm4vgVyka5U13vA0jKk49MpV4tzW4HTaz0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20220802175255-aae0c09ec9d4 h1:80gL3xdEt7BgL+I1oTkql3KD/wyTrARSTKphqrVPf6g=
 storj.io/common v0.0.0-20220802175255-aae0c09ec9d4/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
+storj.io/common v0.0.0-20220822090045-1b57fc2bbda1 h1:0NIhx8hyQ+UgG4ZC5UOdMu4uHhSizmEfAUsca0E4hMA=
+storj.io/common v0.0.0-20220822090045-1b57fc2bbda1/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
@@ -1516,5 +1517,5 @@ storj.io/private v0.0.0-20220818074142-c354e3e64dd3 h1:0N1ltkbUJ1CqpgArWXKu4X2q0
 storj.io/private v0.0.0-20220818074142-c354e3e64dd3/go.mod h1:GbCItLcLLzsrMClBAa2aaj8xlawtHXWrqhr3D1I3NPM=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.1-0.20211103104100-a785482780d8/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876 h1:9c81ErMjbwRyT3M9J4awHejmDDjc2tKOQAX6gqe/Xbs=
-storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876/go.mod h1:p6tbteuXDLE0ibt0xRyxzyhUfwJ772U9csO/wIG31UA=
+storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31 h1:wRpjo1lgzigTRWEFNj50VW8wRigetEpHvQZ/5aO1O20=
+storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31/go.mod h1:YHtYuVqGUtczViQPlPqfXz3+3Hgyzh91UcV5SlJV27w=
