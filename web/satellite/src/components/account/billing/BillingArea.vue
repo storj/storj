@@ -8,30 +8,30 @@
                 <h1 class="account-billing-area__title__text">Billing</h1>
             </div>
             <div class="account-billing-area__header">
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
-                    @click="routeToOverview"    
+                    @click="routeToOverview"
                 >
                     <p>Overview</p>
                 </div>
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
                     @click="routeToPaymentMethods"
                 >
                     <p>Payment Methods</p>
                 </div>
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
                     @click="routeToBillingHistory"
                 >
                     <p>Billing History</p>
                 </div>
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
                     @click="routeToCoupons"
                 >
                     <p>Coupons</p>
-                </div>      
+                </div>
             </div>
             <div class="account-billing-area__divider" />
         </div>
@@ -235,19 +235,27 @@ export default class BillingArea extends Vue {
      * Routes for new billing screens.
      */
     public routeToOverview(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+        const overviewPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+        if (this.$route.path !== overviewPath)
+            this.$router.push(overviewPath);
     }
 
     public routeToPaymentMethods(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+        const payMethodsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+        if (this.$route.path !== payMethodsPath)
+            this.$router.push(payMethodsPath);
     }
 
     public routeToBillingHistory(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+        const billingPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
+        if (this.$route.path !== billingPath)
+            this.$router.push(billingPath);
     }
 
     public routeToCoupons(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path);
+        const couponsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+        if (this.$route.path !== couponsPath)
+            this.$router.push(couponsPath);
     }
 
     /**
