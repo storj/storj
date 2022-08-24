@@ -476,24 +476,21 @@ export default class CreatePassphraseStep extends Vue {
         color: red;
     }
 
-    ::v-deep .label-container {
+    :deep(.label-container__main) {
+        margin-bottom: 10px;
+    }
 
-        &__main {
-            margin-bottom: 10px;
+    :deep(.label-container__main__label) {
+        margin: 0;
+        font-size: 14px;
+        line-height: 19px;
+        color: #7c8794;
+        font-family: 'font_bold', sans-serif;
+    }
 
-            &__label {
-                margin: 0;
-                font-size: 14px;
-                line-height: 19px;
-                color: #7c8794;
-                font-family: 'font_bold', sans-serif;
-            }
-
-            &__error {
-                margin: 0 0 0 10px;
-                font-size: 14px;
-                line-height: 19px;
-            }
-        }
+    :deep(.label-container__main__error) {
+        margin: 0 0 0 10px;
+        font-size: 14px;
+        line-height: 19px;
     }
 </style>

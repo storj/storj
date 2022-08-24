@@ -55,7 +55,7 @@ export default class VerticalArrows extends Vue {
     .active {
         opacity: 1;
 
-        ::v-deep path {
+        :deep(path) {
             fill: #2683ff !important;
         }
     }

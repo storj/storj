@@ -273,18 +273,18 @@ export default class ChangePasswordModal extends Vue {
 
     @media screen and (max-width: 600px) {
 
-        ::v-deep .password-strength-container {
+        :deep(.password-strength-container) {
             width: unset;
             height: unset;
+        }
 
-            &__header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+        :deep(.password-strength-container__header) {
+            flex-direction: column;
+            align-items: flex-start;
+        }
 
-            &__rule-area__rule {
-                text-align: left;
-            }
+        :deep(.password-strength-container__rule-area__rule) {
+            text-align: left;
         }
     }
 </style>

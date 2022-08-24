@@ -647,29 +647,29 @@ export default class NewProjectDashboard extends Vue {
             margin-right: 9px;
         }
 
-        &:hover svg ::v-deep path {
+        &:hover svg :deep(path) {
             fill: #fff;
         }
     }
 
-    ::v-deep .info__box {
+    :deep(.info__box) {
         width: 180px;
         left: calc(50% - 20px);
         top: calc(100% + 1px);
         cursor: default;
+    }
 
-        &__message {
-            background: #56606d;
-            border-radius: 4px;
-            padding: 8px;
-        }
+    :deep(.info__box__message) {
+        background: #56606d;
+        border-radius: 4px;
+        padding: 8px;
+    }
 
-        &__arrow {
-            background: #56606d;
-            width: 10px;
-            height: 10px;
-            margin: 0 0 -2px 40px;
-        }
+    :deep(.info__box__arrow) {
+        background: #56606d;
+        width: 10px;
+        height: 10px;
+        margin: 0 0 -2px 40px;
     }
 
     @media screen and (max-width: 1280px) {

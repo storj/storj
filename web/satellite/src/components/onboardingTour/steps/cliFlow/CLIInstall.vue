@@ -239,13 +239,13 @@ export default class CLIInstall extends Vue {
         margin-top: 24px;
     }
 
-    ::v-deep .tab-copy {
+    :deep(.tab-copy) {
         display: inline-flex;
         padding: 0;
+    }
 
-        &__value {
-            overflow: unset;
-            text-overflow: unset;
-        }
+    :deep(.tab-copy__value) {
+        overflow: unset;
+        text-overflow: unset;
     }
 </style>

@@ -462,7 +462,7 @@ export default class GrantCreatedModal extends Vue {
                 justify-content: flex-start;
                 margin-top: 16px;
 
-                & ::v-deep .container:first-of-type {
+                & :deep(.container:first-of-type) {
                     margin-right: 8px;
                 }
 

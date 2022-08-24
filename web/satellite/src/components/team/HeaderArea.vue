@@ -353,7 +353,7 @@ export default class HeaderArea extends Vue {
         }
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 300px;
     }
 </style>

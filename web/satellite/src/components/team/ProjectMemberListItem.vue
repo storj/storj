@@ -45,7 +45,7 @@ export default class ProjectMemberListItem extends Resizable {
     .owner {
         cursor: not-allowed;
 
-        & > ::v-deep th:nth-child(2):after {
+        & > :deep(th:nth-child(2):after) {
             content: 'Project Owner';
             font-size: 13px;
             color: #afb7c1;

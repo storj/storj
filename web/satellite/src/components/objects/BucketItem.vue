@@ -170,7 +170,7 @@ export default class BucketItem extends Resizable {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
 
-                        svg ::v-deep path {
+                        svg :deep(path) {
                             fill: #0068dc;
                             stroke: #0068dc;
                         }

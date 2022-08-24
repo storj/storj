@@ -61,11 +61,11 @@
                                     {{ viewConfig.tooltip }}
                                 </p>
                             </div>
-                            <button 
+                            <button
                                 id="registerDropdown"
-                                type="button" 
-                                aria-haspopup="listbox" 
-                                aria-roledescription="satellites-dropdown" 
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-roledescription="satellites-dropdown"
                                 :aria-expanded="isDropdownShown"
                                 class="register-area__input-area__expand__value"
                             >
@@ -470,11 +470,11 @@ export default class RegisterArea extends Vue {
         if (this.isLoading && !this.isDropdownShown) {
             return;
         }
-    
+
         let activeElement = document.activeElement;
 
         if (activeElement && activeElement.id === "registerDropdown") return;
-        
+
         if (this.isDropdownShown) {
             this.isDropdownShown = false;
             return;
@@ -850,18 +850,18 @@ export default class RegisterArea extends Vue {
                 &__custom-html-container {
                     margin-top: 27px;
 
-                    ::v-deep p {
+                    :deep(p) {
                         @extend %subtitle-text;
 
                         text-align: center;
-
-                        a {
-                            text-decoration: underline !important;
-                            color: inherit !important;
-                        }
                     }
 
-                    ::v-deep ol {
+                    :deep(p a) {
+                        text-decoration: underline !important;
+                        color: inherit !important;
+                    }
+
+                    :deep(ol) {
                         @extend %subtitle-text;
 
                         list-style-position: inside;
@@ -900,16 +900,16 @@ export default class RegisterArea extends Vue {
                 &__custom-html-container {
                     padding-bottom: 27px;
 
-                    ::v-deep p {
+                    :deep(p) {
                         @extend %subtitle-text;
-
-                        a {
-                            text-decoration: underline !important;
-                            color: inherit !important;
-                        }
                     }
 
-                    ::v-deep ol {
+                    :deep(p a) {
+                        text-decoration: underline !important;
+                        color: inherit !important;
+                    }
+
+                    :deep(ol) {
                         @extend %subtitle-text;
 
                         list-style-position: inside;
@@ -1310,7 +1310,7 @@ export default class RegisterArea extends Vue {
         display: block;
     }
 
-    ::v-deep .grecaptcha-badge {
+    :deep(.grecaptcha-badge) {
         visibility: hidden;
     }
 

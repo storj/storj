@@ -235,8 +235,8 @@ export default class VButton extends Vue {
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
 
-                ::v-deep path,
-                ::v-deep rect {
+                :deep(path),
+                :deep(rect) {
                     stroke: white;
                 }
 

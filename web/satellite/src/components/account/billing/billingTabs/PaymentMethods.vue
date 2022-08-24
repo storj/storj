@@ -77,7 +77,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
             <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
                 <CreditCardImage class="card-icon-default" />
@@ -85,7 +85,7 @@
                     <CloseCrossIcon class="close-icon" />
                 </div>
                 <div class="edit_payment_method__header">Select Default Card</div>
-                <form v-for="card in creditCards" :key="card.id"> 
+                <form v-for="card in creditCards" :key="card.id">
                     <div class="change-default-input-container">
                         <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
                         <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
@@ -94,14 +94,14 @@
                         <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
                         <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
                         <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
-                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
                         {{ card.last4 }}
-                        <input 
-                            :id="card.id" 
-                            v-model="defaultCreditCardSelection"  
-                            :value="card.id" 
-                            class="change-default-input" 
-                            type="radio" 
+                        <input
+                            :id="card.id"
+                            v-model="defaultCreditCardSelection"
+                            :value="card.id"
+                            class="change-default-input"
+                            type="radio"
                             name="defaultCreditCardSelection"
                         >
                     </div>
@@ -121,8 +121,8 @@
                 <div class="edit_payment_method__header-change-default" @click="changeDefault">
                     <a class="edit-card-text">Edit default card -></a>
                 </div>
-                <div 
-                    class="remove-card-button" 
+                <div
+                    class="remove-card-button"
                     @click="removePaymentMethod"
                     @mouseover="deleteHover = true"
                     @mouseleave="deleteHover = false"
@@ -151,7 +151,7 @@
                         </p>
                     </div>
                     <div class="pagination__right-container">
-                        <div    
+                        <div
                             v-if="transactionCount > 0"
                             class="pagination__right-container__count"
                         >
@@ -162,7 +162,7 @@
                                 {{ paginationLocation.start + 1 }} - {{ transactionCount }} of {{ transactionCount }}
                             </span>
                         </div>
-                        <div 
+                        <div
                             v-if="transactionCount > 10"
                             class="pagination__right-container__buttons"
                         >
@@ -171,7 +171,7 @@
                                 @click="paginationController(-10)"
                             />
                             <ArrowIcon
-                                v-if="paginationLocation.end < transactionCount - 1"    
+                                v-if="paginationLocation.end < transactionCount - 1"
                                 class="pagination__right-container__buttons__right"
                                 @click="paginationController(10)"
                             />
@@ -428,7 +428,7 @@ export default class PaymentMethods extends Vue {
         this.isAddingPayment = true;
     }
 
-    public removePaymentMethodHandler(creditCard) {   
+    public removePaymentMethodHandler(creditCard) {
         this.cardBeingEdited = creditCard;
         this.isRemovePaymentMethodsModalOpen = true;
     }
@@ -527,7 +527,7 @@ export default class PaymentMethods extends Vue {
 $flex: flex;
 $align: center;
 
-::v-deep .loader {
+:deep(.loader) {
     width: auto;
     padding: 63px 114px;
 }
@@ -566,7 +566,7 @@ $align: center;
 
 .red-trash {
 
-    ::v-deep path {
+    :deep(path) {
         fill: #ac1a00;
     }
 }

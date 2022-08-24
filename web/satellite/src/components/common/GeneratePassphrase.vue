@@ -402,7 +402,7 @@ export default class GeneratePassphrase extends Vue {
         fill: #0149ff;
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 440px;
     }
 </style>

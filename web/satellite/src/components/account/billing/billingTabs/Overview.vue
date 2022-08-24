@@ -242,7 +242,7 @@ export default class BillingArea extends Vue {
 
             &__main-icon {
 
-                ::v-deep g {
+                :deep(g) {
                     filter: none;
                 }
             }

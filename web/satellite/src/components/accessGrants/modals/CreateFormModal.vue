@@ -618,7 +618,7 @@ export default class CreateFormModal extends Vue {
                 justify-content: flex-start;
                 margin-top: 16px;
 
-                & ::v-deep .container:first-of-type {
+                & :deep(.container:first-of-type) {
                     margin-right: 8px;
                 }
 
@@ -633,13 +633,13 @@ export default class CreateFormModal extends Vue {
         }
     }
 
-    ::v-deep .buckets-selection {
+    :deep(.buckets-selection) {
         margin-left: 0;
         height: 40px;
         border: 1px solid #c8d3de;
     }
 
-    ::v-deep .buckets-selection__toggle-container {
+    :deep(.buckets-selection__toggle-container) {
         padding: 10px 20px;
     }
 

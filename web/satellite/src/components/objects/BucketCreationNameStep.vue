@@ -198,11 +198,11 @@ export default class BucketCreationNameStep extends Vue {
     }
 }
 
-::v-deep .label-container__main__label {
+:deep(.label-container__main__label) {
     font-size: 14px;
 }
 
-::v-deep .label-container__main {
+:deep(.label-container__main) {
     width: 100%;
     justify-content: space-between;
 }

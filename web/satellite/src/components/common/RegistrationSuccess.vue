@@ -287,7 +287,7 @@ export default class RegistrationSuccess extends Vue {
             }
         }
 
-        ::v-deep .container {
+        :deep(.container) {
             width: 100% !important;
         }
     }

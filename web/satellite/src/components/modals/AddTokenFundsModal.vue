@@ -259,26 +259,26 @@ export default class AddTokenFundsModal extends Vue {
         }
     }
 
-    ::v-deep .info__box {
+    :deep(.info__box) {
         width: 214px;
         left: calc(50% - 107px);
         top: calc(100% - 80px);
         cursor: default;
         filter: none;
         transform: rotate(-180deg);
+    }
 
-        &__message {
-            background: #56606d;
-            border-radius: 4px;
-            padding: 10px 8px;
-            transform: rotate(-180deg);
-        }
+    :deep(.info__box__message) {
+        background: #56606d;
+        border-radius: 4px;
+        padding: 10px 8px;
+        transform: rotate(-180deg);
+    }
 
-        &__arrow {
-            background: #56606d;
-            width: 10px;
-            height: 10px;
-            margin-bottom: -3px;
-        }
+    :deep(.info__box__arrow) {
+        background: #56606d;
+        width: 10px;
+        height: 10px;
+        margin-bottom: -3px;
     }
 </style>

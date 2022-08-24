@@ -255,8 +255,8 @@ export default class AccountArea extends Vue {
                     color: #0149ff;
                 }
 
-                .account-area__wrap__arrow ::v-deep path,
-                .account-area__wrap__left__icon ::v-deep path {
+                .account-area__wrap__arrow :deep(path),
+                .account-area__wrap__left__icon :deep(path) {
                     fill: #0149ff;
                 }
             }
@@ -335,7 +335,7 @@ export default class AccountArea extends Vue {
                         color: #0149ff;
                     }
 
-                    ::v-deep path {
+                    :deep(path) {
                         fill: #0149ff;
                     }
                 }
@@ -351,8 +351,8 @@ export default class AccountArea extends Vue {
             font-family: 'font_bold', sans-serif;
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
             fill: #000;
         }
     }
@@ -365,8 +365,8 @@ export default class AccountArea extends Vue {
             color: #0149ff;
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
             fill: #0149ff;
         }
     }

@@ -266,8 +266,8 @@ export default class AGPermissions extends Vue {
         }
     }
 
-    ::v-deep .buckets-selection,
-    ::v-deep .duration-selection {
+    :deep(.buckets-selection),
+    :deep(.duration-selection) {
         width: 287px;
         margin-left: 0;
     }

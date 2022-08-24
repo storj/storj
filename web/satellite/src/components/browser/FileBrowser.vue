@@ -917,7 +917,7 @@ export default class FileBrowser extends Vue {
     transform: translateY(-50%);
     margin: unset;
 
-    ::v-deep path {
+    :deep(path) {
         fill: white;
     }
 }

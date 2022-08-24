@@ -271,7 +271,7 @@ export default class CreateProjectModal extends Vue {
 
     @media screen and (max-width: 550px) {
 
-        ::v-deep .add-label {
+        :deep(.add-label) {
             display: none;
         }
     }

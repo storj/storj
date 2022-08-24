@@ -237,15 +237,15 @@ export default class EncryptFormModal extends Vue {
 .button-icon {
     margin-right: 5px;
 
-    ::v-deep path,
-    ::v-deep rect {
+    :deep(path),
+    :deep(rect) {
         stroke: white;
     }
 
     &.active {
 
-        ::v-deep path,
-        ::v-deep rect {
+        :deep(path),
+        :deep(rect) {
             stroke: #56606d;
         }
     }
@@ -412,11 +412,11 @@ export default class EncryptFormModal extends Vue {
 
                         &.selected {
 
-                            ::v-deep circle {
+                            :deep(circle) {
                                 fill: #e6edf7 !important;
                             }
 
-                            ::v-deep path {
+                            :deep(path) {
                                 fill: #003dc1 !important;
                             }
                         }
@@ -469,7 +469,7 @@ export default class EncryptFormModal extends Vue {
             justify-content: flex-start;
             margin-top: 16px;
 
-            & ::v-deep .container:first-of-type {
+            & :deep(.container:first-of-type) {
                 margin-right: 8px;
             }
 

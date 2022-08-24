@@ -267,24 +267,24 @@ export default class AddTokenCardNative extends Vue {
         }
     }
 
-    ::v-deep .info__box {
+    :deep(.info__box) {
         transform: rotate(-180deg);
         top: calc(100% - 100px);
         left: calc(100% - 123px);
         filter: none;
+    }
 
-        &__message {
-            padding: 8px 8px 13px;
-            width: 235px;
-            background: #56606d;
-            border-radius: 4px;
-        }
+    :deep(.info__box__message) {
+        padding: 8px 8px 13px;
+        width: 235px;
+        background: #56606d;
+        border-radius: 4px;
+    }
 
-        &__arrow {
-            width: 10px;
-            height: 10px;
-            background: #56606d;
-            margin-bottom: -3px;
-        }
+    :deep(.info__box__arrow) {
+        width: 10px;
+        height: 10px;
+        background: #56606d;
+        margin-bottom: -3px;
     }
 </style>

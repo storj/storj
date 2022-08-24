@@ -313,7 +313,7 @@ export default class ProjectSelection extends Vue {
                     color: #0149ff;
                 }
 
-                ::v-deep path {
+                :deep(path) {
                     fill: #0149ff;
                 }
             }
@@ -415,7 +415,7 @@ export default class ProjectSelection extends Vue {
                         color: #0149ff;
                     }
 
-                    ::v-deep path {
+                    :deep(path) {
                         fill: #0149ff;
                     }
                 }
@@ -431,7 +431,7 @@ export default class ProjectSelection extends Vue {
             font-family: 'font_bold', sans-serif;
         }
 
-        ::v-deep path {
+        :deep(path) {
             fill: #000;
         }
     }
@@ -444,7 +444,7 @@ export default class ProjectSelection extends Vue {
             color: #0149ff;
         }
 
-        ::v-deep path {
+        :deep(path) {
             fill: #0149ff;
         }
     }

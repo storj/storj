@@ -376,7 +376,7 @@ export default class GatewayStep extends Vue {
         border-radius: 6px;
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 300px;
     }
 </style>

@@ -564,13 +564,13 @@ export default class AddTeamMemberModal extends Vue {
         }
     }
 
-    ::v-deep .container {
+    :deep(.container) {
         padding: 0 10px;
     }
 
     @media screen and (max-width: 500px) {
 
-        ::v-deep .container {
+        :deep(.container) {
             padding: 0;
         }
     }

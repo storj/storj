@@ -369,7 +369,7 @@ export default class NavigationArea extends Vue {
                         background-color: #fafafb;
                         color: #0149ff;
 
-                        ::v-deep path {
+                        :deep(path) {
                             fill: #0149ff;
                         }
                     }
@@ -391,7 +391,7 @@ export default class NavigationArea extends Vue {
         color: #091c45;
         font-family: 'font_bold', sans-serif;
 
-        ::v-deep path {
+        :deep(path) {
             fill: #000;
         }
 
@@ -399,13 +399,13 @@ export default class NavigationArea extends Vue {
             color: #0149ff;
             border-color: #0149ff;
 
-            ::v-deep path {
+            :deep(path) {
                 fill: #0149ff;
             }
         }
     }
 
-    ::v-deep .dropdown-item {
+    :deep(.dropdown-item) {
         display: flex;
         align-items: center;
         font-family: 'font_regular', sans-serif;
@@ -413,45 +413,45 @@ export default class NavigationArea extends Vue {
         cursor: pointer;
         border-top: 1px solid #ebeef1;
         border-bottom: 1px solid #ebeef1;
+    }
 
-        &__icon {
-            max-width: 40px;
-            min-width: 40px;
-        }
+    :deep(.dropdown-item__icon) {
+        max-width: 40px;
+        min-width: 40px;
+    }
 
-        &__text {
-            margin-left: 10px;
+    :deep(.dropdown-item__text) {
+        margin-left: 10px;
+    }
 
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                line-height: 22px;
-                color: #091c45;
-            }
+    :deep(.dropdown-item__text__title) {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+        line-height: 22px;
+        color: #091c45;
+    }
 
-            &__label {
-                font-size: 12px;
-                line-height: 21px;
-                color: #091c45;
-            }
-        }
+    :deep(.dropdown-item__text__label) {
+        font-size: 12px;
+        line-height: 21px;
+        color: #091c45;
+    }
 
-        &:first-of-type {
-            border-radius: 8px 8px 0 0;
-        }
+    :deep(.dropdown-item:first-of-type) {
+        border-radius: 8px 8px 0 0;
+    }
 
-        &:last-of-type {
-            border-radius: 0 0 8px 8px;
-        }
+    :deep(.dropdown-item:last-of-type) {
+        border-radius: 0 0 8px 8px;
+    }
 
-        &:hover {
-            background-color: #fafafb;
+    :deep(.dropdown-item:hover) {
+        background-color: #fafafb;
+    }
 
-            h2,
-            p {
-                color: #0149ff;
-            }
-        }
+    :deep(.dropdown-item:hover h2),
+    :deep(.dropdown-item:hover p) {
+        color: #0149ff;
     }
 
     @media screen and (max-width: 1280px) {
