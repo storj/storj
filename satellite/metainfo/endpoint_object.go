@@ -208,10 +208,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
-	if err := endpoint.checkEncryptedMetadataSize(req.EncryptedMetadata, req.EncryptedMetadataEncryptedKey); err != nil {
-		return nil, err
-	}
-
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -253,6 +249,10 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			request.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
 			request.EncryptedMetadataEncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
 		}
+	}
+
+	if err := endpoint.checkEncryptedMetadataSize(request.EncryptedMetadata, request.EncryptedMetadataEncryptedKey); err != nil {
+		return nil, err
 	}
 
 	_, err = endpoint.metabase.CommitObject(ctx, request)
