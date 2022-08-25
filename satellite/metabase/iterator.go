@@ -138,10 +138,6 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	// TODO: implement this on the database side
-	ok := it.next(ctx, item)
-	if !ok {
-		return false
-	}
 
 	// skip until we are past the prefix we returned before.
 	if it.skipPrefix != "" {
@@ -151,6 +147,11 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 			}
 		}
 		it.skipPrefix = ""
+	} else {
+		ok := it.next(ctx, item)
+		if !ok {
+			return false
+		}
 	}
 
 	// should this be treated as a prefix?
@@ -177,6 +178,16 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		if it.curRows.Err() != nil {
 			return false
+		}
+
+		if !it.recursive {
+			afterPrefix := it.cursor.Key[len(it.prefix):]
+			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
+			if p >= 0 {
+				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
+				it.cursor.StreamID = uuid.UUID{}
+				it.cursor.Version = 0
+			}
 		}
 
 		rows, err := it.doNextQuery(ctx, it)
