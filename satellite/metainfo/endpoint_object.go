@@ -1546,6 +1546,9 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	endpoint.log.Info("Object Move Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
+	mon.Meter("req_move_object_begins").Mark(1)
+
 	response.StreamId = satStreamID
 	return response, nil
 }
@@ -1662,6 +1665,9 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
+	endpoint.log.Info("Object Move Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "move"), zap.String("type", "object"))
+	mon.Meter("req_move_object_finished").Mark(1)
+
 	return &pb.ObjectFinishMoveResponse{}, nil
 }
 
@@ -1774,6 +1780,9 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.log.Info("Object Copy Begins", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))
+	mon.Meter("req_copy_object_begins").Mark(1)
 
 	response.StreamId = satStreamID
 	return response, nil
@@ -1916,6 +1925,9 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.log.Info("Object Copy Finished", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "copy"), zap.String("type", "object"))
+	mon.Meter("req_copy_object_finished").Mark(1)
 
 	return &pb.ObjectFinishCopyResponse{
 		Object: protoObject,
