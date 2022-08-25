@@ -16,7 +16,8 @@
             </form>
             <!-- *********   Encrypt Form Modal  ********* -->
             <form v-if="isEncryptStep">
-                <EncryptFormModal 
+                <EncryptFormModal
+                    @apply-passphrase="applyPassphrase"
                     @close-modal="onCloseClick"
                     @create-access="createAccessGrant"
                     @backAction="backAction"
@@ -134,6 +135,10 @@ export default class CreateAccessModal extends Vue {
 
     public inputHandler(e): void {
         this.checkedType = e; 
+    }
+
+    public applyPassphrase(passphrase: string) {
+        this.passphrase = passphrase;
     }
 
     /**

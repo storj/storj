@@ -157,7 +157,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 import { generateMnemonic } from "bip39";
 import { Download } from "@/utils/download";
 
@@ -180,7 +180,7 @@ import DownloadIcon from '../../../../static/images/common/download.svg';
     },
 })
 
-export default class GrantCreatedModal extends Vue {
+export default class EncryptFormModal extends Vue {
 
     private encryptSelect = "create";
     private isPassphraseCopied = false;
@@ -189,6 +189,11 @@ export default class GrantCreatedModal extends Vue {
     private accessGrantStep = "create";
     private acknowledgementCheck = false;
     public currentDate = new Date().toISOString();
+
+    @Watch('passphrase')
+    public applyPassphrase(): void {
+        this.$emit('apply-passphrase', this.passphrase);
+    }
 
     public createAccessGrant(): void {
         this.$emit('create-access');
