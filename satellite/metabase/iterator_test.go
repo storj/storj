@@ -1364,6 +1364,62 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
+
+		t.Run("same key different versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			obj2 := obj1
+			obj2.StreamID = testrand.UUID()
+			obj2.Version = 2
+
+			pending := []metabase.ObjectStream{obj1, obj2}
+
+			location := pending[0].Location()
+			objects := make([]metabase.RawObject, 2)
+			expected := make([]metabase.ObjectEntry, 2)
+
+			for i, obj := range pending {
+				obj.ProjectID = location.ProjectID
+				obj.BucketName = location.BucketName
+				obj.ObjectKey = location.ObjectKey
+				obj.Version = metabase.Version(i + 1)
+
+				metabasetest.CreatePendingObject(ctx, t, db, obj, 0)
+
+				objects[i] = metabase.RawObject{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.Pending,
+
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieDeadline,
+				}
+				expected[i] = objectEntryFromRaw(objects[i])
+			}
+
+			sort.Slice(expected, func(i, j int) bool {
+				return expected[i].StreamID.Less(expected[j].StreamID)
+			})
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      1,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      3,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
 	})
 }
 
