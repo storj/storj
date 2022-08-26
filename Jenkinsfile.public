@@ -122,88 +122,6 @@ pipeline {
             }
         }
 
-<<<<<<< HEAD
-        stage('Verification') {
-            parallel {
-                stage('Tests') {
-                    environment {
-                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
-                        STORJ_TEST_COCKROACH_NODROP = 'true'
-                        STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        STORJ_TEST_LOG_LEVEL = 'info'
-                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                    }
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
-                        sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
-
-                        sh 'psql -U postgres -c \'create database teststorj;\''
-
-                        sh 'use-ports -from 1024 -to 10000 &'
-
-                        // sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                    }
-                }
-
-                stage('wasm npm') {
-                    steps {
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
-                    }
-                }
-
-                stage('web/satellite') {
-                    steps {
-                        dir("web/satellite") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/storagenode') {
-                    steps {
-                        dir("web/storagenode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/multinode') {
-                    steps {
-                        dir("web/multinode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir("satellite/admin/ui") {
-                            sh script: 'npm audit', returnStatus: true
-                        }
-                    }
-                }
-            }
-        }
-=======
->>>>>>> Minimal_UI_Test
         stage('UI') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
@@ -226,7 +144,6 @@ pipeline {
                 }
             }
         }
-<<<<<<< HEAD
         stage('Post') {
             parallel {
                 stage('Lint') {
@@ -236,7 +153,5 @@ pipeline {
                 }
             }
         }
-=======
->>>>>>> Minimal_UI_Test
     }
 }
