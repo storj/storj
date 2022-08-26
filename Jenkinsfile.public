@@ -122,6 +122,7 @@ pipeline {
             }
         }
 
+<<<<<<< HEAD
         stage('Verification') {
             parallel {
                 stage('Tests') {
@@ -201,6 +202,8 @@ pipeline {
                 }
             }
         }
+=======
+>>>>>>> Minimal_UI_Test
         stage('UI') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
@@ -223,6 +226,7 @@ pipeline {
                 }
             }
         }
+<<<<<<< HEAD
         stage('Post') {
             parallel {
                 stage('Lint') {
@@ -232,5 +236,7 @@ pipeline {
                 }
             }
         }
+=======
+>>>>>>> Minimal_UI_Test
     }
 }
