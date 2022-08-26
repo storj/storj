@@ -90,9 +90,10 @@ func TestTransactionsDBList(t *testing.T) {
 
 func TestTransactionsDBBalance(t *testing.T) {
 	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
-	twentyUSD := monetary.AmountFromBaseUnits(2000, monetary.USDollars)
+	tenMicroUSD := monetary.AmountFromBaseUnits(10000000, monetary.USDollarsMicro)
+	twentyMicroUSD := monetary.AmountFromBaseUnits(20000000, monetary.USDollarsMicro)
 	thirtyUSD := monetary.AmountFromBaseUnits(3000, monetary.USDollars)
-	fortyUSD := monetary.AmountFromBaseUnits(4000, monetary.USDollars)
+	fortyMicroUSD := monetary.AmountFromBaseUnits(40000000, monetary.USDollarsMicro)
 	negativeTwentyUSD := monetary.AmountFromBaseUnits(-2000, monetary.USDollars)
 
 	userID := testrand.UUID()
@@ -152,7 +153,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[0])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, tenUSD.BaseUnits(), balance)
+			require.Equal(t, tenMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 
@@ -169,7 +170,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[1])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, fortyUSD.BaseUnits(), balance)
+			require.Equal(t, fortyMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 
@@ -189,7 +190,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[2])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, twentyUSD.BaseUnits(), balance)
+			require.Equal(t, twentyMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 }
@@ -265,7 +266,7 @@ func TestUpdateMetadata(t *testing.T) {
 // ensures that is not empty.
 func compareTransactions(t *testing.T, exp, act billing.Transaction) {
 	assert.Equal(t, exp.UserID, act.UserID)
-	assert.Equal(t, exp.Amount, act.Amount)
+	assert.Equal(t, monetary.AmountFromDecimal(exp.Amount.AsDecimal().Truncate(monetary.USDollarsMicro.DecimalPlaces()), monetary.USDollarsMicro), act.Amount)
 	assert.Equal(t, exp.Description, act.Description)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Source, act.Source)

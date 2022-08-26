@@ -557,12 +557,15 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 
 	for _, wallet := range wallets {
 		// get the user token balance, if it's not > 0, don't bother with the rest
-		tokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
+		monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
+		// truncate here since stripe only has cent level precision for invoices.
+		// The users account balance will still maintain the full precision monetary value!
+		tokenBalance := monetary.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), monetary.USDollars)
 		if err != nil {
 			errGrp.Add(Error.New("unable to compute balance for user ID %s", wallet.UserID.String()))
 			continue
 		}
-		if tokenBalance <= 0 {
+		if tokenBalance.BaseUnits() <= 0 {
 			continue
 		}
 		// get the stripe customer invoice balance
@@ -583,8 +586,8 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 			}
 
 			var tokenCreditAmount int64
-			if invoice.AmountDue >= tokenBalance {
-				tokenCreditAmount = -tokenBalance
+			if invoice.AmountDue >= tokenBalance.BaseUnits() {
+				tokenCreditAmount = -tokenBalance.BaseUnits()
 			} else {
 				tokenCreditAmount = -invoice.AmountDue
 			}

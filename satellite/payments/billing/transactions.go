@@ -56,7 +56,7 @@ type TransactionsDB interface {
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
-	GetBalance(ctx context.Context, userID uuid.UUID) (int64, error)
+	GetBalance(ctx context.Context, userID uuid.UUID) (monetary.Amount, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can

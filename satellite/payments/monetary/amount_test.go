@@ -175,3 +175,33 @@ func TestAmountJSONUnmarshal(t *testing.T) {
 		require.Equal(t, test.Currency, amount.Currency())
 	}
 }
+
+func TestGreater(t *testing.T) {
+	oneHundredUSDMicro := AmountFromBaseUnits(100000000, USDollarsMicro)
+	twoHundredUSDMicro := AmountFromBaseUnits(200000000, USDollarsMicro)
+
+	checkGreater, err := Greater(twoHundredUSDMicro, oneHundredUSDMicro)
+	require.NoError(t, err)
+	require.True(t, checkGreater)
+}
+
+func TestAdd(t *testing.T) {
+	oneHundredUSD := AmountFromBaseUnits(10000, USDollars)
+	twoHundredUSD := AmountFromBaseUnits(20000, USDollars)
+
+	sum, err := Add(oneHundredUSD, oneHundredUSD)
+	require.NoError(t, err)
+	require.Equal(t, twoHundredUSD, sum)
+}
+
+func TestZero(t *testing.T) {
+	require.Equal(t, AmountFromBaseUnits(0, USDollarsMicro), USDollarsMicro.Zero())
+	require.Equal(t, AmountFromBaseUnits(0, USDollars), USDollars.Zero())
+	require.NotEqual(t, AmountFromBaseUnits(0, USDollars), USDollarsMicro.Zero())
+}
+
+func TestNegative(t *testing.T) {
+	require.False(t, USDollarsMicro.Zero().IsNegative())
+	require.False(t, USDollars.Zero().IsNegative())
+	require.True(t, AmountFromBaseUnits(-10000, USDollars).IsNegative())
+}

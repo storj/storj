@@ -34,31 +34,36 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 	var dbxTX *dbx.BillingTransaction
 	var retryCount int
 	for {
-		balance, err := db.GetBalance(ctx, billingTX.UserID)
+		oldBalance, err := db.GetBalance(ctx, billingTX.UserID)
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
-		if balance+billingTX.Amount.BaseUnits() < 0 {
+		billingAmount := monetary.AmountFromDecimal(billingTX.Amount.AsDecimal().Truncate(monetary.USDollarsMicro.DecimalPlaces()), monetary.USDollarsMicro)
+		newBalance, err := monetary.Add(oldBalance, billingAmount)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+		if newBalance.IsNegative() {
 			return 0, billing.ErrInsufficientFunds
 		}
 
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			updatedRow, err := tx.Update_BillingBalance_By_UserId_And_Balance(ctx,
 				dbx.BillingBalance_UserId(billingTX.UserID[:]),
-				dbx.BillingBalance_Balance(balance),
+				dbx.BillingBalance_Balance(oldBalance.BaseUnits()),
 				dbx.BillingBalance_Update_Fields{
-					Balance: dbx.BillingBalance_Balance(balance + billingTX.Amount.BaseUnits()),
+					Balance: dbx.BillingBalance_Balance(newBalance.BaseUnits()),
 				})
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			if updatedRow == nil {
 				// Try an insert here, in case the user never had a record in the table.
-				// If the user already had a record, and the balance was not as expected,
+				// If the user already had a record, and the oldBalance was not as expected,
 				// the insert will fail anyways.
 				err = tx.CreateNoReturn_BillingBalance(ctx,
 					dbx.BillingBalance_UserId(billingTX.UserID[:]),
-					dbx.BillingBalance_Balance(balance+billingTX.Amount.BaseUnits()))
+					dbx.BillingBalance_Balance(newBalance.BaseUnits()))
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -66,8 +71,8 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 
 			dbxTX, err = tx.Create_BillingTransaction(ctx,
 				dbx.BillingTransaction_UserId(billingTX.UserID[:]),
-				dbx.BillingTransaction_Amount(billingTX.Amount.BaseUnits()),
-				dbx.BillingTransaction_Currency(monetary.USDollars.Symbol()),
+				dbx.BillingTransaction_Amount(billingAmount.BaseUnits()),
+				dbx.BillingTransaction_Currency(billingAmount.Currency().Symbol()),
 				dbx.BillingTransaction_Description(billingTX.Description),
 				dbx.BillingTransaction_Source(billingTX.Source),
 				dbx.BillingTransaction_Status(string(billingTX.Status)),
@@ -155,18 +160,18 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 	return txs, nil
 }
 
-func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ monetary.Amount, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBilling, err := db.db.Get_BillingBalance_Balance_By_UserId(ctx,
 		dbx.BillingBalance_UserId(userID[:]))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, nil
+			return monetary.USDollarsMicro.Zero(), nil
 		}
-		return 0, Error.Wrap(err)
+		return monetary.USDollarsMicro.Zero(), Error.Wrap(err)
 	}
 
-	return dbxBilling.Balance, nil
+	return monetary.AmountFromBaseUnits(dbxBilling.Balance, monetary.USDollarsMicro), nil
 }
 
 // fromDBXBillingTransaction converts *dbx.BillingTransaction to *billing.Transaction.
@@ -178,7 +183,7 @@ func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (*billing.Transact
 	return &billing.Transaction{
 		ID:          dbxTX.Id,
 		UserID:      userID,
-		Amount:      monetary.AmountFromBaseUnits(dbxTX.Amount, monetary.USDollars),
+		Amount:      monetary.AmountFromBaseUnits(dbxTX.Amount, monetary.USDollarsMicro),
 		Description: dbxTX.Description,
 		Source:      dbxTX.Source,
 		Status:      billing.TransactionStatus(dbxTX.Status),

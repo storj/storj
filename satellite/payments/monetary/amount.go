@@ -37,6 +37,16 @@ func (c *Currency) Symbol() string {
 	return c.symbol
 }
 
+// DecimalPlaces returns the decimal places of the currency.
+func (c *Currency) DecimalPlaces() int32 {
+	return c.decimalPlaces
+}
+
+// Zero returns the zero value of the currency.
+func (c *Currency) Zero() Amount {
+	return AmountFromBaseUnits(0, c)
+}
+
 var (
 	// StorjToken is the currency for the STORJ ERC20 token, which powers
 	// most payments on the current Storj network.
@@ -169,6 +179,11 @@ func (a Amount) MarshalJSON() ([]byte, error) {
 	return json.Marshal(amountJSON)
 }
 
+// IsNegative returns true if the base unit amount is negative.
+func (a Amount) IsNegative() bool {
+	return a.baseUnits < 0
+}
+
 // AmountFromBaseUnits creates a new Amount instance from the given count of
 // base units and in the given currency.
 func AmountFromBaseUnits(units int64, currency *Currency) Amount {
@@ -223,4 +238,26 @@ func DecimalFromBigFloat(f *big.Float) (decimal.Decimal, error) {
 	stringVal := f.Text('e', -1)
 	dec, err := decimal.NewFromString(stringVal)
 	return dec, Error.Wrap(err)
+}
+
+// Add adds two monetary amounts and returns the result. If the currencies are different, an error is thrown.
+func Add(i, j Amount) (Amount, error) {
+	if !sameCurrency(i.currency, j.currency) {
+		return i.currency.Zero(), errs.New("Amounts to add must use the same currency")
+	}
+	return AmountFromBaseUnits(i.baseUnits+j.baseUnits, i.currency), nil
+}
+
+// Greater returns true if the first monetary amount is greater than the second.
+// If the currencies are different, an error is thrown.
+func Greater(i, j Amount) (bool, error) {
+	if !sameCurrency(i.currency, j.currency) {
+		return false, errs.New("Amounts to compare must use the same currency")
+	}
+	return i.baseUnits > j.baseUnits, nil
+}
+
+// returns true if the currencies are the same and not nil.
+func sameCurrency(i, j *Currency) bool {
+	return i != nil && j != nil && i == j
 }
