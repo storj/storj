@@ -2079,6 +2079,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN signup_captcha double precision;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Drop now-unused gob-encoded columns",
+				Version:     211,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions DROP COLUMN amount_gob, DROP COLUMN received_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
