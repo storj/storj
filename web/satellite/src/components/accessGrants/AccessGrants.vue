@@ -36,10 +36,10 @@
                 <div class="access-grants__flows-area__summary">Gives access through native clients such as uplink, libuplink, associate libraries, and bindings. </div>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                        href="https://docs.storj.io/dcs/concepts/access/access-grants"
                         target="_blank"
                         rel="noopener noreferrer"
-                        @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/')"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')"
                     >
                         <VButton
                             label="Learn More"
@@ -102,10 +102,10 @@
                 <br>
                 <div class="access-grants__flows-area__button-container">
                     <a
-                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/"
+                        href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token"
                         target="_blank"
                         rel="noopener noreferrer"
-                        @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/')"
+                        @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token')"
                     >
                         <VButton
                             label="Learn More"

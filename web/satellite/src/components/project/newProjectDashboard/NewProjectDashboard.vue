@@ -105,7 +105,7 @@
                                     The bandwidth allocated takes few hours to be settled.
                                     <a
                                         class="project-dashboard__charts__container__header__right__info__message__link"
-                                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#bandwidth-fee"
+                                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment#AeHIc"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                     >
@@ -165,7 +165,7 @@
                 <template #side-value>
                     <a
                         class="project-dashboard__info__link"
-                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing#segments"
+                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing#ipdML"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
