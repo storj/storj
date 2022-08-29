@@ -92,7 +92,7 @@
                         @mouseover="toggleTooltipHover('api','over')"
                         @mouseleave="toggleTooltipHover('api','leave')"
                     >
-                        <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token/" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                        <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token" target="_blank" rel="noreferrer noopener">Learn More</a></span>
                     </div>
                 </div>
             </div>
@@ -178,7 +178,7 @@
                     </div> -->
         </div>
         <div class="access-grant__modal-container__footer-container">
-            <a href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/" target="_blank" rel="noopener noreferrer">
+            <a href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer">
                 <v-button
                     label="Learn More"
                     width="150px"
