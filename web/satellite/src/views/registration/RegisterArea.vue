@@ -860,6 +860,12 @@ export default class RegisterArea extends Vue {
                             color: inherit !important;
                         }
                     }
+
+                    ::v-deep ol {
+                        @extend %subtitle-text;
+
+                        list-style-position: inside;
+                    }
                 }
             }
         }
@@ -901,6 +907,12 @@ export default class RegisterArea extends Vue {
                             text-decoration: underline !important;
                             color: inherit !important;
                         }
+                    }
+
+                    ::v-deep ol {
+                        @extend %subtitle-text;
+
+                        list-style-position: inside;
                     }
                 }
 
