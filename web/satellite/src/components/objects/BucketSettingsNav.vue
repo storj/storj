@@ -13,6 +13,10 @@
                 <details-icon class="bucket-settings-nav__dropdown__item__icon" />
                 <p class="bucket-settings-nav__dropdown__item__label">View Bucket Details</p>
             </div>
+            <div v-if="filesCount" class="bucket-settings-nav__dropdown__item" @click.stop="onShareBucketClick">
+                <share-icon class="bucket-settings-nav__dropdown__item__icon" />
+                <p class="bucket-settings-nav__dropdown__item__label">Share bucket</p>
+            </div>
         </div>
     </div>
 </template>
@@ -20,10 +24,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from "@/router";
+import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
 import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
+import ShareIcon from '@/../static/images/objects/share.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
-import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
@@ -31,6 +38,7 @@ import { RouteConfig } from "@/router";
         ArrowDownIcon,
         GearIcon,
         DetailsIcon,
+        ShareIcon,
     },
 })
 export default class BucketSettingsNav extends Vue {
@@ -57,6 +65,21 @@ export default class BucketSettingsNav extends Vue {
             },
         });
         this.isDropdownOpen = false;
+    }
+
+    /**
+     * Toggles share bucket modal.
+     */
+    public onShareBucketClick(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN);
+        this.isDropdownOpen = false;
+    }
+
+    /**
+     * Returns files amount from store.
+     */
+    public get filesCount(): number {
+        return this.$store.getters["files/sortedFiles"].length;
     }
 }
 </script>

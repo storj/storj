@@ -14,6 +14,7 @@
         <ChangePasswordModal v-if="isChangePasswordModal" />
         <AddTeamMemberModal v-if="isAddTeamMembersModal" />
         <AddTokenFundsModal v-if="isAddTokenFundsModal" />
+        <ShareBucketModal v-if="isShareBucketModal" />
     </div>
 </template>
 
@@ -31,6 +32,7 @@ import EditProfileModal from "@/components/modals/EditProfileModal.vue";
 import ChangePasswordModal from "@/components/modals/ChangePasswordModal.vue";
 import AddTeamMemberModal from "@/components/modals/AddTeamMemberModal.vue";
 import AddTokenFundsModal from "@/components/modals/AddTokenFundsModal.vue";
+import ShareBucketModal from "@/components/modals/ShareBucketModal.vue";
 
 // @vue/component
 @Component({
@@ -46,9 +48,11 @@ import AddTokenFundsModal from "@/components/modals/AddTokenFundsModal.vue";
         ChangePasswordModal,
         AddTeamMemberModal,
         AddTokenFundsModal,
+        ShareBucketModal,
     },
 })
 export default class AllModals extends Vue {
+    // TODO: add active modal indicator.
     /**
      * Indicates if create project prompt modal is shown.
      */
@@ -124,6 +128,13 @@ export default class AllModals extends Vue {
      */
     public get isAddTokenFundsModal(): boolean {
         return this.$store.state.appStateModule.appState.isAddTokenFundsModalShown;
+    }
+
+    /**
+     * Indicates if share bucket modal is shown.
+     */
+    public get isShareBucketModal(): boolean {
+        return this.$store.state.appStateModule.appState.isShareBucketModalShown;
     }
 }
 </script>
