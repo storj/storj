@@ -20,7 +20,7 @@
                     Access Grant
                 </span>
                 <a
-                    href="https://docs.storj.io/dcs/concepts/access/access-grants/"
+                    href="https://docs.storj.io/dcs/concepts/access/access-grants"
                     target="_blank"
                 >
                     <img
@@ -96,7 +96,7 @@
                     class="clickable-image"
                     src="../../../../static/images/accessGrants/create-access_copy-icon.png"
                     target="_blank"
-                    href="https://docs.storj.io/dcs/concepts/satellite/"
+                    href="https://docs.storj.io/dcs/concepts/satellite"
                     @click="onCopyClick(gatewayCredentials.endpoint)"
                 >
             </div>
@@ -107,7 +107,7 @@
                     Satellite Address
                 </span>
                 <a
-                    href="https://docs.storj.io/dcs/concepts/satellite/"
+                    href="https://docs.storj.io/dcs/concepts/satellite"
                     target="_blank"
                 >
                     <img
@@ -135,7 +135,7 @@
                     API Key
                 </span>
                 <a
-                    href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key/"
+                    href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key"
                     target="_blank"
                 >
                     <img
@@ -162,7 +162,7 @@
         <div v-if="checkedType === 's3'" class="access-grant__modal-container__credential-buttons__container-s3">
             <a
                 v-if="checkedType === 's3'"
-                href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/"
+                href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -284,7 +284,7 @@ export default class GrantCreatedModal extends Vue {
      * Opens S3 documentation in a new tab
      */
     public learnMore(): void{
-        window.open("https://docs.storj.io/dcs/api-reference/s3-compatible-gateway/", '_blank');
+        window.open("https://docs.storj.io/dcs/api-reference/s3-compatible-gateway", '_blank');
     }
 }
 </script>
