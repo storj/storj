@@ -125,8 +125,6 @@ func TestExpiredDeletionForCopiedObject(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		gcService := satellite.GarbageCollection.Service
-		gcService.Loop.Pause()
 		upl := planet.Uplinks[0]
 		expiredChore := satellite.Core.ExpiredDeletion.Chore
 

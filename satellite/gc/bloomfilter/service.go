@@ -35,7 +35,7 @@ type Config struct {
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
-	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:""` // TODO do we need full location?
+	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:"" testDefault:"gc-queue"` // TODO do we need full location?
 	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"500" testDefault:"2"`
 	ExpireIn     time.Duration `help:"how quickly uploaded bloom filters will be automatically deleted" default:"336h"`
 }
@@ -116,6 +116,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	return nil
 }
 
+// uploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
 func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

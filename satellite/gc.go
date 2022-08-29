@@ -23,7 +23,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
@@ -61,7 +61,7 @@ type GarbageCollection struct {
 	}
 
 	GarbageCollection struct {
-		Service *gc.Service
+		Sender *sender.Service
 	}
 }
 
@@ -146,19 +146,19 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup garbage collection
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage-collection"),
+		peer.GarbageCollection.Sender = sender.NewService(
+			peer.Log.Named("gc-sender"),
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
-			peer.Metainfo.SegmentLoop,
 		)
+
 		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection",
-			Run:  peer.GarbageCollection.Service.Run,
+			Name: "gc-sender",
+			Run:  peer.GarbageCollection.Sender.Run,
 		})
 		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
+			debug.Cycle("Garbage Collection", peer.GarbageCollection.Sender.Loop))
 	}
 
 	return peer, nil

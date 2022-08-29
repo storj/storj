@@ -403,20 +403,23 @@ contact.external-address: ""
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
 
-# the number of nodes to concurrently send garbage collection bloom filters to
+# Access to download the bloom filters. Needs read and write permission.
+# garbage-collection.access-grant: ""
+
+# bucket where retain info is stored
+# garbage-collection.bucket: ""
+
+# the number of nodes to concurrently send garbage collection retain filters to
 # garbage-collection.concurrent-sends: 1
 
-# set if garbage collection is enabled or not
-# garbage-collection.enabled: true
+# set if loop to send garbage collection retain filters is enabled
+# garbage-collection.enabled: false
 
-# the false positive rate used for creating a garbage collection bloom filter
-# garbage-collection.false-positive-rate: 0.1
+# Expiration of newly created objects. These objects store error messages.
+# garbage-collection.expire-in: 336h0m0s
 
-# the initial number of pieces expected for a storage node to have, used for creating a filter
-# garbage-collection.initial-pieces: 400000
-
-# the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 120h0m0s
+# the time between each attempt to download and send garbage collection retain filters to storage nodes
+# garbage-collection.interval: 48h0m0s
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s

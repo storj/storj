@@ -440,3 +440,8 @@ func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID s
 	defer mon.Task()(&ctx, satelliteID)(&err)
 	return s.store.Trash(ctx, satelliteID, pieceID)
 }
+
+// HowManyQueued peeks at the number of bloom filters queued.
+func (s *Service) HowManyQueued() int {
+	return len(s.queued)
+}

@@ -40,8 +40,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
@@ -136,7 +136,7 @@ type Satellite struct {
 	}
 
 	GarbageCollection struct {
-		Service      *gc.Service
+		Sender       *sender.Service
 		BloomFilters *bloomfilter.Service
 	}
 
@@ -599,7 +599,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.Verifier = peer.Audit.Verifier
 	system.Audit.Reporter = peer.Audit.Reporter
 
-	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
+	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
 	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
