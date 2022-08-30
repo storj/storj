@@ -379,8 +379,17 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
+# Access Grant which will be used to upload bloom filters to the bucket
+# garbage-collection-bf.access-grant: ""
+
+# Bucket which will be used to upload bloom filters
+# garbage-collection-bf.bucket: ""
+
 # set if garbage collection bloom filters is enabled or not
 # garbage-collection-bf.enabled: true
+
+# how quickly uploaded bloom filters will be automatically deleted
+# garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
 # garbage-collection-bf.false-positive-rate: 0.1
@@ -390,6 +399,9 @@ contact.external-address: ""
 
 # the time between each garbage collection executions
 # garbage-collection-bf.interval: 120h0m0s
+
+# how many bloom filters will be packed in a single zip
+# garbage-collection-bf.zip-batch-size: 500
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
