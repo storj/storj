@@ -14,7 +14,7 @@
                 />
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader />
+                <SortingHeader class="buckets-container__header" />
                 <VList
                     class="buckets-list"
                     :data-set="buckets"
@@ -197,8 +197,8 @@ export default class BucketArea extends Vue {
 
     .buckets-container {
         background-color: #fff;
-        border-radius: 6px;
-        padding-bottom: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
     }
 
     .empty-search-result-area {
@@ -207,7 +207,7 @@ export default class BucketArea extends Vue {
         justify-content: center;
         padding: 20px 0;
         background-color: #fff;
-        border-radius: 6px;
+        border-radius: 10px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -217,10 +217,26 @@ export default class BucketArea extends Vue {
     }
 
     .buckets-list {
-        padding-top: 20px;
+        padding: 20px 0;
+        border-radius: 10px;
     }
 
     :deep(.pagination-container) {
         padding-left: 0;
+    }
+
+    @media screen and (max-width: 960px) {
+
+        .buckets-container__header {
+            display: none;
+        }
+
+        .buckets-list {
+            padding: 0;
+
+            & > :deep(*:not(:first-child)) {
+                border-top: 1px solid #c7cdd2;
+            }
+        }
     }
 </style>

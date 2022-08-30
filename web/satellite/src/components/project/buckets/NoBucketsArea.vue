@@ -76,7 +76,8 @@ export default class NoBucketArea extends Vue {
             font-size: 18px;
             line-height: 26px;
             color: #354049;
-            margin: 15px 0 30px;
+            margin: 15px 15px 30px;
+            text-align: center;
         }
 
         &__second-button {
