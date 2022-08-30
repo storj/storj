@@ -1,0 +1,86 @@
+pipeline {
+    agent {
+        docker {
+            label 'main'
+            image 'storjlabs/ci:latest'
+            alwaysPull true
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+        }
+    }
+    options {
+        timeout(time: 4, unit: 'HOURS')
+        skipDefaultCheckout(true)
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
+        COCKROACH_MEMPROF_INTERVAL=0
+    }
+    stages {
+        stage('Build Web') {
+                    // The build code depends on the following assets being loaded.
+                    parallel {
+                        stage('web/satellite') {
+                            steps {
+                                sh './web/satellite/build.sh'
+                            }
+                        }
+
+                        stage('wasm') {
+                            steps {
+                                sh './scripts/test-wasm.sh'
+                            }
+                        }
+
+                        stage('web/storagenode') {
+                            steps {
+                                sh './web/storagenode/build.sh'
+                            }
+                        }
+
+                        stage('web/multinode') {
+                            steps {
+                                sh './web/multinode/build.sh'
+                            }
+                        }
+
+                        stage('satellite/admin/ui') {
+                            steps {
+                                sh './satellite/admin/ui/build.sh'
+                            }
+                        }
+                    }
+         }
+        stage('UI') {
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
+                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                STORJ_TEST_SATELLITE_WEB = "${pwd()}/web/satellite"
+                STORJ_TEST_EDGE_HOST = '127.0.0.10'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database testui;\''
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    sh 'cd testsuite/ui && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../../.build/ui-tests.json | xunit -out ../../.build/ui-tests.xml'
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/ui-tests.json'
+                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                    junit '.build/ui-tests.xml'
+                }
+            }
+        }
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
+                    }
+                }
+            }
+        }
+    }
+}
