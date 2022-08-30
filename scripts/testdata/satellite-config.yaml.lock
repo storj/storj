@@ -379,6 +379,18 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
+# set if garbage collection bloom filters is enabled or not
+# garbage-collection-bf.enabled: true
+
+# the false positive rate used for creating a garbage collection bloom filter
+# garbage-collection-bf.false-positive-rate: 0.1
+
+# the initial number of pieces expected for a storage node to have, used for creating a filter
+# garbage-collection-bf.initial-pieces: 400000
+
+# the time between each garbage collection executions
+# garbage-collection-bf.interval: 120h0m0s
+
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
 

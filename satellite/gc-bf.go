@@ -21,6 +21,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
@@ -56,7 +57,7 @@ type GarbageCollectionBF struct {
 	}
 
 	GarbageCollection struct {
-		// TODO add service when will be ready
+		Service *bloomfilter.Service
 	}
 }
 
@@ -125,7 +126,20 @@ func NewGarbageCollectionBF(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	// TODO setup garbage collection bloom filters
+	{ // setup garbage collection bloom filters
+		peer.GarbageCollection.Service = bloomfilter.NewService(
+			peer.Log.Named("garbage-collection-bf"),
+			config.GarbageCollectionBF,
+			peer.Overlay.DB,
+			peer.Metainfo.SegmentLoop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "garbage-collection-bf",
+			Run:  peer.GarbageCollection.Service.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
+	}
 
 	return peer, nil
 }
