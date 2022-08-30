@@ -37,6 +37,11 @@ pipeline {
                 sh 'check-large-files'
             }
         }
+        stage('db') {
+            steps {
+                sh 'service postgresql start'
+            }
+        }
         stage('Build Web') {
                     // The build code depends on the following assets being loaded.
                     parallel {
