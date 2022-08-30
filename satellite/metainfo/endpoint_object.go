@@ -98,13 +98,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, err
 		}
 	} else {
-		_, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+		_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 			},
-			Version: metabase.DefaultVersion,
 		})
 		if err == nil {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
@@ -284,13 +283,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	mbObject, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	mbObject, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -381,21 +379,18 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	// get the object information
-
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the range segments
-
 	streamRange, err := calculateStreamRange(object, req.Range)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1005,13 +1000,12 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	}
 
 	// TODO we may need custom metabase request to avoid two DB calls
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)

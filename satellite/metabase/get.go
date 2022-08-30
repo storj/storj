@@ -468,9 +468,8 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	object, err := db.GetObjectExactVersion(ctx, GetObjectExactVersion{
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
 		ObjectLocation: objectLocation,
-		Version:        DefaultVersion,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
