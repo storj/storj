@@ -19,7 +19,6 @@ import (
 	"github.com/go-rod/rod/lib/utils"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
@@ -31,24 +30,22 @@ func init() { defaults.LockPort = 0 }
 
 // Browser starts a browser for testing using environment variables for configuration.
 func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, fn func(*rod.Browser)) {
-	showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
-	slowBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") == "slow"
 
 	logLauncher := planet.Log().Named("launcher")
 
-	browserLoaded := browserTimeoutDetector(10 * time.Second)
+	/* browserLoaded := browserTimeoutDetector(25 * time.Second)
 	defer browserLoaded()
+	*/
 
 	launch := launcher.New().
-		Headless(!showBrowser).
+		Headless(true).
 		Leakless(true).
 		Devtools(false).
 		NoSandbox(true).
 		UserDataDir(ctx.Dir("browser")).
-		Logger(zapWriter{Logger: logLauncher}).
-		Set("disable-web-security") // TODO: ensure we have proper CORS for testing.
+		Logger(zapWriter{Logger: logLauncher})
 
-	if browserHost := os.Getenv("STORJ_TEST_BROWER_HOSTPORT"); browserHost != "" {
+	if browserHost := os.Getenv("STORJ_TEST_BROWSER_HOSTPORT"); browserHost != "" {
 		host, port, err := net.SplitHostPort(browserHost)
 		require.NoError(t, err)
 		launch = launch.Set("remote-debugging-address", host).Set(flags.RemoteDebuggingPort, port)
@@ -58,10 +55,10 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 		launch = launch.Bin(browserBin)
 	}
 
-	defer func() {
+	/* defer func() {
 		launch.Kill()
 		avoidStall(3*time.Second, launch.Cleanup)
-	}()
+	}() */
 
 	url, err := launch.Launch()
 	require.NoError(t, err)
@@ -75,7 +72,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 
 	browser := rod.New().
 		Timeout(time.Minute).
-		Sleeper(MaxDuration(5 * time.Second)).
+		Sleeper(MaxDuration(10 * time.Second)).
 		Client(client).
 		Logger(utils.Log(func(msg ...interface{}) {
 			logBrowser.Info(fmt.Sprintln(msg...))
@@ -83,35 +80,20 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 		Context(ctx).
 		WithPanic(func(v interface{}) { require.Fail(t, "check failed", v) })
 
-	if slowBrowser {
+	if slowBrowser == "slow" {
 		browser = browser.SlowMotion(100 * time.Millisecond).Trace(true)
 	}
 
-	defer ctx.Check(func() error {
+	/* defer ctx.Check(func() error {
 		// browser.Close may sometimes return context.Canceled.
 		return errs2.IgnoreCanceled(browser.Close())
 	})
-
+	*/
 	require.NoError(t, browser.Connect())
 
-	browserLoaded()
+	// browserLoaded()
 
 	fn(browser)
-}
-
-func browserTimeoutDetector(duration time.Duration) context.CancelFunc {
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		t := time.NewTimer(duration)
-		defer t.Stop()
-		select {
-		case <-t.C:
-			panic("timeout for starting browser exceeded")
-		case <-ctx.Done():
-			return
-		}
-	}()
-	return cancel
 }
 
 // MaxDuration returns a sleeper constructor with the max duration.
@@ -147,20 +129,4 @@ type errMaxSleepDuration time.Duration
 // Error implements error interface.
 func (e errMaxSleepDuration) Error() string {
 	return fmt.Sprintf("max sleep %v exceeded", time.Duration(e))
-}
-
-func avoidStall(maxDuration time.Duration, fn func()) {
-	done := make(chan struct{})
-	go func() {
-		fn()
-		close(done)
-	}()
-
-	timeout := time.NewTicker(maxDuration)
-	defer timeout.Stop()
-	select {
-	case <-done:
-	case <-timeout.C:
-		fmt.Printf("go-rod did not shutdown within %v\n", maxDuration)
-	}
 }
