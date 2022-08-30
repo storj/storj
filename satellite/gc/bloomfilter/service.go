@@ -21,7 +21,8 @@ var mon = monkit.Package()
 // Config contains configurable values for garbage collection.
 type Config struct {
 	Interval time.Duration `help:"the time between each garbage collection executions" releaseDefault:"120h" devDefault:"10m" testDefault:"$TESTINTERVAL"`
-	Enabled  bool          `help:"set if garbage collection bloom filters is enabled or not" releaseDefault:"true" devDefault:"true"`
+	// TODO service is not enabled by default for testing until will be finished
+	Enabled bool `help:"set if garbage collection bloom filters is enabled or not" default:"true" testDefault:"false"`
 
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`

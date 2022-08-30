@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
@@ -70,6 +71,7 @@ type Satellite struct {
 	Repairer *satellite.Repairer
 	Admin    *satellite.Admin
 	GC       *satellite.GarbageCollection
+	GCBF     *satellite.GarbageCollectionBF
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -134,7 +136,8 @@ type Satellite struct {
 	}
 
 	GarbageCollection struct {
-		Service *gc.Service
+		Service      *gc.Service
+		BloomFilters *bloomfilter.Service
 	}
 
 	ExpiredDeletion struct {
@@ -283,6 +286,7 @@ func (system *Satellite) Close() error {
 		system.Repairer.Close(),
 		system.Admin.Close(),
 		system.GC.Close(),
+		system.GCBF.Close(),
 	)
 }
 
@@ -304,6 +308,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.GC.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.GCBF.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -527,18 +534,23 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	gcBFPeer, err := planet.newGarbageCollectionBF(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.EmailReminders.Enable {
 		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer, gcBFPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF) *Satellite {
 	system := &Satellite{
 		Name:     name,
 		Config:   config,
@@ -547,6 +559,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 		Repairer: repairerPeer,
 		Admin:    adminPeer,
 		GC:       gcPeer,
+		GCBF:     gcBFPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -587,6 +600,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.Reporter = peer.Audit.Reporter
 
 	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
+	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
 	system.ZombieDeletion.Chore = peer.ZombieDeletion.Chore
@@ -681,6 +695,20 @@ func (planet *Planet) newGarbageCollection(ctx context.Context, index int, ident
 	}
 	planet.databases = append(planet.databases, revocationDB)
 	return satellite.NewGarbageCollection(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
+}
+
+func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.GarbageCollectionBF, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-gc-bf" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+	return satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.
