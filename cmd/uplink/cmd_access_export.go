@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -26,7 +28,7 @@ func (c *cmdAccessExport) Setup(params clingy.Parameters) {
 	c.filename = params.Arg("filename", "Name of the file to save to").(string)
 }
 
-func (c *cmdAccessExport) Execute(ctx clingy.Context) error {
+func (c *cmdAccessExport) Execute(ctx context.Context) error {
 	if c.filename == "" {
 		return errs.New("Must specify a filename to write to.")
 	}

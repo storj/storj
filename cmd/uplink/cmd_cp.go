@@ -107,7 +107,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 	c.dest = params.Arg("dest", "Destination to copy, use - for standard output", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
-func (c *cmdCp) Execute(ctx clingy.Context) error {
+func (c *cmdCp) Execute(ctx context.Context) error {
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.ConnectionPoolOptions(rpcpool.Options{
 		Capacity:       100 * c.parallelism,
 		KeyCapacity:    5,
@@ -150,13 +150,13 @@ func (c *cmdCp) Execute(ctx clingy.Context) error {
 	c.dest = joinDestWith(c.dest, base)
 
 	if !c.source.Std() && !c.dest.Std() {
-		fmt.Fprintln(ctx.Stdout(), copyVerb(c.source, c.dest), c.source, "to", c.dest)
+		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(c.source, c.dest), c.source, "to", c.dest)
 	}
 
 	return c.copyFile(ctx, fs, c.source, c.dest, c.progress)
 }
 
-func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
+func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem) error {
 	if c.source.Std() || c.dest.Std() {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
@@ -201,10 +201,10 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 		dest := joinDestWith(c.dest, rel)
 
 		ok := limiter.Go(ctx, func() {
-			fprintln(ctx.Stdout(), copyVerb(source, dest), source, "to", dest)
+			fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 
 			if err := c.copyFile(ctx, fs, source, dest, false); err != nil {
-				fprintln(ctx.Stderr(), copyVerb(source, dest), "failed:", err.Error())
+				fprintln(clingy.Stdout(ctx), copyVerb(source, dest), "failed:", err.Error())
 				addError(err)
 			}
 		})
@@ -223,7 +223,7 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	return nil
 }
 
-func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
+func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
 	if c.dryrun {
 		return nil
 	}
@@ -254,7 +254,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 
 	var bar *progressbar.ProgressBar
 	if progress && !c.dest.Std() {
-		bar = progressbar.New64(0).SetWriter(ctx.Stdout())
+		bar = progressbar.New64(0).SetWriter(clingy.Stdout(ctx))
 		defer bar.Finish()
 	}
 
@@ -313,7 +313,7 @@ func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
 }
 
 func (c *cmdCp) parallelCopy(
-	clctx clingy.Context,
+	clctx context.Context,
 	dst ulfs.MultiWriteHandle,
 	src ulfs.MultiReadHandle,
 	p int, chunkSize int64,

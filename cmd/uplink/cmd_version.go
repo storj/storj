@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -32,15 +33,15 @@ func (c *cmdVersion) Setup(params clingy.Parameters) {
 	).(bool)
 }
 
-func (c *cmdVersion) Execute(ctx clingy.Context) error {
+func (c *cmdVersion) Execute(ctx context.Context) error {
 	if version.Build.Release {
-		fmt.Fprintln(ctx, "Release build")
+		fmt.Fprintln(clingy.Stdout(ctx), "Release build")
 	} else {
-		fmt.Fprintln(ctx, "Development build")
+		fmt.Fprintln(clingy.Stdout(ctx), "Development build")
 	}
 
 	{
-		tw := newTabbedWriter(ctx.Stdout())
+		tw := newTabbedWriter(clingy.Stdout(ctx))
 		if !version.Build.Version.IsZero() {
 			tw.WriteLine("Version:", version.Build.Version.String())
 		}
@@ -53,14 +54,14 @@ func (c *cmdVersion) Execute(ctx clingy.Context) error {
 		tw.Done()
 	}
 
-	fmt.Fprintln(ctx)
+	fmt.Fprintln(clingy.Stdout(ctx))
 
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		return errs.New("unable to read build info")
 	}
 
-	tw := newTabbedWriter(ctx.Stdout(), "PATH", "VERSION")
+	tw := newTabbedWriter(clingy.Stdout(ctx), "PATH", "VERSION")
 	defer tw.Done()
 
 	tw.WriteLine(bi.Main.Path, bi.Main.Version)

@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -29,7 +31,7 @@ func (c *cmdAccessImport) Setup(params clingy.Parameters) {
 	c.access = params.Arg("access|filename", "Serialized access value or file path to save").(string)
 }
 
-func (c *cmdAccessImport) Execute(ctx clingy.Context) (err error) {
+func (c *cmdAccessImport) Execute(ctx context.Context) (err error) {
 	if c.name == "" {
 		return errs.New("Must specify a name to import the access as.")
 	}

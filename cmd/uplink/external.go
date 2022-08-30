@@ -136,7 +136,7 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 }
 
 // Wrap is called by clingy with the command to be executed.
-func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
+func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	if err := ex.migrate(); err != nil {
 		return err
 	}
@@ -148,8 +148,6 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
 			return err
 		}
 	}
-
-	ctxWrapped := ctx
 
 	if ex.tracing.traceAddress != "" {
 		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
@@ -174,41 +172,23 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
 		trace := monkit.NewTrace(ex.tracing.traceID)
 		trace.Set(rpctracing.Sampled, true)
 
-		var baseContext context.Context = ctx
-		defer mon.Func().RemoteTrace(&baseContext, monkit.NewId(), trace)(&err)
-
-		ctxWrapped = &clingyWrapper{
-			Context: baseContext,
-			clx:     ctx,
-		}
+		defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
 	}
 
-	return cmd.Execute(ctxWrapped)
+	return cmd.Execute(ctx)
 }
-
-// clingyWrapper lets one swap out the context.Context in a clingy.Context.
-type clingyWrapper struct {
-	context.Context
-	clx clingy.Context
-}
-
-func (cw *clingyWrapper) Read(p []byte) (int, error)  { return cw.clx.Read(p) }
-func (cw *clingyWrapper) Write(p []byte) (int, error) { return cw.clx.Write(p) }
-func (cw *clingyWrapper) Stdin() io.Reader            { return cw.clx.Stdin() }
-func (cw *clingyWrapper) Stdout() io.Writer           { return cw.clx.Stdout() }
-func (cw *clingyWrapper) Stderr() io.Writer           { return cw.clx.Stderr() }
 
 // PromptInput gets a line of input text from the user and returns an error if
 // interactive mode is disabled.
-func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
+func (ex *external) PromptInput(ctx context.Context, prompt string) (input string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required user input in non-interactive setting")
 	}
-	fmt.Fprint(ctx.Stdout(), prompt, " ")
+	fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 	var buf []byte
 	var tmp [1]byte
 	for {
-		_, err := ctx.Stdin().Read(tmp[:])
+		_, err := clingy.Stdin(ctx).Read(tmp[:])
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -224,37 +204,37 @@ func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string
 // PromptInput gets a line of secret input from the user twice to ensure that
 // it is the same value, and returns an error if interactive mode is disabled
 // or if the prompt cannot be put into a mode where the typing is not echoed.
-func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
+func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required secret input in non-interactive setting")
 	}
 
-	fh, ok := ctx.Stdin().(interface{ Fd() uintptr })
+	fh, ok := clingy.Stdin(ctx).(interface{ Fd() uintptr })
 	if !ok {
 		return "", errs.New("unable to request secret from stdin")
 	}
 	fd := int(fh.Fd())
 
 	for {
-		fmt.Fprint(ctx.Stdout(), prompt, " ")
+		fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 
 		first, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
-		fmt.Fprint(ctx.Stdout(), "Again: ")
+		fmt.Fprint(clingy.Stdout(ctx), "Again: ")
 
 		second, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
 		if string(first) != string(second) {
-			fmt.Fprintln(ctx.Stdout(), "Values did not match. Try again.")
-			fmt.Fprintln(ctx.Stdout())
+			fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
+			fmt.Fprintln(clingy.Stdout(ctx))
 			continue
 		}
 

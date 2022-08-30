@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"strconv"
 	"time"
@@ -63,14 +64,14 @@ func (c *cmdLs) Setup(params clingy.Parameters) {
 	).(*ulloc.Location)
 }
 
-func (c *cmdLs) Execute(ctx clingy.Context) error {
+func (c *cmdLs) Execute(ctx context.Context) error {
 	if c.prefix == nil {
 		return c.listBuckets(ctx)
 	}
 	return c.listLocation(ctx, *c.prefix)
 }
 
-func (c *cmdLs) listBuckets(ctx clingy.Context) error {
+func (c *cmdLs) listBuckets(ctx context.Context) error {
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
@@ -89,7 +90,7 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 	}
 }
 
-func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
+func (c *cmdLs) listLocation(ctx context.Context, prefix ulloc.Location) error {
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -120,8 +121,8 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	}
 }
 
-func (c *cmdLs) printTabbedBucket(ctx clingy.Context, iter *uplink.BucketIterator) (err error) {
-	tw := newTabbedWriter(ctx.Stdout(), "CREATED", "NAME")
+func (c *cmdLs) printTabbedBucket(ctx context.Context, iter *uplink.BucketIterator) (err error) {
+	tw := newTabbedWriter(clingy.Stdout(ctx), "CREATED", "NAME")
 	defer tw.Done()
 
 	for iter.Next() {
@@ -131,8 +132,8 @@ func (c *cmdLs) printTabbedBucket(ctx clingy.Context, iter *uplink.BucketIterato
 	return iter.Err()
 }
 
-func (c *cmdLs) printJSONBucket(ctx clingy.Context, iter *uplink.BucketIterator) (err error) {
-	jw := json.NewEncoder(ctx.Stdout())
+func (c *cmdLs) printJSONBucket(ctx context.Context, iter *uplink.BucketIterator) (err error) {
+	jw := json.NewEncoder(clingy.Stdout(ctx))
 
 	for iter.Next() {
 		obj := iter.Item()
@@ -145,13 +146,13 @@ func (c *cmdLs) printJSONBucket(ctx clingy.Context, iter *uplink.BucketIterator)
 	return iter.Err()
 }
 
-func (c *cmdLs) printTabbedLocation(ctx clingy.Context, iter ulfs.ObjectIterator) (err error) {
+func (c *cmdLs) printTabbedLocation(ctx context.Context, iter ulfs.ObjectIterator) (err error) {
 	headers := []string{"KIND", "CREATED", "SIZE", "KEY"}
 	if c.expanded {
 		headers = append(headers, "EXPIRES", "META")
 	}
 
-	tw := newTabbedWriter(ctx.Stdout(), headers...)
+	tw := newTabbedWriter(clingy.Stdout(ctx), headers...)
 	defer tw.Done()
 
 	// iterate and print the results
@@ -176,8 +177,8 @@ func (c *cmdLs) printTabbedLocation(ctx clingy.Context, iter ulfs.ObjectIterator
 	return iter.Err()
 }
 
-func (c *cmdLs) printJSONLocation(ctx clingy.Context, iter ulfs.ObjectIterator) (err error) {
-	jw := json.NewEncoder(ctx.Stdout())
+func (c *cmdLs) printJSONLocation(ctx context.Context, iter ulfs.ObjectIterator) (err error) {
+	jw := json.NewEncoder(clingy.Stdout(ctx))
 
 	for iter.Next() {
 		obj := iter.Item()
