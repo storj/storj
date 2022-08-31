@@ -122,7 +122,7 @@ export default class UploadFile extends Vue {
         const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
 
         try {
-            const credentials: EdgeCredentials = await this.generateCredentials(cleanAPIKey.secret, path, true);
+            const credentials: EdgeCredentials = await this.generateShareCredentials(cleanAPIKey.secret, path, true);
 
             path = encodeURIComponent(path.trim());
 
@@ -211,9 +211,9 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Generates gateway credentials.
+     * Generates share gateway credentials.
      */
-    private async generateCredentials(cleanApiKey: string, path: string, isPublic: boolean): Promise<EdgeCredentials> {
+    private async generateShareCredentials(cleanApiKey: string, path: string, isPublic: boolean): Promise<EdgeCredentials> {
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
         this.worker.postMessage({
@@ -235,9 +235,9 @@ export default class UploadFile extends Vue {
         this.worker.postMessage({
             'type': 'RestrictGrant',
             'isDownload': true,
-            'isUpload': true,
+            'isUpload': false,
             'isList': true,
-            'isDelete': true,
+            'isDelete': false,
             'paths': [path],
             'grant': grantData.value,
         });
