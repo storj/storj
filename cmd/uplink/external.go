@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
@@ -54,8 +53,10 @@ type external struct {
 	}
 
 	tracing struct {
-		traceID      int64  // if non-zero, sets outgoing traces to the given id
-		traceAddress string // if non-zero, sampled spans are sent to this trace collector address.
+		traceID      int64   // if non-zero, sets outgoing traces to the given id
+		traceAddress string  // if non-zero, sampled spans are sent to this trace collector address.
+		sample       float64 // the chance (number between 0 and 1.0) to send samples to the server.
+		verbose      bool    // flag to print out tracing information (like the used trace id)
 	}
 }
 
@@ -88,10 +89,23 @@ func (ex *external) Setup(f clingy.Flags) {
 	).(string)
 
 	ex.tracing.traceID = f.Flag(
-		"trace-id", "Specify a trace id to send a trace to somewhere", int64(0),
+		"trace-id", "Specify a trace id manually. This should be globally unique. "+
+			"Usually you don't need to set it, and it will be automatically generated.", int64(0),
 		clingy.Transform(transformInt64),
 		clingy.Advanced,
 	).(int64)
+
+	ex.tracing.sample = f.Flag(
+		"trace-sample", "The chance (between 0 and 1.0) to report tracing information. Set to 1 to always send it.", float64(0),
+		clingy.Transform(transformFloat64),
+		clingy.Advanced,
+	).(float64)
+
+	ex.tracing.verbose = f.Flag(
+		"trace-verbose", "Flag to print out used trace ID", false,
+		clingy.Transform(strconv.ParseBool),
+		clingy.Advanced,
+	).(bool)
 
 	ex.tracing.traceAddress = f.Flag(
 		"trace-addr", "Specify where to send traces", "agent.tracing.datasci.storj.io:5775",
@@ -103,6 +117,10 @@ func (ex *external) Setup(f clingy.Flags) {
 
 func transformInt64(x string) (int64, error) {
 	return strconv.ParseInt(x, 0, 64)
+}
+
+func transformFloat64(x string) (float64, error) {
+	return strconv.ParseFloat(x, 64)
 }
 
 func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
@@ -149,32 +167,48 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		}
 	}
 
-	if ex.tracing.traceAddress != "" {
+	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
 		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
 		if !version.Build.Release {
-			versionName = fmt.Sprintf("uplink-dev-%s", version.Build.Timestamp.Format(time.RFC3339))
+			versionName = "uplink-dev"
 		}
 		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
 		if err != nil {
 			return err
 		}
-		go collector.Run(context.Background())
+
+		collectorCtx, cancelCollector := context.WithCancel(ctx)
+		go collector.Run(collectorCtx)
+
 		defer func() {
-			sendErr := collector.Send(context.Background())
-			closeErr := collector.Close()
-			err = errs.Combine(err, sendErr, closeErr)
+			// this will drain remaining messages
+			cancelCollector()
+			_ = collector.Close()
 		}()
-		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: 0})
+
+		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: ex.tracing.sample})
 		defer cancel()
+
+		if ex.tracing.traceID == 0 {
+			if ex.tracing.verbose {
+				var printedFirst bool
+				monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
+					// workaround to hide the traceID of tlsopts.verifyIndentity called from a separated goroutine
+					if !printedFirst {
+						_, _ = fmt.Fprintf(clingy.Stdout(ctx), "New traceID %x\n", trace.Id())
+						printedFirst = true
+					}
+				})
+			}
+		} else {
+			trace := monkit.NewTrace(ex.tracing.traceID)
+			trace.Set(rpctracing.Sampled, true)
+
+			defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
+		}
+
 	}
-
-	if ex.tracing.traceID != 0 {
-		trace := monkit.NewTrace(ex.tracing.traceID)
-		trace.Set(rpctracing.Sampled, true)
-
-		defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
-	}
-
+	defer mon.Task()(&ctx)(&err)
 	return cmd.Execute(ctx)
 }
 
