@@ -137,6 +137,44 @@ SELECT
 FROM deleted_objects
 LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id`
 
+var deleteObjectLastCommittedWithoutCopyFeatureSQL = `
+WITH deleted_objects AS (
+	DELETE FROM objects
+	WHERE
+		project_id   = $1 AND
+		bucket_name  = $2 AND
+		object_key   = $3 AND
+		version IN (SELECT version FROM objects WHERE
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			status       = ` + committedStatus + ` AND
+			(expires_at IS NULL OR expires_at > now())
+			ORDER BY version DESC
+		)
+	RETURNING
+		version, stream_id,
+		created_at, expires_at,
+		status, segment_count,
+		encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+		total_plain_size, total_encrypted_size, fixed_segment_size,
+		encryption
+), deleted_segments AS (
+	DELETE FROM segments
+	WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+	RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
+)
+SELECT
+	deleted_objects.version, deleted_objects.stream_id,
+	deleted_objects.created_at, deleted_objects.expires_at,
+	deleted_objects.status, deleted_objects.segment_count,
+	deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+	deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+	deleted_objects.encryption,
+	deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+FROM deleted_objects
+LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id`
+
 // TODO: remove comments with regex.
 var deleteBucketObjectsWithCopyFeatureSQL = `
 WITH deleted_objects AS (
@@ -208,9 +246,55 @@ WHERE
 	version      = $4
 `
 
+var deleteObjectLastCommittedSubSQL = `
+DELETE FROM objects
+WHERE
+	project_id   = $1 AND
+	bucket_name  = $2 AND
+	object_key   = $3 AND
+	version IN (SELECT version FROM objects WHERE
+		project_id   = $1 AND
+		bucket_name  = $2 AND
+		object_key   = $3 AND
+		status       = ` + committedStatus + ` AND
+		(expires_at IS NULL OR expires_at > now())
+		ORDER BY version DESC
+	)
+`
+
 var deleteObjectExactVersionWithCopyFeatureSQL = fmt.Sprintf(
 	deleteBucketObjectsWithCopyFeatureSQL,
 	deleteObjectExactVersionSubSQL,
+	`,version,
+		created_at,
+		expires_at,
+		status,
+		segment_count,
+		encrypted_metadata_nonce,
+		encrypted_metadata,
+		encrypted_metadata_encrypted_key,
+		total_plain_size,
+		total_encrypted_size,
+		fixed_segment_size,
+		encryption`,
+	`,deleted_objects.version,
+		deleted_objects.created_at,
+		deleted_objects.expires_at,
+		deleted_objects.status,
+		deleted_objects.segment_count,
+		deleted_objects.encrypted_metadata_nonce,
+		deleted_objects.encrypted_metadata,
+		deleted_objects.encrypted_metadata_encrypted_key,
+		deleted_objects.total_plain_size,
+		deleted_objects.total_encrypted_size,
+		deleted_objects.fixed_segment_size,
+		deleted_objects.encryption,
+		deleted_segments.repaired_at`,
+)
+
+var deleteObjectLastCommittedWithCopyFeatureSQL = fmt.Sprintf(
+	deleteBucketObjectsWithCopyFeatureSQL,
+	deleteObjectLastCommittedSubSQL,
 	`,version,
 		created_at,
 		expires_at,
@@ -788,4 +872,102 @@ func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows)
 	}
 
 	return objects, segments, nil
+}
+
+// DeleteObjectLastCommitted contains arguments necessary for deleting last committed version of object.
+type DeleteObjectLastCommitted struct {
+	ObjectLocation
+}
+
+// Verify delete object last committed fields.
+func (obj *DeleteObjectLastCommitted) Verify() error {
+	return obj.ObjectLocation.Verify()
+}
+
+// DeleteObjectLastCommitted deletes an object last committed version.
+//
+// Result will contain only those segments which needs to be deleted
+// from storage nodes. If object is an ancestor for copied object its
+// segments pieces cannot be deleted because copy still needs it.
+func (db *DB) DeleteObjectLastCommitted(
+	ctx context.Context, opts DeleteObjectLastCommitted,
+) (result DeleteObjectResult, err error) {
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		result, err = db.deleteObjectLastCommitted(ctx, opts, tx)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return result, err
+}
+
+// implementation of DB.DeleteObjectLastCommitted for re-use internally in metabase package.
+func (db *DB) deleteObjectLastCommitted(ctx context.Context, opts DeleteObjectLastCommitted, tx tagsql.Tx) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	if db.config.ServerSideCopy {
+		objects, err := db.deleteObjectLastCommittedServerSideCopy(ctx, opts, tx)
+		if err != nil {
+			return DeleteObjectResult{}, err
+		}
+
+		for _, object := range objects {
+			result.Objects = append(result.Objects, object.Object)
+
+			// if object is ancestor for copied object we cannot delete its
+			// segments pieces from storage nodes so we are not returning it
+			// as an object deletion result
+			if object.PromotedAncestor != nil {
+				continue
+			}
+			for _, segment := range object.Segments {
+				result.Segments = append(result.Segments, DeletedSegmentInfo{
+					RootPieceID: segment.RootPieceID,
+					Pieces:      segment.Pieces,
+				})
+			}
+		}
+	} else {
+		err = withRows(
+			tx.QueryContext(ctx, deleteObjectLastCommittedWithoutCopyFeatureSQL,
+				opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey),
+		)(func(rows tagsql.Rows) error {
+			result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+			return err
+		})
+	}
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
+
+	return result, nil
+}
+
+func (db *DB) deleteObjectLastCommittedServerSideCopy(ctx context.Context, opts DeleteObjectLastCommitted, tx tagsql.Tx) (objects []deletedObjectInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = withRows(
+		tx.QueryContext(ctx, deleteObjectLastCommittedWithCopyFeatureSQL, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey),
+	)(func(rows tagsql.Rows) error {
+		objects, err = db.scanObjectDeletionServerSideCopy(ctx, opts.ObjectLocation, rows)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.promoteNewAncestors(ctx, tx, objects)
+	if err != nil {
+		return nil, err
+	}
+
+	return objects, nil
 }

@@ -1191,3 +1191,200 @@ func TestDeleteCopy(t *testing.T) {
 		}
 	})
 }
+
+func TestDeleteObjectLastCommitted(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		location := obj.Location()
+
+		for _, test := range metabasetest.InvalidObjectLocations(obj.Location()) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				metabasetest.DeleteObjectLastCommitted{
+					Opts: metabase.DeleteObjectLastCommitted{
+						ObjectLocation: metabase.ObjectLocation{
+							ProjectID:  test.ObjectLocation.ProjectID,
+							BucketName: test.ObjectLocation.BucketName,
+							ObjectKey:  test.ObjectLocation.ObjectKey,
+						},
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{},
+				},
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+		t.Run("Delete object without segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			object, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{object},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.CreateObject(ctx, t, db, obj, 2)
+
+			expectedSegmentInfo := metabase.DeletedSegmentInfo{
+				RootPieceID: storj.PieceID{1},
+				Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			}
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects:  []metabase.Object{object},
+					Segments: []metabase.DeletedSegmentInfo{expectedSegmentInfo, expectedSegmentInfo},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with inline segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream:      obj,
+					Position:          metabase.SegmentPosition{Part: 0, Index: 0},
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+					InlineData:        testrand.Bytes(1024),
+					PlainSize:         512,
+					PlainOffset:       0,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{object},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete last committed from several versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			newObj := metabasetest.RandObjectStream()
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  newObj.ProjectID,
+						BucketName: newObj.BucketName,
+						ObjectKey:  newObj.ObjectKey,
+						Version:    newObj.Version,
+						StreamID:   newObj.StreamID,
+					},
+					ZombieDeletionDeadline: &now,
+				},
+				Version: newObj.Version,
+			}.Check(ctx, t, db)
+
+			newObjDiffVersion := newObj
+			newObjDiffVersion.Version = 4
+
+			committedObject, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, newObjDiffVersion, 0)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           newObj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						ZombieDeletionDeadline: &now,
+					},
+					{
+						ObjectStream: newObjDiffVersion,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  newObj.ProjectID,
+						BucketName: newObj.BucketName,
+						ObjectKey:  newObj.ObjectKey,
+					}},
+				Result: metabase.DeleteObjectResult{Objects: []metabase.Object{committedObject}},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           newObj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						ZombieDeletionDeadline: &now,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}

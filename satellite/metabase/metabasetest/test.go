@@ -668,3 +668,25 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	require.Zero(t, diff)
 	return result
 }
+
+// DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
+type DeleteObjectLastCommitted struct {
+	Opts     metabase.DeleteObjectLastCommitted
+	Result   metabase.DeleteObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
