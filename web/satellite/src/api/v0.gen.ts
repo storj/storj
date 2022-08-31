@@ -12,6 +12,18 @@ class APIKeyInfo {
     createdAt: string;
 }
 
+class APIKeyPage {
+    apiKeys: APIKeyInfo[];
+    search: string;
+    limit: number;
+    order: number;
+    orderDirection: number;
+    offset: number;
+    pageCount: number;
+    currentPage: number;
+    totalCount: number;
+}
+
 class BucketUsageRollup {
     projectID: string;
     bucketName: string;
@@ -144,6 +156,16 @@ export class projectsHttpApiV0 {
         throw new Error(err.error)
     }
 
+    public async getAPIKeys(projectID: string, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
+        const path = `${this.ROOT_PATH}/apikeys/${projectID}?search=${search}&limit=${limit}&page=${page}&order=${order}&orderDirection=${orderDirection}`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            return response.json().then((body) => body as APIKeyPage);
+        }
+        const err = await response.json()
+        throw new Error(err.error)
+    }
+
 }
 export class apikeysHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
@@ -154,6 +176,16 @@ export class apikeysHttpApiV0 {
         const response = await this.http.post(path, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as CreateAPIKeyResponse);
+        }
+        const err = await response.json()
+        throw new Error(err.error)
+    }
+
+    public async deleteAPIKey(id: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/delete/${id}`;
+        const response = await this.http.delete(path);
+        if (response.ok) {
+            return;
         }
         const err = await response.json()
         throw new Error(err.error)

@@ -104,14 +104,18 @@ func (a *API) generateGo() ([]byte, error) {
 	for _, group := range a.EndpointGroups {
 		pf("type %sService interface {", group.Name)
 		for _, e := range group.endpoints {
-			params[e] = append(e.QueryParams, e.PathParams...)
+			params[e] = append(e.PathParams, e.QueryParams...)
 
 			var paramStr string
-			for _, param := range params[e] {
-				paramStr += param.Type.String() + ", "
+			for i, param := range params[e] {
+				paramStr += param.Name
+				if i == len(params[e])-1 || param.Type != params[e][i+1].Type {
+					paramStr += " " + param.Type.String()
+				}
+				paramStr += ", "
 			}
 			if e.Request != nil {
-				paramStr += reflect.TypeOf(e.Request).String() + ", "
+				paramStr += "request " + reflect.TypeOf(e.Request).String() + ", "
 			}
 
 			i("context", "storj.io/storj/private/api")
@@ -121,9 +125,9 @@ func (a *API) generateGo() ([]byte, error) {
 				if responseType == getElementaryType(responseType) {
 					returnParam = "*" + returnParam
 				}
-				pf("%s(context.Context, "+paramStr+") (%s, api.HTTPError)", e.MethodName, returnParam)
+				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.MethodName, returnParam)
 			} else {
-				pf("%s(context.Context, "+paramStr+") (api.HTTPError)", e.MethodName)
+				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.MethodName)
 			}
 		}
 		pf("}")
@@ -194,7 +198,10 @@ func (a *API) generateGo() ([]byte, error) {
 				pf("")
 			}
 
-			handleParams(pf, i, endpoint.QueryParams, endpoint.PathParams)
+			if err := handleParams(pf, i, endpoint.PathParams, endpoint.QueryParams); err != nil {
+				return nil, err
+			}
+
 			if endpoint.Request != nil {
 				handleBody(pf, endpoint.Request)
 			}
@@ -285,22 +292,29 @@ func (a *API) handleTypesPackage(t reflect.Type) string {
 	return t.String()
 }
 
-// handleParams handles parsing of URL query parameters or path parameters.
-func handleParams(pf func(format string, a ...interface{}), i func(paths ...string), queryParams, pathParams []Param) {
+// handleParams handles parsing of URL path parameters or query parameters.
+func handleParams(pf func(format string, a ...interface{}), i func(paths ...string), pathParams, queryParams []Param) error {
+	pErrCheck := func() {
+		pf("if err != nil {")
+		pf("api.ServeError(h.log, w, http.StatusBadRequest, err)")
+		pf("return")
+		pf("}")
+	}
+
 	for _, params := range []*[]Param{&queryParams, &pathParams} {
 		for _, param := range *params {
 			varName := param.Name
-			if param.Type != reflect.TypeOf("") {
+			if param.Type.Kind() != reflect.String {
 				varName += "Param"
 			}
 
 			switch params {
 			case &queryParams:
-				pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
-				pf("if %s == \"\" {", varName)
+				pf("if !r.URL.Query().Has(\"%s\") {", param.Name)
 				pf("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
 				pf("return")
 				pf("}")
+				pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
 				pf("")
 			case &pathParams:
 				pf("%s, ok := mux.Vars(r)[\"%s\"]", varName, param.Name)
@@ -315,21 +329,39 @@ func handleParams(pf func(format string, a ...interface{}), i func(paths ...stri
 			case reflect.TypeOf(uuid.UUID{}):
 				i("storj.io/common/uuid")
 				pf("%s, err := uuid.FromString(%s)", param.Name, varName)
+				pErrCheck()
 			case reflect.TypeOf(time.Time{}):
 				i("time")
 				pf("%s, err := time.Parse(dateLayout, %s)", param.Name, varName)
+				pErrCheck()
 			default:
-				pf("")
-				continue
+				switch param.Type.Kind() {
+				case reflect.String:
+				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+					i("strconv")
+					convName := varName
+					if param.Type.Kind() != reflect.Uint64 {
+						convName += "U64"
+					}
+					bits := param.Type.Bits()
+					if param.Type.Kind() == reflect.Uint {
+						bits = 32
+					}
+					pf("%s, err := strconv.ParseUint(%s, 10, %d)", convName, varName, bits)
+					pErrCheck()
+					if param.Type.Kind() != reflect.Uint64 {
+						pf("%s := %s(%s)", param.Name, param.Type.String(), convName)
+					}
+				default:
+					return errs.New("Unsupported parameter type \"%s\"", param.Type)
+				}
 			}
 
-			pf("if err != nil {")
-			pf("api.ServeError(h.log, w, http.StatusBadRequest, err)")
-			pf("return")
-			pf("}")
 			pf("")
 		}
 	}
+
+	return nil
 }
 
 // handleBody handles request body.

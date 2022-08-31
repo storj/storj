@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
 	"net/http"
@@ -102,6 +103,9 @@ var (
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
+
+	// ErrAPIKeyRequest is returned when there is an error parsing a request for api keys.
+	ErrAPIKeyRequest = errs.Class("api key request")
 
 	// ErrRegToken describes registration token errors.
 	ErrRegToken = errs.Class("registration token")
@@ -2073,6 +2077,56 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 	}, api.HTTPError{}
 }
 
+// GenDeleteAPIKey deletes api key for generated api.
+func (s *Service) GenDeleteAPIKey(ctx context.Context, keyID uuid.UUID) (httpError api.HTTPError) {
+	err := s.DeleteAPIKeys(ctx, []uuid.UUID{keyID})
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return httpError
+		}
+
+		status := http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if ErrAPIKeyRequest.Has(err) {
+			status = http.StatusBadRequest
+		}
+
+		return api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return httpError
+}
+
+// GenGetAPIKeys returns api keys belonging to a project for generated api.
+func (s *Service) GenGetAPIKeys(ctx context.Context, projectID uuid.UUID, search string, limit, page uint, order APIKeyOrder, orderDirection OrderDirection) (*APIKeyPage, api.HTTPError) {
+	akp, err := s.GetAPIKeys(ctx, projectID, APIKeyCursor{
+		Search:         search,
+		Limit:          limit,
+		Page:           page,
+		Order:          order,
+		OrderDirection: orderDirection,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if ErrAPIKeyRequest.Has(err) {
+			status = http.StatusBadRequest
+		}
+
+		return nil, api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return akp, api.HTTPError{}
+}
+
 // GetAPIKeyInfoByName retrieves an api key by its name and project id.
 func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2204,7 +2258,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 
 	_, err = s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
