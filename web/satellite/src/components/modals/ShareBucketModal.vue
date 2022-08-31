@@ -125,9 +125,9 @@ export default class ShareBucketModal extends Vue {
             this.worker.postMessage({
                 'type': 'RestrictGrant',
                 'isDownload': true,
-                'isUpload': true,
+                'isUpload': false,
                 'isList': true,
-                'isDelete': true,
+                'isDelete': false,
                 'paths': [path],
                 'grant': grantData.value,
             });
