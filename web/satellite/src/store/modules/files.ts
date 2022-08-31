@@ -48,6 +48,7 @@ export type FilesState = {
   openModalOnFirstUpload: boolean;
   modalPath: null | string;
   fileShareModal: null | string;
+  downloadModalShow: boolean;
 };
 
 type InitializedFilesState = FilesState & {
@@ -91,10 +92,9 @@ export const makeFilesModule = (): FilesModule => ({
     state: {
         s3: null,
         accessKey: null,
-
-        path: '',
-        bucket: '',
-        browserRoot: '/',
+        path: "",
+        bucket: "",
+        browserRoot: "/",
         files: [],
         uploadChain: Promise.resolve(),
         uploading: [],
@@ -114,6 +114,7 @@ export const makeFilesModule = (): FilesModule => ({
 
         modalPath: null,
         fileShareModal: null,
+        downloadModalShow: false
     },
     getters: {
         sortedFiles: (state: FilesState) => {
@@ -292,6 +293,14 @@ export const makeFilesModule = (): FilesModule => ({
 
         closeNewFolderModal(state: FilesState) {
             state.createFolderInputShow = false;
+        },
+        
+        setDownloadModalShow(state: FilesState, value) {
+            state.downloadModalShow = value;
+        },
+
+        closeDownloadModal(state: FilesState) {
+            state.downloadModalShow = false;
         },
     },
     actions: {
@@ -563,9 +572,60 @@ export const makeFilesModule = (): FilesModule => ({
             }
         },
 
-        async deleteFolder({ commit, dispatch, state }, { file, path }) {
+        async getFolderFiles({ state, dispatch }, {file, path}) {
             assertIsInitialized(state);
 
+            const files : any[] = []
+            async function recurse(filePath) {
+                assertIsInitialized(state);
+
+                const { Contents, CommonPrefixes } = await state.s3
+                    .listObjects({
+                        Bucket: state.bucket,
+                        Delimiter: '/',
+                        Prefix: filePath,
+                    })
+                    .promise();
+
+                if (Contents === undefined) {
+                    throw new Error(
+                        'Bad S3 listObjects() response: "Contents" undefined',
+                    );
+                }
+
+                if (CommonPrefixes === undefined) {
+                    throw new Error(
+                        'Bad S3 listObjects() response: "CommonPrefixes" undefined',
+                    );
+                }
+
+                async function thread() {
+                    if (Contents === undefined) {
+                        throw new Error(
+                            'Bad S3 listObjects() response: "Contents" undefined',
+                        );
+                    }
+
+                    while (Contents.length) {
+                        const file = Contents.pop();
+                        files.push(file)
+                    }
+                }
+
+                await Promise.all([thread(), thread(), thread()]);
+
+                for (const { Prefix } of CommonPrefixes) {
+                    await recurse(Prefix);
+                }
+            }
+            await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
+
+            return files
+        },
+
+        async deleteFolder({ commit, dispatch, state }, { file, path }) {
+            assertIsInitialized(state);
+            
             async function recurse(filePath) {
                 assertIsInitialized(state);
 
@@ -615,9 +675,6 @@ export const makeFilesModule = (): FilesModule => ({
             }
 
             await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
-
-            commit('removeFileToBeDeleted', file);
-            await dispatch('list');
         },
 
         async deleteSelected({ state, dispatch, commit }) {
@@ -634,12 +691,12 @@ export const makeFilesModule = (): FilesModule => ({
 
             await Promise.all(
                 filesToDelete.map(async (file) => {
-                    if (file.type === 'file')
+                    if (file.type === 'file') 
                         await dispatch('delete', {
                             file,
                             path: state.path,
                         });
-                    else
+                    else 
                         await dispatch('deleteFolder', {
                             file,
                             path: state.path,
@@ -650,21 +707,45 @@ export const makeFilesModule = (): FilesModule => ({
             dispatch('clearAllSelectedFiles');
         },
 
-        async download({ state }, file) {
+        async download({ state }, { file }) {
             assertIsInitialized(state);
 
-            const url = state.s3.getSignedUrl('getObject', {
+            const url = state.s3.getSignedUrl("getObject", {
                 Bucket: state.bucket,
                 Key: state.path + file.Key,
             });
-            const downloadURL = function(data, fileName) {
-                const a = document.createElement('a');
+
+            const downloadURL = async (data, fileName) => {
+                const a = document.createElement("a");
                 a.href = data;
                 a.download = fileName;
                 a.click();
             };
-
             downloadURL(url, file.Key);
+        },
+
+        async downloadAll({ state, dispatch }, { files, path }) {
+            assertIsInitialized(state);
+
+            let fileUrls : any[] = []
+            const promises = files.map(async (file) => {
+                if (file.type === "file") {
+                    const url = state.s3.getSignedUrl("getObject", {
+                        Bucket: state.bucket,
+                        Key: state.path + file.Key,
+                    });
+                    fileUrls.push(url)
+                } else {
+                    const files =  await dispatch('getFolderFiles', {
+                        file,
+                        path: state.path,
+                    });
+                    fileUrls = fileUrls.concat(files)
+                    // fileUrls.push(fileUrl)
+                }
+            })
+            await Promise.all(promises)
+    
         },
 
         updateSelectedFiles({ commit }, files) {
@@ -706,6 +787,10 @@ export const makeFilesModule = (): FilesModule => ({
             commit('setCreateFolderInputShow', value);
         },
 
+        updateDownloadModalShow({ commit }, value) {
+            commit('setDownloadModalShow', value);
+        },
+
         cancelUpload({ commit, state }, key) {
             const file = state.uploading.find((file) => file.Key === key);
 
@@ -739,6 +824,10 @@ export const makeFilesModule = (): FilesModule => ({
 
             if (state.createFolderInputShow) {
                 commit('closeNewFolderModal');
+            }
+
+            if (state.downloadModalShow) {
+                dispatch("closeDownloadModal");
             }
         },
     },

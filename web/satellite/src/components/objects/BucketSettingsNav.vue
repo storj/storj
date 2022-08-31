@@ -13,6 +13,10 @@
                 <details-icon class="bucket-settings-nav__dropdown__item__icon" />
                 <p class="bucket-settings-nav__dropdown__item__label">View Bucket Details</p>
             </div>
+            <div v-if="filesCount" class="bucket-settings-nav__dropdown__item" @click.stop="onDownloadBucketClick">
+                <download-icon class="bucket-settings-nav__dropdown__item__icon" />
+                <p class="bucket-settings-nav__dropdown__item__label">Download bucket</p>
+            </div>
             <div v-if="filesCount" class="bucket-settings-nav__dropdown__item" @click.stop="onShareBucketClick">
                 <share-icon class="bucket-settings-nav__dropdown__item__icon" />
                 <p class="bucket-settings-nav__dropdown__item__label">Share bucket</p>
@@ -26,11 +30,13 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { BrowserFile } from '@/types/browser';
 
+import GearIcon from '@/../static/images/common/gearIcon.svg';
 import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
+import DownloadIcon from '@/../static/images/objects/download.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
-import GearIcon from '@/../static/images/common/gearIcon.svg';
 
 // @vue/component
 @Component({
@@ -39,6 +45,7 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
         GearIcon,
         DetailsIcon,
         ShareIcon,
+        DownloadIcon
     },
 })
 export default class BucketSettingsNav extends Vue {
@@ -76,11 +83,22 @@ export default class BucketSettingsNav extends Vue {
     }
 
     /**
+     * Opens bucket download modal.
+     */
+    public onDownloadBucketClick(): void {
+        this.$store.dispatch(
+            'files/updateDownloadModalShow',
+            true);
+        this.isDropdownOpen = false;
+    }
+
+    /**
      * Returns files amount from store.
      */
     public get filesCount(): number {
         return this.$store.getters['files/sortedFiles'].length;
     }
+    
 }
 </script>
 

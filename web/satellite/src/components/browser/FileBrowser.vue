@@ -358,6 +358,13 @@
                 <file-share-modal v-if="showFileShareModal" />
 
                 <new-folder-modal v-if="showCreateFolderInput" />
+
+                <bucket-download-modal
+                    v-if="showDownloadModal"
+                    :files="allFiles" 
+                    :path="path" 
+                    :bucket-name="bucketName" 
+                />
             </div>
         </div>
     </div>
@@ -372,6 +379,7 @@ import BreadCrumbs from './BreadCrumbs.vue';
 import FileModal from './FileModal.vue';
 import FileShareModal from './FileShareModal.vue';
 import NewFolderModal from './NewFolderModal.vue';
+import BucketDownloadModal from './BucketDownloadModal.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
@@ -397,6 +405,7 @@ import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
         BlackArrowExpand,
         BlackArrowHide,
         NewFolderModal,
+        BucketDownloadModal,
     },
 })
 export default class FileBrowser extends Vue {
@@ -520,6 +529,13 @@ export default class FileBrowser extends Vue {
     }
 
     /**
+     * Return an array of BrowserFile type that are both folders and files.
+     */
+    public get allFiles(): BrowserFile[] {
+        return this.files;
+    }
+
+    /**
      * Retrieve the pathMatch from the current route.
      */
     private get routePath(): string {
@@ -570,6 +586,13 @@ export default class FileBrowser extends Vue {
      */
     public get showFileShareModal(): null | string {
         return this.$store.state.files.fileShareModal;
+    }
+
+    /**
+     * Return a boolean signifying whether the bucket download modal can be shown.
+     */
+    public get showDownloadModal(): null | string {
+        return this.$store.state.files.downloadModalShow;
     }
 
     /**
@@ -630,6 +653,10 @@ export default class FileBrowser extends Vue {
 
         if (this.$store.state.files.selectedFile) {
             this.$store.dispatch('files/clearAllSelectedFiles');
+        }
+
+        if (this.$store.state.files.downloadModal) {
+            this.$store.dispatch('files/closeDownloadModal');
         }
     }
 
