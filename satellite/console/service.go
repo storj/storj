@@ -2960,3 +2960,15 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 
 	return expiresAt, nil
 }
+
+// VerifyForgotPasswordCaptcha returns whether the given captcha response for the forgot password page is valid.
+// It will return true without error if the captcha handler has not been set.
+func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken, userIP string) (valid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if s.loginCaptchaHandler != nil {
+		valid, _, err = s.loginCaptchaHandler.Verify(ctx, responseToken, userIP)
+		return valid, ErrCaptcha.Wrap(err)
+	}
+	return true, nil
+}
