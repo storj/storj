@@ -30,6 +30,8 @@ func init() { defaults.LockPort = 0 }
 
 // Browser starts a browser for testing using environment variables for configuration.
 func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, fn func(*rod.Browser)) {
+	showBrowser := false
+	slowBrowser := "fast"
 
 	logLauncher := planet.Log().Named("launcher")
 
@@ -38,7 +40,7 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 	*/
 
 	launch := launcher.New().
-		Headless(true).
+		Headless(!showBrowser).
 		Leakless(true).
 		Devtools(false).
 		NoSandbox(true).
@@ -96,6 +98,21 @@ func Browser(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, 
 	fn(browser)
 }
 
+func browserTimeoutDetector(duration time.Duration) context.CancelFunc {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		t := time.NewTimer(duration)
+		defer t.Stop()
+		select {
+		case <-t.C:
+			panic("timeout for starting browser exceeded")
+		case <-ctx.Done():
+			return
+		}
+	}()
+	return cancel
+}
+
 // MaxDuration returns a sleeper constructor with the max duration.
 func MaxDuration(max time.Duration) func() utils.Sleeper {
 	return func() utils.Sleeper {
@@ -129,4 +146,20 @@ type errMaxSleepDuration time.Duration
 // Error implements error interface.
 func (e errMaxSleepDuration) Error() string {
 	return fmt.Sprintf("max sleep %v exceeded", time.Duration(e))
+}
+
+func avoidStall(maxDuration time.Duration, fn func()) {
+	done := make(chan struct{})
+	go func() {
+		fn()
+		close(done)
+	}()
+
+	timeout := time.NewTicker(maxDuration)
+	defer timeout.Stop()
+	select {
+	case <-done:
+	case <-timeout.C:
+		fmt.Printf("go-rod did not shutdown within %v\n", maxDuration)
+	}
 }
