@@ -10,6 +10,7 @@ export class LocalData {
     private static userIdPassSalt = 'userIdPassSalt';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
+    private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
     private static sessionExpirationDate = 'sessionExpirationDate';
 
@@ -65,15 +66,27 @@ export class LocalData {
         localStorage.setItem(LocalData.demoBucketCreated, "true");
     }
 
-    /*
-   * "Disable" showing the upload guide tooltip on the bucket page
-   * */
-    public static setBucketGuideHidden() {
+    /**
+     * "Disable" showing the upload guide tooltip on the bucket page
+     */
+    public static setBucketGuideHidden(): void {
         localStorage.setItem(LocalData.bucketGuideHidden, "true");
     }
 
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
+        return value === "true";
+    }
+
+    /**
+     * "Disable" showing the server-side encryption banner on the bucket page
+     */
+    public static setServerSideEncryptionBannerHidden(value: boolean): void {
+        localStorage.setItem(LocalData.serverSideEncryptionBannerHidden, String(value));
+    }
+
+    public static getServerSideEncryptionBannerHidden(): boolean {
+        const value = localStorage.getItem(LocalData.serverSideEncryptionBannerHidden);
         return value === "true";
     }
 

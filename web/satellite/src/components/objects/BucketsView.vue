@@ -59,6 +59,7 @@
                 />
             </template>
         </v-table>
+        <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
         <ObjectsPopup
             v-if="isCreatePopupVisible"
             :on-click="onCreateBucketClick"
@@ -95,19 +96,19 @@ import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { LocalData } from "@/utils/localData";
 import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import {BucketPage} from "@/types/buckets";
+import { BucketPage } from "@/types/buckets";
 import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
+import VTable from "@/components/common/VTable.vue";
+import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import VTable from "@/components/common/VTable.vue";
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -118,6 +119,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         ObjectsPopup,
         BucketItem,
         VLoader,
+        EncryptionBanner,
     },
 })
 export default class BucketsView extends Vue {
@@ -133,14 +135,16 @@ export default class BucketsView extends Vue {
     public isRequestProcessing = false;
     public errorMessage = '';
     public activeDropdown = -1;
+    public isServerSideEncryptionBannerHidden = true;
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
-     * Setup gateway credentials.
+     * Sets bucket view.
      */
     public async mounted(): Promise<void> {
+        this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
         await this.setBucketsView();
     }
 
@@ -419,6 +423,14 @@ export default class BucketsView extends Vue {
     public setCreateBucketName(name: string): void {
         this.errorMessage = '';
         this.createBucketName = name;
+    }
+
+    /**
+     * Hides server-side encryption banner.
+     */
+    public hideBanner(): void {
+        this.isServerSideEncryptionBannerHidden = true;
+        LocalData.setServerSideEncryptionBannerHidden(true);
     }
 
     /**
