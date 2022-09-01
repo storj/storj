@@ -6,7 +6,8 @@ package main
 //go:generate go run ./
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"storj.io/common/uuid"
@@ -146,6 +147,33 @@ func main() {
 		})
 	}
 
-	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
-	a.MustWriteTS(fmt.Sprintf("web/satellite/src/api/%s.gen.ts", a.Version))
+	modroot := findModuleRootDir()
+	a.MustWriteGo(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "api.gen.go"))
+	a.MustWriteTS(filepath.Join(modroot, "web", "satellite", "src", "api", a.Version+".gen.ts"))
+}
+
+func findModuleRootDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic("unable to find current working directory")
+	}
+	start := dir
+
+	for i := 0; i < 100; i++ {
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+
+	panic("unable to find go.mod starting from " + start)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
