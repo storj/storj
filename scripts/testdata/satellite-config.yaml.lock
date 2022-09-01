@@ -616,6 +616,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
 
+# test the new query for non-recursive listing
+# metainfo.test-listing-query: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 

@@ -595,9 +595,120 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.Contains(t, err.Error(), "Invalid expiration time")
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		})
+
 	})
+
 }
 
+// TODO remove when listing query tests feature flag is removed.
+func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(testplanet.MaxObjectKeyLength(1024), func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.TestListingQuery = true
+			}),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		bucketName := "testbucket"
+		deleteBucket := func() error {
+			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			return err
+		}
+
+		t.Run("list service with listing query test", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			items := []struct {
+				Key   string
+				Value []byte
+			}{
+				{Key: "sample.😶", Value: []byte{1}},
+				{Key: "müsic", Value: []byte{2}},
+				{Key: "müsic/söng1.mp3", Value: []byte{3}},
+				{Key: "müsic/söng2.mp3", Value: []byte{4}},
+				{Key: "müsic/album/söng3.mp3", Value: []byte{5}},
+				{Key: "müsic/söng4.mp3", Value: []byte{6}},
+				{Key: "ビデオ/movie.mkv", Value: []byte{7}},
+			}
+
+			for _, item := range items {
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, item.Key, item.Value)
+				assert.NoError(t, err)
+			}
+
+			project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			objects := project.ListObjects(ctx, "testbucket", &uplink.ListObjectsOptions{
+				Recursive: true,
+			})
+
+			listItems := make([]*uplink.Object, 0)
+			for objects.Next() {
+				listItems = append(listItems, objects.Item())
+			}
+			require.NoError(t, objects.Err())
+
+			expected := []storj.Object{
+				{Path: "müsic"},
+				{Path: "müsic/album/söng3.mp3"},
+				{Path: "müsic/söng1.mp3"},
+				{Path: "müsic/söng2.mp3"},
+				{Path: "müsic/söng4.mp3"},
+				{Path: "sample.😶"},
+				{Path: "ビデオ/movie.mkv"},
+			}
+
+			require.Equal(t, len(expected), len(listItems))
+			sort.Slice(listItems, func(i, k int) bool {
+				return listItems[i].Key < listItems[k].Key
+			})
+			for i, item := range expected {
+				require.Equal(t, item.Path, listItems[i].Key)
+				require.Equal(t, item.IsPrefix, listItems[i].IsPrefix)
+			}
+
+			objects = project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
+				Recursive: false,
+			})
+
+			listItems = make([]*uplink.Object, 0)
+			for objects.Next() {
+				listItems = append(listItems, objects.Item())
+			}
+			require.NoError(t, objects.Err())
+
+			expected = []storj.Object{
+				{Path: "müsic"},
+				{Path: "müsic/", IsPrefix: true},
+				{Path: "sample.😶"},
+				{Path: "ビデオ/", IsPrefix: true},
+			}
+
+			require.Equal(t, len(expected), len(listItems))
+			sort.Slice(listItems, func(i, k int) bool {
+				return listItems[i].Key < listItems[k].Key
+			})
+			for i, item := range expected {
+				t.Log(item.Path, listItems[i].Key)
+				require.Equal(t, item.Path, listItems[i].Key)
+				require.Equal(t, item.IsPrefix, listItems[i].IsPrefix)
+			}
+		})
+
+	})
+}
 func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
