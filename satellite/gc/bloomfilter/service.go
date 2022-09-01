@@ -40,7 +40,7 @@ type Config struct {
 	ExpireIn     time.Duration `help:"how quickly uploaded bloom filters will be automatically deleted" default:"336h"`
 }
 
-// Service implements the garbage collection service.
+// Service implements service to collect bloom filters for the garbage collection.
 //
 // architecture: Chore
 type Service struct {
@@ -106,7 +106,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		return nil
 	}
 
-	err = service.uploadBloomFilters(ctx, pieceTracker.RetainInfos)
+	err = service.uploadBloomFilters(ctx, pieceTracker.LatestCreationTime, pieceTracker.RetainInfos)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) uploadBloomFilters(ctx context.Context, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
+func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(retainInfos) == 0 {
@@ -163,8 +163,10 @@ func (service *Service) uploadBloomFilters(ctx context.Context, retainInfos map[
 	batchNumber := 0
 	for nodeID, info := range retainInfos {
 		infos = append(infos, internalpb.RetainInfo{
-			Filter:        info.Filter.Bytes(),
-			CreationDate:  info.CreationDate,
+			Filter: info.Filter.Bytes(),
+			// because bloom filters should be created from immutable database
+			// snapshot we are using latest segment creation date
+			CreationDate:  latestCreationDate,
 			PieceCount:    int64(info.Count),
 			StorageNodeId: nodeID,
 		})
