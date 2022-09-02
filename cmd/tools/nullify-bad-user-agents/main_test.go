@@ -20,7 +20,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/tempdb"
-	migrator "storj.io/storj/cmd/nullify-bad-user-agents"
+	migrator "storj.io/storj/cmd/tools/nullify-bad-user-agents"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"

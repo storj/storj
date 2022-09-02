@@ -18,7 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/tempdb"
-	migrator "storj.io/storj/cmd/migrate-public-ids"
+	migrator "storj.io/storj/cmd/tools/migrate-public-ids"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
