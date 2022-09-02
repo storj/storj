@@ -215,18 +215,9 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	it.curIndex++
-	it.cursor.Key = item.ObjectKey
+	it.cursor.Key = it.prefix + item.ObjectKey
 	it.cursor.Version = item.Version
 	it.cursor.StreamID = item.StreamID
-
-	if it.prefix != "" {
-		if !strings.HasPrefix(string(item.ObjectKey), string(it.prefix)) {
-			return false
-		}
-	}
-
-	// TODO this should be done with SQL query
-	item.ObjectKey = item.ObjectKey[len(it.prefix):]
 
 	return true
 }
@@ -234,9 +225,60 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// minimum needed for cursor
-	querySelectFields := `
-		object_key
+	cursorCompare := ">"
+	if it.cursor.Inclusive {
+		cursorCompare = ">="
+	}
+
+	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
+		return it.db.db.QueryContext(ctx, `
+			SELECT
+				`+querySelectFields+`
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
+				AND (project_id, bucket_name) < ($1, $7)
+				AND status = $3
+				AND (expires_at IS NULL OR expires_at > now())
+				ORDER BY (project_id, bucket_name, object_key, version) ASC
+			LIMIT $6
+			`, it.projectID, it.bucketName,
+			it.status,
+			[]byte(it.cursor.Key), int(it.cursor.Version),
+			it.batchSize,
+			nextBucket(it.bucketName),
+		)
+	}
+
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $8)", it)
+	return it.db.db.QueryContext(ctx, `
+		SELECT
+			`+querySelectFields+`
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
+			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
+			AND status = $3
+			AND (expires_at IS NULL OR expires_at > now())
+			ORDER BY (project_id, bucket_name, object_key, version) ASC
+		LIMIT $7
+		`, it.projectID, it.bucketName,
+		it.status,
+		[]byte(it.cursor.Key), int(it.cursor.Version),
+		[]byte(it.prefixLimit),
+		it.batchSize,
+		fromSubstring,
+	)
+}
+
+func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
+	querySelectFields := objectKeyColumn + `
 		,stream_id
 		,version
 		,encryption`
@@ -259,51 +301,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			,encrypted_metadata_encrypted_key`
 	}
 
-	cursorCompare := ">"
-	if it.cursor.Inclusive {
-		cursorCompare = ">="
-	}
-
-	if it.prefixLimit == "" {
-		return it.db.db.QueryContext(ctx, `
-			SELECT
-				`+querySelectFields+`
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-				AND (project_id, bucket_name) < ($1, $7)
-				AND status = $3
-				AND (expires_at IS NULL OR expires_at > now())
-				ORDER BY (project_id, bucket_name, object_key, version) ASC
-			LIMIT $6
-			`, it.projectID, it.bucketName,
-			it.status,
-			[]byte(it.cursor.Key), int(it.cursor.Version),
-			it.batchSize,
-			nextBucket(it.bucketName),
-		)
-	}
-
-	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
-	// works with CRDB.
-	return it.db.db.QueryContext(ctx, `
-		SELECT
-			`+querySelectFields+`
-		FROM objects
-		WHERE
-			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
-			AND status = $3
-			AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY (project_id, bucket_name, object_key, version) ASC
-		LIMIT $7
-	`, it.projectID, it.bucketName,
-		it.status,
-		[]byte(it.cursor.Key), int(it.cursor.Version),
-		[]byte(it.prefixLimit),
-		it.batchSize,
-		// len(it.prefix)+1, // TODO uncomment when CRDB issue will be fixed
-	)
+	return querySelectFields
 }
 
 // nextBucket returns the lexicographically next bucket.
