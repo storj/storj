@@ -6,11 +6,11 @@ package collector
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
@@ -96,7 +96,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		for _, expired := range infos {
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
-				if os.IsNotExist(errors.Unwrap(err)) {
+				if errs.Is(err, os.ErrNotExist) {
 					service.log.Info("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 					continue
 				}
