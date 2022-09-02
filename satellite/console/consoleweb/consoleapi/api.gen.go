@@ -267,11 +267,11 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	if !r.URL.Query().Has("projectID") {
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
 		return
 	}
-	projectIDParam := r.URL.Query().Get("projectID")
 
 	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
@@ -279,17 +279,17 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	if !r.URL.Query().Has("bucket") {
+	bucket := r.URL.Query().Get("bucket")
+	if bucket == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'bucket' can't be empty"))
 		return
 	}
-	bucket := r.URL.Query().Get("bucket")
 
-	if !r.URL.Query().Has("since") {
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
 		return
 	}
-	sinceParam := r.URL.Query().Get("since")
 
 	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
@@ -297,11 +297,11 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
-	if !r.URL.Query().Has("before") {
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
 		return
 	}
-	beforeParam := r.URL.Query().Get("before")
 
 	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
@@ -335,11 +335,11 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
-	if !r.URL.Query().Has("projectID") {
+	projectIDParam := r.URL.Query().Get("projectID")
+	if projectIDParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'projectID' can't be empty"))
 		return
 	}
-	projectIDParam := r.URL.Query().Get("projectID")
 
 	projectID, err := uuid.FromString(projectIDParam)
 	if err != nil {
@@ -347,11 +347,11 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
-	if !r.URL.Query().Has("since") {
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
 		return
 	}
-	sinceParam := r.URL.Query().Get("since")
 
 	since, err := time.Parse(dateLayout, sinceParam)
 	if err != nil {
@@ -359,11 +359,11 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
-	if !r.URL.Query().Has("before") {
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
 		return
 	}
-	beforeParam := r.URL.Query().Get("before")
 
 	before, err := time.Parse(dateLayout, beforeParam)
 	if err != nil {
@@ -397,17 +397,17 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 		return
 	}
 
-	if !r.URL.Query().Has("search") {
+	search := r.URL.Query().Get("search")
+	if search == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'search' can't be empty"))
 		return
 	}
-	search := r.URL.Query().Get("search")
 
-	if !r.URL.Query().Has("limit") {
+	limitParam := r.URL.Query().Get("limit")
+	if limitParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'limit' can't be empty"))
 		return
 	}
-	limitParam := r.URL.Query().Get("limit")
 
 	limitParamU64, err := strconv.ParseUint(limitParam, 10, 32)
 	if err != nil {
@@ -416,11 +416,11 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 	}
 	limit := uint(limitParamU64)
 
-	if !r.URL.Query().Has("page") {
+	pageParam := r.URL.Query().Get("page")
+	if pageParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'page' can't be empty"))
 		return
 	}
-	pageParam := r.URL.Query().Get("page")
 
 	pageParamU64, err := strconv.ParseUint(pageParam, 10, 32)
 	if err != nil {
@@ -429,11 +429,11 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 	}
 	page := uint(pageParamU64)
 
-	if !r.URL.Query().Has("order") {
+	orderParam := r.URL.Query().Get("order")
+	if orderParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'order' can't be empty"))
 		return
 	}
-	orderParam := r.URL.Query().Get("order")
 
 	orderParamU64, err := strconv.ParseUint(orderParam, 10, 8)
 	if err != nil {
@@ -442,11 +442,11 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 	}
 	order := console.APIKeyOrder(orderParamU64)
 
-	if !r.URL.Query().Has("orderDirection") {
+	orderDirectionParam := r.URL.Query().Get("orderDirection")
+	if orderDirectionParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'orderDirection' can't be empty"))
 		return
 	}
-	orderDirectionParam := r.URL.Query().Get("orderDirection")
 
 	orderDirectionParamU64, err := strconv.ParseUint(orderDirectionParam, 10, 8)
 	if err != nil {

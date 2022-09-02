@@ -310,11 +310,11 @@ func handleParams(pf func(format string, a ...interface{}), i func(paths ...stri
 
 			switch params {
 			case &queryParams:
-				pf("if !r.URL.Query().Has(\"%s\") {", param.Name)
+				pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
+				pf("if %s == \"\" {", varName)
 				pf("api.ServeError(h.log, w, http.StatusBadRequest, errs.New(\"parameter '%s' can't be empty\"))", param.Name)
 				pf("return")
 				pf("}")
-				pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
 				pf("")
 			case &pathParams:
 				pf("%s, ok := mux.Vars(r)[\"%s\"]", varName, param.Name)
