@@ -6,7 +6,7 @@
         <div class="header-container__buttons-area">
             <slot />
         </div>
-        <div v-if="styleType === 'common'">
+        <div v-if="styleType === 'common'" class="search-container">
             <VSearch
                 ref="search"
                 :placeholder="placeholder"
@@ -72,6 +72,24 @@ export default class VHeader extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
+        }
+
+        .search-container {
+            position: relative;
+        }
+    }
+
+    @media screen and (max-width: 1150px) {
+
+        .header-container {
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 75px;
+
+            .search-container {
+                width: 100%;
+                margin-top: 30px;
+            }
         }
     }
 </style>

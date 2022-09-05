@@ -86,7 +86,8 @@ export default class VSearch extends Vue {
     .common-search-input {
         position: absolute;
         right: 0;
-        bottom: 0;
+        bottom: 50%;
+        transform: translateY(50%);
         padding: 0 38px 0 18px;
         border: 1px solid #f2f2f2;
         box-sizing: border-box;
@@ -101,5 +102,12 @@ export default class VSearch extends Vue {
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px right 16px;
+    }
+
+    @media screen and (max-width: 1150px) {
+
+        .common-search-input {
+            width: 100% !important;
+        }
     }
 </style>

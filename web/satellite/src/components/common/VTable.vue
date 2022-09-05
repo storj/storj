@@ -31,10 +31,6 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import TablePagination from "@/components/common/TablePagination.vue";
 import { OnPageClickCallback } from "@/types/pagination";
 
-export type SelectableItem<T> = T & {
-    isSelected: boolean;
-}
-
 // @vue/component
 @Component({
     components: {
@@ -152,10 +148,59 @@ export default class VTable extends Vue {
     }
 }
 
+@media screen and (max-width: 970px) {
+
+    tbody tr > .data p {
+        max-width: 25rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+@media screen and (max-width: 870px) {
+
+    tbody tr > .data p {
+        max-width: 20rem;
+    }
+}
+
 @media screen and (max-width: 768px) {
 
     .select {
         display: none;
+    }
+
+    tbody tr > .data p {
+        max-width: 25rem;
+    }
+}
+
+@media screen and (max-width: 660px) {
+
+    tbody tr > .data p {
+        max-width: 15rem;
+    }
+}
+
+@media screen and (max-width: 550px) {
+
+    tbody tr > .data p {
+        max-width: 15rem;
+    }
+}
+
+@media screen and (max-width: 440px) {
+
+    tbody tr > .data p {
+        max-width: 10rem;
+    }
+}
+
+@media screen and (max-width: 350px) {
+
+    tbody tr > .data p {
+        max-width: 8rem;
     }
 }
 </style>
