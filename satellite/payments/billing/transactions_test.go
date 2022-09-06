@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -54,7 +54,7 @@ func TestTransactionsDBList(t *testing.T) {
 
 		createTX := billing.Transaction{
 			UserID:      userID,
-			Amount:      monetary.AmountFromBaseUnits(4, monetary.USDollars),
+			Amount:      currency.AmountFromBaseUnits(4, currency.USDollars),
 			Description: "credit from storjscan payment",
 			Source:      txSource,
 			Status:      txStatus,
@@ -89,12 +89,12 @@ func TestTransactionsDBList(t *testing.T) {
 }
 
 func TestTransactionsDBBalance(t *testing.T) {
-	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
-	tenMicroUSD := monetary.AmountFromBaseUnits(10000000, monetary.USDollarsMicro)
-	twentyMicroUSD := monetary.AmountFromBaseUnits(20000000, monetary.USDollarsMicro)
-	thirtyUSD := monetary.AmountFromBaseUnits(3000, monetary.USDollars)
-	fortyMicroUSD := monetary.AmountFromBaseUnits(40000000, monetary.USDollarsMicro)
-	negativeTwentyUSD := monetary.AmountFromBaseUnits(-2000, monetary.USDollars)
+	tenUSD := currency.AmountFromBaseUnits(1000, currency.USDollars)
+	tenMicroUSD := currency.AmountFromBaseUnits(10000000, currency.USDollarsMicro)
+	twentyMicroUSD := currency.AmountFromBaseUnits(20000000, currency.USDollarsMicro)
+	thirtyUSD := currency.AmountFromBaseUnits(3000, currency.USDollars)
+	fortyMicroUSD := currency.AmountFromBaseUnits(40000000, currency.USDollarsMicro)
+	negativeTwentyUSD := currency.AmountFromBaseUnits(-2000, currency.USDollars)
 
 	userID := testrand.UUID()
 
@@ -196,7 +196,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 }
 
 func TestUpdateTransactions(t *testing.T) {
-	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
+	tenUSD := currency.AmountFromBaseUnits(1000, currency.USDollars)
 	userID := testrand.UUID()
 	address, err := blockchain.BytesToAddress(testrand.Bytes(20))
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ func TestUpdateMetadata(t *testing.T) {
 // ensures that is not empty.
 func compareTransactions(t *testing.T, exp, act billing.Transaction) {
 	assert.Equal(t, exp.UserID, act.UserID)
-	assert.Equal(t, monetary.AmountFromDecimal(exp.Amount.AsDecimal().Truncate(monetary.USDollarsMicro.DecimalPlaces()), monetary.USDollarsMicro), act.Amount)
+	assert.Equal(t, currency.AmountFromDecimal(exp.Amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro), act.Amount)
 	assert.Equal(t, exp.Description, act.Description)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Source, act.Source)

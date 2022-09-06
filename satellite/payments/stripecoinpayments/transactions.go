@@ -10,9 +10,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // ErrTransactionConsumed is thrown when trying to consume already consumed transaction.
@@ -46,8 +46,8 @@ type Transaction struct {
 	ID        coinpayments.TransactionID
 	AccountID uuid.UUID
 	Address   string
-	Amount    monetary.Amount
-	Received  monetary.Amount
+	Amount    currency.Amount
+	Received  currency.Amount
 	Status    coinpayments.Status
 	Key       string
 	Timeout   time.Duration
@@ -58,7 +58,7 @@ type Transaction struct {
 type TransactionUpdate struct {
 	TransactionID coinpayments.TransactionID
 	Status        coinpayments.Status
-	Received      monetary.Amount
+	Received      currency.Amount
 }
 
 // TransactionsPage holds set of transaction and indicates if

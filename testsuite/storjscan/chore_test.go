@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/common/currency"
+
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	blockchain2 "storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/testsuite/storjscan/storjscantest"
 	"storj.io/storjscan/blockchain"
 	"storj.io/storjscan/private/testeth/testtoken"
@@ -61,8 +62,8 @@ func TestChore(t *testing.T) {
 		expected := payments.WalletPayment{
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
-			TokenValue:  monetary.AmountFromBaseUnits(10000, monetary.StorjToken),
-			USDValue:    monetary.AmountFromBaseUnits(1000000, monetary.USDollars),
+			TokenValue:  currency.AmountFromBaseUnits(10000, currency.StorjToken),
+			USDValue:    currency.AmountFromBaseUnits(10000000000, currency.USDollarsMicro),
 			Status:      payments.PaymentStatusPending,
 			BlockHash:   blockchain2.Hash(block.Hash()),
 			BlockNumber: block.Number().Int64(),

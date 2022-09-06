@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
@@ -22,7 +23,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -326,7 +326,7 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		require.NoError(t, err)
 		_, err = satellite.DB.Billing().Insert(ctx, billing.Transaction{
 			UserID:      userID,
-			Amount:      monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+			Amount:      currency.AmountFromBaseUnits(1000, currency.USDollars),
 			Description: "token payment credit",
 			Source:      "storjscan",
 			Status:      billing.TransactionStatusCompleted,

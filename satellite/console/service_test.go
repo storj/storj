@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -28,7 +29,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -910,7 +910,7 @@ func TestLockAccount(t *testing.T) {
 func TestWalletJsonMarshall(t *testing.T) {
 	wi := console.WalletInfo{
 		Address: blockchain.Address{1, 2, 3},
-		Balance: monetary.AmountFromBaseUnits(10000, monetary.USDollars).AsDecimal().String(),
+		Balance: currency.AmountFromBaseUnits(10000, currency.USDollars).AsDecimal().String(),
 	}
 
 	out, err := json.Marshal(wi)
@@ -984,8 +984,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
 				AccountID: user.ID,
 				Address:   blockchaintest.NewAddress().Hex(),
-				Amount:    monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
-				Received:  monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
+				Amount:    currency.AmountFromBaseUnits(1000000000, currency.StorjToken),
+				Received:  currency.AmountFromBaseUnits(1000000000, currency.StorjToken),
 				Status:    coinpayments.StatusCompleted,
 				Key:       "key",
 				Timeout:   0,
@@ -1005,8 +1005,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
-				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(1000, monetary.USDollarsMicro),
+				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(1000, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
@@ -1044,8 +1044,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				ID:        tx.ID.String(),
 				Type:      "coinpayments",
 				Wallet:    tx.Address,
-				Amount:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
-				Received:  monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				Amount:    currency.AmountFromBaseUnits(1000, currency.USDollars),
+				Received:  currency.AmountFromBaseUnits(1000, currency.USDollars),
 				Status:    tx.Status.String(),
 				Link:      coinpayments.GetCheckoutURL(tx.Key, tx.ID),
 				Timestamp: tx.CreatedAt,

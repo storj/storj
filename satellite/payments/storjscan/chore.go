@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // ChoreErr is storjscan chore err class.
@@ -88,8 +88,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			cachedPayments = append(cachedPayments, CachedPayment{
 				From:        payment.From,
 				To:          payment.To,
-				TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
-				USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollarsMicro),
+				TokenValue:  currency.AmountFromBaseUnits(payment.TokenValue.Int64(), currency.StorjToken),
+				USDValue:    currency.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), currency.USDollarsMicro),
 				Status:      status,
 				BlockHash:   payment.BlockHash,
 				BlockNumber: payment.BlockNumber,

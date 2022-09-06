@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -85,9 +85,9 @@ func TestChore(t *testing.T) {
 }
 
 func createBatch(t *testing.T, userID uuid.UUID, blockNumber int64, logIndex int) []billing.Transaction {
-	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
-	twentyUSD := monetary.AmountFromBaseUnits(2000, monetary.USDollars)
-	thirtyUSD := monetary.AmountFromBaseUnits(3000, monetary.USDollars)
+	tenUSD := currency.AmountFromBaseUnits(1000, currency.USDollars)
+	twentyUSD := currency.AmountFromBaseUnits(2000, currency.USDollars)
+	thirtyUSD := currency.AmountFromBaseUnits(3000, currency.USDollars)
 
 	address, err := blockchain.BytesToAddress(testrand.Bytes(20))
 	require.NoError(t, err)

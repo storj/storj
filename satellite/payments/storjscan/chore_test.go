@@ -16,10 +16,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/storjscan/storjscantest"
@@ -61,8 +61,8 @@ func TestChore(t *testing.T) {
 				cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 					From:        payment.From,
 					To:          payment.To,
-					TokenValue:  monetary.AmountFromBaseUnits(payment.TokenValue.Int64(), monetary.StorjToken),
-					USDValue:    monetary.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), monetary.USDollarsMicro),
+					TokenValue:  currency.AmountFromBaseUnits(payment.TokenValue.Int64(), currency.StorjToken),
+					USDValue:    currency.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), currency.USDollarsMicro),
 					Status:      payments.PaymentStatusPending,
 					BlockHash:   payment.BlockHash,
 					BlockNumber: payment.BlockNumber,

@@ -10,10 +10,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -185,8 +185,8 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, bl
 // fromDBXPayment converts dbx storjscan payment type to storjscan.CachedPayment.
 func fromDBXPayment(dbxPmnt *dbx.StorjscanPayment) storjscan.CachedPayment {
 	payment := storjscan.CachedPayment{
-		TokenValue:  monetary.AmountFromBaseUnits(dbxPmnt.TokenValue, monetary.StorjToken),
-		USDValue:    monetary.AmountFromBaseUnits(dbxPmnt.UsdValue, monetary.USDollarsMicro),
+		TokenValue:  currency.AmountFromBaseUnits(dbxPmnt.TokenValue, currency.StorjToken),
+		USDValue:    currency.AmountFromBaseUnits(dbxPmnt.UsdValue, currency.USDollarsMicro),
 		Status:      payments.PaymentStatus(dbxPmnt.Status),
 		BlockNumber: dbxPmnt.BlockNumber,
 		LogIndex:    dbxPmnt.LogIndex,

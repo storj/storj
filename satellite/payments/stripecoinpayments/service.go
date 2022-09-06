@@ -19,13 +19,13 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 )
 
@@ -195,7 +195,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			TransactionUpdate{
 				TransactionID: id,
 				Status:        info.Status,
-				Received:      monetary.AmountFromDecimal(info.Received, monetary.StorjToken),
+				Received:      currency.AmountFromDecimal(info.Received, currency.StorjToken),
 			},
 		)
 
@@ -366,7 +366,7 @@ func (service *Service) UpdateRates(ctx context.Context) (err error) {
 }
 
 // GetRate returns conversion rate for specified currencies.
-func (service *Service) GetRate(ctx context.Context, curr1, curr2 *monetary.Currency) (_ decimal.Decimal, err error) {
+func (service *Service) GetRate(ctx context.Context, curr1, curr2 *currency.Currency) (_ decimal.Decimal, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.mu.Lock()
@@ -560,7 +560,7 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 		monetaryTokenBalance, err := service.billingDB.GetBalance(ctx, wallet.UserID)
 		// truncate here since stripe only has cent level precision for invoices.
 		// The users account balance will still maintain the full precision monetary value!
-		tokenBalance := monetary.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), monetary.USDollars)
+		tokenBalance := currency.AmountFromDecimal(monetaryTokenBalance.AsDecimal().Truncate(2), currency.USDollars)
 		if err != nil {
 			errGrp.Add(Error.New("unable to compute balance for user ID %s", wallet.UserID.String()))
 			continue
@@ -678,7 +678,7 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 
 	transaction := billing.Transaction{
 		UserID:      userID,
-		Amount:      monetary.AmountFromBaseUnits(amount, monetary.USDollars),
+		Amount:      currency.AmountFromBaseUnits(amount, currency.USDollars),
 		Description: "Paid Stripe Invoice",
 		Source:      "stripe",
 		Status:      billing.TransactionStatusPending,

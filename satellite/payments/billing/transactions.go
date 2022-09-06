@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // TransactionStatus indicates transaction status.
@@ -62,7 +62,7 @@ type TransactionsDB interface {
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
-	GetBalance(ctx context.Context, userID uuid.UUID) (monetary.Amount, error)
+	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -82,7 +82,7 @@ type PaymentType interface {
 type Transaction struct {
 	ID          int64
 	UserID      uuid.UUID
-	Amount      monetary.Amount
+	Amount      currency.Amount
 	Description string
 	Source      string
 	Status      TransactionStatus

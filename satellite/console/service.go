@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -35,7 +36,6 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -2808,8 +2808,8 @@ type PaymentInfo struct {
 	ID        string
 	Type      string
 	Wallet    string
-	Amount    monetary.Amount
-	Received  monetary.Amount
+	Amount    currency.Amount
+	Received  currency.Amount
 	Status    string
 	Link      string
 	Timestamp time.Time
@@ -2912,8 +2912,8 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			ID:        txInfo.ID.String(),
 			Type:      "coinpayments",
 			Wallet:    txInfo.Address,
-			Amount:    monetary.AmountFromBaseUnits(txInfo.AmountCents, monetary.USDollars),
-			Received:  monetary.AmountFromBaseUnits(txInfo.ReceivedCents, monetary.USDollars),
+			Amount:    currency.AmountFromBaseUnits(txInfo.AmountCents, currency.USDollars),
+			Received:  currency.AmountFromBaseUnits(txInfo.ReceivedCents, currency.USDollars),
 			Status:    txInfo.Status.String(),
 			Link:      txInfo.Link,
 			Timestamp: txInfo.CreatedAt.UTC(),

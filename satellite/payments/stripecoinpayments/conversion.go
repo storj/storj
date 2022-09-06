@@ -11,12 +11,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // convertToCents convert amount to USD cents with given rate.
-func convertToCents(rate decimal.Decimal, amount monetary.Amount) int64 {
+func convertToCents(rate decimal.Decimal, amount currency.Amount) int64 {
 	amountDecimal := amount.AsDecimal()
 	usd := amountDecimal.Mul(rate)
 	usdCents := usd.Shift(2)
@@ -24,10 +24,10 @@ func convertToCents(rate decimal.Decimal, amount monetary.Amount) int64 {
 }
 
 // convertFromCents convert amount in cents to a StorjTokenAmount with given rate.
-func convertFromCents(rate decimal.Decimal, usdCents int64) monetary.Amount {
+func convertFromCents(rate decimal.Decimal, usdCents int64) currency.Amount {
 	usd := decimal.NewFromInt(usdCents).Shift(-2)
 	numStorj := usd.Div(rate)
-	return monetary.AmountFromDecimal(numStorj, monetary.USDollars)
+	return currency.AmountFromDecimal(numStorj, currency.USDollars)
 }
 
 // ErrConversion defines version service error.

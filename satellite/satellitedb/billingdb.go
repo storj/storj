@@ -12,10 +12,10 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -38,8 +38,8 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
-		billingAmount := monetary.AmountFromDecimal(billingTX.Amount.AsDecimal().Truncate(monetary.USDollarsMicro.DecimalPlaces()), monetary.USDollarsMicro)
-		newBalance, err := monetary.Add(oldBalance, billingAmount)
+		billingAmount := currency.AmountFromDecimal(billingTX.Amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro)
+		newBalance, err := currency.Add(oldBalance, billingAmount)
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
@@ -160,18 +160,18 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 	return txs, nil
 }
 
-func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ monetary.Amount, err error) {
+func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currency.Amount, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBilling, err := db.db.Get_BillingBalance_Balance_By_UserId(ctx,
 		dbx.BillingBalance_UserId(userID[:]))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return monetary.USDollarsMicro.Zero(), nil
+			return currency.USDollarsMicro.Zero(), nil
 		}
-		return monetary.USDollarsMicro.Zero(), Error.Wrap(err)
+		return currency.USDollarsMicro.Zero(), Error.Wrap(err)
 	}
 
-	return monetary.AmountFromBaseUnits(dbxBilling.Balance, monetary.USDollarsMicro), nil
+	return currency.AmountFromBaseUnits(dbxBilling.Balance, currency.USDollarsMicro), nil
 }
 
 // fromDBXBillingTransaction converts *dbx.BillingTransaction to *billing.Transaction.
@@ -183,7 +183,7 @@ func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (*billing.Transact
 	return &billing.Transaction{
 		ID:          dbxTX.Id,
 		UserID:      userID,
-		Amount:      monetary.AmountFromBaseUnits(dbxTX.Amount, monetary.USDollarsMicro),
+		Amount:      currency.AmountFromBaseUnits(dbxTX.Amount, currency.USDollarsMicro),
 		Description: dbxTX.Description,
 		Source:      dbxTX.Source,
 		Status:      billing.TransactionStatus(dbxTX.Status),

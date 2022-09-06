@@ -1286,8 +1286,8 @@ storj.io/common v0.0.0-20211217122906-6be0b96ce7e0/go.mod h1:Lufva6X8BVz5dEDNabp
 storj.io/common v0.0.0-20220708152916-e2f08365ed65/go.mod h1:PdwPrX+QWAm4vgVyka5U13vA0jKk49MpV4tzW4HTaz0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
 storj.io/common v0.0.0-20220802175255-aae0c09ec9d4/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
-storj.io/common v0.0.0-20220822090045-1b57fc2bbda1 h1:0NIhx8hyQ+UgG4ZC5UOdMu4uHhSizmEfAUsca0E4hMA=
-storj.io/common v0.0.0-20220822090045-1b57fc2bbda1/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
+storj.io/common v0.0.0-20220902050723-654fd98b53c6 h1:qjerTUC3dl6XzF44LkOEGKFpyz7oDkbtyr/tZUa+CFU=
+storj.io/common v0.0.0-20220902050723-654fd98b53c6/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.24/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
 storj.io/drpc v0.0.26/go.mod h1:ofQUDPQbbIymRDKE0tms48k8bLP5Y+dsI9CbXGv3gko=
