@@ -59,7 +59,7 @@ const (
 	eventCopyToClipboardClicked     = "Copy to Clipboard Clicked"
 	eventCreateAccessGrantClicked   = "Create Access Grant Clicked"
 	eventCreateS3CredentialsClicked = "Create S3 Credentials Clicked"
-	eventKeysForCLIClicked          = "Keys for CLI Clicked"
+	eventKeysForCLIClicked          = "Create Keys For CLI Clicked"
 )
 
 var (

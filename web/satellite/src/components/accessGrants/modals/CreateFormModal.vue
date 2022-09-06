@@ -40,7 +40,7 @@
                         @mouseover="toggleTooltipHover('access','over')"
                         @mouseleave="toggleTooltipHover('access','leave')"
                     >
-                        <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                        <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')">Learn More</a></span>
                     </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
@@ -66,7 +66,7 @@
                         @mouseover="toggleTooltipHover('s3','over')"
                         @mouseleave="toggleTooltipHover('s3','leave')"
                     >
-                        <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                        <span class="tooltip-text">Generates access key, secret key, and endpoint to use in your S3-supporting application.  <a class="tooltip-link" href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')">Learn More</a></span>
                     </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
@@ -92,7 +92,7 @@
                         @mouseover="toggleTooltipHover('api','over')"
                         @mouseleave="toggleTooltipHover('api','leave')"
                     >
-                        <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token" target="_blank" rel="noreferrer noopener">Learn More</a></span>
+                        <span class="tooltip-text">Creates access grant to run in the command line.  <a class="tooltip-link" href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token')">Learn More</a></span>
                     </div>
                 </div>
             </div>
@@ -178,7 +178,7 @@
                     </div> -->
         </div>
         <div class="access-grant__modal-container__footer-container">
-            <a href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer">
+            <a href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key" target="_blank" rel="noopener noreferrer" @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants/api-key')">
                 <v-button
                     label="Learn More"
                     width="150px"
@@ -217,6 +217,9 @@ import DurationSelection from '@/components/accessGrants/permissions/DurationSel
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
+
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 type ShowPermissions = {
     show: boolean,
@@ -262,6 +265,8 @@ export default class CreateFormModal extends Vue {
     private addDateSelected = false;
     public tooltipHover = '';
     public tooltipVisibilityTimer;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public mounted(): void {
         this.showAllPermissions = {show: false, position: "up"};
@@ -314,6 +319,7 @@ export default class CreateFormModal extends Vue {
             this.propogateInfo()
             this.$emit('encrypt');
         }
+        this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
     }
 
     public toggleAllPermission(type): void {
@@ -358,6 +364,13 @@ export default class CreateFormModal extends Vue {
             clearTimeout(this.tooltipVisibilityTimer)
             this.tooltipHover = type;
         }
+    }
+
+    /**
+     * Sends "trackPageVisit" event to segment and opens link.
+     */
+    public trackPageVisit(link: string): void {
+        this.analytics.pageVisit(link);
     }
 
 }
