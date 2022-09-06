@@ -40,7 +40,7 @@
                         @mouseover="toggleTooltipHover('access','over')"
                         @mouseleave="toggleTooltipHover('access','leave')"
                     >
-                        <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://storj-labs.gitbook.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://storj-labs.gitbook.io/dcs/concepts/access/access-grants')">Learn More</a></span>
+                        <span class="tooltip-text">Keys to upload, delete, and view your project's data.  <a class="tooltip-link" href="https://docs.storj.io/dcs/concepts/access/access-grants" target="_blank" rel="noreferrer noopener" @click="trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')">Learn More</a></span>
                     </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
