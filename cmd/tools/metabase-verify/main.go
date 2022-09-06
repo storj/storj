@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/private/process"
-	"storj.io/storj/cmd/metabase-verify/verify"
+	"storj.io/storj/cmd/tools/metabase-verify/verify"
 	"storj.io/storj/satellite/metabase"
 )
 

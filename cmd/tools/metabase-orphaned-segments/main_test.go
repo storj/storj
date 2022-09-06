@@ -15,7 +15,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/tempdb"
-	cmd "storj.io/storj/cmd/metabase-orphaned-segments"
+	cmd "storj.io/storj/cmd/tools/metabase-orphaned-segments"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
