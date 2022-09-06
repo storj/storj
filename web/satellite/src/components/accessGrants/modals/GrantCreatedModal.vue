@@ -165,6 +165,7 @@
                 href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                 target="_blank"
                 rel="noopener noreferrer"
+                @click="trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
             >
                 <v-button
                     label="Learn More"
@@ -212,6 +213,9 @@ import VButton from '@/components/common/VButton.vue';
 
 import { EdgeCredentials } from '@/types/accessGrants';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 
 // @vue/component
 @Component({
@@ -236,6 +240,8 @@ export default class GrantCreatedModal extends Vue {
 
     private areCredentialsDownloaded = false;
     private isAccessGrantCopied = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Global isLoading Variable
@@ -264,6 +270,7 @@ export default class GrantCreatedModal extends Vue {
     public onCopyAccessGrantClick(): void {
         this.$copyText(this.restrictedKey);
         this.isAccessGrantCopied = true;
+        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
         this.$notify.success(`Access Grant was copied successfully`);
     }
 
@@ -278,6 +285,7 @@ export default class GrantCreatedModal extends Vue {
         }
         this.areCredentialsDownloaded = true;
         Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
+        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
     }
 
     /**
@@ -285,6 +293,13 @@ export default class GrantCreatedModal extends Vue {
      */
     public learnMore(): void{
         window.open("https://docs.storj.io/dcs/api-reference/s3-compatible-gateway", '_blank');
+    }
+
+    /**
+     * Sends "trackPageVisit" event to segment and opens link.
+     */
+    public trackPageVisit(link: string): void {
+        this.analytics.pageVisit(link);
     }
 }
 </script>

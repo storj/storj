@@ -168,6 +168,9 @@ import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
 import DownloadIcon from '../../../../static/images/common/download.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -189,6 +192,8 @@ export default class EncryptFormModal extends Vue {
     private accessGrantStep = "create";
     private acknowledgementCheck = false;
     public currentDate = new Date().toISOString();
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     @Watch('passphrase')
     public applyPassphrase(): void {
@@ -220,6 +225,7 @@ export default class EncryptFormModal extends Vue {
     public onCopyPassphraseClick(): void {
         this.$copyText(this.passphrase);
         this.isPassphraseCopied = true;
+        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
         this.$notify.success(`Passphrase was copied successfully`);
     }
 
@@ -229,6 +235,7 @@ export default class EncryptFormModal extends Vue {
     public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
         Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
+        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
     }
 }
 </script>
