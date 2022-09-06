@@ -478,7 +478,7 @@ export default class Login extends Vue {
             isNoErrors = false;
         }
 
-        if (!Validator.password(this.password)) {
+        if (this.password.length < Validator.PASS_MIN_LENGTH) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }

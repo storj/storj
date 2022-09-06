@@ -589,6 +589,10 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, status)
 		require.False(t, mfaError)
 
+		status, mfaError = tryPasswordReset(token.Secret.String(), string(testrand.RandAlphaNumeric(129)), "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.False(t, mfaError)
+
 		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
 		require.Equal(t, http.StatusOK, status)
 		require.False(t, mfaError)
@@ -862,6 +866,54 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 			err = result.Body.Close()
 			require.NoError(t, err)
 		}()
+	})
+}
+
+func TestAuth_Register_PasswordLength(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i, tt := range []struct {
+			Name   string
+			Length int
+			Ok     bool
+		}{
+			{"Length below minimum must be rejected", 5, false},
+			{"Length as minimum must be accepted", 6, true},
+			{"Length as maximum must be accepted", 128, true},
+			{"Length above maximum must be rejected", 129, false},
+		} {
+			tt := tt
+			t.Run(tt.Name, func(t *testing.T) {
+				jsonBody, err := json.Marshal(map[string]string{
+					"fullName": "test",
+					"email":    "user" + strconv.Itoa(i) + "@mail.test",
+					"password": string(testrand.RandAlphaNumeric(tt.Length)),
+				})
+				require.NoError(t, err)
+
+				url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+				require.NoError(t, err)
+
+				result, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+
+				err = result.Body.Close()
+				require.NoError(t, err)
+
+				status := http.StatusOK
+				if !tt.Ok {
+					status = http.StatusBadRequest
+				}
+				require.Equal(t, status, result.StatusCode)
+			})
+		}
 	})
 }
 
