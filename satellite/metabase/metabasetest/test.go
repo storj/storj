@@ -32,7 +32,28 @@ type BeginObjectNextVersion struct {
 func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Version, got)
+
+	if step.ErrClass == nil {
+		require.Equal(t, step.Version, got.Version)
+		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
+
+		require.Equal(t, step.Opts.ObjectStream.ProjectID, got.ObjectStream.ProjectID)
+		require.Equal(t, step.Opts.ObjectStream.BucketName, got.ObjectStream.BucketName)
+		require.Equal(t, step.Opts.ObjectStream.ObjectKey, got.ObjectStream.ObjectKey)
+		require.Equal(t, step.Opts.ObjectStream.StreamID, got.ObjectStream.StreamID)
+		require.Equal(t, metabase.Pending, got.Status)
+
+		require.Equal(t, step.Opts.ExpiresAt, got.ExpiresAt)
+
+		gotDeadline := got.ZombieDeletionDeadline
+		optsDeadline := step.Opts.ZombieDeletionDeadline
+		if optsDeadline == nil {
+			require.WithinDuration(t, time.Now().Add(24*time.Hour), *gotDeadline, 5*time.Second)
+		} else {
+			require.WithinDuration(t, *optsDeadline, *gotDeadline, 5*time.Second)
+		}
+		require.Equal(t, step.Opts.Encryption, got.Encryption)
+	}
 }
 
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.

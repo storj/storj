@@ -47,7 +47,7 @@ func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpc
 	require.Equal(t, expectedStatusCode, statusCode, "wrong %T, got %v", statusCode, actualError)
 }
 
-func TestObject_NoStorageNodes(t *testing.T) {
+func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -509,7 +509,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 
 			committedObject := objects[0]
 
-			pendingObjectVersion, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			pendingObject, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  committedObject.ProjectID,
 					BucketName: committedObject.BucketName,
@@ -518,7 +518,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.EqualValues(t, committedObject.Version+1, pendingObjectVersion)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
 			getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
 				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -544,7 +544,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 
 			committedObject := objects[0]
 
-			pendingObjectVersion, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			pendingObject, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  committedObject.ProjectID,
 					BucketName: committedObject.BucketName,
@@ -553,7 +553,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.EqualValues(t, committedObject.Version+1, pendingObjectVersion)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
 			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
 				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -799,7 +799,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			committedObject := objects[0]
 
-			pendingObjectVersion, err := sat.Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			pendingObject, err := sat.Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  committedObject.ProjectID,
 					BucketName: committedObject.BucketName,
@@ -808,7 +808,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				},
 			})
 			require.NoError(t, err)
-			require.EqualValues(t, committedObject.Version+1, pendingObjectVersion)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
 			newIps, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
 			require.NoError(t, err)
