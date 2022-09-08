@@ -203,23 +203,24 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
-import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
+
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AccessGrant } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VButton from '@/components/common/VButton.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
+
+import DateIcon from '@/../static/images/accessGrants/create-access_date.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import TypesIcon from '@/../static/images/accessGrants/create-access_type.svg';
 import NameIcon from '@/../static/images/accessGrants/create-access_name.svg';
 import PermissionsIcon from '@/../static/images/accessGrants/create-access_permissions.svg';
 import Chevron from '@/../static/images/accessGrants/chevron.svg';
 import BucketsIcon from '@/../static/images/accessGrants/create-access_buckets.svg';
-import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
-import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
-
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AccessGrant } from '@/types/accessGrants';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 type ShowPermissions = {
     show: boolean,
@@ -246,21 +247,20 @@ type Permissions = {
         BucketNameBullet,
         DateIcon,
         DurationSelection,
-        VButton
+        VButton,
     },
 })
-
 
 export default class CreateFormModal extends Vue {
     @Prop({ default: '' })
     private checkedType: string;
 
-    public showAllPermissions: ShowPermissions = {show: false, position: "up"};
+    public showAllPermissions: ShowPermissions = { show: false, position: 'up' };
     private accessName = '';
     private selectedPermissions : string[] = [];
     private allPermissionsClicked = false;
-    private permissionsList: string[] = ["Read","Write","List","Delete"];
-    private checkedPermissions: Permissions = {Read: false, Write: false, List: false, Delete: false};
+    private permissionsList: string[] = ['Read','Write','List','Delete'];
+    private checkedPermissions: Permissions = { Read: false, Write: false, List: false, Delete: false };
     private accessGrantList = this.accessGrantsList;
     private addDateSelected = false;
     public tooltipHover = '';
@@ -269,7 +269,7 @@ export default class CreateFormModal extends Vue {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public mounted(): void {
-        this.showAllPermissions = {show: false, position: "up"};
+        this.showAllPermissions = { show: false, position: 'up' };
     }
 
     public onCloseClick(): void {
@@ -292,9 +292,9 @@ export default class CreateFormModal extends Vue {
             'checkedType': this.checkedType,
             'accessName': this.accessName,
             'selectedPermissions': this.selectedPermissions,
-        }
+        };
 
-        this.$emit('propogateInfo', payloadObject, this.checkedType)
+        this.$emit('propogateInfo', payloadObject, this.checkedType);
     }
 
     /**
@@ -310,13 +310,13 @@ export default class CreateFormModal extends Vue {
     }
 
     public encryptClickAction(): void {
-        let mappedList = this.accessGrantList.map((key) => (key.name))
+        let mappedList = this.accessGrantList.map((key) => (key.name));
         if (mappedList.includes(this.accessName)) {
             this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`);
-            return
-        } else if (this.checkedType !== "api") {
+            return;
+        } else if (this.checkedType !== 'api') {
             // emit event here
-            this.propogateInfo()
+            this.propogateInfo();
             this.$emit('encrypt');
         }
         this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
@@ -326,20 +326,20 @@ export default class CreateFormModal extends Vue {
         if (type === 'all' && !this.allPermissionsClicked) {
             this.allPermissionsClicked = true;
             this.selectedPermissions = this.permissionsList;
-            this.checkedPermissions = { Read: true, Write: true, List: true, Delete: true }
-            return
-        } else if(type === 'all' && this.allPermissionsClicked) {
+            this.checkedPermissions = { Read: true, Write: true, List: true, Delete: true };
+            return;
+        } else if (type === 'all' && this.allPermissionsClicked) {
             this.allPermissionsClicked = false;
             this.selectedPermissions = [];
             this.checkedPermissions = { Read: false, Write: false, List: false, Delete: false };
-            return
-        } else if(this.checkedPermissions[type]) {
+            return;
+        } else if (this.checkedPermissions[type]) {
             this.checkedPermissions[type] = false;
             this.allPermissionsClicked = false;
             return;
         } else {
             this.checkedPermissions[type] = true;
-            if(this.checkedPermissions.Read && this.checkedPermissions.Write && this.checkedPermissions.List && this.checkedPermissions.Delete) {
+            if (this.checkedPermissions.Read && this.checkedPermissions.Write && this.checkedPermissions.List && this.checkedPermissions.Delete) {
                 this.allPermissionsClicked = true;
             }
         }
@@ -360,8 +360,8 @@ export default class CreateFormModal extends Vue {
         } else if (this.tooltipHover === type && action === 'over') {
             clearTimeout(this.tooltipVisibilityTimer);
             return;
-        } else if(this.tooltipHover !== type) {
-            clearTimeout(this.tooltipVisibilityTimer)
+        } else if (this.tooltipHover !== type) {
+            clearTimeout(this.tooltipVisibilityTimer);
             this.tooltipHover = type;
         }
     }

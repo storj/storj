@@ -202,20 +202,19 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
-import { Download } from "@/utils/download";
+import { Download } from '@/utils/download';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import VButton from '@/components/common/VButton.vue';
 
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
-import VButton from '@/components/common/VButton.vue';
-
-import { EdgeCredentials } from '@/types/accessGrants';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-
 
 // @vue/component
 @Component({
@@ -229,13 +228,13 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 })
 
 export default class GrantCreatedModal extends Vue {
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly checkedType: string;
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly restrictedKey: string;
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly accessName: string;
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly access: string;
 
     private areCredentialsDownloaded = false;
@@ -247,7 +246,7 @@ export default class GrantCreatedModal extends Vue {
      * Global isLoading Variable
      **/
     private isLoading = false;
-    private checkedText: Record<string, string[]> = {access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.']};
+    private checkedText: Record<string, string[]> = { access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.'] };
     public currentDate = new Date().toISOString();
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
@@ -281,10 +280,10 @@ export default class GrantCreatedModal extends Vue {
         let credentialMap = {
             access: [`access grant: ${this.access}`],
             s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`],
-            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`]
-        }
+            api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`],
+        };
         this.areCredentialsDownloaded = true;
-        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`)
+        Download.file(credentialMap[this.checkedType], `${this.checkedType}-credentials-${this.currentDate}.txt`);
         this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
     }
 
@@ -292,7 +291,7 @@ export default class GrantCreatedModal extends Vue {
      * Opens S3 documentation in a new tab
      */
     public learnMore(): void{
-        window.open("https://docs.storj.io/dcs/api-reference/s3-compatible-gateway", '_blank');
+        window.open('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway', '_blank');
     }
 
     /**

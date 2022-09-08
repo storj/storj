@@ -47,19 +47,18 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 // @vue/component
 @Component({

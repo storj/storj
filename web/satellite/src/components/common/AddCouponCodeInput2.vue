@@ -41,15 +41,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { PaymentsHttpApi } from '@/api/payments';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
-
-import { PaymentsHttpApi } from '@/api/payments';
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 // @vue/component
 @Component({

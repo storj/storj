@@ -12,11 +12,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
-
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
+
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 // @vue/component
 @Component({

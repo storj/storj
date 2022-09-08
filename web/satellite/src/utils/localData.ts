@@ -59,23 +59,23 @@ export class LocalData {
         const status = localStorage.getItem(LocalData.demoBucketCreated);
         if (!status) return null;
 
-        return JSON.parse(status)
+        return JSON.parse(status);
     }
 
     public static setDemoBucketCreatedStatus(): void {
-        localStorage.setItem(LocalData.demoBucketCreated, "true");
+        localStorage.setItem(LocalData.demoBucketCreated, 'true');
     }
 
     /**
      * "Disable" showing the upload guide tooltip on the bucket page
      */
     public static setBucketGuideHidden(): void {
-        localStorage.setItem(LocalData.bucketGuideHidden, "true");
+        localStorage.setItem(LocalData.bucketGuideHidden, 'true');
     }
 
     public static getBucketGuideHidden(): boolean {
         const value = localStorage.getItem(LocalData.bucketGuideHidden);
-        return value === "true";
+        return value === 'true';
     }
 
     /**
@@ -87,7 +87,7 @@ export class LocalData {
 
     public static getServerSideEncryptionBannerHidden(): boolean {
         const value = localStorage.getItem(LocalData.serverSideEncryptionBannerHidden);
-        return value === "true";
+        return value === 'true';
     }
 
     public static getBillingNotificationAcknowledged(): boolean {

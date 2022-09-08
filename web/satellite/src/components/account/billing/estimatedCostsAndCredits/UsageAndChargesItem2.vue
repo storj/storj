@@ -54,13 +54,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import GreyChevron from '@/../static/images/common/greyChevron.svg';
-
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
+
+import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
 // @vue/component
 @Component({
@@ -72,7 +72,7 @@ export default class UsageAndChargesItem2 extends Vue {
     /**
      * item represents usage and charges of current project by period.
      */
-    @Prop({default: () => new ProjectUsageAndCharges()})
+    @Prop({ default: () => new ProjectUsageAndCharges() })
     private readonly item: ProjectUsageAndCharges;
 
     /**
@@ -85,8 +85,7 @@ export default class UsageAndChargesItem2 extends Vue {
      */
     private readonly GB_IN_TB = 1000;
 
-
-    public paymentMethod = "test";
+    public paymentMethod = 'test';
 
     /**
      * projectName returns project name.

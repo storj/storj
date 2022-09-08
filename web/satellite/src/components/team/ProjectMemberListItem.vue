@@ -17,12 +17,13 @@
 import { Component, Prop } from 'vue-property-decorator';
 
 import { ProjectMember } from '@/types/projectMembers';
-import TableItem from "@/components/common/TableItem.vue";
-import Resizable from "@/components/common/Resizable.vue";
+
+import TableItem from '@/components/common/TableItem.vue';
+import Resizable from '@/components/common/Resizable.vue';
 
 // @vue/component
 @Component({
-    components: { TableItem }
+    components: { TableItem },
 })
 export default class ProjectMemberListItem extends Resizable {
     @Prop({ default: new ProjectMember('', '', '', new Date(), '') })

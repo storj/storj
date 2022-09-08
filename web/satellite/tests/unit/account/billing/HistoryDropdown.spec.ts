@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { RouteConfig } from '@/router';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 
 const localVue = createLocalVue();
 

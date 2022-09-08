@@ -14,7 +14,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 import DatePicker from 'vue2-datepicker';
 
 // @vue/component
@@ -25,11 +25,11 @@ import DatePicker from 'vue2-datepicker';
 })
 export default class VDateRangePicker extends Vue {
     @Prop({ default: false })
-    public readonly isOpen: boolean
+    public readonly isOpen: boolean;
     @Prop({ default: () => false })
-    public readonly onDatePick: (dateRange: Date[]) => void
+    public readonly onDatePick: (dateRange: Date[]) => void;
     @Prop({ default: undefined })
-    public readonly dateRange: Date[]
+    public readonly dateRange: Date[];
 }
 </script>
 

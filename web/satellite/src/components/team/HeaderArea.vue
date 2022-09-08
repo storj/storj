@@ -80,19 +80,19 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VHeader from '@/components/common/VHeader.vue';
-import VInfo from '@/components/common/VInfo.vue';
-
-import InfoIcon from '@/../static/images/team/infoTooltip.svg';
-
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import VInfo from '@/components/common/VInfo.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -108,11 +108,11 @@ declare interface ClearSearch {
     },
 })
 export default class HeaderArea extends Vue {
-    @Prop({default: ProjectMemberHeaderState.DEFAULT})
+    @Prop({ default: ProjectMemberHeaderState.DEFAULT })
     private readonly headerState: ProjectMemberHeaderState;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly selectedProjectMembersCount: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isAddButtonDisabled: boolean;
 
     private FIRST_PAGE = 1;

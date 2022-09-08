@@ -365,21 +365,24 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import FileBrowserHeader from "./FileBrowserHeader.vue";
-import FileEntry from "./FileEntry.vue";
-import BreadCrumbs from "./BreadCrumbs.vue";
-import FileModal from "./FileModal.vue";
-import FileShareModal from "./FileShareModal.vue";
-import NewFolderModal from "./NewFolderModal.vue";
-import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
-import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
+
+import FileBrowserHeader from './FileBrowserHeader.vue';
+import FileEntry from './FileEntry.vue';
+import BreadCrumbs from './BreadCrumbs.vue';
+import FileModal from './FileModal.vue';
+import FileShareModal from './FileShareModal.vue';
+import NewFolderModal from './NewFolderModal.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { BrowserFile } from "@/types/browser";
+import { BrowserFile } from '@/types/browser';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from "@/router";
-import BucketSettingsNav from "@/components/objects/BucketSettingsNav.vue";
+import { RouteConfig } from '@/router';
+
+import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
+
+import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
+import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 
 // @vue/component
 @Component({
@@ -393,7 +396,7 @@ import VTable from '@/components/common/VTable.vue';
         FileShareModal,
         BlackArrowExpand,
         BlackArrowHide,
-        NewFolderModal
+        NewFolderModal,
     },
 })
 export default class FileBrowser extends Vue {
@@ -401,7 +404,7 @@ export default class FileBrowser extends Vue {
         folderInput: HTMLInputElement;
         fileInput: HTMLInputElement;
     };
-    public createFolderInput = "";
+    public createFolderInput = '';
     public creatingFolderSpinner = false;
     public deleteConfirmation = false;
     public fetchingFilesSpinner = false;
@@ -413,7 +416,7 @@ export default class FileBrowser extends Vue {
      * Check if the s3 client has been initialized in the store.
      */
     public get isInitialized(): boolean {
-        return this.$store.getters["files/isInitialized"];
+        return this.$store.getters['files/isInitialized'];
     }
 
     /**
@@ -452,10 +455,10 @@ export default class FileBrowser extends Vue {
      * Return the text of how many files in total are being uploaded to be displayed to give users more context.
      */
     public get formattedFilesWaitingToBeUploaded(): string {
-        let file = "file";
+        let file = 'file';
 
         if (this.filesUploadingLength > 1) {
-            file = "files";
+            file = 'files';
         }
 
         return `${this.filesUploadingLength} ${file}`;
@@ -468,16 +471,16 @@ export default class FileBrowser extends Vue {
         const charsOtherThanSpaceExist =
             this.createFolderInput.trim().length > 0;
 
-        const noForwardSlashes = this.createFolderInput.indexOf("/") === -1;
+        const noForwardSlashes = this.createFolderInput.indexOf('/') === -1;
 
         const nameIsNotOnlyPeriods =
             [...this.createFolderInput.trim()].filter(
-                (char) => char === "."
+                (char) => char === '.',
             ).length !== this.createFolderInput.trim().length;
 
         const notDuplicate =
             this.files.filter(
-                (file) => file.Key === this.createFolderInput.trim()
+                (file) => file.Key === this.createFolderInput.trim(),
             ).length === 0;
 
         return (
@@ -499,21 +502,21 @@ export default class FileBrowser extends Vue {
      * Retrieve all of the files sorted from the store.
      */
     private get files(): BrowserFile[] {
-        return this.$store.getters["files/sortedFiles"];
+        return this.$store.getters['files/sortedFiles'];
     }
 
     /**
      * Return an array of BrowserFile type that are files and not folders.
      */
     public get singleFiles(): BrowserFile[] {
-        return this.files.filter((f) => f.type === "file");
+        return this.files.filter((f) => f.type === 'file');
     }
 
     /**
      * Return an array of BrowserFile type that are folders and not files.
      */
     public get folders(): BrowserFile[] {
-        return this.files.filter((f) => f.type === "folder");
+        return this.files.filter((f) => f.type === 'folder');
     }
 
     /**
@@ -522,7 +525,7 @@ export default class FileBrowser extends Vue {
     private get routePath(): string {
         let pathMatch = this.$route.params.pathMatch;
         pathMatch = Array.isArray(pathMatch)
-            ? pathMatch.join("/") + "/"
+            ? pathMatch.join('/') + '/'
             : pathMatch;
         return pathMatch;
     }
@@ -572,7 +575,7 @@ export default class FileBrowser extends Vue {
     /**
      * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
      */
-    @Watch("routePath")
+    @Watch('routePath')
     private async handleRoutePathChange() {
         await this.goToRoutePath();
     }
@@ -598,10 +601,10 @@ export default class FileBrowser extends Vue {
             try {
                 this.analytics.pageVisit(`${this.$store.state.files.browserRoot}${this.path}`);
                 await this.$router.push({
-                    path: `${this.$store.state.files.browserRoot}${this.path}`
+                    path: `${this.$store.state.files.browserRoot}${this.path}`,
                 });
             } catch (err) {
-                await this.list("");
+                await this.list('');
             }
         }
 
@@ -614,19 +617,19 @@ export default class FileBrowser extends Vue {
      */
     public closeModalDropdown(): void {
         if (this.$store.state.files.modalPath) {
-            this.$store.commit("files/closeModal");
+            this.$store.commit('files/closeModal');
         }
 
         if (this.$store.state.files.fileShareModal) {
-            this.$store.commit("files/closeFileShareModal");
+            this.$store.commit('files/closeFileShareModal');
         }
 
         if (this.$store.state.files.openedDropdown) {
-            this.$store.dispatch("files/closeDropdown");
+            this.$store.dispatch('files/closeDropdown');
         }
 
         if (this.$store.state.files.selectedFile) {
-            this.$store.dispatch("files/clearAllSelectedFiles");
+            this.$store.dispatch('files/clearAllSelectedFiles');
         }
     }
 
@@ -635,8 +638,8 @@ export default class FileBrowser extends Vue {
      */
     public toggleFolderCreationInput(): void {
         this.$store.dispatch(
-            "files/updateCreateFolderInputShow",
-            !this.$store.state.files.createFolderInputShow
+            'files/updateCreateFolderInputShow',
+            !this.$store.state.files.createFolderInputShow,
         );
     }
 
@@ -645,7 +648,7 @@ export default class FileBrowser extends Vue {
      */
     public filename(file: BrowserFile): string {
         return file.Key.length > 25
-            ? file.Key.slice(0, 25) + "..."
+            ? file.Key.slice(0, 25) + '...'
             : file.Key;
     }
 
@@ -653,25 +656,25 @@ export default class FileBrowser extends Vue {
      * Upload the current selected or dragged-and-dropped file.
      */
     public async upload(e: Event): Promise<void> {
-        await this.$store.dispatch("files/upload", e);
+        await this.$store.dispatch('files/upload', e);
         this.analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
         const target = e.target as HTMLInputElement;
-        target.value = "";
+        target.value = '';
     }
 
     /**
      * Cancel the upload of the current file that's passed in as an argument.
      */
     public cancelUpload(fileName: string): void {
-        this.$store.dispatch("files/cancelUpload", fileName);
+        this.$store.dispatch('files/cancelUpload', fileName);
     }
 
     /**
      * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
      */
     private async list(path: string): Promise<void> {
-        await this.$store.dispatch("files/list", path, {
-            root: true
+        await this.$store.dispatch('files/list', path, {
+            root: true,
         });
     }
 
@@ -679,16 +682,16 @@ export default class FileBrowser extends Vue {
      * Remove the folder creation input and close any opened dropdowns when a user chooses to navigate back to the previous folder.
      */
     public async back(): Promise<void> {
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
-        await this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
+        await this.$store.dispatch('files/closeDropdown');
     }
 
     /**
      * Navigate to the path under routePath.
      */
     private async goToRoutePath(): Promise<void> {
-        if (typeof this.routePath === "string") {
-            await this.$store.dispatch("files/closeDropdown");
+        if (typeof this.routePath === 'string') {
+            await this.$store.dispatch('files/closeDropdown');
             await this.list(this.routePath);
         }
     }
@@ -725,15 +728,15 @@ export default class FileBrowser extends Vue {
 
         // create folder
         await this.$store.dispatch(
-            "files/createFolder",
-            this.createFolderInput.trim()
+            'files/createFolder',
+            this.createFolderInput.trim(),
         );
 
         // clear folder input
-        this.createFolderInput = "";
+        this.createFolderInput = '';
 
         // remove the folder creation input
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
 
         // remove the spinner
         this.creatingFolderSpinner = false;
@@ -743,8 +746,8 @@ export default class FileBrowser extends Vue {
      * Cancel folder creation clearing out the input and hiding the folder creation input.
      */
     public cancelFolderCreation(): void {
-        this.createFolderInput = "";
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.createFolderInput = '';
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**

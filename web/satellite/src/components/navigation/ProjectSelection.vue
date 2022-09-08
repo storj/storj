@@ -53,21 +53,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from "@/components/common/VLoader.vue";
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { LocalData } from "@/utils/localData";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { Project } from "@/types/projects";
-import { User } from "@/types/users";
+import { LocalData } from '@/utils/localData';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { Project } from '@/types/projects';
+import { User } from '@/types/users';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
@@ -96,7 +96,7 @@ export default class ProjectSelection extends Vue {
 
     public $refs!: {
         projectSelection: HTMLDivElement,
-    }
+    };
 
     /**
      * Fetches projects related information and than toggles selection popup.
@@ -151,14 +151,14 @@ export default class ProjectSelection extends Vue {
         }
 
         if (this.$route.path === RouteConfig.NewProjectDashboard.path) {
-            const now = new Date()
-            const past = new Date()
-            past.setDate(past.getDate() - 30)
+            const now = new Date();
+            const past = new Date();
+            past.setDate(past.getDate() - 30);
 
             try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             } catch (error) {
-                await this.$notify.error(error.message)
+                await this.$notify.error(error.message);
             }
         }
 

@@ -18,9 +18,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import PaginationRightIcon from '@/../static/images/common/tablePaginationArrowRight.svg';
-
 import { OnPageClickCallback } from '@/types/pagination';
+
+import PaginationRightIcon from '@/../static/images/common/tablePaginationArrowRight.svg';
 
 // @vue/component
 @Component({
@@ -32,20 +32,20 @@ export default class TablePagination extends Vue {
     private currentPageNumber = 1;
     public isLoading = false;
 
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly limit: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalItemsCount: number;
-    @Prop({default: () => () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     public get label(): string {
         const currentMaxPage = this.currentPageNumber * this.limit > this.totalItemsCount ?
             this.totalItemsCount
             : this.currentPageNumber * this.limit;
-        return `${this.currentPageNumber * this.limit - this.limit + 1} - ${currentMaxPage} of ${this.totalItemsCount}`
+        return `${this.currentPageNumber * this.limit - this.limit + 1} - ${currentMaxPage} of ${this.totalItemsCount}`;
     }
 
     /**

@@ -186,9 +186,23 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { CreditCard , PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
+
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import ArrowIcon from '@/../static/images/common/arrowRight.svg'
+import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
+import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue';
+import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
+import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
+import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
+
+import ArrowIcon from '@/../static/images/common/arrowRight.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
 import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
@@ -199,20 +213,6 @@ import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.sv
 import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
-import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
-import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue'
-import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue'
-import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue'
-import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
-
-import { CreditCard } from '@/types/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
-import { RouteConfig } from '@/router';
-import { MetaUtils } from "@/utils/meta";
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -266,7 +266,7 @@ export default class PaymentMethods extends Vue {
     public showTransactions = false;
     public showAddFunds = false;
     public mostRecentTransaction: Record<string, unknown>[] = [];
-    public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
+    public paginationLocation: {start: number, end: number} = { start: paginationStartNumber, end: paginationEndNumber };
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
     public transactionCount = 0;
@@ -281,7 +281,7 @@ export default class PaymentMethods extends Vue {
     public cardBeingEdited: CardEdited = {};
     public isAddingPayment = false;
     public isChangeDefaultPaymentModalOpen = false;
-    public defaultCreditCardSelection = "";
+    public defaultCreditCardSelection = '';
     public isRemovePaymentMethodsModalOpen = false;
     public isAddCardClicked = false;
     public $refs!: {
@@ -314,7 +314,7 @@ export default class PaymentMethods extends Vue {
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
         this.tokensAreLoaded = true;
-        if(this.transactionCount > 0){
+        if (this.transactionCount > 0){
             this.showAddFunds = false;
         } else {
             this.showAddFunds = true;
@@ -364,7 +364,7 @@ export default class PaymentMethods extends Vue {
 
         }
         else {
-            this.$notify.error("You cannot delete the default payment method.");
+            this.$notify.error('You cannot delete the default payment method.');
         }
     }
 
@@ -421,7 +421,7 @@ export default class PaymentMethods extends Vue {
 
     public async onConfirmAddStripe(): Promise<void> {
         this.isLoading = true;
-        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;})
+        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
     }
 
     public addPaymentMethodHandler() {
@@ -452,32 +452,32 @@ export default class PaymentMethods extends Vue {
      * controls sorting the transaction table
      */
     public sortFunction(key) {
-        this.paginationLocation = {start: 0, end: 10}
-        this.displayedHistory = this.tokenHistory.slice(0,10)
+        this.paginationLocation = { start: 0, end: 10 };
+        this.displayedHistory = this.tokenHistory.slice(0,10);
         switch (key) {
         case 'date-ascending':
-            this.tokenHistory.sort((a,b) => {return a.start.getTime() - b.start.getTime()});
+            this.tokenHistory.sort((a,b) => {return a.start.getTime() - b.start.getTime();});
             break;
         case 'date-descending':
-            this.tokenHistory.sort((a,b) => {return b.start.getTime() - a.start.getTime()});
+            this.tokenHistory.sort((a,b) => {return b.start.getTime() - a.start.getTime();});
             break;
         case 'amount-ascending':
-            this.tokenHistory.sort((a,b) => {return a.amount - b.amount});
+            this.tokenHistory.sort((a,b) => {return a.amount - b.amount;});
             break;
         case 'amount-descending':
-            this.tokenHistory.sort((a,b) => {return b.amount - a.amount});
+            this.tokenHistory.sort((a,b) => {return b.amount - a.amount;});
             break;
         case 'status-ascending':
             this.tokenHistory.sort((a, b) => {
                 if (a.status < b.status) {return -1;}
                 if (a.status > b.status) {return 1;}
-                return 0});
+                return 0;});
             break;
         case 'status-descending':
             this.tokenHistory.sort((a, b) => {
                 if (b.status < a.status) {return -1;}
                 if (b.status > a.status) {return 1;}
-                return 0});
+                return 0;});
             break;
         }
     }
@@ -486,30 +486,30 @@ export default class PaymentMethods extends Vue {
      * controls transaction table pagination
      */
     public paginationController(i): void {
-        let diff = this.transactionCount - this.paginationLocation.start
+        let diff = this.transactionCount - this.paginationLocation.start;
         if (this.paginationLocation.start + i >= 0 && this.paginationLocation.end + i <= this.transactionCount && this.paginationLocation.end !== this.transactionCount){
             this.paginationLocation = {
                 start: this.paginationLocation.start + i,
-                end: this.paginationLocation.end + i
-            }
+                end: this.paginationLocation.end + i,
+            };
         } else if (this.paginationLocation.start + i < 0 ) {
             this.paginationLocation = {
                 start: 0,
-                end: 10
-            }
-        } else if(this.paginationLocation.end + i > this.transactionCount) {
+                end: 10,
+            };
+        } else if (this.paginationLocation.end + i > this.transactionCount) {
             this.paginationLocation = {
                 start: this.paginationLocation.start + i,
-                end: this.transactionCount
-            }
-        }   else if(this.paginationLocation.end === this.transactionCount) {
+                end: this.transactionCount,
+            };
+        }   else if (this.paginationLocation.end === this.transactionCount) {
             this.paginationLocation = {
                 start: this.paginationLocation.start + i,
-                end: this.transactionCount - (diff)
-            }
+                end: this.transactionCount - (diff),
+            };
         }
 
-        this.displayedHistory = this.tokenHistory.slice(this.paginationLocation.start, this.paginationLocation.end)
+        this.displayedHistory = this.tokenHistory.slice(this.paginationLocation.start, this.paginationLocation.end);
     }
 
     /**

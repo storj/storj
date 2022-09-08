@@ -14,9 +14,9 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue} from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import ShareButton from "@/components/common/share/ShareButton.vue";
+import ShareButton from '@/components/common/share/ShareButton.vue';
 
 export enum ShareOptions {
     Reddit = 'Reddit',
@@ -39,28 +39,28 @@ type ShareButtonConfig = {
 @Component({
     components: {
         ShareButton,
-    }
+    },
 })
 export default class ShareContainer extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly link: string;
 
-    private readonly ShareOptions = ShareOptions
+    private readonly ShareOptions = ShareOptions;
 
     /**
      * Returns share buttons list.
      */
     private get shareButtons(): ShareButtonConfig[] {
         return [
-            {label: ShareOptions.Reddit, color: '#5f99cf', link: this.redditLink},
-            {label: ShareOptions.Facebook, color: '#3b5998', link: this.facebookLink},
-            {label: ShareOptions.Twitter, color: '#55acee', link: this.twitterLink},
-            {label: ShareOptions.HackerNews, color: '#f60', link: this.hackernewsLink},
-            {label: ShareOptions.LinkedIn, color: '#0077b5', link: this.linkedinLink},
-            {label: ShareOptions.Telegram, color: '#54a9eb', link: this.telegramLink},
-            {label: ShareOptions.WhatsApp, color: '#25d366', link: this.whatsappLink},
-            {label: ShareOptions.Email, color: '#777', link: this.emailLink},
-        ]
+            { label: ShareOptions.Reddit, color: '#5f99cf', link: this.redditLink },
+            { label: ShareOptions.Facebook, color: '#3b5998', link: this.facebookLink },
+            { label: ShareOptions.Twitter, color: '#55acee', link: this.twitterLink },
+            { label: ShareOptions.HackerNews, color: '#f60', link: this.hackernewsLink },
+            { label: ShareOptions.LinkedIn, color: '#0077b5', link: this.linkedinLink },
+            { label: ShareOptions.Telegram, color: '#54a9eb', link: this.telegramLink },
+            { label: ShareOptions.WhatsApp, color: '#25d366', link: this.whatsappLink },
+            { label: ShareOptions.Email, color: '#777', link: this.emailLink },
+        ];
     }
 
     /**

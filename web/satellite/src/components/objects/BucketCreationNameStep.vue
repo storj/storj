@@ -50,18 +50,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { Validator } from "@/utils/validation";
-import { LocalData } from "@/utils/localData";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { RouteConfig } from '@/router';
+import { Validator } from '@/utils/validation';
+import { LocalData } from '@/utils/localData';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
-import VLoader from "@/components/common/VLoader.vue";
+import VLoader from '@/components/common/VLoader.vue';
 
-import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
-
-import { AnalyticsHttpApi } from '@/api/analytics';
+import BucketIcon from '@/../static/images/objects/bucketCreation.svg';
 
 // @vue/component
 @Component({
@@ -81,10 +80,10 @@ export default class BucketCreationNameStep extends Vue {
 
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES)
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
             this.name = this.allBucketNames.length > 0 ? '' : 'demo-bucket';
         } catch (e) {
-            await this.$notify.error(e.message)
+            await this.$notify.error(e.message);
         } finally {
             this.isLoading = false;
         }
@@ -105,7 +104,7 @@ export default class BucketCreationNameStep extends Vue {
         if (!this.isBucketNameValid(this.name)) return;
 
         if (this.allBucketNames.includes(this.name)) {
-            this.$notify.error("Bucket with this name already exists");
+            this.$notify.error('Bucket with this name already exists');
             return;
         }
 

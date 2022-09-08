@@ -88,23 +88,26 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
-import VInput from '@/components/common/VInput.vue';
-import LogoIcon from '@/../static/images/logo.svg';
-import {Validator} from '@/utils/validation';
-import {RouteConfig} from '@/router';
-import {BUCKET_ACTIONS} from '@/store/modules/buckets';
-import {PROJECTS_ACTIONS} from '@/store/modules/projects';
-import {USER_ACTIONS} from '@/store/modules/users';
-import {Project} from '@/types/projects';
-import {ErrorUnauthorized} from '@/api/errors/ErrorUnauthorized';
-import {APP_STATE_ACTIONS} from '@/utils/constants/actionNames';
-import {AppState} from '@/utils/constants/appStateEnum';
-import {ACCESS_GRANTS_ACTIONS} from '@/store/modules/accessGrants';
-import {OAuthClient, OAuthClientsAPI} from '@/api/oauthClients';
-import {URLSearchParams} from "url";
+import { URLSearchParams } from 'url';
 
+import { Component, Vue } from 'vue-property-decorator';
+
+import { Validator } from '@/utils/validation';
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { Project } from '@/types/projects';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
 
 const oauthClientsAPI = new OAuthClientsAPI();
 
@@ -186,11 +189,11 @@ export default class Authorize extends Vue {
     }
 
     private async verifyClientConfiguration(): Promise<void> {
-        const clientID: string = this.oauthData.client_id ?? "";
-        const redirectURL: string = this.oauthData.redirect_uri ?? "";
-        const state: string = this.oauthData.state ?? "";
-        const responseType: string = this.oauthData.response_type ?? "";
-        const scope: string = this.oauthData.scope ?? "";
+        const clientID: string = this.oauthData.client_id ?? '';
+        const redirectURL: string = this.oauthData.redirect_uri ?? '';
+        const state: string = this.oauthData.state ?? '';
+        const responseType: string = this.oauthData.response_type ?? '';
+        const scope: string = this.oauthData.scope ?? '';
 
         if (!clientID || !redirectURL) {
             this.requestErr = 'Both client_id and redirect_uri must be provided.';
@@ -223,7 +226,7 @@ export default class Authorize extends Vue {
 
         if (err) {
             location.href = `${redirectURL}?${(new URLSearchParams(err)).toString()}`;
-            return
+            return;
         }
 
         this.client = client;
@@ -251,14 +254,14 @@ export default class Authorize extends Vue {
      */
     public async mounted(): Promise<void> {
         this.oauthData = this.$route.query;
-        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : "";
+        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : '';
 
         await this.ensureLogin();
         await this.ensureWorker();
 
         await this.verifyClientConfiguration();
         if (this.requestErr) {
-            return
+            return;
         }
 
         await this.loadProjects();
@@ -267,7 +270,7 @@ export default class Authorize extends Vue {
     public async setProject(value: string): Promise<void> {
         if (!this.projects[value]) {
             this.projectErr = 'project does not exist';
-            return
+            return;
         }
 
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.projects[value].id);
@@ -359,17 +362,17 @@ const validPerms = {
 
 function slugify(name: string): string {
     name = name.toLowerCase();
-    name = name.replace(/\s+/g, "-");
+    name = name.replace(/\s+/g, '-');
     return name;
 }
 
 function formatObjectPermissions(scope: string): string {
-    const scopes = scope.split(" ");
+    const scopes = scope.split(' ');
     const perms: string[] = [];
 
     for (const scope of scopes) {
-        if (scope.startsWith("object:")) {
-            const perm = scope.substring("object:".length);
+        if (scope.startsWith('object:')) {
+            const perm = scope.substring('object:'.length);
             if (validPerms[perm]) {
                 perms.push(perm);
             }
@@ -379,14 +382,14 @@ function formatObjectPermissions(scope: string): string {
     perms.sort();
 
     if (perms.length == 0) {
-        return "";
+        return '';
     } else if (perms.length == 1) {
         return perms[0];
     } else if (perms.length == 2) {
         return `${perms[0]} and ${perms[1]}`;
     }
 
-    return `${perms.slice(0, perms.length - 1).join(", ")}, and ${perms[perms.length - 1]}`;
+    return `${perms.slice(0, perms.length - 1).join(', ')}, and ${perms[perms.length - 1]}`;
 }
 </script>
 

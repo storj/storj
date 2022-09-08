@@ -38,7 +38,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-import Icon from "@/../static/images/session/inactivityTimer.svg";
+import Icon from '@/../static/images/session/inactivityTimer.svg';
 
 // @vue/component
 @Component({
@@ -49,13 +49,13 @@ import Icon from "@/../static/images/session/inactivityTimer.svg";
     },
 })
 export default class InactivityModal extends Vue {
-    @Prop({default: () => {}})
+    @Prop({ default: () => {} })
     private readonly onContinue: () => Promise<void>;
-    @Prop({default: () => {}})
+    @Prop({ default: () => {} })
     private readonly onLogout: () => Promise<void>;
-    @Prop({default: () => {}})
+    @Prop({ default: () => {} })
     private readonly onClose: () => void;
-    @Prop({default: 60})
+    @Prop({ default: 60 })
     private readonly initialSeconds: number;
 
     private seconds = 0;
@@ -81,7 +81,7 @@ export default class InactivityModal extends Vue {
             this.isLoading = true;
             await fn();
             this.isLoading = false;
-        }
+        };
     }
 }
 </script>

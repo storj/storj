@@ -114,7 +114,7 @@ export class AccessGrant {
      * Returns created date as a local string.
      */
     public localDate(): string {
-        return this.createdAt.toLocaleString('en-US', {timeZone: 'UTC', timeZoneName: 'short'});
+        return this.createdAt.toLocaleString('en-US', { timeZone: 'UTC', timeZoneName: 'short' });
     }
 }
 

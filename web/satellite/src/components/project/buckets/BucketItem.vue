@@ -41,10 +41,10 @@ import BucketIcon from '@/../static/images/project/bucket.svg';
 @Component({
     components: {
         BucketIcon,
-    }
+    },
 })
 export default class BucketItem extends Vue {
-    @Prop({default: () => new Bucket('', 0, 0, 0, 0, new Date(), new Date())})
+    @Prop({ default: () => new Bucket('', 0, 0, 0, 0, new Date(), new Date()) })
     private readonly itemData: Bucket;
 }
 </script>

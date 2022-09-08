@@ -18,7 +18,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VButton from "@/components/common/VButton.vue";
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
@@ -27,11 +27,11 @@ import VButton from "@/components/common/VButton.vue";
     },
 })
 export default class ValueWithCopy extends Vue {
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly value: string;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly label: string;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly roleDescription: string;
 
     /**

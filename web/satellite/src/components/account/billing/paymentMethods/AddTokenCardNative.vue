@@ -76,8 +76,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { Wallet } from "@/types/payments";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { Wallet } from '@/types/payments';
 
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
@@ -109,7 +109,7 @@ export default class AddTokenCardNative extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_WALLET);
         } catch (error) {
-            await this.$notify.error(error.message)
+            await this.$notify.error(error.message);
         } finally {
             this.isLoading = false;
         }
@@ -128,7 +128,7 @@ export default class AddTokenCardNative extends Vue {
      */
     private get wallet(): Wallet {
         // TODO: remove this when backend is ready.
-        return {address: 'ijefiw54et945t89459ty8e98c4jyc8489yec985yce8i59y8c598yc56', balance: 234234}
+        return { address: 'ijefiw54et945t89459ty8e98c4jyc8489yec985yce8i59y8c598yc56', balance: 234234 };
         // return this.$store.state.paymentsModule.wallet;
     }
 }

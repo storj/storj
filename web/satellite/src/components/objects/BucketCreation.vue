@@ -23,17 +23,16 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { MetaUtils } from "@/utils/meta";
-
-import BucketCreationGeneratePassphrase from "@/components/objects/BucketCreationGeneratePassphrase.vue";
-import BucketCreationNameStep from "@/components/objects/BucketCreationNameStep.vue";
-import BucketCreationProgress from "@/components/objects/BucketCreationProgress.vue";
-
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+
+import BucketCreationGeneratePassphrase from '@/components/objects/BucketCreationGeneratePassphrase.vue';
+import BucketCreationNameStep from '@/components/objects/BucketCreationNameStep.vue';
+import BucketCreationProgress from '@/components/objects/BucketCreationProgress.vue';
 
 export enum BucketCreationSteps {
     Name = 0,
@@ -185,7 +184,7 @@ export default class BucketCreation extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
     }

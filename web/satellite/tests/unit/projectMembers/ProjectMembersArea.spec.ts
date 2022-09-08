@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -23,7 +23,7 @@ const projectMembersModule = makeProjectMembersModule(pmApi);
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const { FETCH } = PROJECT_MEMBER_MUTATIONS;
-const store = new Vuex.Store({modules: { projectsModule, projectMembersModule, appStateModule }});
+const store = new Vuex.Store({ modules: { projectsModule, projectMembersModule, appStateModule } });
 
 describe('ProjectMembersArea.vue', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);

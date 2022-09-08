@@ -86,7 +86,7 @@ import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -160,7 +160,7 @@ export default class AddTeamMemberModal extends Vue {
             const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
             if (scrollableDiv) {
                 const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
-                if(scrollableDivHeight) {
+                if (scrollableDivHeight) {
                     scrollableDiv.scroll(0, -scrollableDivHeight);
                 }
             }

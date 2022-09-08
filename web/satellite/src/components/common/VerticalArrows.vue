@@ -11,10 +11,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { SortingDirectionEnum } from '@/types/sortingArrows';
+
 import BottomArrowIcon from '@/../static/images/common/bottomArrow.svg';
 import TopArrowIcon from '@/../static/images/common/topArrow.svg';
-
-import { SortingDirectionEnum } from '@/types/sortingArrows';
 
 // @vue/component
 @Component({
@@ -24,9 +24,9 @@ import { SortingDirectionEnum } from '@/types/sortingArrows';
     },
 })
 export default class VerticalArrows extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private isActive: boolean;
-    @Prop({default: SortingDirectionEnum.BOTTOM})
+    @Prop({ default: SortingDirectionEnum.BOTTOM })
     private direction: SortingDirectionEnum;
 
     public get isTop(): boolean {

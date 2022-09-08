@@ -16,14 +16,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import ProgressBar from '@/components/accessGrants/ProgressBar.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({

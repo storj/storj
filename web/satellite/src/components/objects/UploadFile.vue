@@ -18,12 +18,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { SignatureV4 } from "@aws-sdk/signature-v4";
-import { Sha256 } from "@aws-crypto/sha256-browser";
-import { HttpRequest, Credentials } from "@aws-sdk/types";
-
-import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
-import FileBrowser from '@/components/browser/FileBrowser.vue';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { Sha256 } from '@aws-crypto/sha256-browser';
+import { HttpRequest, Credentials } from '@aws-sdk/types';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -31,8 +28,11 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
-import { Bucket } from "@/types/buckets";
-import InfoNotification from "@/components/common/InfoNotification.vue";
+import { Bucket } from '@/types/buckets';
+
+import FileBrowser from '@/components/browser/FileBrowser.vue';
+import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
+import InfoNotification from '@/components/common/InfoNotification.vue';
 
 // @vue/component
 @Component({
@@ -58,7 +58,7 @@ export default class UploadFile extends Vue {
         const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
         const objectCount: number = data?.objectCount || 0;
-        const ownObjects = this.$store.getters["files/sortedFiles"];
+        const ownObjects = this.$store.getters['files/sortedFiles'];
 
         return objectCount > 0 && !ownObjects.length;
     }
@@ -91,11 +91,11 @@ export default class UploadFile extends Vue {
      */
     public async fetchObjectMap(path: string): Promise<Blob | null> {
         try {
-            return await this.getObjectViewOrMapBySignedRequest(path, true)
+            return await this.getObjectViewOrMapBySignedRequest(path, true);
         } catch (error) {
             await this.$notify.error('Failed to fetch object map. Bandwidth limit may be exceeded');
 
-            return null
+            return null;
         }
     }
 
@@ -104,11 +104,11 @@ export default class UploadFile extends Vue {
      */
     public async fetchObjectPreview(path: string): Promise<Blob | null> {
         try {
-            return await this.getObjectViewOrMapBySignedRequest(path, false)
+            return await this.getObjectViewOrMapBySignedRequest(path, false);
         } catch (error) {
             await this.$notify.error('Failed to fetch object view. Bandwidth limit may be exceeded');
 
-            return null
+            return null;
         }
     }
 
@@ -153,7 +153,7 @@ export default class UploadFile extends Vue {
         path = `${this.bucket}/${path}`;
         path = encodeURIComponent(path.trim());
 
-        const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`)
+        const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`);
 
         let request: HttpRequest = {
             method: 'GET',
@@ -163,13 +163,13 @@ export default class UploadFile extends Vue {
             path: url.pathname,
             headers: {
                 'host': url.host,
-            }
-        }
+            },
+        };
 
         if (isMap) {
-            request = Object.assign(request, {query: { 'map': '1' }});
+            request = Object.assign(request, { query: { 'map': '1' } });
         } else {
-            request = Object.assign(request, {query: { 'view': '1' }});
+            request = Object.assign(request, { query: { 'view': '1' } });
         }
 
         const signerCredentials: Credentials = {
@@ -181,8 +181,8 @@ export default class UploadFile extends Vue {
             applyChecksum: true,
             uriEscapePath: false,
             credentials: signerCredentials,
-            region: "eu1",
-            service: "linksharing",
+            region: 'eu1',
+            service: 'linksharing',
             sha256: Sha256,
         });
 
@@ -250,7 +250,7 @@ export default class UploadFile extends Vue {
             return new EdgeCredentials();
         }
 
-        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: data.value, isPublic});
+        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic });
     }
 
     /**

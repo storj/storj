@@ -74,6 +74,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { BrowserFile } from '@/types/browser';
 
 // @vue/component
@@ -83,21 +84,21 @@ export default class NewFolderModal extends Vue {
         folderInput: HTMLInputElement;
         fileInput: HTMLInputElement;
     };
-    public createFolderInput = "";
+    public createFolderInput = '';
     public creatingFolderSpinner = false;
 
     /**
      * Close the NewFolderModal.
      */
     public close(): void {
-        this.$store.commit("files/closeNewFolderModal");
+        this.$store.commit('files/closeNewFolderModal');
     }
 
     /**
      * Retrieve all of the files sorted from the store.
      */
     private get files(): BrowserFile[] {
-        return this.$store.getters["files/sortedFiles"];
+        return this.$store.getters['files/sortedFiles'];
     }
 
     /**
@@ -107,16 +108,16 @@ export default class NewFolderModal extends Vue {
         const charsOtherThanSpaceExist =
             this.createFolderInput.trim().length > 0;
 
-        const noForwardSlashes = this.createFolderInput.indexOf("/") === -1;
+        const noForwardSlashes = this.createFolderInput.indexOf('/') === -1;
 
         const nameIsNotOnlyPeriods =
             [...this.createFolderInput.trim()].filter(
-                (char) => char === "."
+                (char) => char === '.',
             ).length !== this.createFolderInput.trim().length;
 
         const notDuplicate =
             this.files.filter(
-                (file) => file.Key === this.createFolderInput.trim()
+                (file) => file.Key === this.createFolderInput.trim(),
             ).length === 0;
 
         return (
@@ -139,15 +140,15 @@ export default class NewFolderModal extends Vue {
 
         // create folder
         await this.$store.dispatch(
-            "files/createFolder",
-            this.createFolderInput.trim()
+            'files/createFolder',
+            this.createFolderInput.trim(),
         );
 
         // clear folder input
-        this.createFolderInput = "";
+        this.createFolderInput = '';
 
         // remove the folder creation input
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
 
         // remove the spinner
         this.creatingFolderSpinner = false;
@@ -157,8 +158,8 @@ export default class NewFolderModal extends Vue {
      * Cancel folder creation clearing out the input and hiding the folder creation input.
      */
     public cancelFolderCreation(): void {
-        this.createFolderInput = "";
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.createFolderInput = '';
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**
@@ -166,7 +167,7 @@ export default class NewFolderModal extends Vue {
      */
     public stopClickPropagation(e: Event): void {
         const target = e.target as HTMLElement;
-        if (target.id !== "new-folder-modal") {
+        if (target.id !== 'new-folder-modal') {
             e.stopPropagation();
         }
     }

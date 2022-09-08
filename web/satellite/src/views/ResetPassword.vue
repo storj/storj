@@ -77,22 +77,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import VInput from '@/components/common/VInput.vue';
-import PasswordStrength from '@/components/common/PasswordStrength.vue';
-
-import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-import KeyIcon from '@/../static/images/resetPassword/success.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
+import VInput from '@/components/common/VInput.vue';
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+
+import KeyIcon from '@/../static/images/resetPassword/success.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
 // @vue/component
 @Component({

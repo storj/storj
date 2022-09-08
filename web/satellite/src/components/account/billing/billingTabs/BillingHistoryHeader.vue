@@ -30,7 +30,7 @@ import { SortDirection } from '@/types/common';
     },
 })
 export default class BillingHistoryHeader extends Vue {
-    @Prop({default: () => () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
     public AccessGrantsOrderBy = AccessGrantsOrderBy;
@@ -54,7 +54,6 @@ export default class BillingHistoryHeader extends Vue {
     public get areAccessGrantsSortedByName(): boolean {
         return this.sortBy === AccessGrantsOrderBy.NAME;
     }
-
    
 }
 </script>

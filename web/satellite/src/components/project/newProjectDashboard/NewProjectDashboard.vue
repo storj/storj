@@ -184,29 +184,28 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { RouteConfig } from "@/router";
-import { DataStamp, ProjectLimits } from "@/types/projects";
-import { Dimensions, Size } from "@/utils/bytesSize";
-import { ChartUtils } from "@/utils/chart";
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { RouteConfig } from '@/router';
+import { DataStamp, ProjectLimits } from '@/types/projects';
+import { Dimensions, Size } from '@/utils/bytesSize';
+import { ChartUtils } from '@/utils/chart';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VLoader from "@/components/common/VLoader.vue";
-import InfoContainer from "@/components/project/newProjectDashboard/InfoContainer.vue";
-import StorageChart from "@/components/project/newProjectDashboard/StorageChart.vue";
-import BandwidthChart from "@/components/project/newProjectDashboard/BandwidthChart.vue";
-import VButton from "@/components/common/VButton.vue";
-import DateRangeSelection from "@/components/project/newProjectDashboard/DateRangeSelection.vue";
-import VInfo from "@/components/common/VInfo.vue";
+import VLoader from '@/components/common/VLoader.vue';
+import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
+import StorageChart from '@/components/project/newProjectDashboard/StorageChart.vue';
+import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthChart.vue';
+import VButton from '@/components/common/VButton.vue';
+import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
+import VInfo from '@/components/common/VInfo.vue';
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
 
-import NewProjectIcon from "@/../static/images/project/newProject.svg";
+import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -221,7 +220,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
         NewProjectIcon,
         InfoIcon,
         BucketArea,
-    }
+    },
 })
 export default class NewProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
@@ -232,7 +231,7 @@ export default class NewProjectDashboard extends Vue {
 
     public $refs: {
         chartContainer: HTMLDivElement;
-    }
+    };
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -248,15 +247,15 @@ export default class NewProjectDashboard extends Vue {
             return;
         }
 
-        window.addEventListener('resize', this.recalculateChartWidth)
+        window.addEventListener('resize', this.recalculateChartWidth);
         this.recalculateChartWidth();
 
         try {
-            const now = new Date()
-            const past = new Date()
-            past.setDate(past.getDate() - 30)
+            const now = new Date();
+            const past = new Date();
+            past.setDate(past.getDate() - 30);
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
@@ -312,7 +311,7 @@ export default class NewProjectDashboard extends Vue {
      */
     public onUploadClick(): void {
         this.analytics.pageVisit(RouteConfig.Buckets.path);
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;})
+        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
 
     /**
@@ -335,11 +334,11 @@ export default class NewProjectDashboard extends Vue {
      * @param dateRange
      */
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
-        const since = new Date(dateRange[0])
-        const before = new Date(dateRange[1])
+        const since = new Date(dateRange[0]);
+        const before = new Date(dateRange[1]);
 
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since, before})
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
         } catch (error) {
             await this.$notify.error(error.message);
         }

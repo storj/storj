@@ -41,15 +41,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VModal from '@/components/common/VModal.vue';
-
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import VModal from '@/components/common/VModal.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({

@@ -85,6 +85,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+
 import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
@@ -94,10 +98,6 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
-import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 interface AddCardConfirm {
     onConfirmAddStripe(): Promise<void>;

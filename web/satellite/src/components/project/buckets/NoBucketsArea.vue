@@ -25,17 +25,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-
-import VButton from "@/components/common/VButton.vue";
-
+import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
     components: {
         VButton,
-    }
+    },
 })
 export default class NoBucketArea extends Vue {
 

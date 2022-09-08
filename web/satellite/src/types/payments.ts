@@ -186,9 +186,9 @@ export class PaymentsHistoryItem {
     public get label(): string {
         switch (this.type) {
         case PaymentsHistoryItemType.Transaction:
-            return "Checkout"
+            return 'Checkout';
         default:
-            return "Invoice PDF"
+            return 'Invoice PDF';
         }
     }
 
@@ -338,17 +338,17 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon can only be applied once.
      */
-    Once = "once",
+    Once = 'once',
 
     /**
      * Indicates that a coupon is applied every billing period for a definite amount of time.
      */
-    Repeating = "repeating",
+    Repeating = 'repeating',
 
     /**
      * Indicates that a coupon is applied every billing period forever.
      */
-    Forever = "forever"
+    Forever = 'forever'
 }
 
 /**

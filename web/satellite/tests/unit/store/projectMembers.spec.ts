@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
@@ -11,7 +12,6 @@ import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { createLocalVue } from '@vue/test-utils';
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -32,7 +32,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store<{
     projectsModule: typeof projectsModule.state,
     projectMembersModule: typeof projectMembersModule.state,
-}>({modules: { projectsModule, projectMembersModule }});
+}>({ modules: { projectsModule, projectMembersModule } });
 const state = store.state.projectMembersModule;
 const date = new Date(0);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');

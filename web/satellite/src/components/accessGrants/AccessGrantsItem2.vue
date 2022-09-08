@@ -20,12 +20,14 @@
 
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
-import { AccessGrant } from '@/types/accessGrants';
-import Resizable from "@/components/common/Resizable.vue";
-import TableItem from "@/components/common/TableItem.vue";
 
-import DeleteIcon from "../../../static/images/objects/delete.svg";
-import DotsIcon from "../../../static/images/objects/dots.svg";
+import DeleteIcon from '../../../static/images/objects/delete.svg';
+import DotsIcon from '../../../static/images/objects/dots.svg';
+
+import { AccessGrant } from '@/types/accessGrants';
+
+import Resizable from '@/components/common/Resizable.vue';
+import TableItem from '@/components/common/TableItem.vue';
 
 // @vue/component
 @Component({

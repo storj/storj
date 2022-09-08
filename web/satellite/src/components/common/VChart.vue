@@ -63,7 +63,7 @@ export default class VChart extends Vue {
                     ctx.stroke();
                     ctx.restore();
                 }
-            }
+            },
         });
         (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
     }
@@ -87,7 +87,7 @@ export default class VChart extends Vue {
             maintainAspectRatios: false,
             animation: false,
             hover: {
-                animationDuration: 0
+                animationDuration: 0,
             },
             responsiveAnimationDuration: 0,
             legend: {
@@ -96,7 +96,7 @@ export default class VChart extends Vue {
             layout: {
                 padding: {
                     top: 40,
-                }
+                },
             },
             elements: {
                 point: {
@@ -112,8 +112,8 @@ export default class VChart extends Vue {
                 yAxes: [{
                     display: false,
                     ticks: {
-                        beginAtZero: true
-                    }
+                        beginAtZero: true,
+                    },
                 }],
                 xAxes: [{
                     display: true,

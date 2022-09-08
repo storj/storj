@@ -126,15 +126,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
-import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
+import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
-
-import { AnalyticsHttpApi } from "@/api/analytics";
 
 // @vue/component
 @Component({
@@ -143,7 +142,7 @@ import { AnalyticsHttpApi } from "@/api/analytics";
         Icon,
         OSContainer,
         TabWithCopy,
-    }
+    },
 })
 export default class CLIInstall extends Vue {
 

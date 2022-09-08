@@ -44,17 +44,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AllModals from "@/components/modals/AllModals.vue";
-import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
-import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
-import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import InactivityModal from "@/components/modals/InactivityModal.vue";
-import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import BillingNotification from "@/components/notifications/BillingNotification.vue";
-import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
-
-import LoaderImage from '@/../static/images/common/loader.svg';
-
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -65,15 +54,25 @@ import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { User } from "@/types/users";
-import { AuthHttpApi } from "@/api/auth";
-import { MetaUtils } from "@/utils/meta";
-
+import { User } from '@/types/users';
+import { AuthHttpApi } from '@/api/auth';
+import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import MobileNavigation from "@/components/navigation/MobileNavigation.vue";
+
+import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
+import BillingNotification from '@/components/notifications/BillingNotification.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import InactivityModal from '@/components/modals/InactivityModal.vue';
+import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
+import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
+import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
+import AllModals from '@/components/modals/AllModals.vue';
+import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
+
+import LoaderImage from '@/../static/images/common/loader.svg';
 
 const {
     SETUP_ACCOUNT,
@@ -111,7 +110,7 @@ export default class DashboardArea extends Vue {
 
     // Properties concerning the session timer popup used for debugging
     private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
-    private debugTimerText = "";
+    private debugTimerText = '';
     private debugTimerId: ReturnType<typeof setTimeout> | null;
 
     // Minimum number of recovery codes before the recovery code warning bar is shown.
@@ -136,7 +135,7 @@ export default class DashboardArea extends Vue {
                     LocalData.setBillingNotificationAcknowledged();
                     unsub();
                 }
-            })
+            });
         }
 
         try {
@@ -145,7 +144,7 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             this.$store.subscribeAction((action) => {
                 if (action.type == USER_ACTIONS.LOGIN) this.setupSessionTimers();
-            })
+            });
 
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);

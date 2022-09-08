@@ -15,7 +15,8 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { AccessGrant } from '@/types/accessGrants';
-import TableItem from "@/components/common/TableItem.vue";
+
+import TableItem from '@/components/common/TableItem.vue';
 
 // @vue/component
 @Component({

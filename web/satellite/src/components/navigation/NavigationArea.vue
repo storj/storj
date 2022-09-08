@@ -75,16 +75,18 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/router';
+import { NavigationLink } from '@/types/navigation';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
 import AccountArea from '@/components/navigation/AccountArea.vue';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
-import { NavigationLink } from '@/types/navigation';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
+import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -95,8 +97,6 @@ import UsersIcon from '@/../static/images/navigation/users.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
-import ResourcesLinks from "@/components/navigation/ResourcesLinks.vue";
-import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
 
 // @vue/component
 @Component({
@@ -145,8 +145,8 @@ export default class NavigationArea extends Vue {
      * Adds scroll event listener to close dropdowns.
      */
     public mounted(): void {
-        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
-        window.addEventListener('resize', this.onResize)
+        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns);
+        window.addEventListener('resize', this.onResize);
     }
 
     /**
@@ -154,8 +154,8 @@ export default class NavigationArea extends Vue {
      * Removes scroll event listener.
      */
     public beforeDestroy(): void {
-        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
-        window.removeEventListener('resize', this.onResize)
+        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns);
+        window.removeEventListener('resize', this.onResize);
     }
 
     /**
@@ -221,8 +221,8 @@ export default class NavigationArea extends Vue {
      * Toggles resources dropdown visibility.
      */
     public toggleResourcesDropdown(): void {
-        this.setResourcesDropdownYPos()
-        this.setResourcesDropdownXPos()
+        this.setResourcesDropdownYPos();
+        this.setResourcesDropdownXPos();
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN);
     }
 
@@ -230,8 +230,8 @@ export default class NavigationArea extends Vue {
      * Toggles quick start dropdown visibility.
      */
     public toggleQuickStartDropdown(): void {
-        this.setQuickStartDropdownYPos()
-        this.setQuickStartDropdownXPos()
+        this.setQuickStartDropdownYPos();
+        this.setQuickStartDropdownXPos();
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN);
     }
 
@@ -268,7 +268,7 @@ export default class NavigationArea extends Vue {
      */
     public trackClickEvent(path: string): void {
         if (this.isNewBillingScreen && path === '/account/billing') {
-            this.routeToOverview()
+            this.routeToOverview();
         } else {
             this.analytics.pageVisit(path);
         }
@@ -286,7 +286,7 @@ export default class NavigationArea extends Vue {
      */
     public get isNewBillingScreen(): boolean {
         const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === "true";
+        return isNewBillingScreen === 'true';
     }
 
 }

@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import CreateProject from '@/components/project/CreateProject.vue';
-
-import { makeProjectsModule } from '@/store/modules/projects';
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
+
+import { makeProjectsModule } from '@/store/modules/projects';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
+
+import CreateProject from '@/components/project/CreateProject.vue';
 
 const localVue = createLocalVue();
 
@@ -17,7 +17,7 @@ localVue.use(Vuex);
 
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule } });
 
 localVue.use(new NotificatorPlugin(store));
 

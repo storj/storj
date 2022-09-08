@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import BucketItem from '@/components/project/buckets/BucketItem.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { Bucket } from '@/types/buckets';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import BucketItem from '@/components/project/buckets/BucketItem.vue';
 
 const localVue = createLocalVue();
 

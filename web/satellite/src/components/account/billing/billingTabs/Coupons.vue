@@ -53,13 +53,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-
-import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue'
-
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
+
+import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
@@ -97,7 +96,7 @@ export default class Coupons extends Vue {
      * Opens Add Coupon modal.
      */
     public toggleCreateModal(): void {
-        this.showCreateCode = !this.showCreateCode
+        this.showCreateCode = !this.showCreateCode;
     }
 
     /**
@@ -130,7 +129,7 @@ export default class Coupons extends Vue {
             return '';
         }
 
-        const today = new Date()
+        const today = new Date();
         if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
             return 'active';
         } else {
@@ -147,9 +146,9 @@ export default class Coupons extends Vue {
         }
 
         switch (this.coupon.duration) {
-        case "once":
+        case 'once':
             return 'Expires after first use';
-        case "forever":
+        case 'forever':
             return 'No expiration';
         default:
             return this.expiration;

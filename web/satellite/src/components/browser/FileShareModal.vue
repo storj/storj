@@ -74,19 +74,19 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from "vue-property-decorator";
+import { Component, Vue } from 'vue-property-decorator';
 
-import ShareContainer from "@/components/common/share/ShareContainer.vue";
+import ShareContainer from '@/components/common/share/ShareContainer.vue';
 
 // @vue/component
 @Component({
     components: {
         ShareContainer,
-    }
+    },
 })
 export default class FileShareModal extends Vue {
-    public objectLink = "";
-    public copyText = "Copy Link";
+    public objectLink = '';
+    public copyText = 'Copy Link';
 
     /**
      * Retrieve the path to the current file that has the fileShareModal opened from the store.
@@ -100,7 +100,7 @@ export default class FileShareModal extends Vue {
      */
     public async created(): Promise<void> {
         this.objectLink = await this.$store.state.files.fetchSharedLink(
-            this.filePath
+            this.filePath,
         );
     }
 
@@ -109,9 +109,9 @@ export default class FileShareModal extends Vue {
      */
     public async copy(): Promise<void> {
         await this.$copyText(this.objectLink);
-        this.copyText = "Copied!";
+        this.copyText = 'Copied!';
         setTimeout(() => {
-            this.copyText = "Copy Link";
+            this.copyText = 'Copy Link';
         }, 2000);
     }
 
@@ -119,7 +119,7 @@ export default class FileShareModal extends Vue {
      * Close the FileShareModal.
      */
     public close(): void {
-        this.$store.commit("files/closeFileShareModal");
+        this.$store.commit('files/closeFileShareModal');
     }
 
     /**
@@ -127,7 +127,7 @@ export default class FileShareModal extends Vue {
      */
     public stopClickPropagation(e: Event): void {
         const target = e.target as HTMLElement;
-        if (target.id !== "share-modal") {
+        if (target.id !== 'share-modal') {
             e.stopPropagation();
         }
     }

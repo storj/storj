@@ -41,18 +41,18 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
-import { AnalyticsHttpApi } from "@/api/analytics";
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import PermissionsSelect from "@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue";
-import BucketNameBullet from "@/components/accessGrants/permissions/BucketNameBullet.vue";
-import BucketsSelection from "@/components/accessGrants/permissions/BucketsSelection.vue";
-import VLoader from "@/components/common/VLoader.vue";
-import DurationSelection from "@/components/accessGrants/permissions/DurationSelection.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
+import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
+import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
@@ -66,7 +66,7 @@ import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
         VLoader,
         DurationSelection,
         Icon,
-    }
+    },
 })
 export default class AGPermissions extends Vue {
     private worker: Worker;
@@ -121,7 +121,7 @@ export default class AGPermissions extends Vue {
         if (this.isLoading) return;
 
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        await this.$router.push({name: RouteConfig.AGName.name})
+        await this.$router.push({ name: RouteConfig.AGName.name });
     }
 
     /**
@@ -136,17 +136,17 @@ export default class AGPermissions extends Vue {
             const restrictedKey = await this.generateRestrictedKey();
             this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, restrictedKey);
 
-            await this.$notify.success("Restrictions were set successfully.")
+            await this.$notify.success('Restrictions were set successfully.');
         } catch (error) {
-            await this.$notify.error(error.message)
+            await this.$notify.error(error.message);
             return;
         } finally {
             this.isLoading = false;
         }
 
-        await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, this.$route.path)
+        await this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, this.$route.path);
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
-        await this.$router.push({name: RouteConfig.APIKey.name});
+        await this.$router.push({ name: RouteConfig.APIKey.name });
     }
 
     /**
@@ -161,16 +161,16 @@ export default class AGPermissions extends Vue {
             'isDelete': this.storedIsDelete,
             'buckets': this.selectedBucketNames,
             'apiKey': this.cleanAPIKey,
-        }
+        };
 
-        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
-        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, { 'notBefore': this.notBeforePermission.toISOString() });
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': this.notAfterPermission.toISOString() });
 
         await this.worker.postMessage(permissionsMsg);
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error)
+            throw new Error(grantEvent.data.error);
         }
 
         this.analytics.eventTriggered(AnalyticsEvent.API_KEY_GENERATED);

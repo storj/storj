@@ -107,17 +107,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VInfo from '@/components/common/VInfo.vue';
-
-import BackIcon from '@/../static/images/accessGrants/back.svg';
-import InfoIcon from '@/../static/images/accessGrants/info.svg';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import VInfo from '@/components/common/VInfo.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import InfoIcon from '@/../static/images/accessGrants/info.svg';
+import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 // @vue/component
 @Component({
@@ -216,7 +216,7 @@ export default class GatewayStep extends Vue {
         this.isLoading = true;
 
         try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: this.access });
 
             await this.$notify.success('Gateway credentials were generated successfully');
 

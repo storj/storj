@@ -25,7 +25,8 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
 import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -39,13 +40,12 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 })
 
 export default class DurationSelection extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly containerStyle: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly textStyle: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly pickerStyle: string;
-
 
     public dateRangeLabel = 'Forever';
 

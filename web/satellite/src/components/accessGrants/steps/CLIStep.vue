@@ -53,14 +53,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
-
-import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -115,7 +114,7 @@ export default class CLIStep extends Vue {
      * Redirects to upload step.
      */
     public onDoneClick(): void {
-        this.analytics.pageVisit(RouteConfig.AccessGrants.path)
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 

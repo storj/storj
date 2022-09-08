@@ -19,7 +19,7 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue} from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import SunIcon from '@/../static/images/objects/sun.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
@@ -32,7 +32,7 @@ import CloseIcon from '@/../static/images/common/closeCross.svg';
     },
 })
 export default class EncryptionBanner extends Vue {
-    @Prop({default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly hide: () => void;
 }
 </script>

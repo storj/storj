@@ -22,7 +22,7 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
     components: {
         CloseIcon,
         InfoIcon,
-    }
+    },
 })
 export default class InfoNotification extends Vue {
     public isShown = true;

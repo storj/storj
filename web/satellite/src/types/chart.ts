@@ -1,8 +1,8 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { DataStamp } from "@/types/projects";
-import { Size } from "@/utils/bytesSize";
+import { DataStamp } from '@/types/projects';
+import { Size } from '@/utils/bytesSize';
 
 /**
  * ChartData class holds info for ChartData entity.
@@ -23,7 +23,7 @@ export class ChartData {
         secondaryData?: number[],
     ) {
         this.labels = labels;
-        this.datasets[0] = new DataSets(backgroundColor, borderColor, pointBorderColor, data)
+        this.datasets[0] = new DataSets(backgroundColor, borderColor, pointBorderColor, data);
 
         if (secondaryData && secondaryBackgroundColor && secondaryBorderColor && secondaryPointBorderColor) {
             this.datasets[1] = new DataSets(secondaryBackgroundColor, secondaryBorderColor, secondaryPointBorderColor, secondaryData);
@@ -262,7 +262,7 @@ export class ChartTooltipData {
     public value: string;
 
     public constructor(stamp: DataStamp) {
-        const size = new Size(stamp.value, 1)
+        const size = new Size(stamp.value, 1);
 
         this.date = stamp.intervalStart.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
         this.value = `${size.formattedBytes} ${size.label}`;

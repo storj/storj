@@ -28,29 +28,31 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import TablePagination from "@/components/common/TablePagination.vue";
-import { OnPageClickCallback } from "@/types/pagination";
+
+import { OnPageClickCallback } from '@/types/pagination';
+
+import TablePagination from '@/components/common/TablePagination.vue';
 
 // @vue/component
 @Component({
     components: {
         TablePagination,
-    }
+    },
 })
 export default class VTable extends Vue {
     @Prop({ default: false })
     public readonly selectable: boolean;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: "items"})
+    @Prop({ default: 'items' })
     private readonly itemsLabel: string;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly limit: number;
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     private readonly items: object[];
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalItemsCount: number;
-    @Prop({default: () => () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 }
 </script>

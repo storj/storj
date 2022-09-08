@@ -39,15 +39,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { MetaUtils } from "@/utils/meta";
-import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { MetaUtils } from '@/utils/meta';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 
-import VModal from "@/components/common/VModal.vue";
-import VLoader from "@/components/common/VLoader.vue";
-import VButton from "@/components/common/VButton.vue";
-import ShareContainer from "@/components/common/share/ShareContainer.vue";
+import VModal from '@/components/common/VModal.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+import ShareContainer from '@/components/common/share/ShareContainer.vue';
 
 enum ButtonStates {
     Copy,
@@ -65,7 +65,7 @@ enum ButtonStates {
 })
 export default class ShareBucketModal extends Vue {
     private worker: Worker;
-    private readonly ButtonStates = ButtonStates
+    private readonly ButtonStates = ButtonStates;
 
     public isLoading = true;
     public link = '';
@@ -89,7 +89,7 @@ export default class ShareBucketModal extends Vue {
 
         setTimeout(() => {
             this.copyButtonState = ButtonStates.Copy;
-        }, 2000)
+        }, 2000);
 
         await this.$notify.success('Link copied successfully.');
     }
@@ -141,7 +141,7 @@ export default class ShareBucketModal extends Vue {
             }
 
             const credentials: EdgeCredentials =
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: data.value, isPublic: true});
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
 
             path = encodeURIComponent(path.trim());
 

@@ -66,10 +66,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AuthHttpApi } from '@/api/auth';
 import { Validator } from '@/utils/validation';
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';

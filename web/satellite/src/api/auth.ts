@@ -400,7 +400,7 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == "mfa_required") {
+            if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
             if (result.error) {
@@ -440,6 +440,6 @@ export class AuthHttpApi implements UsersApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error("Unable to refresh session.")
+        throw new Error('Unable to refresh session.');
     }
 }

@@ -9,6 +9,7 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
 

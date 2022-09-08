@@ -84,15 +84,15 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
-import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
-import { AnalyticsHttpApi } from "@/api/analytics";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VButton from "@/components/common/VButton.vue";
-import VInput from "@/components/common/VInput.vue";
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';

@@ -1,8 +1,8 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {HttpClient} from "@/utils/httpClient";
-import {ErrorTooManyRequests} from "@/api/errors/ErrorTooManyRequests";
+import { HttpClient } from '@/utils/httpClient';
+import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 
 export interface OAuthClient {
     id: string;

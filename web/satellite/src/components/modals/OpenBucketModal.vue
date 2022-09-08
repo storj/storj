@@ -49,19 +49,19 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { RouteConfig } from "@/router";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { MetaUtils } from "@/utils/meta";
-import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { AnalyticsHttpApi } from "@/api/analytics";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { RouteConfig } from '@/router';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { MetaUtils } from '@/utils/meta';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VModal from "@/components/common/VModal.vue";
-import VInput from "@/components/common/VInput.vue";
-import VButton from "@/components/common/VButton.vue";
+import VModal from '@/components/common/VModal.vue';
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
-import Icon from "@/../static/images/objects/openBucket.svg";
+import Icon from '@/../static/images/objects/openBucket.svg';
 
 // @vue/component
 @Component({
@@ -163,7 +163,7 @@ export default class OpenBucketModal extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     }
 

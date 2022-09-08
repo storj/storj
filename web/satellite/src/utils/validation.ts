@@ -7,8 +7,8 @@ import { MetaUtils } from '@/utils/meta';
  * Validator holds validation check methods for strings.
  */
 export class Validator {
-    public static readonly PASS_MIN_LENGTH = parseInt(MetaUtils.getMetaContent("password-minimum-length"));
-    public static readonly PASS_MAX_LENGTH = parseInt(MetaUtils.getMetaContent("password-maximum-length"));
+    public static readonly PASS_MIN_LENGTH = parseInt(MetaUtils.getMetaContent('password-minimum-length'));
+    public static readonly PASS_MAX_LENGTH = parseInt(MetaUtils.getMetaContent('password-maximum-length'));
 
     /**
      * Checks string to satisfy email rules.

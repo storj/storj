@@ -22,17 +22,17 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptModal.vue';
-import CreateProjectModal from '@/components/modals/CreateProjectModal.vue'
-import AddPaymentMethodModal from "@/components/modals/AddPaymentMethodModal.vue";
-import OpenBucketModal from "@/components/modals/OpenBucketModal.vue";
-import MFARecoveryCodesModal from "@/components/modals/MFARecoveryCodesModal.vue";
-import EnableMFAModal from "@/components/modals/EnableMFAModal.vue";
-import DisableMFAModal from "@/components/modals/DisableMFAModal.vue";
-import EditProfileModal from "@/components/modals/EditProfileModal.vue";
-import ChangePasswordModal from "@/components/modals/ChangePasswordModal.vue";
-import AddTeamMemberModal from "@/components/modals/AddTeamMemberModal.vue";
-import AddTokenFundsModal from "@/components/modals/AddTokenFundsModal.vue";
-import ShareBucketModal from "@/components/modals/ShareBucketModal.vue";
+import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
+import AddPaymentMethodModal from '@/components/modals/AddPaymentMethodModal.vue';
+import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
+import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
+import EnableMFAModal from '@/components/modals/EnableMFAModal.vue';
+import DisableMFAModal from '@/components/modals/DisableMFAModal.vue';
+import EditProfileModal from '@/components/modals/EditProfileModal.vue';
+import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
+import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
+import AddTokenFundsModal from '@/components/modals/AddTokenFundsModal.vue';
+import ShareBucketModal from '@/components/modals/ShareBucketModal.vue';
 
 // @vue/component
 @Component({

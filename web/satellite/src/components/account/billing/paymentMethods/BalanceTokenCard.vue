@@ -83,10 +83,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { PaymentsHistoryItem } from '@/types/payments';
+
+import VButton from '@/components/common/VButton.vue';
+
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-import VButton from '@/components/common/VButton.vue';
-import { PaymentsHistoryItem } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -97,15 +99,15 @@ import { PaymentsHistoryItem } from '@/types/payments';
     },
 })
 export default class BalanceTokenCard extends Vue {
-    @Prop({default: () => new PaymentsHistoryItem()})
+    @Prop({ default: () => new PaymentsHistoryItem() })
     private readonly billingItem: PaymentsHistoryItem;
 
     public toggleShowAddFunds(): void {
-        this.$emit("toggleShowAddFunds")
+        this.$emit('toggleShowAddFunds');
     }
 
     public toggleTransactionsTable(): void {
-        this.$emit("showTransactions")
+        this.$emit('showTransactions');
     }
 }
 </script>

@@ -85,20 +85,19 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { RouteConfig } from '@/router';
-
-import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
-import VButton from '@/components/common/VButton.vue';
-import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
-import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
-import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
-
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance } from '@/types/payments';
-import { ProjectUsageAndCharges } from '@/types/payments';
+import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
+import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
+import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
+import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
 // @vue/component
 @Component({
@@ -114,8 +113,7 @@ export default class BillingArea extends Vue {
     public availableBalance = 0;
     public showChargesTooltip = false;
     public isDataFetching = true;
-    public currentDate = ""
-
+    public currentDate = '';
 
     /**
      * Lifecycle hook after initial render.
@@ -140,7 +138,7 @@ export default class BillingArea extends Vue {
 
         const rawDate = new Date();
         let currentYear = rawDate.getFullYear();
-        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`
+        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
     }
 
     /**

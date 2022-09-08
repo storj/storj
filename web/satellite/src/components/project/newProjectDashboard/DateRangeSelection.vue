@@ -21,9 +21,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
+import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 
@@ -59,7 +59,7 @@ export default class DateRangeSelection extends Vue {
      */
     public get dateRangeLabel(): string {
         if (this.since.getTime() === this.before.getTime()) {
-            return this.since.toLocaleDateString('en-US')
+            return this.since.toLocaleDateString('en-US');
         }
 
         const sinceFormattedString = this.since.toLocaleDateString('en-US');
@@ -71,7 +71,7 @@ export default class DateRangeSelection extends Vue {
      * Returns date range to be displayed in date range picker.
      */
     public get pickerDateRange(): Date[] {
-        return [this.since, this.before]
+        return [this.since, this.before];
     }
 }
 </script>

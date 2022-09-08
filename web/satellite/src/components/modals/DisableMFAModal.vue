@@ -45,7 +45,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -71,7 +71,7 @@ export default class DisableMFAModal extends Vue {
 
     public $refs!: {
         mfaInput: ConfirmMFAInput & ClearInput;
-    }
+    };
 
     /**
      * Closes disable MFA modal.

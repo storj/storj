@@ -127,24 +127,23 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VLoader from '@/components/common/VLoader.vue';
-import VModal from '@/components/common/VModal.vue';
-
-import LockImage from '@/../static/images/account/billing/greyLock.svg';
-import CheckMarkIcon from '@/../static/images/common/greenRoundCheckmark.svg';
-import BigCheckMarkIcon from '@/../static/images/common/greenRoundCheckmarkBig.svg';
-
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import VModal from '@/components/common/VModal.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+
+import BigCheckMarkIcon from '@/../static/images/common/greenRoundCheckmarkBig.svg';
+import CheckMarkIcon from '@/../static/images/common/greenRoundCheckmark.svg';
+import LockImage from '@/../static/images/account/billing/greyLock.svg';
 
 interface StripeForm {
     onSubmit(): Promise<void>;

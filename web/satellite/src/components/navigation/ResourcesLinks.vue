@@ -50,6 +50,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import DocsIcon from '@/../static/images/navigation/docs.svg';
 import ForumIcon from '@/../static/images/navigation/forum.svg';
 import SupportIcon from '@/../static/images/navigation/support.svg';
@@ -71,7 +72,7 @@ export default class ResourcesLinks extends Vue {
     public trackViewDocsEvent(link: string): void {
         this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
-        window.open(link)
+        window.open(link);
     }
 
     /**
@@ -80,7 +81,7 @@ export default class ResourcesLinks extends Vue {
     public trackViewForumEvent(link: string): void {
         this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
-        window.open(link)
+        window.open(link);
     }
 
     /**
@@ -89,7 +90,7 @@ export default class ResourcesLinks extends Vue {
     public trackViewSupportEvent(link: string): void {
         this.analytics.pageVisit(link);
         this.analytics.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
-        window.open(link)
+        window.open(link);
     }
 }
 </script>

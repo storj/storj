@@ -204,16 +204,17 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import { BrowserFile } from '@/types/browser';
 import prettyBytes from 'pretty-bytes';
 
-import PlaceholderImage from '@/../static/images/browser/placeholder.svg'
+import { BrowserFile } from '@/types/browser';
+
+import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
 // @vue/component
 @Component({
     components: {
         PlaceholderImage,
-    }
+    },
 })
 export default class FileModal extends Vue {
     public objectLink = '';
@@ -226,14 +227,14 @@ export default class FileModal extends Vue {
         previewImage: HTMLImageElement;
         previewVideo: HTMLVideoElement;
         previewAudio: HTMLAudioElement;
-    }
+    };
 
     /**
      * Retrieve the file object that the modal is set to from the store.
      */
     private get file(): BrowserFile {
         return this.$store.state.files.files.find(
-            (file) => file.Key === this.filePath.split("/").slice(-1)[0]
+            (file) => file.Key === this.filePath.split('/').slice(-1)[0],
         );
     }
 
@@ -250,8 +251,8 @@ export default class FileModal extends Vue {
     public get size(): string {
         return prettyBytes(
             this.$store.state.files.files.find(
-                (file) => file.Key === this.file.Key
-            ).Size
+                (file) => file.Key === this.file.Key,
+            ).Size,
         );
     }
 
@@ -259,7 +260,7 @@ export default class FileModal extends Vue {
      * Format the upload date of the current file.
      */
     public get uploadDate(): string {
-        return this.file.LastModified.toLocaleString().split(",")[0];
+        return this.file.LastModified.toLocaleString().split(',')[0];
     }
 
     /**
@@ -278,7 +279,7 @@ export default class FileModal extends Vue {
         }
 
         return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
-            this.extension.toLowerCase()
+            this.extension.toLowerCase(),
         );
     }
 
@@ -291,7 +292,7 @@ export default class FileModal extends Vue {
         }
 
         return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
-            this.extension.toLowerCase()
+            this.extension.toLowerCase(),
         );
     }
 
@@ -313,14 +314,14 @@ export default class FileModal extends Vue {
         return [
             this.previewIsImage,
             this.previewIsVideo,
-            this.previewIsAudio
+            this.previewIsAudio,
         ].every((value) => !value);
     }
 
     /**
      * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
      */
-    @Watch("filePath")
+    @Watch('filePath')
     private handleFilePathChange() {
         this.fetchObjectMap();
         if (!this.placeHolderDisplayable) this.setPreview();
@@ -343,7 +344,7 @@ export default class FileModal extends Vue {
         }
 
         const objectMap: Blob | null = await this.$store.state.files.fetchObjectMap(
-            this.filePath
+            this.filePath,
         );
 
         if (!objectMap) {
@@ -359,10 +360,10 @@ export default class FileModal extends Vue {
      */
     public download(): void {
         try {
-            this.$store.dispatch("files/download", this.file);
-            this.$notify.warning("Do not share download link with other people. If you want to share this data better use \"Share\" option.");
+            this.$store.dispatch('files/download', this.file);
+            this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
         } catch (error) {
-            this.$notify.error("Can not download your file");
+            this.$notify.error('Can not download your file');
         }
     }
 
@@ -375,11 +376,11 @@ export default class FileModal extends Vue {
         }
 
         const object: Blob | null = await this.$store.state.files.fetchObjectPreview(
-            this.filePath
+            this.filePath,
         );
 
         if (!object) {
-            this.previewFailed = true
+            this.previewFailed = true;
             return;
         }
 
@@ -420,7 +421,7 @@ export default class FileModal extends Vue {
      */
     public async getSharedLink(): Promise<void> {
         this.objectLink = await this.$store.state.files.fetchSharedLink(
-            this.filePath
+            this.filePath,
         );
     }
 
@@ -429,7 +430,7 @@ export default class FileModal extends Vue {
      */
     public stopClickPropagation(e: Event): void {
         const target = e.target as HTMLElement;
-        if (target.id !== "detail-modal") {
+        if (target.id !== 'detail-modal') {
             e.stopPropagation();
         }
     }

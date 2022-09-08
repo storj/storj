@@ -62,16 +62,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VLoader from "@/components/common/VLoader.vue";
-
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({

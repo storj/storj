@@ -2,8 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
-import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
+import { PaymentsMock } from '../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../mock/api/projects';
+import { UsersApiMock } from '../../../mock/api/users';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
@@ -14,12 +17,9 @@ import { NOTIFICATION_MUTATIONS } from '@/store/mutationConstants';
 import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import {NotificatorPlugin} from '@/utils/plugins/notificator';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { UsersApiMock } from '../../../mock/api/users';
+import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
 
 const localVue = createLocalVue();
 
@@ -39,7 +39,7 @@ const store = new Vuex.Store<{
     projectsModule: typeof projectsModule.state,
     appStateModule: typeof appStateModule.state,
     notificationsModule: typeof notificationsModule.state,
-}>({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule }});
+}>({ modules: { usersModule, paymentsModule, projectsModule, appStateModule, notificationsModule } });
 store.commit(USER_MUTATIONS.SET_USER, new User('id', 'name', 'short', 'test@test.test', 'partner', 'pass'));
 
 localVue.use(new NotificatorPlugin(store));

@@ -62,19 +62,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-
-import VButton from '@/components/common/VButton.vue';
-import VModal from '@/components/common/VModal.vue';
-import VInput from '@/components/common/VInput.vue';
-import VLoader from '@/components/common/VLoader.vue';
-
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VLoader from '@/components/common/VLoader.vue';
+import VInput from '@/components/common/VInput.vue';
+import VModal from '@/components/common/VModal.vue';
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
@@ -150,7 +148,7 @@ export default class CreateProjectModal extends Vue {
         await this.$notify.success('Project created successfully!');
 
         this.isLoading = false;
-        this.closeModal()
+        this.closeModal();
 
         this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);

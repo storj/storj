@@ -5,8 +5,8 @@ import { Validator } from '@/utils/validation';
 
 describe('validation', (): void => {
     Object.defineProperties(Validator, {
-        PASS_MIN_LENGTH: {value: 6},
-        PASS_MAX_LENGTH: {value: 128},
+        PASS_MIN_LENGTH: { value: 6 },
+        PASS_MAX_LENGTH: { value: 128 },
     });
 
     it('password regex works correctly', (): void => {

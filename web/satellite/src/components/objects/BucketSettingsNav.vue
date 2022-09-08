@@ -24,8 +24,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { RouteConfig } from '@/router';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
@@ -42,7 +42,7 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
     },
 })
 export default class BucketSettingsNav extends Vue {
-    @Prop({ default: "" })
+    @Prop({ default: '' })
     public readonly bucketName: string;
 
     public isDropdownOpen = false;
@@ -61,7 +61,7 @@ export default class BucketSettingsNav extends Vue {
             name: RouteConfig.BucketsDetails.name,
             params: {
                 bucketName: this.bucketName,
-                backRoute: this.$route.name ? this.$route.name : ''
+                backRoute: this.$route.name ? this.$route.name : '',
             },
         });
         this.isDropdownOpen = false;
@@ -79,7 +79,7 @@ export default class BucketSettingsNav extends Vue {
      * Returns files amount from store.
      */
     public get filesCount(): number {
-        return this.$store.getters["files/sortedFiles"].length;
+        return this.$store.getters['files/sortedFiles'].length;
     }
 }
 </script>

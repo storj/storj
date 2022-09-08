@@ -158,18 +158,19 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
-import { Download } from "@/utils/download";
+import { generateMnemonic } from 'bip39';
 
-import CopyIcon from '../../../../static/images/common/copy.svg';
+import { Download } from '@/utils/download';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VButton from '@/components/common/VButton.vue';
+
+import CopyIcon from '@/../static/images/common/copy.svg';
+import DownloadIcon from '@/../static/images/common/download.svg';
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
-import DownloadIcon from '../../../../static/images/common/download.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -179,17 +180,17 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         CopyIcon,
         DownloadIcon,
         ThumbPrintIcon,
-        VButton
+        VButton,
     },
 })
 
 export default class EncryptFormModal extends Vue {
 
-    private encryptSelect = "create";
+    private encryptSelect = 'create';
     private isPassphraseCopied = false;
     private isPassphraseDownloaded = false;
-    private passphrase = "";
-    private accessGrantStep = "create";
+    private passphrase = '';
+    private accessGrantStep = 'create';
     private acknowledgementCheck = false;
     public currentDate = new Date().toISOString();
 
@@ -219,7 +220,7 @@ export default class EncryptFormModal extends Vue {
     }
 
     public backAction(): void {
-        this.$emit('backAction')
+        this.$emit('backAction');
     }
 
     public onCopyPassphraseClick(): void {
@@ -234,7 +235,7 @@ export default class EncryptFormModal extends Vue {
      */
     public downloadPassphrase(): void {
         this.isPassphraseDownloaded = true;
-        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`)
+        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`);
         this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
     }
 }

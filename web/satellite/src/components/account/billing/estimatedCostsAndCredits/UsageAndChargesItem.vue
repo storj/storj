@@ -49,14 +49,14 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
-import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
-
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
+
+import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
+import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
 
 // @vue/component
 @Component({
@@ -69,7 +69,7 @@ export default class UsageAndChargesItem extends Vue {
     /**
      * item represents usage and charges of current project by period.
      */
-    @Prop({default: () => new ProjectUsageAndCharges()})
+    @Prop({ default: () => new ProjectUsageAndCharges() })
     private readonly item: ProjectUsageAndCharges;
 
     /**

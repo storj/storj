@@ -16,28 +16,28 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue} from "vue-property-decorator";
-import {VueConstructor} from "vue";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import { VueConstructor } from 'vue';
 
-import {ShareOptions} from "@/components/common/share/ShareContainer.vue";
+import { ShareOptions } from '@/components/common/share/ShareContainer.vue';
 
-import RedditIcon from "@/../static/images/objects/reddit.svg";
-import FacebookIcon from "@/../static/images/objects/facebook.svg";
-import TwitterIcon from "@/../static/images/objects/twitter.svg";
-import HackerNewsIcon from "@/../static/images/objects/hackerNews.svg";
-import LinkedInIcon from "@/../static/images/objects/linkedIn.svg";
-import TelegramIcon from "@/../static/images/objects/telegram.svg";
-import WhatsAppIcon from "@/../static/images/objects/whatsApp.svg";
-import EmailIcon from "@/../static/images/objects/email.svg";
+import RedditIcon from '@/../static/images/objects/reddit.svg';
+import FacebookIcon from '@/../static/images/objects/facebook.svg';
+import TwitterIcon from '@/../static/images/objects/twitter.svg';
+import HackerNewsIcon from '@/../static/images/objects/hackerNews.svg';
+import LinkedInIcon from '@/../static/images/objects/linkedIn.svg';
+import TelegramIcon from '@/../static/images/objects/telegram.svg';
+import WhatsAppIcon from '@/../static/images/objects/whatsApp.svg';
+import EmailIcon from '@/../static/images/objects/email.svg';
 
 // @vue/component
 @Component
 export default class ShareButton extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly label: ShareOptions;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly link: string;
-    @Prop({default: '#000'})
+    @Prop({ default: '#000' })
     public readonly color: string;
 
     private readonly images: Record<string, VueConstructor<Vue>> = {
@@ -49,13 +49,13 @@ export default class ShareButton extends Vue {
         [ShareOptions.Telegram]: TelegramIcon,
         [ShareOptions.WhatsApp]: WhatsAppIcon,
         [ShareOptions.Email]: EmailIcon,
-    }
+    };
 
     /**
      * Returns share button background color.
      */
     public get style(): Record<string, string> {
-        return {'background-color': this.color};
+        return { 'background-color': this.color };
     }
 }
 </script>

@@ -87,7 +87,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 

@@ -28,10 +28,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 /**
  * VBanner is common banner for needed pages

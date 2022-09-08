@@ -42,13 +42,13 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue} from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from "@/router";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { User } from "@/types/users";
+import { RouteConfig } from '@/router';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { User } from '@/types/users';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -67,7 +67,7 @@ import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
     },
 })
 export default class QuickStartLinks extends Vue {
-    @Prop({default: () => () => { return; }})
+    @Prop({ default: () => () => { return; } })
     public closeDropdowns: () => void;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -116,7 +116,7 @@ export default class QuickStartLinks extends Vue {
         this.closeDropdowns();
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        this.$router.push({name: RouteConfig.AGName.name});
+        this.$router.push({ name: RouteConfig.AGName.name });
     }
 
     /**

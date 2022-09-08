@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import SortingListHeader from '@/components/team/SortingListHeader.vue';
+import { mount } from '@vue/test-utils';
 
 import { SortDirection } from '@/types/common';
 import { ProjectMemberOrderBy } from '@/types/projectMembers';
-import { mount } from '@vue/test-utils';
+
+import SortingListHeader from '@/components/team/SortingListHeader.vue';
 
 describe('SortingListHeader.vue', () => {
     it('should render correctly', function () {

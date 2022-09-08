@@ -2,8 +2,9 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
-import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
+import { ProjectsApiMock } from '../../../mock/api/projects';
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
@@ -12,10 +13,9 @@ import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
-import {NotificatorPlugin} from '@/utils/plugins/notificator';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
-import { ProjectsApiMock } from '../../../mock/api/projects';
+import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 
 const localVue = createLocalVue();
 const projectsApi = new ProjectsApiMock();
@@ -31,7 +31,7 @@ const project = new Project('id', 'projectName', 'projectDescription', 'test', '
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { paymentsModule, projectsModule, notificationsModule }});
+const store = new Vuex.Store({ modules: { paymentsModule, projectsModule, notificationsModule } });
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
@@ -65,7 +65,7 @@ describe('DetailedHistory', (): void => {
     });
 
     it('click on back works correctly', async (): Promise<void> => {
-        const clickSpy = jest.spyOn(router, "push");
+        const clickSpy = jest.spyOn(router, 'push');
         const wrapper = mount(DetailedHistory, {
             localVue,
             store,

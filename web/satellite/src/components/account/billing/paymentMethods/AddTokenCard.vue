@@ -33,12 +33,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PaymentAmountOption } from '@/types/payments';
+
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentAmountOption } from '@/types/payments';
+import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -54,7 +55,7 @@ const {
     },
 })
 export default class AddTokenCard extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalCount: number;
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
@@ -63,7 +64,7 @@ export default class AddTokenCard extends Vue {
     private pageLoaded = true;
 
     public toggleShowAddFunds(): void {
-        this.$emit("toggleShowAddFunds");
+        this.$emit('toggleShowAddFunds');
     }
 
     /**
@@ -94,7 +95,7 @@ export default class AddTokenCard extends Vue {
                 depositWindow.focus();
                 this.pageLoaded = true;
             }
-            this.$emit("fetchHistory");
+            this.$emit('fetchHistory');
         } catch (error) {
             await this.$notify.error(error.message);
             this.$emit('toggleIsLoading');

@@ -41,16 +41,16 @@ export default class SelectInput extends Vue {
 
     protected value = '';
 
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly label: string;
-    @Prop({default: '48px'})
+    @Prop({ default: '48px' })
     protected readonly height: string;
-    @Prop({default: '100%'})
+    @Prop({ default: '100%' })
     protected readonly width: string;
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     protected readonly optionsList: string[];
 
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isWhite: boolean;
 
     public created() {

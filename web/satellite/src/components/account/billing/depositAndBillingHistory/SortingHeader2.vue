@@ -45,9 +45,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VerticalArrows from '@/components/common/VerticalArrows.vue';
-
 import { SortDirection } from '@/types/common';
+
+import VerticalArrows from '@/components/common/VerticalArrows.vue';
 
 // @vue/component
 @Component({
@@ -57,15 +57,15 @@ import { SortDirection } from '@/types/common';
 })
 export default class SortingHeader2 extends Vue {
 
-    public DATE_DIRECTION = 'date-descending'
-    public AMOUNT_DIRECTION = 'amount-descending'
-    public STATUS_DIRECTION = 'status-descending'
+    public DATE_DIRECTION = 'date-descending';
+    public AMOUNT_DIRECTION = 'amount-descending';
+    public STATUS_DIRECTION = 'status-descending';
 
     public dateSortDirection: SortDirection = SortDirection.ASCENDING;
     public amountSortDirection: SortDirection = SortDirection.ASCENDING;
     public statusSortDirection: SortDirection = SortDirection.ASCENDING;
 
-    public arrowController: {date: boolean, amount: boolean, status: boolean} = {date: false, amount: false, status: false}
+    public arrowController: {date: boolean, amount: boolean, status: boolean} = { date: false, amount: false, status: false };
 
     /**
      * sorts table by date
@@ -75,19 +75,19 @@ export default class SortingHeader2 extends Vue {
         case 'date':
             this.$emit('sortFunction', this.DATE_DIRECTION);
             this.DATE_DIRECTION = this.DATE_DIRECTION === 'date-ascending' ? 'date-descending' : 'date-ascending';
-            this.arrowController = {date: true, amount: false, status: false};
+            this.arrowController = { date: true, amount: false, status: false };
             this.dateSortDirection = this.dateSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
             break;
         case 'amount':
             this.$emit('sortFunction', this.AMOUNT_DIRECTION);
             this.AMOUNT_DIRECTION = this.AMOUNT_DIRECTION === 'amount-ascending' ? 'amount-descending' : 'amount-ascending';
-            this.arrowController = {date: false, amount: true, status: false};
+            this.arrowController = { date: false, amount: true, status: false };
             this.amountSortDirection = this.amountSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
-            break
+            break;
         case 'status':
             this.$emit('sortFunction', this.STATUS_DIRECTION);
             this.STATUS_DIRECTION = this.STATUS_DIRECTION === 'status-ascending' ? 'status-descending' : 'status-ascending';
-            this.arrowController = {date: false, amount: false, status: true};
+            this.arrowController = { date: false, amount: false, status: true };
             this.statusSortDirection = this.statusSortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
             break;
         default:

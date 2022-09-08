@@ -34,8 +34,8 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItem } from '@/types/payments';
-
 import { AccessGrant } from '@/types/accessGrants';
+
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
 import Calendar from '@/../static/images/billing/calendar.svg';
 

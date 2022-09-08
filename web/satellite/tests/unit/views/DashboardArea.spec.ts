@@ -2,6 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import { AccessGrantsMock } from '../mock/api/accessGrants';
+import { BucketsMock } from '../mock/api/buckets';
+import { PaymentsMock } from '../mock/api/payments';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectsApiMock } from '../mock/api/projects';
+import { UsersApiMock } from '../mock/api/users';
 
 import { RouteConfig, router } from '@/router';
 import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
@@ -17,14 +25,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import DashboardArea from '@/views/DashboardArea.vue';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
-
-import { AccessGrantsMock } from '../mock/api/accessGrants';
-import { BucketsMock } from '../mock/api/buckets';
-import { PaymentsMock } from '../mock/api/payments';
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
-import { UsersApiMock } from '../mock/api/users';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);

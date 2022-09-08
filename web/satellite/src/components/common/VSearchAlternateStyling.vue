@@ -20,11 +20,11 @@ declare type searchCallback = (search: string) => Promise<void>;
 // @vue/component
 @Component
 export default class VSearch extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly placeholder: string;
-    @Prop({default: function(): searchCallback {
+    @Prop({ default: function(): searchCallback {
         return async function(_: string) {};
-    }})
+    } })
     private readonly search: searchCallback;
     private searchQuery = '';
 

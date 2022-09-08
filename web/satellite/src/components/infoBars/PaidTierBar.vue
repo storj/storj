@@ -14,19 +14,20 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component
 export default class PaidTierBar extends Vue {
-    @Prop({default: () => () => false})
+    @Prop({ default: () => () => false })
     public readonly openAddPMModal: () => void;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // Send analytics event to segment when Upgrade Account banner is clicked.
     public async openBanner(): Promise<void> {
-        this.openAddPMModal()
+        this.openAddPMModal();
         await this.analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
 
     }

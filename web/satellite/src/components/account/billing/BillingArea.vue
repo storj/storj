@@ -89,7 +89,13 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AccountBalance } from '@/types/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
@@ -102,13 +108,6 @@ import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
-
-
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AccountBalance } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -263,7 +262,7 @@ export default class BillingArea extends Vue {
      */
     public get isNewBillingScreen(): boolean {
         const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === "true";
+        return isNewBillingScreen === 'true';
     }
 
 }

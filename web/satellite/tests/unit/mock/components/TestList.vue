@@ -12,9 +12,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VList from '@/components/common/VList.vue';
-
 import TestListItem from './TestListItem.vue';
+
+import VList from '@/components/common/VList.vue';
 
 // @vue/component
 @Component({

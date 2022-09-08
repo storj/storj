@@ -34,15 +34,16 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
-import TableItem from "@/components/common/TableItem.vue";
-import Resizable from "@/components/common/Resizable.vue";
+import { RouteConfig } from '@/router';
+import { Bucket } from '@/types/buckets';
+import { LocalData } from '@/utils/localData';
+
+import TableItem from '@/components/common/TableItem.vue';
+import Resizable from '@/components/common/Resizable.vue';
+
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
-
-import { RouteConfig } from "@/router";
-import { Bucket } from "@/types/buckets";
-import { LocalData } from "@/utils/localData";
 
 // @vue/component
 @Component({
@@ -72,7 +73,7 @@ export default class BucketItem extends Resizable {
     public isGuideShown = true;
 
     public mounted(): void {
-        this.isGuideShown = !LocalData.getBucketGuideHidden()
+        this.isGuideShown = !LocalData.getBucketGuideHidden();
     }
 
     public get shouldShowGuide(): boolean {
@@ -123,7 +124,7 @@ export default class BucketItem extends Resizable {
             name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
             params: {
                 bucketName: this.itemData.name,
-                backRoute: this.$route.name || ''
+                backRoute: this.$route.name || '',
             },
         });
 

@@ -3,14 +3,14 @@
 
 import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
-import VueSanitize from "vue-sanitize";
-
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { Size } from "@/utils/bytesSize";
+import VueSanitize from 'vue-sanitize';
 
 import App from './App.vue';
 import { router } from './router';
 import { store } from './store';
+
+import { Size } from '@/utils/bytesSize';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
 window['VueNextTick'] = function(callback) {
     return Vue.nextTick(callback);

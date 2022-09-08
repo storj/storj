@@ -30,7 +30,6 @@ import AddCouponCodeInput2 from '@/components/common/AddCouponCodeInput2.vue';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
 
-
 // @vue/component
 @Component({
     components: {
@@ -41,18 +40,17 @@ import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
 })
 export default class AddCouponCode extends Vue {
 
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly success: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly error: boolean;
 
     /**
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
-        this.$emit("toggleMethod")
+        this.$emit('toggleMethod');
     }
-
 
 }
 </script>

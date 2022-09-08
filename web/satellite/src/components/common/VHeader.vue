@@ -39,13 +39,13 @@ declare type searchCallback = (search: string) => Promise<void>;
     },
 })
 export default class VHeader extends Vue {
-    @Prop({default: 'common'})
+    @Prop({ default: 'common' })
     private readonly styleType: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly placeholder: string;
-    @Prop({default: function(): searchCallback {
+    @Prop({ default: function(): searchCallback {
         return async function(_: string) {};
-    }})
+    } })
     private readonly search: searchCallback;
 
     public $refs!: {

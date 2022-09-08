@@ -293,31 +293,32 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
-import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import SelectInput from '@/components/common/SelectInput.vue';
-
-import InfoIcon from '@/../static/images/register/info.svg';
 import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
 import LogoIcon from '../../../static/images/logo.svg';
 import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
 import ErrorIcon from '../../../static/images/register/ErrorInfo.svg';
-import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 
-import {AuthHttpApi} from '@/api/auth';
-import {RouteConfig} from '@/router';
-import {PartneredSatellite} from '@/types/common';
-import {User} from '@/types/users';
-import {MetaUtils} from '@/utils/meta';
-import {Validator} from '@/utils/validation';
-import {AnalyticsHttpApi} from '@/api/analytics';
+import { AuthHttpApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { PartneredSatellite } from '@/types/common';
+import { User } from '@/types/users';
+import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import SelectInput from '@/components/common/SelectInput.vue';
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
+
+import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
+import InfoIcon from '@/../static/images/register/info.svg';
 
 type ViewConfig = {
     title: string;
@@ -399,7 +400,7 @@ export default class RegisterArea extends Vue {
     public $refs!: {
         recaptcha: VueRecaptcha;
         hcaptcha: VueHcaptcha;
-    }
+    };
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -473,7 +474,7 @@ export default class RegisterArea extends Vue {
 
         let activeElement = document.activeElement;
 
-        if (activeElement && activeElement.id === "registerDropdown") return;
+        if (activeElement && activeElement.id === 'registerDropdown') return;
 
         if (this.isDropdownShown) {
             this.isDropdownShown = false;
@@ -553,7 +554,7 @@ export default class RegisterArea extends Vue {
             }
 
             return s;
-        })
+        });
     }
 
     /**
@@ -675,13 +676,13 @@ export default class RegisterArea extends Vue {
         }
 
         if (this.user.partner.length > 100) {
-            this.$notify.error('Partner must be less than or equal to 100 characters')
-            return false
+            this.$notify.error('Partner must be less than or equal to 100 characters');
+            return false;
         }
 
         if (this.user.signupPromoCode.length > 100) {
-            this.$notify.error('Promo code must be less than or equal to 100 characters')
-            return false
+            this.$notify.error('Promo code must be less than or equal to 100 characters');
+            return false;
         }
 
         return isNoErrors;
@@ -691,7 +692,7 @@ export default class RegisterArea extends Vue {
      * Detect if user uses Brave browser
      */
     public async detectBraveBrowser(): Promise<boolean> {
-        return (navigator['brave'] && await navigator['brave'].isBrave() || false)
+        return (navigator['brave'] && await navigator['brave'].isBrave() || false);
     }
 
     /**

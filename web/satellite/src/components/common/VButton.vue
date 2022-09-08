@@ -40,43 +40,43 @@ import DocumentIcon from '@/../static/images/common/documentIcon.svg';
         LockIcon,
         CreditCardIcon,
         DocumentIcon,
-        TrashIcon
+        TrashIcon,
     },
 })
 export default class VButton extends Vue {
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly label: string;
-    @Prop({default: 'inherit'})
+    @Prop({ default: 'inherit' })
     private readonly width: string;
-    @Prop({default: 'inherit'})
+    @Prop({ default: 'inherit' })
     private readonly height: string;
-    @Prop({default: '16px'})
+    @Prop({ default: '16px' })
     private readonly fontSize: string;
-    @Prop({default: '6px'})
+    @Prop({ default: '6px' })
     private readonly borderRadius: string;
     @Prop({ default: 'none' })
     private readonly icon: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isSolidDelete: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isTransparent: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isDeletion: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isGreyBlue: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isBlueWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isWhiteGreen: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isGreenWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private isDisabled: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isUppercase: boolean;
-    @Prop({default: () => () => {}})
+    @Prop({ default: () => () => {} })
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {

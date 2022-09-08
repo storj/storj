@@ -160,19 +160,8 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import VueRecaptcha from "vue-recaptcha";
-import VueHcaptcha from "@hcaptcha/vue-hcaptcha";
-
-import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import VueRecaptcha from 'vue-recaptcha';
+import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
@@ -182,12 +171,23 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
+import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
+import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
 interface ClearInput {
     clearInput(): void;
@@ -384,7 +384,7 @@ export default class Login extends Vue {
 
         let activeElement = document.activeElement;
 
-        if (activeElement && activeElement.id === "loginDropdown") return;
+        if (activeElement && activeElement.id === 'loginDropdown') return;
 
         if (this.isDropdownShown) {
             this.isDropdownShown = false;

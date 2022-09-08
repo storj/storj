@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { BucketsApiGql } from '@/api/buckets';
 import { ProjectsApiGql } from '@/api/projects';
@@ -9,7 +10,6 @@ import { BUCKET_ACTIONS, makeBucketsModule } from '@/store/modules/buckets';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { Bucket, BucketCursor, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const bucketsApi = new BucketsApiGql();
@@ -27,7 +27,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store<{
     projectsModule: typeof projectsModule.state,
     bucketsModule: typeof bucketsModule.state,
-}>({modules: { projectsModule, bucketsModule } });
+}>({ modules: { projectsModule, bucketsModule } });
 const state = store.state.bucketsModule;
 const bucket = new Bucket('test', 10, 10, 1, 1, new Date(), new Date());
 const page: BucketPage = { buckets: [bucket], currentPage: 1, pageCount: 1, offset: 0, limit: 7, search: 'test', totalCount: 1 };

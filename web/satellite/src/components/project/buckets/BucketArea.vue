@@ -38,6 +38,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { Bucket } from '@/types/buckets';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
@@ -45,13 +50,7 @@ import BucketItem from '@/components/project/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/project/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { Bucket } from '@/types/buckets';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-
-const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
+const { FETCH, SET_SEARCH } = BUCKET_ACTIONS;
 
 // @vue/component
 @Component({

@@ -14,10 +14,12 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+
 import VList from '@/components/common/VList.vue';
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryShape from '@/components/account/billing/billingTabs/BillingHistoryShape.vue';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 // @vue/component
 @Component({

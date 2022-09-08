@@ -13,8 +13,9 @@
 import { Component, Prop } from 'vue-property-decorator';
 
 import { Project } from '@/types/projects';
-import TableItem from "@/components/common/TableItem.vue";
-import Resizable from "@/components/common/Resizable.vue";
+
+import TableItem from '@/components/common/TableItem.vue';
+import Resizable from '@/components/common/Resizable.vue';
 
 // @vue/component
 @Component({
@@ -23,7 +24,7 @@ import Resizable from "@/components/common/Resizable.vue";
     },
 })
 export default class ProjectsListItem extends Resizable {
-    @Prop({default: () => new Project('123', 'name', 'desc')})
+    @Prop({ default: () => new Project('123', 'name', 'desc') })
     private readonly itemData: Project;
     @Prop({ default: () => (_: string) => {} })
     public readonly onClick: (project: string) => void;

@@ -32,15 +32,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
-
-import LogoIcon from '@/../static/images/logo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
+
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
+import VInput from '@/components/common/VInput.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
 
 // @vue/component
 @Component({
@@ -64,7 +64,7 @@ export default class ActivateAccount extends Vue {
      */
     public async onActivateClick(): Promise<void> {
         if (!Validator.email(this.email)) {
-            this.emailError = "Invalid email";
+            this.emailError = 'Invalid email';
             return;
         }
 

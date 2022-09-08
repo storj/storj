@@ -37,15 +37,15 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { BucketCreationSteps } from "@/components/objects/BucketCreation.vue";
+import { BucketCreationSteps } from '@/components/objects/BucketCreation.vue';
 
-import CheckIcon from "@/../static/images/objects/check.svg";
+import CheckIcon from '@/../static/images/objects/check.svg';
 
 // @vue/component
 @Component({
     components: {
         CheckIcon,
-    }
+    },
 })
 export default class BucketCreationProgress extends Vue {
     @Prop({ default: 0 })

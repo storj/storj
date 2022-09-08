@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
+
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
@@ -14,7 +16,6 @@ import {
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
-import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -284,7 +285,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                 coupon.percentOff,
                 new Date(coupon.addedAt),
                 coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-                coupon.duration
+                coupon.duration,
             );
         }
 
@@ -328,7 +329,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             coupon.percentOff,
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-            coupon.duration
+            coupon.duration,
         );
     }
 

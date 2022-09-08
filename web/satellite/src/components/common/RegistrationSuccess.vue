@@ -53,13 +53,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AuthHttpApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
-
-import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
@@ -70,9 +70,9 @@ import { RouteConfig } from "@/router";
     },
 })
 export default class RegistrationSuccess extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly email: string;
-    @Prop({default: true})
+    @Prop({ default: true })
     private readonly showManualActivationMsg: boolean;
 
     private secondsToWait = 30;

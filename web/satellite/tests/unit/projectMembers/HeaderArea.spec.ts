@@ -2,17 +2,17 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import HeaderArea from '@/components/team/HeaderArea.vue';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
 const date = new Date(0);

@@ -117,17 +117,17 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
-import { Download } from "@/utils/download";
+import { Download } from '@/utils/download';
 
 import VButton from '@/components/common/VButton.vue';
-import VInput from "@/components/common/VInput.vue";
-import VCheckbox from "@/components/common/VCheckbox.vue";
+import VInput from '@/components/common/VInput.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
-import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
-import KeyIcon from "@/../static/images/objects/key.svg";
-import FingerprintIcon from "@/../static/images/objects/fingerprint.svg";
+import BucketIcon from '@/../static/images/objects/bucketCreation.svg';
+import KeyIcon from '@/../static/images/objects/key.svg';
+import FingerprintIcon from '@/../static/images/objects/fingerprint.svg';
 
 enum GenerationSteps {
     TypeSelection,

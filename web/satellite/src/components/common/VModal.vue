@@ -23,10 +23,10 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 @Component({
     components: {
         CloseCrossIcon,
-    }
+    },
 })
 export default class VModal extends Vue {
-    @Prop({default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly onClose: () => void;
 }
 </script>

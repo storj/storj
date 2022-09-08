@@ -39,9 +39,6 @@
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
-import CreateFormModal from '@/components/accessGrants/modals/CreateFormModal.vue';
-import EncryptFormModal from '@/components/accessGrants/modals/EncryptFormModal.vue';
-import GrantCreatedModal from '@/components/accessGrants/modals/GrantCreatedModal.vue';
 
 // for future use when notes is implemented
 // import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
@@ -49,11 +46,14 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { RouteConfig } from '@/router';
 
+import GrantCreatedModal from '@/components/accessGrants/modals/GrantCreatedModal.vue';
+import EncryptFormModal from '@/components/accessGrants/modals/EncryptFormModal.vue';
+import CreateFormModal from '@/components/accessGrants/modals/CreateFormModal.vue';
 
 // TODO: a lot of code can be refactored/reused/split into modules
 // @vue/component
@@ -67,12 +67,12 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class CreateAccessModal extends Vue {
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly label: string;
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly defaultType: string;
 
-    private accessGrantStep = "create";
+    private accessGrantStep = 'create';
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     public areKeysVisible = false;
     private readonly FIRST_PAGE = 1;
@@ -95,14 +95,14 @@ export default class CreateAccessModal extends Vue {
     /**
      * Handles business logic for options on each step after create access.
      */
-    private passphrase = "";
+    private passphrase = '';
     private accessName = '';
     public areBucketNamesFetching = true;
 
     /**
      * Created Access Grant
      */
-    private access = "";
+    private access = '';
 
     private worker: Worker;
     private restrictedKey = '';
@@ -159,7 +159,7 @@ export default class CreateAccessModal extends Vue {
         this.checkedType = await data.checkedType;
         this.accessName = await data.accessName;
         this.selectedPermissions = await data.selectedPermissions;
-        if(type === 'api') {
+        if (type === 'api') {
             await this.createAccessGrant();
         }   
     }
@@ -203,16 +203,16 @@ export default class CreateAccessModal extends Vue {
             'isUpload': this.selectedPermissions.includes('Write'),
             'isList': this.selectedPermissions.includes('List'),
             'isDelete': this.selectedPermissions.includes('Delete'),
-        }
+        };
 
-        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
-        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, { 'notBefore': this.notBeforePermission.toISOString() });
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': this.notAfterPermission.toISOString() });
 
         await this.worker.postMessage(permissionsMsg);
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error)
+            throw new Error(grantEvent.data.error);
         }
         this.restrictedKey = grantEvent.data.value;
 
@@ -237,10 +237,9 @@ export default class CreateAccessModal extends Vue {
         this.access = accessEvent.data.value;
         await this.$notify.success('Access Grant was generated successfully');
 
-
         if (this.checkedType === 's3') {
             try {
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: this.access });
 
                 await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 

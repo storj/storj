@@ -15,7 +15,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { MetaUtils } from "@/utils/meta";
+import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component

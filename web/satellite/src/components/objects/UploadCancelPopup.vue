@@ -29,13 +29,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
-
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({

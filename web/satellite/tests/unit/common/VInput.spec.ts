@@ -1,9 +1,9 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import VInput from '@/components/common/VInput.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import VInput from '@/components/common/VInput.vue';
 
 describe('VInput.vue', () => {
     it('renders correctly with default props', () => {
@@ -16,7 +16,7 @@ describe('VInput.vue', () => {
     it('renders correctly with isMultiline props', () => {
 
         const wrapper = shallowMount(VInput, {
-            propsData: {isMultiline: true},
+            propsData: { isMultiline: true },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -31,7 +31,7 @@ describe('VInput.vue', () => {
         const height = '20px';
 
         const wrapper = shallowMount(VInput, {
-            propsData: {label, width, height, additionalLabel},
+            propsData: { label, width, height, additionalLabel },
         });
 
         const el = wrapper.find('input').element as HTMLElement;

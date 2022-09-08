@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Pagination from '@/components/common/VPagination.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import Pagination from '@/components/common/VPagination.vue';
 
 describe('Pagination.vue', () => {
     it('renders correctly', () => {
@@ -199,7 +199,7 @@ describe('Pagination.vue', () => {
 
         expect(wrapper.vm.$data.currentPageNumber).toBe(2);
 
-        await wrapper.setProps({totalPageCount: 7});
+        await wrapper.setProps({ totalPageCount: 7 });
 
         const wrapperData = wrapper.vm.$data;
 

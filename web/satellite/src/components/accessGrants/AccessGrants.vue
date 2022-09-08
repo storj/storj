@@ -224,7 +224,14 @@
 </template>
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
+import { SortDirection } from '@/types/common';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
@@ -234,16 +241,11 @@ import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
+import VTable from '@/components/common/VTable.vue';
+
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
-import { SortDirection } from '@/types/common';
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import VTable from "@/components/common/VTable.vue";
 
 const {
     FETCH,
@@ -291,7 +293,7 @@ export default class AccessGrants extends Vue {
      */
     public get isNewAccessGrantFlow(): boolean {
         const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
-        return isNewAccessGrantFlow === "true";
+        return isNewAccessGrantFlow === 'true';
     }
     /**
      * Lifecycle hook after initial render where list of existing access grants is fetched.

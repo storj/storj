@@ -37,9 +37,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VectorIcon from '@/../static/images/register/StrengthVector.svg';
+import { Validator } from '@/utils/validation';
 
-import {Validator} from '@/utils/validation';
+import VectorIcon from '@/../static/images/register/StrengthVector.svg';
 
 /**
  * BarFillStyle class holds info for BarFillStyle entity.
@@ -72,12 +72,12 @@ class StrengthLabelColor {
     },
 })
 export default class PasswordStrength extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly passwordString: string;
     /**
      * Indicates if component should be rendered.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isShown: boolean;
 
     public get isPasswordLengthAcceptable(): boolean {

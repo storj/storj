@@ -70,17 +70,17 @@
 </template>
 
 <script lang="ts">
-import QRCode from "qrcode";
+import QRCode from 'qrcode';
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { Wallet } from "@/types/payments";
-import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { Wallet } from '@/types/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
-import VInfo from "@/components/common/VInfo.vue";
-import VLoader from "@/components/common/VLoader.vue";
+import VInfo from '@/components/common/VInfo.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
 
@@ -114,7 +114,7 @@ export default class AddTokenFundsModal extends Vue {
             await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
             this.isLoading = false;
         } catch (error) {
-            await this.$notify.error(error.message)
+            await this.$notify.error(error.message);
         }
     }
 
@@ -138,7 +138,7 @@ export default class AddTokenFundsModal extends Vue {
      */
     private get wallet(): Wallet {
         // TODO: remove this when backend is ready.
-        return { address: 'ijefiw54et945t89459ty8e98c4jyc8489yec985yce8i59y8c598yc56', balance: 234234 }
+        return { address: 'ijefiw54et945t89459ty8e98c4jyc8489yec985yce8i59y8c598yc56', balance: 234234 };
         // return this.$store.state.paymentsModule.wallet;
     }
 }

@@ -27,13 +27,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
-import VLoader from '@/components/common/VLoader.vue';
-
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
+
+import VLoader from '@/components/common/VLoader.vue';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
 // @vue/component
 @Component({

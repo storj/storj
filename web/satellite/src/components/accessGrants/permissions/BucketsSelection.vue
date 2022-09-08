@@ -23,7 +23,8 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -36,7 +37,7 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly showScrollbar: boolean;
     /**
      * Toggles dropdown visibility.

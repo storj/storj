@@ -1,19 +1,20 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
+import Vuex from 'vuex';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { createLocalVue, mount } from '@vue/test-utils';
-import {makeNotificationsModule} from "@/store/modules/notifications";
-import Vuex from "vuex";
-import {appStateModule} from "@/store/modules/appState";
+import { makeNotificationsModule } from '@/store/modules/notifications';
+import { appStateModule } from '@/store/modules/appState';
+
+import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
 const notificationsModule = makeNotificationsModule();
-const store = new Vuex.Store({ modules: { appStateModule, notificationsModule }});
+const store = new Vuex.Store({ modules: { appStateModule, notificationsModule } });
 
 localVue.use(new NotificatorPlugin(store));
 
