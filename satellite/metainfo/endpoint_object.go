@@ -121,7 +121,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this will work only with newest uplink
-	// figue out what to do with this
+	// figure out what to do with this
 	encryptionParameters := storj.EncryptionParameters{
 		CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion

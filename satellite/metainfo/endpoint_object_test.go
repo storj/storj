@@ -565,6 +565,36 @@ func TestObject_NoStorageNodes(t *testing.T) {
 			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedPath)
 			require.EqualValues(t, committedObject.Version, downloadObjectResponse.Object.Version)
 		})
+
+		t.Run("begin expired object", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
+
+			params := metaclient.BeginObjectParams{
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("encrypted-path"),
+				Redundancy: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      256,
+					RequiredShares: 1,
+					RepairShares:   1,
+					OptimalShares:  3,
+					TotalShares:    4,
+				},
+				EncryptionParameters: storj.EncryptionParameters{
+					BlockSize:   256,
+					CipherSuite: storj.EncNull,
+				},
+				ExpiresAt: time.Now().Add(-24 * time.Hour),
+			}
+
+			_, err = metainfoClient.BeginObject(ctx, params)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Invalid expiration time")
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
 	})
 }
 
