@@ -3,7 +3,7 @@
 
 <template>
     <div class="encrypt-container">
-        <bucket-icon />
+        <bucket-icon class="bucket-icon" />
         <div v-if="generationStep === GenerationSteps.TypeSelection" class="encrypt-container__functional">
             <div class="encrypt-container__functional__header">
                 <p class="encrypt-container__functional__header__title" aria-roledescription="title">
@@ -86,7 +86,7 @@
         </div>
         <div class="encrypt-container__buttons">
             <v-button
-                class="encrypt-container__buttons__back"
+                class="encrypt-container__buttons__back button"
                 label="Back"
                 height="48px"
                 width="45%"
@@ -96,6 +96,7 @@
             />
             <v-button
                 v-if="generationStep === GenerationSteps.TypeSelection"
+                class="button"
                 height="48px"
                 width="45%"
                 label="Continue"
@@ -103,6 +104,7 @@
             />
             <v-button
                 v-else
+                class="button"
                 label="Continue"
                 height="48px"
                 width="45%"
@@ -237,7 +239,7 @@ export default class GeneratePassphrase extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .encrypt-container {
     font-family: 'font_regular', sans-serif;
     padding: 60px 60px 50px;
@@ -251,7 +253,7 @@ export default class GeneratePassphrase extends Vue {
     align-items: center;
 
     &__functional {
-        padding: 20px 0;
+        margin-top: 20px;
 
         &__header {
             display: flex;
@@ -400,7 +402,46 @@ export default class GeneratePassphrase extends Vue {
 @media screen and (max-width: 760px) {
 
     .encrypt-container {
-        width: 200px;
+        padding: 40px 32px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+
+    .encrypt-container {
+
+        &__functional__header {
+
+            &__title {
+                font-size: 1.715rem;
+                line-height: 2.215rem;
+            }
+
+            &__info {
+                font-size: 0.875rem;
+                line-height: 1.285rem;
+            }
+        }
+
+        &__buttons {
+            flex-direction: column-reverse;
+            margin-top: 25px;
+
+            .button {
+                width: 100% !important;
+
+                &:first-of-type {
+                    margin: 25px 0 0;
+                }
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 385px) {
+
+    .encrypt-container {
+        padding: 20px;
     }
 }
 </style>

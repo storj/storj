@@ -5,7 +5,7 @@
     <div class="bucket-name-creation">
         <v-loader v-if="isLoading" width="100px" height="100px" />
         <template v-else>
-            <bucket-icon />
+            <bucket-icon class="bucket-icon" />
             <div class="bucket-name-creation__functional">
                 <div class="bucket-name-creation__functional__header">
                     <p class="bucket-name-creation__functional__header__title" aria-roledescription="title">
@@ -27,16 +27,18 @@
             </div>
             <div class="bucket-name-creation__buttons">
                 <v-button
+                    class="button"
                     label="Cancel"
                     height="48px"
-                    width="45%"
+                    width="47%"
                     :on-press="onCancelClick"
                     :is-white="true"
                 />
                 <v-button
+                    class="button"
                     label="Continue"
                     height="48px"
-                    width="45%"
+                    width="47%"
                     :on-press="onNextButtonClick"
                     :is-disabled="!name || nameError !== ''"
                 />
@@ -158,7 +160,7 @@ export default class BucketCreationNameStep extends Vue {
     align-items: center;
 
     &__functional {
-        padding: 20px 0;
+        margin-top: 20px;
 
         &__header {
             display: flex;
@@ -210,7 +212,46 @@ export default class BucketCreationNameStep extends Vue {
 @media screen and (max-width: 760px) {
 
     .bucket-name-creation {
-        width: 200px;
+        padding: 40px 32px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+
+    .bucket-name-creation {
+
+        &__functional__header {
+
+            &__title {
+                font-size: 1.715rem;
+                line-height: 2.215rem;
+            }
+
+            &__info {
+                font-size: 0.875rem;
+                line-height: 1.285rem;
+            }
+        }
+
+        &__buttons {
+            flex-direction: column-reverse;
+            margin-top: 25px;
+
+            .button {
+                width: 100% !important;
+
+                &:first-of-type {
+                    margin: 25px 0 0;
+                }
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 385px) {
+
+    .bucket-name-creation {
+        padding: 20px;
     }
 }
 </style>

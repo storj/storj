@@ -109,6 +109,10 @@ export default class BucketCreationProgress extends Vue {
             top: 16px;
             left: 100%;
             background: #ebeef1;
+
+            @media screen and (max-width: 760px) {
+                display: none;
+            }
         }
 
         &.active {
@@ -129,14 +133,6 @@ export default class BucketCreationProgress extends Vue {
                 }
             }
         }
-    }
-}
-
-@media screen and (max-width: 760px) {
-
-    .bucket-creation-progress {
-        width: 290px !important;
-        margin-left: 16px;
     }
 }
 </style>

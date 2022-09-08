@@ -211,13 +211,29 @@ export default class BucketCreation extends Vue {
     &__progress {
         margin-bottom: 44px;
         width: 460px;
+
+        @media screen and (max-width: 760px) {
+            width: 85%;
+        }
     }
+}
+
+:deep(.bucket-icon) {
+    width: 267px;
 }
 
 @media screen and (max-width: 760px) {
 
-    .bucket-creation {
-        width: 300px;
+    :deep(.label-container__main__label) {
+        font-size: 0.875rem !important;
+        line-height: 1.285rem !important;
+    }
+}
+
+@media screen and (max-width: 600px) {
+
+    :deep(.bucket-icon) {
+        width: 190px;
     }
 }
 </style>
