@@ -33,7 +33,7 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 		if len(segment.Pieces) < VerifyPieces {
 			panic("segment contains too few pieces")
 		}
-		for _, piece := range segment.Pieces[:VerifyPieces] {
+		for _, piece := range segment.Pieces[:segment.Status.Retry] {
 			enqueue(piece.Alias, segment)
 		}
 	}
@@ -71,7 +71,7 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	nextSegment:
 		for _, segment := range large.Items[highLen:] {
 			// try to find a piece that can be moved into a small batch.
-			for _, piece := range segment.Pieces[VerifyPieces:] {
+			for _, piece := range segment.Pieces[segment.Status.Retry:] {
 				if q, ok := smallBatches[piece.Alias]; ok {
 					// move to the other queue
 					q.Items = append(q.Items, segment)
@@ -113,6 +113,19 @@ func (service *Service) selectOnlinePieces(segment *Segment) {
 		segment.Pieces = rs
 		return
 	}
+}
+
+// removePriorityPieces modifies slice such that it only contains non-priority pieces.
+func (service *Service) removePriorityPieces(segment *Segment) {
+	target := 0
+	for _, x := range segment.Pieces {
+		if service.PriorityNodes.Contains(x.Alias) {
+			continue
+		}
+		segment.Pieces[target] = x
+		target++
+	}
+	segment.Pieces = segment.Pieces[:target]
 }
 
 // sortPriorityToFirst moves priority node pieces at the front of the list.
