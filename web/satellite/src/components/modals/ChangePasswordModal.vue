@@ -214,9 +214,20 @@ export default class ChangePasswordModal extends Vue {
         display: flex;
         flex-direction: column;
         padding: 48px;
+        box-sizing: border-box;
+        min-width: 550px;
 
         @media screen and (max-width: 600px) {
+            min-width: 475px;
             padding: 48px 24px;
+        }
+
+        @media screen and (max-width: 530px) {
+            min-width: 420px;
+        }
+
+        @media screen and (max-width: 470px) {
+            min-width: unset;
         }
 
         &__row {

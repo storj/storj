@@ -22,7 +22,7 @@
         <div class="settings__secondary-container">
             <div class="settings__secondary-container__change-password">
                 <div class="settings__edit-profile__row">
-                    <ChangePasswordIcon class="settings__secondary-container__img" />
+                    <ChangePasswordIcon class="settings__secondary-container__change-password__img" />
                     <div class="settings__secondary-container__change-password__text-container">
                         <h2 class="profile-bold-text">Change Password</h2>
                         <h3 class="profile-regular-text">6 or more characters</h3>
@@ -34,7 +34,7 @@
                 />
             </div>
             <div class="settings__secondary-container__email-container">
-                <div class="settings__edit-profile__row">
+                <div class="settings__secondary-container__email-container__row">
                     <EmailIcon class="settings__secondary-container__img" />
                     <div class="settings__secondary-container__email-container__text-container">
                         <h2 class="profile-bold-text email">{{ user.email }}</h2>
@@ -202,6 +202,11 @@ export default class SettingsArea extends Vue {
 </script>
 
 <style scoped lang="scss">
+    h3 {
+        margin-block-start: 0;
+        margin-block-end: 0;
+    }
+
     .settings {
         position: relative;
         font-family: 'font_regular', sans-serif;
@@ -216,8 +221,9 @@ export default class SettingsArea extends Vue {
         }
 
         &__edit-profile {
-            height: 66px;
-            width: calc(100% - 80px);
+            height: 137px;
+            box-sizing: border-box;
+            width: 100%;
             border-radius: 6px;
             display: flex;
             justify-content: space-between;
@@ -229,6 +235,7 @@ export default class SettingsArea extends Vue {
                 display: flex;
                 justify-content: flex-start;
                 align-items: center;
+                max-width: calc(100% - 40px);
             }
 
             &__avatar {
@@ -257,14 +264,15 @@ export default class SettingsArea extends Vue {
             margin-top: 40px;
 
             &__change-password {
-                height: 66px;
+                height: 137px;
                 border-radius: 6px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 padding: 37px 40px;
                 background-color: #fff;
-                width: calc(48% - 80px);
+                width: 48%;
+                box-sizing: border-box;
 
                 &__text-container {
                     margin-left: 32px;
@@ -272,14 +280,22 @@ export default class SettingsArea extends Vue {
             }
 
             &__email-container {
-                height: 66px;
+                height: 137px;
                 border-radius: 6px;
                 display: flex;
                 justify-content: flex-start;
                 align-items: center;
                 padding: 37px 40px;
                 background-color: #fff;
-                width: calc(48% - 80px);
+                width: 48%;
+                box-sizing: border-box;
+
+                &__row {
+                    display: flex;
+                    justify-content: flex-start;
+                    align-items: center;
+                    width: 100%;
+                }
 
                 &__text-container {
                     margin-left: 32px;
@@ -353,19 +369,20 @@ export default class SettingsArea extends Vue {
 
     @media screen and (max-width: 1300px) {
 
-        .profile-container {
+        .settings {
 
             &__secondary-container {
                 flex-direction: column;
                 justify-content: center;
 
-                &__change-password {
-                    width: calc(100% - 80px);
+                &__change-password,
+                &__email-container {
+                    height: auto;
+                    width: 100%;
                 }
 
                 &__email-container {
                     margin-top: 40px;
-                    width: calc(100% - 80px);
                 }
             }
         }
@@ -373,7 +390,7 @@ export default class SettingsArea extends Vue {
 
     @media screen and (max-height: 825px) {
 
-        .profile-container {
+        .settings {
             height: 535px;
             overflow-y: scroll;
 
@@ -388,6 +405,27 @@ export default class SettingsArea extends Vue {
             &__button-area {
                 margin-top: 20px;
             }
+        }
+    }
+
+    @media screen and (max-width: 650px) {
+
+        .settings__secondary-container__change-password__text-container {
+            margin: 0;
+        }
+
+        .settings__edit-profile__avatar,
+        .settings__secondary-container__change-password__img {
+            display: none;
+        }
+    }
+
+    @media screen and (max-width: 460px) {
+
+        .settings__edit-profile,
+        .settings__secondary-container__change-password,
+        .settings__secondary-container__email-container {
+            padding: 25px;
         }
     }
 </style>

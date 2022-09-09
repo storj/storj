@@ -123,6 +123,16 @@ export default class EditProfileModal extends Vue {
         display: flex;
         flex-direction: column;
         padding: 48px;
+        min-width: 530px;
+        box-sizing: border-box;
+
+        @media screen and (max-width: 580px) {
+            min-width: 450px;
+        }
+
+        @media screen and (max-width: 500px) {
+            min-width: unset;
+        }
 
         @media screen and (max-width: 400px) {
             padding: 24px;

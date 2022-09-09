@@ -284,6 +284,7 @@ export default class GeneratePassphrase extends Vue {
             align-items: center;
             justify-content: flex-start;
             padding: 20px 0;
+            cursor: pointer;
 
             &__radio {
                 color: #0149ff;
