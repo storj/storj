@@ -56,7 +56,7 @@
                         @click="addPaymentMethodHandler"
                     >Add New Payment Method</span>
                 </div>
-                <div v-else-if="isAddingPayment">
+                <div v-else-if="isAddingPayment" class="payments-area__container__new-payments__add-card">
                     <div class="close-add-payment" @click="closeAddPayment">
                         <CloseCrossIcon />
                     </div>
@@ -824,7 +824,7 @@ $align: center;
 .stripe_input {
     grid-row: 3;
     grid-column: 1;
-    width: 240px;
+    width: 100%;
 }
 
 .payments-area {
@@ -910,6 +910,10 @@ $align: center;
                     font-size: 16px;
                     text-decoration: underline;
                 }
+            }
+
+            &__add-card {
+                position: relative;
             }
         }
 
