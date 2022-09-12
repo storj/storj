@@ -581,41 +581,47 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 		}
 		for _, invoice := range invoices {
 			// if no balance due, do nothing
-			if invoice.AmountDue <= 0 {
+			if invoice.AmountRemaining <= 0 {
 				continue
 			}
 
 			var tokenCreditAmount int64
-			if invoice.AmountDue >= tokenBalance.BaseUnits() {
-				tokenCreditAmount = -tokenBalance.BaseUnits()
+			if invoice.AmountRemaining >= tokenBalance.BaseUnits() {
+				tokenCreditAmount = tokenBalance.BaseUnits()
 			} else {
-				tokenCreditAmount = -invoice.AmountDue
+				tokenCreditAmount = invoice.AmountRemaining
 			}
 
-			txID, err := service.createTokenPaymentBillingTransaction(ctx, wallet.UserID, invoice.ID, wallet.Address.Hex(), tokenCreditAmount)
+			txID, err := service.createTokenPaymentBillingTransaction(ctx, wallet.UserID, invoice.ID, wallet.Address.Hex(), -tokenCreditAmount)
 			if err != nil {
 				errGrp.Add(Error.New("unable to create token payment billing transaction for user %s", wallet.UserID.String()))
 				continue
 			}
 
-			invoiceItem, err := service.createTokenPaymentInvoiceItem(ctx, cusID, tokenCreditAmount, txID, wallet.Address.Hex())
+			creditNoteID, err := service.addCreditNoteToInvoice(ctx, invoice.ID, cusID, wallet.Address.Hex(), tokenCreditAmount, txID)
 			if err != nil {
-				errGrp.Add(Error.New("unable to create token payment invoice item for user %s", wallet.UserID.String()))
+				errGrp.Add(Error.New("unable to create token payment credit note for user %s", wallet.UserID.String()))
 				continue
 			}
 
 			metadata, err := json.Marshal(map[string]interface{}{
-				"ItemID": invoiceItem.ID,
+				"Credit Note ID": creditNoteID,
 			})
 
 			if err != nil {
-				errGrp.Add(Error.New("unable to marshall invoice item ID %s", invoiceItem.ID))
+				errGrp.Add(Error.New("unable to marshall credit note ID %s", creditNoteID))
 				continue
 			}
 
 			err = service.billingDB.UpdateMetadata(ctx, txID, metadata)
 			if err != nil {
-				errGrp.Add(Error.New("unable to add invoice item ID to billing transaction for user %s", wallet.UserID.String()))
+				errGrp.Add(Error.New("unable to add credit note ID to billing transaction for user %s", wallet.UserID.String()))
+				continue
+			}
+
+			err = service.billingDB.UpdateStatus(ctx, txID, billing.TransactionStatusCompleted)
+			if err != nil {
+				errGrp.Add(Error.New("unable to update status for billing transaction for user %s", wallet.UserID.String()))
 				continue
 			}
 		}
@@ -623,13 +629,13 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 	return errGrp.Err()
 }
 
-// getInvoiceBalance returns the stripe customer's current invoices.
+// getInvoices returns the stripe customer's open finalized invoices.
 func (service *Service) getInvoices(ctx context.Context, cusID string) (_ []stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
 		Customer: stripe.String(cusID),
-		Status:   stripe.String(string(stripe.InvoiceStatusDraft)),
+		Status:   stripe.String(string(stripe.InvoiceStatusOpen)),
 	}
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	var stripeInvoices []stripe.Invoice
@@ -642,29 +648,34 @@ func (service *Service) getInvoices(ctx context.Context, cusID string) (_ []stri
 	return stripeInvoices, nil
 }
 
-// createTokenPaymentInvoiceItem creates an invoice line item for the user token payment.
-func (service *Service) createTokenPaymentInvoiceItem(ctx context.Context, cusID string, amount int64, txID int64, wallet string) (invoiceItem *stripe.InvoiceItem, err error) {
+// addCreditNoteToInvoice creates a credit note for the user token payment.
+func (service *Service) addCreditNoteToInvoice(ctx context.Context, invoiceID, cusID, wallet string, amount, txID int64) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// add an invoice item for the total invoice amount
-	tokenCredit := &stripe.InvoiceItemParams{
-		Currency:    stripe.String(string(stripe.CurrencyUSD)),
-		Customer:    stripe.String(cusID),
-		Description: stripe.String("payment from tokens"),
+	var lineParams []*stripe.CreditNoteLineParams
+
+	lineParam := stripe.CreditNoteLineParams{
+		Description: stripe.String("Storjscan Token payment"),
+		Type:        stripe.String("custom_line_item"),
 		UnitAmount:  stripe.Int64(amount),
-		Params: stripe.Params{
-			Metadata: map[string]string{
-				"transaction ID": strconv.FormatInt(txID, 10),
-				"wallet address": wallet,
-			},
-		},
+		Quantity:    stripe.Int64(1),
 	}
-	invoiceItem, err = service.stripeClient.InvoiceItems().New(tokenCredit)
+
+	lineParams = append(lineParams, &lineParam)
+
+	params := &stripe.CreditNoteParams{
+		Invoice: stripe.String(invoiceID),
+		Lines:   lineParams,
+		Memo:    stripe.String("Storjscan Token Payment - Wallet: 0x" + wallet),
+	}
+	params.AddMetadata("txID", "0x"+strconv.FormatInt(txID, 10))
+	params.AddMetadata("wallet address", wallet)
+	creditNote, err := service.stripeClient.CreditNotes().New(params)
 	if err != nil {
-		service.log.Warn("unable to add invoice item for stripe customer", zap.String("Customer ID", cusID))
-		return nil, Error.Wrap(err)
+		service.log.Warn("unable to add credit note for stripe customer", zap.String("Customer ID", cusID))
+		return "", Error.Wrap(err)
 	}
-	return
+	return creditNote.ID, nil
 }
 
 // createTokenPaymentBillingTransaction creates a billing DB entry for the user token payment.
@@ -918,7 +929,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 	return nil
 }
 
-// FinalizeInvoices sets autoadvance flag on all draft invoices currently available in stripe.
+// FinalizeInvoices transitions all draft invoices to open finalized invoices in stripe. No payment is to be collected yet.
 func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -934,16 +945,6 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		if transactionID, ok := stripeInvoice.Metadata["transaction ID"]; ok {
-			txID, err := strconv.ParseInt(transactionID, 10, 64)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			err = service.billingDB.UpdateStatus(ctx, txID, billing.TransactionStatusCompleted)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
 	}
 
 	return Error.Wrap(invoicesIterator.Err())
@@ -952,9 +953,33 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	params := &stripe.InvoiceFinalizeParams{AutoAdvance: stripe.Bool(true)}
+	params := &stripe.InvoiceFinalizeParams{AutoAdvance: stripe.Bool(false)}
 	_, err = service.stripeClient.Invoices().FinalizeInvoice(invoiceID, params)
 	return err
+}
+
+// PayInvoices attempts to transition all open finalized invoices to "paid" by charging the customer according to subscriptions settings.
+func (service *Service) PayInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceListParams{
+		Status: stripe.String("open"),
+	}
+
+	var errGrp errs.Group
+
+	invoicesIterator := service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		params := &stripe.InvoicePayParams{}
+		_, err = service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
+		if err != nil {
+			errGrp.Add(Error.New("unable to pay invoice %s", stripeInvoice.ID))
+			continue
+		}
+	}
+	return errGrp.Err()
 }
 
 // projectUsagePrice represents pricing for project usage.

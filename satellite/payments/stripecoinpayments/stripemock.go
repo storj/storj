@@ -80,6 +80,7 @@ type mockStripeState struct {
 	customerBalanceTransactions *mockCustomerBalanceTransactions
 	charges                     *mockCharges
 	promoCodes                  *mockPromoCodes
+	creditNotes                 *mockCreditNotes
 }
 
 type mockStripeClient struct {
@@ -162,6 +163,10 @@ func (m *mockStripeClient) Charges() StripeCharges {
 
 func (m *mockStripeClient) PromoCodes() StripePromoCodes {
 	return m.promoCodes
+}
+
+func (m *mockStripeClient) CreditNotes() StripeCreditNotes {
+	return m.creditNotes
 }
 
 type mockCustomers struct {
@@ -430,6 +435,10 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 	return nil, nil
 }
 
+func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
+	return nil, nil
+}
+
 type mockInvoiceItems struct {
 }
 
@@ -533,4 +542,11 @@ func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotion
 	})
 
 	return &promotioncode.Iter{Iter: stripe.GetIter(params, query)}
+}
+
+type mockCreditNotes struct {
+}
+
+func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error) {
+	return nil, nil
 }
