@@ -9,7 +9,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase"
 )
 
 // Verify verifies a collection of segments.
@@ -25,7 +27,10 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 		return Error.Wrap(err)
 	}
 
-	service.VerifyBatches(ctx, batches)
+	err = service.VerifyBatches(ctx, batches)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	retrySegments := []*Segment{}
 	for _, segment := range segments {
@@ -49,32 +54,51 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 		return Error.Wrap(err)
 	}
 
-	service.VerifyBatches(ctx, retryBatches)
+	err = service.VerifyBatches(ctx, retryBatches)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
 	return nil
 }
 
 // VerifyBatches verifies batches.
-func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) {
+func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) error {
 	defer mon.Task()(&ctx)(nil)
+
+	// Convert NodeAliases to NodeIDs
+	aliases := make([]metabase.NodeAlias, len(batches))
+	for i, b := range batches {
+		aliases[i] = b.Alias
+	}
+	ids, err := service.metabase.ConvertAliasesToNodes(ctx, aliases)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO: fetch addresses for NodeID-s
 
 	var mu sync.Mutex
 
 	limiter := sync2.NewLimiter(ConcurrentRequests)
-	for _, batch := range batches {
+	for i, batch := range batches {
+		nodeID := ids[i]
 		batch := batch
 		limiter.Go(ctx, func() {
-			err := service.VerifyBatch(ctx, batch)
+			err := service.verifier.Verify(ctx, storj.NodeURL{
+				ID: nodeID, // TODO: use NodeURL
+			}, batch.Items)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
 					service.OfflineNodes.Add(batch.Alias)
 					mu.Unlock()
 				}
-
 				service.log.Error("verifying a batch failed", zap.Error(err))
 			}
 		})
 	}
 	limiter.Wait()
+
+	return nil
 }

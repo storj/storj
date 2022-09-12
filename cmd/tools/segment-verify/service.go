@@ -32,9 +32,13 @@ const ConcurrentRequests = 10000
 type Metabase interface {
 	ConvertNodesToAliases(ctx context.Context, nodeID []storj.NodeID) ([]metabase.NodeAlias, error)
 	ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error)
-
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
+}
+
+// Verifier verifies a batch of segments.
+type Verifier interface {
+	Verify(ctx context.Context, target storj.NodeURL, segments []*Segment) error
 }
 
 // SegmentWriter allows writing segments to some output.
@@ -44,23 +48,28 @@ type SegmentWriter interface {
 
 // Service implements segment verification logic.
 type Service struct {
-	log      *zap.Logger
-	metabase Metabase
+	log *zap.Logger
 
 	notFound SegmentWriter
 	retry    SegmentWriter
+
+	metabase Metabase
+	verifier Verifier
 
 	PriorityNodes NodeAliasSet
 	OfflineNodes  NodeAliasSet
 }
 
 // NewService returns a new service for verifying segments.
-func NewService(log *zap.Logger) *Service {
+func NewService(log *zap.Logger, metabase Metabase, verifier Verifier) *Service {
 	return &Service{
 		log: log,
 
 		PriorityNodes: NodeAliasSet{},
 		OfflineNodes:  NodeAliasSet{},
+
+		metabase: metabase,
+		verifier: verifier,
 	}
 }
 
