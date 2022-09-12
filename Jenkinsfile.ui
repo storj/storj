@@ -86,9 +86,7 @@ pipeline {
             }
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                   sh 'testsuite/ui/run.sh'
-                }
+                sh 'testsuite/ui/run.sh'
             }
             post {
                 always {
