@@ -98,20 +98,6 @@ func (c *ProjectLimitCache) Get(ctx context.Context, projectID uuid.UUID) (Proje
 	return limits, nil
 }
 
-// GetProjectStorageLimit returns the storage usage limit for a project ID.
-func (c *ProjectLimitCache) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-	projectLimits, err := c.Get(ctx, projectID)
-	if err != nil {
-		return 0, err
-	}
-	if projectLimits.Usage == nil {
-		return c.defaultMaxUsage, nil
-	}
-	return memory.Size(*projectLimits.Usage), nil
-
-}
-
 // GetProjectBandwidthLimit return the bandwidth usage limit for a project ID.
 func (c *ProjectLimitCache) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -123,19 +109,4 @@ func (c *ProjectLimitCache) GetProjectBandwidthLimit(ctx context.Context, projec
 		return c.defaultMaxBandwidth, nil
 	}
 	return memory.Size(*projectLimits.Bandwidth), nil
-}
-
-// GetProjectSegmentLimit returns the segment limit for a project ID.
-func (c *ProjectLimitCache) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	projectLimits, err := c.Get(ctx, projectID)
-	if err != nil {
-		return 0, err
-	}
-
-	if projectLimits.Segments == nil {
-		return c.defaultMaxSegments, nil
-	}
-
-	return *projectLimits.Segments, nil
 }
