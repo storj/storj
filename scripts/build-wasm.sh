@@ -3,6 +3,8 @@
 set -eu
 set -o pipefail
 
+: ${TAG:=dev}
+
 # Ensure the directory exists
 mkdir -p release/$TAG/wasm/
 
