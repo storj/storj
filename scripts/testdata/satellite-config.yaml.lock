@@ -88,6 +88,21 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 24h0m0s
 
+# the Flagship API key
+# console.ab-testing.api-key: ""
+
+# whether or not AB testing is enabled
+# console.ab-testing.enabled: false
+
+# the Flagship environment ID
+# console.ab-testing.env-id: ""
+
+# the Flagship API URL
+# console.ab-testing.flagship-url: https://decision.flagship.io/v2
+
+# the Flagship environment ID
+# console.ab-testing.hit-tracking-url: https://ariane.abtasty.com
+
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 

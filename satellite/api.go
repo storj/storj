@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
@@ -174,6 +175,10 @@ type API struct {
 
 	Analytics struct {
 		Service *analytics.Service
+	}
+
+	ABTesting struct {
+		Service *abtesting.Service
 	}
 
 	Buckets struct {
@@ -424,6 +429,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup AB test service
+		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "abtesting:service",
+		})
+	}
+
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
 
@@ -603,6 +616,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service,
 			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
+			peer.ABTesting.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			pricing,

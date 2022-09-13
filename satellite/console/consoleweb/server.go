@@ -34,6 +34,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -106,6 +107,8 @@ type Config struct {
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
 
+	ABTesting abtesting.Config
+
 	console.Config
 }
 
@@ -120,6 +123,7 @@ type Server struct {
 	mailService *mailservice.Service
 	partners    *rewards.PartnersService
 	analytics   *analytics.Service
+	abTesting   *abtesting.Service
 
 	listener          net.Listener
 	server            http.Server
@@ -201,7 +205,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -210,6 +214,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		mailService:       mailService,
 		partners:          partners,
 		analytics:         analytics,
+		abTesting:         abTesting,
 		stripePublicKey:   stripePublicKey,
 		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit),
@@ -290,6 +295,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost)
+
+	if config.ABTesting.Enabled {
+		abController := consoleapi.NewABTesting(logger, abTesting)
+		abRouter := router.PathPrefix("/api/v0/ab").Subrouter()
+		abRouter.Handle("/values", server.withAuth(http.HandlerFunc(abController.GetABValues))).Methods(http.MethodGet)
+		abRouter.Handle("/hit/{action}", server.withAuth(http.HandlerFunc(abController.SendHit))).Methods(http.MethodPost)
+	}
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -463,6 +475,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NativeTokenPaymentsEnabled      bool
 		PasswordMinimumLength           int
 		PasswordMaximumLength           int
+		ABTestingEnabled                bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -507,6 +520,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
 	data.PasswordMinimumLength = console.PasswordMinimumLength
 	data.PasswordMaximumLength = console.PasswordMaximumLength
+	data.ABTestingEnabled = server.config.ABTesting.Enabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
