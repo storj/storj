@@ -17,6 +17,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { ABHitAction } from '@/types/abtesting';
 
 // @vue/component
 @Component
@@ -29,6 +31,7 @@ export default class PaidTierBar extends Vue {
     public async openBanner(): Promise<void> {
         this.openAddPMModal();
         await this.analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
+        await this.$store.dispatch(AB_TESTING_ACTIONS.HIT, ABHitAction.UPGRADE_ACCOUNT_CLICKED);
     }
 }
 </script>

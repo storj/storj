@@ -14,10 +14,17 @@
                     class="dashboard__wrap__main-area__content-wrap"
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
+                    <UpgradeNotification
+                        v-if="isPaidTierBannerShown && abTestValues.hasNewUpgradeBanner"
+                        :open-add-p-m-modal="togglePMModal"
+                    />
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <div class="bars">
                             <BetaSatBar v-if="isBetaSatellite" />
-                            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+                            <PaidTierBar
+                                v-if="isPaidTierBannerShown && !abTestValues.hasNewUpgradeBanner"
+                                :open-add-p-m-modal="togglePMModal"
+                            />
                             <ProjectInfoBar v-if="isProjectListPage" />
                             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
                         </div>
@@ -80,6 +87,8 @@ import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import eventBus from '@/utils/eventBus';
+import { ABTestValues } from '@/types/abtesting';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -92,6 +101,7 @@ import AllModals from '@/components/modals/AllModals.vue';
 import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
+import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
 import LoaderImage from '@/../static/images/common/loader.svg';
 
@@ -112,6 +122,7 @@ const {
         BetaSatBar,
         ProjectInfoBar,
         BillingNotification,
+        UpgradeNotification,
         InactivityModal,
         LimitWarningModal,
         VBanner,
@@ -221,6 +232,7 @@ export default class DashboardArea extends Vue {
 
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
+            await this.$store.dispatch(AB_TESTING_ACTIONS.FETCH);
             this.setupSessionTimers();
         } catch (error) {
             this.$store.subscribeAction((action) => {
@@ -372,6 +384,15 @@ export default class DashboardArea extends Vue {
     private storeProject(projectID: string): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
+    }
+
+    public get abTestValues(): ABTestValues {
+        return this.$store.state.abTestingModule.abTestValues;
+    }
+
+    /* whether the paid tier banner should be shown */
+    public get isPaidTierBannerShown(): boolean {
+        return !this.$store.state.usersModule.user.paidTier && !this.isOnboardingTour;
     }
 
     /**

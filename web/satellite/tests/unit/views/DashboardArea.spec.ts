@@ -10,6 +10,7 @@ import { PaymentsMock } from '../mock/api/payments';
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { ProjectsApiMock } from '../mock/api/projects';
 import { UsersApiMock } from '../mock/api/users';
+import { ABMockApi } from '../mock/api/abtesting';
 
 import { RouteConfig, router } from '@/router';
 import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
@@ -24,6 +25,7 @@ import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
+import { makeABTestingModule } from '@/store/modules/abTesting';
 import DashboardArea from '@/views/DashboardArea.vue';
 
 const localVue = createLocalVue();
@@ -42,6 +44,7 @@ const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
 const paymentsModule = makePaymentsModule(new PaymentsMock());
+const abTestingModule = makeABTestingModule(new ABMockApi());
 
 const store = new Vuex.Store({
     modules: {
@@ -53,6 +56,7 @@ const store = new Vuex.Store({
         appStateModule,
         teamMembersModule,
         paymentsModule,
+        abTestingModule,
     },
 });
 

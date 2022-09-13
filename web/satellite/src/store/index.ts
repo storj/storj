@@ -24,6 +24,8 @@ import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
+import { ABTestingState, makeABTestingModule } from '@/store/modules/abTesting';
+import { ABHttpApi } from '@/api/abtesting';
 
 Vue.use(Vuex);
 
@@ -34,6 +36,7 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
+const abTestingAPI = new ABHttpApi();
 
 // We need to use a WebWorker facotory because jest testing does not support
 // WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
@@ -53,6 +56,7 @@ export interface ModulesState {
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     files: FilesState;
+    abTestingModule: ABTestingState;
 }
 
 // Satellite store (vuex)
@@ -68,6 +72,7 @@ export const store = new Vuex.Store<ModulesState>({
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),
         files: makeFilesModule(),
+        abTestingModule: makeABTestingModule(abTestingAPI),
     },
 });
 
