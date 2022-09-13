@@ -176,6 +176,10 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return err
 		}
 
+		if objectAtDestination != nil && objectAtDestination.StreamID == sourceObject.StreamID {
+			newObject = sourceObject
+			return nil
+		}
 		if opts.VerifyLimits != nil {
 			err := opts.VerifyLimits(sourceObject.TotalEncryptedSize, int64(sourceObject.SegmentCount))
 			if err != nil {

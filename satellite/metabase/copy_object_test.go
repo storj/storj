@@ -982,5 +982,34 @@ func TestFinishCopyObject(t *testing.T) {
 				}},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("finish copy object to same destination", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			numberOfSegments := 10
+			originalObj, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, obj, byte(numberOfSegments))
+
+			obj.StreamID = testrand.UUID()
+			_, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &obj,
+			}.Run(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(originalObj),
+				},
+				Segments: expectedOriginalSegments,
+				Copies:   []metabase.RawCopy{},
+			}.Check(ctx, t, db)
+		})
 	})
 }
