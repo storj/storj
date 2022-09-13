@@ -31,7 +31,7 @@ type Config struct {
 	Enabled bool `help:"set if garbage collection bloom filters is enabled or not" default:"true" testDefault:"false"`
 
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
@@ -94,7 +94,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int)
+		lastPieceCounts = make(map[storj.NodeID]int64)
 	}
 
 	pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
