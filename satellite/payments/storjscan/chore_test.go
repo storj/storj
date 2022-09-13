@@ -4,14 +4,12 @@
 package storjscan_test
 
 import (
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -48,8 +46,8 @@ func TestChore(t *testing.T) {
 				payment := storjscan.Payment{
 					From:        blockchaintest.NewAddress(),
 					To:          blockchaintest.NewAddress(),
-					TokenValue:  new(big.Int).SetInt64(int64(i)),
-					USDValue:    float64(i) + 0.1,
+					TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
+					USDValue:    currency.AmountFromBaseUnits(int64(i)*1100000, currency.USDollarsMicro),
 					BlockHash:   blockchaintest.NewHash(),
 					BlockNumber: int64(i),
 					Transaction: blockchaintest.NewHash(),
@@ -61,8 +59,8 @@ func TestChore(t *testing.T) {
 				cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 					From:        payment.From,
 					To:          payment.To,
-					TokenValue:  currency.AmountFromBaseUnits(payment.TokenValue.Int64(), currency.StorjToken),
-					USDValue:    currency.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), currency.USDollarsMicro),
+					TokenValue:  payment.TokenValue,
+					USDValue:    payment.USDValue,
 					Status:      payments.PaymentStatusPending,
 					BlockHash:   payment.BlockHash,
 					BlockNumber: payment.BlockNumber,

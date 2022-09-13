@@ -11,9 +11,9 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	storj.io/common v0.0.0-20220902050723-654fd98b53c6
-	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
-	storj.io/storj v1.59.1
-	storj.io/storjscan v0.0.0-20220722004446-7e3c50357dc2
+	storj.io/private v0.0.0-20220823161836-79135887c9be
+	storj.io/storj v1.63.1
+	storj.io/storjscan v0.0.0-20220909003402-28d145ea1272
 	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31
 )
 
@@ -80,6 +80,7 @@ require (
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/lucas-clemente/quic-go v0.28.1 // indirect
+	github.com/magefile/mage v1.13.0 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect

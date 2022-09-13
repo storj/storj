@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	blockchain2 "storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
@@ -53,7 +54,7 @@ func TestClientPayments(t *testing.T) {
 		require.NoError(t, err)
 
 		opts := stack.Network.TransactOptions(ctx, accs[0], 1)
-		tx, err := tk.Transfer(opts, receiver, big.NewInt(10000))
+		tx, err := tk.Transfer(opts, receiver, big.NewInt(100000000))
 		require.NoError(t, err)
 		rcpt, err := stack.Network.WaitForTx(ctx, tx.Hash())
 		require.NoError(t, err)
@@ -63,7 +64,8 @@ func TestClientPayments(t *testing.T) {
 		blockTime := time.Unix(int64(block.Time()), 0)
 
 		// fill price DB
-		err = stack.App.TokenPrice.Service.SavePrice(ctx, blockTime.Add(-30*time.Second), 1)
+		price := currency.AmountFromBaseUnits(1000000, currency.USDollarsMicro)
+		err = stack.App.TokenPrice.Service.SavePrice(ctx, blockTime.Add(-30*time.Second), price)
 		require.NoError(t, err)
 
 		pmnts, err := planet.Satellites[0].API.Payments.StorjscanClient.Payments(ctx, 0)
@@ -74,8 +76,8 @@ func TestClientPayments(t *testing.T) {
 		expected := storjscan.Payment{
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
-			TokenValue:  big.NewInt(10000),
-			USDValue:    10000,
+			TokenValue:  currency.AmountFromBaseUnits(100000000, currency.StorjToken),
+			USDValue:    currency.AmountFromBaseUnits(1000000, currency.USDollarsMicro),
 			BlockHash:   blockchain2.Hash(block.Hash()),
 			BlockNumber: block.Number().Int64(),
 			Transaction: blockchain2.Hash(rcpt.TxHash),
