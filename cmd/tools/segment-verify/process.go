@@ -35,7 +35,7 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) error {
 
 	// Reverse the pieces slice to ensure we pick different nodes this time.
 	for _, segment := range retrySegments {
-		xs := segment.Pieces
+		xs := segment.AliasPieces
 		for i, j := 0, len(xs)-1; i < j; i, j = i+1, j-1 {
 			xs[i], xs[j] = xs[j], xs[i]
 		}

@@ -28,12 +28,12 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	}
 
 	// Distribute things randomly into batches.
-	// We assume that segment.Pieces is randomly ordered in terms of nodes.
+	// We assume that segment.AliasPieces is randomly ordered in terms of nodes.
 	for _, segment := range segments {
-		if len(segment.Pieces) < VerifyPieces {
+		if len(segment.AliasPieces) < int(segment.Status.Retry) {
 			panic("segment contains too few pieces")
 		}
-		for _, piece := range segment.Pieces[:segment.Status.Retry] {
+		for _, piece := range segment.AliasPieces[:segment.Status.Retry] {
 			enqueue(piece.Alias, segment)
 		}
 	}
@@ -71,7 +71,7 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	nextSegment:
 		for _, segment := range large.Items[highLen:] {
 			// try to find a piece that can be moved into a small batch.
-			for _, piece := range segment.Pieces[segment.Status.Retry:] {
+			for _, piece := range segment.AliasPieces[segment.Status.Retry:] {
 				if q, ok := smallBatches[piece.Alias]; ok {
 					// move to the other queue
 					q.Items = append(q.Items, segment)
@@ -98,19 +98,19 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 
 // selectOnlinePieces modifies slice such that it only contains online pieces.
 func (service *Service) selectOnlinePieces(segment *Segment) {
-	for i, x := range segment.Pieces {
+	for i, x := range segment.AliasPieces {
 		if !service.OfflineNodes.Contains(x.Alias) {
 			continue
 		}
 
 		// found an offline node, start removing
-		rs := segment.Pieces[:i]
-		for _, x := range segment.Pieces[i+1:] {
+		rs := segment.AliasPieces[:i]
+		for _, x := range segment.AliasPieces[i+1:] {
 			if !service.OfflineNodes.Contains(x.Alias) {
 				rs = append(rs, x)
 			}
 		}
-		segment.Pieces = rs
+		segment.AliasPieces = rs
 		return
 	}
 }
@@ -118,19 +118,19 @@ func (service *Service) selectOnlinePieces(segment *Segment) {
 // removePriorityPieces modifies slice such that it only contains non-priority pieces.
 func (service *Service) removePriorityPieces(segment *Segment) {
 	target := 0
-	for _, x := range segment.Pieces {
+	for _, x := range segment.AliasPieces {
 		if service.PriorityNodes.Contains(x.Alias) {
 			continue
 		}
-		segment.Pieces[target] = x
+		segment.AliasPieces[target] = x
 		target++
 	}
-	segment.Pieces = segment.Pieces[:target]
+	segment.AliasPieces = segment.AliasPieces[:target]
 }
 
 // sortPriorityToFirst moves priority node pieces at the front of the list.
 func (service *Service) sortPriorityToFirst(segment *Segment) {
-	xs := segment.Pieces
+	xs := segment.AliasPieces
 	target := 0
 	for i, x := range xs {
 		if service.PriorityNodes.Contains(x.Alias) {
