@@ -1406,6 +1406,21 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 	return
 }
 
+// GetSalt is a method for querying project salt by id.
+func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return s.store.Projects().GetSalt(ctx, projectID)
+}
+
 // GetUsersProjects is a method for querying all projects.
 func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -71,6 +71,18 @@ func TestService(t *testing.T) {
 				require.Nil(t, project)
 			})
 
+			t.Run("GetSalt", func(t *testing.T) {
+				// Getting project salt as a member should work
+				salt, err := service.GetSalt(userCtx1, up1Pro1.ID)
+				require.NoError(t, err)
+				require.NotNil(t, salt)
+
+				// Getting project salt as a non-member should not work
+				salt, err = service.GetSalt(userCtx1, up2Pro1.ID)
+				require.Error(t, err)
+				require.Nil(t, salt)
+			})
+
 			t.Run("UpdateProject", func(t *testing.T) {
 				updatedName := "newName"
 				updatedDescription := "newDescription"
