@@ -55,6 +55,10 @@ export class ProjectsApiMock implements ProjectsApi {
         return Promise.resolve(this.mockLimits);
     }
 
+    getSalt(): Promise<string> {
+        throw new Error('not implemented');
+    }
+
     getDailyUsage(_projectId: string, _start: Date, _end: Date): Promise<ProjectsStorageBandwidthDaily> {
         throw new Error('not implemented');
     }

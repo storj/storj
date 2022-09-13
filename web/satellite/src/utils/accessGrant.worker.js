@@ -35,7 +35,7 @@ self.onmessage = async function (event) {
             const projectID = data.projectID;
             const aesKey = data.aesKey;
 
-            result = self.deriveAndEncryptRootKey(passphrase, projectID, aesKey);
+            result = self.deriveAndAESEncryptRootKey(passphrase, projectID, aesKey);
             self.postMessage(result);
         }
         break;
@@ -43,11 +43,10 @@ self.onmessage = async function (event) {
         {
             apiKey = data.apiKey;
             const passphrase = data.passphrase;
-            const projectID = data.projectID;
+            const salt = data.salt;
             const nodeURL = data.satelliteNodeURL;
 
-            result = self.generateAccessGrant(nodeURL, apiKey, passphrase, projectID);
-
+            result = self.generateNewAccessGrant(nodeURL, apiKey, passphrase, salt);
             self.postMessage(result);
         }
         break;

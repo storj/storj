@@ -56,6 +56,7 @@ import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -147,12 +148,14 @@ export default class OpenBucketModal extends Vue {
             throw new Error(grantEvent.data.error);
         }
 
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': grantEvent.data.value,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 

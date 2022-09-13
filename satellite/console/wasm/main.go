@@ -19,8 +19,8 @@ import (
 )
 
 func main() {
-	js.Global().Set("deriveAndEncryptRootKey", deriveAndEncryptRootKey())
-	js.Global().Set("generateAccessGrant", generateAccessGrant())
+	js.Global().Set("deriveAndAESEncryptRootKey", deriveAndEncryptRootKey())
+	js.Global().Set("generateNewAccessGrant", generateAccessGrant())
 	js.Global().Set("setAPIKeyPermission", setAPIKeyPermission())
 	js.Global().Set("newPermission", newPermission())
 	js.Global().Set("restrictGrant", restrictGrant())

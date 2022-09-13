@@ -22,6 +22,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
@@ -140,12 +141,13 @@ export default class UploadFile extends Vue {
      */
     private async generateCredentials(cleanApiKey: string, path: string, areEndless: boolean): Promise<EdgeCredentials> {
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': cleanApiKey,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 

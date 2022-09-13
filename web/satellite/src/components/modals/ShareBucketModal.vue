@@ -40,6 +40,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 
@@ -104,12 +105,13 @@ export default class ShareBucketModal extends Vue {
             const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
 
             const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+            const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
             this.worker.postMessage({
                 'type': 'GenerateAccess',
                 'apiKey': cleanAPIKey.secret,
                 'passphrase': this.passphrase,
-                'projectID': this.$store.getters.selectedProject.id,
+                'salt': salt,
                 'satelliteNodeURL': satelliteNodeURL,
             });
 

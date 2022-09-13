@@ -29,6 +29,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -98,12 +99,13 @@ export default class EnterPassphraseStep extends Vue {
         this.isLoading = true;
 
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.restrictedKey,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 

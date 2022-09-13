@@ -91,6 +91,7 @@ import { Component, Vue, Watch } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
@@ -222,13 +223,15 @@ export default class BucketsView extends Vue {
         if (grantEvent.data.error) {
             throw new Error(grantEvent.data.error);
         }
-
+        
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.grantWithPermissions,
             'passphrase': '',
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
