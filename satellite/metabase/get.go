@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/tagsql"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.
@@ -25,8 +27,8 @@ type Object RawObject
 // IsMigrated returns whether the object comes from PointerDB.
 // Pointer objects are special that they are missing some information.
 //
-//   * TotalPlainSize = 0 and FixedSegmentSize = 0.
-//   * Segment.PlainOffset = 0, Segment.PlainSize = 0
+//   - TotalPlainSize = 0 and FixedSegmentSize = 0.
+//   - Segment.PlainOffset = 0, Segment.PlainSize = 0
 func (obj *Object) IsMigrated() bool {
 	return obj.TotalPlainSize <= 0
 }
@@ -57,7 +59,7 @@ type GetObjectExactVersion struct {
 	ObjectLocation
 }
 
-// Verify verifies get object reqest fields.
+// Verify verifies get object request fields.
 func (obj *GetObjectExactVersion) Verify() error {
 	if err := obj.ObjectLocation.Verify(); err != nil {
 		return err
@@ -91,7 +93,8 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			version      = $4 AND
-			status       = `+committedStatus,
+			status       = `+committedStatus+` AND
+			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID,
@@ -113,6 +116,88 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object.ObjectKey = opts.ObjectKey
 	object.Version = opts.Version
 
+	object.Status = Committed
+
+	return object, nil
+}
+
+// GetObjectLastCommitted contains arguments necessary for fetching
+// an object information for last committed version.
+type GetObjectLastCommitted struct {
+	ObjectLocation
+}
+
+// GetObjectLastCommitted returns object information for last committed version.
+func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (_ Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
+	var object Object
+
+	err = withRows(db.db.QueryContext(ctx, `
+		SELECT
+			stream_id, version,
+			created_at, expires_at,
+			segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption
+		FROM objects
+		WHERE
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			status       = `+committedStatus+` AND
+			(expires_at IS NULL OR expires_at > now())
+		ORDER BY version desc
+	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+		objectFound := false
+		for rows.Next() {
+			var scannedObject Object
+			if err = rows.Scan(
+				&scannedObject.StreamID, &scannedObject.Version,
+				&scannedObject.CreatedAt, &scannedObject.ExpiresAt,
+				&scannedObject.SegmentCount,
+				&scannedObject.EncryptedMetadataNonce, &scannedObject.EncryptedMetadata, &scannedObject.EncryptedMetadataEncryptedKey,
+				&scannedObject.TotalPlainSize, &scannedObject.TotalEncryptedSize, &scannedObject.FixedSegmentSize,
+				encryptionParameters{&scannedObject.Encryption},
+			); err != nil {
+				return Error.New("unable to query object status: %w", err)
+			}
+
+			if objectFound {
+				db.log.Warn("object with multiple committed versions were found!",
+					zap.Stringer("Project ID", scannedObject.ProjectID), zap.String("Bucket Name", scannedObject.BucketName),
+					zap.String("Object Key", string(scannedObject.ObjectKey)), zap.Int("Version", int(scannedObject.Version)),
+					zap.Stringer("Stream ID", scannedObject.StreamID))
+				mon.Meter("multiple_committed_versions").Mark(1)
+				continue
+			}
+			object = scannedObject
+
+			objectFound = true
+		}
+
+		if !objectFound {
+			return sql.ErrNoRows
+		}
+
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+
+		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
 	object.Status = Committed
 
 	return object, nil
@@ -383,9 +468,8 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	object, err := db.GetObjectExactVersion(ctx, GetObjectExactVersion{
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
 		ObjectLocation: objectLocation,
-		Version:        DefaultVersion,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)

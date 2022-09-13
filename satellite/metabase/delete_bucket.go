@@ -91,61 +91,73 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 
 func (db *DB) deleteBucketObjectsWithCopyFeatureEnabled(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	query, err := getDeleteBucketObjectsSQLWithCopyFeature(db.impl)
-	if err != nil {
-		return deletedObjectCount, err
-	}
 
 	for {
 		if err := ctx.Err(); err != nil {
 			return deletedObjectCount, err
 		}
 
-		objects := []deletedObjectInfo{}
-		err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
-			err = withRows(
-				tx.QueryContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize),
-			)(func(rows tagsql.Rows) error {
-				objects, err = db.scanBucketObjectsDeletionServerSideCopy(ctx, opts.Bucket, rows)
-				return err
-			})
-			if err != nil {
-				return err
-			}
+		deletedBatchCount, err := db.deleteBucketObjectBatchWithCopyFeatureEnabled(ctx, opts)
+		deletedObjectCount += deletedBatchCount
 
-			return db.promoteNewAncestors(ctx, tx, objects)
-		})
-
-		deletedObjectCount += int64(len(objects))
-
-		if err != nil || len(objects) == 0 {
+		if err != nil || deletedBatchCount == 0 {
 			return deletedObjectCount, err
 		}
+	}
+}
 
-		if opts.DeletePieces == nil {
-			// no callback, should only be in test path
-			continue
+// deleteBucketObjectBatchWithCopyFeatureEnabled deletes a single batch from metabase.
+// This function has been factored out for metric purposes.
+func (db *DB) deleteBucketObjectBatchWithCopyFeatureEnabled(ctx context.Context, opts DeleteBucketObjects) (deletedObjectCount int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query, err := getDeleteBucketObjectsSQLWithCopyFeature(db.impl)
+	if err != nil {
+		return 0, err
+	}
+
+	var objects []deletedObjectInfo
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+		err = withRows(
+			tx.QueryContext(ctx, query, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize),
+		)(func(rows tagsql.Rows) error {
+			objects, err = db.scanBucketObjectsDeletionServerSideCopy(ctx, opts.Bucket, rows)
+			return err
+		})
+		if err != nil {
+			return err
 		}
 
-		for _, object := range objects {
-			if object.PromotedAncestor != nil {
-				// don't remove pieces, they are now linked to the new ancestor
-				continue
-			}
-			for _, segment := range object.Segments {
-				// Is there an advantage to batching this?
-				err := opts.DeletePieces(ctx, []DeletedSegmentInfo{
-					{
-						RootPieceID: segment.RootPieceID,
-						Pieces:      segment.Pieces,
-					},
-				})
-				if err != nil {
-					return deletedObjectCount, err
-				}
+		return db.promoteNewAncestors(ctx, tx, objects)
+	})
+
+	deletedObjectCount = int64(len(objects))
+
+	if opts.DeletePieces == nil {
+		// no callback, this should only be in test path
+		return deletedObjectCount, err
+	}
+
+	for _, object := range objects {
+		if object.PromotedAncestor != nil {
+			// don't remove pieces, they are now linked to the new ancestor
+			continue
+		}
+		for _, segment := range object.Segments {
+			// Is there an advantage to batching this?
+			err := opts.DeletePieces(ctx, []DeletedSegmentInfo{
+				{
+					RootPieceID: segment.RootPieceID,
+					Pieces:      segment.Pieces,
+				},
+			})
+			if err != nil {
+				return deletedObjectCount, err
 			}
 		}
 	}
+
+	return deletedObjectCount, err
 }
 
 func (db *DB) scanBucketObjectsDeletionServerSideCopy(ctx context.Context, location BucketLocation, rows tagsql.Rows) (result []deletedObjectInfo, err error) {

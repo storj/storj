@@ -59,7 +59,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at, country_code
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
@@ -141,7 +141,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	query := `
 		SELECT id, address, last_net, last_ip_port
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(asOfConfig.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $1
@@ -235,9 +235,9 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 }
 
 // GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
 	for {
-		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow)
+		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow, asOf)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -250,13 +250,14 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, err
 }
 
-func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port
 		FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(asOf.Interval())+`
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
@@ -1151,14 +1152,15 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		UPDATE nodes
-		SET disqualified = current_timestamp
+		SET disqualified = current_timestamp,
+            disqualification_reason = $3
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
 			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		RETURNING id, last_contact_success;
-	`), pgutil.NodeIDArray(nodeIDs), cutoff)
+	`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
 	if err != nil {
 		return 0, err
 	}
@@ -1408,14 +1410,16 @@ func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj
 	return nil
 }
 
-// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
+	// 2018-04-06 is the date of the first storj v3 commit.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT last_net, id, address, last_ip_port
 		FROM nodes
+		WHERE last_contact_success >= timestamp '2018-04-06'
 	`))
 	if err != nil {
 		return Error.Wrap(err)

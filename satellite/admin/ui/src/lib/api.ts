@@ -255,6 +255,7 @@ export class Admin {
 					['Bandwidth (in bytes)', new InputText('number', false)],
 					['Rate (requests per second)', new InputText('number', false)],
 					['Buckets (maximum number)', new InputText('number', false)],
+					['Burst (max concurrent requests)', new InputText('number', false)],
 					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (
@@ -370,13 +371,20 @@ Blank fields will not be updated.`,
 						paidTierStr
 					}) as Promise<null>;
 				}
+			},
+			{
+				name: 'disable MFA',
+				desc: "Disable user's mulifactor authentication",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/mfa`) as Promise<null>;
+				}
 			}
 		],
 		rest_api_keys: [
 			{
 				name: 'create',
 				desc: 'Create a REST key',
-				//params: [['API key', new InputText('text', true)]],
 				params: [
 					["user's email", new InputText('text', true)],
 					['expiration', new InputText('text', false)]
@@ -390,7 +398,6 @@ Blank fields will not be updated.`,
 			{
 				name: 'revoke',
 				desc: 'Revoke a REST key',
-				//params: [['API key', new InputText('text', true)]],
 				params: [['api key', new InputText('text', true)]],
 				func: async (apikey: string): Promise<Record<string, unknown>> => {
 					return this.fetch('PUT', `restkeys/${apikey}/revoke`);

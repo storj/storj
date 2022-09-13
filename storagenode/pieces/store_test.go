@@ -53,7 +53,7 @@ func TestPieces(t *testing.T) {
 	source := testrand.Bytes(8000)
 
 	{ // write data
-		writer, err := store.Writer(ctx, satelliteID, pieceID)
+		writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 
 		n, err := io.Copy(writer, bytes.NewReader(source))
@@ -123,7 +123,7 @@ func TestPieces(t *testing.T) {
 
 	{ // write cancel
 		cancelledPieceID := storj.NewPieceID()
-		writer, err := store.Writer(ctx, satelliteID, cancelledPieceID)
+		writer, err := store.Writer(ctx, satelliteID, cancelledPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 
 		n, err := io.Copy(writer, bytes.NewReader(source))
@@ -144,7 +144,7 @@ func TestPieces(t *testing.T) {
 
 func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion storage.FormatVersion) {
 	tStore := &pieces.StoreForTest{store}
-	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion)
+	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
 
 	_, err = writer.Write(data)
@@ -341,7 +341,7 @@ func TestTrashAndRestore(t *testing.T) {
 				}
 
 				for _, file := range piece.files {
-					w, err := tStore.WriterForFormatVersion(ctx, satellite.satelliteID, piece.pieceID, file.formatVer)
+					w, err := tStore.WriterForFormatVersion(ctx, satellite.satelliteID, piece.pieceID, file.formatVer, pb.PieceHashAlgorithm_SHA256)
 					require.NoError(t, err)
 
 					_, err = w.Write(file.data)
@@ -560,7 +560,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 
 		// write as a v0 piece
 		tStore := &pieces.StoreForTest{store}
-		writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, filestore.FormatV0)
+		writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, filestore.FormatV0, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 		_, err = writer.Write(data)
 		require.NoError(t, err)

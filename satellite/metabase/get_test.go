@@ -133,6 +133,28 @@ func TestGetObjectExactVersion(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Get expired object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			expiresAt := now.Add(-2 * time.Hour)
+			metabasetest.CreateExpiredObject(ctx, t, db, obj, 0, expiresAt)
+			metabasetest.GetObjectExactVersion{
+				Opts: metabase.GetObjectExactVersion{
+					ObjectLocation: location,
+					Version:        1,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+			}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					ExpiresAt:    &expiresAt,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}}.Check(ctx, t, db)
+		})
+
 		t.Run("Get object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -159,6 +181,205 @@ func TestGetObjectExactVersion(t *testing.T) {
 					Status:       metabase.Committed,
 
 					Encryption: metabasetest.DefaultEncryption,
+				},
+			}}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestGetObjectLastCommitted(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+		location := obj.Location()
+		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
+
+		for _, test := range metabasetest.InvalidObjectLocations(location) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetObjectLastCommitted{
+					Opts: metabase.GetObjectLastCommitted{
+						ObjectLocation: test.ObjectLocation,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Get pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           obj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Get object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+					OverrideEncryptedMetadata:     true,
+				},
+			}.Run(ctx, t, db, obj, 0)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.Object{
+					ObjectStream:                  obj,
+					CreatedAt:                     now,
+					Status:                        metabase.Committed,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream:                  obj,
+					CreatedAt:                     now,
+					Status:                        metabase.Committed,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("Get object last committed version from multiple", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			firstVersion := obj
+
+			metabasetest.CreateObject(ctx, t, db, firstVersion, 0)
+			secondVersion := metabase.ObjectStream{
+				ProjectID:  obj.ProjectID,
+				BucketName: obj.BucketName,
+				ObjectKey:  obj.ObjectKey,
+				Version:    2,
+				StreamID:   obj.StreamID,
+			}
+
+			metabasetest.CreateObject(ctx, t, db, secondVersion, 0)
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: location,
+				},
+				Result: metabase.Object{
+					ObjectStream: secondVersion,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream: firstVersion,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				{
+					ObjectStream: secondVersion,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}}.Check(ctx, t, db)
+		})
+
+		t.Run("Get latest copied object version", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			copyObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+
+			copiedObj, _, _ := metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObject,
+				CopyObjectStream: &copyObjStream,
+			}.Run(ctx, t, db)
+
+			metabasetest.DeleteObjectExactVersion{
+				Opts: metabase.DeleteObjectExactVersion{
+					Version:        1,
+					ObjectLocation: obj.Location(),
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{originalObject},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetObjectLastCommitted{
+				Opts: metabase.GetObjectLastCommitted{
+					ObjectLocation: copiedObj.Location(),
+				},
+				Result: copiedObj,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{
+				{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  copiedObj.ProjectID,
+						BucketName: copiedObj.BucketName,
+						ObjectKey:  copiedObj.ObjectKey,
+						Version:    copiedObj.Version,
+						StreamID:   copiedObj.StreamID,
+					},
+					CreatedAt:                     now,
+					Status:                        metabase.Committed,
+					Encryption:                    metabasetest.DefaultEncryption,
+					EncryptedMetadata:             copiedObj.EncryptedMetadata,
+					EncryptedMetadataNonce:        copiedObj.EncryptedMetadataNonce,
+					EncryptedMetadataEncryptedKey: copiedObj.EncryptedMetadataEncryptedKey,
 				},
 			}}.Check(ctx, t, db)
 		})
@@ -311,11 +532,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -497,11 +718,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -664,11 +885,11 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -984,11 +1205,11 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,
@@ -1148,11 +1369,11 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 			metabasetest.BeginCopyObject{
 				Opts: metabase.BeginCopyObject{
-					Version:        obj.Version,
 					ObjectLocation: obj.Location(),
 				},
 				Result: metabase.BeginCopyObjectResult{
 					StreamID:                  obj.StreamID,
+					Version:                   obj.Version,
 					EncryptedMetadata:         obj.EncryptedMetadata,
 					EncryptedMetadataKey:      obj.EncryptedMetadataEncryptedKey,
 					EncryptedMetadataKeyNonce: obj.EncryptedMetadataNonce,

@@ -14,7 +14,7 @@ import "metainfo.proto";
 message StreamID {
     bytes  bucket = 1;
     bytes  encrypted_object_key = 2;
-    int32  version = 3;
+    int64  version = 3;
 
     encryption.EncryptionParameters encryption_parameters = 12;
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -21,7 +22,7 @@ var _ console.Users = (*users)(nil)
 
 // implementation of Users interface repository using spacemonkeygo/dbx orm.
 type users struct {
-	db dbx.Methods
+	db *satelliteDB
 }
 
 // Get is a method for querying user from the database by id.
@@ -75,6 +76,47 @@ func (users *users) GetByEmail(ctx context.Context, email string) (_ *console.Us
 	return userFromDBX(ctx, user)
 }
 
+// GetUnverifiedNeedingReminder returns users in need of a reminder to verify their email.
+func (users *users) GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) (usersNeedingReminder []*console.User, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := users.db.Query(ctx, `
+		SELECT id, email, full_name, short_name
+		FROM users
+		WHERE status = 0
+			AND created_at > $3
+			AND (
+				(verification_reminders = 0 AND created_at < $1)
+				OR (verification_reminders = 1 AND created_at < $2)
+			)
+	`, firstReminder, secondReminder, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var user console.User
+		err = rows.Scan(&user.ID, &user.Email, &user.FullName, &user.ShortName)
+		if err != nil {
+			return nil, err
+		}
+		usersNeedingReminder = append(usersNeedingReminder, &user)
+	}
+
+	return usersNeedingReminder, rows.Err()
+}
+
+// UpdateVerificationReminders increments verification_reminders.
+func (users *users) UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error {
+	_, err := users.db.ExecContext(ctx, `
+		UPDATE users
+		SET verification_reminders = verification_reminders + 1
+		WHERE id = $1
+	`, id.Bytes())
+	return err
+}
+
 // Insert is a method for inserting user into the database.
 func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -113,6 +155,9 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.EmployeeCount = dbx.User_EmployeeCount(user.EmployeeCount)
 		optional.HaveSalesContact = dbx.User_HaveSalesContact(user.HaveSalesContact)
 	}
+	if user.SignupCaptcha != nil {
+		optional.SignupCaptcha = dbx.User_SignupCaptcha(*user.SignupCaptcha)
+	}
 
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(user.ID[:]),
@@ -139,17 +184,17 @@ func (users *users) Delete(ctx context.Context, id uuid.UUID) (err error) {
 }
 
 // Update is a method for updating user entity.
-func (users *users) Update(ctx context.Context, user *console.User) (err error) {
+func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest console.UpdateUserRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateFields, err := toUpdateUser(user)
+	updateFields, err := toUpdateUser(updateRequest)
 	if err != nil {
 		return err
 	}
 
 	_, err = users.db.Update_User_By_Id(
 		ctx,
-		dbx.User_Id(user.ID[:]),
+		dbx.User_Id(userID[:]),
 		*updateFields,
 	)
 
@@ -209,34 +254,82 @@ func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid b
 }
 
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
-func toUpdateUser(user *console.User) (*dbx.User_Update_Fields, error) {
-	update := dbx.User_Update_Fields{
-		FullName:                 dbx.User_FullName(user.FullName),
-		ShortName:                dbx.User_ShortName(user.ShortName),
-		Email:                    dbx.User_Email(user.Email),
-		NormalizedEmail:          dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
-		Status:                   dbx.User_Status(int(user.Status)),
-		ProjectLimit:             dbx.User_ProjectLimit(user.ProjectLimit),
-		ProjectStorageLimit:      dbx.User_ProjectStorageLimit(user.ProjectStorageLimit),
-		ProjectBandwidthLimit:    dbx.User_ProjectBandwidthLimit(user.ProjectBandwidthLimit),
-		ProjectSegmentLimit:      dbx.User_ProjectSegmentLimit(user.ProjectSegmentLimit),
-		PaidTier:                 dbx.User_PaidTier(user.PaidTier),
-		MfaEnabled:               dbx.User_MfaEnabled(user.MFAEnabled),
-		LastVerificationReminder: dbx.User_LastVerificationReminder(user.LastVerificationReminder),
-		FailedLoginCount:         dbx.User_FailedLoginCount(user.FailedLoginCount),
-		LoginLockoutExpiration:   dbx.User_LoginLockoutExpiration(user.LoginLockoutExpiration),
+func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
+	update := dbx.User_Update_Fields{}
+	if request.FullName != nil {
+		update.FullName = dbx.User_FullName(*request.FullName)
 	}
-
-	recoveryBytes, err := json.Marshal(user.MFARecoveryCodes)
-	if err != nil {
-		return nil, err
+	if request.ShortName != nil {
+		if *request.ShortName == nil {
+			update.ShortName = dbx.User_ShortName_Null()
+		} else {
+			update.ShortName = dbx.User_ShortName(**request.ShortName)
+		}
 	}
-	update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes(string(recoveryBytes))
-	update.MfaSecretKey = dbx.User_MfaSecretKey(user.MFASecretKey)
-
-	// extra password check to update only calculated hash from service
-	if len(user.PasswordHash) != 0 {
-		update.PasswordHash = dbx.User_PasswordHash(user.PasswordHash)
+	if request.Email != nil {
+		update.Email = dbx.User_Email(*request.Email)
+		update.NormalizedEmail = dbx.User_NormalizedEmail(normalizeEmail(*request.Email))
+	}
+	if request.PasswordHash != nil {
+		if len(request.PasswordHash) > 0 {
+			update.PasswordHash = dbx.User_PasswordHash(request.PasswordHash)
+		}
+	}
+	if request.Status != nil {
+		update.Status = dbx.User_Status(int(*request.Status))
+	}
+	if request.ProjectLimit != nil {
+		update.ProjectLimit = dbx.User_ProjectLimit(*request.ProjectLimit)
+	}
+	if request.ProjectStorageLimit != nil {
+		update.ProjectStorageLimit = dbx.User_ProjectStorageLimit(*request.ProjectStorageLimit)
+	}
+	if request.ProjectBandwidthLimit != nil {
+		update.ProjectBandwidthLimit = dbx.User_ProjectBandwidthLimit(*request.ProjectBandwidthLimit)
+	}
+	if request.ProjectSegmentLimit != nil {
+		update.ProjectSegmentLimit = dbx.User_ProjectSegmentLimit(*request.ProjectSegmentLimit)
+	}
+	if request.PaidTier != nil {
+		update.PaidTier = dbx.User_PaidTier(*request.PaidTier)
+	}
+	if request.MFAEnabled != nil {
+		update.MfaEnabled = dbx.User_MfaEnabled(*request.MFAEnabled)
+	}
+	if request.MFASecretKey != nil {
+		if *request.MFASecretKey == nil {
+			update.MfaSecretKey = dbx.User_MfaSecretKey_Null()
+		} else {
+			update.MfaSecretKey = dbx.User_MfaSecretKey(**request.MFASecretKey)
+		}
+	}
+	if request.MFARecoveryCodes != nil {
+		if *request.MFARecoveryCodes == nil {
+			update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes_Null()
+		} else {
+			recoveryBytes, err := json.Marshal(*request.MFARecoveryCodes)
+			if err != nil {
+				return nil, err
+			}
+			update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes(string(recoveryBytes))
+		}
+	}
+	if request.LastVerificationReminder != nil {
+		if *request.LastVerificationReminder == nil {
+			update.LastVerificationReminder = dbx.User_LastVerificationReminder_Null()
+		} else {
+			update.LastVerificationReminder = dbx.User_LastVerificationReminder(**request.LastVerificationReminder)
+		}
+	}
+	if request.FailedLoginCount != nil {
+		update.FailedLoginCount = dbx.User_FailedLoginCount(*request.FailedLoginCount)
+	}
+	if request.LoginLockoutExpiration != nil {
+		if *request.LoginLockoutExpiration == nil {
+			update.LoginLockoutExpiration = dbx.User_LoginLockoutExpiration_Null()
+		} else {
+			update.LoginLockoutExpiration = dbx.User_LoginLockoutExpiration(**request.LoginLockoutExpiration)
+		}
 	}
 
 	return &update, nil
@@ -277,6 +370,8 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		IsProfessional:        user.IsProfessional,
 		HaveSalesContact:      user.HaveSalesContact,
 		MFAEnabled:            user.MfaEnabled,
+		VerificationReminders: user.VerificationReminders,
+		SignupCaptcha:         user.SignupCaptcha,
 	}
 
 	if user.PartnerId != nil {

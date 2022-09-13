@@ -1904,6 +1904,190 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add verification_reminders column to users",
+				Version:     196,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN verification_reminders INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add disqualification_reason to reputations",
+				Version:     197,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations ADD COLUMN disqualification_reason integer`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_wallets",
+				Version:     198,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_wallets (
+						user_id bytea NOT NULL,
+						wallet_address bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id, wallet_address )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing_transactions",
+				Version:     199,
+				Action: migrate.SQL{
+					`CREATE TABLE billing_transactions (
+						tx_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						currency text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						timestamp timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_payments table and index on block number and log index",
+				Version:     200,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_payments (
+						 block_hash bytea NOT NULL,
+						 block_number bigint NOT NULL,
+						 transaction bytea NOT NULL,
+						 log_index integer NOT NULL,
+						 from_address bytea NOT NULL,
+						 to_address bytea NOT NULL,
+						 token_value bigint NOT NULL,
+						 usd_value bigint NOT NULL,
+						 status text NOT NULL,
+						 timestamp timestamp with time zone NOT NULL,
+						 created_at timestamp with time zone NOT NULL,
+						 PRIMARY KEY ( block_hash, log_index )
+					); `,
+					`CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.public_id",
+				Version:     201,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN public_id bytea;`,
+					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add accounting_rollups.interval_end_time column",
+				Version:     202,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE accounting_rollups ADD COLUMN interval_end_time TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Backfill accounting_rollups.interval_end_time with start_time",
+				Version:     203,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE accounting_rollups SET interval_end_time = start_time WHERE interval_end_time = NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop billing table to change primary key.",
+				Version:     204,
+				Action: migrate.SQL{
+					`DROP TABLE billing_transactions;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing tables for user balances and transactions",
+				Version:     205,
+				Action: migrate.SQL{
+					`CREATE TABLE billing_balances (
+						user_id bytea NOT NULL,
+						balance bigint NOT NULL,
+						last_updated timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id )
+                    ); `,
+					`CREATE TABLE billing_transactions (
+						id bigserial NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						currency text NOT NULL,
+						description text NOT NULL,
+						source text NOT NULL,
+						status text NOT NULL,
+						type text NOT NULL,
+						metadata jsonb NOT NULL,
+						timestamp timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					); `,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.salt",
+				Version:     206,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN salt bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on wallet address to improve queries.",
+				Version:     207,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on billing transaction timestamp to improve queries.",
+				Version:     208,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS billing_transactions_timestamp_index ON billing_transactions ( timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "reset all non-DQ'd node audit reputations for new system",
+				Version:     209,
+				Action: migrate.SQL{
+					`UPDATE reputations SET audit_reputation_alpha = 1000, audit_reputation_beta = 0
+						WHERE disqualified IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add signup_captcha column to users table",
+				Version:     210,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_captcha double precision;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Drop now-unused gob-encoded columns",
+				Version:     211,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions DROP COLUMN amount_gob, DROP COLUMN received_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

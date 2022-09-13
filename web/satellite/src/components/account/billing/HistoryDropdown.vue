@@ -12,6 +12,8 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 // @vue/component
 @Component
 export default class HistoryDropdown extends Vue {
@@ -20,10 +22,13 @@ export default class HistoryDropdown extends Vue {
     @Prop({ default: '' })
     public readonly route: string;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds logic to redirect user to history page.
      */
     public redirect(): void {
+        this.analytics.pageVisit(this.route);
         this.$router.push(this.route);
     }
 

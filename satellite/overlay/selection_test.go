@@ -38,7 +38,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
-				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
+				config.Overlay.NodeSelectionCache.Staleness = lowStaleness
 				config.Overlay.NodeCheckInWaitPeriod = 0
 			},
 		},
@@ -156,9 +156,13 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			UniqueIPCount: 5,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
+				config.Reputation.AuditCount = 1
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
@@ -194,6 +198,8 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
+		err := repService.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
 
 		t.Run("request 5, where 1 new", func(t *testing.T) {
 			requestedCount, newCount := 5, 1
@@ -380,10 +386,14 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 5 // need 5 audits to be vetted
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -412,6 +422,8 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			}
 		}
 
+		// There are now 5 new nodes, and 5 reputable (vetted) nodes. 3 of the
+		// new nodes are gracefully exiting, and 2 of the reputable nodes.
 		type test struct {
 			Preferences    overlay.NodeSelectionConfig
 			ExcludeCount   int
@@ -424,34 +436,34 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			{ // reputable and new nodes, happy path
 				Preferences:   testNodeSelectionConfig(0.5, false),
 				RequestCount:  5,
-				ExpectedCount: 5,
+				ExpectedCount: 5, // 2 new + 3 vetted
 			},
 			{ // all reputable nodes, happy path
-				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				Preferences:   testNodeSelectionConfig(0, false),
+				RequestCount:  3,
+				ExpectedCount: 3,
 			},
 			{ // all new nodes, happy path
 				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				RequestCount:  2,
+				ExpectedCount: 2,
 			},
 			{ // reputable and new nodes, requested too many
 				Preferences:    testNodeSelectionConfig(0.5, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  5, // 2 new + 3 vetted
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all reputable nodes, requested too many
-				Preferences:    testNodeSelectionConfig(1, false),
+				Preferences:    testNodeSelectionConfig(0, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  3,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all new nodes, requested too many
 				Preferences:    testNodeSelectionConfig(1, false),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  2,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 		} {
@@ -620,10 +632,14 @@ func TestDistinctIPs(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -647,10 +663,14 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			UniqueIPCount: 3, // creates 3 additional unique ip addresses, totaling to 4 IPs
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.UpdateStatsBatchSize = 1
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -721,15 +741,15 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	defer ctx.Cleanup()
 
 	ip := "8.8.8.8:28967"
-	resolvedIPPort, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
+	resolvedIP, port, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
 	require.Equal(t, "8.8.8.0", network)
-	require.Equal(t, ip, resolvedIPPort)
+	require.Equal(t, ip, net.JoinHostPort(resolvedIP.String(), port))
 	require.NoError(t, err)
 
 	ipv6 := "[fc00::1:200]:28967"
-	resolvedIPPort, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
+	resolvedIP, port, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
 	require.Equal(t, "fc00::", network)
-	require.Equal(t, ipv6, resolvedIPPort)
+	require.Equal(t, ipv6, net.JoinHostPort(resolvedIP.String(), port))
 	require.NoError(t, err)
 }
 

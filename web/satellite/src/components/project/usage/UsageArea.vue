@@ -23,10 +23,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { Dimensions, Size } from '@/utils/bytesSize';
+
 import VBar from '@/components/common/VBar.vue';
 import VLoader from '@/components/common/VLoader.vue';
-
-import { Dimensions, Size } from '@/utils/bytesSize';
 
 // @vue/component
 @Component({
@@ -36,13 +36,13 @@ import { Dimensions, Size } from '@/utils/bytesSize';
     },
 })
 export default class UsageArea extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly title: string;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly used: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly limit: number;
-    @Prop({default: true})
+    @Prop({ default: true })
     public readonly isDataFetching: boolean;
 
     /**

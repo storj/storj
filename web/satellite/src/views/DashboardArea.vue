@@ -6,84 +6,73 @@
         <div v-if="isLoading" class="loading-overlay active">
             <LoaderImage class="loading-icon" />
         </div>
-        <div v-if="!isLoading" class="dashboard__wrap">
-            <template v-if="!isNewNavStructure">
-                <BetaSatBar v-if="isBetaSatellite" />
-                <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                <ProjectInfoBar v-if="isProjectListPage" />
-                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-            </template>
-            <template v-if="isNewNavStructure">
-                <div class="dashboard__wrap__new-main-area">
-                    <NewNavigationArea v-if="!isNavigationHidden" />
-                    <div
-                        class="dashboard__wrap__new-main-area__content-wrap"
-                        :class="{
-                            'with-one-bar': amountOfInfoBars === 1,
-                            'with-two-bars': amountOfInfoBars === 2,
-                            'with-three-bars': amountOfInfoBars === 3,
-                            'with-four-bars': amountOfInfoBars === 4,
-                        }"
-                    >
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                        <ProjectInfoBar v-if="isProjectListPage" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <router-view class="dashboard__wrap__new-main-area__content-wrap__content" />
-                    </div>
-                </div>
-            </template>
-            <template v-else>
-                <DashboardHeader />
+        <div v-else class="dashboard__wrap">
+            <div class="dashboard__wrap__main-area">
+                <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
+                <MobileNavigation v-if="!isNavigationHidden" class="dashboard__wrap__main-area__mobile-navigation" />
                 <div
-                    class="dashboard__wrap__main-area"
-                    :class="{
-                        'with-one-bar-old': amountOfInfoBars === 1,
-                        'with-two-bars-old': amountOfInfoBars === 2,
-                        'with-three-bars-old': amountOfInfoBars === 3,
-                        'with-four-bars-old': amountOfInfoBars === 4,
-                    }"
+                    class="dashboard__wrap__main-area__content-wrap"
+                    :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <NavigationArea class="regular-navigation" />
-                    <router-view class="dashboard__wrap__main-area__content" />
+                    <div class="dashboard__wrap__main-area__content-wrap__container">
+                        <div class="bars">
+                            <BetaSatBar v-if="isBetaSatellite" />
+                            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+                            <ProjectInfoBar v-if="isProjectListPage" />
+                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                        </div>
+                        <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
+                    </div>
+                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
-            </template>
+            </div>
         </div>
-        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
+        <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
+            <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
+        </div>
+        <InactivityModal
+            v-if="inactivityModalShown"
+            :on-continue="refreshSession"
+            :on-logout="handleInactive"
+            :on-close="closeInactivityModal"
+            :initial-seconds="inactivityModalTime/1000"
+        />
+        <AllModals />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
-import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
-import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
-import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
-import DashboardHeader from '@/components/header/HeaderArea.vue';
-import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import NewNavigationArea from '@/components/navigation/newNavigationStructure/NewNavigationArea.vue';
-import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
-
-import LoaderImage from '@/../static/images/common/loader.svg';
-
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { User } from "@/types/users";
-import { AuthHttpApi } from "@/api/auth";
-import { MetaUtils } from "@/utils/meta";
+import { User } from '@/types/users';
+import { AuthHttpApi } from '@/api/auth';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
+import BillingNotification from '@/components/notifications/BillingNotification.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import InactivityModal from '@/components/modals/InactivityModal.vue';
+import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
+import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
+import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
+import AllModals from '@/components/modals/AllModals.vue';
+import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
+
+import LoaderImage from '@/../static/images/common/loader.svg';
 
 const {
     SETUP_ACCOUNT,
@@ -93,37 +82,70 @@ const {
 // @vue/component
 @Component({
     components: {
+        MobileNavigation,
+        AllModals,
         NavigationArea,
-        NewNavigationArea,
-        DashboardHeader,
         LoaderImage,
         PaidTierBar,
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
-        MFARecoveryCodesPopup,
-        AddPaymentMethodModal,
+        BillingNotification,
+        InactivityModal,
     },
 })
 export default class DashboardArea extends Vue {
-    // List of DOM events that resets inactivity timer.
-    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
     private readonly auth: AuthHttpApi = new AuthHttpApi();
-    private inactivityTimerId: ReturnType<typeof setTimeout>;
+
+    // Properties concerning session refreshing, inactivity notification, and automatic logout
+    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+    private readonly sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
+    private inactivityTimerId: ReturnType<typeof setTimeout> | null;
+    private inactivityModalShown = false;
+    private inactivityModalTime = 60000;
+    private sessionRefreshInterval: number = this.sessionDuration/2;
+    private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
+    private isSessionActive = false;
+    private isSessionRefreshing = false;
+
+    // Properties concerning the session timer popup used for debugging
+    private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
+    private debugTimerText = '';
+    private debugTimerId: ReturnType<typeof setTimeout> | null;
+
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
 
-    public isMFACodesPopup = false;
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        this.setupInactivityTimers();
+        this.$store.subscribeAction((action) => {
+            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
+        });
+
+        if (LocalData.getBillingNotificationAcknowledged()) {
+            this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+        } else {
+            const unsub = this.$store.subscribe((action) => {
+                if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+                    LocalData.setBillingNotificationAcknowledged();
+                    unsub();
+                }
+            });
+        }
+
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
+            this.setupSessionTimers();
         } catch (error) {
+            this.$store.subscribeAction((action) => {
+                if (action.type == USER_ACTIONS.LOGIN) this.setupSessionTimers();
+            });
+
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 await this.$notify.error(error.message);
@@ -172,6 +194,7 @@ export default class DashboardArea extends Vue {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
+                this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
                 await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
@@ -193,24 +216,31 @@ export default class DashboardArea extends Vue {
     public async generateNewMFARecoveryCodes(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
+            this.toggleMFARecoveryModal();
         } catch (error) {
             await this.$notify.error(error.message);
         }
     }
 
     /**
-     * Opens add payment method modal.
+     * Toggles MFA recovery modal visibility.
      */
-    public togglePMModal(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    public toggleMFARecoveryModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
     }
 
     /**
-     * Toggles MFA recovery codes popup visibility.
+     * Opens add payment method modal.
      */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
+    public togglePMModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Disables session inactivity modal visibility.
+     */
+    public closeInactivityModal(): void {
+        this.inactivityModalShown = false;
     }
 
     /**
@@ -241,32 +271,10 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Returns amount of rendered info bars.
-     * It is used to set height of content's container.
-     */
-    public get amountOfInfoBars(): number {
-        const conditions: boolean[] = [
-            this.isBetaSatellite,
-            !this.creditCards.length && !this.isOnboardingTour,
-            this.isProjectListPage,
-            this.showMFARecoveryCodeBar,
-        ]
-
-        return conditions.filter(c => c).length;
-    }
-
-    /**
      * Indicates if current route is projects list page.
      */
     public get isProjectListPage(): boolean {
         return this.$route.name === RouteConfig.ProjectsList.name;
-    }
-
-    /**
-     * Indicates if add payment method modal is shown.
-     */
-    public get isAddPMModal(): boolean {
-        return this.$store.state.paymentsModule.isAddPMModalShown;
     }
 
     /**
@@ -301,22 +309,22 @@ export default class DashboardArea extends Vue {
      * Indicates whether the MFA recovery code warning bar should be shown.
      */
     public get showMFARecoveryCodeBar(): boolean {
-        const user : User = this.$store.getters.user;
+        const user: User = this.$store.getters.user;
         return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
     }
 
     /**
-     * Indicates if new navigation structure is used.
-     */
-    public get isNewNavStructure(): boolean {
-        return this.$store.state.appStateModule.isNewNavStructure;
-    }
-
-    /**
-     * Indicates if navigation side bar is hidden.
+     * Indicates if navigation sidebar is hidden.
      */
     public get isNavigationHidden(): boolean {
         return this.isOnboardingTour || this.isCreateProjectPage;
+    }
+
+    /**
+     * Indicates whether the billing relocation notification should be shown.
+     */
+    public get isBillingNotificationShown(): boolean {
+        return this.$store.state.appStateModule.appState.isBillingNotificationShown;
     }
 
     /**
@@ -327,51 +335,130 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Sets up timer id with given delay.
+     * Refreshes session and resets session timers.
      */
-    private startInactivityTimer(): void {
-        const inactivityTimerDelayInSeconds = MetaUtils.getMetaContent('inactivity-timer-delay');
+    private async refreshSession(): Promise<void> {
+        this.isSessionRefreshing = true;
+        
+        try {
+            LocalData.setSessionExpirationDate(await this.auth.refreshSession());
+        } catch (error) {
+            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message);
+            await this.handleInactive();
+            this.isSessionRefreshing = false;
+            return;
+        }
 
-        this.inactivityTimerId = setTimeout(this.handleInactive, parseInt(inactivityTimerDelayInSeconds) * 1000);
+        this.clearSessionTimers();
+        this.restartSessionTimers();
+        this.inactivityModalShown = false;
+        this.isSessionActive = false;
+        this.isSessionRefreshing = false;
     }
 
     /**
-     * Performs logout and cleans event listeners.
+     * Performs logout and cleans event listeners and session timers.
      */
     private async handleInactive(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
+        await this.$router.push(RouteConfig.Login.path);
+
+        this.resetActivityEvents.forEach((eventName: string) => {
+            document.removeEventListener(eventName, this.onSessionActivity);
+        });
+        this.clearSessionTimers();
+        this.inactivityModalShown = false;
+
         try {
             await this.auth.logout();
-            this.resetActivityEvents.forEach((eventName: string) => {
-                document.removeEventListener(eventName, this.resetInactivityTimer);
-            });
-            await this.$router.push(RouteConfig.Login.path);
-            await this.$notify.notify('Your session was timed out.');
         } catch (error) {
+            if (error instanceof ErrorUnauthorized) return;
+
             await this.$notify.error(error.message);
         }
     }
 
     /**
-     * Resets inactivity timer.
+     * Resets inactivity timer and refreshes session if necessary.
      */
-    private resetInactivityTimer(): void {
-        clearTimeout(this.inactivityTimerId);
-        this.startInactivityTimer();
+    private async onSessionActivity(): Promise<void> {
+        if (this.inactivityModalShown || this.isSessionActive) return;
+
+        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
+            await this.refreshSession();
+        }
+        this.isSessionActive = true;
     }
 
     /**
-     * Adds DOM event listeners and starts timer.
+     * Adds DOM event listeners and starts session timers.
      */
-    private setupInactivityTimers(): void {
+    private setupSessionTimers(): void {
         const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
 
         if (isInactivityTimerEnabled === 'false') return;
 
-        this.resetActivityEvents.forEach((eventName: string) => {
-            document.addEventListener(eventName, this.resetInactivityTimer, false);
-        });
+        const expiresAt = LocalData.getSessionExpirationDate();
 
-        this.startInactivityTimer();
+        if (expiresAt) {
+            this.resetActivityEvents.forEach((eventName: string) => {
+                document.addEventListener(eventName, this.onSessionActivity, false);
+            });
+
+            if (expiresAt.getTime() - this.sessionDuration + this.sessionRefreshInterval < Date.now()) {
+                this.refreshSession();
+            }
+
+            this.restartSessionTimers();
+        }
+    }
+
+    /**
+     * Restarts timers associated with session refreshing and inactivity.
+     */
+    private restartSessionTimers(): void {
+        this.sessionRefreshTimerId = setTimeout(async () => {
+            this.sessionRefreshTimerId = null;
+            if (this.isSessionActive) {
+                await this.refreshSession();
+            }
+        }, this.sessionRefreshInterval);
+
+        this.inactivityTimerId = setTimeout(() => {
+            if (this.isSessionActive) return;
+            this.inactivityModalShown = true;
+            this.inactivityTimerId = setTimeout(async () => {
+                this.handleInactive();
+                await this.$notify.notify('Your session was timed out.');
+            }, this.inactivityModalTime);
+        }, this.sessionDuration - this.inactivityModalTime);
+
+        if (!this.debugTimerShown) return;
+
+        const debugTimer = () => {
+            const expiresAt = LocalData.getSessionExpirationDate();
+
+            if (expiresAt) {
+                const ms = Math.max(0, expiresAt.getTime() - Date.now());
+                const secs = Math.floor(ms/1000)%60;
+
+                this.debugTimerText = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
+
+                if (ms > 1000) {
+                    this.debugTimerId = setTimeout(debugTimer, 1000);
+                }
+            }
+        };
+        debugTimer();
+    }
+
+    /**
+     * Clears timers associated with session refreshing and inactivity.
+     */
+    private clearSessionTimers(): void {
+        [this.inactivityTimerId, this.sessionRefreshTimerId, this.debugTimerId].forEach(id => {
+            if (id != null) clearTimeout(id);
+        });
     }
 }
 </script>
@@ -415,67 +502,104 @@ export default class DashboardArea extends Vue {
 
             &__main-area {
                 display: flex;
-                height: calc(100% - 62px);
-
-                &__content {
-                    overflow-y: auto;
-                    width: 100%;
-                    position: relative;
-                }
-            }
-
-            &__new-main-area {
-                display: flex;
                 width: 100%;
                 height: 100%;
 
+                &__mobile-navigation {
+                    display: none;
+                }
+
                 &__content-wrap {
                     width: 100%;
+                    height: 100%;
+                    min-width: 0;
 
-                    &__content {
+                    &__container {
+                        height: 100%;
                         overflow-y: auto;
+
+                        &__content {
+                            max-width: 1200px;
+                            margin: 0 auto;
+                            padding: 48px 48px 60px;
+                        }
                     }
                 }
             }
         }
+
+        &__debug-timer {
+            display: flex;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px;
+            z-index: 10000;
+            background-color: #fec;
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            border: 1px solid #ffd78a;
+            border-radius: 10px;
+            box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
+
+            &__bold {
+                font-family: 'font_medium', sans-serif;
+            }
+        }
     }
 
-    .with-one-bar {
-        height: calc(100% - 26px);
+    .no-nav {
+        width: 100%;
     }
 
-    .with-two-bars {
-        height: calc(100% - 52px);
-    }
-
-    .with-three-bars {
-        height: calc(100% - 78px);
-    }
-
-    .with-four-bars {
-        height: calc(100% - 104px);
-    }
-
-    .with-one-bar-old {
-        height: calc(100% - 62px - 26px);
-    }
-
-    .with-two-bars-old {
-        height: calc(100% - 62px - 52px);
-    }
-
-    .with-three-bars-old {
-        height: calc(100% - 62px - 78px);
-    }
-
-    .with-four-bars-old {
-        height: calc(100% - 62px - 104px);
+    .bars {
+        display: contents;
+        position: fixed;
+        width: 100%;
+        top: 0;
+        z-index: 1000;
     }
 
     @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
+        }
+
+        .no-nav {
+            width: 100%;
+        }
+    }
+
+    @media screen and (max-width: 800px) {
+
+        .dashboard__wrap__main-area__content-wrap__container__content {
+            padding: 32px 24px 50px;
+        }
+    }
+
+    @media screen and (max-width: 500px) {
+
+        .dashboard__wrap__main-area {
+            flex-direction: column;
+
+            &__content-wrap {
+                height: calc(100% - 4rem);
+
+                &__container {
+                    height: 100%;
+                    margin-bottom: 0;
+                }
+            }
+
+            &__navigation {
+                display: none;
+            }
+
+            &__mobile-navigation {
+                display: block;
+            }
         }
     }
 </style>

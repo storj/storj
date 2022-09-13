@@ -1,8 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { CommonPrefix } from "aws-sdk/clients/s3";
-import {StoreModule} from "@/types/store";
+import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
+
+import { StoreModule } from '@/types/store';
 
 const listCache = new Map();
 
@@ -12,7 +13,7 @@ type BrowserObject = {
   Key: string;
   Size: number;
   LastModified: number;
-  type?: "file" | "folder";
+  type?: 'file' | 'folder';
   progress?: number;
   upload?: {
     abort: () => void;
@@ -42,7 +43,7 @@ export type FilesState = {
 
   openedDropdown: null | string;
   headingSorted: string;
-  orderBy: "asc" | "desc";
+  orderBy: 'asc' | 'desc';
   createFolderInputShow: boolean;
   openModalOnFirstUpload: boolean;
   modalPath: null | string;
@@ -54,11 +55,11 @@ type InitializedFilesState = FilesState & {
 };
 
 function assertIsInitialized(
-    state: FilesState
+    state: FilesState,
 ): asserts state is InitializedFilesState {
     if (state.s3 === null) {
         throw new Error(
-            'FilesModule: S3 Client is uninitialized. "state.s3" is null.'
+            'FilesModule: S3 Client is uninitialized. "state.s3" is null.',
         );
     }
 }
@@ -91,9 +92,9 @@ export const makeFilesModule = (): FilesModule => ({
         s3: null,
         accessKey: null,
 
-        path: "",
-        bucket: "",
-        browserRoot: "/",
+        path: '',
+        bucket: '',
+        browserRoot: '/',
         files: [],
         uploadChain: Promise.resolve(),
         uploading: [],
@@ -102,12 +103,12 @@ export const makeFilesModule = (): FilesModule => ({
         selectedFiles: [],
         shiftSelectedFiles: [],
         filesToBeDeleted: [],
-        fetchSharedLink: () => "javascript:null",
-        fetchObjectMap: () => "javascript:null",
-        fetchObjectPreview: () => "javascript:null",
+        fetchSharedLink: () => 'javascript:null',
+        fetchObjectMap: () => 'javascript:null',
+        fetchObjectPreview: () => 'javascript:null',
         openedDropdown: null,
-        headingSorted: "name",
-        orderBy: "asc",
+        headingSorted: 'name',
+        orderBy: 'asc',
         createFolderInputShow: false,
         openModalOnFirstUpload: false,
 
@@ -132,14 +133,14 @@ export const makeFilesModule = (): FilesModule => ({
             const sortedFiles = state.files.slice();
             sortedFiles.sort(fns[state.headingSorted]);
             // reverse if descending order
-            if (state.orderBy !== "asc") {
+            if (state.orderBy !== 'asc') {
                 sortedFiles.reverse();
             }
 
             // display folders and then files
             const groupedFiles = [
-                ...sortedFiles.filter((file) => file.type === "folder"),
-                ...sortedFiles.filter((file) => file.type === "file"),
+                ...sortedFiles.filter((file) => file.type === 'folder'),
+                ...sortedFiles.filter((file) => file.type === 'file'),
             ];
 
             return groupedFiles;
@@ -154,12 +155,12 @@ export const makeFilesModule = (): FilesModule => ({
                 accessKey,
                 secretKey,
                 bucket,
-                endpoint = "https://gateway.tardigradeshare.io",
+                endpoint = 'https://gateway.tardigradeshare.io',
                 browserRoot,
                 openModalOnFirstUpload = true,
-                fetchSharedLink = () => "javascript:null",
-                fetchObjectPreview = () => "javascript:null",
-                fetchObjectMap = () => "javascript:null",
+                fetchSharedLink = () => 'javascript:null',
+                fetchObjectPreview = () => 'javascript:null',
+                fetchObjectMap = () => 'javascript:null',
             }: {
         accessKey: string;
         secretKey: string;
@@ -170,14 +171,14 @@ export const makeFilesModule = (): FilesModule => ({
         fetchSharedLink: (arg0: string) => Promisable<string>;
         fetchObjectPreview: (arg0: string) => Promisable<string>;
         fetchObjectMap: (arg0) => Promisable<string>;
-      }
+      },
         ) {
             const s3Config = {
                 accessKeyId: accessKey,
                 secretAccessKey: secretKey,
                 endpoint,
                 s3ForcePathStyle: true,
-                signatureVersion: "v4",
+                signatureVersion: 'v4',
                 connectTimeout: 0,
                 httpOptions: { timeout: 0 },
             };
@@ -190,7 +191,7 @@ export const makeFilesModule = (): FilesModule => ({
             state.fetchSharedLink = fetchSharedLink;
             state.fetchObjectMap = fetchObjectMap;
             state.fetchObjectPreview = fetchObjectPreview;
-            state.path = "";
+            state.path = '';
         },
 
         updateFiles(state: FilesState, { path, files }) {
@@ -216,7 +217,7 @@ export const makeFilesModule = (): FilesModule => ({
 
         removeFileToBeDeleted(state: FilesState, file) {
             state.filesToBeDeleted = state.filesToBeDeleted.filter(
-                (singleFile) => singleFile.Key !== file.Key
+                (singleFile) => singleFile.Key !== file.Key,
             );
         },
 
@@ -258,10 +259,10 @@ export const makeFilesModule = (): FilesModule => ({
         },
 
         sort(state: FilesState, headingSorted) {
-            const flip = (orderBy) => (orderBy === "asc" ? "desc" : "asc");
+            const flip = (orderBy) => (orderBy === 'asc' ? 'desc' : 'asc');
 
             state.orderBy =
-        state.headingSorted === headingSorted ? flip(state.orderBy) : "asc";
+        state.headingSorted === headingSorted ? flip(state.orderBy) : 'asc';
             state.headingSorted = headingSorted;
         },
 
@@ -288,11 +289,15 @@ export const makeFilesModule = (): FilesModule => ({
         addUploadToChain(state: FilesState, fn) {
             state.uploadChain = state.uploadChain.then(fn);
         },
+
+        closeNewFolderModal(state: FilesState) {
+            state.createFolderInputShow = false;
+        },
     },
     actions: {
         async list({ commit, state }, path = state.path) {
-            if (listCache.has(path) === true) {
-                commit("updateFiles", {
+            if (listCache.has(path)) {
+                commit('updateFiles', {
                     path,
                     files: listCache.get(path),
                 });
@@ -303,7 +308,7 @@ export const makeFilesModule = (): FilesModule => ({
             const response = await state.s3
                 .listObjects({
                     Bucket: state.bucket,
-                    Delimiter: "/",
+                    Delimiter: '/',
                     Prefix: path,
                 })
                 .promise();
@@ -316,17 +321,17 @@ export const makeFilesModule = (): FilesModule => ({
 
             if (CommonPrefixes === undefined) {
                 throw new Error(
-                    'Bad S3 listObjects() response: "CommonPrefixes" undefined'
+                    'Bad S3 listObjects() response: "CommonPrefixes" undefined',
                 );
             }
 
             Contents.sort((a, b) => {
                 if (
                     a === undefined ||
-          a.LastModified === undefined ||
-          b === undefined ||
-          b.LastModified === undefined ||
-          a.LastModified === b.LastModified
+                    a.LastModified === undefined ||
+                    b === undefined ||
+                    b.LastModified === undefined ||
+                    a.LastModified === b.LastModified
                 ) {
                     return 0;
                 }
@@ -334,193 +339,196 @@ export const makeFilesModule = (): FilesModule => ({
                 return a.LastModified < b.LastModified ? -1 : 1;
             });
 
-      type DefinedCommonPrefix = CommonPrefix & {
-        Prefix: string;
-      };
+            type DefinedCommonPrefix = CommonPrefix & {
+              Prefix: string;
+            };
 
-      const isPrefixDefined = (
-          value: CommonPrefix
-      ): value is DefinedCommonPrefix => value.Prefix !== undefined;
+            const isPrefixDefined = (
+                value: CommonPrefix,
+            ): value is DefinedCommonPrefix => value.Prefix !== undefined;
 
-      const prefixToFolder = ({
-          Prefix,
-      }: {
-        Prefix: string;
-      }): BrowserObject => ({
-          Key: Prefix.slice(path.length, -1),
-          LastModified: 0,
-          Size: 0,
-          type: "folder",
-      });
+            const prefixToFolder = ({
+                Prefix,
+            }: {
+              Prefix: string;
+            }): BrowserObject => ({
+                Key: Prefix.slice(path.length, -1),
+                LastModified: 0,
+                Size: 0,
+                type: 'folder',
+            });
 
-      const makeFileRelative = (file) => ({
-          ...file,
-          Key: file.Key.slice(path.length),
-          type: "file",
-      });
+            const makeFileRelative = (file) => ({
+                ...file,
+                Key: file.Key.slice(path.length),
+                type: 'file',
+            });
 
-      const isFileVisible = (file) =>
-          file.Key.length > 0 && file.Key !== ".file_placeholder";
+            const isFileVisible = (file) =>
+                file.Key.length > 0 && file.Key !== '.file_placeholder';
 
-      const files = [
-          ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
-          ...Contents.map(makeFileRelative).filter(isFileVisible),
-      ];
+            const files = [
+                ...CommonPrefixes.filter(isPrefixDefined).map(prefixToFolder),
+                ...Contents.map(makeFileRelative).filter(isFileVisible),
+            ];
 
-      listCache.set(path, files);
-      commit("updateFiles", {
-          path,
-          files,
-      });
+            listCache.set(path, files);
+            commit('updateFiles', {
+                path,
+                files,
+            });
         },
 
         async back({ state, dispatch }) {
             const getParentDirectory = (path) => {
                 let i = path.length - 2;
 
-                while (path[i - 1] !== "/" && i > 0) {
+                while (path[i - 1] !== '/' && i > 0) {
                     i--;
                 }
 
                 return path.slice(0, i);
             };
 
-            dispatch("list", getParentDirectory(state.path));
+            dispatch('list', getParentDirectory(state.path));
         },
 
         async upload({ commit, state, dispatch }, e: DragEvent) {
             assertIsInitialized(state);
 
-      type Item = DataTransferItem | FileSystemEntry;
+            type Item = DataTransferItem | FileSystemEntry;
 
-      const items: Item[] = e.dataTransfer
-          ? [...e.dataTransfer.items]
-          : e.target !== null
-              ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
-              : [];
+            const items: Item[] = e.dataTransfer
+                ? [...e.dataTransfer.items]
+                : e.target !== null
+                    ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
+                    : [];
 
-      async function* traverse(item: Item | Item[], path = "") {
-          if ('isFile' in item && item.isFile === true) {
-              const file = await new Promise(item.file.bind(item));
-              yield { path, file };
-          } else if (item instanceof File) {
-              let relativePath = item.webkitRelativePath
-                  .split("/")
-                  .slice(0, -1)
-                  .join("/");
+            async function* traverse(item: Item | Item[], path = '') {
+                if ('isFile' in item && item.isFile === true) {
+                    const file = await new Promise(item.file.bind(item));
+                    yield { path, file };
+                } else if (item instanceof File) {
+                    let relativePath = item.webkitRelativePath
+                        .split('/')
+                        .slice(0, -1)
+                        .join('/');
 
-              if (relativePath.length) {
-                  relativePath += "/";
-              }
+                    if (relativePath.length) {
+                        relativePath += '/';
+                    }
 
-              yield { path: relativePath, file: item };
-          } else if ('isFile' in item && item.isDirectory) {
-              const dirReader = item.createReader();
+                    yield { path: relativePath, file: item };
+                } else if ('isFile' in item && item.isDirectory) {
+                    const dirReader = item.createReader();
 
-              const entries = await new Promise(
-                  dirReader.readEntries.bind(dirReader)
-              );
+                    const entries = await new Promise(
+                        dirReader.readEntries.bind(dirReader),
+                    );
 
-              for (const entry of entries) {
-                  yield* traverse(
+                    for (const entry of entries) {
+                        yield* traverse(
               (entry as FileSystemEntry) as Item,
-              path + item.name + "/"
-                  );
-              }
-          } else if ("length" in item && typeof item.length === "number") {
-              for (const i of item) {
-                  yield* traverse(i);
-              }
-          } else {
-              throw new Error("Item is not directory or file");
-          }
-      }
+              path + item.name + '/',
+                        );
+                    }
+                } else if ('length' in item && typeof item.length === 'number') {
+                    for (const i of item) {
+                        yield* traverse(i);
+                    }
+                } else {
+                    throw new Error('Item is not directory or file');
+                }
+            }
 
-      const isFileSystemEntry = (
-          a: FileSystemEntry | null
-      ): a is FileSystemEntry => a !== null;
+            const isFileSystemEntry = (
+                a: FileSystemEntry | null,
+            ): a is FileSystemEntry => a !== null;
 
-      const iterator = [...items]
-          .map((item) =>
-              "webkitGetAsEntry" in item ? item.webkitGetAsEntry() : item
-          )
-          .filter(isFileSystemEntry) as FileSystemEntry[];
+            const iterator = [...items]
+                .map((item) =>
+                    'webkitGetAsEntry' in item ? item.webkitGetAsEntry() : item,
+                )
+                .filter(isFileSystemEntry) as FileSystemEntry[];
 
-      const fileNames = state.files.map((file) => file.Key);
+            const fileNames = state.files.map((file) => file.Key);
 
-      function getUniqueFileName(fileName) {
-          for (let count = 1; fileNames.includes(fileName); count++) {
-              if (count > 1) {
-                  fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
-              } else {
-                  fileName = fileName.replace(/([^.]*)(.*)/, `$1 (${count})$2`);
-              }
-          }
+            function getUniqueFileName(fileName) {
+                for (let count = 1; fileNames.includes(fileName); count++) {
+                    if (count > 1) {
+                        fileName = fileName.replace(/\((\d+)\)(.*)/, `(${count})$2`);
+                    } else {
+                        fileName = fileName.replace(/([^.]*)(.*)/, `$1 (${count})$2`);
+                    }
+                }
 
-          return fileName;
-      }
+                return fileName;
+            }
 
-      for await (const { path, file } of traverse(iterator)) {
-          const directories = path.split("/");
-          const uniqueFirstDirectory = getUniqueFileName(directories[0]);
-          directories[0] = uniqueFirstDirectory;
+            for await (const { path, file } of traverse(iterator)) {
+                const directories = path.split('/');
+                directories[0] = getUniqueFileName(directories[0]);
 
-          const fileName = getUniqueFileName(directories.join("/") + file.name);
+                const fileName = getUniqueFileName(directories.join('/') + file.name);
 
-          const params = {
-              Bucket: state.bucket,
-              Key: state.path + fileName,
-              Body: file,
-          };
+                const params = {
+                    Bucket: state.bucket,
+                    Key: state.path + fileName,
+                    Body: file,
+                };
 
-          const upload = state.s3.upload(
-              { ...params },
-              { partSize: 64 * 1024 * 1024 }
-          );
+                const upload = state.s3.upload(
+                    { ...params },
+                    { partSize: 64 * 1024 * 1024 },
+                );
 
-          upload.on("httpUploadProgress", (progress) => {
-              commit("setProgress", {
-                  Key: params.Key,
-                  progress: Math.round((progress.loaded / progress.total) * 100),
-              });
-          });
+                upload.on('httpUploadProgress', (progress) => {
+                    commit('setProgress', {
+                        Key: params.Key,
+                        progress: Math.round((progress.loaded / progress.total) * 100),
+                    });
+                });
 
-          commit("pushUpload", {
-              ...params,
-              upload,
-              progress: 0,
-          });
+                commit('pushUpload', {
+                    ...params,
+                    upload,
+                    progress: 0,
+                });
 
-          commit("addUploadToChain", async () => {
-              if (
-                  state.uploading.findIndex((file) => file.Key === params.Key) === -1
-              ) {
-                  // upload cancelled or removed
-                  return -1;
-              }
+                commit('addUploadToChain', async () => {
+                    if (
+                        state.uploading.findIndex((file) => file.Key === params.Key) === -1
+                    ) {
+                        // upload cancelled or removed
+                        return -1;
+                    }
 
-              try {
-                  await upload.promise();
-              } catch (e) {
-                  // An error is raised if the upload is aborted by the user
-                  console.log(e);
-              }
+                    try {
+                        await upload.promise();
+                    } catch (error) {
+                        const limitExceededError = 'storage limit exceeded';
+                        if (error.message.includes(limitExceededError)) {
+                            dispatch('error', `Error: ${limitExceededError}`, { root:true });
+                        } else {
+                            dispatch('error', error.message, { root:true });
+                        }
+                    }
 
-              await dispatch("list");
+                    await dispatch('list');
 
-              const uploadedFiles = state.files.filter(
-                  (file) => file.type === "file"
-              );
+                    const uploadedFiles = state.files.filter(
+                        (file) => file.type === 'file',
+                    );
 
-              if (uploadedFiles.length === 1) {
-                  if (state.openModalOnFirstUpload === true) {
-                      commit("openModal", params.Key);
-                  }
-              }
+                    if (uploadedFiles.length === 1) {
+                        if (state.openModalOnFirstUpload === true) {
+                            commit('openModal', params.Key);
+                        }
+                    }
 
-              commit("finishUpload", params.Key);
-          });
-      }
+                    commit('finishUpload', params.Key);
+                });
+            }
         },
 
         async createFolder({ state, dispatch }, name) {
@@ -529,16 +537,16 @@ export const makeFilesModule = (): FilesModule => ({
             await state.s3
                 .putObject({
                     Bucket: state.bucket,
-                    Key: state.path + name + "/.file_placeholder",
+                    Key: state.path + name + '/.file_placeholder',
                 })
                 .promise();
 
-            dispatch("list");
+            dispatch('list');
         },
 
         async delete(
             { commit, dispatch, state }: FilesContext,
-            { path, file, folder }
+            { path, file, folder },
         ) {
             assertIsInitialized(state);
 
@@ -550,8 +558,8 @@ export const makeFilesModule = (): FilesModule => ({
                 .promise();
 
             if (!folder) {
-                await dispatch("list");
-                commit("removeFileToBeDeleted", file);
+                await dispatch('list');
+                commit('removeFileToBeDeleted', file);
             }
         },
 
@@ -564,35 +572,35 @@ export const makeFilesModule = (): FilesModule => ({
                 const { Contents, CommonPrefixes } = await state.s3
                     .listObjects({
                         Bucket: state.bucket,
-                        Delimiter: "/",
+                        Delimiter: '/',
                         Prefix: filePath,
                     })
                     .promise();
 
                 if (Contents === undefined) {
                     throw new Error(
-                        'Bad S3 listObjects() response: "Contents" undefined'
+                        'Bad S3 listObjects() response: "Contents" undefined',
                     );
                 }
 
                 if (CommonPrefixes === undefined) {
                     throw new Error(
-                        'Bad S3 listObjects() response: "CommonPrefixes" undefined'
+                        'Bad S3 listObjects() response: "CommonPrefixes" undefined',
                     );
                 }
 
                 async function thread() {
                     if (Contents === undefined) {
                         throw new Error(
-                            'Bad S3 listObjects() response: "Contents" undefined'
+                            'Bad S3 listObjects() response: "Contents" undefined',
                         );
                     }
 
                     while (Contents.length) {
                         const file = Contents.pop();
 
-                        await dispatch("delete", {
-                            path: "",
+                        await dispatch('delete', {
+                            path: '',
                             file,
                             folder: true,
                         });
@@ -606,10 +614,10 @@ export const makeFilesModule = (): FilesModule => ({
                 }
             }
 
-            await recurse(path.length > 0 ? path + file.Key : file.Key + "/");
+            await recurse(path.length > 0 ? path + file.Key : file.Key + '/');
 
-            commit("removeFileToBeDeleted", file);
-            await dispatch("list");
+            commit('removeFileToBeDeleted', file);
+            await dispatch('list');
         },
 
         async deleteSelected({ state, dispatch, commit }) {
@@ -622,35 +630,35 @@ export const makeFilesModule = (): FilesModule => ({
                 filesToDelete.push(state.selectedAnchorFile);
             }
 
-            commit("setFilesToBeDeleted", filesToDelete);
+            commit('setFilesToBeDeleted', filesToDelete);
 
             await Promise.all(
                 filesToDelete.map(async (file) => {
-                    if (file.type === "file")
-                        await dispatch("delete", {
+                    if (file.type === 'file')
+                        await dispatch('delete', {
                             file,
                             path: state.path,
                         });
                     else
-                        await dispatch("deleteFolder", {
+                        await dispatch('deleteFolder', {
                             file,
                             path: state.path,
                         });
-                })
+                }),
             );
 
-            dispatch("clearAllSelectedFiles");
+            dispatch('clearAllSelectedFiles');
         },
 
         async download({ state }, file) {
             assertIsInitialized(state);
 
-            const url = state.s3.getSignedUrl("getObject", {
+            const url = state.s3.getSignedUrl('getObject', {
                 Bucket: state.bucket,
                 Key: state.path + file.Key,
             });
             const downloadURL = function(data, fileName) {
-                const a = document.createElement("a");
+                const a = document.createElement('a');
                 a.href = data;
                 a.download = fileName;
                 a.click();
@@ -660,53 +668,53 @@ export const makeFilesModule = (): FilesModule => ({
         },
 
         updateSelectedFiles({ commit }, files) {
-            commit("setSelectedFiles", [...files]);
+            commit('setSelectedFiles', [...files]);
         },
 
         updateShiftSelectedFiles({ commit }, files) {
-            commit("setShiftSelectedFiles", files);
+            commit('setShiftSelectedFiles', files);
         },
 
         addFileToBeDeleted({ commit }, file) {
-            commit("setFilesToBeDeleted", [file]);
+            commit('setFilesToBeDeleted', [file]);
         },
 
         removeFileFromToBeDeleted({ commit }, file) {
-            commit("removeFileToBeDeleted", file);
+            commit('removeFileToBeDeleted', file);
         },
 
         clearAllSelectedFiles({ commit, state }) {
             if (state.selectedAnchorFile || state.unselectedAnchorFile) {
-                commit("removeAllSelectedFiles");
+                commit('removeAllSelectedFiles');
             }
         },
 
         openDropdown({ commit, dispatch }, id) {
-            dispatch("clearAllSelectedFiles");
-            commit("setOpenedDropdown", id);
+            dispatch('clearAllSelectedFiles');
+            commit('setOpenedDropdown', id);
         },
 
         closeDropdown({ commit }) {
-            commit("setOpenedDropdown", null);
+            commit('setOpenedDropdown', null);
         },
 
         openFileBrowserDropdown({ commit }) {
-            commit("setOpenedDropdown", "FileBrowser");
+            commit('setOpenedDropdown', 'FileBrowser');
         },
 
         updateCreateFolderInputShow({ commit }, value) {
-            commit("setCreateFolderInputShow", value);
+            commit('setCreateFolderInputShow', value);
         },
 
         cancelUpload({ commit, state }, key) {
             const file = state.uploading.find((file) => file.Key === key);
 
-            if (typeof file === "object") {
+            if (typeof file === 'object') {
                 if (file.progress !== undefined && file.upload && file.progress > 0) {
                     file.upload.abort();
                 }
 
-                commit("finishUpload", key);
+                commit('finishUpload', key);
             } else {
                 throw new Error(`File ${JSON.stringify(key)} not found`);
             }
@@ -714,19 +722,23 @@ export const makeFilesModule = (): FilesModule => ({
 
         closeAllInteractions({ commit, state, dispatch }) {
             if (state.modalPath) {
-                commit("closeModal");
+                commit('closeModal');
             }
 
             if (state.fileShareModal) {
-                commit("closeFileShareModal");
+                commit('closeFileShareModal');
             }
 
             if (state.openedDropdown) {
-                dispatch("closeDropdown");
+                dispatch('closeDropdown');
             }
 
             if (state.selectedAnchorFile) {
-                dispatch("clearAllSelectedFiles");
+                dispatch('clearAllSelectedFiles');
+            }
+
+            if (state.createFolderInputShow) {
+                commit('closeNewFolderModal');
             }
         },
     },

@@ -18,14 +18,18 @@ import (
 	"storj.io/common/encryption"
 	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
 )
+
+const encryptedKeySize = 48
 
 var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
@@ -122,6 +126,12 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	if err != nil {
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+	}
+
+	endpoint.top.Project(keyInfo.ProjectID.String())
+	endpoint.top.Partner(keyInfo.PartnerID.String())
+	if keyInfo.UserAgent != nil {
+		endpoint.top.UserAgent(string(keyInfo.UserAgent))
 	}
 
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
@@ -287,6 +297,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 
 	pieceNums := make(map[uint16]struct{})
 	nodeIds := make(map[storj.NodeID]struct{})
+	deriver := commitRequest.RootPieceID.Deriver()
 	for _, piece := range commitRequest.Pieces {
 		if int(piece.Number) >= len(originalLimits) {
 			return Error.New("invalid piece number")
@@ -307,7 +318,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 			return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
 		}
 
-		derivedPieceID := commitRequest.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		derivedPieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
 		if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 			return Error.New("invalid order limit piece id")
 		}
@@ -331,9 +342,13 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 }
 
 func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
-	validateSegments := endpoint.config.ProjectLimits.ValidateSegmentLimit
+	return endpoint.checkUploadLimitsForNewObject(ctx, projectID, 1, 1)
+}
 
-	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, validateSegments); err != nil {
+func (endpoint *Endpoint) checkUploadLimitsForNewObject(
+	ctx context.Context, projectID uuid.UUID, newObjectSize int64, newObjectSegmentCount int64,
+) error {
+	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount); err != nil {
 		if errs2.IsCanceled(err) {
 			return rpcstatus.Wrap(rpcstatus.Canceled, err)
 		}
@@ -344,7 +359,7 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.
 			zap.Error(err),
 		)
 	} else {
-		if validateSegments && limit.ExceedsSegments {
+		if limit.ExceedsSegments {
 			endpoint.log.Warn("Segment limit exceeded",
 				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
 				zap.Stringer("Project ID", projectID),
@@ -364,8 +379,16 @@ func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.
 	return nil
 }
 
-func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
-	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, segmentSize); err != nil {
+func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
+	return endpoint.addToUploadLimits(ctx, projectID, segmentSize, 1)
+}
+
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size int64, segmentCount int64) error {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, size); err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
 		// log it and continue. it's most likely our own fault that we couldn't
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth and storage limits.
@@ -375,24 +398,62 @@ func (endpoint *Endpoint) updateUploadLimits(ctx context.Context, projectID uuid
 		)
 	}
 
-	if endpoint.config.ProjectLimits.ValidateSegmentLimit {
-		// Update the current segment cache value incrementing by 1 as we commit single segment.
-		err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, 1)
-		if err != nil {
-			if errs2.IsCanceled(err) {
-				return rpcstatus.Wrap(rpcstatus.Canceled, err)
-			}
+	err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
+	if err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
 
-			// log it and continue. it's most likely our own fault that we couldn't
-			// track it, and the only thing that will be affected is our per-project
-			// segment limits.
-			endpoint.log.Error(
-				"Could not track the new project's segment usage when committing segment",
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// segment limits.
+		endpoint.log.Error(
+			"Could not track the new project's segment usage when committing",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
+	err = endpoint.projectUsage.AddProjectUsageUpToLimit(ctx, projectID, storage, segments)
+
+	if err != nil {
+		if accounting.ErrProjectLimitExceeded.Has(err) {
+			endpoint.log.Warn("Upload limit exceeded",
 				zap.Stringer("Project ID", projectID),
 				zap.Error(err),
 			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
 		}
+
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		endpoint.log.Error(
+			"Updating project upload limits failed; limits won't be enforced",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
 	}
 
+	return nil
+}
+
+// checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
+// is serialized to storj.Nonce automatically.
+func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encryptedKey []byte) error {
+	metadataSize := memory.Size(len(encryptedMetadata))
+	if metadataSize > endpoint.config.MaxMetadataSize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
+	}
+
+	// verify key only if any metadata was set
+	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
+	}
 	return nil
 }

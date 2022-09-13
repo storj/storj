@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zeebo/clingy"
@@ -26,7 +27,7 @@ func (c *cmdAccessRemove) Setup(params clingy.Parameters) {
 	c.access = params.Arg("name", "Access name to delete").(string)
 }
 
-func (c *cmdAccessRemove) Execute(ctx clingy.Context) error {
+func (c *cmdAccessRemove) Execute(ctx context.Context) error {
 	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
@@ -44,7 +45,7 @@ func (c *cmdAccessRemove) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx, "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
+	fmt.Fprintf(clingy.Stdout(ctx), "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
 
 	return nil
 }

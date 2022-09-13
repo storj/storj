@@ -71,6 +71,8 @@ func TestGraphqlQuery(t *testing.T) {
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -81,7 +83,6 @@ func TestGraphqlQuery(t *testing.T) {
 
 		service, err := console.NewService(
 			log.Named("console"),
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
@@ -89,11 +90,21 @@ func TestGraphqlQuery(t *testing.T) {
 			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
+			db.Billing(),
 			analyticsService,
+			consoleauth.NewService(consoleauth.Config{
+				TokenExpirationTime: 24 * time.Hour,
+			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				TokenExpirationTime: 24 * time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -152,18 +163,16 @@ func TestGraphqlQuery(t *testing.T) {
 			rootUser.Email = "mtest@mail.test"
 		})
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx := console.WithAuth(ctx, sauth)
 
 		testQuery := func(t *testing.T, query string) interface{} {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
-				Context:       authCtx,
+				Context:       userCtx,
 				RequestString: query,
 				RootObject:    rootObject,
 			})
@@ -176,7 +185,7 @@ func TestGraphqlQuery(t *testing.T) {
 			return result.Data
 		}
 
-		createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
+		createdProject, err := service.CreateProject(userCtx, console.ProjectInfo{
 			Name: "TestProject",
 		})
 		require.NoError(t, err)
@@ -207,7 +216,7 @@ func TestGraphqlQuery(t *testing.T) {
 		regTokenUser1, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		user1, err := service.CreateUser(authCtx, console.CreateUser{
+		user1, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName:  "Mickey Last",
 			ShortName: "Last",
 			Password:  "123a123",
@@ -230,7 +239,7 @@ func TestGraphqlQuery(t *testing.T) {
 		regTokenUser2, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		user2, err := service.CreateUser(authCtx, console.CreateUser{
+		user2, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName:  "Dubas Name",
 			ShortName: "Name",
 			Email:     "muu2@mail.test",
@@ -250,7 +259,7 @@ func TestGraphqlQuery(t *testing.T) {
 			user2.Email = "muu2@mail.test"
 		})
 
-		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
+		users, err := service.AddProjectMembers(userCtx, createdProject.ID, []string{
 			user1.Email,
 			user2.Email,
 		})
@@ -313,10 +322,10 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundU2)
 		})
 
-		keyInfo1, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key1")
+		keyInfo1, _, err := service.CreateAPIKey(userCtx, createdProject.ID, "key1")
 		require.NoError(t, err)
 
-		keyInfo2, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key2")
+		keyInfo2, _, err := service.CreateAPIKey(userCtx, createdProject.ID, "key2")
 		require.NoError(t, err)
 
 		t.Run("Project query api keys", func(t *testing.T) {
@@ -369,7 +378,7 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundKey2)
 		})
 
-		project2, err := service.CreateProject(authCtx, console.ProjectInfo{
+		project2, err := service.CreateProject(userCtx, console.ProjectInfo{
 			Name:        "Project2",
 			Description: "Test desc",
 		})

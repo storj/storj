@@ -352,6 +352,8 @@ func (loop *Service) Wait() {
 var errNoObservers = errs.New("no observers")
 
 func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerContext) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	defer func() {
 		if err != nil {
 			errorObservers(observers, err)

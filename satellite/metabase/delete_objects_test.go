@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -455,6 +457,35 @@ func TestDeleteZombieObjects(t *testing.T) {
 					metabase.RawSegment(expectedObj3Segment),
 				},
 			}.Check(ctx, t, db)
+		})
+
+		// pending objects migrated to metabase doesn't have zombie_deletion_deadline
+		// column set correctly but we need to delete them too
+		t.Run("migrated objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: obj1,
+			})
+			require.NoError(t, err)
+
+			// metabase is always setting default value for zombie_deletion_deadline
+			// so we need to set it manually
+			_, err = db.UnderlyingTagSQL().Exec(ctx, "UPDATE objects SET zombie_deletion_deadline = NULL")
+			require.NoError(t, err)
+
+			objects, err := db.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Nil(t, objects[0].ZombieDeletionDeadline)
+
+			metabasetest.DeleteZombieObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now,
+					InactiveDeadline: now.Add(1 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 	})
 }

@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
 const localVue = createLocalVue();
 
@@ -13,7 +14,7 @@ describe('PaymentsHistoryItemDate', (): void => {
         const startDate = new Date(2019, 1, 1, 1, 1, 1, 1);
         const expirationDate = new Date(0, 1, 1, 1, 1, 1, 1);
 
-        jest.useFakeTimers("modern");
+        jest.useFakeTimers('modern');
         jest.setSystemTime(startDate);
 
         const wrapper = mount(PaymentsHistoryItemDate, {
@@ -32,7 +33,7 @@ describe('PaymentsHistoryItemDate', (): void => {
         const startDate = new Date(2019, 5, 5, 5, 5, 5, 5);
         const expirationDate = new Date(0, 1, 1, 1, 1, 1, 1);
 
-        jest.useFakeTimers("modern");
+        jest.useFakeTimers('modern');
         jest.setSystemTime(startDate);
 
         const wrapper = mount(PaymentsHistoryItemDate, {
@@ -52,7 +53,7 @@ describe('PaymentsHistoryItemDate', (): void => {
         const expirationDate = new Date(2019, 5, 5, 6, 5, 5, 5);
         const testTimeNow = expirationDate.getTime();
 
-        jest.useFakeTimers("modern");
+        jest.useFakeTimers('modern');
         jest.setSystemTime(testTimeNow);
 
         const wrapper = mount(PaymentsHistoryItemDate, {

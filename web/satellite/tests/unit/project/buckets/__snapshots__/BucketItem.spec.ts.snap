@@ -2,10 +2,29 @@
 
 exports[`BucketItem.vue renders correctly 1`] = `
 <div class="container">
-  <p title="name" class="container__item name">name</p>
-  <p class="container__item">1.00GB</p>
-  <p class="container__item">1.00GB</p>
-  <p class="container__item">1</p>
-  <p class="container__item">1</p>
+  <div title="name" class="container__header">
+    <bucketicon-stub class="container__header__icon"></bucketicon-stub>
+    <p class="container__header__name">name</p>
+  </div>
+  <div class="container__item">
+    <div class="container__item__inner">
+      <p class="container__item__inner__label">Storage</p>
+      <p class="container__item__inner__value">1.00GB</p>
+    </div>
+    <div class="container__item__inner">
+      <p class="container__item__inner__label">Bandwidth</p>
+      <p class="container__item__inner__value">1.00GB</p>
+    </div>
+  </div>
+  <div class="container__item">
+    <div class="container__item__inner">
+      <p class="container__item__inner__label">Objects</p>
+      <p class="container__item__inner__value">1</p>
+    </div>
+    <div class="container__item__inner">
+      <p class="container__item__inner__label">Segments</p>
+      <p class="container__item__inner__value">1</p>
+    </div>
+  </div>
 </div>
 `;

@@ -49,7 +49,7 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowLists = params.Flag("disallow-lists", "Disallow lists with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
-	ap.disallowReads = params.Flag("disallow-reads", "Disallow reasd with the access", false,
+	ap.disallowReads = params.Flag("disallow-reads", "Disallow reads with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)

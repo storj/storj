@@ -16,12 +16,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import ProgressBar from '@/components/accessGrants/ProgressBar.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 
 // @vue/component
 @Component({
@@ -31,11 +32,15 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class CreateAccessGrant extends Vue {
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Closes popup.
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.$router.push(RouteConfig.AccessGrants.path);
     }
 

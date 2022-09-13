@@ -3,28 +3,27 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
+import { RouteRecord } from 'vue-router';
 
-import {AccessGrantsApiGql} from '@/api/accessGrants';
-import {AuthHttpApi} from '@/api/auth';
-import {BucketsApiGql} from '@/api/buckets';
-import {PaymentsHttpApi} from '@/api/payments';
-import {ProjectMembersApiGql} from '@/api/projectMembers';
-import {ProjectsApiGql} from '@/api/projects';
-import {notProjectRelatedRoutes, RouteConfig, router} from '@/router';
-import {AccessGrantsState, makeAccessGrantsModule} from '@/store/modules/accessGrants';
-import {appStateModule} from '@/store/modules/appState';
-import {makeBucketsModule} from '@/store/modules/buckets';
-import {makeNotificationsModule, NotificationsState} from '@/store/modules/notifications';
-import {makeObjectsModule, OBJECTS_ACTIONS, ObjectsState} from '@/store/modules/objects';
-import {makePaymentsModule, PaymentsState} from '@/store/modules/payments';
-import {makeProjectMembersModule, ProjectMembersState} from '@/store/modules/projectMembers';
-import {makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState} from '@/store/modules/projects';
-import {makeUsersModule} from '@/store/modules/users';
-import {User} from '@/types/users';
-
-import {FilesState, makeFilesModule} from '@/store/modules/files';
-import {RouteRecord} from "vue-router";
-import {NavigationLink} from "@/types/navigation";
+import { AccessGrantsApiGql } from '@/api/accessGrants';
+import { AuthHttpApi } from '@/api/auth';
+import { BucketsApiGql } from '@/api/buckets';
+import { PaymentsHttpApi } from '@/api/payments';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectsApiGql } from '@/api/projects';
+import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
+import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
+import { appStateModule } from '@/store/modules/appState';
+import { makeBucketsModule } from '@/store/modules/buckets';
+import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
+import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
+import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
+import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeUsersModule } from '@/store/modules/users';
+import { User } from '@/types/users';
+import { FilesState, makeFilesModule } from '@/store/modules/files';
+import { NavigationLink } from '@/types/navigation';
 
 Vue.use(Vuex);
 
@@ -41,8 +40,8 @@ const paymentsApi = new PaymentsHttpApi();
 const webWorkerFactory = {
     create(): Worker {
         return new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
-    }
-}
+    },
+};
 
 export interface ModulesState {
     notificationsModule: NotificationsState;
@@ -95,7 +94,6 @@ export default store;
   store and the router. Many of the tests require router, however, this implementation
   relies on store state for the routing behavior.
 */
-
 router.beforeEach(async (to, _, next) => {
     if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
@@ -127,13 +125,7 @@ router.beforeEach(async (to, _, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
-        if (store.state.appStateModule.isNewObjectsFlow) {
-            next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-
-            return;
-        }
-
-        next(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
 
         return;
     }

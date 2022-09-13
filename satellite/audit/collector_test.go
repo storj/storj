@@ -26,9 +26,9 @@ import (
 // - create a audit observer and call metaloop.Join(auditObs)
 //
 // Then for every node in testplanet:
-//    - expect that there is a reservoir for that node on the audit observer
-//    - that the reservoir size is <= 2 (the maxReservoirSize)
-//    - that every item in the reservoir is unique
+//   - expect that there is a reservoir for that node on the audit observer
+//   - that the reservoir size is <= 2 (the maxReservoirSize)
+//   - that every item in the reservoir is unique
 func TestAuditCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,

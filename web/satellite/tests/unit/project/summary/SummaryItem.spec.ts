@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import SummaryItem from '@/components/project/summary/SummaryItem.vue';
-
 import { createLocalVue, mount } from '@vue/test-utils';
+
+import SummaryItem from '@/components/project/summary/SummaryItem.vue';
 
 const localVue = createLocalVue();
 

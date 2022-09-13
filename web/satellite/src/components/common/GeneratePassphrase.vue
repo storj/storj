@@ -48,7 +48,7 @@
                 />
             </div>
             <div v-else class="encrypt-container__functional__enter">
-                <HeaderlessInput
+                <VInput
                     label="Your Passphrase"
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
@@ -97,18 +97,18 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
-import { LocalData, UserIDPassSalt } from "@/utils/localData";
-import { Download } from "@/utils/download";
+import { LocalData, UserIDPassSalt } from '@/utils/localData';
+import { Download } from '@/utils/download';
 
 import VButton from '@/components/common/VButton.vue';
-import VInfo from "@/components/common/VInfo.vue";
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
-import VCheckbox from "@/components/common/VCheckbox.vue";
+import VInfo from '@/components/common/VInfo.vue';
+import VInput from '@/components/common/VInput.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
-import EncryptIcon from "@/../static/images/objects/encrypt.svg";
-import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
+import EncryptIcon from '@/../static/images/objects/encrypt.svg';
+import InfoIcon from '@/../static/images/common/smallGreyInfo.svg';
 
 // @vue/component
 @Component({
@@ -117,7 +117,7 @@ import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
         InfoIcon,
         VInfo,
         VButton,
-        HeaderlessInput,
+        VInput,
         VCheckbox,
     },
 })
@@ -402,7 +402,7 @@ export default class GeneratePassphrase extends Vue {
         fill: #0149ff;
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 440px;
     }
 </style>

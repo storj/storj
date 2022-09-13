@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { DataStamp } from "@/types/projects";
+import { DataStamp } from '@/types/projects';
 
 export class ChartUtils {
     /**
@@ -29,7 +29,7 @@ export class ChartUtils {
         // Fill new array.
         for (let i = 0; i < datesArr.length; i++) {
             // Find in fetched data a day-data value that corresponds to current iterable date.
-            const foundData = fetchedData.find(el => el.intervalStart.getTime() === datesArr[i].getTime())
+            const foundData = fetchedData.find(el => el.intervalStart.getTime() === datesArr[i].getTime());
             // If found then fill new array with appropriate day-data value.
             if (foundData) {
                 chartData[i] = foundData;
@@ -61,7 +61,7 @@ export class ChartUtils {
         // Fill the data points array with correct data points labels.
         while (since <= to) {
             arr.push(`${since.getMonth() + 1}/${since.getDate()}`);
-            since.setDate(since.getDate() + 1)
+            since.setDate(since.getDate() + 1);
         }
 
         return arr;

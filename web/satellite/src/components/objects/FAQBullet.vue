@@ -26,9 +26,9 @@ import MinusIcon from '@/../static/images/common/minus.svg';
     },
 })
 export default class FAQBullet extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly title: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly text: string;
 
     public isExpanded = false;

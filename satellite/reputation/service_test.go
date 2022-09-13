@@ -99,8 +99,8 @@ func TestApplyAudit(t *testing.T) {
 
 		expectedAuditAlpha := config.AuditLambda*auditAlpha + config.AuditWeight
 		expectedAuditBeta := config.AuditLambda * auditBeta
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.InDelta(t, stats.AuditReputationAlpha, expectedAuditAlpha, 1e-8)
+		require.InDelta(t, stats.AuditReputationBeta, expectedAuditBeta, 1e-8)
 
 		auditAlpha = expectedAuditAlpha
 		auditBeta = expectedAuditBeta
@@ -113,8 +113,8 @@ func TestApplyAudit(t *testing.T) {
 
 		expectedAuditAlpha = config.AuditLambda * auditAlpha
 		expectedAuditBeta = config.AuditLambda*auditBeta + config.AuditWeight
-		require.EqualValues(t, stats.AuditReputationAlpha, expectedAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, expectedAuditBeta)
+		require.InDelta(t, stats.AuditReputationAlpha, expectedAuditAlpha, 1e-8)
+		require.InDelta(t, stats.AuditReputationBeta, expectedAuditBeta, 1e-8)
 
 	})
 }
@@ -125,14 +125,16 @@ func TestGet(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		service := planet.Satellites[0].Reputation.Service
+		repConfig := planet.Satellites[0].Config.Reputation
 
 		// existing node has not been audited yet should have default reputation
 		// score
 		node, err := service.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Zero(t, node.TotalAuditCount)
-		require.EqualValues(t, 1, node.AuditReputationAlpha)
-		require.EqualValues(t, 1, node.UnknownAuditReputationAlpha)
+		require.InDelta(t, repConfig.InitialAlpha, node.AuditReputationAlpha, 1e-8)
+		require.InDelta(t, repConfig.InitialBeta, node.AuditReputationBeta, 1e-8)
+		require.InDelta(t, 1, node.UnknownAuditReputationAlpha, 1e-8)
 		require.EqualValues(t, 1, node.OnlineScore)
 
 		// if a node has no entry in reputation store, it should have default
@@ -140,8 +142,9 @@ func TestGet(t *testing.T) {
 		newNode, err := service.Get(ctx, testrand.NodeID())
 		require.NoError(t, err)
 		require.Zero(t, newNode.TotalAuditCount)
-		require.EqualValues(t, 1, newNode.AuditReputationAlpha)
-		require.EqualValues(t, 1, newNode.UnknownAuditReputationAlpha)
+		require.InDelta(t, repConfig.InitialAlpha, newNode.AuditReputationAlpha, 1e-8)
+		require.InDelta(t, repConfig.InitialBeta, newNode.AuditReputationBeta, 1e-8)
+		require.InDelta(t, 1, newNode.UnknownAuditReputationAlpha, 1e-8)
 		require.EqualValues(t, 1, newNode.OnlineScore)
 	})
 }
@@ -151,6 +154,7 @@ func TestDisqualificationAuditFailure(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.4

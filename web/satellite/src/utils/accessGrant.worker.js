@@ -16,16 +16,16 @@ self.onmessage = async function (event) {
     case 'Setup':
         try {
             const go = new global.Go();
-            const response = await fetch('/static/static/wasm/access.wasm')
+            const response = await fetch('/static/static/wasm/access.wasm');
             const buffer = await response.arrayBuffer();
             const module = await WebAssembly.compile(buffer);
             const instance = await WebAssembly.instantiate(module, go.importObject);
 
-            go.run(instance)
+            go.run(instance);
 
             self.postMessage('configured');
         } catch (e) {
-            self.postMessage(new Error(e.message))
+            self.postMessage(new Error(e.message));
         }
 
         break;
@@ -71,7 +71,7 @@ self.onmessage = async function (event) {
             if (notBefore) permission.NotBefore = notBefore;
             if (notAfter) permission.NotAfter = notAfter;
 
-            if (data.type === "SetPermission") {
+            if (data.type === 'SetPermission') {
                 const buckets = data.buckets;
                 apiKey = data.apiKey;
                 result = self.setAPIKeyPermission(apiKey, buckets, permission);

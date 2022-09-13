@@ -45,7 +45,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 			Description: stripe.String(stripecoinpayments.StripeDepositTransactionDescription),
 		}
 		txParams.AddMetadata("txID", txID)
-		_, err = satellite.API.Payments.Stripe.CustomerBalanceTransactions().New(&txParams)
+		_, err = satellite.API.Payments.StripeClient.CustomerBalanceTransactions().New(&txParams)
 		require.NoError(t, err)
 
 		// Credit the Stripe balance with a 13% bonus - $1.30
@@ -56,7 +56,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 		}
 		txParams.AddMetadata("txID", txID)
 		txParams.AddMetadata("percentage", "13")
-		bonusTx, err := satellite.API.Payments.Stripe.CustomerBalanceTransactions().New(&txParams)
+		bonusTx, err := satellite.API.Payments.StripeClient.CustomerBalanceTransactions().New(&txParams)
 		require.NoError(t, err)
 
 		// Add migrated deposit bonus to Stripe metadata
@@ -72,7 +72,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 		customerParams.Metadata = map[string]string{
 			"credit_" + credit.TransactionID.String(): string(b),
 		}
-		_, err = satellite.API.Payments.Stripe.Customers().Update(customerID, &customerParams)
+		_, err = satellite.API.Payments.StripeClient.Customers().Update(customerID, &customerParams)
 		require.NoError(t, err)
 
 		// Expect the list to contain the 10% bonus from Stripe metadata and 13% bonus from Stripe balance

@@ -14,7 +14,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { Component, Prop, Vue } from 'vue-property-decorator';
 import DatePicker from 'vue2-datepicker';
 
 // @vue/component
@@ -25,11 +25,11 @@ import DatePicker from 'vue2-datepicker';
 })
 export default class VDateRangePicker extends Vue {
     @Prop({ default: false })
-    public readonly isOpen: boolean
+    public readonly isOpen: boolean;
     @Prop({ default: () => false })
-    public readonly onDatePick: (dateRange: Date[]) => void
+    public readonly onDatePick: (dateRange: Date[]) => void;
     @Prop({ default: undefined })
-    public readonly dateRange: Date[]
+    public readonly dateRange: Date[];
 }
 </script>
 
@@ -46,7 +46,7 @@ export default class VDateRangePicker extends Vue {
     }
 
     .mx-calendar {
-        width: 50%;
+        width: 100%;
     }
 
     .mx-date-row {
@@ -106,5 +106,21 @@ export default class VDateRangePicker extends Vue {
         width: 20px;
         height: 20px;
         border-width: 4px 0 0 4px;
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .range-selection__popup {
+            width: 320px !important;
+        }
+
+        .mx-range-wrapper {
+            flex-direction: column;
+        }
+
+        .mx-calendar + .mx-calendar {
+            border-left: none;
+            border-top: 1px solid #e8e8e8;
+        }
     }
 </style>

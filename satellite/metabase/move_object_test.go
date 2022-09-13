@@ -33,71 +33,49 @@ func TestBeginMoveObject(t *testing.T) {
 			})
 		}
 
-		t.Run("invalid version", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.BeginMoveObject{
-				Opts: metabase.BeginMoveObject{
-					ObjectLocation: obj.Location(),
-					Version:        0,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Version invalid: 0",
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
 		t.Run("begin move object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			expectedMetadataNonce := testrand.Nonce()
-			expectedMetadataKey := testrand.Bytes(265)
-			expectedObject, _ := metabasetest.CreateTestObject{
-				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					OverrideEncryptedMetadata:     true,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        expectedMetadataNonce[:],
-					EncryptedMetadataEncryptedKey: expectedMetadataKey,
-				},
-			}.Run(ctx, t, db, obj, 10)
+			expectedRawObjects := []metabase.RawObject{}
+			expectedRawSegments := []metabase.RawSegment{}
 
-			var encKeyAndNonces []metabase.EncryptedKeyAndNonce
-			expectedRawSegments := make([]metabase.RawSegment, 10)
-			for i := range expectedRawSegments {
-				expectedRawSegments[i] = metabasetest.DefaultRawSegment(expectedObject.ObjectStream, metabase.SegmentPosition{
-					Index: uint32(i),
-				})
-				expectedRawSegments[i].PlainOffset = int64(i) * int64(expectedRawSegments[i].PlainSize)
-				expectedRawSegments[i].EncryptedSize = 1060
+			for _, expectedVersion := range []metabase.Version{1, 2, 3, 11} {
+				obj.StreamID = testrand.UUID()
+				obj.Version = expectedVersion
+				expectedObject, expectedSegments := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream: obj,
+					},
+				}.Run(ctx, t, db, obj, 10)
 
-				encKeyAndNonces = append(encKeyAndNonces, metabase.EncryptedKeyAndNonce{
-					EncryptedKeyNonce: expectedRawSegments[i].EncryptedKeyNonce,
-					EncryptedKey:      expectedRawSegments[i].EncryptedKey,
-					Position:          expectedRawSegments[i].Position,
-				})
+				expectedRawObjects = append(expectedRawObjects, metabase.RawObject(expectedObject))
+
+				var encKeyAndNonces []metabase.EncryptedKeyAndNonce
+				for _, expectedSegment := range expectedSegments {
+					encKeyAndNonces = append(encKeyAndNonces, metabase.EncryptedKeyAndNonce{
+						EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
+						EncryptedKey:      expectedSegment.EncryptedKey,
+						Position:          expectedSegment.Position,
+					})
+
+					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment(expectedSegment))
+				}
+
+				metabasetest.BeginMoveObject{
+					Opts: metabase.BeginMoveObject{
+						ObjectLocation: obj.Location(),
+					},
+					Result: metabase.BeginMoveObjectResult{
+						StreamID:             expectedObject.StreamID,
+						Version:              expectedVersion,
+						EncryptedKeysNonces:  encKeyAndNonces,
+						EncryptionParameters: expectedObject.Encryption,
+					},
+				}.Check(ctx, t, db)
 			}
 
-			metabasetest.BeginMoveObject{
-				Opts: metabase.BeginMoveObject{
-					Version:        expectedObject.Version,
-					ObjectLocation: obj.Location(),
-				},
-				Result: metabase.BeginMoveObjectResult{
-					StreamID:                  expectedObject.StreamID,
-					EncryptedMetadata:         expectedObject.EncryptedMetadata,
-					EncryptedMetadataKey:      expectedMetadataKey,
-					EncryptedMetadataKeyNonce: expectedMetadataNonce[:],
-					EncryptedKeysNonces:       encKeyAndNonces,
-					EncryptionParameters:      expectedObject.Encryption,
-				},
-			}.Check(ctx, t, db)
-
 			metabasetest.Verify{
-				Objects: []metabase.RawObject{
-					metabase.RawObject(expectedObject),
-				},
+				Objects:  expectedRawObjects,
 				Segments: expectedRawSegments,
 			}.Check(ctx, t, db)
 		})
@@ -161,35 +139,81 @@ func TestFinishMoveObject(t *testing.T) {
 		t.Run("invalid EncryptedMetadataKeyNonce", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.FinishMoveObject{
-				Opts: metabase.FinishMoveObject{
-					NewBucket:               newBucketName,
-					ObjectStream:            obj,
-					NewEncryptedObjectKey:   []byte{0},
-					NewEncryptedMetadataKey: []byte{0},
+			numberOfSegments := 10
+			newObjectKey := testrand.Bytes(32)
+			newEncryptedMetadataKey := testrand.Bytes(32)
+
+			newObj, segments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
 				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedMetadataKeyNonce is missing",
-			}.Check(ctx, t, db)
+			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, newObj.SegmentCount)
 
 			metabasetest.FinishMoveObject{
 				Opts: metabase.FinishMoveObject{
 					NewBucket:                    newBucketName,
 					ObjectStream:                 obj,
-					NewEncryptedObjectKey:        []byte{0},
-					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewSegmentKeys:               newEncryptedKeysNonces,
+					NewEncryptedObjectKey:        newObjectKey,
+					NewEncryptedMetadataKeyNonce: storj.Nonce{},
+					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "EncryptedMetadataKeyNonce is missing",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(newObj),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("invalid EncryptedMetadataKey", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			numberOfSegments := 10
+			newObjectKey := testrand.Bytes(32)
+
+			newObj, segments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, obj, byte(numberOfSegments))
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, newObj.SegmentCount)
+			newEncryptedMetadataKeyNonce := testrand.Nonce()
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket:                    newBucketName,
+					ObjectStream:                 obj,
+					NewSegmentKeys:               newEncryptedKeysNonces,
+					NewEncryptedObjectKey:        newObjectKey,
+					NewEncryptedMetadataKeyNonce: newEncryptedMetadataKeyNonce,
+					NewEncryptedMetadataKey:      nil,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedMetadataKey is missing",
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(newObj),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
 		})
 
 		t.Run("empty EncryptedMetadataKey and EncryptedMetadataKeyNonce", func(t *testing.T) {
@@ -257,7 +281,7 @@ func TestFinishMoveObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("less amount of segments", func(t *testing.T) {
+		t.Run("not enough segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
@@ -302,7 +326,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataKey:      newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "wrong amount of segments keys received",
+				ErrText:  "wrong number of segments keys received",
 			}.Check(ctx, t, db)
 		})
 
@@ -355,7 +379,98 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		// Assert that an error occurs when  a new object is put at the key (different stream_id)
+		// between BeginMoveObject and FinishMoveObject,
+		t.Run("source object changed", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			newObj, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					OverrideEncryptedMetadata:     true,
+					EncryptedMetadata:             testrand.Bytes(64),
+					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
+					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+				},
+			}.Run(ctx, t, db, obj, 2)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					NewBucket: newBucketName,
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  newObj.ProjectID,
+						BucketName: newObj.BucketName,
+						ObjectKey:  newObj.ObjectKey,
+						Version:    newObj.Version,
+						StreamID:   testrand.UUID(),
+					},
+					NewSegmentKeys: []metabase.EncryptedKeyAndNonce{
+						metabasetest.RandEncryptedKeyAndNonce(0),
+						metabasetest.RandEncryptedKeyAndNonce(1),
+					},
+					NewEncryptedObjectKey:        testrand.Bytes(32),
+					NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+					NewEncryptedMetadataKey:      testrand.Bytes(32),
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "object was changed during move",
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("finish move object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expectedRawObjects := []metabase.RawObject{}
+			expectedRawSegments := []metabase.RawSegment{}
+
+			for _, expectedVersion := range []metabase.Version{1, 2, 3, 11} {
+				obj := metabasetest.RandObjectStream()
+				obj.Version = expectedVersion
+				object, segments := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream: obj,
+					},
+				}.Run(ctx, t, db, obj, 10)
+
+				newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, object.SegmentCount)
+
+				for i, segment := range segments {
+
+					newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+						Position:          segment.Position,
+						EncryptedKeyNonce: testrand.Nonce().Bytes(),
+						EncryptedKey:      testrand.Bytes(32),
+					}
+
+					segment.EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+					segment.EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment(segment))
+				}
+
+				newObjectKey := testrand.Bytes(32)
+				metabasetest.FinishMoveObject{
+					Opts: metabase.FinishMoveObject{
+						NewBucket:             newBucketName,
+						ObjectStream:          obj,
+						NewSegmentKeys:        newEncryptedKeysNonces,
+						NewEncryptedObjectKey: newObjectKey,
+					},
+					ErrText: "",
+				}.Check(ctx, t, db)
+
+				object.ObjectKey = metabase.ObjectKey(newObjectKey)
+				object.BucketName = newBucketName
+
+				expectedRawObjects = append(expectedRawObjects, metabase.RawObject(object))
+			}
+
+			metabasetest.Verify{
+				Objects:  expectedRawObjects,
+				Segments: expectedRawSegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("finish move object with empty metadata, key, nonce object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			numberOfSegments := 10
@@ -363,10 +478,8 @@ func TestFinishMoveObject(t *testing.T) {
 
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:                  obj,
-					EncryptedMetadata:             testrand.Bytes(64),
-					EncryptedMetadataNonce:        testrand.Nonce().Bytes(),
-					EncryptedMetadataEncryptedKey: testrand.Bytes(265),
+					ObjectStream:              obj,
+					OverrideEncryptedMetadata: true,
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -379,16 +492,14 @@ func TestFinishMoveObject(t *testing.T) {
 			for i := 0; i < int(newObj.SegmentCount); i++ {
 				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
 					Position:          metabase.SegmentPosition{Index: uint32(i)},
-					EncryptedKeyNonce: testrand.Nonce().Bytes(),
-					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: nil,
+					EncryptedKey:      nil,
 				}
 
 				expectedSegments[i] = metabasetest.DefaultRawSegment(newObj.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
-				expectedSegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
-				expectedSegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
-				// TODO: place this calculation in metabasetest.
+				expectedSegments[i].EncryptedKeyNonce = nil
+				expectedSegments[i].EncryptedKey = nil
 				expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
-				// TODO: we should use the same value for encrypted size in both test methods.
 				expectedSegments[i].EncryptedSize = int32(expectedEncryptedSize)
 			}
 
@@ -405,8 +516,6 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			newObj.ObjectKey = metabase.ObjectKey(newObjectKey)
-			newObj.EncryptedMetadataEncryptedKey = newEncryptedMetadataKey
-			newObj.EncryptedMetadataNonce = newEncryptedMetadataKeyNonce[:]
 			newObj.BucketName = newBucketName
 
 			metabasetest.Verify{

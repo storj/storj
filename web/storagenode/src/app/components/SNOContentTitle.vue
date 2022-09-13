@@ -19,15 +19,14 @@
             </div>
             <div class="title-area-divider" />
 
-            <VInfo
+            <div
                 v-if="info.quicEnabled"
-                :text="'QUIC is configured to use UDP port ' + info.configuredPort"
             >
                 <div class="title-area__info-container__info-item">
                     <p class="title-area__info-container__info-item__title">QUIC</p>
                     <p class="title-area__info-container__info-item__content online-status">OK</p>
                 </div>
-            </VInfo>
+            </div>
             <VInfo
                 v-if="!info.quicEnabled"
                 :text="'QUIC is misconfigured. You must forward port ' + info.configuredPort + ' for both TCP and UDP to enable QUIC.'"
@@ -182,11 +181,8 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
     .title-area {
@@ -225,11 +221,8 @@ export default class SNOContentTitle extends Vue {
                 border-color: var(--node-id-border-hover-color);
                 color: var(--node-id-hover-text-color);
 
-                .svg {
-
-                    path {
-                        fill: var(--node-id-border-hover-color) !important;
-                    }
+                .svg ::v-deep path {
+                    fill: var(--node-id-border-hover-color) !important;
                 }
             }
         }

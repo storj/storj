@@ -1,17 +1,16 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
-
-import { APP_STATE_MUTATIONS } from '../mutationConstants';
 
 // Object that contains all states of views
 class ViewsState {
     constructor(
         public fetchState = AppState.LOADING,
-        public isAddTeamMembersPopupShown = false,
+        public isAddTeamMembersModalShown = false,
         public isAccountDropdownShown = false,
         public isSelectProjectDropdownShown = false,
         public isResourcesDropdownShown = false,
@@ -25,18 +24,28 @@ class ViewsState {
         public isAGDatePickerShown = false,
         public isChartsDatePickerShown = false,
         public isPermissionsDropdownShown = false,
-        public isEditProfilePopupShown = false,
-        public isChangePasswordPopupShown = false,
+        public isEditProfileModalShown = false,
+        public isChangePasswordModalShown = false,
         public isPaymentSelectionShown = false,
         public isUploadCancelPopupVisible = false,
         public isSuccessfulPasswordResetShown = false,
+        public isCreateProjectPromptModalShown = false,
+        public isCreateProjectModalShown = false,
+        public isAddPMModalShown = false,
+        public isOpenBucketModalShown = false,
+        public isMFARecoveryModalShown = false,
+        public isEnableMFAModalShown = false,
+        public isDisableMFAModalShown = false,
+        public isAddTokenFundsModalShown = false,
+        public isShareBucketModalShown = false,
+        public isBillingNotificationShown = true,
 
-        public onbAGStepBackRoute = "",
-        public onbAPIKeyStepBackRoute = "",
-        public onbCleanApiKey = "",
-        public onbApiKey = "",
-        public setDefaultPaymentMethodID = "",
-        public deletePaymentMethodID = "",
+        public onbAGStepBackRoute = '',
+        public onbAPIKeyStepBackRoute = '',
+        public onbCleanApiKey = '',
+        public onbApiKey = '',
+        public setDefaultPaymentMethodID = '',
+        public deletePaymentMethodID = '',
         public onbSelectedOs: OnboardingOS | null = null,
     ) {}
 }
@@ -50,7 +59,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewNavStructure = false,
         public isNewObjectsFlow = false,
     ){}
 }
@@ -63,8 +71,8 @@ interface AppContext {
 export const appStateModule = {
     state: new State(),
     mutations: {
-        [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: State): void {
-            state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL](state: State): void {
+            state.appState.isAddTeamMembersModalShown = !state.appState.isAddTeamMembersModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN](state: State): void {
             state.appState.isAccountDropdownShown = !state.appState.isAccountDropdownShown;
@@ -108,20 +116,50 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
             state.appState.isSuccessfulPasswordResetShown = !state.appState.isSuccessfulPasswordResetShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP](state: State): void {
-            state.appState.isChangePasswordPopupShown = !state.appState.isChangePasswordPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN](state: State): void {
+            state.appState.isChangePasswordModalShown = !state.appState.isChangePasswordModalShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: State): void {
-            state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN](state: State): void {
+            state.appState.isEditProfileModalShown = !state.appState.isEditProfileModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP](state: State): void {
             state.appState.isUploadCancelPopupVisible = !state.appState.isUploadCancelPopupVisible;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP](state: State): void {
+            state.appState.isCreateProjectPromptModalShown = !state.appState.isCreateProjectPromptModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP](state: State): void {
+            state.appState.isCreateProjectModalShown = !state.appState.isCreateProjectModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: State): void {
+            state.appState.isAddPMModalShown = !state.appState.isAddPMModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
+            state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
+            state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN](state: State): void {
+            state.appState.isEnableMFAModalShown = !state.appState.isEnableMFAModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN](state: State): void {
+            state.appState.isDisableMFAModalShown = !state.appState.isDisableMFAModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_TOKEN_FUNDS_MODAL_SHOWN](state: State): void {
+            state.appState.isAddTokenFundsModalShown = !state.appState.isAddTokenFundsModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN](state: State): void {
+            state.appState.isShareBucketModalShown = !state.appState.isShareBucketModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
         },
         [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.deletePaymentMethodID = id;
+        },
+        [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: State): void {
+            state.appState.isBillingNotificationShown = false;
         },
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: State): void {
             state.appState.isAccountDropdownShown = false;
@@ -169,9 +207,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
             state.appState.onbCleanApiKey = apiKey;
         },
-        [APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS](state: State, isNewNavStructure: boolean): void {
-            state.isNewNavStructure = isNewNavStructure;
-        },
         [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
             state.isNewObjectsFlow = isNewObjectsFlow;
         },
@@ -186,169 +221,153 @@ export const appStateModule = {
         },
     },
     actions: {
-        [APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS]: function ({commit, state}: AppContext): void {
-            if (!state.appState.isAddTeamMembersPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_ACCOUNT]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_ACCOUNT]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isAccountDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_SELECT_PROJECT_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_SELECT_PROJECT_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isSelectProjectDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SELECT_PROJECT_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isResourcesDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_RESOURCES_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isQuickStartDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_QUICK_START_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_SETTINGS_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_SETTINGS_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isSettingsDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SETTINGS_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_EDIT_PROJECT_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_EDIT_PROJECT_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isEditProjectDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROJECT_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_FREE_CREDITS_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_FREE_CREDITS_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isFreeCreditsDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_FREE_CREDITS_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isAvailableBalanceDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isPeriodsDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PERIODS_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_AG_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_AG_DATEPICKER_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isAGDatePickerShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_AG_DATEPICKER_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isChartsDatePickerShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isBucketNamesDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_BUCKET_NAMES_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_PERMISSIONS_DROPDOWN]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_PERMISSIONS_DROPDOWN]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isPermissionsDropdownShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PERMISSIONS_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({commit, state}: AppContext, value: boolean): void {
+        [APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION]: function ({ commit, state }: AppContext, value: boolean): void {
             if (!state.appState.isPaymentSelectionShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION, value);
         },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({commit, state}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({ commit, state }: AppContext): void {
             if (!state.appState.isSuccessfulPasswordResetShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
         },
-        [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: AppContext): void {
-            commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP]: function ({commit}: AppContext): void {
+        [APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP]: function ({ commit }: AppContext): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP);
         },
-        [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: AppContext): void {
-            commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);
-        },
-        [APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({commit, state}: AppContext, methodID: string): void {
+        [APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({ commit, state }: AppContext, methodID: string): void {
             if (!state.appState.setDefaultPaymentMethodID) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP, methodID);
         },
-        [APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP]: function ({commit, state}: AppContext, methodID: string): void {
+        [APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP]: function ({ commit, state }: AppContext, methodID: string): void {
             if (!state.appState.deletePaymentMethodID) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
             commit(APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP, methodID);
         },
-        [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: AppContext): void {
+        [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
         },
-        [APP_STATE_ACTIONS.CHANGE_STATE]: function ({commit}: AppContext, newFetchState: AppState): void {
+        [APP_STATE_ACTIONS.CHANGE_STATE]: function ({ commit }: AppContext, newFetchState: AppState): void {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
         },
-        [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: AppContext, satelliteName: string): void {
+        [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({ commit }: AppContext, satelliteName: string): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_NAME, satelliteName);
         },
-        [APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES]: function ({commit}: AppContext, partneredSatellites: PartneredSatellite[]): void {
+        [APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES]: function ({ commit }: AppContext, partneredSatellites: PartneredSatellite[]): void {
             commit(APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
         },
-        [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: AppContext, isBetaSatellite: boolean): void {
+        [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({ commit }: AppContext, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
         },
-        [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({commit}: AppContext, isNewProjectDashboard: boolean): void {
+        [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
         },
-        [APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS]: function ({commit}: AppContext, isNewNavStructure: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure);
-        },
-        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({commit}: AppContext, isNewObjectsFlow: boolean): void {
+        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({ commit }: AppContext, isNewObjectsFlow: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);
         },
-        [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({commit}: AppContext, couponCodeBillingUIEnabled: boolean): void {
+        [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);
         },
-        [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({commit}: AppContext, couponCodeSignupUIEnabled: boolean): void {
+        [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({ commit }: AppContext, couponCodeSignupUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled);
         },
     },

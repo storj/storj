@@ -22,16 +22,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-import BucketArea from '@/components/project/buckets/BucketArea.vue';
-import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
-import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
-
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
+import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
+import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
@@ -46,12 +47,15 @@ export default class ProjectDashboard extends Vue {
     public areBucketsFetching = true;
     public isSummaryDataFetching = true;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Fetches buckets, usage rollup, project members and access grants.
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;

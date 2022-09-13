@@ -77,6 +77,11 @@ func (o *stdMultiReadHandle) Info(ctx context.Context) (*ObjectInfo, error) {
 	return &ObjectInfo{ContentLength: -1}, nil
 }
 
+// Length returns the size of the object.
+func (o *stdMultiReadHandle) Length() int64 {
+	return -1
+}
+
 // stdReadHandle implements ReadHandle for stdin.
 type stdReadHandle struct {
 	stdin  io.Reader

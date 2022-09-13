@@ -187,7 +187,7 @@ export class ProjectsCursor {
 export class DataStamp {
     public constructor(
         public value = 0,
-        public intervalStart = new Date()
+        public intervalStart = new Date(),
     ) {}
 
     /**

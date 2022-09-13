@@ -87,6 +87,8 @@ func TestGraphqlMutation(t *testing.T) {
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -97,7 +99,6 @@ func TestGraphqlMutation(t *testing.T) {
 
 		service, err := console.NewService(
 			log.Named("console"),
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
@@ -105,11 +106,21 @@ func TestGraphqlMutation(t *testing.T) {
 			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
+			db.Billing(),
 			analyticsService,
+			consoleauth.NewService(consoleauth.Config{
+				TokenExpirationTime: 24 * time.Hour,
+			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				TokenExpirationTime: 24 * time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -158,18 +169,16 @@ func TestGraphqlMutation(t *testing.T) {
 		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx := console.WithAuth(ctx, sauth)
 
 		testQuery := func(t *testing.T, query string) (interface{}, error) {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
-				Context:       authCtx,
+				Context:       userCtx,
 				RequestString: query,
 				RootObject:    rootObject,
 			})
@@ -184,13 +193,11 @@ func TestGraphqlMutation(t *testing.T) {
 			return result.Data, nil
 		}
 
-		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx = console.WithAuth(ctx, sauth)
 
 		var projectIDField string
 		t.Run("Create project mutation", func(t *testing.T) {
@@ -220,14 +227,14 @@ func TestGraphqlMutation(t *testing.T) {
 		projectID, err := uuid.FromString(projectIDField)
 		require.NoError(t, err)
 
-		project, err := service.GetProject(authCtx, projectID)
+		project, err := service.GetProject(userCtx, projectID)
 		require.NoError(t, err)
 		require.Equal(t, rootUser.PartnerID, project.PartnerID)
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		user1, err := service.CreateUser(authCtx, console.CreateUser{
+		user1, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName: "User1",
 			Email:    "u1@mail.test",
 			Password: "123a123",
@@ -251,7 +258,7 @@ func TestGraphqlMutation(t *testing.T) {
 		regTokenUser2, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		user2, err := service.CreateUser(authCtx, console.CreateUser{
+		user2, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName: "User1",
 			Email:    "u2@mail.test",
 			Password: "123a123",
@@ -350,7 +357,7 @@ func TestGraphqlMutation(t *testing.T) {
 			id, err := uuid.FromString(keyID)
 			require.NoError(t, err)
 
-			info, err := service.GetAPIKeyInfo(authCtx, id)
+			info, err := service.GetAPIKeyInfo(userCtx, id)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(

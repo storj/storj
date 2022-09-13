@@ -214,6 +214,52 @@ func TestUserUpdate(t *testing.T) {
 	})
 }
 
+func TestDisableMFA(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		address := planet.Satellites[0].Admin.Admin.Listener.Addr()
+		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
+		require.NoError(t, err)
+
+		// Enable MFA.
+		user.MFAEnabled = true
+		user.MFASecretKey = "randomtext"
+		user.MFARecoveryCodes = []string{"0123456789"}
+
+		secretKeyPtr := &user.MFASecretKey
+
+		err = planet.Satellites[0].DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			MFAEnabled:       &user.MFAEnabled,
+			MFASecretKey:     &secretKeyPtr,
+			MFARecoveryCodes: &user.MFARecoveryCodes,
+		})
+		require.NoError(t, err)
+
+		// Ensure MFA is enabled.
+		updatedUser, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, true, updatedUser.MFAEnabled)
+
+		// Disabling users MFA should work.
+		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s/mfa", user.Email)
+		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+		require.Len(t, body, 0)
+
+		// Ensure MFA is disabled.
+		updatedUser, err = planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, false, updatedUser.MFAEnabled)
+	})
+}
+
 func TestUserDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -229,7 +275,7 @@ func TestUserDelete(t *testing.T) {
 		user, err := planet.Satellites[0].DB.Console().Users().GetByEmail(ctx, planet.Uplinks[0].Projects[0].Owner.Email)
 		require.NoError(t, err)
 
-		// Deleting the user should fail, as project exists
+		// Deleting the user should fail, as project exists.
 		link := fmt.Sprintf("http://"+address.String()+"/api/users/%s", user.Email)
 		body := assertReq(ctx, t, link, http.MethodDelete, "", http.StatusConflict, "", planet.Satellites[0].Config.Console.AuthToken)
 		require.Greater(t, len(body), 0)

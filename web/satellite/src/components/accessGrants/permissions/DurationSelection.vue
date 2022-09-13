@@ -2,9 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="duration-selection">
+    <div :class="`duration-selection ${containerStyle}`">
         <div
-            class="duration-selection__toggle-container"
+            :class="`duration-selection__toggle-container ${textStyle}`"
+            aria-roledescription="select-duration"
             @click.stop="togglePicker"
         >
             <h1 class="duration-selection__toggle-container__name">{{ dateRangeLabel }}</h1>
@@ -15,15 +16,17 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
+            :container-style="pickerStyle"
             @setLabel="setDateRangeLabel"
         />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
 import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -37,6 +40,13 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 })
 
 export default class DurationSelection extends Vue {
+    @Prop({ default: '' })
+    private readonly containerStyle: string;
+    @Prop({ default: '' })
+    private readonly textStyle: string;
+    @Prop({ default: '' })
+    private readonly pickerStyle: string;
+
     public dateRangeLabel = 'Forever';
 
     /**
@@ -115,5 +125,15 @@ export default class DurationSelection extends Vue {
                 margin: 0;
             }
         }
+    }
+
+    .access-date-container {
+        margin-left: 0;
+        height: 40px;
+        border: 1px solid #c8d3de;
+    }
+
+    .access-date-text {
+        padding: 10px 20px;
     }
 </style>

@@ -12,11 +12,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
-
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
+
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 // @vue/component
 @Component({
@@ -32,28 +32,25 @@ export default class App extends Vue {
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
-        let partneredSatellitesJson = [];
+        let partneredSatellitesJSON = [];
         if (partneredSatellitesData) {
-            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+            partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
         }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
-        const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
         const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
 
-            if (partneredSatellitesJson) {
+            if (partneredSatellitesJSON.length) {
                 const partneredSatellites: PartneredSatellite[] = [];
-                partneredSatellitesJson.forEach((partner) => {
-                    const name = partner[0];
-                    const address = partner[1];
+                partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
                     // skip current satellite
-                    if (name !== satelliteName) {
-                        partneredSatellites.push(new PartneredSatellite(name, address));
+                    if (sat.name !== satelliteName) {
+                        partneredSatellites.push(sat);
                     }
                 });
                 this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
@@ -76,10 +73,6 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
         }
 
-        if (isNewNavStructure) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure === 'true');
-        }
-
         if (isNewObjectsFlow) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
         }
@@ -90,6 +83,7 @@ export default class App extends Vue {
 <style lang="scss">
     html {
         overflow: hidden;
+        font-size: 14px;
     }
 
     body {

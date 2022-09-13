@@ -13,10 +13,10 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 const (
@@ -61,7 +61,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	rate, err := tokens.service.GetRate(ctx, monetary.StorjToken, monetary.USDollars)
+	rate, err := tokens.service.GetRate(ctx, currency.StorjToken, currency.USDollars)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -71,8 +71,8 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
 		&coinpayments.CreateTX{
 			Amount:      tokenAmount.AsDecimal(),
-			CurrencyIn:  monetary.StorjToken,
-			CurrencyOut: monetary.StorjToken,
+			CurrencyIn:  currency.StorjToken,
+			CurrencyOut: currency.StorjToken,
 			BuyerEmail:  c.Email,
 		},
 	)
@@ -95,7 +95,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 			AccountID: userID,
 			Address:   tx.Address,
 			Amount:    tx.Amount,
-			Received:  monetary.AmountFromBaseUnits(0, tx.Amount.Currency()),
+			Received:  currency.AmountFromBaseUnits(0, tx.Amount.Currency()),
 			Status:    coinpayments.StatusPending,
 			Key:       key,
 			Timeout:   tx.Timeout,

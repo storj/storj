@@ -86,6 +86,38 @@ func (cache *redisLiveAccounting) GetProjectBandwidthUsage(ctx context.Context, 
 	return cache.getInt64(ctx, createBandwidthProjectIDKey(projectID, now))
 }
 
+// InsertProjectBandwidthUsage inserts a project bandwidth usage if it
+// doesn't exist. It returns true if it's inserted, otherwise false.
+func (cache *redisLiveAccounting) InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, err error) {
+	mon.Task()(&ctx, projectID, value, ttl, now)(&err)
+
+	// The following script will set the cache key to a specific value with an
+	// expiration time to live when it doesn't exist, otherwise it ignores it.
+	script := fmt.Sprintf(`local inserted
+	inserted = redis.call("setnx", KEYS[1], "%d")
+	if tonumber(inserted) == 1 then
+		redis.call("expire",KEYS[1], %d)
+	end
+
+	return inserted
+	`, value, int(ttl.Seconds()))
+
+	key := createBandwidthProjectIDKey(projectID, now)
+	rcmd := cache.client.Eval(ctx, script, []string{key})
+	if err != nil {
+		return false, accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
+	}
+
+	insert, err := rcmd.Int()
+	if err != nil {
+		err = accounting.ErrSystemOrNetError.New(
+			"Redis script is invalid it must return an boolean. %w", err,
+		)
+	}
+
+	return insert == 1, err
+}
+
 // UpdateProjectBandwidthUsage increment the bandwidth cache key value.
 func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) (err error) {
 	mon.Task()(&ctx, projectID, increment, ttl, now)(&err)
@@ -122,28 +154,39 @@ func (cache *redisLiveAccounting) GetProjectSegmentUsage(ctx context.Context, pr
 }
 
 // UpdateProjectSegmentUsage increment the segment cache key value.
-func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration) (err error) {
-	mon.Task()(&ctx, projectID, increment, ttl)(&err)
-
-	// The following script will increment the cache key
-	// by a specific value. If the key does not exist, it is
-	// set to 0 before performing the operation.
-	// The key expiration will be set only in the first iteration.
-	// To achieve this we compare the increment and key value,
-	// if they are equal its the first iteration.
-	// More details on rate limiter section: https://redis.io/commands/incr
-	script := fmt.Sprintf(`local current
-	current = redis.call("incrby", KEYS[1], "%d")
-	if tonumber(current) == %d then
-		redis.call("expire",KEYS[1], %d)
-	end
-	return current
-	`, increment, increment, int(ttl.Seconds()))
+func (cache *redisLiveAccounting) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	mon.Task()(&ctx, projectID, increment)(&err)
 
 	key := createSegmentProjectIDKey(projectID)
-	err = cache.client.Eval(ctx, script, []string{key}).Err()
+	_, err = cache.client.IncrBy(ctx, key, increment).Result()
 	if err != nil {
-		return accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+	return nil
+}
+
+// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
+// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+func (cache *redisLiveAccounting) AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) (err error) {
+	defer mon.Task()(&ctx, projectID, increment)(&err)
+
+	key := createSegmentProjectIDKey(projectID)
+
+	// do a blind increment and checking the limit afterwards,
+	// so that the success path has only one round-trip.
+	newSegmentUsage, err := cache.client.IncrBy(ctx, key, increment).Result()
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	if newSegmentUsage > segmentLimit {
+		// roll back
+		_, err = cache.client.DecrBy(ctx, key, increment).Result()
+		if err != nil {
+			return accounting.ErrSystemOrNetError.New("Redis decrby failed: %w", err)
+		}
+
+		return accounting.ErrProjectLimitExceeded.New("Additional %d segments exceed project limit of %d", increment, segmentLimit)
 	}
 
 	return nil
@@ -158,6 +201,31 @@ func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, pr
 	_, err = cache.client.IncrBy(ctx, string(projectID[:]), spaceUsed).Result()
 	if err != nil {
 		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	return nil
+}
+
+// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
+// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) (err error) {
+	defer mon.Task()(&ctx, projectID, increment)(&err)
+
+	// do a blind increment and checking the limit afterwards,
+	// so that the success path has only one round-trip.
+	newSpaceUsage, err := cache.client.IncrBy(ctx, string(projectID[:]), increment).Result()
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
+	}
+
+	if newSpaceUsage > spaceLimit {
+		// roll back
+		_, err = cache.client.DecrBy(ctx, string(projectID[:]), increment).Result()
+		if err != nil {
+			return accounting.ErrSystemOrNetError.New("Redis decrby failed: %w", err)
+		}
+
+		return accounting.ErrProjectLimitExceeded.New("Additional storage of %d bytes exceeds project limit of %d", increment, spaceLimit)
 	}
 
 	return nil

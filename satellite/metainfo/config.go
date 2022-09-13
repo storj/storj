@@ -113,8 +113,7 @@ type RateLimiterConfig struct {
 
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
-	MaxBuckets           int  `help:"max bucket count for a project." default:"100" testDefault:"10"`
-	ValidateSegmentLimit bool `help:"whether segment limit validation is enabled." default:"true"`
+	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.
@@ -137,5 +136,6 @@ type Config struct {
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
 	// TODO remove this flag when server-side copy implementation will be finished
-	ServerSideCopy bool `help:"enable code for server-side copy" default:"true"`
+	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
+	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
 }

@@ -72,7 +72,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 		require.NoError(t, err)
 
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}
@@ -89,7 +89,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   tokenInfo.Token.String(),
 			Expires: expire,
 		}
 
@@ -186,7 +186,7 @@ func Test_DailyUsage(t *testing.T) {
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		// we are using full name as a password
-		token, err := satelliteSys.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := satelliteSys.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.DefaultClient
@@ -203,7 +203,7 @@ func Test_DailyUsage(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   tokenInfo.Token.String(),
 			Expires: expire,
 		}
 

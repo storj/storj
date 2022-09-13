@@ -26,7 +26,7 @@
                 </div>
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
-                    <HeaderlessInput
+                    <VInput
                         label="Email Address"
                         placeholder="user@example.com"
                         :error="emailError"
@@ -47,21 +47,23 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
@@ -72,6 +74,8 @@ export default class ForgotPassword extends Vue {
     private emailError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // tardigrade logic
     public isDropdownShown = false;
@@ -137,14 +141,16 @@ export default class ForgotPassword extends Vue {
      * Changes location to Login route.
      */
     public onBackToLoginClick(): void {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         this.$router.push(RouteConfig.Login.path);
     }
 
     /**
-     * Reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**
@@ -183,6 +189,8 @@ export default class ForgotPassword extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 

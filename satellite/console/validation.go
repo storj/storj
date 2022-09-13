@@ -8,7 +8,10 @@ import (
 )
 
 const (
-	passMinLength = 6
+	// PasswordMinimumLength is the minimum allowed length for user account passwords.
+	PasswordMinimumLength = 6
+	// PasswordMaximumLength is the maximum allowed length for user account passwords.
+	PasswordMaximumLength = 128
 )
 
 // ErrValidation validation related error class.
@@ -17,8 +20,12 @@ var ErrValidation = errs.Class("validation")
 // ValidatePassword validates password.
 // It returns an plain error (not wrapped in a errs.Class) if pass is invalid.
 func ValidatePassword(pass string) error {
-	if len(pass) < passMinLength {
-		return errs.New(passwordIncorrectErrMsg, passMinLength)
+	if len(pass) < PasswordMinimumLength {
+		return errs.New(passwordTooShortErrMsg, PasswordMinimumLength)
+	}
+
+	if len(pass) > PasswordMaximumLength {
+		return errs.New(passwordTooLongErrMsg, PasswordMaximumLength)
 	}
 
 	return nil

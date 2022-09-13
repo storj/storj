@@ -27,6 +27,8 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
+var randomEncryptedKey = testrand.Bytes(48)
+
 func TestEndpoint_NoStorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 3,
@@ -92,7 +94,7 @@ func TestEndpoint_NoStorageNodes(t *testing.T) {
 
 			// Sanity check: it should work before revoke
 			_, err = client.ListBuckets(ctx, metaclient.ListBucketsParams{
-				ListOpts: storj.BucketListOptions{
+				ListOpts: metaclient.BucketListOptions{
 					Cursor:    "",
 					Direction: storj.Forward,
 					Limit:     10,

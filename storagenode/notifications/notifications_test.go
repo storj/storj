@@ -77,7 +77,7 @@ func TestNotificationsDB(t *testing.T) {
 		page := notifications.Page{}
 
 		// test List method to return right form of page depending on cursor.
-		t.Run("test paged list", func(t *testing.T) {
+		t.Run("paged list", func(t *testing.T) {
 			page, err = notificationsdb.List(ctx, notificationCursor)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(page.Notifications))
@@ -96,7 +96,7 @@ func TestNotificationsDB(t *testing.T) {
 		}
 
 		// test Read method to make specific notification's status as read.
-		t.Run("test notification read", func(t *testing.T) {
+		t.Run("notification read", func(t *testing.T) {
 			err = notificationsdb.Read(ctx, notificationFromDB0.ID)
 			require.NoError(t, err)
 
@@ -115,7 +115,7 @@ func TestNotificationsDB(t *testing.T) {
 		})
 
 		// test ReadAll method to make all notifications' status as read.
-		t.Run("test notification read all", func(t *testing.T) {
+		t.Run("notification read all", func(t *testing.T) {
 			err = notificationsdb.ReadAll(ctx)
 			require.NoError(t, err)
 
@@ -138,7 +138,7 @@ func TestEmptyNotificationsDB(t *testing.T) {
 		}
 
 		// test List method to return right form of page depending on cursor with empty database.
-		t.Run("test empty paged list", func(t *testing.T) {
+		t.Run("empty paged list", func(t *testing.T) {
 			page, err := notificationsdb.List(ctx, notificationCursor)
 			require.NoError(t, err)
 			require.Equal(t, len(page.Notifications), 0)
@@ -150,13 +150,13 @@ func TestEmptyNotificationsDB(t *testing.T) {
 		})
 
 		// test notification read with not existing id.
-		t.Run("test notification read with not existing id", func(t *testing.T) {
+		t.Run("notification read with not existing id", func(t *testing.T) {
 			err := notificationsdb.Read(ctx, testrand.UUID())
 			require.Error(t, err, "no rows affected")
 		})
 
 		// test read for all notifications if they don't exist.
-		t.Run("test notification readAll on empty page", func(t *testing.T) {
+		t.Run("notification readAll on empty page", func(t *testing.T) {
 			err := notificationsdb.ReadAll(ctx)
 			require.NoError(t, err)
 		})

@@ -14,7 +14,7 @@ import {
     ProjectsStorageBandwidthDaily,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
-import { Time } from "@/utils/time";
+import { Time } from '@/utils/time';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     private readonly http: HttpClient = new HttpClient();
@@ -210,19 +210,19 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
             return new ProjectsStorageBandwidthDaily(
                 usage.storageUsage.map(el => {
-                    const date = new Date(el.date)
-                    date.setHours(0, 0, 0, 0)
-                    return new DataStamp(el.value, date)
+                    const date = new Date(el.date);
+                    date.setHours(0, 0, 0, 0);
+                    return new DataStamp(el.value, date);
                 }),
                 usage.allocatedBandwidthUsage.map(el => {
-                    const date = new Date(el.date)
-                    date.setHours(0, 0, 0, 0)
-                    return new DataStamp(el.value, date)
+                    const date = new Date(el.date);
+                    date.setHours(0, 0, 0, 0);
+                    return new DataStamp(el.value, date);
                 }),
                 usage.settledBandwidthUsage.map(el => {
-                    const date = new Date(el.date)
-                    date.setHours(0, 0, 0, 0)
-                    return new DataStamp(el.value, date)
+                    const date = new Date(el.date);
+                    date.setHours(0, 0, 0, 0);
+                    return new DataStamp(el.value, date);
                 }),
             );
         }
@@ -231,7 +231,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('can not get project daily usage');
+        throw new Error('Can not get project daily usage');
     }
 
     /**

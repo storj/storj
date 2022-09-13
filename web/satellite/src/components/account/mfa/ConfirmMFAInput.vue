@@ -13,6 +13,7 @@
             class="confirm-mfa__input"
             :placeholder="isRecovery ? 'Code' : '000000'"
             :type="isRecovery ? 'text' : 'number'"
+            autofocus
             @input="event => onInput(event.target.value)"
         >
     </div>
@@ -24,11 +25,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class ConfirmMFAInput extends Vue {
-    @Prop({default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly onInput: (value: string) => void;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isRecovery: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isError: boolean;
 
     public code = '';

@@ -82,7 +82,7 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		Stdout: &stdout,
 		Stderr: &stderr,
 
-		Wrap: func(ctx clingy.Context, cmd clingy.Command) error {
+		Wrap: func(ctx context.Context, cmd clingy.Command) error {
 			for _, opt := range st.opts {
 				opt.fn(t, ctx, cs)
 			}
@@ -164,26 +164,26 @@ type callbackState struct {
 
 // ExecuteOption allows one to control the environment that a command executes in.
 type ExecuteOption struct {
-	fn func(t *testing.T, ctx clingy.Context, cs *callbackState)
+	fn func(t *testing.T, ctx context.Context, cs *callbackState)
 }
 
 // WithFilesystem lets one do arbitrary setup on the filesystem in a callback.
-func WithFilesystem(cb func(t *testing.T, ctx clingy.Context, fs ulfs.Filesystem)) ExecuteOption {
-	return ExecuteOption{func(t *testing.T, ctx clingy.Context, cs *callbackState) {
+func WithFilesystem(cb func(t *testing.T, ctx context.Context, fs ulfs.Filesystem)) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
 		cb(t, ctx, cs.fs)
 	}}
 }
 
 // WithBucket ensures the bucket exists.
 func WithBucket(name string) ExecuteOption {
-	return ExecuteOption{func(_ *testing.T, _ clingy.Context, cs *callbackState) {
+	return ExecuteOption{func(_ *testing.T, _ context.Context, cs *callbackState) {
 		cs.rfs.ensureBucket(name)
 	}}
 }
 
 // WithStdin sets the command to execute with the provided string as standard input.
 func WithStdin(stdin string) ExecuteOption {
-	return ExecuteOption{func(_ *testing.T, _ clingy.Context, cs *callbackState) {
+	return ExecuteOption{func(_ *testing.T, _ context.Context, cs *callbackState) {
 		cs.stdin = stdin
 	}}
 }
@@ -191,7 +191,7 @@ func WithStdin(stdin string) ExecuteOption {
 // WithFile sets the command to execute with a file created at the given location.
 func WithFile(location string, contents ...string) ExecuteOption {
 	contents = append([]string(nil), contents...)
-	return ExecuteOption{func(t *testing.T, ctx clingy.Context, cs *callbackState) {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
 		loc, err := ulloc.Parse(location)
 		require.NoError(t, err)
 
@@ -224,7 +224,7 @@ func WithFile(location string, contents ...string) ExecuteOption {
 // WithPendingFile sets the command to execute with a pending upload happening to
 // the provided location.
 func WithPendingFile(location string) ExecuteOption {
-	return ExecuteOption{func(t *testing.T, ctx clingy.Context, cs *callbackState) {
+	return ExecuteOption{func(t *testing.T, ctx context.Context, cs *callbackState) {
 		loc, err := ulloc.Parse(location)
 		require.NoError(t, err)
 

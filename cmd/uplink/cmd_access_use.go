@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zeebo/clingy"
@@ -26,7 +27,7 @@ func (c *cmdAccessUse) Setup(params clingy.Parameters) {
 	c.access = params.Arg("access", "Access name to use").(string)
 }
 
-func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
+func (c *cmdAccessUse) Execute(ctx context.Context) error {
 	_, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
@@ -38,7 +39,7 @@ func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx, "Switched default access to %q\n", c.access)
+	fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", c.access)
 
 	return nil
 }

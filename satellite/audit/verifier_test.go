@@ -813,7 +813,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
-		assert.Len(t, report.Fails, 1)
+		require.Len(t, report.Fails, 1)
 		assert.Equal(t, report.Fails[0], piece.StorageNode)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
@@ -865,8 +865,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
 		slowNodeDB := slowNode.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
-		delay := 1 * time.Second
-		slowNodeDB.SetLatency(delay)
+		slowNodeDB.SetLatency(3 * time.Second)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -875,7 +874,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
-		assert.Len(t, report.PendingAudits, 1)
+		require.Len(t, report.PendingAudits, 1)
 		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode.ID())
 	})
 }
@@ -927,7 +926,7 @@ func TestVerifierUnknownError(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
-		assert.Len(t, report.Unknown, 1)
+		require.Len(t, report.Unknown, 1)
 		assert.Equal(t, report.Unknown[0], badNode.ID())
 	})
 }

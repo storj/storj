@@ -4,7 +4,11 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 
+import { NavigationLink } from '@/types/navigation';
+import { MetaUtils } from '@/utils/meta';
+
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
+import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
 import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
@@ -15,6 +19,10 @@ import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
+import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
+import BillingPaymentMethods from '@/components/account/billing/billingTabs/PaymentMethods.vue';
+import BillingHistory2 from '@/components/account/billing/billingTabs/BillingHistory.vue';
+import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import AddCouponCode from '@/components/account/billing/coupons/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
@@ -30,31 +38,30 @@ import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
-import NewProjectDashboard from "@/components/project/newProjectDashboard/NewProjectDashboard.vue";
+import NewProjectDashboard from '@/components/project/newProjectDashboard/NewProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-import CLIInstall from "@/components/onboardingTour/steps/cliFlow/CLIInstall.vue";
-import APIKey from "@/components/onboardingTour/steps/cliFlow/APIKey.vue";
-import CLISetup from "@/components/onboardingTour/steps/cliFlow/CLISetup.vue";
-import CreateBucket from "@/components/onboardingTour/steps/cliFlow/CreateBucket.vue";
-import UploadObject from "@/components/onboardingTour/steps/cliFlow/UploadObject.vue";
-import ListObject from "@/components/onboardingTour/steps/cliFlow/ListObject.vue";
-import DownloadObject from "@/components/onboardingTour/steps/cliFlow/DownloadObject.vue";
-import ShareObject from "@/components/onboardingTour/steps/cliFlow/ShareObject.vue";
-import RegistrationSuccess from "@/components/common/RegistrationSuccess.vue";
-import SuccessScreen from "@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue";
-import AGName from "@/components/onboardingTour/steps/cliFlow/AGName.vue";
-import AGPermissions from "@/components/onboardingTour/steps/cliFlow/AGPermissions.vue";
-
-import { NavigationLink } from '@/types/navigation';
-import { MetaUtils } from "@/utils/meta";
+import CLIInstall from '@/components/onboardingTour/steps/cliFlow/CLIInstall.vue';
+import APIKey from '@/components/onboardingTour/steps/cliFlow/APIKey.vue';
+import CLISetup from '@/components/onboardingTour/steps/cliFlow/CLISetup.vue';
+import CreateBucket from '@/components/onboardingTour/steps/cliFlow/CreateBucket.vue';
+import UploadObject from '@/components/onboardingTour/steps/cliFlow/UploadObject.vue';
+import ListObject from '@/components/onboardingTour/steps/cliFlow/ListObject.vue';
+import DownloadObject from '@/components/onboardingTour/steps/cliFlow/DownloadObject.vue';
+import ShareObject from '@/components/onboardingTour/steps/cliFlow/ShareObject.vue';
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
+import SuccessScreen from '@/components/onboardingTour/steps/cliFlow/SuccessScreen.vue';
+import AGName from '@/components/onboardingTour/steps/cliFlow/AGName.vue';
+import AGPermissions from '@/components/onboardingTour/steps/cliFlow/AGPermissions.vue';
+import BucketCreation from '@/components/objects/BucketCreation.vue';
+import BucketDetails from '@/components/objects/BucketDetails.vue';
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
-const RegisterArea = () => import('@/views/RegisterArea.vue');
+const RegisterArea = () => import('@/views/registration/RegisterArea.vue');
 const ResetPassword = () => import('@/views/ResetPassword.vue');
 
 Vue.use(Router);
@@ -71,10 +78,10 @@ export abstract class RouteConfig {
     public static Activate = new NavigationLink('/activate', 'Activate');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
-    public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize')
+    public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', 'Dashboard ');
+    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -88,10 +95,15 @@ export abstract class RouteConfig {
     public static Billing = new NavigationLink('billing', 'Billing');
     public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static BillingOverview = new NavigationLink('overview', 'Overview');
+    public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
 
     // access grant child paths
+    public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
     public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
@@ -119,13 +131,15 @@ export abstract class RouteConfig {
     // objects child paths.
     public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
+    public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
+    public static BucketCreation = new NavigationLink('creation', 'Bucket Creation');
 }
 
 const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
 if (isNewProjectDashboard) {
-    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard
+    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard;
 }
 
 export const notProjectRelatedRoutes = [
@@ -138,6 +152,10 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
+    RouteConfig.BillingOverview.name,
+    RouteConfig.BillingPaymentMethods.name,
+    RouteConfig.BillingHistory2.name,
+    RouteConfig.BillingCoupons.name,
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
@@ -212,6 +230,26 @@ export const router = new Router({
                                     path: RouteConfig.AddCouponCode.path,
                                     name: RouteConfig.AddCouponCode.name,
                                     component: AddCouponCode,
+                                },
+                                {
+                                    path: RouteConfig.BillingOverview.path,
+                                    name: RouteConfig.BillingOverview.name,
+                                    component: BillingOverview,
+                                },
+                                {
+                                    path: RouteConfig.BillingPaymentMethods.path,
+                                    name: RouteConfig.BillingPaymentMethods.name,
+                                    component: BillingPaymentMethods,
+                                },
+                                {
+                                    path: RouteConfig.BillingHistory2.path,
+                                    name: RouteConfig.BillingHistory2.name,
+                                    component: BillingHistory2,
+                                },
+                                {
+                                    path: RouteConfig.BillingCoupons.path,
+                                    name: RouteConfig.BillingCoupons.name,
+                                    component: BillingCoupons,
                                 },
                             ],
                         },
@@ -337,6 +375,11 @@ export const router = new Router({
                     component: AccessGrants,
                     children: [
                         {
+                            path: RouteConfig.CreateAccessModal.path,
+                            name: RouteConfig.CreateAccessModal.name,
+                            component: CreateAccessModal,
+                        },
+                        {
                             path: RouteConfig.CreateAccessGrant.path,
                             name: RouteConfig.CreateAccessGrant.name,
                             component: CreateAccessGrant,
@@ -408,6 +451,12 @@ export const router = new Router({
                             props: true,
                         },
                         {
+                            path: RouteConfig.BucketsDetails.path,
+                            name: RouteConfig.BucketsDetails.name,
+                            component: BucketDetails,
+                            props: true,
+                        },
+                        {
                             path: RouteConfig.UploadFile.path,
                             name: RouteConfig.UploadFile.name,
                             component: UploadFile,
@@ -418,6 +467,11 @@ export const router = new Router({
                                     component: UploadFile,
                                 },
                             ],
+                        },
+                        {
+                            path: RouteConfig.BucketCreation.path,
+                            name: RouteConfig.BucketCreation.name,
+                            component: BucketCreation,
                         },
                     ],
                 },

@@ -17,29 +17,32 @@ import (
 
 // Config contains configurable values for rollup.
 type Config struct {
-	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
-	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	Interval               time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s" testDefault:"$TESTINTERVAL"`
+	DeleteTallies          bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
+	DeleteTalliesBatchSize int           `help:"how many tallies to delete in a batch" default:"10000"`
 }
 
 // Service is the rollup service for totalling data on storage nodes on daily intervals.
 //
 // architecture: Chore
 type Service struct {
-	logger          *zap.Logger
-	Loop            *sync2.Cycle
-	sdb             accounting.StoragenodeAccounting
-	deleteTallies   bool
-	OrderExpiration time.Duration
+	logger                 *zap.Logger
+	Loop                   *sync2.Cycle
+	sdb                    accounting.StoragenodeAccounting
+	deleteTallies          bool
+	deleteTalliesBatchSize int
+	OrderExpiration        time.Duration
 }
 
 // New creates a new rollup service.
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool, orderExpiration time.Duration) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, config Config, orderExpiration time.Duration) *Service {
 	return &Service{
-		logger:          logger,
-		Loop:            sync2.NewCycle(interval),
-		sdb:             sdb,
-		deleteTallies:   deleteTallies,
-		OrderExpiration: orderExpiration,
+		logger:                 logger,
+		Loop:                   sync2.NewCycle(config.Interval),
+		sdb:                    sdb,
+		deleteTallies:          config.DeleteTallies,
+		deleteTalliesBatchSize: config.DeleteTalliesBatchSize,
+		OrderExpiration:        orderExpiration,
 	}
 }
 
@@ -101,7 +104,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	if r.deleteTallies {
 		// Delete already rolled up tallies
 		latestTally = latestTally.Add(-r.OrderExpiration)
-		err = r.sdb.DeleteTalliesBefore(ctx, latestTally)
+		err = r.sdb.DeleteTalliesBefore(ctx, latestTally, r.deleteTalliesBatchSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -139,6 +142,11 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		}
 		// increment data at rest sum
 		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
+
+		// update interval_end_time to the latest tally end time for the day
+		if rollupStats[iDay][node].IntervalEndTime.Before(tallyEndTime) {
+			rollupStats[iDay][node].IntervalEndTime = tallyEndTime
+		}
 	}
 
 	return latestTally, nil

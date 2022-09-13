@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 const path = require('path');
+
 const webpack = require('webpack');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
@@ -13,7 +14,7 @@ let plugins = [
         filename: '[path][name].br',
         test: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
         threshold: 1024,
-        minRatio: 0.8
+        minRatio: 0.8,
     }),
     new webpack.optimize.MinChunkSizePlugin({
         minChunkSize: 50*1024,
@@ -27,12 +28,12 @@ let plugins = [
     }),
 ];
 
-if(process.env["STORJ_DEBUG_BUNDLE_SIZE"]) {
+if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
     plugins.push(new BundleAnalyzerPlugin());
 }
 
 module.exports = {
-    publicPath: "/static/dist",
+    publicPath: '/static/dist',
     productionSourceMap: false,
     parallel: true,
     lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
@@ -40,11 +41,11 @@ module.exports = {
         plugins: plugins,
         resolve: {
             fallback: {
-                "util": require.resolve("util/"),
-                "stream": require.resolve("stream-browserify"),
-                "buffer": require.resolve("buffer"),
+                'util': require.resolve('util/'),
+                'stream': require.resolve('stream-browserify'),
+                'buffer': require.resolve('buffer'),
             },
-        }
+        },
     },
     chainWebpack: config => {
         // Avoid breaking browser UI cache.
@@ -57,7 +58,7 @@ module.exports = {
         // Disable node_modules/.cache directory usage due to permissions.
         // This is enabled by default in https://cli.vuejs.org/core-plugins/babel.html#caching.
         config.module.rule('js').use('babel-loader')
-            .tap(options => Object.assign(options, {cacheDirectory: false}));
+            .tap(options => Object.assign(options, { cacheDirectory: false }));
 
         config
             .plugin('html')

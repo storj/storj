@@ -84,6 +84,21 @@ export interface PaymentsApi {
      * @throws Error
      */
     getCoupon(): Promise<Coupon | null>;
+
+    /**
+     * get native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    getWallet(): Promise<Wallet>;
+    /**
+     * claim new native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    claimWallet(): Promise<Wallet>;
 }
 
 export class AccountBalance {
@@ -150,11 +165,7 @@ export class PaymentsHistoryItem {
         // Go's zero date is passed in if the coupon does not expire
         // Go's zero date is 0001-01-01 00:00:00 +0000 UTC
         // Javascript's zero date is 1970-01-01 00:00:00 +0000 UTC
-        if (this.end.valueOf() <= 0) {
-            return false;
-        }
-
-        return true;
+        return this.end.valueOf() > 0;
     }
 
     /**
@@ -175,9 +186,9 @@ export class PaymentsHistoryItem {
     public get label(): string {
         switch (this.type) {
         case PaymentsHistoryItemType.Transaction:
-            return "Checkout"
+            return 'Checkout';
         default:
-            return "Invoice PDF"
+            return 'Invoice PDF';
         }
     }
 
@@ -327,15 +338,25 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon can only be applied once.
      */
-    Once = "once",
+    Once = 'once',
 
     /**
      * Indicates that a coupon is applied every billing period for a definite amount of time.
      */
-    Repeating = "repeating",
+    Repeating = 'repeating',
 
     /**
      * Indicates that a coupon is applied every billing period forever.
      */
-    Forever = "forever"
+    Forever = 'forever'
+}
+
+/**
+ * Represents STORJ native token payments wallet.
+ */
+export class Wallet {
+    public constructor(
+      public address: string = '',
+      public balance: number = 0,
+    ) { }
 }

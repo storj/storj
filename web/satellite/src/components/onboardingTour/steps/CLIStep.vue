@@ -2,15 +2,22 @@
 // See LICENSE for copying information.
 
 <template>
-    <router-view />
+    <div>
+        <ProgressBar />
+        <router-view />
+    </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-// @vue/component
-@Component
-export default class OnbCLIStep extends Vue {
+import ProgressBar from '@/components/onboardingTour/steps/cliFlow/ProgressBar.vue';
 
-}
+// @vue/component
+@Component({
+    components: {
+        ProgressBar,
+    },
+})
+export default class OnbCLIStep extends Vue {}
 </script>

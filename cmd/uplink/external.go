@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -13,10 +14,17 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/term"
+
+	"storj.io/common/rpc/rpctracing"
+	jaeger "storj.io/monkit-jaeger"
+	"storj.io/private/version"
 )
 
 type external struct {
@@ -43,6 +51,11 @@ type external struct {
 		loaded      bool              // true if we've successfully loaded access.json
 		defaultName string            // default access name to use from accesses
 		accesses    map[string]string // map of all of the stored accesses
+	}
+
+	tracing struct {
+		traceID      int64  // if non-zero, sets outgoing traces to the given id
+		traceAddress string // if non-zero, sampled spans are sent to this trace collector address.
 	}
 }
 
@@ -74,7 +87,22 @@ func (ex *external) Setup(f clingy.Flags) {
 		clingy.Advanced,
 	).(string)
 
+	ex.tracing.traceID = f.Flag(
+		"trace-id", "Specify a trace id to send a trace to somewhere", int64(0),
+		clingy.Transform(transformInt64),
+		clingy.Advanced,
+	).(int64)
+
+	ex.tracing.traceAddress = f.Flag(
+		"trace-addr", "Specify where to send traces", "agent.tracing.datasci.storj.io:5775",
+		clingy.Advanced,
+	).(string)
+
 	ex.dirs.loaded = true
+}
+
+func transformInt64(x string) (int64, error) {
+	return strconv.ParseInt(x, 0, 64)
 }
 
 func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
@@ -108,7 +136,7 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 }
 
 // Wrap is called by clingy with the command to be executed.
-func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) error {
+func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	if err := ex.migrate(); err != nil {
 		return err
 	}
@@ -120,20 +148,47 @@ func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) error {
 			return err
 		}
 	}
+
+	if ex.tracing.traceAddress != "" {
+		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
+		if !version.Build.Release {
+			versionName = fmt.Sprintf("uplink-dev-%s", version.Build.Timestamp.Format(time.RFC3339))
+		}
+		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
+		if err != nil {
+			return err
+		}
+		go collector.Run(context.Background())
+		defer func() {
+			sendErr := collector.Send(context.Background())
+			closeErr := collector.Close()
+			err = errs.Combine(err, sendErr, closeErr)
+		}()
+		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: 0})
+		defer cancel()
+	}
+
+	if ex.tracing.traceID != 0 {
+		trace := monkit.NewTrace(ex.tracing.traceID)
+		trace.Set(rpctracing.Sampled, true)
+
+		defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
+	}
+
 	return cmd.Execute(ctx)
 }
 
 // PromptInput gets a line of input text from the user and returns an error if
 // interactive mode is disabled.
-func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
+func (ex *external) PromptInput(ctx context.Context, prompt string) (input string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required user input in non-interactive setting")
 	}
-	fmt.Fprint(ctx.Stdout(), prompt, " ")
+	fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 	var buf []byte
 	var tmp [1]byte
 	for {
-		_, err := ctx.Stdin().Read(tmp[:])
+		_, err := clingy.Stdin(ctx).Read(tmp[:])
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -149,37 +204,37 @@ func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string
 // PromptInput gets a line of secret input from the user twice to ensure that
 // it is the same value, and returns an error if interactive mode is disabled
 // or if the prompt cannot be put into a mode where the typing is not echoed.
-func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
+func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required secret input in non-interactive setting")
 	}
 
-	fh, ok := ctx.Stdin().(interface{ Fd() uintptr })
+	fh, ok := clingy.Stdin(ctx).(interface{ Fd() uintptr })
 	if !ok {
 		return "", errs.New("unable to request secret from stdin")
 	}
 	fd := int(fh.Fd())
 
 	for {
-		fmt.Fprint(ctx.Stdout(), prompt, " ")
+		fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 
 		first, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
-		fmt.Fprint(ctx.Stdout(), "Again: ")
+		fmt.Fprint(clingy.Stdout(ctx), "Again: ")
 
 		second, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
 		if string(first) != string(second) {
-			fmt.Fprintln(ctx.Stdout(), "Values did not match. Try again.")
-			fmt.Fprintln(ctx.Stdout())
+			fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
+			fmt.Fprintln(clingy.Stdout(ctx))
 			continue
 		}
 

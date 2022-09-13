@@ -16,11 +16,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 const {
     ADD_CREDIT_CARD,
@@ -41,6 +42,8 @@ export default class AddCardForm extends Vue {
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
     };
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Adds card after Stripe confirmation.
@@ -80,6 +83,7 @@ export default class AddCardForm extends Vue {
 
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
+                    this.analytics.pageVisit(RouteConfig.CreateProject.path);
                     this.$router.push(RouteConfig.CreateProject.path);
                 }
             }, 500);

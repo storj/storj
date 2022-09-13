@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/pkcrypto"
@@ -16,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
 )
@@ -79,6 +81,13 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 func TestRecordAuditsCorrectOutcome(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
+				config.Reputation.AuditLambda = 0.95
+				config.Reputation.AuditDQ = 0.6
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -249,19 +258,19 @@ func TestReportOfflineAudits(t *testing.T) {
 		node := planet.StorageNodes[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		reputationDB := satellite.DB.Reputation()
+		reputationService := satellite.Core.Reputation.Service
 
 		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
 		require.NoError(t, err)
 
-		info, err := reputationDB.Get(ctx, node.ID())
+		info, err := reputationService.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Equal(t, int64(1), info.TotalAuditCount)
 
 		// check that other reputation stats were not incorrectly updated by offline audit
 		require.EqualValues(t, 0, info.AuditSuccessCount)
-		require.EqualValues(t, 1, info.AuditReputationAlpha)
-		require.EqualValues(t, 0, info.AuditReputationBeta)
+		require.EqualValues(t, satellite.Config.Reputation.InitialAlpha, info.AuditReputationAlpha)
+		require.EqualValues(t, satellite.Config.Reputation.InitialBeta, info.AuditReputationBeta)
 		require.EqualValues(t, 1, info.UnknownAuditReputationAlpha)
 		require.EqualValues(t, 0, info.UnknownAuditReputationBeta)
 	})

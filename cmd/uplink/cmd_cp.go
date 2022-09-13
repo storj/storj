@@ -36,6 +36,7 @@ type cmdCp struct {
 	progress  bool
 	byteRange string
 	expires   time.Time
+	metadata  map[string]string
 
 	parallelism          int
 	parallelismChunkSize memory.Size
@@ -43,6 +44,8 @@ type cmdCp struct {
 	source ulloc.Location
 	dest   ulloc.Location
 }
+
+const maxPartCount int64 = 10000
 
 func newCmdCp(ex ulext.External) *cmdCp {
 	return &cmdCp{ex: ex}
@@ -82,11 +85,11 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 			return n, nil
 		}),
 	).(int)
-	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Controls the size of the chunks for parallelism", 64*memory.MiB,
+	c.parallelismChunkSize = params.Flag("parallelism-chunk-size", "Set the size of the chunks for parallelism, 0 means automatic adjustment", memory.Size(0),
 		clingy.Transform(memory.ParseString),
 		clingy.Transform(func(n int64) (memory.Size, error) {
-			if memory.Size(n) < 1*memory.MB {
-				return 0, errs.New("file chunk size must be at least 1 MB")
+			if n < 0 {
+				return 0, errs.New("parallelism-chunk-size cannot be below 0")
 			}
 			return memory.Size(n), nil
 		}),
@@ -96,11 +99,15 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 
-	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
-	c.dest = params.Arg("dest", "Destination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.metadata = params.Flag("metadata",
+		"optional metadata for the object. Please use a single level JSON object of string to string only",
+		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
+
+	c.source = params.Arg("source", "Source to copy, use - for standard input", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.dest = params.Arg("dest", "Destination to copy, use - for standard output", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
-func (c *cmdCp) Execute(ctx clingy.Context) error {
+func (c *cmdCp) Execute(ctx context.Context) error {
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.ConnectionPoolOptions(rpcpool.Options{
 		Capacity:       100 * c.parallelism,
 		KeyCapacity:    5,
@@ -143,13 +150,13 @@ func (c *cmdCp) Execute(ctx clingy.Context) error {
 	c.dest = joinDestWith(c.dest, base)
 
 	if !c.source.Std() && !c.dest.Std() {
-		fmt.Fprintln(ctx.Stdout(), copyVerb(c.source, c.dest), c.source, "to", c.dest)
+		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(c.source, c.dest), c.source, "to", c.dest)
 	}
 
 	return c.copyFile(ctx, fs, c.source, c.dest, c.progress)
 }
 
-func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
+func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem) error {
 	if c.source.Std() || c.dest.Std() {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
@@ -175,6 +182,10 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	}
 
 	addError := func(err error) {
+		if err == nil {
+			return
+		}
+
 		mu.Lock()
 		defer mu.Unlock()
 
@@ -190,10 +201,10 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 		dest := joinDestWith(c.dest, rel)
 
 		ok := limiter.Go(ctx, func() {
-			fprintln(ctx.Stdout(), copyVerb(source, dest), source, "to", dest)
+			fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 
 			if err := c.copyFile(ctx, fs, source, dest, false); err != nil {
-				fprintln(ctx.Stderr(), copyVerb(source, dest), "failed:", err.Error())
+				fprintln(clingy.Stdout(ctx), copyVerb(source, dest), "failed:", err.Error())
 				addError(err)
 			}
 		})
@@ -212,7 +223,7 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	return nil
 }
 
-func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
+func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
 	if c.dryrun {
 		return nil
 	}
@@ -232,7 +243,10 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	}
 	defer func() { _ = mrh.Close() }()
 
-	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{Expires: c.expires})
+	mwh, err := fs.Create(ctx, dest, &ulfs.CreateOptions{
+		Expires:  c.expires,
+		Metadata: c.metadata,
+	})
 	if err != nil {
 		return err
 	}
@@ -240,17 +254,39 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 
 	var bar *progressbar.ProgressBar
 	if progress && !c.dest.Std() {
-		bar = progressbar.New64(0).SetWriter(ctx.Stdout())
+		bar = progressbar.New64(0).SetWriter(clingy.Stdout(ctx))
 		defer bar.Finish()
 	}
 
-	return errs.Wrap(parallelCopy(
+	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
+	if err != nil {
+		return err
+	}
+
+	return errs.Wrap(c.parallelCopy(
 		ctx,
 		mwh, mrh,
-		c.parallelism, c.parallelismChunkSize.Int64(),
+		c.parallelism, partSize,
 		offset, length,
 		bar,
 	))
+}
+
+// calculatePartSize returns the needed part size in order to upload the file with size of 'length'.
+// It hereby respects if the client requests/prefers a certain size and only increases if needed.
+// If length is -1 (ie. stdin input), then this will limit to 64MiB and the total file length to 640GB.
+func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int64, err error) {
+	segC := (length / maxPartCount / (memory.MiB * 64).Int64()) + 1
+	requiredSize = segC * (memory.MiB * 64).Int64()
+	switch {
+	case preferredSize == 0:
+		return requiredSize, nil
+	case requiredSize <= preferredSize:
+		return preferredSize, nil
+	default:
+		return 0, errs.New(fmt.Sprintf("the specified chunk size %s is too small, requires %s or larger",
+			memory.FormatBytes(preferredSize), memory.FormatBytes(requiredSize)))
+	}
 }
 
 func copyVerb(source, dest ulloc.Location) string {
@@ -276,8 +312,8 @@ func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
 	return dest
 }
 
-func parallelCopy(
-	clctx clingy.Context,
+func (c *cmdCp) parallelCopy(
+	clctx context.Context,
 	dst ulfs.MultiWriteHandle,
 	src ulfs.MultiReadHandle,
 	p int, chunkSize int64,
@@ -298,7 +334,6 @@ func parallelCopy(
 
 	ctx, cancel := context.WithCancel(clctx)
 
-	defer limiter.Wait()
 	defer func() { _ = src.Close() }()
 	defer func() {
 		nocancel := context2.WithoutCancellation(ctx)
@@ -307,6 +342,26 @@ func parallelCopy(
 		_ = dst.Abort(timedctx)
 	}()
 	defer cancel()
+
+	addError := func(err error) {
+		if err == nil {
+			return
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		es.Add(err)
+
+		// abort all other concurrenty copies
+		cancel()
+	}
+
+	var readBufs *ulfs.BytesPool
+	if p > 1 && c.dest.Std() {
+		// Create the read buffer pool only for downloads to stdout with parallelism > 1.
+		readBufs = ulfs.NewBytesPool(int(chunkSize))
+	}
 
 	for i := 0; length != 0; i++ {
 		i := i
@@ -318,30 +373,31 @@ func parallelCopy(
 		length -= chunk
 
 		rh, err := src.NextPart(ctx, chunk)
-		if errors.Is(err, io.EOF) {
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				addError(errs.New("error getting reader for part %d: %v", i, err))
+			}
 			break
-		} else if err != nil {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting reader for part", i)
-			mu.Unlock()
-
-			return err
 		}
 
 		wh, err := dst.NextPart(ctx, chunk)
 		if err != nil {
 			_ = rh.Close()
 
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Error getting writer for part", i)
-			mu.Unlock()
-
-			return err
+			addError(errs.New("error getting writer for part %d: %v", i, err))
+			break
 		}
 
 		ok := limiter.Go(ctx, func() {
 			defer func() { _ = rh.Close() }()
 			defer func() { _ = wh.Abort() }()
+
+			if readBufs != nil {
+				buf := readBufs.Get()
+				defer readBufs.Put(buf)
+
+				rh = ulfs.NewBufferedReadHandle(ctx, rh, buf)
+			}
 
 			var w io.Writer = wh
 			if bar != nil {
@@ -355,8 +411,6 @@ func parallelCopy(
 			}
 
 			if err != nil {
-				// abort all other concurrenty copies
-				cancel()
 				// TODO: it would be also nice to use wh.Abort and rh.Close directly
 				// to avoid some of the waiting that's caused by sync2.Copy.
 				//
@@ -364,26 +418,23 @@ func parallelCopy(
 				// to have concurrent safe API with that regards.
 				//
 				// Also, we may want to check that it actually helps, before implementing it.
+
+				addError(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
 			}
-
-			mu.Lock()
-			defer mu.Unlock()
-
-			es.Add(err)
 		})
 		if !ok {
-			mu.Lock()
-			fmt.Fprintln(clctx.Stderr(), "Failed to start part copy", i)
-			mu.Unlock()
-			return ctx.Err()
+			break
 		}
 	}
 
 	limiter.Wait()
 
-	es.Add(dst.Commit(ctx))
+	// don't try to commit if any error occur
+	if len(es) == 0 {
+		es.Add(dst.Commit(ctx))
+	}
 
-	return es.Err()
+	return errs.Wrap(combineErrs(es))
 }
 
 func parseRange(r string) (offset, length int64, err error) {
@@ -433,4 +484,18 @@ func parseRange(r string) (offset, length int64, err error) {
 	default:
 		return starti, endi - starti + 1, nil
 	}
+}
+
+// combineErrs makes a more readable error message from the errors group.
+func combineErrs(group errs.Group) error {
+	if len(group) == 0 {
+		return nil
+	}
+
+	errstrings := make([]string, len(group))
+	for i, err := range group {
+		errstrings[i] = err.Error()
+	}
+
+	return fmt.Errorf("%s", strings.Join(errstrings, "\n"))
 }

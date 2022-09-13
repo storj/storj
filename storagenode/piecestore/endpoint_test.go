@@ -104,6 +104,7 @@ func TestUpload(t *testing.T) {
 			contentLength memory.Size
 			action        pb.PieceAction
 			err           string
+			hashAlgo      pb.PieceHashAlgorithm
 		}{
 			{ // should successfully store data
 				pieceID:       storj.PieceID{1},
@@ -123,7 +124,14 @@ func TestUpload(t *testing.T) {
 				action:        pb.PieceAction_GET,
 				err:           "expected put or put repair action got GET",
 			},
+			{ // different piece hash
+				pieceID:       storj.PieceID{2},
+				contentLength: 1 * memory.KiB,
+				action:        pb.PieceAction_PUT,
+				hashAlgo:      pb.PieceHashAlgorithm_BLAKE3,
+			},
 		} {
+			client.UploadHashAlgo = tt.hashAlgo
 			data := testrand.Bytes(tt.contentLength)
 			serialNumber := testrand.SerialNumber()
 
@@ -149,7 +157,11 @@ func TestUpload(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 
-				expectedHash := pkcrypto.SHA256Hash(data)
+				hasher := pb.NewHashFromAlgorithm(tt.hashAlgo)
+				_, err = hasher.Write(data)
+				require.NoError(t, err)
+				expectedHash := hasher.Sum([]byte{})
+
 				assert.Equal(t, expectedHash, pieceHash.Hash)
 
 				signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)

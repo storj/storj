@@ -54,37 +54,6 @@ type StreamIDCursor struct {
 	StreamID uuid.UUID
 }
 
-// IterateObjects contains arguments necessary for listing objects in a bucket.
-type IterateObjects struct {
-	ProjectID  uuid.UUID
-	BucketName string
-	BatchSize  int
-	Prefix     ObjectKey
-	Cursor     IterateCursor
-}
-
-// Verify verifies get object request fields.
-func (opts *IterateObjects) Verify() error {
-	switch {
-	case opts.ProjectID.IsZero():
-		return ErrInvalidRequest.New("ProjectID missing")
-	case opts.BucketName == "":
-		return ErrInvalidRequest.New("BucketName missing")
-	case opts.BatchSize < 0:
-		return ErrInvalidRequest.New("BatchSize is negative")
-	}
-	return nil
-}
-
-// IterateObjectsAllVersions iterates through all versions of all objects.
-func (db *DB) IterateObjectsAllVersions(ctx context.Context, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if err = opts.Verify(); err != nil {
-		return err
-	}
-	return iterateAllVersions(ctx, db, opts, fn)
-}
-
 // IteratePendingObjectsByKey contains arguments necessary for listing pending objects by ObjectKey.
 type IteratePendingObjectsByKey struct {
 	ObjectLocation

@@ -106,13 +106,13 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		statement := db.db.Rebind(
+		statement := tx.Rebind(
 			`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(bucket_name, project_id, interval_start, action)
 			DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
 		)
-		_, err = db.db.ExecContext(ctx, statement,
+		_, err = tx.Tx.ExecContext(ctx, statement,
 			bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(settledAmount), uint64(settledAmount),
 		)
 		if err != nil {

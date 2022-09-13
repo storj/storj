@@ -2,20 +2,27 @@
 
 exports[`Dashboard renders correctly when data is loaded 1`] = `
 <div class="dashboard">
-  <!---->
   <div class="dashboard__wrap">
-    <!---->
-    <paidtierbar-stub openaddpmmodal="[Function]"></paidtierbar-stub>
-    <!---->
-    <!---->
-    <dashboardheader-stub></dashboardheader-stub>
-    <div class="dashboard__wrap__main-area with-one-bar-old">
-      <navigationarea-stub class="regular-navigation"></navigationarea-stub>
-      <router-view-stub name="default" class="dashboard__wrap__main-area__content"></router-view-stub>
+    <div class="dashboard__wrap__main-area">
+      <navigationarea-stub class="dashboard__wrap__main-area__navigation"></navigationarea-stub>
+      <mobilenavigation-stub class="dashboard__wrap__main-area__mobile-navigation"></mobilenavigation-stub>
+      <div class="dashboard__wrap__main-area__content-wrap">
+        <div class="dashboard__wrap__main-area__content-wrap__container">
+          <div class="bars">
+            <!---->
+            <paidtierbar-stub openaddpmmodal="[Function]"></paidtierbar-stub>
+            <!---->
+            <!---->
+          </div>
+          <router-view-stub name="default" class="dashboard__wrap__main-area__content-wrap__container__content"></router-view-stub>
+        </div>
+        <billingnotification-stub></billingnotification-stub>
+      </div>
     </div>
   </div>
   <!---->
   <!---->
+  <allmodals-stub></allmodals-stub>
 </div>
 `;
 
@@ -26,6 +33,6 @@ exports[`Dashboard renders correctly when data is loading 1`] = `
   </div>
   <!---->
   <!---->
-  <!---->
+  <allmodals-stub></allmodals-stub>
 </div>
 `;

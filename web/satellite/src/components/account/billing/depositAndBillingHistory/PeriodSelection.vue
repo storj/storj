@@ -31,14 +31,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import SelectedIcon from '@/../static/images/account/billing/selected.svg';
 import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -56,6 +57,8 @@ export default class PeriodSelection extends Vue {
         'Previous Billing Period',
     ];
     public currentOption: string = this.periodOptions[0];
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if periods dropdown is shown.
@@ -123,6 +126,7 @@ export default class PeriodSelection extends Vue {
      * Holds logic to redirect user to billing history page.
      */
     public redirect(): void {
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
     }
 

@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
+import { mount, shallowMount } from '@vue/test-utils';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { mount, shallowMount } from '@vue/test-utils';
+
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 describe('NotificationArea.vue', () => {
     it('renders correctly', () => {

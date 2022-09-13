@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -36,7 +37,7 @@ func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External) {
 	).(bool)
 }
 
-func (am *accessMaker) Execute(ctx clingy.Context, name string, access *uplink.Access) (_ *uplink.Access, err error) {
+func (am *accessMaker) Execute(ctx context.Context, name string, access *uplink.Access) (_ *uplink.Access, err error) {
 	defaultName, accesses, err := am.ex.GetAccessInfo(false)
 	if err != nil {
 		return nil, err
@@ -68,7 +69,7 @@ func (am *accessMaker) Execute(ctx clingy.Context, name string, access *uplink.A
 			return nil, errs.Wrap(err)
 		}
 
-		fmt.Fprintf(ctx, "Imported access %q to %q\n", name, am.ex.AccessInfoFile())
+		fmt.Fprintf(clingy.Stdout(ctx), "Imported access %q to %q\n", name, am.ex.AccessInfoFile())
 	}
 
 	return access, nil

@@ -27,7 +27,7 @@ import (
 // TestDisqualificationTooManyFailedAudits does the following:
 //   - Create a failed audit report for a storagenode
 //   - Record the audit report several times and check that the node isn't
-//	   disqualified until the audit reputation reaches the cut-off value.
+//     disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
 		auditDQCutOff = 0.4
@@ -77,9 +77,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			require.NoError(t, err)
 
 			reputation := calcReputation(reputationInfo)
-			require.Truef(t, prevReputation >= reputation,
-				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
-				iterations, prevReputation, reputation,
+			require.LessOrEqual(t, reputation, prevReputation,
+				"(%d) expected reputation to remain or decrease (current <= previous)",
+				iterations,
 			)
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
@@ -88,7 +88,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 
-				require.True(t, time.Since(*reputationInfo.Disqualified) >= 0,
+				require.GreaterOrEqual(t, time.Since(*reputationInfo.Disqualified), time.Duration(0),
 					"Disqualified should be in the past",
 				)
 
@@ -99,7 +99,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			prevReputation = reputation
 		}
 
-		require.True(t, iterations > 1, "the number of iterations must be at least 2")
+		require.Greater(t, iterations, 1, "the number of iterations must be at least 2")
 	})
 }
 

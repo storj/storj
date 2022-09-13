@@ -14,7 +14,7 @@
                 />
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader />
+                <SortingHeader class="buckets-container__header" />
                 <VList
                     class="buckets-list"
                     :data-set="buckets"
@@ -38,6 +38,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { Bucket } from '@/types/buckets';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VHeader from '@/components/common/VHeader.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
@@ -45,10 +50,7 @@ import BucketItem from '@/components/project/buckets/BucketItem.vue';
 import NoBucketArea from '@/components/project/buckets/NoBucketsArea.vue';
 import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { Bucket } from '@/types/buckets';
-
-const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
+const { FETCH, SET_SEARCH } = BUCKET_ACTIONS;
 
 // @vue/component
 @Component({
@@ -61,6 +63,7 @@ const {FETCH, SET_SEARCH} = BUCKET_ACTIONS;
     },
 })
 export default class BucketArea extends Vue {
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     /**
      * Lifecycle hook before component destruction where buckets search query is cleared.
      */
@@ -136,6 +139,7 @@ export default class BucketArea extends Vue {
      */
     public async fetch(searchQuery: string): Promise<void> {
         await this.$store.dispatch(SET_SEARCH, searchQuery);
+        await this.analytics.eventTriggered(AnalyticsEvent.SEARCH_BUCKETS);
 
         try {
             await this.$store.dispatch(FETCH, 1);
@@ -192,8 +196,8 @@ export default class BucketArea extends Vue {
 
     .buckets-container {
         background-color: #fff;
-        border-radius: 6px;
-        padding-bottom: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
     }
 
     .empty-search-result-area {
@@ -202,7 +206,7 @@ export default class BucketArea extends Vue {
         justify-content: center;
         padding: 20px 0;
         background-color: #fff;
-        border-radius: 6px;
+        border-radius: 10px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -212,10 +216,26 @@ export default class BucketArea extends Vue {
     }
 
     .buckets-list {
-        padding-top: 20px;
+        padding: 20px 0;
+        border-radius: 10px;
     }
 
-    ::v-deep .pagination-container {
+    :deep(.pagination-container) {
         padding-left: 0;
+    }
+
+    @media screen and (max-width: 960px) {
+
+        .buckets-container__header {
+            display: none;
+        }
+
+        .buckets-list {
+            padding: 0;
+
+            & > :deep(*:not(:first-child)) {
+                border-top: 1px solid #c7cdd2;
+            }
+        }
     }
 </style>

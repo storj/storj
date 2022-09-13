@@ -102,7 +102,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    1,
+			Version:    metabase.Version(streamID.Version),
 		},
 		Position: metabase.SegmentPosition{
 			Part:  uint32(req.Position.PartNumber),
@@ -248,7 +248,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    1,
+			Version:    metabase.Version(streamID.Version),
 		},
 		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
@@ -300,9 +300,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
-	if err := endpoint.updateUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, segmentSize); err != nil {
 		return nil, err
 	}
+
+	// note: we collect transfer stats in CommitSegment instead because in BeginSegment
+	// they would always be MaxSegmentSize (64MiB)
+	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
 	return &pb.SegmentCommitResponse{
 		SuccessfulPieces: int32(len(pieces)),
@@ -360,7 +364,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    1,
+			Version:    metabase.Version(streamID.Version),
 		},
 		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
@@ -387,9 +391,11 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if err := endpoint.updateUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
+	if err := endpoint.addSegmentToUploadLimits(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
 		return nil, err
 	}
+
+	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
@@ -583,6 +589,9 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			endpoint.log.Error("internal", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
+
+		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
+
 		endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
 		mon.Meter("req_get_inline").Mark(1)
 
@@ -614,6 +623,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+
+	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
 	endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote").Mark(1)

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -38,7 +39,7 @@ func (c *cmdRb) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRb) Execute(ctx clingy.Context) error {
+func (c *cmdRb) Execute(ctx context.Context) error {
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
@@ -62,6 +63,6 @@ func (c *cmdRb) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx.Stdout(), "Bucket %q has been deleted.\n", bucket)
+	fmt.Fprintf(clingy.Stdout(ctx), "Bucket %q has been deleted.\n", bucket)
 	return nil
 }

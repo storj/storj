@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
@@ -42,7 +43,7 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
-	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
+	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (map[storj.NodeID]*SelectedNode, error)
 	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
@@ -113,9 +114,9 @@ type DB interface {
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
-	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
-	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 
@@ -300,7 +301,7 @@ type Service struct {
 func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	var geoIP geoip.IPToCountry = geoip.NewMockIPToCountry(config.GeoIP.MockCountries)
@@ -311,6 +312,21 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		}
 	}
 
+	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
+		config.NodeSelectionCache.Staleness, config.Node,
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	downloadSelectionCache, err := NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
+		Staleness:      config.NodeSelectionCache.Staleness,
+		OnlineWindow:   config.Node.OnlineWindow,
+		AsOfSystemTime: config.Node.AsOfSystemTime,
+	})
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return &Service{
 		log:    log,
 		db:     db,
@@ -318,16 +334,17 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 		GeoIP: geoIP,
 
-		UploadSelectionCache: NewUploadSelectionCache(log, db,
-			config.NodeSelectionCache.Staleness, config.Node,
-		),
-
-		DownloadSelectionCache: NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
-			Staleness:      config.NodeSelectionCache.Staleness,
-			OnlineWindow:   config.Node.OnlineWindow,
-			AsOfSystemTime: config.Node.AsOfSystemTime,
-		}),
+		UploadSelectionCache:   uploadSelectionCache,
+		DownloadSelectionCache: downloadSelectionCache,
 	}, nil
+}
+
+// Run runs the background processes needed for caches.
+func (service *Service) Run(ctx context.Context) error {
+	return errs.Combine(sync2.Concurrently(
+		func() error { return service.UploadSelectionCache.Run(ctx) },
+		func() error { return service.DownloadSelectionCache.Run(ctx) },
+	)...)
 }
 
 // Close closes resources.
@@ -348,7 +365,13 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
+}
+
+// CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
+func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
@@ -537,6 +560,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if oldInfo == nil {
+		if !node.IsUp {
+			// this is a previously unknown node, and we couldn't pingback to verify that it even
+			// exists. Don't bother putting it in the db.
+			return nil
+		}
+
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
@@ -648,31 +677,31 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID,
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
-func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
+func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 	ipAddr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
 	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
 		// Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
-		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv4.Mask(mask).String(), nil
 	}
 	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
 		// Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
-		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv6.Mask(mask).String(), nil
 	}
 
-	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+	return nil, "", "", errors.New("unable to get network for address " + ipAddr.String())
 }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

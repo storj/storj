@@ -332,10 +332,7 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
         }
     }
 
-    .arrow-icon {
-
-        path {
-            fill: var(--c-gray);
-        }
+    .arrow-icon ::v-deep path {
+        fill: var(--c-gray);
     }
 </style>

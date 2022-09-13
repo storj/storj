@@ -1678,8 +1678,6 @@ func TestCommitSegment(t *testing.T) {
 func TestCommitInlineSegment(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-		now := time.Now()
-		zombieDeadline := now.Add(24 * time.Hour)
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
@@ -1772,7 +1770,8 @@ func TestCommitInlineSegment(t *testing.T) {
 		t.Run("duplicate", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now1 := time.Now()
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -1817,7 +1816,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
-						CreatedAt:    now1,
+						CreatedAt:    now,
 						Status:       metabase.Pending,
 
 						Encryption:             metabasetest.DefaultEncryption,
@@ -1846,7 +1845,8 @@ func TestCommitInlineSegment(t *testing.T) {
 		t.Run("overwrite", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now1 := time.Now()
+			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -1891,7 +1891,7 @@ func TestCommitInlineSegment(t *testing.T) {
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
-						CreatedAt:    now1,
+						CreatedAt:    now,
 						Status:       metabase.Pending,
 
 						Encryption:             metabasetest.DefaultEncryption,
@@ -1983,6 +1983,8 @@ func TestCommitInlineSegment(t *testing.T) {
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -2040,6 +2042,8 @@ func TestCommitInlineSegment(t *testing.T) {
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
+
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -2099,6 +2103,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 			expectedExpiresAt := now.Add(33 * time.Hour)
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{

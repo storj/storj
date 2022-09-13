@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // Users exposes methods to manage User table in database.
@@ -20,6 +21,10 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
+	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
+	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
+	// UpdateVerificationReminders increments verification_reminders.
+	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
 	// GetByEmail is a method for querying user by verified email from the database.
@@ -29,7 +34,7 @@ type Users interface {
 	// Delete is a method for deleting user by Id from the database.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
-	Update(ctx context.Context, user *User) error
+	Update(ctx context.Context, userID uuid.UUID, request UpdateUserRequest) error
 	// UpdatePaidTier sets whether the user is in the paid tier.
 	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool, projectBandwidthLimit, projectStorageLimit memory.Size, projectSegmentLimit int64, projectLimit int) error
 	// GetProjectLimit is a method to get the users project limit
@@ -59,21 +64,21 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName          string `json:"fullName"`
-	ShortName         string `json:"shortName"`
-	Email             string `json:"email"`
-	PartnerID         string `json:"partnerId"`
-	UserAgent         []byte `json:"userAgent"`
-	Password          string `json:"password"`
-	IsProfessional    bool   `json:"isProfessional"`
-	Position          string `json:"position"`
-	CompanyName       string `json:"companyName"`
-	WorkingOn         string `json:"workingOn"`
-	EmployeeCount     string `json:"employeeCount"`
-	HaveSalesContact  bool   `json:"haveSalesContact"`
-	RecaptchaResponse string `json:"recaptchaResponse"`
-	IP                string `json:"ip"`
-	SignupPromoCode   string `json:"signupPromoCode"`
+	FullName         string `json:"fullName"`
+	ShortName        string `json:"shortName"`
+	Email            string `json:"email"`
+	PartnerID        string `json:"partnerId"`
+	UserAgent        []byte `json:"userAgent"`
+	Password         string `json:"password"`
+	IsProfessional   bool   `json:"isProfessional"`
+	Position         string `json:"position"`
+	CompanyName      string `json:"companyName"`
+	WorkingOn        string `json:"workingOn"`
+	EmployeeCount    string `json:"employeeCount"`
+	HaveSalesContact bool   `json:"haveSalesContact"`
+	CaptchaResponse  string `json:"captchaResponse"`
+	IP               string `json:"ip"`
+	SignupPromoCode  string `json:"signupPromoCode"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -113,6 +118,15 @@ type AuthUser struct {
 	Password        string `json:"password"`
 	MFAPasscode     string `json:"mfaPasscode"`
 	MFARecoveryCode string `json:"mfaRecoveryCode"`
+	CaptchaResponse string `json:"captchaResponse"`
+	IP              string `json:"-"`
+	UserAgent       string `json:"-"`
+}
+
+// TokenInfo holds info for user authentication token responses.
+type TokenInfo struct {
+	consoleauth.Token `json:"token"`
+	ExpiresAt         time.Time `json:"expiresAt"`
 }
 
 // UserStatus - is used to indicate status of the users account.
@@ -165,7 +179,77 @@ type User struct {
 	SignupPromoCode string `json:"signupPromoCode"`
 
 	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
+	VerificationReminders    int       `json:"verificationReminders"`
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
+	SignupCaptcha          *float64  `json:"-"`
+}
+
+// ResponseUser is an entity which describes db User and can be sent in response.
+type ResponseUser struct {
+	ID                   uuid.UUID `json:"id"`
+	FullName             string    `json:"fullName"`
+	ShortName            string    `json:"shortName"`
+	Email                string    `json:"email"`
+	PartnerID            uuid.UUID `json:"partnerId"`
+	UserAgent            []byte    `json:"userAgent"`
+	ProjectLimit         int       `json:"projectLimit"`
+	IsProfessional       bool      `json:"isProfessional"`
+	Position             string    `json:"position"`
+	CompanyName          string    `json:"companyName"`
+	EmployeeCount        string    `json:"employeeCount"`
+	HaveSalesContact     bool      `json:"haveSalesContact"`
+	PaidTier             bool      `json:"paidTier"`
+	MFAEnabled           bool      `json:"isMFAEnabled"`
+	MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
+}
+
+// key is a context value key type.
+type key int
+
+// userKey is context key for User.
+const userKey key = 0
+
+// WithUser creates new context with User.
+func WithUser(ctx context.Context, user *User) context.Context {
+	return context.WithValue(ctx, userKey, user)
+}
+
+// GetUser gets User from context.
+func GetUser(ctx context.Context) (*User, error) {
+	if user, ok := ctx.Value(userKey).(*User); ok {
+		return user, nil
+	}
+
+	return nil, Error.New("user is not in context")
+}
+
+// UpdateUserRequest contains all columns which are optionally updatable by users.Update.
+type UpdateUserRequest struct {
+	FullName  *string
+	ShortName **string
+
+	Email        *string
+	PasswordHash []byte
+
+	Status *UserStatus
+
+	ProjectLimit          *int
+	ProjectStorageLimit   *int64
+	ProjectBandwidthLimit *int64
+	ProjectSegmentLimit   *int64
+	PaidTier              *bool
+
+	MFAEnabled       *bool
+	MFASecretKey     **string
+	MFARecoveryCodes *[]string
+
+	LastVerificationReminder **time.Time
+
+	// failed_login_count is nullable, but we don't really have a reason
+	// to set it to NULL, so it doesn't need to be a double pointer here.
+	FailedLoginCount *int
+
+	LoginLockoutExpiration **time.Time
 }

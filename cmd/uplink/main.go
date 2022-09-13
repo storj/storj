@@ -8,22 +8,31 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 
+	"storj.io/common/pb"
 	_ "storj.io/common/rpc/quic" // include quic connector
 	"storj.io/storj/cmd/uplink/ulext"
+	"storj.io/uplink/private/piecestore"
 )
+
+var mon = monkit.Package()
 
 func main() {
 	ex := newExternal()
 	raiseUlimits()
+	ctx := context.Background()
+	ctx = withPieceHashAlgorithm(ctx)
+
 	ok, err := clingy.Environment{
 		Name:    "uplink",
 		Args:    os.Args[1:],
 		Dynamic: ex.Dynamic,
 		Wrap:    ex.Wrap,
-	}.Run(context.Background(), func(cmds clingy.Commands) {
+	}.Run(ctx, func(cmds clingy.Commands) {
 		ex.Setup(cmds) // setup ex first so that stdlib flags can consult config
 		newStdlibFlags(flag.CommandLine).Setup(cmds)
 		commands(cmds, ex)
@@ -34,6 +43,22 @@ func main() {
 	if !ok || err != nil {
 		os.Exit(1)
 	}
+}
+
+func withPieceHashAlgorithm(ctx context.Context) context.Context {
+	customHashAlgo := os.Getenv("STORJ_PIECE_HASH_ALGORITHM_EXPERIMENTAL")
+	if customHashAlgo != "" {
+		var available []string
+		for value, name := range pb.PieceHashAlgorithm_name {
+			available = append(available, name)
+			if name == customHashAlgo {
+				return piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm(value))
+
+			}
+		}
+		panic("Piece hash algorithm is invalid. Available options: " + strings.Join(available, ","))
+	}
+	return ctx
 }
 
 func commands(cmds clingy.Commands, ex ulext.External) {

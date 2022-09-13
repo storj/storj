@@ -10,199 +10,208 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestRollupNoDeletes(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
-	},
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			// In testplanet the setting config.Rollup.DeleteTallies defaults to false.
-			// That means if we do not delete any old tally data, then we expect that we
-			// can tally/rollup data from anytime in the past.
-			// To confirm, this test creates 5 days of tally and rollup data, then we check that all
-			// the data is present in the accounting rollup table and in the storage node storage tally table.
-			const (
-				days            = 5
-				atRestAmount    = 10
-				getAmount       = 20
-				putAmount       = 30
-				getAuditAmount  = 40
-				getRepairAmount = 50
-				putRepairAmount = 60
-			)
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		// In testplanet the setting config.Rollup.DeleteTallies defaults to false.
+		// That means if we do not delete any old tally data, then we expect that we
+		// can tally/rollup data from anytime in the past.
+		// To confirm, this test creates 5 days of tally and rollup data, then we check that all
+		// the data is present in the accounting rollup table and in the storage node storage tally table.
+		const (
+			days            = 5
+			atRestAmount    = 10
+			getAmount       = 20
+			putAmount       = 30
+			getAuditAmount  = 40
+			getRepairAmount = 50
+			putRepairAmount = 60
+		)
 
-			var (
-				satellitePeer  = planet.Satellites[0]
-				ordersDB       = satellitePeer.DB.Orders()
-				snAccountingDB = satellitePeer.DB.StoragenodeAccounting()
-			)
+		var (
+			ordersDB       = db.Orders()
+			snAccountingDB = db.StoragenodeAccounting()
+			storageNodes   = createNodes(ctx, t, db)
+		)
 
-			satellitePeer.Accounting.Rollup.Loop.Pause()
-			satellitePeer.Accounting.Tally.Loop.Pause()
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, time.Hour)
 
-			// disqualifying nodes is unrelated to this test, but it is added here
-			// to confirm the disqualification shows up in the accounting CSVRow
-			dqedNodes, err := dqNodes(ctx, planet)
-			require.NoError(t, err)
-			require.NotEmpty(t, dqedNodes)
+		// disqualifying nodes is unrelated to this test, but it is added here
+		// to confirm the disqualification shows up in the accounting CSVRow
+		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
+		require.NoError(t, err)
+		require.NotEmpty(t, dqedNodes)
 
-			// Set initialTime back by the number of days we want to save
-			initialTime := time.Now().UTC().AddDate(0, 0, -days)
-			currentTime := initialTime
+		// Set initialTime back by the number of days we want to save
+		initialTime := time.Now().UTC().AddDate(0, 0, -days)
+		currentTime := initialTime
 
-			nodeData := map[storj.NodeID]float64{}
-			bwTotals := make(map[storj.NodeID][]int64)
-			for _, storageNode := range planet.StorageNodes {
-				nodeData[storageNode.ID()] = float64(atRestAmount)
-				storageNodeID := storageNode.ID()
-				bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
+		nodeData := map[storj.NodeID]float64{}
+		bwTotals := make(map[storj.NodeID][]int64)
+		for _, storageNodeID := range storageNodes {
+			nodeData[storageNodeID] = float64(atRestAmount)
+			bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
+		}
+
+		// Create 5 days worth of tally and rollup data.
+		// Add one additional day of data since the rollup service will truncate data from the most recent day.
+		for i := 0; i < days+1; i++ {
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
+			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
+
+			require.NoError(t, rollupService.Rollup(ctx))
+
+			currentTime = currentTime.Add(24 * time.Hour)
+		}
+
+		accountingCSVRows, err := snAccountingDB.QueryPaymentInfo(ctx, initialTime.Add(-24*time.Hour), currentTime.Add(24*time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, len(storageNodes), len(accountingCSVRows))
+
+		// Confirm all the data saved over the 5 days is all summed in the accounting rollup table.
+		for _, row := range accountingCSVRows {
+			assert.Equal(t, int64(days*putAmount), row.PutTotal)
+			assert.Equal(t, int64(days*getAmount), row.GetTotal)
+			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
+			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
+			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
+			assert.NotEmpty(t, row.Wallet)
+			if dqedNodes[row.NodeID] {
+				assert.NotNil(t, row.Disqualified)
+			} else {
+				assert.Nil(t, row.Disqualified)
 			}
+		}
+		// Confirm there is a storage tally row for each time tally ran for each storage node.
+		// We ran tally for one additional day, so expect 6 days of tallies.
+		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, (days+1)*len(storageNodes), len(storagenodeTallies))
+	})
+}
 
-			// Create 5 days worth of tally and rollup data.
-			// Add one additional day of data since the rollup service will truncate data from the most recent day.
-			for i := 0; i < days+1; i++ {
-				require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
-				require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
-
-				require.NoError(t, satellitePeer.Accounting.Rollup.Rollup(ctx))
-
-				currentTime = currentTime.Add(24 * time.Hour)
-			}
-
-			accountingCSVRows, err := snAccountingDB.QueryPaymentInfo(ctx, initialTime.Add(-24*time.Hour), currentTime.Add(24*time.Hour))
-			require.NoError(t, err)
-			assert.Equal(t, len(planet.StorageNodes), len(accountingCSVRows))
-
-			// Confirm all the data saved over the 5 days is all summed in the accounting rollup table.
-			for _, row := range accountingCSVRows {
-				assert.Equal(t, int64(days*putAmount), row.PutTotal)
-				assert.Equal(t, int64(days*getAmount), row.GetTotal)
-				assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
-				assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
-				assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-				assert.NotEmpty(t, row.Wallet)
-				if dqedNodes[row.NodeID] {
-					assert.NotNil(t, row.Disqualified)
-				} else {
-					assert.Nil(t, row.Disqualified)
-				}
-			}
-			// Confirm there is a storage tally row for each time tally ran for each storage node.
-			// We ran tally for one additional day, so expect 6 days of tallies.
-			storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
-			require.NoError(t, err)
-			assert.Equal(t, (days+1)*len(planet.StorageNodes), len(storagenodeTallies))
-		})
+func createNodes(ctx *testcontext.Context, t *testing.T, db satellite.DB) []storj.NodeID {
+	storageNodes := []storj.NodeID{}
+	for i := 0; i < 10; i++ {
+		id := testrand.NodeID()
+		storageNodes = append(storageNodes, id)
+		err := db.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+			NodeID: id,
+			Address: &pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   "127.0.0.1:1234",
+			},
+			Version: &pb.NodeVersion{
+				Version: "1.12.1",
+			},
+			Operator: &pb.NodeOperator{
+				Wallet: "wallet",
+			},
+		}, time.Now(), overlay.NodeSelectionConfig{})
+		require.NoError(t, err)
+	}
+	return storageNodes
 }
 
 func TestRollupDeletes(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Rollup.DeleteTallies = true
-				config.Orders.Expiration = time.Hour
-			},
-		},
-	},
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			// In this test config.Rollup.DeleteTallies is set to true.
-			// This means old tally data will be deleted when Rollup runs.
-			// To confirm, this test creates 5 days of tally and rollup data, then we check
-			// that the correct data is in the accounting rollup table and the storagenode storage tally table.
-			const (
-				days            = 5
-				atRestAmount    = 10
-				getAmount       = 20
-				putAmount       = 30
-				getAuditAmount  = 40
-				getRepairAmount = 50
-				putRepairAmount = 60
-			)
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		// In this test config.Rollup.DeleteTallies is set to true.
+		// This means old tally data will be deleted when Rollup runs.
+		// To confirm, this test creates 5 days of tally and rollup data, then we check
+		// that the correct data is in the accounting rollup table and the storagenode storage tally table.
+		const (
+			days            = 5
+			atRestAmount    = 10
+			getAmount       = 20
+			putAmount       = 30
+			getAuditAmount  = 40
+			getRepairAmount = 50
+			putRepairAmount = 60
+		)
 
-			var (
-				satellitePeer  = planet.Satellites[0]
-				ordersDB       = satellitePeer.DB.Orders()
-				snAccountingDB = satellitePeer.DB.StoragenodeAccounting()
-			)
+		var (
+			ordersDB       = db.Orders()
+			snAccountingDB = db.StoragenodeAccounting()
+			storageNodes   = createNodes(ctx, t, db)
+		)
 
-			satellitePeer.Accounting.Rollup.Loop.Pause()
-			satellitePeer.Accounting.Tally.Loop.Pause()
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, time.Hour)
 
-			// disqualifying nodes is unrelated to this test, but it is added here
-			// to confirm the disqualification shows up in the accounting CSVRow
-			dqedNodes, err := dqNodes(ctx, planet)
-			require.NoError(t, err)
-			require.NotEmpty(t, dqedNodes)
+		// disqualifying nodes is unrelated to this test, but it is added here
+		// to confirm the disqualification shows up in the accounting CSVRow
+		dqedNodes, err := dqNodes(ctx, db.OverlayCache(), storageNodes)
+		require.NoError(t, err)
+		require.NotEmpty(t, dqedNodes)
 
-			// Set timestamp back by the number of days we want to save
-			now := time.Now().UTC()
-			initialTime := now.AddDate(0, 0, -days)
+		// Set timestamp back by the number of days we want to save
+		now := time.Now().UTC()
+		initialTime := now.AddDate(0, 0, -days)
 
-			// TODO: this only runs the test for times that are farther back than
-			// an hour from midnight UTC. something is wrong for the hour of
-			// 11pm-midnight UTC.
-			hour, _, _ := now.Clock()
-			if hour == 23 {
-				initialTime = initialTime.Add(-time.Hour)
+		// TODO: this only runs the test for times that are farther back than
+		// an hour from midnight UTC. something is wrong for the hour of
+		// 11pm-midnight UTC.
+		hour, _, _ := now.Clock()
+		if hour == 23 {
+			initialTime = initialTime.Add(-time.Hour)
+		}
+
+		currentTime := initialTime
+
+		nodeData := map[storj.NodeID]float64{}
+		bwTotals := make(map[storj.NodeID][]int64)
+		for _, storageNodeID := range storageNodes {
+			nodeData[storageNodeID] = float64(atRestAmount)
+			bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
+		}
+
+		// Create 5 days worth of tally and rollup data.
+		// Add one additional day of data since the rollup service will truncate data from the most recent day.
+		for i := 0; i < days+1; i++ {
+			require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
+			require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
+
+			// Since the config.Rollup.DeleteTallies is set to true, at the end of the Rollup(),
+			// storagenode storage tallies that exist before the last rollup should be deleted.
+			require.NoError(t, rollupService.Rollup(ctx))
+
+			currentTime = currentTime.Add(24 * time.Hour)
+		}
+
+		accountingCSVRows, err := snAccountingDB.QueryPaymentInfo(ctx, initialTime.Add(-24*time.Hour), currentTime.Add(24*time.Hour))
+		require.NoError(t, err)
+		assert.Equal(t, len(storageNodes), len(accountingCSVRows))
+
+		// Confirm all the data saved over the 5 days is all summed in the accounting rollup table.
+		for _, row := range accountingCSVRows {
+			assert.Equal(t, int64(days*putAmount), row.PutTotal)
+			assert.Equal(t, int64(days*getAmount), row.GetTotal)
+			assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
+			assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
+			assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
+			assert.NotEmpty(t, row.Wallet)
+			if dqedNodes[row.NodeID] {
+				assert.NotNil(t, row.Disqualified)
+			} else {
+				assert.Nil(t, row.Disqualified)
 			}
-
-			currentTime := initialTime
-
-			nodeData := map[storj.NodeID]float64{}
-			bwTotals := make(map[storj.NodeID][]int64)
-			for _, storageNode := range planet.StorageNodes {
-				nodeData[storageNode.ID()] = float64(atRestAmount)
-				storageNodeID := storageNode.ID()
-				bwTotals[storageNodeID] = []int64{putAmount, getAmount, getAuditAmount, getRepairAmount, putRepairAmount}
-			}
-
-			// Create 5 days worth of tally and rollup data.
-			// Add one additional day of data since the rollup service will truncate data from the most recent day.
-			for i := 0; i < days+1; i++ {
-				require.NoError(t, snAccountingDB.SaveTallies(ctx, currentTime, nodeData))
-				require.NoError(t, saveBWPhase3(ctx, ordersDB, bwTotals, currentTime))
-
-				// Since the config.Rollup.DeleteTallies is set to true, at the end of the Rollup(),
-				// storagenode storage tallies that exist before the last rollup should be deleted.
-				require.NoError(t, satellitePeer.Accounting.Rollup.Rollup(ctx))
-
-				currentTime = currentTime.Add(24 * time.Hour)
-			}
-
-			accountingCSVRows, err := snAccountingDB.QueryPaymentInfo(ctx, initialTime.Add(-24*time.Hour), currentTime.Add(24*time.Hour))
-			require.NoError(t, err)
-			assert.Equal(t, len(planet.StorageNodes), len(accountingCSVRows))
-
-			// Confirm all the data saved over the 5 days is all summed in the accounting rollup table.
-			for _, row := range accountingCSVRows {
-				assert.Equal(t, int64(days*putAmount), row.PutTotal)
-				assert.Equal(t, int64(days*getAmount), row.GetTotal)
-				assert.Equal(t, int64(days*getAuditAmount), row.GetAuditTotal)
-				assert.Equal(t, int64(days*getRepairAmount), row.GetRepairTotal)
-				assert.Equal(t, float64(days*atRestAmount), row.AtRestTotal)
-				assert.NotEmpty(t, row.Wallet)
-				if dqedNodes[row.NodeID] {
-					assert.NotNil(t, row.Disqualified)
-				} else {
-					assert.Nil(t, row.Disqualified)
-				}
-			}
-			// Confirm there are only storage tally rows for the last time tally ran for each storage node.
-			storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
-			require.NoError(t, err)
-			assert.Equal(t, len(planet.StorageNodes), len(storagenodeTallies))
-		})
+		}
+		// Confirm there are only storage tally rows for the last time tally ran for each storage node.
+		storagenodeTallies, err := snAccountingDB.GetTallies(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, len(storageNodes), len(storagenodeTallies))
+	})
 }
 
 func TestRollupOldOrders(t *testing.T) {
@@ -359,19 +368,19 @@ func saveBWPhase3(ctx context.Context, ordersDB orders.DB, bwTotals map[storj.No
 }
 
 // dqNodes disqualifies half the nodes in the testplanet and returns a map of dqed nodes.
-func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.NodeID]bool, error) {
+func dqNodes(ctx *testcontext.Context, overlayDB overlay.DB, storageNodes []storj.NodeID) (map[storj.NodeID]bool, error) {
 	dqed := make(map[storj.NodeID]bool)
 
-	for i, n := range planet.StorageNodes {
+	for i, n := range storageNodes {
 		if i%2 == 0 {
 			continue
 		}
 
-		err := planet.Satellites[0].Overlay.DB.DisqualifyNode(ctx, n.ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
+		err := overlayDB.DisqualifyNode(ctx, n, time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, err
 		}
-		dqed[n.ID()] = true
+		dqed[n] = true
 	}
 
 	return dqed, nil

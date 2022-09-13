@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -22,7 +23,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
-	"storj.io/common/pkcrypto"
 	"storj.io/common/rpc"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -34,8 +34,13 @@ import (
 	"storj.io/uplink/private/piecestore"
 )
 
-// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.
-var ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
+var (
+	// ErrPieceHashVerifyFailed is the errs class when a piece hash downloaded from storagenode fails to match the original hash.
+	ErrPieceHashVerifyFailed = errs.Class("piece hashes don't match")
+
+	// ErrDialFailed is the errs class when a failure happens during Dial.
+	ErrDialFailed = errs.Class("dial failure")
+)
 
 // ECRepairer allows the repairer to download, verify, and upload pieces from storagenodes.
 type ECRepairer struct {
@@ -58,7 +63,8 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	return piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	return client, ErrDialFailed.Wrap(err)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -134,7 +140,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 				pieceReadCloser, _, _, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, "", pieceSize)
 				// if piecestore dial with last ip:port failed try again with node address
-				if triedLastIPPort && piecestore.Error.Has(err) && !piecestore.CloseError.Has(err) {
+				if triedLastIPPort && ErrDialFailed.Has(err) {
 					if pieceReadCloser != nil {
 						_ = pieceReadCloser.Close()
 					}
@@ -233,6 +239,31 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	return decodeReader, pieces, nil
 }
 
+// lazyHashWriter is a writer which can get the hash algorithm just before the first write.
+type lazyHashWriter struct {
+	hasher     hash.Hash
+	downloader *piecestore.Download
+}
+
+func (l *lazyHashWriter) Write(p []byte) (n int, err error) {
+	// hash is available only after receiving the first message.
+	if l.hasher == nil {
+		h, _ := l.downloader.GetHashAndLimit()
+		l.hasher = pb.NewHashFromAlgorithm(h.HashAlgorithm)
+	}
+	return l.hasher.Write(p)
+}
+
+// Sum delegates hash calculation to the real hash algorithm.
+func (l *lazyHashWriter) Sum(b []byte) []byte {
+	if l.hasher == nil {
+		return []byte{}
+	}
+	return l.hasher.Sum(b)
+}
+
+var _ io.Writer = &lazyHashWriter{}
+
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
@@ -258,7 +289,9 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	}
 	defer func() { err = errs.Combine(err, downloader.Close()) }()
 
-	hashWriter := pkcrypto.NewHash()
+	hashWriter := &lazyHashWriter{
+		downloader: downloader,
+	}
 	downloadReader := io.TeeReader(downloader, hashWriter)
 	var downloadedPieceSize int64
 

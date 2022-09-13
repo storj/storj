@@ -64,11 +64,11 @@ func (opts *BeginObjectNextVersion) Verify() error {
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
-func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (committed Version, err error) {
+func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
-		return -1, err
+		return Object{}, err
 	}
 
 	if opts.ZombieDeletionDeadline == nil {
@@ -76,7 +76,19 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		opts.ZombieDeletionDeadline = &deadline
 	}
 
-	row := db.db.QueryRowContext(ctx, `
+	object = Object{
+		ObjectStream: ObjectStream{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+			StreamID:   opts.StreamID,
+		},
+		ExpiresAt:              opts.ExpiresAt,
+		Encryption:             opts.Encryption,
+		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
+	}
+
+	if err := db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -94,21 +106,18 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 			$4, $5, $6,
 			$7,
 			$8, $9, $10)
-		RETURNING version
+		RETURNING status, version, created_at
 	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	)
-
-	var v int64
-	if err := row.Scan(&v); err != nil {
-		return -1, Error.New("unable to insert object: %w", err)
+	).Scan(&object.Status, &object.Version, &object.CreatedAt); err != nil {
+		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
 	mon.Meter("object_begin").Mark(1)
 
-	return Version(v), nil
+	return object, nil
 }
 
 // BeginObjectExactVersion contains arguments necessary for starting an object upload.

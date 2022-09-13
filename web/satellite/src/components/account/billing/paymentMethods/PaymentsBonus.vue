@@ -41,7 +41,7 @@ export default class PaymentsBonus extends Vue {
     /**
      * Indicates if any credit card is attached to account.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly anyCreditCards: boolean;
 }
 </script>
@@ -84,6 +84,8 @@ export default class PaymentsBonus extends Vue {
 
     .banner-logo-svg {
         min-width: 54px;
+        width: 207px;
+        height: 37px;
     }
 
     .banner-gift-svg {

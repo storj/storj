@@ -104,7 +104,7 @@ func (service *Service) GetOperator(ctx context.Context, node nodes.Node) (_ Ope
 	nodeClient := multinodepb.NewDRPCNodeClient(conn)
 	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
+		ApiKey: node.APISecret[:],
 	}
 
 	operatorResponse, err := nodeClient.Operator(ctx, &multinodepb.OperatorRequest{Header: header})

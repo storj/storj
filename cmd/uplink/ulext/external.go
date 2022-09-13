@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/rpc/rpcpool"
@@ -32,13 +31,13 @@ type External interface {
 	GetAccessInfo(required bool) (string, map[string]string, error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, satelliteAddress, apiKey, passphrase string) (*uplink.Access, error)
-	ExportAccess(ctx clingy.Context, access *uplink.Access, filename string) error
+	ExportAccess(ctx context.Context, access *uplink.Access, filename string) error
 
 	ConfigFile() string
 	SaveConfig(values map[string]string) error
 
-	PromptInput(ctx clingy.Context, prompt string) (input string, err error)
-	PromptSecret(ctx clingy.Context, prompt string) (secret string, err error)
+	PromptInput(ctx context.Context, prompt string) (input string, err error)
+	PromptSecret(ctx context.Context, prompt string) (secret string, err error)
 }
 
 // Options contains all of the possible options for opening a filesystem or project.

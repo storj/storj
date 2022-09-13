@@ -7,7 +7,7 @@
             <input id="checkbox" v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
             <span class="checkmark" :class="{'error': isCheckboxError}" />
         </label>
-        <label class="label" for="checkbox">{{ label }}</label>
+        <label v-if="label" class="label" for="checkbox">{{ label }}</label>
     </div>
 </template>
 
@@ -18,9 +18,9 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class VCheckbox extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isCheckboxError: boolean;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly label: string;
 
     private checked = false;

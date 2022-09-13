@@ -27,7 +27,6 @@ import (
 )
 
 func TestSignupCouponCodes(t *testing.T) {
-
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		db := sat.DB
@@ -66,6 +65,8 @@ func TestSignupCouponCodes(t *testing.T) {
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -76,7 +77,6 @@ func TestSignupCouponCodes(t *testing.T) {
 
 		service, err := console.NewService(
 			log.Named("console"),
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
@@ -84,7 +84,15 @@ func TestSignupCouponCodes(t *testing.T) {
 			sat.API.Buckets.Service,
 			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
+			db.Billing(),
 			analyticsService,
+			consoleauth.NewService(consoleauth.Config{
+				TokenExpirationTime: 24 * time.Hour,
+			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 		)
 

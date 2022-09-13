@@ -12,7 +12,7 @@
                 <p>{{ requestErr }}</p>
             </div>
             <div v-else class="authorize-area__content-area__container">
-                <p class="authorize-area__content-area__client-app-logo">
+                <p v-if="client.appLogoURL" class="authorize-area__content-area__client-app-logo">
                     <img :alt="client.appName" :src="client.appLogoURL">
                 </p>
 
@@ -30,7 +30,7 @@
                         <p>Automatically send updates to:</p>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Project"
                                 role-description="project"
                                 :error="projectErr"
@@ -40,7 +40,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Bucket"
                                 role-description="bucket"
                                 :error="bucketErr"
@@ -56,7 +56,7 @@
                         </div>
 
                         <div class="authorize-area__input-wrapper">
-                            <HeaderlessInput
+                            <VInput
                                 label="Passphrase"
                                 role-description="passphrase"
                                 placeholder="Passphrase"
@@ -88,28 +88,33 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { URLSearchParams } from 'url';
+
+import { Component, Vue } from 'vue-property-decorator';
+
+import { Validator } from '@/utils/validation';
+import { RouteConfig } from '@/router';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { Project } from '@/types/projects';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AppState } from '@/utils/constants/appStateEnum';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+
 import LogoIcon from '@/../static/images/logo.svg';
-import {Validator} from '@/utils/validation';
-import {RouteConfig} from '@/router';
-import {BUCKET_ACTIONS} from '@/store/modules/buckets';
-import {PROJECTS_ACTIONS} from '@/store/modules/projects';
-import {USER_ACTIONS} from '@/store/modules/users';
-import {Project} from '@/types/projects';
-import {ErrorUnauthorized} from '@/api/errors/ErrorUnauthorized';
-import {APP_STATE_ACTIONS} from '@/utils/constants/actionNames';
-import {AppState} from '@/utils/constants/appStateEnum';
-import {ACCESS_GRANTS_ACTIONS} from '@/store/modules/accessGrants';
-import {OAuthClient, OAuthClientsAPI} from '@/api/oauthClients';
-import {URLSearchParams} from "url";
 
 const oauthClientsAPI = new OAuthClientsAPI();
 
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
         LogoIcon,
     },
 })
@@ -150,6 +155,8 @@ export default class Authorize extends Vue {
 
     private worker: Worker;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     private async ensureLogin(): Promise<void> {
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
@@ -162,6 +169,7 @@ export default class Authorize extends Vue {
             const query = new URLSearchParams(this.oauthData).toString();
             const path = `${RouteConfig.Authorize.path}?${query}#${this.clientKey}`;
 
+            this.analytics.pageVisit(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             await this.$router.push(`${RouteConfig.Login.path}?return_url=${encodeURIComponent(path)}`);
             return;
         }
@@ -181,11 +189,11 @@ export default class Authorize extends Vue {
     }
 
     private async verifyClientConfiguration(): Promise<void> {
-        const clientID: string = this.oauthData.client_id ?? "";
-        const redirectURL: string = this.oauthData.redirect_uri ?? "";
-        const state: string = this.oauthData.state ?? "";
-        const responseType: string = this.oauthData.response_type ?? "";
-        const scope: string = this.oauthData.scope ?? "";
+        const clientID: string = this.oauthData.client_id ?? '';
+        const redirectURL: string = this.oauthData.redirect_uri ?? '';
+        const state: string = this.oauthData.state ?? '';
+        const responseType: string = this.oauthData.response_type ?? '';
+        const scope: string = this.oauthData.scope ?? '';
 
         if (!clientID || !redirectURL) {
             this.requestErr = 'Both client_id and redirect_uri must be provided.';
@@ -218,7 +226,7 @@ export default class Authorize extends Vue {
 
         if (err) {
             location.href = `${redirectURL}?${(new URLSearchParams(err)).toString()}`;
-            return
+            return;
         }
 
         this.client = client;
@@ -246,14 +254,14 @@ export default class Authorize extends Vue {
      */
     public async mounted(): Promise<void> {
         this.oauthData = this.$route.query;
-        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : "";
+        this.clientKey = this.$route.hash ? this.$route.hash.substring(1) : '';
 
         await this.ensureLogin();
         await this.ensureWorker();
 
         await this.verifyClientConfiguration();
         if (this.requestErr) {
-            return
+            return;
         }
 
         await this.loadProjects();
@@ -262,7 +270,7 @@ export default class Authorize extends Vue {
     public async setProject(value: string): Promise<void> {
         if (!this.projects[value]) {
             this.projectErr = 'project does not exist';
-            return
+            return;
         }
 
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.projects[value].id);
@@ -354,17 +362,17 @@ const validPerms = {
 
 function slugify(name: string): string {
     name = name.toLowerCase();
-    name = name.replace(/\s+/g, "-");
+    name = name.replace(/\s+/g, '-');
     return name;
 }
 
 function formatObjectPermissions(scope: string): string {
-    const scopes = scope.split(" ");
+    const scopes = scope.split(' ');
     const perms: string[] = [];
 
     for (const scope of scopes) {
-        if (scope.startsWith("object:")) {
-            const perm = scope.substring("object:".length);
+        if (scope.startsWith('object:')) {
+            const perm = scope.substring('object:'.length);
             if (validPerms[perm]) {
                 perms.push(perm);
             }
@@ -374,14 +382,14 @@ function formatObjectPermissions(scope: string): string {
     perms.sort();
 
     if (perms.length == 0) {
-        return "";
+        return '';
     } else if (perms.length == 1) {
         return perms[0];
     } else if (perms.length == 2) {
         return `${perms[0]} and ${perms[1]}`;
     }
 
-    return `${perms.slice(0, perms.length - 1).join(", ")}, and ${perms[perms.length - 1]}`;
+    return `${perms.slice(0, perms.length - 1).join(', ')}, and ${perms[perms.length - 1]}`;
 }
 </script>
 
@@ -645,6 +653,8 @@ function formatObjectPermissions(scope: string): string {
 
     .logo {
         cursor: pointer;
+        width: 207px;
+        height: 37px;
     }
 
     .disabled,

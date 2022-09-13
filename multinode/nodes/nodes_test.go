@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/multinodedb/multinodedbtest"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/private/multinodeauth"
 )
 
 func TestNodesDB(t *testing.T) {
@@ -23,7 +24,7 @@ func TestNodesDB(t *testing.T) {
 		nodesRepository := db.Nodes()
 
 		nodeID := testrand.NodeID()
-		apiSecret := []byte("secret")
+		apiSecret := multinodeauth.Secret{uint8(0)}
 		publicAddress := "228.13.38.1:8081"
 
 		err := nodesRepository.Add(ctx, nodes.Node{ID: nodeID, APISecret: apiSecret, PublicAddress: publicAddress})
@@ -67,7 +68,7 @@ func TestNodesDB(t *testing.T) {
 			for i := 0; i < nodesAmount; i++ {
 				node := nodes.Node{
 					ID:            testrand.NodeID(),
-					APISecret:     []byte{uint8(i)},
+					APISecret:     multinodeauth.Secret{uint8(i)},
 					PublicAddress: fmt.Sprintf("%d", i),
 					Name:          fmt.Sprintf("%d", i),
 				}

@@ -32,13 +32,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
-import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
+import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
-import Icon from "@/../static/images/onboardingTour/listObjectStep.svg";
+import Icon from '@/../static/images/onboardingTour/listObjectStep.svg';
 
 // @vue/component
 @Component({
@@ -47,13 +48,17 @@ import Icon from "@/../static/images/onboardingTour/listObjectStep.svg";
         Icon,
         OSContainer,
         TabWithCopy,
-    }
+    },
 })
 export default class ListObject extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.UploadObject)).path);
     }
 
@@ -61,6 +66,7 @@ export default class ListObject extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.DownloadObject)).path);
     }
 }
@@ -71,10 +77,9 @@ export default class ListObject extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
         }
     }
 </style>

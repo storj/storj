@@ -12,11 +12,13 @@ import {
     PaymentsHistoryItemType,
     ProjectUsageAndCharges,
     TokenDeposit,
+    Wallet,
 } from '@/types/payments';
-import {StoreModule} from "@/types/store";
+import { StoreModule } from '@/types/store';
 
 export const PAYMENTS_MUTATIONS = {
     SET_BALANCE: 'SET_BALANCE',
+    SET_WALLET: 'SET_WALLET',
     SET_CREDIT_CARDS: 'SET_CREDIT_CARDS',
     SET_DATE: 'SET_DATE',
     CLEAR: 'CLEAR_PAYMENT_INFO',
@@ -28,12 +30,13 @@ export const PAYMENTS_MUTATIONS = {
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
-    TOGGLE_IS_ADD_PM_MODAL_SHOWN: 'TOGGLE_IS_ADD_PM_MODAL_SHOWN',
     SET_COUPON: 'SET_COUPON',
 };
 
 export const PAYMENTS_ACTIONS = {
     GET_BALANCE: 'getBalance',
+    GET_WALLET: 'getWallet',
+    CLAIM_WALLET: 'claimWallet',
     SETUP_ACCOUNT: 'setupAccount',
     GET_CREDIT_CARDS: 'getCreditCards',
     ADD_CREDIT_CARD: 'addCreditCard',
@@ -53,6 +56,7 @@ export const PAYMENTS_ACTIONS = {
 
 const {
     SET_BALANCE,
+    SET_WALLET,
     SET_CREDIT_CARDS,
     SET_DATE,
     CLEAR,
@@ -62,12 +66,13 @@ const {
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
-    TOGGLE_IS_ADD_PM_MODAL_SHOWN,
     SET_COUPON,
 } = PAYMENTS_MUTATIONS;
 
 const {
     GET_BALANCE,
+    GET_WALLET,
+    CLAIM_WALLET,
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
     ADD_CREDIT_CARD,
@@ -96,8 +101,8 @@ export class PaymentsState {
     public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public isAddPMModalShown = false;
     public coupon: Coupon | null = null;
+    public wallet: Wallet = new Wallet();
 }
 
 interface PaymentsContext {
@@ -121,6 +126,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
         mutations: {
             [SET_BALANCE](state: PaymentsState, balance: AccountBalance): void {
                 state.balance = balance;
+            },
+            [SET_WALLET](state: PaymentsState, wallet: Wallet): void {
+                state.wallet = wallet;
             },
             [SET_CREDIT_CARDS](state: PaymentsState, creditCards: CreditCard[]): void {
                 state.creditCards = creditCards;
@@ -186,9 +194,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
 
                 state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
             },
-            [TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: PaymentsState): void {
-                state.isAddPMModalShown = !state.isAddPMModalShown;
-            },
             [SET_COUPON](state: PaymentsState, coupon: Coupon): void {
                 state.coupon = coupon;
             },
@@ -203,19 +208,29 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             },
         },
         actions: {
-            [GET_BALANCE]: async function({commit}: PaymentsContext): Promise<AccountBalance> {
+            [GET_BALANCE]: async function({ commit }: PaymentsContext): Promise<AccountBalance> {
                 const balance: AccountBalance = await api.getBalance();
 
                 commit(SET_BALANCE, balance);
 
                 return balance;
             },
+            [GET_WALLET]: async function({ commit }: PaymentsContext): Promise<void> {
+                const wallet: Wallet = await api.getWallet();
+
+                commit(SET_WALLET, wallet);
+            },
+            [CLAIM_WALLET]: async function({ commit }: PaymentsContext): Promise<void> {
+                const wallet: Wallet = await api.claimWallet();
+
+                commit(SET_WALLET, wallet);
+            },
             [SETUP_ACCOUNT]: async function(): Promise<string> {
                 const couponType = await api.setupAccount();
 
                 return couponType;
             },
-            [GET_CREDIT_CARDS]: async function({commit}: PaymentsContext): Promise<CreditCard[]> {
+            [GET_CREDIT_CARDS]: async function({ commit }: PaymentsContext): Promise<CreditCard[]> {
                 const creditCards = await api.listCreditCards();
 
                 commit(SET_CREDIT_CARDS, creditCards);
@@ -225,26 +240,26 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [ADD_CREDIT_CARD]: async function(_context: PaymentsContext, token: string): Promise<void> {
                 await api.addCreditCard(token);
             },
-            [TOGGLE_CARD_SELECTION]: function({commit}: PaymentsContext, id: string): void {
+            [TOGGLE_CARD_SELECTION]: function({ commit }: PaymentsContext, id: string): void {
                 commit(UPDATE_CARDS_SELECTION, id);
             },
-            [CLEAR_CARDS_SELECTION]: function({commit}: PaymentsContext): void {
+            [CLEAR_CARDS_SELECTION]: function({ commit }: PaymentsContext): void {
                 commit(UPDATE_CARDS_SELECTION, null);
             },
-            [MAKE_CARD_DEFAULT]: async function({commit}: PaymentsContext, id: string): Promise<void> {
+            [MAKE_CARD_DEFAULT]: async function({ commit }: PaymentsContext, id: string): Promise<void> {
                 await api.makeCreditCardDefault(id);
 
                 commit(UPDATE_CARDS_DEFAULT, id);
             },
-            [REMOVE_CARD]: async function({commit, state}: PaymentsContext, cardId: string): Promise<void> {
+            [REMOVE_CARD]: async function({ commit, state }: PaymentsContext, cardId: string): Promise<void> {
                 await api.removeCreditCard(cardId);
 
                 commit(SET_CREDIT_CARDS, state.creditCards.filter(card => card.id !== cardId));
             },
-            [CLEAR_PAYMENT_INFO]: function({commit}: PaymentsContext): void {
+            [CLEAR_PAYMENT_INFO]: function({ commit }: PaymentsContext): void {
                 commit(CLEAR);
             },
-            [GET_PAYMENTS_HISTORY]: async function({commit}: PaymentsContext): Promise<void> {
+            [GET_PAYMENTS_HISTORY]: async function({ commit }: PaymentsContext): Promise<void> {
                 const paymentsHistory: PaymentsHistoryItem[] = await api.paymentsHistory();
 
                 commit(SET_PAYMENTS_HISTORY, paymentsHistory);
@@ -252,7 +267,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [MAKE_TOKEN_DEPOSIT]: async function(_context: PaymentsContext, amount: number): Promise<TokenDeposit> {
                 return await api.makeTokenDeposit(amount);
             },
-            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({commit, rootGetters}: PaymentsContext): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({ commit, rootGetters }: PaymentsContext): Promise<void> {
                 const now = new Date();
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
@@ -264,7 +279,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
                 commit(SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT, rootGetters.selectedProject.id);
             },
-            [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({commit}: PaymentsContext): Promise<void> {
+            [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({ commit }: PaymentsContext): Promise<void> {
                 const now = new Date();
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
@@ -275,14 +290,14 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
-            [APPLY_COUPON_CODE]: async function({commit}: PaymentsContext, code: string): Promise<void> {
+            [APPLY_COUPON_CODE]: async function({ commit }: PaymentsContext, code: string): Promise<void> {
                 const coupon = await api.applyCouponCode(code);
                 commit(SET_COUPON, coupon);
             },
-            [GET_COUPON]: async function({commit}: PaymentsContext): Promise<void> {
+            [GET_COUPON]: async function({ commit }: PaymentsContext): Promise<void> {
                 const coupon = await api.getCoupon();
                 commit(SET_COUPON, coupon);
-            }
+            },
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {

@@ -32,7 +32,10 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
@@ -42,6 +45,8 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/reputation"
@@ -64,6 +69,11 @@ type Core struct {
 	Version struct {
 		Chore   *version_checker.Chore
 		Service *version_checker.Service
+	}
+
+	Mail struct {
+		Service        *mailservice.Service
+		EmailReminders *emailreminders.Chore
 	}
 
 	Debug struct {
@@ -126,8 +136,12 @@ type Core struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Chore    *stripecoinpayments.Chore
+		Accounts         payments.Accounts
+		BillingChore     *billing.Chore
+		Chore            *stripecoinpayments.Chore
+		StorjscanClient  *storjscan.Client
+		StorjscanService *storjscan.Service
+		StorjscanChore   *storjscan.Chore
 	}
 
 	GracefulExit struct {
@@ -209,6 +223,42 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
+	{ // setup mailservice
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
+	{ // setup email reminders
+		if config.EmailReminders.Enable {
+			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Mail.EmailReminders = emailreminders.NewChore(
+				peer.Log.Named("console:chore"),
+				authTokens,
+				peer.DB.Console().Users(),
+				peer.Mail.Service,
+				config.EmailReminders,
+				config.Console.ExternalAddress,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "mail:email-reminders",
+				Run:   peer.Mail.EmailReminders.Run,
+				Close: peer.Mail.EmailReminders.Close,
+			})
+		}
+	}
+
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
@@ -217,6 +267,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
 
@@ -292,9 +343,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup reputation
+		reputationDB := peer.DB.Reputation()
+		if config.Reputation.FlushInterval > 0 {
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationDB, config.Reputation)
+			peer.Services.Add(lifecycle.Item{
+				Name: "reputation:writecache",
+				Run:  cachingDB.Manage,
+			})
+			reputationDB = cachingDB
+		}
 		peer.Reputation.Service = reputation.NewService(log.Named("reputation:service"),
 			peer.Overlay.DB,
-			peer.DB.Reputation(),
+			reputationDB,
 			config.Reputation,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -415,7 +475,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		// Lets add 1 more day so we catch any off by one errors when deleting tallies
 		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies, orderExpirationPlusDay)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup, orderExpirationPlusDay)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:rollup",
 			Run:   peer.Accounting.Rollup.Run,
@@ -468,6 +528,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -494,6 +556,48 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
 			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
 		)
+
+		peer.Payments.StorjscanClient = storjscan.NewClient(
+			pc.Storjscan.Endpoint,
+			pc.Storjscan.Auth.Identifier,
+			pc.Storjscan.Auth.Secret)
+
+		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+			peer.DB.Wallets(),
+			peer.DB.StorjscanPayments(),
+			peer.Payments.StorjscanClient)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.StorjscanChore = storjscan.NewChore(
+			peer.Log.Named("payments.storjscan:chore"),
+			peer.Payments.StorjscanClient,
+			peer.DB.StorjscanPayments(),
+			config.Payments.Storjscan.Confirmations,
+			config.Payments.Storjscan.Interval,
+			config.Payments.Storjscan.DisableLoop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name: "payments.storjscan:chore",
+			Run:  peer.Payments.StorjscanChore.Run,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Payments Storjscan", peer.Payments.StorjscanChore.TransactionCycle),
+		)
+
+		peer.Payments.BillingChore = billing.NewChore(
+			peer.Log.Named("payments.billing:chore"),
+			[]billing.PaymentType{peer.Payments.StorjscanService},
+			peer.DB.Billing(),
+			config.Payments.BillingConfig.Interval,
+			config.Payments.BillingConfig.DisableLoop,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "billing:chore",
+			Run:   peer.Payments.BillingChore.Run,
+			Close: peer.Payments.BillingChore.Close,
+		})
 	}
 
 	{ // setup graceful exit

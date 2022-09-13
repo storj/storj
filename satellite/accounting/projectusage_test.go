@@ -180,7 +180,6 @@ func TestProjectSegmentLimit(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
 				config.Metainfo.MaxSegmentSize = 20 * memory.KiB
 			},
 		},
@@ -206,13 +205,7 @@ func TestProjectSegmentLimit(t *testing.T) {
 
 func TestProjectSegmentLimitInline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		SatelliteCount: 1, UplinkCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		data := testrand.Bytes(1 * memory.KiB)
 
 		// set limit manually to 10 segments
@@ -228,36 +221,6 @@ func TestProjectSegmentLimitInline(t *testing.T) {
 
 		// upload fails due to segment limit
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/1", data)
-		require.Error(t, err)
-		// TODO should compare to uplink API error when exposed
-		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
-	})
-}
-
-func TestProjectSegmentLimitWithoutCache(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-				config.Console.UsageLimits.Segment.Free = 5
-				config.Console.UsageLimits.Segment.Paid = 5
-				// this effectively disable live accounting cache
-				config.LiveAccounting.BandwidthCacheTTL = -1
-				config.LiveAccounting.AsOfSystemInterval = 0
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		data := testrand.Bytes(1 * memory.KiB)
-
-		for i := 0; i < 5; i++ {
-			// successful upload
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/"+strconv.Itoa(i), data)
-			require.NoError(t, err)
-		}
-
-		// upload fails due to segment limit
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/5", data)
 		require.Error(t, err)
 		// TODO should compare to uplink API error when exposed
 		require.Contains(t, strings.ToLower(err.Error()), "segments limit")
@@ -299,13 +262,7 @@ func TestProjectBandwidthLimitWithoutCache(t *testing.T) {
 
 func TestProjectSegmentLimitMultipartUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.ValidateSegmentLimit = true
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		SatelliteCount: 1, UplinkCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		data := testrand.Bytes(1 * memory.KiB)
 
 		// set limit manually to 10 segments
@@ -545,7 +502,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		err = projectUsage.AddProjectStorageUsage(ctx, project.ID, expectedLimit.Int64())
 		require.NoError(t, err)
 
-		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, false)
+		limit, err := projectUsage.ExceedsUploadLimits(ctx, project.ID, 1, 1)
 		require.NoError(t, err)
 		require.True(t, limit.ExceedsStorage)
 		require.Equal(t, expectedLimit.Int64(), limit.StorageLimit.Int64())
@@ -724,7 +681,7 @@ func TestUsageRollups(t *testing.T) {
 
 		usageRollups := db.ProjectAccounting()
 
-		t.Run("test project total", func(t *testing.T) {
+		t.Run("project total", func(t *testing.T) {
 			projTotal1, err := usageRollups.GetProjectTotal(ctx, project1, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, projTotal1)
@@ -748,7 +705,7 @@ func TestUsageRollups(t *testing.T) {
 			require.NotZero(t, projTotal3Prev3Hours.Egress)
 		})
 
-		t.Run("test bucket usage rollups", func(t *testing.T) {
+		t.Run("bucket usage rollups", func(t *testing.T) {
 			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, project1, start, now)
 			require.NoError(t, err)
 			require.NotNil(t, rollups1)
@@ -770,36 +727,36 @@ func TestUsageRollups(t *testing.T) {
 			require.NotNil(t, rollups3Prev3Hours)
 		})
 
-		t.Run("test bucket totals", func(t *testing.T) {
+		t.Run("bucket totals", func(t *testing.T) {
 			cursor := accounting.BucketUsageCursor{
 				Limit: 20,
 				Page:  1,
 			}
 
-			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, start, now)
+			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals1)
 
-			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, start, now)
+			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals2)
 
-			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, start, now)
+			totals3, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now)
 			require.NoError(t, err)
 			require.NotNil(t, totals3)
 
-			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2), now.Add(-time.Hour*1))
+			totals3Prev2Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*2))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev2Hours)
 
-			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3), now.Add(-time.Hour*2))
+			totals3Prev3Hours, err := usageRollups.GetBucketTotals(ctx, project3, cursor, now.Add(-time.Hour*3))
 			require.NoError(t, err)
 			require.NotNil(t, totals3Prev3Hours)
 		})
 
 		t.Run("Get paged", func(t *testing.T) {
 			// sql injection test. F.E '%SomeText%' = > ''%SomeText%' OR 'x' != '%'' will be true
-			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, start, now)
+			bucketsPage, err := usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck%' OR 'x' != '", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
@@ -807,7 +764,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(0), bucketsPage.PageCount)
 			assert.Equal(t, 0, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 3, Search: "", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -815,7 +772,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(2), bucketsPage.PageCount)
 			assert.Equal(t, 3, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(5), bucketsPage.TotalCount)
@@ -823,7 +780,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 5, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "bucket-0", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(1), bucketsPage.TotalCount)
@@ -831,7 +788,7 @@ func TestUsageRollups(t *testing.T) {
 			assert.Equal(t, uint(1), bucketsPage.PageCount)
 			assert.Equal(t, 1, len(bucketsPage.BucketUsages))
 
-			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, start, now)
+			bucketsPage, err = usageRollups.GetBucketTotals(ctx, project1, accounting.BucketUsageCursor{Limit: 5, Search: "buck\xff", Page: 1}, now)
 			require.NoError(t, err)
 			require.NotNil(t, bucketsPage)
 			assert.Equal(t, uint64(0), bucketsPage.TotalCount)
@@ -1207,5 +1164,91 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, dead)
 		require.Equal(t, initialBandwidthUsage, updatedBandwidthUsage+dead)
+	})
+}
+
+// Check if doing a copy is not affecting monthly bandwidth usage. Doing
+// server-side copy should not reduce users monthly bandwidth limit.
+func TestProjectBandwidthUsageWithCopies(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// this effectively disable live accounting cache
+				config.LiveAccounting.BandwidthCacheTTL = -1
+				config.LiveAccounting.AsOfSystemInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		testObjects := map[string]memory.Size{
+			"inline": 1 * memory.KiB,
+			"remote": 10 * memory.KiB,
+		}
+
+		for name, size := range testObjects {
+			expectedData := testrand.Bytes(size)
+
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", name, expectedData)
+			require.NoError(t, err)
+
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", name)
+			require.NoError(t, err)
+			require.Equal(t, data, expectedData)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+		now := time.Now()
+		expectedBandwidth, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.NotZero(t, expectedBandwidth)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// make copies
+		for name := range testObjects {
+			_, err = project.CopyObject(ctx, "testbucket", name, "testbucket", name+"copy", nil)
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err := planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Equal(t, expectedBandwidth, bandwidth)
+
+		// download copies to verify that used bandwidth will be increased
+		for name := range testObjects {
+			_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", name+"copy")
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Less(t, expectedBandwidth, bandwidth)
+
+		// last bandwidth read becomes new expectedBandwidth
+		expectedBandwidth = bandwidth
+
+		// delete ancestors
+		for name := range testObjects {
+			_, err = project.DeleteObject(ctx, "testbucket", name)
+			require.NoError(t, err)
+		}
+
+		// flush allocated bandwidth to DB as we will use DB directly without cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		bandwidth, err = planet.Satellites[0].DB.ProjectAccounting().GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day(), 0)
+		require.NoError(t, err)
+		require.Equal(t, expectedBandwidth, bandwidth)
 	})
 }

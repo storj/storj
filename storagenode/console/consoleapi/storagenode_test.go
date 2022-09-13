@@ -69,13 +69,12 @@ func TestStorageNodeApi(t *testing.T) {
 			reputationdb := sno.DB.Reputation()
 			baseURL := fmt.Sprintf("http://%s/api/sno", console.Listener.Addr())
 
-			// pause nodestats reputation cache because later tests assert a specific joinedat.
+			// pause node stats reputation cache because later tests assert a specific join date.
 			sno.NodeStats.Cache.Reputation.Pause()
-
-			now := time.Now().UTC().Add(-2 * time.Hour)
+			startingPoint := time.Now().UTC().Add(-2 * time.Hour)
 
 			for _, action := range actions {
-				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, now)
+				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
 				require.NoError(t, err)
 			}
 			var satellites []storj.NodeID
@@ -88,7 +87,7 @@ func TestStorageNodeApi(t *testing.T) {
 
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    now.AddDate(0, -2, 0),
+				JoinedAt:    startingPoint.AddDate(0, -2, 0),
 			})
 			require.NoError(t, err)
 
@@ -103,10 +102,14 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			t.Run("test EstimatedPayout", func(t *testing.T) {
+			t.Run("EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
 				require.NoError(t, err)
+
+				// setting now here to cache closest to api all timestamp, so service call
+				// would not have difference in passed "now" that can distort result
+				now := time.Now()
 				res, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -118,19 +121,19 @@ func TestStorageNodeApi(t *testing.T) {
 				}()
 				body, err := ioutil.ReadAll(res.Body)
 				require.NoError(t, err)
+				require.NotNil(t, body)
 
 				bodyPayout := &estimatedpayouts.EstimatedPayout{}
 				require.NoError(t, json.Unmarshal(body, bodyPayout))
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, now)
 				require.NoError(t, err)
+
 				expectedPayout := &estimatedpayouts.EstimatedPayout{
 					CurrentMonth:             estimation.CurrentMonth,
 					PreviousMonth:            estimation.PreviousMonth,
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				}
-				require.NoError(t, err)
-
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
 		},
@@ -143,14 +146,17 @@ func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, ma
 	var stamps []storageusage.Stamp
 	summary := make(map[storj.NodeID]float64)
 
-	now := time.Now().UTC().Day()
+	now := time.Now().UTC()
+	currentDay := now.Day()
 
 	for _, satellite := range satellites {
-		for i := 0; i < now; i++ {
+		for i := 0; i < currentDay; i++ {
+			intervalEndTime := now.Add(time.Hour * -24 * time.Duration(i))
 			stamp := storageusage.Stamp{
-				SatelliteID:   satellite,
-				AtRestTotal:   30000000000000,
-				IntervalStart: time.Now().UTC().Add(time.Hour * -24 * time.Duration(i)),
+				SatelliteID:     satellite,
+				AtRestTotal:     30000000000000,
+				IntervalStart:   time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
+				IntervalEndTime: intervalEndTime,
 			}
 
 			summary[satellite] += stamp.AtRestTotal

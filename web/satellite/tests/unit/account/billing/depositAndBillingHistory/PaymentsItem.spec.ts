@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 
 const localVue = createLocalVue();
 const itemInvoice = new PaymentsHistoryItem('testId', 'Invoice', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Invoice);

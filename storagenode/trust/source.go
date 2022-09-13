@@ -71,10 +71,10 @@ func isReserved(s string) (schema string, ok bool) {
 // reProbablySatelliteURL matches config strings that are (intended, but
 // possibly misconfigured) satellite URLs, like the following:
 //
-//  - @
-//  - id@
-//  - host:9999
-//  - id@host:9999
+//   - @
+//   - id@
+//   - host:9999
+//   - id@host:9999
 var reProbablySatelliteURL = regexp.MustCompile(`@|(^[^/\\]{2,}:\d+$)`)
 
 func isProbablySatelliteURL(s string) bool {

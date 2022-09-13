@@ -83,17 +83,17 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
-		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil); err != nil {
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 	}
 
-	// check if project has exceeded its allocated bucket limit
-	maxBuckets, err := endpoint.projects.GetMaxBuckets(ctx, keyInfo.ProjectID)
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, err
 	}
+	maxBuckets := project.MaxBuckets
 	if maxBuckets == nil {
 		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
 		maxBuckets = &defaultMaxBuckets
@@ -118,7 +118,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// Once we have created the bucket, we can try setting the attribution.
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent); err != nil {
 		return nil, err
 	}
 
@@ -333,6 +333,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		bucketItems[i] = &pb.BucketListItem{
 			Name:      []byte(item.Name),
 			CreatedAt: item.Created,
+			UserAgent: item.UserAgent,
 		}
 	}
 

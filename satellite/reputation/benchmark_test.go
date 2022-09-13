@@ -39,7 +39,9 @@ func BenchmarkReputation(b *testing.B) {
 				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditSuccess,
-					AuditHistory: testAuditHistoryConfig(),
+					Config: reputation.Config{
+						AuditHistory: testAuditHistoryConfig(),
+					},
 				}, time.Now())
 				require.NoError(b, err)
 			}
@@ -51,7 +53,9 @@ func BenchmarkReputation(b *testing.B) {
 				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditFailure,
-					AuditHistory: testAuditHistoryConfig(),
+					Config: reputation.Config{
+						AuditHistory: testAuditHistoryConfig(),
+					},
 				}, time.Now())
 				require.NoError(b, err)
 			}
@@ -63,7 +67,9 @@ func BenchmarkReputation(b *testing.B) {
 				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditUnknown,
-					AuditHistory: testAuditHistoryConfig(),
+					Config: reputation.Config{
+						AuditHistory: testAuditHistoryConfig(),
+					},
 				}, time.Now())
 				require.NoError(b, err)
 			}
@@ -75,7 +81,9 @@ func BenchmarkReputation(b *testing.B) {
 				_, err := reputationdb.Update(ctx, reputation.UpdateRequest{
 					NodeID:       id,
 					AuditOutcome: reputation.AuditOffline,
-					AuditHistory: testAuditHistoryConfig(),
+					Config: reputation.Config{
+						AuditHistory: testAuditHistoryConfig(),
+					},
 				}, time.Now())
 				require.NoError(b, err)
 			}

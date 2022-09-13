@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -62,7 +63,11 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 	).(ulloc.Location)
 }
 
-func (c *cmdRm) Execute(ctx clingy.Context) error {
+func (c *cmdRm) Execute(ctx context.Context) error {
+	if c.location.Local() {
+		return errs.New("remove %v skipped: local delete", c.location)
+	}
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -77,7 +82,7 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 			return err
 		}
 
-		fmt.Fprintln(ctx.Stdout(), "removed", c.location)
+		fmt.Fprintln(clingy.Stdout(ctx), "removed", c.location)
 		return nil
 	}
 
@@ -117,10 +122,10 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 				Pending: c.pending,
 			})
 			if err != nil {
-				fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
+				fprintln(clingy.Stderr(ctx), "remove", loc, "failed:", err.Error())
 				addError(err)
 			} else {
-				fprintln(ctx.Stdout(), "removed", loc)
+				fprintln(clingy.Stdout(ctx), "removed", loc)
 			}
 		})
 		if !ok {

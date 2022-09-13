@@ -7,9 +7,9 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class BaseChart extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly width: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly height: number;
 
     /**

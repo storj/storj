@@ -8,7 +8,7 @@ pipeline {
         }
     }
     options {
-        timeout(time: 40, unit: 'MINUTES')
+        timeout(time: 4, unit: 'HOURS')
         skipDefaultCheckout(true)
     }
     environment {
@@ -31,14 +31,10 @@ pipeline {
 
                 // download dependencies
                 sh 'go mod download'
-                sh 'cd testsuite && go mod download'
+                sh 'cd testsuite/ui && go mod download'
 
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'
-
-                // add a stub go.mod file to node projects to prevent go build ./... from scanning them
-                sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
-                sh 'touch web/satellite/node_modules/go.mod web/storagenode/node_modules/go.mod web/multinode/node_modules/go.mod'
             }
         }
         stage('Build Web') {
@@ -46,39 +42,36 @@ pipeline {
             parallel {
                 stage('web/satellite') {
                     steps {
-                        dir('web/satellite') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
-                        }
+                        sh './web/satellite/build.sh'
                     }
                 }
+
+                stage('wasm') {
+                    steps {
+                        sh './scripts/test-wasm.sh'
+                    }
+                }
+
                 stage('web/storagenode') {
                     steps {
-                        dir('web/storagenode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
+                        sh './web/storagenode/build.sh'
                     }
                 }
+
                 stage('web/multinode') {
                     steps {
-                        dir('web/multinode') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
+                        sh './web/multinode/build.sh'
                     }
                 }
+                
                 stage('satellite/admin/ui') {
                     steps {
-                        dir('satellite/admin/ui') {
-                            sh 'npm ci --prefer-offline --no-audit'
-                            sh 'npm run build'
-                        }
+                        sh './satellite/admin/ui/build.sh'
                     }
                 }
             }
         }
+
         stage('Build') {
             parallel {
                 stage('go') {
@@ -125,8 +118,6 @@ pipeline {
             }
         }
 
-        stage('Verification') {
-            parallel {
                 stage('Lint') {
                     steps {
                         sh 'check-mod-tidy'
@@ -143,18 +134,13 @@ pipeline {
 
                         sh 'protolock status'
 
-                        dir("testsuite") {
+                        dir("testsuite/ui") {
                             sh 'check-imports ./...'
                             sh 'check-atomic-align ./...'
                             sh 'check-monkit ./...'
                             sh 'check-errs ./...'
                             sh 'staticcheck ./...'
                             sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
-                        }
-
-                        dir("satellite/admin/ui") {
-                            sh 'npm run check'
-                            sh 'npm run lint'
                         }
 
                         sh './scripts/check-package-lock.sh'
@@ -182,6 +168,7 @@ pipeline {
                             'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                        STORJ_TEST_COCKROACH_NODROP = 'true'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         STORJ_TEST_LOG_LEVEL = 'info'
@@ -194,10 +181,8 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
-                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testmetabase;\''
-
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'psql -U postgres -c \'create database testmetabase;\''
+
                         sh 'use-ports -from 1024 -to 10000 &'
 
                         sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
@@ -315,55 +300,7 @@ pipeline {
                     }
                 }
 
-                stage('wasm npm') {
-                    steps {
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
-                    }
-                }
 
-                stage('web/satellite') {
-                    steps {
-                        dir("web/satellite") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/storagenode') {
-                    steps {
-                        dir("web/storagenode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/multinode') {
-                    steps {
-                        dir("web/multinode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir("satellite/admin/ui") {
-                            sh script: 'npm audit', returnStatus: true
-                        }
-                    }
-                }
-            }
-        }
 /*
         stage('UI') {
             when {
@@ -387,7 +324,7 @@ pipeline {
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    sh 'cd testsuite && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
+                    sh 'cd testsuite/ui && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../../.build/ui-tests.json | xunit -out ../../.build/ui-tests.xml'
                 }
             }
             post {

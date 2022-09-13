@@ -29,11 +29,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
-
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -43,10 +44,14 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class UploadCancelPopup extends Vue {
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on leave click logic.
      */
     public onLeaveClick(): void {
+        this.analytics.pageVisit(this.leaveRoute);
         this.$router.push(this.leaveRoute);
         this.closePopup();
     }

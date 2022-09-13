@@ -64,7 +64,7 @@ func Test_AllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}
@@ -76,7 +76,7 @@ func Test_AllBucketNames(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   tokenInfo.Token.String(),
 			Expires: expire,
 		}
 

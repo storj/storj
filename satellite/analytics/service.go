@@ -15,22 +15,51 @@ import (
 )
 
 const (
-	eventAccountCreated            = "Account Created"
-	eventSignedIn                  = "Signed In"
-	eventProjectCreated            = "Project Created"
-	eventAccessGrantCreated        = "Access Grant Created"
-	eventAccountVerified           = "Account Verified"
-	eventGatewayCredentialsCreated = "Credentials Created"
-	eventPassphraseCreated         = "Passphrase Created"
-	eventExternalLinkClicked       = "External Link Clicked"
-	eventPathSelected              = "Path Selected"
-	eventLinkShared                = "Link Shared"
-	eventObjectUploaded            = "Object Uploaded"
-	eventAPIKeyGenerated           = "API Key Generated"
-	eventCreditCardAdded           = "Credit Card Added"
-	eventUpgradeBannerClicked      = "Upgrade Banner Clicked"
-	eventModalAddCard              = "Credit Card Added In Modal"
-	eventModalAddTokens            = "Storj Token Added In Modal"
+	eventAccountCreated             = "Account Created"
+	eventSignedIn                   = "Signed In"
+	eventProjectCreated             = "Project Created"
+	eventAccessGrantCreated         = "Access Grant Created"
+	eventAccountVerified            = "Account Verified"
+	eventGatewayCredentialsCreated  = "Credentials Created"
+	eventPassphraseCreated          = "Passphrase Created"
+	eventExternalLinkClicked        = "External Link Clicked"
+	eventPathSelected               = "Path Selected"
+	eventLinkShared                 = "Link Shared"
+	eventObjectUploaded             = "Object Uploaded"
+	eventAPIKeyGenerated            = "API Key Generated"
+	eventCreditCardAdded            = "Credit Card Added"
+	eventUpgradeBannerClicked       = "Upgrade Banner Clicked"
+	eventModalAddCard               = "Credit Card Added In Modal"
+	eventModalAddTokens             = "Storj Token Added In Modal"
+	eventSearchBuckets              = "Search Buckets"
+	eventNavigateProjects           = "Navigate Projects"
+	eventManageProjectsClicked      = "Manage Projects Clicked"
+	eventCreateNewClicked           = "Create New Clicked"
+	eventViewDocsClicked            = "View Docs Clicked"
+	eventViewForumClicked           = "View Forum Clicked"
+	eventViewSupportClicked         = "View Support Clicked"
+	eventCreateAnAccessGrantClicked = "Create an Access Grant Clicked"
+	eventUploadUsingCliClicked      = "Upload Using CLI Clicked"
+	eventUploadInWebClicked         = "Upload In Web Clicked"
+	eventNewProjectClicked          = "New Project Clicked"
+	eventLogoutClicked              = "Logout Clicked"
+	eventProfileUpdated             = "Profile Updated"
+	eventPasswordChanged            = "Password Changed"
+	eventMfaEnabled                 = "MFA Enabled"
+	eventBucketCreated              = "Bucket Created"
+	eventBucketDeleted              = "Bucket Deleted"
+	eventProjectLimitError          = "Project Limit Error"
+	eventAPIAccessCreated           = "API Access Created"
+	eventUploadFileClicked          = "Upload File Clicked"
+	eventUploadFolderClicked        = "Upload Folder Clicked"
+	eventStorjTokenAdded            = "Storj Token Added"
+	eventCreateKeysClicked          = "Create Keys Clicked"
+	eventDownloadTxtClicked         = "Download txt clicked"
+	eventEncryptMyAccessClicked     = "Encrypt My Access Clicked"
+	eventCopyToClipboardClicked     = "Copy to Clipboard Clicked"
+	eventCreateAccessGrantClicked   = "Create Access Grant Clicked"
+	eventCreateS3CredentialsClicked = "Create S3 Credentials Clicked"
+	eventKeysForCLIClicked          = "Create Keys For CLI Clicked"
 )
 
 var (
@@ -72,7 +101,12 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	}
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked,
 		eventPathSelected, eventLinkShared, eventObjectUploaded, eventAPIKeyGenerated, eventUpgradeBannerClicked,
-		eventModalAddCard, eventModalAddTokens} {
+		eventModalAddCard, eventModalAddTokens, eventSearchBuckets, eventNavigateProjects, eventManageProjectsClicked,
+		eventCreateNewClicked, eventViewDocsClicked, eventViewForumClicked, eventViewSupportClicked, eventCreateAnAccessGrantClicked,
+		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
+		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted, eventAccessGrantCreated, eventAPIAccessCreated,
+		eventUploadFileClicked, eventUploadFolderClicked, eventCreateKeysClicked, eventDownloadTxtClicked, eventEncryptMyAccessClicked,
+		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked} {
 		service.clientEvents[name] = true
 	}
 
@@ -119,6 +153,7 @@ type TrackCreateUserFields struct {
 	OriginHeader     string
 	Referrer         string
 	HubspotUTK       string
+	UserAgent        string
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -151,10 +186,16 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits.SetFirstName(firstName)
 	traits.SetLastName(lastName)
 	traits.SetEmail(fields.Email)
-	traits.Set("lifecyclestage", "customer")
+	traits.Set("lifecyclestage", "other")
 	traits.Set("origin_header", fields.OriginHeader)
 	traits.Set("signup_referrer", fields.Referrer)
 	traits.Set("account_created", true)
+	if fields.Type == Professional {
+		traits.Set("have_sales_contact", fields.HaveSalesContact)
+	}
+	if len(fields.UserAgent) > 0 {
+		traits.Set("signup_partner", fields.UserAgent)
+	}
 
 	service.enqueueMessage(segment.Identify{
 		UserId:      fields.ID.String(),
@@ -175,7 +216,6 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
-		props.Set("have_sales_contact", fields.HaveSalesContact)
 	}
 
 	service.enqueueMessage(segment.Track{
@@ -356,6 +396,61 @@ func (service *Service) TrackCreditCardAdded(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventCreditCardAdded,
+		Properties: props,
+	})
+
+}
+
+// PageVisitEvent sends a page visit event associated with user ID to Segment.
+// It is used for tracking occurrences of client-side events.
+func (service *Service) PageVisitEvent(pageName string, userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("path", pageName)
+	props.Set("user_id", userID.String())
+	props.Set("satellite", service.satelliteName)
+
+	service.enqueueMessage(segment.Page{
+		UserId:     userID.String(),
+		Name:       "Page Requested",
+		Properties: props,
+	})
+
+}
+
+// TrackProjectLimitError sends an "Project Limit Error" event to Segment.
+func (service *Service) TrackProjectLimitError(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectLimitError,
+		Properties: props,
+	})
+
+}
+
+// TrackStorjTokenAdded sends an "Storj Token Added" event to Segment.
+func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventStorjTokenAdded,
 		Properties: props,
 	})
 

@@ -10,9 +10,9 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -85,7 +85,7 @@ func (db *coinPaymentsTransactions) Update(ctx context.Context, updates []stripe
 		}
 
 		for _, txID := range applies {
-			query := db.db.Rebind(`INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at )
+			query := tx.Rebind(`INSERT INTO stripecoinpayments_apply_balance_intents ( tx_id, state, created_at )
 			VALUES ( ?, ?, ? ) ON CONFLICT DO NOTHING`)
 			_, err = tx.Tx.ExecContext(ctx, query, txID.String(), applyBalanceIntentStateUnapplied.Int(), db.db.Hooks.Now().UTC())
 			if err != nil {
@@ -258,15 +258,14 @@ func (db *coinPaymentsTransactions) ListPending(ctx context.Context, offset int6
 
 		// TODO: the currency here should be passed in to this function or stored
 		//  in the database.
-		currency := monetary.StorjToken
 
 		page.Transactions = append(page.Transactions,
 			stripecoinpayments.Transaction{
 				ID:        coinpayments.TransactionID(id),
 				AccountID: userID,
 				Address:   address,
-				Amount:    monetary.AmountFromBaseUnits(*amount, currency),
-				Received:  monetary.AmountFromBaseUnits(*received, currency),
+				Amount:    currency.AmountFromBaseUnits(*amount, currency.StorjToken),
+				Received:  currency.AmountFromBaseUnits(*received, currency.StorjToken),
 				Status:    coinpayments.Status(status),
 				Key:       key,
 				CreatedAt: createdAt,
@@ -332,15 +331,14 @@ func (db *coinPaymentsTransactions) ListUnapplied(ctx context.Context, offset in
 
 		// TODO: the currency here should be passed in to this function or stored
 		//  in the database.
-		currency := monetary.StorjToken
 
 		page.Transactions = append(page.Transactions,
 			stripecoinpayments.Transaction{
 				ID:        coinpayments.TransactionID(id),
 				AccountID: userID,
 				Address:   address,
-				Amount:    monetary.AmountFromBaseUnits(*amountNumeric, currency),
-				Received:  monetary.AmountFromBaseUnits(*receivedNumeric, currency),
+				Amount:    currency.AmountFromBaseUnits(*amountNumeric, currency.StorjToken),
+				Received:  currency.AmountFromBaseUnits(*receivedNumeric, currency.StorjToken),
 				Status:    coinpayments.Status(status),
 				Key:       key,
 				CreatedAt: createdAt,
@@ -370,14 +368,13 @@ func fromDBXCoinpaymentsTransaction(dbxCPTX *dbx.CoinpaymentsTransaction) (*stri
 
 	// TODO: the currency here should be passed in to this function or stored
 	//  in the database.
-	currency := monetary.StorjToken
 
 	return &stripecoinpayments.Transaction{
 		ID:        coinpayments.TransactionID(dbxCPTX.Id),
 		AccountID: userID,
 		Address:   dbxCPTX.Address,
-		Amount:    monetary.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency),
-		Received:  monetary.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency),
+		Amount:    currency.AmountFromBaseUnits(dbxCPTX.AmountNumeric, currency.StorjToken),
+		Received:  currency.AmountFromBaseUnits(dbxCPTX.ReceivedNumeric, currency.StorjToken),
 		Status:    coinpayments.Status(dbxCPTX.Status),
 		Key:       dbxCPTX.Key,
 		Timeout:   time.Second * time.Duration(dbxCPTX.Timeout),

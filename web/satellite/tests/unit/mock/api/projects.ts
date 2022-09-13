@@ -8,7 +8,7 @@ import {
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
-    ProjectsStorageBandwidthDaily
+    ProjectsStorageBandwidthDaily,
 } from '@/types/projects';
 
 /**

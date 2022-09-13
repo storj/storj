@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -32,10 +33,12 @@ func newCmdAccessSetup(ex ulext.External) *cmdAccessSetup {
 }
 
 func (c *cmdAccessSetup) Setup(params clingy.Parameters) {
-	c.authService = params.Flag("auth-service", "If generating backwards-compatible S3 Gateway credentials, use this auth service", "https://auth.us1.storjshare.io").(string)
+	c.authService = params.Flag("auth-service", "If generating backwards-compatible S3 Gateway credentials, use this auth service", "https://auth.storjshare.io").(string)
+
+	c.am.Setup(params, c.ex)
 }
 
-func (c *cmdAccessSetup) Execute(ctx clingy.Context) (err error) {
+func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 	name, err := c.ex.PromptInput(ctx, "Enter name to import as [default: main]:")
 	if err != nil {
 		return errs.Wrap(err)
@@ -86,7 +89,7 @@ func (c *cmdAccessSetup) Execute(ctx clingy.Context) (err error) {
 		}
 	}
 
-	fmt.Fprintf(ctx, "Switched default access to %q\n", name)
+	fmt.Fprintf(clingy.Stdout(ctx), "Switched default access to %q\n", name)
 
 	answer, err := c.ex.PromptInput(ctx, "Would you like S3 backwards-compatible Gateway credentials? (y/N):")
 	if err != nil {

@@ -260,6 +260,46 @@ git rebase -i HEAD~3
 ...
 ```
 
+## Linting locally
+
+Our code linting process requires several customized and company specific tools. These are all packaged and provided as
+part of our CI container. When running the lint target, we will spin up our CI container locally, and execute the
+various linters from inside the container.
+
+```sh
+make lint
+```
+
+By default, the linter runs on the entire code base but can be limited to specific packages. It is worth noting that
+some linters cannot run on specific packages and will therefore be unaffected by the provided packages.
+
+```sh
+make lint LINT_TARGET="./satellite/oidc/..."
+```
+
+## Executing tests locally
+
+The Storj project has an extensive suite of integration tests. Many of these tests require several infrastructure
+dependencies. These dependencies are defined and managed by the `docker-compose.tests.yaml` file. Tests can be executed
+against Postgres (`test/postgres`), or CockroachDB (`test/cockroach`), or against both (`test`). By default, the full
+suite of tests is run, but can be limited using the `TEST_TARGET` make variable.
+
+```sh
+# run only against Postgres
+make test/postgres TEST_TARGET="./satellite/oidc/..."
+```
+
+You can also provide multiple targets for the test harness to run in case your change spans across several packages.
+
+```sh
+# run against both Postgres and Cockroach
+make test TEST_TARGET="./satellite/oidc/... ./satellite/satellitedb/..."
+```
+
+_**Note:** While you can run the full suite of tests locally, you will likely be waiting around for them to complete.
+By starting with the tests from packages you have modified, you can build a great deal of confidence in your changes
+before pushing them up for review._
+
 ## Developing locally with `storj-up`
 
 Following the instructions in the `storj-up` project `README`, the following will deploy a copy of the stack.

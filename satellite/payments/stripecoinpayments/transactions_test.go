@@ -16,6 +16,7 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -24,7 +25,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -33,9 +33,9 @@ func TestTransactionsDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		transactions := db.StripeCoinPayments().Transactions()
 
-		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		amount, err := currency.AmountFromString("2.0000000000000000005", currency.StorjToken)
 		require.NoError(t, err)
-		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		received, err := currency.AmountFromString("1.0000000000000000003", currency.StorjToken)
 		require.NoError(t, err)
 		userID := testrand.UUID()
 
@@ -61,7 +61,7 @@ func TestTransactionsDB(t *testing.T) {
 		})
 
 		t.Run("update", func(t *testing.T) {
-			received, err := monetary.AmountFromString("6.0000000000000000001", monetary.StorjToken)
+			received, err := currency.AmountFromString("6.0000000000000000001", currency.StorjToken)
 			require.NoError(t, err)
 
 			update := stripecoinpayments.TransactionUpdate{
@@ -132,9 +132,9 @@ func TestConcurrentConsume(t *testing.T) {
 
 		const concurrentTries = 30
 
-		amount, err := monetary.AmountFromString("2.0000000000000000005", monetary.StorjToken)
+		amount, err := currency.AmountFromString("2.0000000000000000005", currency.StorjToken)
 		require.NoError(t, err)
-		received, err := monetary.AmountFromString("1.0000000000000000003", monetary.StorjToken)
+		received, err := currency.AmountFromString("1.0000000000000000003", currency.StorjToken)
 		require.NoError(t, err)
 		userID := testrand.UUID()
 		txID := coinpayments.TransactionID("testID")
@@ -207,9 +207,9 @@ func TestTransactionsDBList(t *testing.T) {
 	)
 
 	// create transactions
-	amount, err := monetary.AmountFromString("4.0000000000000000005", monetary.StorjToken)
+	amount, err := currency.AmountFromString("4.0000000000000000005", currency.StorjToken)
 	require.NoError(t, err)
-	received, err := monetary.AmountFromString("5.0000000000000000003", monetary.StorjToken)
+	received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
 	require.NoError(t, err)
 
 	var txs []stripecoinpayments.Transaction
@@ -368,7 +368,7 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 
 		// Emulate a deposit through CoinPayments.
 		txID := coinpayments.TransactionID("testID")
-		storjAmount, err := monetary.AmountFromString("100", monetary.StorjToken)
+		storjAmount, err := currency.AmountFromString("100", currency.StorjToken)
 		require.NoError(t, err)
 		storjUSDRate, err := decimal.NewFromString("0.2")
 		require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that the CoinPayments deposit is reflected in the Stripe customer balance.
-		it := satellite.API.Payments.Stripe.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
+		it := satellite.API.Payments.StripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
 		require.NoError(t, it.Err())
 		require.True(t, it.Next())
 		cbt := it.CustomerBalanceTransaction()

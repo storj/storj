@@ -18,8 +18,8 @@ var (
 	ErrUtils = errs.Class("console api utils")
 )
 
-// serveJSONError writes a JSON error to the response output stream.
-func serveJSONError(log *zap.Logger, w http.ResponseWriter, status int, err error) {
+// ServeJSONError writes a JSON error to the response output stream.
+func ServeJSONError(log *zap.Logger, w http.ResponseWriter, status int, err error) {
 	serveCustomJSONError(log, w, status, err, err.Error())
 }
 

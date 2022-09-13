@@ -5,7 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -42,15 +42,17 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param email - email of the user
      * @param password - password of the user
+     * @param captchaResponse - captcha response token
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
             password,
+            captchaResponse,
             mfaPasscode: mfaPasscode || null,
             mfaRecoveryCode: mfaRecoveryCode || null,
         };
@@ -58,11 +60,11 @@ export class AuthHttpApi implements UsersApi {
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             const result = await response.json();
-            if (typeof result !== 'string') {
+            if (result.error) {
                 throw new ErrorMFARequired();
             }
 
-            return result;
+            return new TokenInfo(result.token, new Date(result.expiresAt));
         }
 
         const result = await response.json();
@@ -239,11 +241,11 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
-     * @param recaptchaResponse - recaptcha response
+     * @param captchaResponse - captcha response
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean, signupPromoCode: string }, secret: string, recaptchaResponse: string): Promise<string> {
+    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -251,19 +253,20 @@ export class AuthHttpApi implements UsersApi {
             fullName: user.fullName,
             shortName: user.shortName,
             email: user.email,
-            partner: user.partner ? user.partner : '',
-            partnerId: user.partnerId ? user.partnerId : '',
+            partner: user.partner || '',
+            partnerId: user.partnerId || '',
             isProfessional: user.isProfessional,
             position: user.position,
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
-            recaptchaResponse: recaptchaResponse,
+            captchaResponse: captchaResponse,
             signupPromoCode: user.signupPromoCode,
         };
+
         const response = await this.http.post(path, JSON.stringify(body));
-        const result = await response.json();
         if (!response.ok) {
+            const result = await response.json();
             const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
             case 400:
@@ -276,7 +279,6 @@ export class AuthHttpApi implements UsersApi {
                 throw new Error(errMsg);
             }
         }
-        return result;
     }
 
     /**
@@ -398,14 +400,14 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == "mfa_required") {
+            if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
             if (result.error) {
                 errMsg = result.error;
             }
         }
-        
+
         if (response.ok) {
             return;
         }
@@ -418,5 +420,26 @@ export class AuthHttpApi implements UsersApi {
         default:
             throw new Error(errMsg);
         }
+    }
+
+    /**
+     * Used to refresh the expiration time of the current session.
+     * 
+     * @returns new expiration timestamp
+     * @throws Error
+     */
+    public async refreshSession(): Promise<Date> {
+        const path = `${this.ROOT_PATH}/refresh-session`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return new Date(await response.json());
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Unable to refresh session.');
     }
 }

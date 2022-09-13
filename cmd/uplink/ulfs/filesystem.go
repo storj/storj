@@ -8,15 +8,14 @@ import (
 	"io"
 	"time"
 
-	"github.com/zeebo/clingy"
-
 	"storj.io/storj/cmd/uplink/ulloc"
 	"storj.io/uplink"
 )
 
 // CreateOptions contains extra options to create an object.
 type CreateOptions struct {
-	Expires time.Time
+	Expires  time.Time
+	Metadata map[string]string
 }
 
 // ListOptions describes options to the List command.
@@ -39,10 +38,10 @@ func (ro *RemoveOptions) isPending() bool { return ro != nil && ro.Pending }
 // Filesystem represents either the local filesystem or the data backed by a project.
 type Filesystem interface {
 	Close() error
-	Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error)
-	Create(ctx clingy.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error)
-	Move(ctx clingy.Context, source, dest ulloc.Location) error
-	Copy(ctx clingy.Context, source, dest ulloc.Location) error
+	Open(ctx context.Context, loc ulloc.Location) (MultiReadHandle, error)
+	Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error)
+	Move(ctx context.Context, source, dest ulloc.Location) error
+	Copy(ctx context.Context, source, dest ulloc.Location) error
 	Remove(ctx context.Context, loc ulloc.Location, opts *RemoveOptions) error
 	List(ctx context.Context, prefix ulloc.Location, opts *ListOptions) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
@@ -128,6 +127,7 @@ type MultiReadHandle interface {
 	SetOffset(offset int64) error
 	NextPart(ctx context.Context, length int64) (ReadHandle, error)
 	Info(ctx context.Context) (*ObjectInfo, error)
+	Length() int64
 }
 
 // ReadHandle is something that can be read from distinct parts possibly

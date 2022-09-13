@@ -66,3 +66,11 @@ func (aost *AsOfSystemTimeConfig) isValid() error {
 
 	return nil
 }
+
+// Interval returns the configured interval respecting Enabled property.
+func (aost *AsOfSystemTimeConfig) Interval() time.Duration {
+	if !aost.Enabled {
+		return 0
+	}
+	return aost.DefaultInterval
+}

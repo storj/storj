@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
-
 import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import SortingHeader from '@/components/project/buckets/SortingHeader.vue';
 
 const localVue = createLocalVue();
 
