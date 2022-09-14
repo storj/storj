@@ -1785,57 +1785,16 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 }
 
 func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.ObjectBeginCopyResponse, error) {
-	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
-	for i, key := range result.EncryptedKeysNonces {
-		var nonce storj.Nonce
-		var err error
-		if len(key.EncryptedKeyNonce) != 0 {
-			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		keys[i] = &pb.EncryptedKeyAndNonce{
-			Position: &pb.SegmentPosition{
-				PartNumber: int32(key.Position.Part),
-				Index:      int32(key.Position.Index),
-			},
-			EncryptedKey:      key.EncryptedKey,
-			EncryptedKeyNonce: nonce,
-		}
-	}
-
-	// TODO we need this because of an uplink issue with how we are storing key and nonce
-	if result.EncryptedMetadataKey == nil {
-		streamMeta := &pb.StreamMeta{}
-		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
-		if err != nil {
-			return nil, err
-		}
-		if streamMeta.LastSegmentMeta != nil {
-			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
-			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
-		}
-	}
-
-	var metadataNonce storj.Nonce
-	var err error
-	if len(result.EncryptedMetadataKeyNonce) != 0 {
-		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
-		if err != nil {
-			return nil, err
-		}
+	beginMoveObjectResult, err := convertBeginMoveObjectResults(metabase.BeginMoveObjectResult(result))
+	if err != nil {
+		return nil, err
 	}
 
 	return &pb.ObjectBeginCopyResponse{
-		EncryptedMetadataKey:      result.EncryptedMetadataKey,
-		EncryptedMetadataKeyNonce: metadataNonce,
-		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
-			BlockSize:   int64(result.EncryptionParameters.BlockSize),
-		},
-		SegmentKeys: keys,
+		EncryptedMetadataKeyNonce: beginMoveObjectResult.EncryptedMetadataKeyNonce,
+		EncryptedMetadataKey:      beginMoveObjectResult.EncryptedMetadataKey,
+		SegmentKeys:               beginMoveObjectResult.SegmentKeys,
+		EncryptionParameters:      beginMoveObjectResult.EncryptionParameters,
 	}, nil
 }
 
