@@ -7,21 +7,22 @@ import (
 	"context"
 	"sync"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
 )
 
 // Verify verifies a collection of segments.
-func (service *Service) Verify(ctx context.Context, segments []*Segment) error {
+func (service *Service) Verify(ctx context.Context, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, segment := range segments {
 		segment.Status.Retry = VerifyPieces
 	}
 
-	batches, err := service.CreateBatches(segments)
+	batches, err := service.CreateBatches(ctx, segments)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	service.VerifyBatches(ctx, batches)
@@ -43,9 +44,9 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) error {
 		service.removePriorityPieces(segment)
 	}
 
-	retryBatches, err := service.CreateBatches(retrySegments)
+	retryBatches, err := service.CreateBatches(ctx, retrySegments)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	service.VerifyBatches(ctx, retryBatches)
@@ -55,6 +56,8 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) error {
 
 // VerifyBatches verifies batches.
 func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) {
+	defer mon.Task()(&ctx)(nil)
+
 	var mu sync.Mutex
 
 	limiter := sync2.NewLimiter(ConcurrentRequests)

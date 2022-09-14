@@ -4,13 +4,16 @@
 package main
 
 import (
+	"context"
 	"sort"
 
 	"storj.io/storj/satellite/metabase"
 )
 
 // CreateBatches creates load-balanced queues of segments to verify.
-func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
+func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) (_ []*Batch, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Remove offline nodes and prioritize nodes.
 	for _, segment := range segments {
 		service.selectOnlinePieces(segment)

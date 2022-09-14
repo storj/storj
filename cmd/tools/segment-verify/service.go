@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -15,6 +16,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
+
+var mon = monkit.Package()
 
 // Error is global error class.
 var Error = errs.Class("segment-verify")
@@ -60,7 +63,9 @@ func NewService(log *zap.Logger) *Service {
 }
 
 // Process processes segments between low and high uuid.UUID with the specified batchSize.
-func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchSize int) error {
+func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchSize int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cursorStreamID := low
 	if !low.IsZero() {
 		cursorStreamID = uuidBefore(low)
@@ -76,7 +81,7 @@ func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchS
 			// TODO: add AS OF SYSTEM time.
 		})
 		if err != nil {
-			return errs.Wrap(err)
+			return Error.Wrap(err)
 		}
 		verifySegments := result.Segments
 		result.Segments = nil
@@ -102,13 +107,15 @@ func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchS
 		// Process the data.
 		err = service.ProcessSegments(ctx, segments)
 		if err != nil {
-			return errs.Wrap(err)
+			return Error.Wrap(err)
 		}
 	}
 }
 
 // ProcessSegments processes a collection of segments.
-func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment) error {
+func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	service.log.Info("processing segments",
 		zap.Int("count", len(segments)),
 		zap.Stringer("first", segments[0].StreamID),
@@ -116,9 +123,9 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 	)
 
 	// Verify all the segments against storage nodes.
-	err := service.Verify(ctx, segments)
+	err = service.Verify(ctx, segments)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	notFound := []*Segment{}
@@ -141,11 +148,11 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 	// segments from the list.
 	notFound, err = service.RemoveDeleted(ctx, notFound)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 	retry, err = service.RemoveDeleted(ctx, retry)
 	if err != nil {
-		return errs.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	// Output the problematic segments:
@@ -158,6 +165,8 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 // RemoveDeleted modifies the slice and returns only the segments that
 // still exist in the database.
 func (service *Service) RemoveDeleted(ctx context.Context, segments []*Segment) (_ []*Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	valid := segments[:0]
 	for _, seg := range segments {
 		_, err := service.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
