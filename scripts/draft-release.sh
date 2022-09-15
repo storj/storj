@@ -15,8 +15,8 @@ fi
 FOLDER="${2-}"
 
 echo "Drafting release"
-last_release_version=$(echo "$TAG"| cut -d '.' -f 1-2)
-previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$last_release_version* --tags --max-count=1`)
+previous_major_release_version=$(echo "$TAG"| cut -d '.' -f 1-2)
+previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$previous_major_release_version* --tags --max-count=1`)
 changelog=$(python3 changelog.py "$TAG" "$previous_release_version" 2>&1)
 github-release release --user storj --repo storj --tag "$TAG" --description "$changelog" --draft
 
