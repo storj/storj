@@ -18,9 +18,6 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { SignatureV4 } from '@aws-sdk/signature-v4';
-import { Sha256 } from '@aws-crypto/sha256-browser';
-import { HttpRequest, Credentials } from '@aws-sdk/types';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -80,8 +77,7 @@ export default class UploadFile extends Vue {
             secretKey: this.credentials.secretKey,
             bucket: this.bucket,
             browserRoot: RouteConfig.Buckets.with(RouteConfig.UploadFile).path,
-            fetchObjectMap: this.fetchObjectMap,
-            fetchObjectPreview: this.fetchObjectPreview,
+            fetchPreviewAndMapUrl: this.generateObjectPreviewAndMapUrl,
             fetchSharedLink: this.generateShareLinkUrl,
         });
     }
@@ -89,26 +85,19 @@ export default class UploadFile extends Vue {
     /**
      * Generates a URL for an object map.
      */
-    public async fetchObjectMap(path: string): Promise<Blob | null> {
+    public async generateObjectPreviewAndMapUrl(path: string): Promise<string> {
+        path = `${this.bucket}/${path}`;
+
         try {
-            return await this.getObjectViewOrMapBySignedRequest(path, true);
+            const creds: EdgeCredentials = await this.generateCredentials(this.apiKey, path, false);
+
+            path = encodeURIComponent(path.trim());
+
+            return `${this.linksharingURL}/s/${creds.accessKeyId}/${path}`;
         } catch (error) {
-            await this.$notify.error('Failed to fetch object map. Bandwidth limit may be exceeded');
+            await this.$notify.error(error.message);
 
-            return null;
-        }
-    }
-
-    /**
-     * Generates a URL for an object map.
-     */
-    public async fetchObjectPreview(path: string): Promise<Blob | null> {
-        try {
-            return await this.getObjectViewOrMapBySignedRequest(path, false);
-        } catch (error) {
-            await this.$notify.error('Failed to fetch object view. Bandwidth limit may be exceeded');
-
-            return null;
+            return '';
         }
     }
 
@@ -122,7 +111,7 @@ export default class UploadFile extends Vue {
         const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
 
         try {
-            const credentials: EdgeCredentials = await this.generateShareCredentials(cleanAPIKey.secret, path, true);
+            const credentials: EdgeCredentials = await this.generateCredentials(cleanAPIKey.secret, path, true);
 
             path = encodeURIComponent(path.trim());
 
@@ -147,73 +136,9 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Returns a URL for an object or a map.
-     */
-    private async getObjectViewOrMapBySignedRequest(path: string, isMap: boolean): Promise<Blob | null> {
-        path = `${this.bucket}/${path}`;
-        path = encodeURIComponent(path.trim());
-
-        const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`);
-
-        let request: HttpRequest = {
-            method: 'GET',
-            protocol: url.protocol,
-            hostname: url.hostname,
-            port: parseFloat(url.port),
-            path: url.pathname,
-            headers: {
-                'host': url.host,
-            },
-        };
-
-        if (isMap) {
-            request = Object.assign(request, { query: { 'map': '1' } });
-        } else {
-            request = Object.assign(request, { query: { 'view': '1' } });
-        }
-
-        const signerCredentials: Credentials = {
-            accessKeyId: this.credentials.accessKeyId,
-            secretAccessKey: this.credentials.secretKey,
-        };
-
-        const signer = new SignatureV4({
-            applyChecksum: true,
-            uriEscapePath: false,
-            credentials: signerCredentials,
-            region: 'eu1',
-            service: 'linksharing',
-            sha256: Sha256,
-        });
-
-        let signedRequest: HttpRequest;
-        try {
-            signedRequest = await signer.sign(request);
-        } catch (error) {
-            await this.$notify.error(error.message);
-
-            return null;
-        }
-
-        let requestURL = `${this.linksharingURL}${signedRequest.path}`;
-        if (isMap) {
-            requestURL = `${requestURL}?map=1`;
-        } else {
-            requestURL = `${requestURL}?view=1`;
-        }
-
-        const response = await fetch(requestURL, signedRequest);
-        if (response.ok) {
-            return await response.blob();
-        }
-
-        return null;
-    }
-
-    /**
      * Generates share gateway credentials.
      */
-    private async generateShareCredentials(cleanApiKey: string, path: string, isPublic: boolean): Promise<EdgeCredentials> {
+    private async generateCredentials(cleanApiKey: string, path: string, areEndless: boolean): Promise<EdgeCredentials> {
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
         this.worker.postMessage({
@@ -232,7 +157,7 @@ export default class UploadFile extends Vue {
             return new EdgeCredentials();
         }
 
-        this.worker.postMessage({
+        let permissionsMsg = {
             'type': 'RestrictGrant',
             'isDownload': true,
             'isUpload': false,
@@ -240,7 +165,16 @@ export default class UploadFile extends Vue {
             'isDelete': false,
             'paths': [path],
             'grant': grantData.value,
-        });
+        };
+
+        if (!areEndless) {
+            const now = new Date();
+            const inOneDay = new Date(now.setDate(now.getDate() + 1));
+
+            permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': inOneDay.toISOString() });
+        }
+
+        this.worker.postMessage(permissionsMsg);
 
         const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         const data = event.data;
@@ -250,7 +184,7 @@ export default class UploadFile extends Vue {
             return new EdgeCredentials();
         }
 
-        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic });
+        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
     }
 
     /**
@@ -265,6 +199,13 @@ export default class UploadFile extends Vue {
      */
     private get passphrase(): string {
         return this.$store.state.objectsModule.passphrase;
+    }
+
+    /**
+     * Returns apiKey from store.
+     */
+    private get apiKey(): string {
+        return this.$store.state.objectsModule.apiKey;
     }
 
     /**

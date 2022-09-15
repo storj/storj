@@ -10,44 +10,43 @@ const listCache = new Map();
 type Promisable<T> = T | PromiseLike<T>;
 
 type BrowserObject = {
-  Key: string;
-  Size: number;
-  LastModified: number;
-  type?: 'file' | 'folder';
-  progress?: number;
-  upload?: {
-    abort: () => void;
-  };
-  path?: string;
+    Key: string;
+    Size: number;
+    LastModified: number;
+    type?: 'file' | 'folder';
+    progress?: number;
+    upload?: {
+      abort: () => void;
+    };
+    path?: string;
 };
 
 export type FilesState = {
-  s3: S3 | null;
-  accessKey: null | string;
+    s3: S3 | null;
+    accessKey: null | string;
 
-  path: string;
-  bucket: string;
-  browserRoot: string;
-  files: BrowserObject[];
-  uploadChain: Promise<void>;
-  uploading: BrowserObject[];
-  selectedAnchorFile: BrowserObject | null;
-  unselectedAnchorFile: null | string;
-  selectedFiles: BrowserObject[];
-  shiftSelectedFiles: BrowserObject[];
-  filesToBeDeleted: BrowserObject[];
+    path: string;
+    bucket: string;
+    browserRoot: string;
+    files: BrowserObject[];
+    uploadChain: Promise<void>;
+    uploading: BrowserObject[];
+    selectedAnchorFile: BrowserObject | null;
+    unselectedAnchorFile: null | string;
+    selectedFiles: BrowserObject[];
+    shiftSelectedFiles: BrowserObject[];
+    filesToBeDeleted: BrowserObject[];
 
-  fetchSharedLink: (arg0: string) => Promisable<string>;
-  fetchObjectPreview: (arg0: string) => Promisable<string>;
-  fetchObjectMap: (arg0) => Promisable<string>;
+    fetchSharedLink: (arg0: string) => Promisable<string>;
+    fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
 
-  openedDropdown: null | string;
-  headingSorted: string;
-  orderBy: 'asc' | 'desc';
-  createFolderInputShow: boolean;
-  openModalOnFirstUpload: boolean;
-  modalPath: null | string;
-  fileShareModal: null | string;
+    openedDropdown: null | string;
+    headingSorted: string;
+    orderBy: 'asc' | 'desc';
+    createFolderInputShow: boolean;
+    openModalOnFirstUpload: boolean;
+    modalPath: null | string;
+    fileShareModal: null | string;
 };
 
 type InitializedFilesState = FilesState & {
@@ -65,20 +64,20 @@ function assertIsInitialized(
 }
 
 interface FilesContext {
-  state: FilesState;
-  commit: (string, ...unknown) => void;
-  dispatch: (string, ...unknown) => Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-  rootState: {
-    files: FilesState;
-  };
+    state: FilesState;
+    commit: (string, ...unknown) => void;
+    dispatch: (string, ...unknown) => Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    rootState: {
+        files: FilesState;
+    };
 }
 
 declare global {
     interface FileSystemEntry {
         // https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileEntry/file
         file: (
-          successCallback: (arg0: File) => void,
-          errorCallback?: (arg0: Error) => void
+            successCallback: (arg0: File) => void,
+            errorCallback?: (arg0: Error) => void
         ) => void;
         createReader: () => FileSystemDirectoryReader;
     }
@@ -104,8 +103,7 @@ export const makeFilesModule = (): FilesModule => ({
         shiftSelectedFiles: [],
         filesToBeDeleted: [],
         fetchSharedLink: () => 'javascript:null',
-        fetchObjectMap: () => 'javascript:null',
-        fetchObjectPreview: () => 'javascript:null',
+        fetchPreviewAndMapUrl: () => 'javascript:null',
         openedDropdown: null,
         headingSorted: 'name',
         orderBy: 'asc',
@@ -120,8 +118,7 @@ export const makeFilesModule = (): FilesModule => ({
             // key-specific sort cases
             const fns = {
                 date: (a: BrowserObject, b: BrowserObject): number =>
-                    new Date(a.LastModified).getTime() -
-          new Date(b.LastModified).getTime(),
+                    new Date(a.LastModified).getTime() - new Date(b.LastModified).getTime(),
                 name: (a: BrowserObject, b: BrowserObject): number =>
                     a.Key.localeCompare(b.Key),
                 size: (a: BrowserObject, b: BrowserObject): number => a.Size - b.Size,
@@ -155,12 +152,11 @@ export const makeFilesModule = (): FilesModule => ({
                 accessKey,
                 secretKey,
                 bucket,
-                endpoint = 'https://gateway.tardigradeshare.io',
+                endpoint,
                 browserRoot,
                 openModalOnFirstUpload = true,
                 fetchSharedLink = () => 'javascript:null',
-                fetchObjectPreview = () => 'javascript:null',
-                fetchObjectMap = () => 'javascript:null',
+                fetchPreviewAndMapUrl = () => 'javascript:null',
             }: {
         accessKey: string;
         secretKey: string;
@@ -169,8 +165,7 @@ export const makeFilesModule = (): FilesModule => ({
         browserRoot: string;
         openModalOnFirstUpload: boolean;
         fetchSharedLink: (arg0: string) => Promisable<string>;
-        fetchObjectPreview: (arg0: string) => Promisable<string>;
-        fetchObjectMap: (arg0) => Promisable<string>;
+        fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
       },
         ) {
             const s3Config = {
@@ -189,8 +184,7 @@ export const makeFilesModule = (): FilesModule => ({
             state.browserRoot = browserRoot;
             state.openModalOnFirstUpload = openModalOnFirstUpload;
             state.fetchSharedLink = fetchSharedLink;
-            state.fetchObjectMap = fetchObjectMap;
-            state.fetchObjectPreview = fetchObjectPreview;
+            state.fetchPreviewAndMapUrl = fetchPreviewAndMapUrl;
             state.path = '';
         },
 

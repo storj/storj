@@ -28,36 +28,33 @@
 										"
                                     >
                                         <img
-                                            v-if="previewFailed"
+                                            v-if="previewAndMapFailed"
                                             class="failed-preview"
                                             src="/static/static/images/common/errorNotice.svg"
                                             alt="failed preview"
                                         >
                                         <template v-else>
                                             <img
-                                                v-if="previewIsImage"
-                                                ref="previewImage"
+                                                v-if="previewIsImage && !isLoading"
                                                 class="preview img-fluid"
-                                                src="/static/static/images/common/loader.svg"
+                                                :src="objectPreviewUrl"
                                                 aria-roledescription="image-preview"
                                                 alt="preview"
                                             >
 
                                             <video
-                                                v-if="previewIsVideo"
-                                                ref="previewVideo"
+                                                v-if="previewIsVideo && !isLoading"
                                                 class="preview"
                                                 controls
-                                                src=""
+                                                :src="objectPreviewUrl"
                                                 aria-roledescription="video-preview"
                                             />
 
                                             <audio
-                                                v-if="previewIsAudio"
-                                                ref="previewAudio"
+                                                v-if="previewIsAudio && !isLoading"
                                                 class="preview"
                                                 controls
-                                                src=""
+                                                :src="objectPreviewUrl"
                                                 aria-roledescription="audio-preview"
                                             />
                                             <PlaceholderImage v-if="placeHolderDisplayable" />
@@ -169,7 +166,6 @@
                                                 width="16"
                                                 height="16"
                                                 viewBox="0 0 16 16"
-                                                alt="Share"
                                                 class="ml-2"
                                                 fill="none"
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -185,12 +181,33 @@
                                             </svg>
                                         </span>
                                     </button>
-                                    <div v-if="!mapFailed" class="mt-5">
+                                    <div
+                                        v-if="isLoading"
+                                        class="d-flex justify-content-center text-primary mt-4"
+                                    >
+                                        <div
+                                            class="spinner-border mt-3"
+                                            role="status"
+                                        />
+                                    </div>
+                                    <div
+                                        v-if="objectMapUrl && !previewAndMapFailed"
+                                        class="mt-5"
+                                    >
                                         <div class="storage-nodes">
                                             Nodes storing this file
                                         </div>
-                                        <img ref="objectMap" src="/static/static/images/common/loader.svg" class="object-map" alt="object map">
+                                        <img
+                                            class="object-map"
+                                            :src="objectMapUrl"
+                                            alt="object map"
+                                        >
                                     </div>
+                                    <p v-if="!placeHolderDisplayable && !previewAndMapFailed && !isLoading" class="text-lighter mt-2">
+                                        Note: If you would like to share this object with others, please use the 'Share'
+                                        button rather than copying the path from the object preview. This object preview
+                                        link will expire within 24 hours.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -217,17 +234,20 @@ import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
     },
 })
 export default class FileModal extends Vue {
+    public isLoading = false;
+    public objectMapUrl = '';
+    public objectPreviewUrl = '';
+    public previewAndMapFailed = false;
+
     public objectLink = '';
     public copyText = 'Copy Link';
-    public previewFailed = false;
-    public mapFailed = false;
 
-    public $refs!: {
-        objectMap: HTMLImageElement;
-        previewImage: HTMLImageElement;
-        previewVideo: HTMLVideoElement;
-        previewAudio: HTMLAudioElement;
-    };
+    /**
+     * Call `fetchPreviewAndMapUrl` on the created lifecycle method.
+     */
+    public created(): void {
+        this.fetchPreviewAndMapUrl();
+    }
 
     /**
      * Retrieve the file object that the modal is set to from the store.
@@ -323,36 +343,37 @@ export default class FileModal extends Vue {
      */
     @Watch('filePath')
     private handleFilePathChange() {
-        this.fetchObjectMap();
-        if (!this.placeHolderDisplayable) this.setPreview();
+        this.fetchPreviewAndMapUrl();
     }
 
     /**
-     * Call `fetchObjectMapUrl` on the mounted lifecycle method.
+     * Get the object map url for the file being displayed.
      */
-    public mounted(): void {
-        this.fetchObjectMap();
-        if (!this.placeHolderDisplayable) this.setPreview();
-    }
-
-    /**
-     * Get the object map for the file being displayed.
-     */
-    private async fetchObjectMap(): Promise<void> {
-        if (!this.$store.state.files.fetchObjectMap) {
-            return;
-        }
-
-        const objectMap: Blob | null = await this.$store.state.files.fetchObjectMap(
+    private async fetchPreviewAndMapUrl(): Promise<void> {
+        this.isLoading = true;
+        const url: string = await this.$store.state.files.fetchPreviewAndMapUrl(
             this.filePath,
         );
 
-        if (!objectMap) {
-            this.mapFailed = true;
+        if (!url) {
+            this.previewAndMapFailed = true;
+            this.isLoading = false;
+
             return;
         }
 
-        this.$refs.objectMap.src = URL.createObjectURL(objectMap);
+        const mapURL = `${url}?map=1`;
+        const previewURL = `${url}?view=1`;
+
+        await new Promise((resolve) => {
+            const preload = new Image();
+            preload.onload = resolve;
+            preload.src = mapURL;
+        });
+
+        this.objectMapUrl = mapURL;
+        this.objectPreviewUrl = previewURL;
+        this.isLoading = false;
     }
 
     /**
@@ -364,37 +385,6 @@ export default class FileModal extends Vue {
             this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
         } catch (error) {
             this.$notify.error('Can not download your file');
-        }
-    }
-
-    /**
-     * Set preview object.
-     */
-    public async setPreview(): Promise<void> {
-        if (!this.$store.state.files.fetchObjectPreview) {
-            return;
-        }
-
-        const object: Blob | null = await this.$store.state.files.fetchObjectPreview(
-            this.filePath,
-        );
-
-        if (!object) {
-            this.previewFailed = true;
-            return;
-        }
-
-        const objectURL = URL.createObjectURL(object);
-
-        switch (true) {
-        case this.previewIsImage:
-            this.$refs.previewImage.src = objectURL;
-            break;
-        case this.previewIsVideo:
-            this.$refs.previewVideo.src = objectURL;
-            break;
-        case this.previewIsAudio:
-            this.$refs.previewAudio.src = objectURL;
         }
     }
 
