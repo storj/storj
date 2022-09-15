@@ -48,15 +48,14 @@
                 />
             </div>
             <div class="payments-area__container__new-payments">
-                <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" />
-                <div v-else-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
+                <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
                     <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
                     <span
                         class="payments-area__container__new-payments__text-area__text"
                         @click="addPaymentMethodHandler"
                     >Add New Payment Method</span>
                 </div>
-                <div v-else-if="isAddingPayment" class="payments-area__container__new-payments__add-card">
+                <div v-else class="payments-area__container__new-payments__add-card">
                     <div class="close-add-payment" @click="closeAddPayment">
                         <CloseCrossIcon />
                     </div>
@@ -67,13 +66,15 @@
                         class="add-card-area__stripe stripe_input"
                         :on-stripe-response-callback="addCard"
                     />
-                    <div
-                        v-if="!isAddCardClicked"
+                    <VButton
                         class="add-card-button"
-                        @click="onConfirmAddStripe"
-                    >
-                        <span class="add-card-button__text">Add Credit Card</span>
-                    </div>
+                        label="Add Credit Card"
+                        width="115px"
+                        height="30px"
+                        font-size="13px"
+                        :on-press="onConfirmAddStripe"
+                        :is-disabled="isLoading"
+                    />
                 </div>
             </div>
         </div>
@@ -420,6 +421,7 @@ export default class PaymentMethods extends Vue {
     }
 
     public async onConfirmAddStripe(): Promise<void> {
+        if (this.isLoading) return;
         this.isLoading = true;
         await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
     }
@@ -770,37 +772,7 @@ $align: center;
 }
 
 .add-card-button {
-    grid-row: 4;
-    grid-column: 1;
-    width: 115px;
-    height: 30px;
     margin-top: 2px;
-    cursor: pointer;
-    border-radius: 6px;
-    background-color: #0149ff;
-    font-family: 'font_medium', sans-serif;
-    font-size: 16px;
-    line-height: 23px;
-    color: #fff;
-    user-select: none;
-    transition: top 0.5s ease-in-out;
-
-    &:hover {
-        background-color: #0059d0;
-    }
-
-    &__text {
-        margin-top: 4px;
-        margin-left: 9px;
-        font-family: 'font-medium', sans-serif;
-        font-style: normal;
-        font-weight: 700;
-        font-size: 13px;
-        line-height: 29px;
-        display: $flex;
-        align-items: $align;
-        letter-spacing: -0.02em;
-    }
 }
 
 .active-discount {
@@ -888,10 +860,6 @@ $align: center;
             border: 2px dashed #929fb1;
             border-radius: 10px;
             cursor: pointer;
-
-            &__payment-loading-image {
-                padding: 40px;
-            }
 
             &__text-area {
                 display: flex;
