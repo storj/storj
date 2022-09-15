@@ -14,6 +14,7 @@ import (
 
 func TestService(t *testing.T) {
 	log := testplanet.NewLogger(t)
-	service := segmentverify.NewService(log.Named("segment-verify"), nil, nil)
+	config := segmentverify.ServiceConfig{}
+	service := segmentverify.NewService(log.Named("segment-verify"), nil, nil, nil, config)
 	require.NotNil(t, service)
 }

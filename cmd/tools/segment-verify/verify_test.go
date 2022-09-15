@@ -6,6 +6,7 @@ package main_test
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -24,7 +25,14 @@ func TestVerifier(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
-		service := segmentverify.NewVerifier(planet.Log().Named("verifier"), satellite.Dialer, satellite.Orders.Service)
+		service := segmentverify.NewVerifier(
+			planet.Log().Named("verifier"),
+			satellite.Dialer,
+			satellite.Orders.Service,
+			segmentverify.VerifierConfig{
+				PerPieceTimeout:    800 * time.Millisecond,
+				OrderRetryThrottle: 50 * time.Millisecond,
+			})
 
 		// upload some data
 		data := testrand.Bytes(8 * memory.KiB)

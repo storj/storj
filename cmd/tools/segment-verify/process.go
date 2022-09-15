@@ -19,7 +19,7 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 	defer mon.Task()(&ctx)(&err)
 
 	for _, segment := range segments {
-		segment.Status.Retry = VerifyPieces
+		segment.Status.Retry = int32(service.config.Check)
 	}
 
 	batches, err := service.CreateBatches(ctx, segments)
@@ -80,7 +80,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 
 	var mu sync.Mutex
 
-	limiter := sync2.NewLimiter(ConcurrentRequests)
+	limiter := sync2.NewLimiter(service.config.Concurrency)
 	for i, batch := range batches {
 		nodeID := ids[i]
 		batch := batch

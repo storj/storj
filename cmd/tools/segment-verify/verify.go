@@ -19,20 +19,23 @@ import (
 	"storj.io/uplink/private/piecestore"
 )
 
-var (
-	// ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
-	ErrNodeOffline = errs.Class("node offline")
-)
+// ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
+var ErrNodeOffline = errs.Class("node offline")
 
-// PieceDownloadTimeout defines the duration during which a storage node must return a piece before timing out.
-const PieceDownloadTimeout = time.Millisecond * 100
+// VerifierConfig contains configurations for operation.
+type VerifierConfig struct {
+	PerPieceTimeout    time.Duration `help:"duration to wait per piece download" default:"800ms"`
+	OrderRetryThrottle time.Duration `help:"how much to wait before retrying order creation" default:"50ms"`
 
-// OrderLimitRetryThrottle defines the duration to wait before retrying order limit creation.
-const OrderLimitRetryThrottle = time.Millisecond * 100
+	// TODO: throttle per download.
+}
 
 // NodeVerifier implements segment verification by dialing nodes.
 type NodeVerifier struct {
-	log    *zap.Logger
+	log *zap.Logger
+
+	config VerifierConfig
+
 	dialer rpc.Dialer
 	orders *orders.Service
 }
@@ -40,9 +43,10 @@ type NodeVerifier struct {
 var _ Verifier = (*NodeVerifier)(nil)
 
 // NewVerifier creates a new segment verifier using the specified dialer.
-func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service) *NodeVerifier {
+func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, config VerifierConfig) *NodeVerifier {
 	return &NodeVerifier{
 		log:    log,
+		config: config,
 		dialer: dialer,
 		orders: orders,
 	}
@@ -50,6 +54,7 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service) *No
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
 func (service *NodeVerifier) Verify(ctx context.Context, target storj.NodeURL, segments []*Segment) error {
+	// TODO: add dial timeout
 	client, err := piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
 	if err != nil {
 		return ErrNodeOffline.Wrap(err)
@@ -70,12 +75,12 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	limit, piecePrivateKey, _, err := service.orders.CreateAuditOrderLimit(ctx, target.ID, 0, segment.RootPieceID, 1)
 	if err != nil {
 		service.log.Error("failed to create order limit",
-			zap.Stringer("retrying in", OrderLimitRetryThrottle),
+			zap.Stringer("retrying in", service.config.OrderRetryThrottle),
 			zap.String("stream-id", segment.StreamID.String()),
 			zap.Uint64("position", segment.Position.Encode()),
 			zap.Error(err))
 
-		if !sync2.Sleep(ctx, OrderLimitRetryThrottle) {
+		if !sync2.Sleep(ctx, service.config.OrderRetryThrottle) {
 			return Error.Wrap(ctx.Err())
 		}
 
@@ -85,7 +90,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 		}
 	}
 
-	timedCtx, cancel := context.WithTimeout(ctx, PieceDownloadTimeout)
+	timedCtx, cancel := context.WithTimeout(ctx, service.config.PerPieceTimeout)
 	defer cancel()
 
 	downloader, err := client.Download(timedCtx, limit.GetLimit(), piecePrivateKey, 0, 1)

@@ -22,12 +22,6 @@ var mon = monkit.Package()
 // Error is global error class.
 var Error = errs.Class("segment-verify")
 
-// VerifyPieces defines how many pieces we check per segment.
-const VerifyPieces = 3
-
-// ConcurrentRequests defines how many concurrent requests we do to the storagenodes.
-const ConcurrentRequests = 10000
-
 // Metabase defines implementation dependencies we need from metabase.
 type Metabase interface {
 	ConvertNodesToAliases(ctx context.Context, nodeID []storj.NodeID) ([]metabase.NodeAlias, error)
@@ -41,40 +35,58 @@ type Verifier interface {
 	Verify(ctx context.Context, target storj.NodeURL, segments []*Segment) error
 }
 
+// Overlay is used to fetch information about nodes.
+type Overlay interface {
+}
+
 // SegmentWriter allows writing segments to some output.
 type SegmentWriter interface {
 	Write(ctx context.Context, segments []*Segment) error
 }
 
+// ServiceConfig contains configurable options for Service.
+type ServiceConfig struct {
+	NotFoundPath string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
+	RetryPath    string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+
+	Check       int `help:"how many storagenodes to query per segment" default:"3"`
+	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
+	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
+}
+
 // Service implements segment verification logic.
 type Service struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config ServiceConfig
 
 	notFound SegmentWriter
 	retry    SegmentWriter
 
 	metabase Metabase
 	verifier Verifier
+	overlay  Overlay
 
 	PriorityNodes NodeAliasSet
 	OfflineNodes  NodeAliasSet
 }
 
 // NewService returns a new service for verifying segments.
-func NewService(log *zap.Logger, metabase Metabase, verifier Verifier) *Service {
+func NewService(log *zap.Logger, metabase Metabase, verifier Verifier, overlay Overlay, config ServiceConfig) *Service {
 	return &Service{
-		log: log,
-
-		PriorityNodes: NodeAliasSet{},
-		OfflineNodes:  NodeAliasSet{},
+		log:    log,
+		config: config,
 
 		metabase: metabase,
 		verifier: verifier,
+		overlay:  overlay,
+
+		PriorityNodes: NodeAliasSet{},
+		OfflineNodes:  NodeAliasSet{},
 	}
 }
 
-// Process processes segments between low and high uuid.UUID with the specified batchSize.
-func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchSize int) (err error) {
+// ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
+func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorStreamID := low
@@ -87,7 +99,7 @@ func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchS
 		result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
 			CursorStreamID: cursorStreamID,
 			CursorPosition: cursorPosition,
-			Limit:          batchSize,
+			Limit:          service.config.BatchSize,
 
 			// TODO: add AS OF SYSTEM time.
 		})
