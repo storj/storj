@@ -48,12 +48,10 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 		return nodes, nil
 	}
 
-	if len(missing) > 0 {
-		var err error
-		latest, err = cache.refresh(ctx, nil, missing)
-		if err != nil {
-			return nil, Error.New("failed to refresh node alias db: %w", err)
-		}
+	var err error
+	latest, err = cache.refresh(ctx, nil, missing)
+	if err != nil {
+		return nil, Error.New("failed to refresh node alias db: %w", err)
 	}
 
 	nodes, missing = latest.Nodes(aliases)
@@ -64,9 +62,9 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 	return nil, Error.New("aliases missing in database: %v", missing)
 }
 
-// Aliases returns node aliases corresponding to the node ID-s,
+// EnsureAliases returns node aliases corresponding to the node ID-s,
 // adding missing node ID-s to the database when needed.
-func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+func (cache *NodeAliasCache) EnsureAliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
 	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
@@ -74,12 +72,10 @@ func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) 
 		return aliases, nil
 	}
 
-	if len(missing) > 0 {
-		var err error
-		latest, err = cache.ensure(ctx, missing...)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
+	var err error
+	latest, err = cache.ensure(ctx, missing...)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	aliases, missing = latest.Aliases(nodes)
@@ -88,6 +84,29 @@ func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) 
 	}
 
 	return nil, Error.New("nodes still missing after ensuring: %v", missing)
+}
+
+// Aliases returns node aliases corresponding to the node ID-s and returns an error when node is missing.
+func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
+	latest := cache.getLatest()
+
+	aliases, missing := latest.Aliases(nodes)
+	if len(missing) == 0 {
+		return aliases, nil
+	}
+
+	var err error
+	latest, err = cache.refresh(ctx, missing, nil)
+	if err != nil {
+		return nil, Error.New("failed to refresh node alias db: %w", err)
+	}
+
+	aliases, missing = latest.Aliases(nodes)
+	if len(missing) > 0 {
+		return aliases, Error.New("aliases missing for %v", missing)
+	}
+
+	return aliases, nil
 }
 
 // ensure tries to ensure that the specified missing node ID-s are assigned a alias.
@@ -134,8 +153,9 @@ func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.N
 	return xs, nil
 }
 
-// ConvertPiecesToAliases converts pieces to alias pieces.
-func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces Pieces) (_ AliasPieces, err error) {
+// EnsurePiecesToAliases converts pieces to alias pieces and automatically adds storage node
+// to alias table when necessary.
+func (cache *NodeAliasCache) EnsurePiecesToAliases(ctx context.Context, pieces Pieces) (_ AliasPieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(pieces) == 0 {
@@ -147,7 +167,7 @@ func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces 
 		nodes[i] = p.StorageNode
 	}
 
-	aliases, err := cache.Aliases(ctx, nodes)
+	aliases, err := cache.EnsureAliases(ctx, nodes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -267,7 +287,7 @@ func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []
 	return xs, missing
 }
 
-// Aliases returns alises-s for the given node ID-s and node ID-s that are not in this map.
+// Aliases returns aliases-s for the given node ID-s and node ID-s that are not in this map.
 func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []storj.NodeID) {
 	xs = make([]NodeAlias, 0, len(nodes))
 	for _, n := range nodes {

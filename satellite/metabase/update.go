@@ -64,12 +64,12 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
-	oldPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.OldPieces)
+	oldPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
 
-	newPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.NewPieces)
+	newPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.NewPieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}

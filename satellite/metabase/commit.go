@@ -324,7 +324,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("number of pieces is less than redundancy optimal shares value")
 	}
 
-	aliasPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.Pieces)
+	aliasPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.Pieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
