@@ -4,16 +4,14 @@
 package satellite
 
 import (
-	"os"
-	"testing"
-
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
-
+	"os"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/storj/testsuite/ui/uitest"
+	"testing"
 )
 
 func waitVueTick(page *rod.Page) {
@@ -59,6 +57,7 @@ func loginWithUser(t *testing.T, planet *uitest.EdgePlanet, page *rod.Page) {
 	page.MustElement("[aria-roledescription=email] input").MustInput(emailAddress)
 	page.MustElement("[aria-roledescription=password] input").MustInput(password)
 	page.Keyboard.MustPress(input.Enter)
+	page.MustElement("[class=notification-wrap__content__right__close]").MustClick()
 }
 
 func generateEmptyFile(t *testing.T, ctx *testcontext.Context, name string, size memory.Size) string {
