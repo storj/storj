@@ -32,7 +32,7 @@ cleanup() {
 trap cleanup ERR EXIT
 
 echo "install sim"
-make -C "$SCRIPT_DIR"/.. install-sim
+make -C "$SCRIPT_DIR"/../../.. install-sim
 
 echo "overriding default max segment size to 6MiB"
 GOBIN="${TMP_DIR}" go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
@@ -56,4 +56,4 @@ storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 # run test that checks that the satellite runs despite of not being able to connect to Redis
 "${SCRIPT_DIR}/redis-server.sh" stop
 storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
-	--redis="127.0.0.1:6379" test bash "${SCRIPT_DIR}/test-uplink.sh"
+	--redis="127.0.0.1:6379" test bash "${SCRIPT_DIR}/../integration/test-uplink.sh"

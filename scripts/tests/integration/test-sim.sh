@@ -12,7 +12,7 @@ cleanup(){
 trap cleanup EXIT
 
 echo "Running test-sim"
-make -C "$SCRIPTDIR"/.. install-sim
+make -C "$SCRIPTDIR"/../../.. install-sim
 
 echo "Overriding default max segment size to 6MiB"
 GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink

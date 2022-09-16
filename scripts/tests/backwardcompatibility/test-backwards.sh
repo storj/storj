@@ -2,7 +2,7 @@
 set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $SCRIPTDIR/utils.sh
+source $SCRIPTDIR/../../utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 
@@ -31,7 +31,7 @@ PRISTINE_FILES_DIR="$STORJ_NETWORK_DIR/pristine/$BUCKET"
 DOWNLOAD_FILES_DIR="$STORJ_NETWORK_DIR/download/$BUCKET"
 
 # override configured access with access where address is node ID + satellite addess
-STORJ_ACCESS=$(go run "$SCRIPTDIR"/update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
+STORJ_ACCESS=$(go run "$SCRIPTDIR"/../../update-access.go "$SATELLITE_0_DIR" "$GATEWAY_0_ACCESS")
 UPLINK_ACCESS="$STORJ_ACCESS"
 
 export STORJ_ACCESS

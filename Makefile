@@ -218,12 +218,12 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh
+	@./scripts/tests/integration/test-sim.sh
 
 .PHONY: test-sim-redis-unavailability
 test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-redis-up-and-down.sh
+	@./scripts/tests/redis/test-sim-redis-up-and-down.sh
 
 
 .PHONY: test-certificates
@@ -234,7 +234,7 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-backwards.sh
+	@./scripts/tests/backwardcompatibility/test-sim-backwards.sh
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed

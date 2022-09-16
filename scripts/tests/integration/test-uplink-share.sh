@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-source $SCRIPTDIR/utils.sh
+source $SCRIPTDIR/../../utils.sh
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 cleanup(){
-    rm -rf "$TMPDIR"
     uplink rm "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile"
     uplink rm "sj://$BUCKET_WITH_ACCESS/another-testfile"
     uplink rm "sj://$BUCKET_WITHOUT_ACCESS/another-testfile"
     uplink rb "sj://$BUCKET_WITHOUT_ACCESS"
     uplink rb "sj://$BUCKET_WITH_ACCESS"
+    rm -rf "$TMPDIR"
     echo "cleaned up test successfully"
 }
 trap cleanup EXIT
 trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
+export UPLINK_CONFIG_DIR=$TMPDIR/uplink
+
 # workaround for issues with automatic accepting monitoring question
 # with first run we need to accept question y/n about monitoring
-export UPLINK_CONFIG_DIR=$TMPDIR/uplink
 mkdir -p "$UPLINK_CONFIG_DIR"
 touch "$UPLINK_CONFIG_DIR/config.ini"
 
