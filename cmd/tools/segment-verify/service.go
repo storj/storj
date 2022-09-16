@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/overlay"
 )
 
 var mon = monkit.Package()
@@ -37,11 +39,15 @@ type Verifier interface {
 
 // Overlay is used to fetch information about nodes.
 type Overlay interface {
+	// Get looks up the node by nodeID
+	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*overlay.SelectedNode, error)
 }
 
 // SegmentWriter allows writing segments to some output.
 type SegmentWriter interface {
 	Write(ctx context.Context, segments []*Segment) error
+	Close() error
 }
 
 // ServiceConfig contains configurable options for Service.
@@ -52,6 +58,8 @@ type ServiceConfig struct {
 	Check       int `help:"how many storagenodes to query per segment" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
+
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
 // Service implements segment verification logic.
@@ -66,34 +74,97 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	PriorityNodes NodeAliasSet
-	OfflineNodes  NodeAliasSet
+	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
+	priorityNodes  NodeAliasSet
+	onlineNodes    NodeAliasSet
 }
 
 // NewService returns a new service for verifying segments.
-func NewService(log *zap.Logger, metabase Metabase, verifier Verifier, overlay Overlay, config ServiceConfig) *Service {
+func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay Overlay, config ServiceConfig) (*Service, error) {
+	notFound, err := NewCSVWriter(config.NotFoundPath)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	retry, err := NewCSVWriter(config.RetryPath)
+	if err != nil {
+		return nil, errs.Combine(Error.Wrap(err), notFound.Close())
+	}
+
 	return &Service{
 		log:    log,
 		config: config,
 
-		metabase: metabase,
+		notFound: notFound,
+		retry:    retry,
+
+		metabase: metabaseDB,
 		verifier: verifier,
 		overlay:  overlay,
 
-		PriorityNodes: NodeAliasSet{},
-		OfflineNodes:  NodeAliasSet{},
+		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
+		priorityNodes:  NodeAliasSet{},
+		onlineNodes:    NodeAliasSet{},
+	}, nil
+}
+
+// Close closes the outputs from the service.
+func (service *Service) Close() error {
+	return Error.Wrap(errs.Combine(
+		service.notFound.Close(),
+		service.retry.Close(),
+	))
+}
+
+// loadOnlineNodes loads the list of online nodes.
+func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
+	interval := overlay.AsOfSystemTimeConfig{
+		Enabled:         service.config.AsOfSystemInterval != 0,
+		DefaultInterval: service.config.AsOfSystemInterval,
 	}
+
+	// should this use some other methods?
+	nodes, err := service.overlay.SelectAllStorageNodesDownload(ctx, time.Hour, interval)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	nodeIDs := make([]storj.NodeID, len(nodes))
+	for i, node := range nodes {
+		nodeIDs[i] = node.ID
+	}
+
+	aliases, err := service.metabase.ConvertNodesToAliases(ctx, nodeIDs)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for i, alias := range aliases {
+		service.aliasToNodeURL[alias] = storj.NodeURL{
+			ID:      nodes[i].ID,
+			Address: nodes[i].Address.Address,
+		}
+		service.onlineNodes.Add(alias)
+	}
+
+	return nil
 }
 
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
 func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = service.loadOnlineNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	cursorStreamID := low
+	var cursorPosition metabase.SegmentPosition
 	if !low.IsZero() {
 		cursorStreamID = uuidBefore(low)
+		cursorPosition = metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 	}
-	cursorPosition := metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 
 	for {
 		result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
@@ -101,7 +172,7 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 			CursorPosition: cursorPosition,
 			Limit:          service.config.BatchSize,
 
-			// TODO: add AS OF SYSTEM time.
+			AsOfSystemInterval: service.config.AsOfSystemInterval,
 		})
 		if err != nil {
 			return Error.Wrap(err)

@@ -156,7 +156,11 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 
 	// setup verifier
 	verifier := NewVerifier(log.Named("verifier"), dialer, ordersService, rangeCfg.Verify)
-	service := NewService(log.Named("service"), metabaseDB, verifier, overlay, rangeCfg.Service)
+	service, err := NewService(log.Named("service"), metabaseDB, verifier, overlay, rangeCfg.Service)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, service.Close()) }()
 
 	// parse arguments
 	var low, high uuid.UUID

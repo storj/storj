@@ -65,7 +65,7 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 	// iterate over all queues
 	for _, large := range allQueues[:highIndex] {
 		// don't redistribute priority nodes
-		if service.PriorityNodes.Contains(large.Alias) {
+		if service.priorityNodes.Contains(large.Alias) {
 			continue
 		}
 
@@ -102,14 +102,14 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 // selectOnlinePieces modifies slice such that it only contains online pieces.
 func (service *Service) selectOnlinePieces(segment *Segment) {
 	for i, x := range segment.AliasPieces {
-		if !service.OfflineNodes.Contains(x.Alias) {
+		if service.onlineNodes.Contains(x.Alias) {
 			continue
 		}
 
 		// found an offline node, start removing
 		rs := segment.AliasPieces[:i]
 		for _, x := range segment.AliasPieces[i+1:] {
-			if !service.OfflineNodes.Contains(x.Alias) {
+			if service.onlineNodes.Contains(x.Alias) {
 				rs = append(rs, x)
 			}
 		}
@@ -122,7 +122,7 @@ func (service *Service) selectOnlinePieces(segment *Segment) {
 func (service *Service) removePriorityPieces(segment *Segment) {
 	target := 0
 	for _, x := range segment.AliasPieces {
-		if service.PriorityNodes.Contains(x.Alias) {
+		if service.priorityNodes.Contains(x.Alias) {
 			continue
 		}
 		segment.AliasPieces[target] = x
@@ -136,7 +136,7 @@ func (service *Service) sortPriorityToFirst(segment *Segment) {
 	xs := segment.AliasPieces
 	target := 0
 	for i, x := range xs {
-		if service.PriorityNodes.Contains(x.Alias) {
+		if service.priorityNodes.Contains(x.Alias) {
 			xs[target], xs[i] = xs[i], xs[target]
 			target++
 		}

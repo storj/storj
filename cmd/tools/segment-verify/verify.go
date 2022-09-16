@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -110,9 +111,20 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 			zap.Error(err))
 		return ErrNodeOffline.Wrap(err)
 	}
+	defer func() {
+		errClose := downloader.Close()
+		if errClose != nil {
+			// TODO: should we try reconnect in this case?
+			service.log.Error("close failed",
+				zap.String("stream-id", segment.StreamID.String()),
+				zap.Uint64("position", segment.Position.Encode()),
+				zap.Error(err))
+			err = errs.Combine(err, ErrNodeOffline.Wrap(errClose))
+		}
+	}()
 
 	buf := [1]byte{}
-	_, err = downloader.Read(buf[:])
+	_, err = io.ReadFull(downloader, buf[:])
 	if err != nil {
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			service.log.Info("segment not found",
@@ -130,16 +142,6 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 		return ErrNodeOffline.Wrap(err)
 	}
 	segment.Status.MarkFound()
-
-	err = downloader.Close()
-	if err != nil {
-		// TODO: should we try reconnect in this case?
-		service.log.Error("close failed",
-			zap.String("stream-id", segment.StreamID.String()),
-			zap.Uint64("position", segment.Position.Encode()),
-			zap.Error(err))
-		return ErrNodeOffline.Wrap(err)
-	}
 
 	return nil
 }

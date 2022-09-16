@@ -66,32 +66,23 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) error {
 	defer mon.Task()(&ctx)(nil)
 
-	// Convert NodeAliases to NodeIDs
-	aliases := make([]metabase.NodeAlias, len(batches))
-	for i, b := range batches {
-		aliases[i] = b.Alias
-	}
-	ids, err := service.metabase.ConvertAliasesToNodes(ctx, aliases)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	// TODO: fetch addresses for NodeID-s
-
 	var mu sync.Mutex
 
 	limiter := sync2.NewLimiter(service.config.Concurrency)
-	for i, batch := range batches {
-		nodeID := ids[i]
+	for _, batch := range batches {
 		batch := batch
+
+		nodeURL, err := service.convertAliasToNodeURL(ctx, batch.Alias)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		limiter.Go(ctx, func() {
-			err := service.verifier.Verify(ctx, storj.NodeURL{
-				ID: nodeID, // TODO: use NodeURL
-			}, batch.Items)
+			err := service.verifier.Verify(ctx, nodeURL, batch.Items)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
-					service.OfflineNodes.Add(batch.Alias)
+					service.onlineNodes.Remove(batch.Alias)
 					mu.Unlock()
 				}
 				service.log.Error("verifying a batch failed", zap.Error(err))
@@ -101,4 +92,29 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 	limiter.Wait()
 
 	return nil
+}
+
+// convertAliasToNodeURL converts a node alias to node url, using a cache if needed.
+func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
+	nodeURL, ok := service.aliasToNodeURL[alias]
+	if !ok {
+		// not in cache, use the slow path
+		nodeIDs, err := service.metabase.ConvertAliasesToNodes(ctx, []metabase.NodeAlias{alias})
+		if err != nil {
+			return storj.NodeURL{}, Error.Wrap(err)
+		}
+
+		info, err := service.overlay.Get(ctx, nodeIDs[0])
+		if err != nil {
+			return storj.NodeURL{}, Error.Wrap(err)
+		}
+
+		nodeURL = storj.NodeURL{
+			ID:      info.Id,
+			Address: info.Address.Address,
+		}
+
+		service.aliasToNodeURL[alias] = nodeURL
+	}
+	return nodeURL, nil
 }
