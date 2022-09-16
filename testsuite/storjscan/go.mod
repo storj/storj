@@ -11,7 +11,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
 	storj.io/common v0.0.0-20220902050723-654fd98b53c6
-	storj.io/private v0.0.0-20220823161836-79135887c9be
+	storj.io/private v0.0.0-20220915132359-957cab776577
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220909003402-28d145ea1272
 	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31
