@@ -2,13 +2,23 @@
 // See LICENSE for copying information.
 
 <template>
-    <div>
-        <BillingHistoryHeader />
-        <VList 
-            :data-set="historyItems"
-            :item-component="billingHistoryStructure"
-        />
-        <router-view />
+    <div class="billing-history">
+        <h1 class="billing-history__title">
+            Billing History
+        </h1>
+
+        <v-table class="billing-history__table">
+            <template #head>
+                <BillingHistoryHeader />
+            </template>
+            <template #body>
+                <BillingHistoryItem
+                    v-for="item in historyItems"
+                    :key="item.id"
+                    :item="item"
+                />
+            </template>
+        </v-table>
     </div>
 </template>
 
@@ -17,14 +27,15 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
-import VList from '@/components/common/VList.vue';
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
-import BillingHistoryShape from '@/components/account/billing/billingTabs/BillingHistoryShape.vue';
+import BillingHistoryItem from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
+import VTable from '@/components/common/VTable.vue';
 
 // @vue/component
 @Component({
     components: {
-        VList,
+        BillingHistoryItem,
+        VTable,
         BillingHistoryHeader,
     },
 })
@@ -36,22 +47,20 @@ export default class BillingArea extends Vue {
             return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
         });
     }
-
-    public get billingHistoryStructure() {
-        return BillingHistoryShape;
-    }
 }
 </script>
 
 <style scoped lang="scss">
-    .billing_history2 {
-        position: relative;
+    .billing-history {
+        margin-top: 2rem;
 
-        &__content {
-            background-color: #fff;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
+        &__title {
+            font-family: sans-serif;
+            font-size: 1.5rem;
+        }
+
+        &__table {
+            margin-top: 1.5rem;
         }
     }
 </style>
