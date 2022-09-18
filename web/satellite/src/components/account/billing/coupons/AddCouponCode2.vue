@@ -16,7 +16,7 @@
                     <h2 class="add-coupon__body-wrapper__title">Apply Coupon Code</h2>
                     <p class="add-coupon__body-wrapper__text">If you have a coupon active, it will automatically be replaced.</p>
                 </div>
-                <AddCouponCodeInput2 />
+                <AddCouponCodeInput2 @close="onCloseClick" />
             </div>
         </div>
     </div>
@@ -38,7 +38,7 @@ import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
         CouponIcon,
     },
 })
-export default class AddCouponCode extends Vue {
+export default class AddCouponCode2 extends Vue {
 
     @Prop({ default: false })
     protected readonly success: boolean;

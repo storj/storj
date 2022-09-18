@@ -42,7 +42,7 @@
                     </div>
                 </div>
             </div>
-            <AddCoupon2 
+            <AddCouponCode2
                 v-if="showCreateCode"
                 @toggleMethod="toggleCreateModal"
             />
@@ -53,18 +53,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
 
-import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
+import AddCouponCode2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-        AddCoupon2,
+        AddCouponCode2,
     },
 })
 export default class Coupons extends Vue {
@@ -83,13 +82,6 @@ export default class Coupons extends Vue {
             await this.$notify.error(error.message);
             this.isCouponFetching = false;
         }
-    }
-
-    /**
-     * Opens Add Coupon modal.
-     */
-    public onCreateClick(): void {
-        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
     }
 
     /**

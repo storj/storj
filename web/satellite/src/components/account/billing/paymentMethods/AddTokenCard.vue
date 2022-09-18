@@ -8,24 +8,11 @@
                 <StorjLarge />
             </div>
         </div>
-        <v-loader v-if="!pageLoaded" class="token-loader" />
-        <div v-else class="token__add-funds">
+        <div class="token__add-funds">
             <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
-            <div class="token__add-funds__button-container">
-                <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
-                <VButton
-                    v-if="totalCount > 0"
-                    class="token__add-funds__button"
-                    label="Back"
-                    is-transparent="true"
-                    width="50px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="toggleShowAddFunds"
-                />
-            </div>
+            <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
         </div>
     </div>
 </template>
@@ -33,124 +20,17 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentAmountOption } from '@/types/payments';
-
-import VButton from '@/components/common/VButton.vue';
-import VLoader from '@/components/common/VLoader.vue';
-
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-
-const {
-    MAKE_TOKEN_DEPOSIT,
-    GET_PAYMENTS_HISTORY,
-} = PAYMENTS_ACTIONS;
 
 // @vue/component
 @Component({
     components: {
         StorjLarge,
-        VButton,
-        VLoader,
     },
 })
 export default class AddTokenCard extends Vue {
     @Prop({ default: 0 })
     private readonly totalCount: number;
-    private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
-    private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
-    private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-
-    private pageLoaded = true;
-
-    public toggleShowAddFunds(): void {
-        this.$emit('toggleShowAddFunds');
-    }
-
-    /**
-     * Set of default payment options.
-     */
-    public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(1000, `USD $1000`),
-    ];
-
-    /**
-     * onConfirmAddSTORJ checks if amount is valid.
-     * If so processes token payment and returns state to default.
-     */
-    public async onConfirmAddSTORJ(): Promise<void> {
-
-        if (!this.isDepositValueValid) return;
-
-        try {
-            this.pageLoaded = false;
-            const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
-            await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
-            const depositWindow = window.open(tokenResponse.link, '_blank');
-            if (depositWindow) {
-                depositWindow.focus();
-                this.pageLoaded = true;
-            }
-            this.$emit('fetchHistory');
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.$emit('toggleIsLoading');
-            this.pageLoaded = true;
-        }
-
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-        try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.$emit('toggleIsLoading');
-        }
-    }
-
-    /**
-     * Event for changing token deposit value.
-     */
-    public onChangeTokenValue(value: number): void {
-        this.tokenDepositValue = value;
-    }
-
-    /**
-     * Indicates if deposit value is valid.
-     */
-    private get isDepositValueValid(): boolean {
-        switch (true) {
-        case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
-            this.$notify.error(`First deposit amount must be more than $10 and less than $${this.MAX_TOKEN_AMOUNT}`);
-            this.setDefault();
-
-            return false;
-        case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
-            this.$notify.error(`Deposit amount must be more than $0 and less than $${this.MAX_TOKEN_AMOUNT}`);
-            this.setDefault();
-
-            return false;
-        default:
-            return true;
-        }
-    }
-
-    /**
-     * Sets adding payment method state to default.
-     */
-    private setDefault(): void {
-        this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
-    }
-
-    /**
-     * Indicates if user has own project.
-     */
-    private get userHasOwnProject(): boolean {
-        return this.$store.getters.projectsCount > 0;
-    }
 }
 </script>
 
@@ -163,12 +43,14 @@ export default class AddTokenCard extends Vue {
 
     .token {
         border-radius: 10px;
-        width: 227px;
-        height: 126px;
-        padding: 20px;
+        width: 348px;
+        height: 203px;
+        box-sizing: border-box;
+        padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         background: #fff;
         position: relative;
+        font-family: 'font_regular', sans-serif;
 
         &__large-icon-container {
             position: absolute;
@@ -190,43 +72,22 @@ export default class AddTokenCard extends Vue {
         &__add-funds {
             display: flex;
             flex-direction: column;
-            z-index: 5;
-            position: relative;
             height: 100%;
             width: 100%;
 
             &__title {
-                font-family: sans-serif;
-            }
-
-            &__label {
-                font-family: sans-serif;
-                color: #56606d;
-                font-size: 11px;
-                margin-top: 5px;
-            }
-
-            &__dropdown {
-                margin-top: 10px;
-            }
-
-            &__button-container {
-                margin-top: 10px;
-                display: flex;
-                justify-content: space-between;
+                font-family: 'font_bold', sans-serif;
             }
 
             &__support-info {
-                font-family: sans-serif;
-                font-weight: 600;
                 font-size: 14px;
                 line-height: 20px;
                 color: #000;
-                position: relative;
-                top: 14px;
+                z-index: 1;
 
                 a {
                     color: #0149ff;
+                    text-decoration: underline !important;
                 }
             }
         }

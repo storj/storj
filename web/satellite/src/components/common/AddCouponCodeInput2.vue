@@ -8,15 +8,10 @@
                 Coupon Code:
             </p>
             <VInput
-                :label="inputLabel"
                 placeholder="Enter Coupon Code"
                 height="52px"
                 :with-icon="false"
                 @setData="setCouponCode"
-            />
-            <CheckIcon
-                v-if="isCodeValid"
-                class="add-coupon__check"
             />
         </div>
         <ValidationMessage
@@ -27,13 +22,13 @@
             :show-message="showValidationMessage"
         />
         <VButton
-            v-if="!isSignupView"
             class="add-coupon__apply-button"
             label="Apply Coupon Code"
             width="150px"
             height="44px"
             font-size="14px"
-            :on-press="couponCheck"
+            :on-press="applyCouponCode"
+            :is-disabled="isLoading"
         />
     </div>
 </template>
@@ -41,48 +36,26 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PaymentsHttpApi } from '@/api/payments';
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import CheckIcon from '@/../static/images/common/validCheck.svg';
-
 // @vue/component
 @Component({
     components: {
         VButton,
         VInput,
-        CheckIcon,
         ValidationMessage,
     },
 })
-export default class AddCouponCodeInput extends Vue {
+export default class AddCouponCodeInput2 extends Vue {
     private showValidationMessage = false;
-    private errorMessage = '';
     private isCodeValid = false;
-
+    private errorMessage = '';
     private couponCode = '';
-
-    private readonly payments: PaymentsHttpApi = new PaymentsHttpApi();
-
-    /**
-     * Signup view requires some unque styling and element text.
-     */
-    public get isSignupView(): boolean {
-        return this.$route.name === RouteConfig.Register.name;
-    }
-
-    /**
-     * Returns label for input if in signup view
-     * Depending on view.
-     */
-    public get inputLabel(): string | void {
-        return this.isSignupView ? 'Add Coupon' : '';
-    }
+    private isLoading = false;
 
     public setCouponCode(value: string): void {
         this.couponCode = value;
@@ -92,30 +65,20 @@ export default class AddCouponCodeInput extends Vue {
      * Check if coupon code is valid
      */
     public async applyCouponCode(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
-        }
-        catch (error) {
-            this.errorMessage = error.message;
-            this.isCodeValid = false;
-            this.showValidationMessage = true;
-            return;
-        }
-        this.isCodeValid = true;
-        this.showValidationMessage = true;
-    }
-
-    /**
-     * Check if user has a coupon code applied to their account before applying
-     */
-    public async couponCheck(): Promise<void> {
-        try {
-            this.applyCouponCode();
+            await this.$notify.success('Coupon Added!');
+            this.$emit('close');
         } catch (error) {
             this.errorMessage = error.message;
             this.isCodeValid = false;
             this.showValidationMessage = true;
-            return;
+        } finally {
+            this.isLoading = false;
         }
     }
 }
