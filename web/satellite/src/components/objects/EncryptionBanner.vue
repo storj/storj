@@ -12,7 +12,6 @@
             </p>
         </div>
         <div class="banner__right" @click="hide">
-            <p class="banner__right__label">Dismiss</p>
             <CloseIcon />
         </div>
     </div>
