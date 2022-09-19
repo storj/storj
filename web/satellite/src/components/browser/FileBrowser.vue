@@ -38,6 +38,16 @@
                                     multiple
                                     @change="upload"
                                 >
+                                <input
+                                    ref="folderInput"
+                                    type="file"
+                                    aria-roledescription="folder-upload"
+                                    hidden
+                                    multiple
+                                    webkitdirectory
+                                    mozdirectory
+                                    @change="upload"
+                                >
                                 <div v-if="isUploadDropDownShown" class="dropdown">
                                     <div class="dropdown__item">
                                         <div
@@ -51,16 +61,6 @@
                                         </div>
                                     </div>
                                     <div class="dropdown__item">
-                                        <input
-                                            ref="folderInput"
-                                            type="file"
-                                            aria-roledescription="folder-upload"
-                                            hidden
-                                            webkitdirectory
-                                            mozdirectory
-                                            multiple
-                                            @change="upload"
-                                        >
                                         <div
                                             class="upload-option"
                                             @click="buttonFolderUpload"
