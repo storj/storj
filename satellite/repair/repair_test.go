@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -1020,7 +1019,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		}
 
 		var successful metabase.Pieces
-		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces repairer.FetchResultReport) {
 			successful = pieces.Successful
 		}
 
@@ -1040,9 +1039,9 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		}
 
 		// repair shouldn't update audit status
-		for _, piece := range successful {
-			successfulNodeReputation := nodesReputation[piece.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+		for _, result := range successful {
+			successfulNodeReputation := nodesReputation[result.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
@@ -1250,8 +1249,8 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		}
 
 		var successful metabase.Pieces
-		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
-			successful = pieces.Successful
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(report repairer.FetchResultReport) {
+			successful = report.Successful
 		}
 
 		satellite.Repair.Checker.Loop.Restart()
@@ -1270,9 +1269,9 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		}
 
 		// repair shouldn't update audit status
-		for _, piece := range successful {
-			successfulNodeReputation := nodesReputation[piece.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+		for _, result := range successful {
+			successfulNodeReputation := nodesReputation[result.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)

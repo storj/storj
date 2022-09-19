@@ -56,6 +56,16 @@ func (ie *irreparableError) Error() string {
 	return fmt.Sprintf("%d available pieces < %d required", ie.piecesAvailable, ie.piecesRequired)
 }
 
+// FetchResultReport contains a categorization of a set of pieces based on the results of
+// GET operations.
+type FetchResultReport struct {
+	Successful metabase.Pieces
+	Failed     metabase.Pieces
+	Offline    metabase.Pieces
+	Contained  metabase.Pieces
+	Unknown    metabase.Pieces
+}
+
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log            *zap.Logger
@@ -77,7 +87,7 @@ type SegmentRepairer struct {
 
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
-	OnTestingPiecesReportHook        func(pieces audit.Pieces)
+	OnTestingPiecesReportHook        func(pieces FetchResultReport)
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
