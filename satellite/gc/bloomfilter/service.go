@@ -78,7 +78,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return errs.New("Bucket is not set")
 	}
 
-	return service.Loop.Run(ctx, service.segmentLoop.RunOnce)
+	return service.Loop.Run(ctx, service.RunOnce)
 }
 
 // RunOnce runs service only once.
@@ -188,15 +188,7 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 		return err
 	}
 
-	// upload empty object as a flag that bloom filters can be consumed.
-	upload, err := project.UploadObject(ctx, service.config.Bucket, "gc-done", &uplink.UploadOptions{
-		Expires: expirationTime,
-	})
-	if err != nil {
-		return err
-	}
-
-	return upload.Commit()
+	return nil
 }
 
 // uploadPack uploads single zip pack with multiple bloom filters.
@@ -252,7 +244,7 @@ func (service *Service) uploadPack(ctx context.Context, project *uplink.Project,
 func (service *Service) cleanup(ctx context.Context, project *uplink.Project) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	prefix := strconv.FormatInt(time.Now().Unix(), 10)
+	prefix := "upload-error-" + time.Now().Format(time.RFC3339)
 	iterator := project.ListObjects(ctx, service.config.Bucket, nil)
 
 	for iterator.Next() {

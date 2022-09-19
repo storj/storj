@@ -75,13 +75,10 @@ func TestSendRetainFilters(t *testing.T) {
 		})
 		require.True(t, it.Next())
 		keys = append(keys, it.Item().Key)
-		require.True(t, it.Next())
-		keys = append(keys, it.Item().Key)
 		require.False(t, it.Next())
 
 		sort.Strings(keys)
-		require.Equal(t, "gc-done", keys[0])
-		require.Regexp(t, "sent-.*/.*.zip$", keys[1])
+		require.Regexp(t, "sent-.*/.*.zip$", keys[0])
 	})
 }
 
