@@ -6,6 +6,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -52,8 +54,9 @@ type SegmentWriter interface {
 
 // ServiceConfig contains configurable options for Service.
 type ServiceConfig struct {
-	NotFoundPath string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
-	RetryPath    string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+	NotFoundPath      string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
+	RetryPath         string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+	PriorityNodesPath string `help:"list of priority node ID-s" default:""`
 
 	Check       int `help:"how many storagenodes to query per segment" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
@@ -150,11 +153,50 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 	return nil
 }
 
+// loadPriorityNodes loads the list of priority nodes.
+func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
+	if service.config.PriorityNodesPath == "" {
+		return nil
+	}
+
+	data, err := ioutil.ReadFile(service.config.PriorityNodesPath)
+	if err != nil {
+		return Error.New("unable to read priority nodes: %w", err)
+	}
+
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		nodeID, err := storj.NodeIDFromString(line)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		aliases, err := service.metabase.ConvertNodesToAliases(ctx, []storj.NodeID{nodeID})
+		if err != nil {
+			service.log.Info("priority node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
+			continue
+		}
+
+		service.priorityNodes.Add(aliases[0])
+	}
+
+	return nil
+}
+
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
 func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = service.loadOnlineNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.loadPriorityNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
