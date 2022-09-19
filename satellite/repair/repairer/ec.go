@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -95,9 +94,6 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter := sync2.NewLimiter(es.RequiredCount())
 	cond := sync.NewCond(&sync.Mutex{})
 
-	var errlist errs.Group
-	var mu sync.Mutex
-
 	for currentLimitIndex, limit := range limits {
 		if limit == nil {
 			continue
@@ -165,49 +161,46 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
-						pieces.Failed = append(pieces.Failed, piece)
+						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
 						return
 					}
 
 					pieceAudit := audit.PieceAuditFromErr(err)
 					switch pieceAudit {
 					case audit.PieceAuditFailure:
-						ec.log.Debug("Failed to download pieces for repair: piece not found (audit failed)",
+						ec.log.Debug("Failed to download piece for repair: piece not found (audit failed)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
-						pieces.Failed = append(pieces.Failed, piece)
+						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
 
 					case audit.PieceAuditOffline:
-						ec.log.Debug("Failed to download pieces for repair: dial timeout (offline)",
+						ec.log.Debug("Failed to download piece for repair: dial timeout (offline)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
-						pieces.Offline = append(pieces.Offline, piece)
+						pieces.Offline = append(pieces.Offline, PieceFetchResult{Piece: piece, Err: err})
 
 					case audit.PieceAuditContained:
-						ec.log.Info("Failed to download pieces for repair: download timeout (contained)",
+						ec.log.Info("Failed to download piece for repair: download timeout (contained)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
-						pieces.Contained = append(pieces.Contained, piece)
+						pieces.Contained = append(pieces.Contained, PieceFetchResult{Piece: piece, Err: err})
 
 					case audit.PieceAuditUnknown:
-						ec.log.Info("Failed to download pieces for repair: unknown transport error (skipped)",
+						ec.log.Info("Failed to download piece for repair: unknown transport error (skipped)",
 							zap.Stringer("Node ID", limit.GetLimit().StorageNodeId),
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
-						pieces.Unknown = append(pieces.Unknown, piece)
+						pieces.Unknown = append(pieces.Unknown, PieceFetchResult{Piece: piece, Err: err})
 					}
 
-					mu.Lock()
-					errlist.Add(fmt.Errorf("node id: %s, error: %w", limit.GetLimit().StorageNodeId.String(), err))
-					mu.Unlock()
 					return
 				}
 
 				pieceReaders[currentLimitIndex] = pieceReadCloser
-				pieces.Successful = append(pieces.Successful, piece)
+				pieces.Successful = append(pieces.Successful, PieceFetchResult{Piece: piece})
 				successfulPieces++
 				return
 			}
@@ -221,7 +214,6 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, pieces, &irreparableError{
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
-			errlist:         errlist,
 		}
 	}
 

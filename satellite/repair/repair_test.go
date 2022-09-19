@@ -1018,7 +1018,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 			nodesReputation[piece.StorageNode] = *info
 		}
 
-		var successful metabase.Pieces
+		var successful []repairer.PieceFetchResult
 		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces repairer.FetchResultReport) {
 			successful = pieces.Successful
 		}
@@ -1040,8 +1040,8 @@ func TestMissingPieceDataRepair(t *testing.T) {
 
 		// repair shouldn't update audit status
 		for _, result := range successful {
-			successfulNodeReputation := nodesReputation[result.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[result.StorageNode]
+			successfulNodeReputation := nodesReputation[result.Piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.Piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
@@ -1248,7 +1248,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 			nodesReputation[piece.StorageNode] = *info
 		}
 
-		var successful metabase.Pieces
+		var successful []repairer.PieceFetchResult
 		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(report repairer.FetchResultReport) {
 			successful = report.Successful
 		}
@@ -1270,8 +1270,8 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 
 		// repair shouldn't update audit status
 		for _, result := range successful {
-			successfulNodeReputation := nodesReputation[result.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[result.StorageNode]
+			successfulNodeReputation := nodesReputation[result.Piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.Piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
@@ -2547,7 +2547,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0].Piece)
 	})
 }
 
@@ -2616,7 +2616,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, missingPiece, piecesReport.Failed[0])
+		require.Equal(t, missingPiece, piecesReport.Failed[0].Piece)
 	})
 }
 
@@ -2682,7 +2682,7 @@ func TestECRepairerGetOffline(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, offlinePiece, piecesReport.Offline[0])
+		require.Equal(t, offlinePiece, piecesReport.Offline[0].Piece)
 	})
 }
 
@@ -2752,7 +2752,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 1, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0].Piece)
 	})
 }
 
@@ -2837,10 +2837,10 @@ func TestECRepairerGetFailure(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 1, len(piecesReport.Unknown))
 		require.Equal(t, 1, len(piecesReport.Successful))
-		require.Equal(t, offlinePiece, piecesReport.Offline[0])
-		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
-		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
-		require.Equal(t, successfulPiece, piecesReport.Successful[0])
+		require.Equal(t, offlinePiece, piecesReport.Offline[0].Piece)
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0].Piece)
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0].Piece)
+		require.Equal(t, successfulPiece, piecesReport.Successful[0].Piece)
 	})
 }
 
