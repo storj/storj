@@ -67,6 +67,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		MaxNumberOfParts:       config.MaxNumberOfParts,
 		ServerSideCopy:         config.ServerSideCopy,
 		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+		MultipleVersions:       config.MultipleVersions,
 	}, fn)
 }
 

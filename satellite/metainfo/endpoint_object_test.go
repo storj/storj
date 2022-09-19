@@ -1826,3 +1826,20 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		require.Equal(t, validKey, objects[0].EncryptedMetadataEncryptedKey)
 	})
 }
+
+func TestMultipleVersionsFlag(t *testing.T) {
+	// TODO test will be removed when functionality will be implemented
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MultipleVersions = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Config.Metainfo.MultipleVersions = true
+		_, err := planet.Satellites[0].Metainfo.Endpoint.BeginObject(ctx, &pb.ObjectBeginRequest{})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+	})
+}

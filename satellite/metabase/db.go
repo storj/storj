@@ -36,6 +36,7 @@ type Config struct {
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool
 	ServerSideCopyDisabled bool
+	MultipleVersions       bool
 }
 
 // DB implements a database for storing objects and segments.
