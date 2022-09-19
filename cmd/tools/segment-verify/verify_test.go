@@ -59,7 +59,7 @@ func TestVerifier(t *testing.T) {
 		}
 
 		// expect all segments are found on the node
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments)
+		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments, true)
 		require.NoError(t, err)
 		for _, seg := range validSegments {
 			require.Equal(t, segmentverify.Status{Found: 1, NotFound: 0, Retry: 0}, seg.Status)
@@ -76,7 +76,7 @@ func TestVerifier(t *testing.T) {
 			Status: segmentverify.Status{Retry: 1},
 		}
 
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), []*segmentverify.Segment{missingSegment})
+		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), []*segmentverify.Segment{missingSegment}, true)
 		require.NoError(t, err)
 		require.Equal(t, segmentverify.Status{Found: 0, NotFound: 1, Retry: 0}, missingSegment.Status)
 
@@ -85,7 +85,7 @@ func TestVerifier(t *testing.T) {
 		// node offline
 		err = planet.StopNodeAndUpdate(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments)
+		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments, true)
 		require.Error(t, err)
 		require.True(t, segmentverify.ErrNodeOffline.Has(err))
 	})

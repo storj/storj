@@ -77,8 +77,10 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 			return Error.Wrap(err)
 		}
 
+		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
+
 		limiter.Go(ctx, func() {
-			err := service.verifier.Verify(ctx, nodeURL, batch.Items)
+			err := service.verifier.Verify(ctx, nodeURL, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
