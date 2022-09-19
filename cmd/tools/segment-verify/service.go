@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/overlay"
 )
 
 var mon = monkit.Package()
@@ -22,65 +24,155 @@ var mon = monkit.Package()
 // Error is global error class.
 var Error = errs.Class("segment-verify")
 
-// VerifyPieces defines how many pieces we check per segment.
-const VerifyPieces = 3
-
-// ConcurrentRequests defines how many concurrent requests we do to the storagenodes.
-const ConcurrentRequests = 10000
-
 // Metabase defines implementation dependencies we need from metabase.
 type Metabase interface {
 	ConvertNodesToAliases(ctx context.Context, nodeID []storj.NodeID) ([]metabase.NodeAlias, error)
 	ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error)
-
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
+}
+
+// Verifier verifies a batch of segments.
+type Verifier interface {
+	Verify(ctx context.Context, target storj.NodeURL, segments []*Segment) error
+}
+
+// Overlay is used to fetch information about nodes.
+type Overlay interface {
+	// Get looks up the node by nodeID
+	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) ([]*overlay.SelectedNode, error)
 }
 
 // SegmentWriter allows writing segments to some output.
 type SegmentWriter interface {
 	Write(ctx context.Context, segments []*Segment) error
+	Close() error
+}
+
+// ServiceConfig contains configurable options for Service.
+type ServiceConfig struct {
+	NotFoundPath string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
+	RetryPath    string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+
+	Check       int `help:"how many storagenodes to query per segment" default:"3"`
+	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
+	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
+
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
 // Service implements segment verification logic.
 type Service struct {
-	log      *zap.Logger
-	metabase Metabase
+	log    *zap.Logger
+	config ServiceConfig
 
 	notFound SegmentWriter
 	retry    SegmentWriter
 
-	PriorityNodes NodeAliasSet
-	OfflineNodes  NodeAliasSet
+	metabase Metabase
+	verifier Verifier
+	overlay  Overlay
+
+	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
+	priorityNodes  NodeAliasSet
+	onlineNodes    NodeAliasSet
 }
 
 // NewService returns a new service for verifying segments.
-func NewService(log *zap.Logger) *Service {
-	return &Service{
-		log: log,
-
-		PriorityNodes: NodeAliasSet{},
-		OfflineNodes:  NodeAliasSet{},
+func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay Overlay, config ServiceConfig) (*Service, error) {
+	notFound, err := NewCSVWriter(config.NotFoundPath)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+
+	retry, err := NewCSVWriter(config.RetryPath)
+	if err != nil {
+		return nil, errs.Combine(Error.Wrap(err), notFound.Close())
+	}
+
+	return &Service{
+		log:    log,
+		config: config,
+
+		notFound: notFound,
+		retry:    retry,
+
+		metabase: metabaseDB,
+		verifier: verifier,
+		overlay:  overlay,
+
+		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
+		priorityNodes:  NodeAliasSet{},
+		onlineNodes:    NodeAliasSet{},
+	}, nil
 }
 
-// Process processes segments between low and high uuid.UUID with the specified batchSize.
-func (service *Service) Process(ctx context.Context, low, high uuid.UUID, batchSize int) (err error) {
+// Close closes the outputs from the service.
+func (service *Service) Close() error {
+	return Error.Wrap(errs.Combine(
+		service.notFound.Close(),
+		service.retry.Close(),
+	))
+}
+
+// loadOnlineNodes loads the list of online nodes.
+func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
+	interval := overlay.AsOfSystemTimeConfig{
+		Enabled:         service.config.AsOfSystemInterval != 0,
+		DefaultInterval: service.config.AsOfSystemInterval,
+	}
+
+	// should this use some other methods?
+	nodes, err := service.overlay.SelectAllStorageNodesDownload(ctx, time.Hour, interval)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	nodeIDs := make([]storj.NodeID, len(nodes))
+	for i, node := range nodes {
+		nodeIDs[i] = node.ID
+	}
+
+	aliases, err := service.metabase.ConvertNodesToAliases(ctx, nodeIDs)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for i, alias := range aliases {
+		service.aliasToNodeURL[alias] = storj.NodeURL{
+			ID:      nodes[i].ID,
+			Address: nodes[i].Address.Address,
+		}
+		service.onlineNodes.Add(alias)
+	}
+
+	return nil
+}
+
+// ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
+func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = service.loadOnlineNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	cursorStreamID := low
+	var cursorPosition metabase.SegmentPosition
 	if !low.IsZero() {
 		cursorStreamID = uuidBefore(low)
+		cursorPosition = metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 	}
-	cursorPosition := metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 
 	for {
 		result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
 			CursorStreamID: cursorStreamID,
 			CursorPosition: cursorPosition,
-			Limit:          batchSize,
+			Limit:          service.config.BatchSize,
 
-			// TODO: add AS OF SYSTEM time.
+			AsOfSystemInterval: service.config.AsOfSystemInterval,
 		})
 		if err != nil {
 			return Error.Wrap(err)

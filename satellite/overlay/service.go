@@ -676,6 +676,12 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID,
 	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
 }
 
+// SelectAllStorageNodesDownload returns a nodes that are ready for downloading.
+func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
+}
+
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
 func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
