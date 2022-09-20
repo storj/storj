@@ -94,7 +94,7 @@ func Edge(t *testing.T, test EdgeTest) {
 
 		authClient := authclient.New(gwConfig.Auth)
 
-		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"), nil, trustedip.NewListTrustAll(), []string{}, authClient, []string{})
+		gateway, err := server.New(gwConfig, planet.Log().Named("gateway"), trustedip.NewListTrustAll(), []string{"*"}, authClient, []string{"localhost"}, 10)
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)
@@ -111,6 +111,7 @@ func Edge(t *testing.T, test EdgeTest) {
 			DRPCListenAddrTLS: authSvcDrpcAddrTLS,
 			CertFile:          certFile.Name(),
 			KeyFile:           keyFile.Name(),
+			POSTSizeLimit:     4096,
 		}
 		for _, sat := range planet.Satellites {
 			authConfig.AllowedSatellites = append(authConfig.AllowedSatellites, sat.NodeURL().String())
@@ -124,7 +125,9 @@ func Edge(t *testing.T, test EdgeTest) {
 		require.NoError(t, waitForAddress(ctx, authSvcAddrTLS, 3*time.Second))
 		require.NoError(t, waitForAddress(ctx, authSvcDrpcAddrTLS, 3*time.Second))
 
-		ctx.Go(gateway.Run)
+		ctx.Go(func() error {
+			return gateway.Run(ctx)
+		})
 		require.NoError(t, waitForAddress(ctx, gateway.Address(), 3*time.Second))
 
 		edgeCredentials, err := cmd.RegisterAccess(ctx, access, authSvcDrpcAddrTLS, false, certFile.Name())
