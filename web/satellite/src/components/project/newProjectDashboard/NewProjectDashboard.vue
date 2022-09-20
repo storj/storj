@@ -336,6 +336,7 @@ export default class NewProjectDashboard extends Vue {
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
         const since = new Date(dateRange[0]);
         const before = new Date(dateRange[1]);
+        before.setHours(23,59,59,999);
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
