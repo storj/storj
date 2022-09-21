@@ -910,13 +910,13 @@ func TestLockAccount(t *testing.T) {
 func TestWalletJsonMarshall(t *testing.T) {
 	wi := console.WalletInfo{
 		Address: blockchain.Address{1, 2, 3},
-		Balance: currency.AmountFromBaseUnits(10000, currency.USDollars).AsDecimal().String(),
+		Balance: currency.AmountFromBaseUnits(10000, currency.USDollars),
 	}
 
 	out, err := json.Marshal(wi)
 	require.NoError(t, err)
 	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
-	require.Contains(t, string(out), "\"balance\":\"100\"")
+	require.Contains(t, string(out), "\"balance\":{\"value\":\"100\",\"currency\":\"USD\"}")
 
 }
 
