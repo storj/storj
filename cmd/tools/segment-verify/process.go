@@ -39,6 +39,10 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 		}
 	}
 
+	if len(retrySegments) == 0 {
+		return nil
+	}
+
 	// Reverse the pieces slice to ensure we pick different nodes this time.
 	for _, segment := range retrySegments {
 		xs := segment.AliasPieces

@@ -232,6 +232,9 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 			return nil
 		}
 
+		last := &verifySegments[len(verifySegments)-1]
+		cursorStreamID, cursorPosition = last.StreamID, last.Position
+
 		// Convert to struct that contains the status.
 		segmentsData := make([]Segment, len(verifySegments))
 		segments := make([]*Segment, len(verifySegments))
