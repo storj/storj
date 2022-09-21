@@ -12,6 +12,9 @@ import (
 	"storj.io/private/tagsql"
 )
 
+// ListVerifyLimit is the maximum number of items the client can request for listing.
+const ListVerifyLimit = intLimitRange(100000)
+
 // ListVerifySegments contains arguments necessary for listing stream segments.
 type ListVerifySegments struct {
 	CursorStreamID uuid.UUID
@@ -48,6 +51,7 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 	if opts.Limit <= 0 {
 		return ListVerifySegmentsResult{}, Error.New("Invalid limit: %d", opts.Limit)
 	}
+	ListVerifyLimit.Ensure(&opts.Limit)
 	result.Segments = make([]VerifySegment, 0, opts.Limit)
 
 	err = withRows(db.db.QueryContext(ctx, `

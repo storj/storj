@@ -25,14 +25,16 @@ func TestVerifier(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
+		config := segmentverify.VerifierConfig{
+			PerPieceTimeout:    time.Second,
+			OrderRetryThrottle: 500 * time.Millisecond,
+			RequestThrottle:    500 * time.Millisecond,
+		}
 		service := segmentverify.NewVerifier(
 			planet.Log().Named("verifier"),
 			satellite.Dialer,
 			satellite.Orders.Service,
-			segmentverify.VerifierConfig{
-				PerPieceTimeout:    800 * time.Millisecond,
-				OrderRetryThrottle: 50 * time.Millisecond,
-			})
+			config)
 
 		// upload some data
 		data := testrand.Bytes(8 * memory.KiB)
@@ -46,7 +48,7 @@ func TestVerifier(t *testing.T) {
 		result, err := satellite.Metabase.DB.ListVerifySegments(ctx, metabase.ListVerifySegments{
 			CursorStreamID: uuid.UUID{},
 			CursorPosition: metabase.SegmentPosition{},
-			Limit:          100000000,
+			Limit:          10000,
 		})
 		require.NoError(t, err)
 
@@ -66,6 +68,10 @@ func TestVerifier(t *testing.T) {
 		}
 
 		// segment not found
+		validSegment0 := &segmentverify.Segment{
+			VerifySegment: result.Segments[0],
+			Status:        segmentverify.Status{Retry: 1},
+		}
 		missingSegment := &segmentverify.Segment{
 			VerifySegment: metabase.VerifySegment{
 				StreamID:    testrand.UUID(),
@@ -75,10 +81,25 @@ func TestVerifier(t *testing.T) {
 			},
 			Status: segmentverify.Status{Retry: 1},
 		}
+		validSegment1 := &segmentverify.Segment{
+			VerifySegment: result.Segments[1],
+			Status:        segmentverify.Status{Retry: 1},
+		}
 
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), []*segmentverify.Segment{missingSegment}, true)
+		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(),
+			[]*segmentverify.Segment{validSegment0, missingSegment, validSegment1}, true)
 		require.NoError(t, err)
-		require.Equal(t, segmentverify.Status{Found: 0, NotFound: 1, Retry: 0}, missingSegment.Status)
+		require.Equal(t, segmentverify.Status{Found: 1}, validSegment0.Status)
+		require.Equal(t, segmentverify.Status{NotFound: 1}, missingSegment.Status)
+		require.Equal(t, segmentverify.Status{Found: 1}, validSegment1.Status)
+
+		// Test throttling
+		verifyStart := time.Now()
+		const throttleN = 5
+		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
+		require.NoError(t, err)
+		verifyDuration := time.Since(verifyStart)
+		require.Greater(t, verifyDuration, config.RequestThrottle*(throttleN-1))
 
 		// TODO: test download timeout
 
