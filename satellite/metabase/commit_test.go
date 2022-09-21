@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -357,6 +355,157 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 						Encryption:             metabasetest.DefaultEncryption,
 						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestBeginObjectNextVersionMultipleVersions(t *testing.T) {
+	// TODO partially duplicated TestBeginObjectNextVersion tests to cover MultipleVersions enabled
+	// to be removed when flag will be removed
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
+		MultipleVersions: true,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
+
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
+
+		t.Run("older committed version exists", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objectStream.Version = metabase.NextVersion
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    1,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			now2 := time.Now()
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+
+			// CommitObject will also delete old object with version 1
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    2,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    2,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now2,
+						Status:    metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("newer committed version exists", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+
+			objectStream.Version = metabase.NextVersion
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    2,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// CommitObject will also delete old object with version 2
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    1,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    1,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -3204,16 +3353,5 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	})
-}
-
-func TestMultipleVersionsFlag(t *testing.T) {
-	// TODO test will be removed when functionality will be implemented
-	metabasetest.RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-test",
-		MultipleVersions: true,
-	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		_, err := db.CommitObject(ctx, metabase.CommitObject{})
-		require.EqualError(t, err, "metabase: Unimplemented")
 	})
 }

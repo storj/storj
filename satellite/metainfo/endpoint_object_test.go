@@ -481,7 +481,12 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			// pending non-existent objects return an RPC error
 			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 			streamUUID := testrand.UUID()
-			satStreamID := &internalpb.StreamID{CreationDate: time.Now(), StreamId: streamUUID[:]}
+			satStreamID := &internalpb.StreamID{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: []byte("bad path"),
+				StreamId:           streamUUID[:],
+				CreationDate:       time.Now(),
+			}
 			signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
 			require.NoError(t, err)
 			encodedStreamID, err := pb.Marshal(signedStreamID)
@@ -985,6 +990,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 			require.NoError(t, err)
+			defer ctx.Check(project.Close)
 
 			_, err = project.EnsureBucket(ctx, "pip-second")
 			require.NoError(t, err)
@@ -1940,19 +1946,125 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 	})
 }
 
-func TestMultipleVersionsFlag(t *testing.T) {
-	// TODO test will be removed when functionality will be implemented
+func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.MultipleVersions = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		planet.Satellites[0].Config.Metainfo.MultipleVersions = true
-		_, err := planet.Satellites[0].Metainfo.Endpoint.BeginObject(ctx, &pb.ObjectBeginRequest{})
-		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", testrand.Bytes(10*memory.MiB))
+		require.NoError(t, err)
+
+		// override object to have it with version 2
+		expectedData := testrand.Bytes(11 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", expectedData)
+		require.NoError(t, err)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		require.EqualValues(t, 2, objects[0].Version)
+
+		// add some pending uploads, each will have version higher then 2
+		uploadIDs := []string{}
+		for i := 0; i < 10; i++ {
+			info, err := project.BeginUpload(ctx, "multipleversions", "object", nil)
+			require.NoError(t, err)
+			uploadIDs = append(uploadIDs, info.UploadID)
+		}
+
+		checkDownload := func(objectKey string, expectedData []byte) {
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "multipleversions", objectKey)
+			require.NoError(t, err)
+			require.Equal(t, expectedData, data)
+		}
+
+		checkDownload("object", expectedData)
+
+		err = project.MoveObject(ctx, "multipleversions", "object", "multipleversions", "object_moved", nil)
+		require.NoError(t, err)
+
+		checkDownload("object_moved", expectedData)
+
+		err = project.MoveObject(ctx, "multipleversions", "object_moved", "multipleversions", "object", nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		iterator := project.ListObjects(ctx, "multipleversions", nil)
+		require.True(t, iterator.Next())
+		require.Equal(t, "object", iterator.Item().Key)
+		require.NoError(t, iterator.Err())
+
+		{ // server side copy
+			_, err = project.CopyObject(ctx, "multipleversions", "object", "multipleversions", "object_copy", nil)
+			require.NoError(t, err)
+
+			checkDownload("object_copy", expectedData)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object")
+			require.NoError(t, err)
+
+			_, err = project.CopyObject(ctx, "multipleversions", "object_copy", "multipleversions", "object", nil)
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object_copy")
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+		}
+
+		err = project.AbortUpload(ctx, "multipleversions", "object", uploadIDs[0])
+		require.NoError(t, err)
+		checkDownload("object", expectedData)
+
+		expectedData = testrand.Bytes(12 * memory.KiB)
+		upload, err := project.UploadPart(ctx, "multipleversions", "object", uploadIDs[1], 1)
+		require.NoError(t, err)
+		_, err = upload.Write(expectedData)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
+		_, err = project.CommitUpload(ctx, "multipleversions", "object", uploadIDs[1], nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		_, err = project.DeleteObject(ctx, "multipleversions", "object")
+		require.NoError(t, err)
+
+		iterator = project.ListObjects(ctx, "multipleversions", nil)
+		require.False(t, iterator.Next())
+		require.NoError(t, iterator.Err())
+
+		// use next available pending upload
+		upload, err = project.UploadPart(ctx, "multipleversions", "object", uploadIDs[2], 1)
+		require.NoError(t, err)
+		_, err = upload.Write(expectedData)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
+		_, err = project.CommitUpload(ctx, "multipleversions", "object", uploadIDs[2], nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		uploads := project.ListUploads(ctx, "multipleversions", nil)
+		count := 0
+		for uploads.Next() {
+			require.Equal(t, "object", uploads.Item().Key)
+			count++
+		}
+		// we started with 10 pending object and during test we abort/commit 3 objects
+		pendingUploadsLeft := 7
+		require.Equal(t, pendingUploadsLeft, count)
 	})
+
 }

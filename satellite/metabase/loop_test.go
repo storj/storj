@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -264,7 +266,7 @@ func TestIterateLoopObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("multiple projects", func(t *testing.T) {
+		t.Run("multiple projects multiple versions", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			projects := []uuid.UUID{}
@@ -281,10 +283,19 @@ func TestIterateLoopObjects(t *testing.T) {
 					obj := metabasetest.RandObjectStream()
 					obj.ProjectID = projectID
 					obj.BucketName = bucketName
-					for version := 1; version < 4; version++ {
-						obj.Version = metabase.Version(version)
-						rawObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
-						expected = append(expected, loopObjectEntryFromRaw(metabase.RawObject(rawObject)))
+					obj.Version = 1
+					rawObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
+					expected = append(expected, loopObjectEntryFromRaw(metabase.RawObject(rawObject)))
+
+					// pending objects
+					for version := 2; version < 4; version++ {
+						obj.Version = metabase.NextVersion
+						rawObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+							ObjectStream: obj,
+						})
+						require.NoError(t, err)
+
+						expected = append(expected, loopPendingObjectEntryFromRaw(metabase.RawObject(rawObject)))
 					}
 				}
 			}
@@ -501,6 +512,16 @@ func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 	return metabase.LoopObjectEntry{
 		ObjectStream: m.ObjectStream,
 		Status:       metabase.Committed,
+		CreatedAt:    m.CreatedAt,
+		ExpiresAt:    m.ExpiresAt,
+		SegmentCount: m.SegmentCount,
+	}
+}
+
+func loopPendingObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
+	return metabase.LoopObjectEntry{
+		ObjectStream: m.ObjectStream,
+		Status:       metabase.Pending,
 		CreatedAt:    m.CreatedAt,
 		ExpiresAt:    m.ExpiresAt,
 		SegmentCount: m.SegmentCount,

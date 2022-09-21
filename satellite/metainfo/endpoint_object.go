@@ -29,10 +29,6 @@ import (
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if endpoint.config.MultipleVersions {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
-	}
-
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
@@ -92,25 +88,27 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if canDelete {
-		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-		})
-		if err != nil && !storj.ErrObjectNotFound.Has(err) {
-			return nil, err
-		}
-	} else {
-		_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-			ObjectLocation: metabase.ObjectLocation{
+	if !endpoint.config.MultipleVersions {
+		if canDelete {
+			_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-			},
-		})
-		if err == nil {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+			})
+			if err != nil && !storj.ErrObjectNotFound.Has(err) {
+				return nil, err
+			}
+		} else {
+			_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				},
+			})
+			if err == nil {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+			}
 		}
 	}
 
@@ -143,32 +141,51 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
-	object, err := endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-		ObjectStream: metabase.ObjectStream{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-			StreamID:   streamID,
-			Version:    metabase.DefaultVersion,
-		},
-		ExpiresAt:  expiresAt,
-		Encryption: encryptionParameters,
+	var object metabase.Object
+	if endpoint.config.MultipleVersions {
+		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				StreamID:   streamID,
+				Version:    metabase.NextVersion,
+			},
+			ExpiresAt:  expiresAt,
+			Encryption: encryptionParameters,
 
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-		EncryptedMetadataNonce:        nonce,
-	})
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonce,
+		})
+	} else {
+		object, err = endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				StreamID:   streamID,
+				Version:    metabase.DefaultVersion,
+			},
+			ExpiresAt:  expiresAt,
+			Encryption: encryptionParameters,
+
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonce,
+		})
+	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:               req.Bucket,
-		EncryptedObjectKey:   req.EncryptedPath,
+		Bucket:               []byte(object.BucketName),
+		EncryptedObjectKey:   []byte(object.ObjectKey),
 		Version:              int64(object.Version),
 		CreationDate:         object.CreatedAt,
-		ExpirationDate:       req.ExpiresAt,
-		StreamId:             streamID[:],
+		ExpirationDate:       req.ExpiresAt, // TODO make ExpirationDate nullable
+		StreamId:             object.StreamID[:],
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(placement),
@@ -201,12 +218,28 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionWrite,
-		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedObjectKey,
-		Time:          time.Now(),
-	})
+	now := time.Now()
+	var allowDelete bool
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+			actionPermitted: &allowDelete,
+			optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -232,9 +265,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    metabase.DefaultVersion,
+			Version:    metabase.Version(streamID.Version),
 		},
 		Encryption: encryption,
+
+		DisallowDelete: !allowDelete,
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -968,9 +1003,9 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 				deletedObjects, err = endpoint.DeletePendingObject(ctx,
 					metabase.ObjectStream{
 						ProjectID:  keyInfo.ProjectID,
-						BucketName: string(req.Bucket),
-						ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-						Version:    metabase.Version(req.GetVersion()),
+						BucketName: string(pbStreamID.Bucket),
+						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
+						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
 					})
 			}
@@ -1333,9 +1368,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	var result metabase.DeleteObjectResult
 	if endpoint.config.ServerSideCopy {
-		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+		result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
 			ObjectLocation: req,
-			Version:        metabase.DefaultVersion,
 		})
 	} else {
 		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
@@ -1560,7 +1594,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int64(metabase.DefaultVersion),
+		Version:            int64(result.Version),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -1794,7 +1828,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int64(metabase.DefaultVersion),
+		Version:            int64(result.Version),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
