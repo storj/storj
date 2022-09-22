@@ -33,7 +33,6 @@ func TestGetTableStats(t *testing.T) {
 
 			metabasetest.GetTableStats{
 				Result: metabase.TableStats{
-					ObjectCount:  1,
 					SegmentCount: 4,
 				},
 			}.Check(ctx, t, db)
@@ -43,7 +42,6 @@ func TestGetTableStats(t *testing.T) {
 
 			metabasetest.GetTableStats{
 				Result: metabase.TableStats{
-					ObjectCount:  2,
 					SegmentCount: 7,
 				},
 			}.Check(ctx, t, db)
@@ -58,7 +56,6 @@ func TestGetTableStats(t *testing.T) {
 						AsOfSystemInterval: -time.Microsecond,
 					},
 					Result: metabase.TableStats{
-						ObjectCount:  0,
 						SegmentCount: 0,
 					},
 				}.Check(ctx, t, db)
@@ -73,7 +70,6 @@ func TestGetTableStats(t *testing.T) {
 						AsOfSystemInterval: -1 * time.Second,
 					},
 					Result: metabase.TableStats{
-						ObjectCount:  0,
 						SegmentCount: 0,
 					},
 				}.Check(ctx, t, db)
@@ -83,7 +79,6 @@ func TestGetTableStats(t *testing.T) {
 						AsOfSystemInterval: -time.Microsecond,
 					},
 					Result: metabase.TableStats{
-						ObjectCount:  1,
 						SegmentCount: 4,
 					},
 				}.Check(ctx, t, db)
