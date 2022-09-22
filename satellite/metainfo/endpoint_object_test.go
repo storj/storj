@@ -1133,6 +1133,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
+		defer func() { require.NoError(t, project.Close()) }()
 
 		_, err = project.EnsureBucket(ctx, bucket)
 		require.NoError(t, err, "failed to create bucket")
@@ -1186,6 +1187,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
+		defer func() { require.NoError(t, project.Close()) }()
 
 		_, err = project.EnsureBucket(ctx, bucket)
 		require.NoError(t, err, "failed to create bucket")
