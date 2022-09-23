@@ -37,6 +37,7 @@ func TestCreateAccessGrant(t *testing.T) {
 		page.MustElement("#access-grant-check").MustClick()
 		page.MustElement("[placeholder=\"Input Access Name\"]").MustInput(accessGrantName)
 		page.MustElement("#permissions__all-check").MustClick()
+		page.MustElement("div.notification-wrap__content__right > svg > path").MustClick()
 		page.MustElementR(".label", "Encrypt My Access").MustClick()
 		waitVueTick(page)
 
