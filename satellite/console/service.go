@@ -1161,13 +1161,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequest := UpdateUserRequest{}
+	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
-		lockoutExpTime := time.Now().Add(lockoutDuration)
-		lockoutExpTimePtr := &lockoutExpTime
-
-		updateRequest.LoginLockoutExpiration = &lockoutExpTimePtr
+		failedLoginPenalty = &s.config.FailedLoginPenalty
 
 		address := s.satelliteAddress
 		if !strings.HasSuffix(address, "/") {
@@ -1184,10 +1181,8 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 			},
 		)
 	}
-	user.FailedLoginCount++
 
-	updateRequest.FailedLoginCount = &user.FailedLoginCount
-	return s.store.Users().Update(ctx, user.ID, updateRequest)
+	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
 }
 
 // GetUser returns User by id.
