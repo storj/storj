@@ -46,6 +46,7 @@ type StripePaymentMethods interface {
 type StripeInvoices interface {
 	New(params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	List(listParams *stripe.InvoiceListParams) *invoice.Iter
+	Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error)
 	Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error)
 }

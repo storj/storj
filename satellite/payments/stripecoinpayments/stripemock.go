@@ -481,6 +481,18 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 	return &invoice.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
+func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice *stripe.Invoice, err error) {
+	for _, invoices := range m.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == id {
+				return invoice, nil
+			}
+		}
+	}
+
+	return nil, errors.New("invoice not found")
+}
+
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
 	return nil, nil
 }

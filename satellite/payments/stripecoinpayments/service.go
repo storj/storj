@@ -856,30 +856,10 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		return Error.New("allowed for past periods only")
 	}
 
-	invoices := 0
-	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, cus := range cusPage.Customers {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		if err = service.createInvoice(ctx, cus.ID, start); err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	invoices += len(cusPage.Customers)
-
-	for cusPage.Next {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, service.listingLimit, end)
+	var nextOffset int64
+	var draft, scheduled int
+	for {
+		cusPage, err := service.db.Customers().List(ctx, nextOffset, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -889,26 +869,36 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 				return Error.Wrap(err)
 			}
 
-			if err = service.createInvoice(ctx, cus.ID, start); err != nil {
+			stripeInvoice, err := service.createInvoice(ctx, cus.ID, start)
+			if err != nil {
 				return Error.Wrap(err)
+			}
+
+			if stripeInvoice.AutoAdvance {
+				scheduled++
+			} else {
+				draft++
 			}
 		}
 
-		invoices += len(cusPage.Customers)
+		if !cusPage.Next {
+			break
+		}
+		nextOffset = cusPage.NextOffset
 	}
 
-	service.log.Info("Number of created draft invoices.", zap.Int("Invoices", invoices))
+	service.log.Info("Number of created invoices", zap.Int("Draft", draft), zap.Int("Scheduled", scheduled))
 	return nil
 }
 
 // createInvoice creates invoice for stripe customer. Returns nil error if there are no
 // pending invoice line items for customer.
-func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (err error) {
+func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
 
-	_, err = service.stripeClient.Invoices().New(
+	stripeInvoice, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
@@ -920,13 +910,24 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 		var stripErr *stripe.Error
 		if errors.As(err, &stripErr) {
 			if stripErr.Code == stripe.ErrorCodeInvoiceNoCustomerLineItems {
-				return nil
+				return nil, nil
 			}
 		}
-		return err
+		return nil, err
 	}
 
-	return nil
+	// auto advance the invoice if nothing is due from the customer
+	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 {
+		stripeInvoice, err = service.stripeClient.Invoices().Update(
+			stripeInvoice.ID,
+			&stripe.InvoiceParams{AutoAdvance: stripe.Bool(true)},
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return stripeInvoice, nil
 }
 
 // GenerateInvoices performs all tasks necessary to generate Stripe invoices.
@@ -966,6 +967,9 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
+		if stripeInvoice.AutoAdvance {
+			continue
+		}
 
 		err := service.finalizeInvoice(ctx, stripeInvoice.ID)
 		if err != nil {
