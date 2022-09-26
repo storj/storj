@@ -13,12 +13,15 @@ storj.io/storj/satellite/audit."audit_contained_percentage" FloatVal
 storj.io/storj/satellite/audit."audit_fail_nodes" IntVal
 storj.io/storj/satellite/audit."audit_fail_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_failed_percentage" FloatVal
+storj.io/storj/satellite/audit."audit_not_enough_nodes_online" Counter
+storj.io/storj/satellite/audit."audit_not_enough_shares_acquired" Counter
 storj.io/storj/satellite/audit."audit_offline_nodes" IntVal
 storj.io/storj/satellite/audit."audit_offline_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_offline_percentage" FloatVal
 storj.io/storj/satellite/audit."audit_success_nodes" IntVal
 storj.io/storj/satellite/audit."audit_success_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_successful_percentage" FloatVal
+storj.io/storj/satellite/audit."audit_suspected_network_problem" Counter
 storj.io/storj/satellite/audit."audit_total_nodes" IntVal
 storj.io/storj/satellite/audit."audit_total_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_total_pointer_nodes" IntVal
@@ -28,6 +31,7 @@ storj.io/storj/satellite/audit."audit_unknown_nodes_global" Meter
 storj.io/storj/satellite/audit."audit_unknown_percentage" FloatVal
 storj.io/storj/satellite/audit."audited_percentage" FloatVal
 storj.io/storj/satellite/audit."could_not_verify_audit_shares" Counter
+storj.io/storj/satellite/audit."not_enough_shares_for_audit" Counter
 storj.io/storj/satellite/audit."reverify_contained" IntVal
 storj.io/storj/satellite/audit."reverify_contained_global" Meter
 storj.io/storj/satellite/audit."reverify_contained_in_segment" IntVal
