@@ -16,14 +16,15 @@
             <div class="access-grant__modal-container__body-container__type">
                 <p>Type</p>
                 <div class="access-grant__modal-container__body-container__type__type-container">
-                    <input
-                        id="access-grant-check"
-                        v-model="checkedType"
-                        value="access"
-                        type="radio"
-                        :checked="checkedType === 'access'"
-                        name="type"
-                    >
+                    <label class="checkmark-container">
+                        <input
+                            id="access-grant-check"
+                            type="checkbox"
+                            :checked="getIsChecked('access')"
+                            @change="event => checkChanged(event, 'access')"
+                        >
+                        <span class="checkmark" />
+                    </label>
                     <label for="access-grant-check">
                         Access Grant
                     </label>
@@ -44,15 +45,18 @@
                     </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
-                    <input
-                        id="s3-check"
-                        v-model="checkedType"
-                        value="s3"
-                        type="radio"
-                        name="type"
-                        :checked="checkedType === 's3'"
-                    >
-                    <label for="s3-check">S3 Credentials</label>
+                    <label class="checkmark-container">
+                        <input
+                            id="s3-check"
+                            type="checkbox"
+                            :checked="getIsChecked('s3')"
+                            @change="event => checkChanged(event, 's3')"
+                        >
+                        <span class="checkmark" />
+                    </label>
+                    <label for="s3-check">
+                        S3 Credentials
+                    </label>
                     <img
                         class="tooltip-icon"
                         src="../../../../static/images/accessGrants/create-access_information.png"
@@ -70,15 +74,18 @@
                     </div>
                 </div>
                 <div class="access-grant__modal-container__body-container__type__type-container">
-                    <input
-                        id="api-check"
-                        v-model="checkedType"
-                        value="api"
-                        type="radio"
-                        name="type"
-                        :checked="checkedType === 'api'"
-                    >
-                    <label for="api-check">API Access</label>
+                    <label class="checkmark-container">
+                        <input
+                            id="api-check"
+                            type="checkbox"
+                            :checked="getIsChecked('api')"
+                            @change="event => checkChanged(event, 'api')"
+                        >
+                        <span class="checkmark" />
+                    </label>
+                    <label for="api-check">
+                        API Access
+                    </label>
                     <img
                         class="tooltip-icon"
                         src="../../../../static/images/accessGrants/create-access_information.png"
@@ -109,26 +116,34 @@
             <div class="access-grant__modal-container__body-container__permissions">
                 <p>Permissions</p>
                 <div>
-                    <input
-                        id="permissions__all-check"
-                        type="checkbox"
-                        :checked="allPermissionsClicked"
-                        @click="toggleAllPermission('all')"
-                    >
-                    <label for="permissions__all-check">All</label>
+                    <label class="checkmark-container">
+                        <input
+                            id="permissions__all-check"
+                            type="checkbox"
+                            :checked="allPermissionsClicked"
+                            @click="toggleAllPermission('all')"
+                        >
+                        <span class="checkmark" />
+                    </label>
+                    <label class="permission-label" for="permissions__all-check">
+                        All
+                    </label>
                     <Chevron :class="`permissions-chevron-${showAllPermissions.position}`" @click="togglePermissions" />
                 </div>
                 <div v-if="showAllPermissions.show === true">
                     <div v-for="(item, key) in permissionsList" :key="key">
-                        <input
-                            :id="`permissions__${item}-check`"
-                            v-model="selectedPermissions"
-                            :value="item"
-                            type="checkbox"
-                            :checked="checkedPermissions.item"
-                            @click="toggleAllPermission(item)"
-                        >
-                        <label :for="`permissions__${item}-check`">{{ item }}</label>
+                        <label class="checkmark-container">
+                            <input
+                                :id="`permissions__${item}-check`"
+                                v-model="selectedPermissions"
+                                type="checkbox"
+                                :value="item"
+                                :checked="checkedPermissions.item"
+                                @click="toggleAllPermission(item)"
+                            >
+                            <span class="checkmark" />
+                        </label>
+                        <label :for="`permissions__${item}-check`" class="permission-label">{{ item }}</label>
                     </div>
                 </div>
             </div>
@@ -189,12 +204,12 @@
                 />
             </a>
             <v-button
-                :label="checkedType === 'api' ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
+                :label="checkedTypes.includes('api') ? 'Create Keys  ⟶' : 'Encrypt My Access  ⟶'"
                 font-size="16px"
                 width="auto"
                 height="50px"
                 class="access-grant__modal-container__footer-container__encrypt-button"
-                :on-press="checkedType === 'api' ? propogateInfo : encryptClickAction"
+                :on-press="checkedTypes.includes('api') ? propagateInfo : encryptClickAction"
                 :is-disabled="selectedPermissions.length === 0 || accessName === ''"
             />
         </div>
@@ -254,6 +269,7 @@ type Permissions = {
 export default class CreateFormModal extends Vue {
     @Prop({ default: '' })
     private checkedType: string;
+    private checkedTypes: string[] = [];
 
     public showAllPermissions: ShowPermissions = { show: false, position: 'up' };
     private accessName = '';
@@ -272,9 +288,40 @@ export default class CreateFormModal extends Vue {
         this.showAllPermissions = { show: false, position: 'up' };
     }
 
+    public beforeUpdate(): void {
+        if (this.checkedType)
+            this.checkedTypes = [this.checkedType];
+    }
+
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         this.$emit('close-modal');
+    }
+
+    /*
+    *  Whether some type of access is selected
+    * */
+    public getIsChecked(type: string): boolean {
+        return this.checkedTypes.includes(type);
+    }
+
+    /*
+    *  Add/Removed checked/unchecked access types from this.checkedTypes
+    * */
+    public checkChanged(event: { target: {checked: boolean} }, type: string): void {
+        const isSelected = event.target.checked;
+        if (type === 'api') {
+            if (isSelected)
+                this.checkedTypes = ['api'];
+            else this.checkedTypes = this.checkedTypes.filter(t => t !== 'api');
+        } else {
+            if (isSelected) {
+                this.checkedTypes = this.checkedTypes.filter(t => t !== 'api');
+                this.checkedTypes.push(type);
+            } else {
+                this.checkedTypes = this.checkedTypes.filter(t => t !== type);
+            }
+        }
     }
 
     /**
@@ -285,16 +332,18 @@ export default class CreateFormModal extends Vue {
     }
 
     /**
-     * propogates selected info to parent on flow progression.
+     * propagates selected info to parent on flow progression.
      */
-    public propogateInfo(): void {
+    public propagateInfo(): void {
+        if (!this.checkedTypes.length)
+            return;
         const payloadObject  = {
-            'checkedType': this.checkedType,
+            'checkedType': this.checkedTypes.join(','),
             'accessName': this.accessName,
             'selectedPermissions': this.selectedPermissions,
         };
 
-        this.$emit('propogateInfo', payloadObject, this.checkedType);
+        this.$emit('propagateInfo', payloadObject, this.checkedTypes.join(','));
     }
 
     /**
@@ -314,9 +363,9 @@ export default class CreateFormModal extends Vue {
         if (mappedList.includes(this.accessName)) {
             this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`);
             return;
-        } else if (this.checkedType !== 'api') {
+        } else if (!this.checkedTypes.includes('api')) {
             // emit event here
-            this.propogateInfo();
+            this.propagateInfo();
             this.$emit('encrypt');
         }
         this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
@@ -415,8 +464,11 @@ export default class CreateFormModal extends Vue {
     }
 
     label {
-        margin-left: 8px;
         padding-right: 10px;
+    }
+
+    .permission-label {
+        margin-left: 25px;
     }
 
     .permissions-chevron-up {
@@ -657,8 +709,8 @@ export default class CreateFormModal extends Vue {
     }
 
     .access-tooltip {
-        top: 68px;
-        left: 112px;
+        top: 66px;
+        left: 122px;
 
         @include tooltip-container;
 
@@ -671,8 +723,8 @@ export default class CreateFormModal extends Vue {
     }
 
     .s3-tooltip {
-        top: 188px;
-        left: 121px;
+        top: 182px;
+        left: 132px;
 
         @include tooltip-container;
 
@@ -687,7 +739,7 @@ export default class CreateFormModal extends Vue {
 
     .api-tooltip {
         top: 215px;
-        left: 96px;
+        left: 107px;
 
         @include tooltip-container;
 
@@ -698,6 +750,63 @@ export default class CreateFormModal extends Vue {
 
             @include tooltip-arrow;
         }
+    }
+
+    .checkmark-container {
+        position: relative;
+        height: 21px;
+        width: 21px;
+        cursor: pointer;
+        font-size: 22px;
+        user-select: none;
+        outline: none;
+    }
+
+    .checkmark-container input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    .checkmark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 21px;
+        width: 21px;
+        border: 2px solid #afb7c1;
+        border-radius: 4px;
+    }
+
+    .checkmark-container:hover input ~ .checkmark {
+        background-color: white;
+    }
+
+    .checkmark-container input:checked ~ .checkmark {
+        border: 2px solid #376fff;
+        background-color: #0149ff;
+    }
+
+    .checkmark:after {
+        content: '';
+        position: absolute;
+        display: none;
+    }
+
+    .checkmark-container .checkmark:after {
+        left: 7px;
+        top: 3px;
+        width: 5px;
+        height: 10px;
+        border: solid white;
+        border-width: 0 3px 3px 0;
+        transform: rotate(45deg);
+    }
+
+    .checkmark-container input:checked ~ .checkmark:after {
+        display: block;
     }
 
     @media screen and (max-width: 500px) {
