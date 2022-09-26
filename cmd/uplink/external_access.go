@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -63,7 +62,7 @@ func parseAccessDataOrPossiblyFile(accessDataOrFile string) (*uplink.Access, err
 		return access, nil
 	}
 
-	accessData, readErr := ioutil.ReadFile(accessDataOrFile)
+	accessData, readErr := os.ReadFile(accessDataOrFile)
 	if readErr != nil {
 		var pathErr *os.PathError
 		if errors.As(readErr, &pathErr) {
