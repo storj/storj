@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -247,23 +246,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 		return nil
 	}
 
-	pbPieces := make([]*pb.RemotePiece, len(pieces))
-	for i, piece := range pieces {
-		pbPieces[i] = &pb.RemotePiece{
-			PieceNum: int32(piece.Number),
-			NodeId:   piece.StorageNode,
-		}
-	}
-
 	totalNumNodes, err := obs.getNodesEstimate(ctx)
 	if err != nil {
 		return Error.New("could not get estimate of total number of nodes: %w", err)
 	}
 
-	repairedAt := time.Time{}
-	if segment.RepairedAt != nil {
-		repairedAt = *segment.RepairedAt
-	}
 	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreatedAt, segment.Pieces)
 	if err != nil {
 		obs.monStats.remoteSegmentsFailedToCheck++
@@ -320,6 +307,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 				stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, segment.StreamID)
 			}
 
+			repairedAt := time.Time{}
+			if segment.RepairedAt != nil {
+				repairedAt = *segment.RepairedAt
+			}
 			var segmentAge time.Duration
 			if segment.CreatedAt.Before(repairedAt) {
 				segmentAge = time.Since(repairedAt)

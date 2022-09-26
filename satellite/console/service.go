@@ -2801,7 +2801,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
-	Balance string             `json:"balance"`
+	Balance currency.Amount    `json:"balance"`
 }
 
 // PaymentInfo includes token payment information required by GUI.
@@ -2848,7 +2848,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 
@@ -2870,7 +2870,7 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 

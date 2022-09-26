@@ -734,7 +734,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.storjscan.auth.secret: ""
 
 # required number of following blocks in the chain to accept payment as confirmed
-# payments.storjscan.confirmations: 12
+# payments.storjscan.confirmations: 15
 
 # flag to disable querying new storjscan payments by storjscan chore
 # payments.storjscan.disable-loop: true
