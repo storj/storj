@@ -49,7 +49,7 @@
             </div>
             <div class="payments-area__container__new-payments">
                 <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
-                    <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
+                    <span>+&nbsp;</span>
                     <span
                         class="payments-area__container__new-payments__text-area__text"
                         @click="addPaymentMethodHandler"
@@ -187,7 +187,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { CreditCard , PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { CreditCard, PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
@@ -219,7 +219,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 interface CardEdited {
-    id?: number,
+    id?: string,
     isDefault?: boolean
 }
 const {
@@ -266,7 +266,7 @@ export default class PaymentMethods extends Vue {
      */
     public showTransactions = false;
     public showAddFunds = false;
-    public mostRecentTransaction: Record<string, unknown>[] = [];
+    public mostRecentTransaction: PaymentsHistoryItem[] = [];
     public paginationLocation: {start: number, end: number} = { start: paginationStartNumber, end: paginationEndNumber };
     public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
     public displayedHistory: Record<string, unknown>[] = [];
@@ -315,11 +315,7 @@ export default class PaymentMethods extends Vue {
         this.transactionCount = tokenArray.length;
         this.displayedHistory = tokenArray.slice(0,10);
         this.tokensAreLoaded = true;
-        if (this.transactionCount > 0){
-            this.showAddFunds = false;
-        } else {
-            this.showAddFunds = true;
-        }
+        this.showAddFunds = this.transactionCount <= 0;
     }
 
     public toggleShowAddFunds(): void {
@@ -363,8 +359,7 @@ export default class PaymentMethods extends Vue {
             }
             this.isRemovePaymentMethodsModalOpen = false;
 
-        }
-        else {
+        } else {
             this.$notify.error('You cannot delete the default payment method.');
         }
     }
@@ -430,8 +425,11 @@ export default class PaymentMethods extends Vue {
         this.isAddingPayment = true;
     }
 
-    public removePaymentMethodHandler(creditCard) {
-        this.cardBeingEdited = creditCard;
+    public removePaymentMethodHandler(creditCard: CreditCard) {
+        this.cardBeingEdited = {
+            id: creditCard.id,
+            isDefault: creditCard.isDefault,
+        };
         this.isRemovePaymentMethodsModalOpen = true;
     }
 
@@ -530,8 +528,9 @@ $flex: flex;
 $align: center;
 
 :deep(.loader) {
-    width: auto;
-    padding: 63px 114px;
+    width: 40px;
+    height: 40px;
+    padding: 81.5px 154px;
 }
 
 .divider {
@@ -656,7 +655,9 @@ $align: center;
 
 .close-add-payment {
     position: absolute;
-    margin-left: 208px;
+    right: 0;
+    top: 0;
+    cursor: pointer;
 }
 
 .card-icon {
@@ -708,6 +709,7 @@ $align: center;
         text-align: $align;
         letter-spacing: -0.02em;
         color: #1b2533;
+        align-self: center;
     }
 
     &__header-subtext {
@@ -735,7 +737,7 @@ $align: center;
     &__container {
         display: grid;
         grid-template-columns: auto;
-        grid-template-rows: 1fr 30px 30px auto auto;
+        grid-template-rows: 1fr 60px 30px auto auto;
         width: 400px;
         background: #f5f6fa;
         border-radius: 6px;
@@ -838,50 +840,49 @@ $align: center;
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        justify-content: space-between;
 
         &__cards {
-            width: 227px;
-            height: 126px;
-            padding: 20px;
+            width: 348px;
+            height: 203px;
+            padding: 24px;
+            box-sizing: border-box;
             background: #fff;
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;
-            margin: 0 10px 10px 0;
         }
 
         &__new-payments {
-            width: 227px;
-            height: 126px;
-            padding: 18px;
-            display: grid !important;
-            grid-template-columns: 6fr;
-            grid-template-rows: 1fr 1fr 1fr 1fr;
+            width: 348px;
+            height: 203px;
+            padding: 24px;
+            box-sizing: border-box;
             border: 2px dashed #929fb1;
             border-radius: 10px;
-            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
             &__text-area {
                 display: flex;
                 align-items: center;
-                justify-content: center;
-
-                &__plus-icon {
-                    color: #0149ff;
-                    font-family: sans-serif;
-                    font-size: 24px;
-                }
+                font-size: 16px;
+                font-family: 'font_regular', sans-serif;
+                color: #0149ff;
+                cursor: pointer;
 
                 &__text {
-                    color: #0149ff;
-                    font-family: sans-serif;
-                    font-size: 16px;
                     text-decoration: underline;
+                    text-underline-position: under;
                 }
             }
 
             &__add-card {
                 position: relative;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
             }
         }
 

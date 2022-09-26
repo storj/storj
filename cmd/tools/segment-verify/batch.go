@@ -14,6 +14,10 @@ import (
 func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) (_ []*Batch, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(segments) == 0 {
+		return nil, Error.New("no segments")
+	}
+
 	// Remove offline nodes and prioritize nodes.
 	for _, segment := range segments {
 		service.selectOnlinePieces(segment)

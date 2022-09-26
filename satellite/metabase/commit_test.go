@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -3202,5 +3204,16 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
+	})
+}
+
+func TestMultipleVersionsFlag(t *testing.T) {
+	// TODO test will be removed when functionality will be implemented
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
+		MultipleVersions: true,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		_, err := db.CommitObject(ctx, metabase.CommitObject{})
+		require.EqualError(t, err, "metabase: Unimplemented")
 	})
 }

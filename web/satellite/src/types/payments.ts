@@ -161,6 +161,10 @@ export class PaymentsHistoryItem {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
+    public get formattedStart(): string {
+        return this.start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
     public get hasExpiration(): boolean {
         // Go's zero date is passed in if the coupon does not expire
         // Go's zero date is 0001-01-01 00:00:00 +0000 UTC

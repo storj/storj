@@ -509,6 +509,10 @@ func (c *CommitObject) Verify() error {
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if db.config.MultipleVersions {
+		return Object{}, Error.New("Unimplemented")
+	}
+
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}

@@ -47,35 +47,20 @@
                 :on-press="toggleShowAddFunds"
             />
         </div>
-        <div
-            v-if="showAddFunds"
-            class="token__add-funds"
-        >
-            <h3
-                class="token__add-funds__title"
-            >
+        <div v-else class="token__add-funds">
+            <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
-            <p class="token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
-            <div class="token__add-funds__button-container">
-                <VButton
-                    class="token__add-funds__button"
-                    label="Continue to CoinPayments"
-                    width="150px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="onConfirmAddSTORJ"
-                />
-                <VButton
-                    class="token__add-funds__button"
-                    label="Back"
-                    is-transparent="true"
-                    width="50px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="toggleShowAddFunds"
-                />
-            </div>
+            <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
+            <VButton
+                label="Back"
+                width="100px"
+                height="30px"
+                is-transparent="true"
+                font-size="13px"
+                class="token__base__transaction-button"
+                :on-press="toggleShowAddFunds"
+            />
         </div>
     </div>
 </template>
@@ -102,8 +87,10 @@ export default class BalanceTokenCard extends Vue {
     @Prop({ default: () => new PaymentsHistoryItem() })
     private readonly billingItem: PaymentsHistoryItem;
 
+    private showAddFunds = false;
+
     public toggleShowAddFunds(): void {
-        this.$emit('toggleShowAddFunds');
+        this.showAddFunds = !this.showAddFunds;
     }
 
     public toggleTransactionsTable(): void {
@@ -127,13 +114,14 @@ export default class BalanceTokenCard extends Vue {
 
     .token {
         border-radius: 10px;
-        width: 227px;
-        height: 126px;
-        margin: 0 10px 10px 0;
-        padding: 20px;
+        width: 348px;
+        height: 203px;
+        box-sizing: border-box;
+        padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         background: #fff;
         position: relative;
+        font-family: 'font_regular', sans-serif;
 
         &__large-icon-container {
             position: absolute;
@@ -305,6 +293,29 @@ export default class BalanceTokenCard extends Vue {
             grid-row: 4;
             z-index: 3;
         }
-    }
 
+        &__add-funds {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            width: 100%;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+            }
+
+            &__support-info {
+                font-size: 14px;
+                line-height: 20px;
+                color: #000;
+                z-index: 1;
+
+                a {
+                    color: #0149ff;
+                    text-decoration: underline !important;
+                }
+            }
+        }
+    }
 </style>

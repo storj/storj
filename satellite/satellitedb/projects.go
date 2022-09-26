@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"time"
 
@@ -82,6 +83,24 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (_ *console.Pro
 	}
 
 	return projectFromDBX(ctx, project)
+}
+
+// GetSalt returns the project's salt.
+func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res, err := projects.db.Get_Project_Salt_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	salt = res.Salt
+	if len(salt) == 0 {
+		idHash := sha256.Sum256(id[:])
+		salt = idHash[:]
+	}
+
+	return salt, nil
 }
 
 // GetByPublicID is a method for querying project from the database by public_id.

@@ -138,4 +138,5 @@ type Config struct {
 	// TODO remove this flag when server-side copy implementation will be finished
 	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
 	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
+	MultipleVersions       bool `help:"feature flag to enable using multple objects versions in the system internally" default:"false"`
 }

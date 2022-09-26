@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"context"
+	"math/rand"
 	"sort"
 	"strconv"
 	"testing"
@@ -938,6 +939,52 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("version greater than one", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			projectID, bucketName := uuid.UUID{2}, "bucky"
+
+			id1 := metabasetest.RandObjectStream()
+			id1.ProjectID = projectID
+			id1.BucketName = bucketName
+			id1.Version = metabase.Version(rand.Int31())
+
+			id2 := metabasetest.RandObjectStream()
+			id2.ProjectID = projectID
+			id2.BucketName = bucketName
+			id2.ObjectKey = id1.ObjectKey + "Z" // for deterministic ordering
+			id2.Version = 1
+
+			var objs []metabase.Object
+			for _, id := range []metabase.ObjectStream{id1, id2} {
+				obj, _ := metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: id,
+					},
+					CommitObject: &metabase.CommitObject{
+						ObjectStream: id,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Run(ctx, t, db, id, 1)
+				objs = append(objs, obj)
+			}
+
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					BatchSize:             3,
+					IncludeSystemMetadata: true,
+				},
+				Result: []metabase.ObjectEntry{
+					objectEntryFromRaw(metabase.RawObject(objs[0])),
+					objectEntryFromRaw(metabase.RawObject(objs[1])),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1364,6 +1411,62 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
+
+		t.Run("same key different versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			obj2 := obj1
+			obj2.StreamID = testrand.UUID()
+			obj2.Version = 2
+
+			pending := []metabase.ObjectStream{obj1, obj2}
+
+			location := pending[0].Location()
+			objects := make([]metabase.RawObject, 2)
+			expected := make([]metabase.ObjectEntry, 2)
+
+			for i, obj := range pending {
+				obj.ProjectID = location.ProjectID
+				obj.BucketName = location.BucketName
+				obj.ObjectKey = location.ObjectKey
+				obj.Version = metabase.Version(i + 1)
+
+				metabasetest.CreatePendingObject(ctx, t, db, obj, 0)
+
+				objects[i] = metabase.RawObject{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.Pending,
+
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieDeadline,
+				}
+				expected[i] = objectEntryFromRaw(objects[i])
+			}
+
+			sort.Slice(expected, func(i, j int) bool {
+				return expected[i].StreamID.Less(expected[j].StreamID)
+			})
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      1,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      3,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1450,6 +1553,7 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		EncryptedMetadata:             m.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
 		TotalEncryptedSize:            m.TotalEncryptedSize,
+		TotalPlainSize:                m.TotalPlainSize,
 		FixedSegmentSize:              m.FixedSegmentSize,
 		Encryption:                    m.Encryption,
 	}

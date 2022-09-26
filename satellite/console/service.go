@@ -2801,7 +2801,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
-	Balance string             `json:"balance"`
+	Balance currency.Amount    `json:"balance"`
 }
 
 // PaymentInfo includes token payment information required by GUI.
@@ -2848,7 +2848,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 
@@ -2870,7 +2870,7 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 
@@ -2959,4 +2959,16 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 	}
 
 	return expiresAt, nil
+}
+
+// VerifyForgotPasswordCaptcha returns whether the given captcha response for the forgot password page is valid.
+// It will return true without error if the captcha handler has not been set.
+func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken, userIP string) (valid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if s.loginCaptchaHandler != nil {
+		valid, _, err = s.loginCaptchaHandler.Verify(ctx, responseToken, userIP)
+		return valid, ErrCaptcha.Wrap(err)
+	}
+	return true, nil
 }

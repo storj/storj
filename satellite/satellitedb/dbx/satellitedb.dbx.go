@@ -11943,6 +11943,10 @@ type ProjectStorageLimit_ProjectBandwidthLimit_ProjectSegmentLimit_Row struct {
 	ProjectSegmentLimit   int64
 }
 
+type Salt_Row struct {
+	Salt []byte
+}
+
 type SegmentLimit_Row struct {
 	SegmentLimit *int64
 }
@@ -13733,6 +13737,28 @@ func (obj *pgxImpl) Get_WebappSession_By_Id(ctx context.Context,
 		return (*WebappSession)(nil), obj.makeErr(err)
 	}
 	return webapp_session, nil
+
+}
+
+func (obj *pgxImpl) Get_Project_Salt_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Salt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Salt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Salt)
+	if err != nil {
+		return (*Salt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
 
 }
 
@@ -21149,6 +21175,28 @@ func (obj *pgxcockroachImpl) Get_WebappSession_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_Project_Salt_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Salt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.salt FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Salt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Salt)
+	if err != nil {
+		return (*Salt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Project_By_PublicId(ctx context.Context,
 	project_public_id Project_PublicId_Field) (
 	project *Project, err error) {
@@ -27981,6 +28029,16 @@ func (rx *Rx) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	return tx.Get_Project_MaxBuckets_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_Project_Salt_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *Salt_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_Salt_By_Id(ctx, project_id)
+}
+
 func (rx *Rx) Get_Project_SegmentLimit_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	row *SegmentLimit_Row, err error) {
@@ -29255,6 +29313,10 @@ type Methods interface {
 	Get_Project_MaxBuckets_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *MaxBuckets_Row, err error)
+
+	Get_Project_Salt_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *Salt_Row, err error)
 
 	Get_Project_SegmentLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

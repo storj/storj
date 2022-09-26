@@ -408,6 +408,10 @@ update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
 read one (
+	select project.salt
+	where project.id = ?
+)
+read one (
 	select project
 	where project.public_id = ?
 )

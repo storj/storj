@@ -188,7 +188,7 @@
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
                             <label class="container">
-                                <input v-model="areBetaTermsAccepted" type="checkbox">
+                                <input type="checkbox" @change="onBetaTermsAcceptedToggled">
                                 <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" />
                             </label>
                             <h2 class="register-area__input-area__container__warning__header__label">
@@ -216,7 +216,7 @@
                     </div>
                     <div class="register-area__input-area__container__checkbox-area">
                         <label class="checkmark-container">
-                            <input id="terms" v-model="isTermsAccepted" type="checkbox">
+                            <input id="terms" type="checkbox" @change="onTermsAcceptedToggled">
                             <span class="checkmark" :class="{'error': isTermsAcceptedError}" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="terms">
@@ -228,36 +228,24 @@
                             </p>
                         </label>
                     </div>
-                    <div v-if="recaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
-                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
-                            <ErrorIcon />
-                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
-                        </div>
-                        <VueRecaptcha
-                            ref="recaptcha"
-                            :sitekey="recaptchaSiteKey"
-                            :load-recaptcha-script="true"
-                            size="invisible"
-                            @verify="onCaptchaVerified"
-                            @expired="onCaptchaError"
-                            @error="onCaptchaError"
-                        />
-                    </div>
-                    <div v-else-if="hcaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
-                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
-                            <ErrorIcon />
-                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
-                        </div>
-                        <VueHcaptcha
-                            ref="hcaptcha"
-                            :sitekey="hcaptchaSiteKey"
-                            :re-captcha-compat="false"
-                            size="invisible"
-                            @verify="onCaptchaVerified"
-                            @expired="onCaptchaError"
-                            @error="onCaptchaError"
-                        />
-                    </div>
+                    <VueRecaptcha
+                        v-if="recaptchaEnabled"
+                        ref="captcha"
+                        :sitekey="recaptchaSiteKey"
+                        :load-recaptcha-script="true"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @error="onCaptchaError"
+                    />
+                    <VueHcaptcha
+                        v-else-if="hcaptchaEnabled"
+                        ref="captcha"
+                        :sitekey="hcaptchaSiteKey"
+                        :re-captcha-compat="false"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @error="onCaptchaError"
+                    />
                     <v-button
                         class="register-area__input-area__container__button"
                         width="100%"
@@ -301,7 +289,6 @@ import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg'
 import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
 import LogoIcon from '../../../static/images/logo.svg';
 import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
-import ErrorIcon from '../../../static/images/register/ErrorInfo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -337,7 +324,6 @@ type ViewConfig = {
         VInput,
         VButton,
         BottomArrowIcon,
-        ErrorIcon,
         SelectedCheckIcon,
         LogoIcon,
         PasswordStrength,
@@ -398,8 +384,7 @@ export default class RegisterArea extends Vue {
     public readonly loginPath: string = RouteConfig.Login.path;
 
     public $refs!: {
-        recaptcha: VueRecaptcha;
-        hcaptcha: VueHcaptcha;
+        captcha: VueRecaptcha | VueHcaptcha;
     };
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -478,16 +463,6 @@ export default class RegisterArea extends Vue {
 
         if (this.isDropdownShown) {
             this.isDropdownShown = false;
-            return;
-        }
-
-        this.isLoading = true;
-
-        if (this.$refs.recaptcha && !this.captchaResponseToken) {
-            this.$refs.recaptcha.execute();
-            return;
-        } if (this.$refs.hcaptcha && !this.captchaResponseToken) {
-            this.$refs.hcaptcha.execute();
             return;
         }
 
@@ -612,11 +587,27 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Handles captcha error and expiry.
+     * Handles captcha error.
      */
     public onCaptchaError(): void {
         this.captchaResponseToken = '';
-        this.captchaError = true;
+        this.$notify.error('The captcha encountered an error. Please try again.');
+    }
+
+    /**
+     * Executes when the Terms of Service checkbox has been toggled.
+     */
+    public onTermsAcceptedToggled(event: Event): void {
+        this.isTermsAccepted = (event.target as HTMLInputElement).checked;
+        this.isTermsAcceptedError = false;
+    }
+
+    /**
+     * Executes when the beta satellite terms checkbox has been toggled.
+     */
+    public onBetaTermsAcceptedToggled(event: Event): void {
+        this.areBetaTermsAccepted = (event.target as HTMLInputElement).checked;
+        this.areBetaTermsAcceptedError = false;
     }
 
     /**
@@ -718,6 +709,12 @@ export default class RegisterArea extends Vue {
             return;
         }
 
+        if (this.$refs.captcha && !this.captchaResponseToken) {
+            this.$refs.captcha.execute();
+            return;
+        }
+
+        this.isLoading = true;
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
 
@@ -735,17 +732,11 @@ export default class RegisterArea extends Vue {
 
             await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
-            if (this.$refs.recaptcha) {
-                this.$refs.recaptcha.reset();
-                this.captchaResponseToken = '';
-            }
-            if (this.$refs.hcaptcha) {
-                this.$refs.hcaptcha.reset();
-                this.captchaResponseToken = '';
-            }
             await this.$notify.error(error.message);
         }
 
+        this.$refs.captcha?.reset();
+        this.captchaResponseToken = '';
         this.isLoading = false;
     }
 }
@@ -1165,20 +1156,6 @@ export default class RegisterArea extends Vue {
 
                 &__button {
                     margin-top: 30px;
-                }
-
-                &__captcha-wrapper__label-container {
-                    margin-top: 30px;
-                    display: flex;
-                    justify-content: flex-start;
-                    align-items: flex-end;
-                    padding-bottom: 8px;
-
-                    &__error {
-                        font-size: 16px;
-                        margin-left: 10px;
-                        color: #ff5560;
-                    }
                 }
             }
 

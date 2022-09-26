@@ -39,6 +39,10 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 		}
 	}
 
+	if len(retrySegments) == 0 {
+		return nil
+	}
+
 	// Reverse the pieces slice to ensure we pick different nodes this time.
 	for _, segment := range retrySegments {
 		xs := segment.AliasPieces
@@ -77,8 +81,10 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 			return Error.Wrap(err)
 		}
 
+		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
+
 		limiter.Go(ctx, func() {
-			err := service.verifier.Verify(ctx, nodeURL, batch.Items)
+			err := service.verifier.Verify(ctx, nodeURL, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()

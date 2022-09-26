@@ -25,10 +25,11 @@ var ErrNodeOffline = errs.Class("node offline")
 
 // VerifierConfig contains configurations for operation.
 type VerifierConfig struct {
+	DialTimeout        time.Duration `help:"how long to wait for a successful dial" default:"2s"`
 	PerPieceTimeout    time.Duration `help:"duration to wait per piece download" default:"800ms"`
 	OrderRetryThrottle time.Duration `help:"how much to wait before retrying order creation" default:"50ms"`
 
-	// TODO: throttle per download.
+	RequestThrottle time.Duration `help:"minimum interval for sending out each request" default:"150ms"`
 }
 
 // NodeVerifier implements segment verification by dialing nodes.
@@ -45,27 +46,38 @@ var _ Verifier = (*NodeVerifier)(nil)
 
 // NewVerifier creates a new segment verifier using the specified dialer.
 func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, config VerifierConfig) *NodeVerifier {
+	configuredDialer := dialer
+	if config.DialTimeout > 0 {
+		configuredDialer.DialTimeout = config.DialTimeout
+	}
+
 	return &NodeVerifier{
 		log:    log,
 		config: config,
-		dialer: dialer,
+		dialer: configuredDialer,
 		orders: orders,
 	}
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, target storj.NodeURL, segments []*Segment) error {
-	// TODO: add dial timeout
+func (service *NodeVerifier) Verify(ctx context.Context, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error {
 	client, err := piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
 	if err != nil {
 		return ErrNodeOffline.Wrap(err)
 	}
 	defer func() { _ = client.Close() }()
 
-	for _, segment := range segments {
+	for i, segment := range segments {
+		downloadStart := time.Now()
 		err := service.verifySegment(ctx, client, target, segment)
 		if err != nil {
 			return Error.Wrap(err)
+		}
+		throttle := service.config.RequestThrottle - time.Since(downloadStart)
+		if !ignoreThrottle && throttle > 0 && i < len(segments)-1 {
+			if !sync2.Sleep(ctx, throttle) {
+				return Error.Wrap(ctx.Err())
+			}
 		}
 	}
 	return nil
@@ -111,20 +123,12 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 			zap.Error(err))
 		return ErrNodeOffline.Wrap(err)
 	}
-	defer func() {
-		errClose := downloader.Close()
-		if errClose != nil {
-			// TODO: should we try reconnect in this case?
-			service.log.Error("close failed",
-				zap.String("stream-id", segment.StreamID.String()),
-				zap.Uint64("position", segment.Position.Encode()),
-				zap.Error(err))
-			err = errs.Combine(err, ErrNodeOffline.Wrap(errClose))
-		}
-	}()
 
 	buf := [1]byte{}
-	_, err = io.ReadFull(downloader, buf[:])
+	_, errRead := io.ReadFull(downloader, buf[:])
+	errClose := downloader.Close()
+
+	err = errs.Combine(errClose, errRead)
 	if err != nil {
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			service.log.Info("segment not found",
@@ -135,7 +139,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 			return nil
 		}
 
-		service.log.Error("read failed",
+		service.log.Error("read/close failed",
 			zap.String("stream-id", segment.StreamID.String()),
 			zap.Uint64("position", segment.Position.Encode()),
 			zap.Error(err))

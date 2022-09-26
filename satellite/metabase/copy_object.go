@@ -5,8 +5,6 @@ package metabase
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -18,16 +16,8 @@ import (
 	"storj.io/private/tagsql"
 )
 
-// BeginCopyObjectResult holds data needed to finish copy object.
-type BeginCopyObjectResult struct {
-	StreamID                  uuid.UUID
-	Version                   Version
-	EncryptedMetadata         []byte
-	EncryptedMetadataKeyNonce []byte
-	EncryptedMetadataKey      []byte
-	EncryptedKeysNonces       []EncryptedKeyAndNonce
-	EncryptionParameters      storj.EncryptionParameters
-}
+// BeginCopyObjectResult holds data needed to begin copy object.
+type BeginCopyObjectResult BeginMoveCopyResults
 
 // BeginCopyObject holds all data needed begin copy object method.
 type BeginCopyObject struct {
@@ -39,67 +29,13 @@ type BeginCopyObject struct {
 }
 
 // BeginCopyObject collects all data needed to begin object copy procedure.
-func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (result BeginCopyObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.ObjectLocation.Verify(); err != nil {
-		return BeginCopyObjectResult{}, err
-	}
-
-	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
-		ObjectLocation: ObjectLocation{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			ObjectKey:  opts.ObjectKey,
-		},
-	})
+func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (_ BeginCopyObjectResult, err error) {
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, CopySegmentLimit, opts.VerifyLimits)
 	if err != nil {
 		return BeginCopyObjectResult{}, err
 	}
 
-	if int64(object.SegmentCount) > CopySegmentLimit {
-		return BeginCopyObjectResult{}, ErrInvalidRequest.New("object to copy has too many segments (%d). Limit is %d.", object.SegmentCount, CopySegmentLimit)
-	}
-
-	if opts.VerifyLimits != nil {
-		err = opts.VerifyLimits(object.TotalEncryptedSize, int64(object.SegmentCount))
-		if err != nil {
-			return BeginCopyObjectResult{}, err
-		}
-	}
-
-	err = withRows(db.db.QueryContext(ctx, `
-		SELECT
-			position, encrypted_key_nonce, encrypted_key
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY stream_id, position ASC
-	`, object.StreamID))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var keys EncryptedKeyAndNonce
-
-			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-
-			result.EncryptedKeysNonces = append(result.EncryptedKeysNonces, keys)
-		}
-
-		return nil
-	})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return BeginCopyObjectResult{}, Error.New("unable to fetch object segments: %w", err)
-	}
-
-	result.StreamID = object.StreamID
-	result.Version = object.Version
-	result.EncryptionParameters = object.Encryption
-	result.EncryptedMetadata = object.EncryptedMetadata
-	result.EncryptedMetadataKey = object.EncryptedMetadataEncryptedKey
-	result.EncryptedMetadataKeyNonce = object.EncryptedMetadataNonce
-
-	return result, nil
+	return BeginCopyObjectResult(result), nil
 }
 
 // FinishCopyObject holds all data needed to finish object copy.

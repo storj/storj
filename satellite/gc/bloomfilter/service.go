@@ -31,7 +31,7 @@ type Config struct {
 	Enabled bool `help:"set if garbage collection bloom filters is enabled or not" default:"true" testDefault:"false"`
 
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
@@ -78,7 +78,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return errs.New("Bucket is not set")
 	}
 
-	return service.Loop.Run(ctx, service.segmentLoop.RunOnce)
+	return service.Loop.Run(ctx, service.RunOnce)
 }
 
 // RunOnce runs service only once.
@@ -94,7 +94,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int)
+		lastPieceCounts = make(map[storj.NodeID]int64)
 	}
 
 	pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
@@ -188,15 +188,7 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 		return err
 	}
 
-	// upload empty object as a flag that bloom filters can be consumed.
-	upload, err := project.UploadObject(ctx, service.config.Bucket, "gc-done", &uplink.UploadOptions{
-		Expires: expirationTime,
-	})
-	if err != nil {
-		return err
-	}
-
-	return upload.Commit()
+	return nil
 }
 
 // uploadPack uploads single zip pack with multiple bloom filters.
@@ -252,7 +244,7 @@ func (service *Service) uploadPack(ctx context.Context, project *uplink.Project,
 func (service *Service) cleanup(ctx context.Context, project *uplink.Project) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	prefix := strconv.FormatInt(time.Now().Unix(), 10)
+	prefix := "upload-error-" + time.Now().Format(time.RFC3339)
 	iterator := project.ListObjects(ctx, service.config.Bucket, nil)
 
 	for iterator.Next() {

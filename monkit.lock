@@ -127,6 +127,7 @@ storj.io/storj/satellite/repair/repairer."repair_segment_pieces_successful" IntV
 storj.io/storj/satellite/repair/repairer."repair_segment_pieces_total" IntVal
 storj.io/storj/satellite/repair/repairer."repair_segment_size" IntVal
 storj.io/storj/satellite/repair/repairer."repair_success" Meter
+storj.io/storj/satellite/repair/repairer."repair_suspected_network_problem" Meter
 storj.io/storj/satellite/repair/repairer."repair_too_many_nodes_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_unnecessary" Meter
 storj.io/storj/satellite/repair/repairer."repairer_segments_below_min_req" Counter

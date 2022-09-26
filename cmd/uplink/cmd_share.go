@@ -83,14 +83,10 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 	if c.public {
 		c.register = true
 
-		if c.ap.notAfter.String() == "" {
-			fmt.Fprintf(clingy.Stdout(ctx), "It's not recommended to create a shared Access without an expiration date.")
-			fmt.Fprintf(clingy.Stdout(ctx), "If you wish to do so anyway, please run this command with --not-after=none.")
+		if c.ap.notAfter.IsImplicitZero() {
+			fmt.Fprintf(clingy.Stdout(ctx), "It's not recommended to create a shared Access without an expiration date.\n")
+			fmt.Fprintf(clingy.Stdout(ctx), "If you wish to do so anyway, please run this command with --not-after=none.\n")
 			return nil
-		}
-
-		if c.ap.notAfter.String() == "none" {
-			c.ap.notAfter = time.Time{}
 		}
 	}
 
@@ -106,7 +102,7 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 	fmt.Fprintf(clingy.Stdout(ctx), "Lists     : %s\n", formatPermission(c.ap.AllowList()))
 	fmt.Fprintf(clingy.Stdout(ctx), "Deletes   : %s\n", formatPermission(c.ap.AllowDelete()))
 	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore : %s\n", formatTimeRestriction(c.ap.notBefore))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter  : %s\n", formatTimeRestriction(c.ap.notAfter))
+	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter  : %s\n", formatTimeRestriction(c.ap.notAfter.Date))
 	fmt.Fprintf(clingy.Stdout(ctx), "Paths     : %s\n", formatPaths(c.ap.prefixes))
 	fmt.Fprintf(clingy.Stdout(ctx), "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
 	fmt.Fprintf(clingy.Stdout(ctx), "Access    : %s\n", newAccessData)

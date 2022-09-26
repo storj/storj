@@ -31,7 +31,7 @@ type PieceTracker struct {
 	log    *zap.Logger
 	config Config
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
-	pieceCounts map[storj.NodeID]int
+	pieceCounts map[storj.NodeID]int64
 	startTime   time.Time
 
 	RetainInfos map[storj.NodeID]*RetainInfo
@@ -42,7 +42,7 @@ type PieceTracker struct {
 }
 
 // NewPieceTracker instantiates a new gc piece tracker to be subscribed to the segments loop.
-func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int) *PieceTracker {
+func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int64) *PieceTracker {
 	return &PieceTracker{
 		log:         log,
 		config:      config,

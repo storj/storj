@@ -751,7 +751,7 @@ func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, no
 
 // AllPieceCounts returns a map of node IDs to piece counts from the db.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
-func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
+func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// NB: `All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number` selects node
@@ -761,7 +761,7 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	pieceCounts := make(map[storj.NodeID]int)
+	pieceCounts := make(map[storj.NodeID]int64)
 	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.Id)
@@ -769,13 +769,13 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 			nodeIDErrs.Add(err)
 			continue
 		}
-		pieceCounts[nodeID] = int(row.PieceCount)
+		pieceCounts[nodeID] = row.PieceCount
 	}
 
 	return pieceCounts, nodeIDErrs.Err()
 }
 
-func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(pieceCounts) == 0 {
 		return nil
@@ -791,7 +791,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	for nodeid, count := range pieceCounts {
 		counts = append(counts, NodeCount{
 			ID:    nodeid,
-			Count: int64(count),
+			Count: count,
 		})
 	}
 	sort.Slice(counts, func(i, k int) bool {
