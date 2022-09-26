@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# Example of usage: changelog.py <old-release-tag> <new-release-tag>
+
 
 import argparse
 import subprocess
@@ -36,7 +38,7 @@ def generate_changelog(commits):
         else:
             section[GENERAL].append(generate_line(commit))
 
-    for title in section:
+    for title in dict(sorted(section.items())):
         if section[title]:
             changelog += ('### {}\n'.format(title))
             for line in section[title]:
