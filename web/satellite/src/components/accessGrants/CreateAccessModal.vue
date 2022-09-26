@@ -2,46 +2,39 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="access-grant">
-        <div class="access-grant__modal-container">
-            <!-- ********* Create Form Modal ********* -->
-            <form v-if="isCreateStep">
-                <CreateFormModal
-                    :checked-type="checkedType"
-                    @close-modal="onCloseClick"
-                    @encrypt="encryptStep"
-                    @propagateInfo="createAccessGrantHelper"
-                    @input="inputHandler"
-                />
-            </form>
-            <!-- *********   Encrypt Form Modal  ********* -->
-            <form v-if="isEncryptStep">
-                <EncryptFormModal
-                    @apply-passphrase="applyPassphrase"
-                    @close-modal="onCloseClick"
-                    @create-access="createAccessGrant"
-                    @backAction="backAction"
-                />
-            </form>
-            <!-- *********   Grant Created Modal  ********* -->
-            <form v-if="isGrantCreatedStep">
-                <GrantCreatedModal
-                    :checked-type="checkedType"
-                    :restricted-key="restrictedKey"
-                    :access="access"
-                    :access-name="accessName"
-                    @close-modal="onCloseClick"
-                />
-            </form>
-        </div>
-    </div>
+    <VModal :on-close="onCloseClick">
+        <template #content>
+            <CreateForm
+                v-if="isCreateStep"
+                :checked-type="checkedType"
+                @encrypt="encryptStep"
+                @propagateInfo="createAccessGrantHelper"
+            />
+            <EncryptionInfoForm
+                v-if="isEncryptInfoStep"
+                @back="onBackFromEncryptionInfo"
+                @continue="onContinueFromEncryptionInfo"
+            />
+            <EncryptForm
+                v-if="isEncryptStep"
+                @apply-passphrase="applyPassphrase"
+                @create-access="createAccessGrant"
+                @backAction="backAction"
+            />
+            <GrantCreatedForm
+                v-if="isGrantCreatedStep"
+                :checked-type="checkedType"
+                :restricted-key="restrictedKey"
+                :access="access"
+                :access-name="accessName"
+            />
+        </template>
+    </VModal>
 </template>
 
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
-// for future use when notes is implemented
-// import NotesIcon from '@/../static/images/accessGrants/create-access_notes.svg';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
@@ -50,20 +43,23 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
 
-import GrantCreatedModal from '@/components/accessGrants/modals/GrantCreatedModal.vue';
-import EncryptFormModal from '@/components/accessGrants/modals/EncryptFormModal.vue';
-import CreateFormModal from '@/components/accessGrants/modals/CreateFormModal.vue';
+import VModal from '@/components/common/VModal.vue';
+import EncryptionInfoForm from '@/components/accessGrants/modals/EncryptionInfoForm.vue';
+import GrantCreatedForm from '@/components/accessGrants/modals/GrantCreatedForm.vue';
+import EncryptForm from '@/components/accessGrants/modals/EncryptForm.vue';
+import CreateForm from '@/components/accessGrants/modals/CreateForm.vue';
 
 // TODO: a lot of code can be refactored/reused/split into modules
 // @vue/component
 @Component({
     components: {
-        CreateFormModal,
-        EncryptFormModal,
-        GrantCreatedModal,
-        // for future use when notes is implemented
-        // NotesIcon,
+        VModal,
+        CreateForm,
+        EncryptForm,
+        GrantCreatedForm,
+        EncryptionInfoForm,
     },
 })
 export default class CreateAccessModal extends Vue {
@@ -108,18 +104,14 @@ export default class CreateAccessModal extends Vue {
     private restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
-    /**
-     * Sends "trackPageVisit" event to segment and opens link.
-     */
-    public trackPageVisit(link: string): void {
-        this.analytics.pageVisit(link);
+    public beforeMount(): void {
+        this.checkedType = this.$route.params.accessType;
     }
 
     /**
      * Checks which type was selected and retrieves buckets on mount.
      */
     public async mounted(): Promise<void> {
-        this.checkedType = this.$route.params.accessType;
         this.setWorker();
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
@@ -130,15 +122,24 @@ export default class CreateAccessModal extends Vue {
     }
 
     public encryptStep(): void {
-        this.accessGrantStep = 'encrypt';
-    }
+        if (!LocalData.getServerSideEncryptionModalHidden() && this.checkedType.includes('s3')) {
+            this.accessGrantStep = 'encryptInfo';
+            return;
+        }
 
-    public inputHandler(e): void {
-        this.checkedType = e;
+        this.accessGrantStep = 'encrypt';
     }
 
     public applyPassphrase(passphrase: string) {
         this.passphrase = passphrase;
+    }
+
+    public onBackFromEncryptionInfo() {
+        this.accessGrantStep = 'create';
+    }
+
+    public onContinueFromEncryptionInfo() {
+        this.accessGrantStep = 'encrypt';
     }
 
     /**
@@ -156,9 +157,10 @@ export default class CreateAccessModal extends Vue {
      * Grabs data from child for createAccessGrant
      */
     public async createAccessGrantHelper(data, type): Promise<void> {
-        this.checkedType = await data.checkedType;
-        this.accessName = await data.accessName;
-        this.selectedPermissions = await data.selectedPermissions;
+        this.checkedType = data.checkedType;
+        this.accessName = data.accessName;
+        this.selectedPermissions = data.selectedPermissions;
+
         if (type === 'api') {
             await this.createAccessGrant();
         }
@@ -168,7 +170,6 @@ export default class CreateAccessModal extends Vue {
      * Creates Access Grant
      */
     public async createAccessGrant(): Promise<void> {
-
         if (this.$store.getters.projects.length === 0) {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
@@ -237,7 +238,7 @@ export default class CreateAccessModal extends Vue {
         this.access = accessEvent.data.value;
         await this.$notify.success('Access Grant was generated successfully');
 
-        const createS3Credentials = async () => {
+        if (this.checkedType === 's3' || (this.checkedType.includes('s3') && this.checkedType.includes('access'))) {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: this.access });
 
@@ -249,13 +250,10 @@ export default class CreateAccessModal extends Vue {
             } catch (error) {
                 await this.$notify.error(error.message);
             }
-        };
-
-        if (this.checkedType === 's3' || (this.checkedType.includes('s3') && this.checkedType.includes('access'))) {
-            await createS3Credentials();
         } else {
             await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
         }
+
         this.analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
         this.accessGrantStep = 'grantCreated';
     }
@@ -300,6 +298,9 @@ export default class CreateAccessModal extends Vue {
     public get isCreateStep(): boolean {
         return this.accessGrantStep === 'create';
     }
+    public get isEncryptInfoStep(): boolean {
+        return this.accessGrantStep === 'encryptInfo';
+    }
     public get isEncryptStep(): boolean {
         return this.accessGrantStep === 'encrypt';
     }
@@ -308,120 +309,3 @@ export default class CreateAccessModal extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss">
-    ::-webkit-scrollbar,
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-thumb {
-        margin: 0;
-        width: 0;
-    }
-
-    p {
-        font-weight: bold;
-        padding-bottom: 10px;
-    }
-
-    form {
-        width: 100%;
-    }
-
-    .access-grant {
-        position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 100;
-        background: rgb(27 37 51 / 75%);
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-
-        & > * {
-            font-family: sans-serif;
-        }
-
-        &__modal-container {
-            background: #fff;
-            border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            position: relative;
-            padding: 25px 40px;
-            margin-top: 40px;
-            width: 410px;
-            height: auto;
-        }
-    }
-
-    a {
-        color: #fff;
-        text-decoration: underline !important;
-        cursor: pointer;
-    }
-
-    @media screen and (max-width: 500px) {
-
-        .access-grant__modal-container {
-            width: auto;
-            max-width: 80vw;
-            padding: 30px 24px;
-
-            &__body-container {
-                grid-template-columns: 1.2fr 6fr;
-            }
-        }
-    }
-
-    @media screen and (max-height: 800px) {
-
-        .access-grant {
-            padding: 50px 0 20px;
-            overflow-y: scroll;
-        }
-    }
-
-    @media screen and (max-height: 750px) {
-
-        .access-grant {
-            padding: 100px 0 20px;
-        }
-    }
-
-    @media screen and (max-height: 700px) {
-
-        .access-grant {
-            padding: 150px 0 20px;
-        }
-    }
-
-    @media screen and (max-height: 650px) {
-
-        .access-grant {
-            padding: 200px 0 20px;
-        }
-    }
-
-    @media screen and (max-height: 600px) {
-
-        .access-grant {
-            padding: 250px 0 20px;
-        }
-    }
-
-    @media screen and (max-height: 550px) {
-
-        .access-grant {
-            padding: 300px 0 20px;
-        }
-    }
-
-    @media screen and (max-height: 500px) {
-
-        .access-grant {
-            padding: 350px 0 20px;
-        }
-    }
-</style>
