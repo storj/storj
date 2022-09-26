@@ -57,9 +57,9 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 	// try to redistribute segments in different slices
 	//   queue with length above 65% will be redistributed
 	//   to queues with length below 40%, but no more than 50%
-	highIndex := len(allQueues) - len(allQueues)*65/100
-	midIndex := len(allQueues) - len(allQueues)*50/100
-	lowIndex := len(allQueues) - len(allQueues)*40/100
+	highIndex := len(allQueues) * (100 - 65) / 100
+	midIndex := len(allQueues) * (100 - 50) / 100
+	lowIndex := len(allQueues) * (100 - 40) / 100
 
 	midLen := allQueues[midIndex].Len()
 	highLen := allQueues[highIndex].Len()
