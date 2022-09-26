@@ -2068,3 +2068,88 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 	})
 
 }
+
+func TestEndpoint_Object_CopyObject_MultipleVersions(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MultipleVersions = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checkDownload := func(objectKey string, expectedData []byte) {
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "multipleversions", objectKey)
+			require.NoError(t, err)
+			require.Equal(t, expectedData, data)
+		}
+
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectInline", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectRemote", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		_, err = project.CopyObject(ctx, "multipleversions", "objectA", "multipleversions", "objectInline", nil)
+		require.NoError(t, err)
+
+		_, err = project.CopyObject(ctx, "multipleversions", "objectA", "multipleversions", "objectRemote", nil)
+		require.NoError(t, err)
+
+		checkDownload("objectInline", expectedDataA)
+		checkDownload("objectRemote", expectedDataA)
+
+		expectedDataB := testrand.Bytes(8 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectInline", expectedDataB)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectRemote", expectedDataB)
+		require.NoError(t, err)
+
+		checkDownload("objectInline", expectedDataB)
+		checkDownload("objectRemote", expectedDataB)
+		checkDownload("objectA", expectedDataA)
+
+		expectedDataD := testrand.Bytes(6 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataD)
+		require.NoError(t, err)
+
+		checkDownload("objectInline", expectedDataB)
+		checkDownload("objectRemote", expectedDataB)
+		checkDownload("objectA", expectedDataD)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 3)
+
+		for _, object := range objects {
+			require.Greater(t, int64(object.Version), int64(1))
+		}
+
+		_, err = project.CopyObject(ctx, "multipleversions", "objectInline", "multipleversions", "objectInlineCopy", nil)
+		require.NoError(t, err)
+
+		checkDownload("objectInlineCopy", expectedDataB)
+
+		iterator := project.ListObjects(ctx, "multipleversions", nil)
+
+		items := []string{}
+		for iterator.Next() {
+			items = append(items, iterator.Item().Key)
+		}
+		require.NoError(t, iterator.Err())
+
+		sort.Strings(items)
+		require.Equal(t, []string{
+			"objectA", "objectInline", "objectInlineCopy", "objectRemote",
+		}, items)
+	})
+}
