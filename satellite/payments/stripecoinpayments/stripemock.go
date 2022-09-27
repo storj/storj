@@ -112,14 +112,15 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 		state = &mockStripeState{
 			customers:                   &mockCustomersState{},
 			paymentMethods:              newMockPaymentMethods(),
-			invoices:                    &mockInvoices{},
-			invoiceItems:                &mockInvoiceItems{},
+			invoices:                    newMockInvoices(),
+			invoiceItems:                newMockInvoiceItems(),
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
 			promoCodes: &mockPromoCodes{
 				promoCodes: testPromoCodes,
 			},
 		}
+		state.invoices.invoiceItems = state.invoiceItems
 		mocks.m[id] = state
 	}
 
@@ -302,6 +303,9 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 	if params.PromotionCode != nil && promoIDs[*params.PromotionCode] != nil {
 		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
+	if params.Coupon != nil {
+		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: *params.Coupon}}
+	}
 
 	// TODO update customer with more params as necessary
 
@@ -421,14 +425,60 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 }
 
 type mockInvoices struct {
+	invoices     map[string][]*stripe.Invoice
+	invoiceItems *mockInvoiceItems
+}
+
+func newMockInvoices() *mockInvoices {
+	return &mockInvoices{
+		invoices: make(map[string][]*stripe.Invoice),
+	}
 }
 
 func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error) {
-	return nil, nil
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	invoice := &stripe.Invoice{ID: "in_" + string(testrand.RandAlphaNumeric(25))}
+	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
+
+	if items, ok := m.invoiceItems.items[*params.Customer]; ok {
+		for _, item := range items {
+			if item.Invoice == nil {
+				item.Invoice = invoice
+			}
+		}
+	}
+
+	return invoice, nil
 }
 
 func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter {
-	return &invoice.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	listMeta := &stripe.ListMeta{
+		HasMore:    false,
+		TotalCount: uint32(len(m.invoices)),
+	}
+	lc := newListContainer(listMeta)
+
+	query := stripe.Query(func(*stripe.Params, *form.Values) (ret []interface{}, _ stripe.ListContainer, _ error) {
+		if listParams.Customer == nil {
+			for _, invoices := range m.invoices {
+				for _, invoice := range invoices {
+					ret = append(ret, invoice)
+				}
+			}
+		} else if list, ok := m.invoices[*listParams.Customer]; ok {
+			for _, invoice := range list {
+				ret = append(ret, invoice)
+			}
+		}
+
+		return ret, lc, nil
+	})
+	return &invoice.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
@@ -440,6 +490,13 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 }
 
 type mockInvoiceItems struct {
+	items map[string][]*stripe.InvoiceItem
+}
+
+func newMockInvoiceItems() *mockInvoiceItems {
+	return &mockInvoiceItems{
+		items: make(map[string][]*stripe.InvoiceItem),
+	}
 }
 
 func (m *mockInvoiceItems) Update(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
@@ -451,11 +508,41 @@ func (m *mockInvoiceItems) Del(id string, params *stripe.InvoiceItemParams) (*st
 }
 
 func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
-	return nil, nil
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	item := &stripe.InvoiceItem{
+		Metadata: params.Metadata,
+	}
+	m.items[*params.Customer] = append(m.items[*params.Customer], item)
+
+	return item, nil
 }
 
 func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter {
-	return &invoiceitem.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	listMeta := &stripe.ListMeta{
+		HasMore:    false,
+		TotalCount: uint32(len(m.items)),
+	}
+	lc := newListContainer(listMeta)
+
+	query := stripe.Query(func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListContainer, error) {
+		list, ok := m.items[*listParams.Customer]
+		if !ok {
+			list = []*stripe.InvoiceItem{}
+		}
+		ret := make([]interface{}, len(list))
+
+		for i, v := range list {
+			ret[i] = v
+		}
+
+		return ret, lc, nil
+	})
+	return &invoiceitem.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
 type mockCustomerBalanceTransactions struct {

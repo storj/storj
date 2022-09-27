@@ -929,6 +929,32 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 	return nil
 }
 
+// GenerateInvoices performs all tasks necessary to generate Stripe invoices.
+// This is equivalent to invoking ApplyFreeTierCoupons, PrepareInvoiceProjectRecords,
+// InvoiceApplyProjectRecords, and CreateInvoices in order.
+func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, subFn := range []struct {
+		Description string
+		Exec        func(context.Context, time.Time) error
+	}{
+		{"Applying free tier coupons", func(ctx context.Context, _ time.Time) error {
+			return service.ApplyFreeTierCoupons(ctx)
+		}},
+		{"Preparing invoice project records", service.PrepareInvoiceProjectRecords},
+		{"Applying invoice project records", service.InvoiceApplyProjectRecords},
+		{"Creating invoices", service.CreateInvoices},
+	} {
+		service.log.Info(subFn.Description)
+		if err := subFn.Exec(ctx, period); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // FinalizeInvoices transitions all draft invoices to open finalized invoices in stripe. No payment is to be collected yet.
 func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

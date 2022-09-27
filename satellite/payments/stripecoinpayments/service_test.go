@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/stripe/stripe-go/v72"
 	"go.uber.org/zap"
 
 	"storj.io/common/currency"
@@ -340,5 +341,70 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		// run apply token balance to see if there are no unexpected errors
 		err = payments.StripeService.InvoiceApplyTokenBalance(ctx)
 		require.NoError(t, err)
+	})
+}
+
+func TestService_GenerateInvoice(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		payments := satellite.API.Payments
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		user, err := satellite.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		proj, err := satellite.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
+
+		// ensure free tier coupon was applied
+		cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+		require.NoError(t, err)
+
+		stripeUser, err := payments.StripeClient.Customers().Get(cusID, nil)
+		require.NoError(t, err)
+		require.NotNil(t, stripeUser.Discount)
+		require.NotNil(t, stripeUser.Discount.Coupon)
+		require.Equal(t, payments.StripeService.StripeFreeTierCouponID, stripeUser.Discount.Coupon.ID)
+
+		// ensure project record was generated
+		err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
+		require.ErrorIs(t, stripecoinpayments.ErrProjectRecordExists, err)
+
+		rec, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, proj.ID, start, end)
+		require.NotNil(t, rec)
+		require.NoError(t, err)
+
+		// ensure an invoice was created
+		invoiceIter := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{Customer: &cusID})
+		require.True(t, invoiceIter.Next())
+		invoice := invoiceIter.Invoice()
+
+		// ensure project record was applied as invoice items to that invoice
+		itemIter := payments.StripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{Customer: &cusID})
+		count := 0
+		for ; itemIter.Next(); count++ {
+			item := itemIter.InvoiceItem()
+			require.Contains(t, item.Metadata, "projectID")
+			require.Equal(t, item.Metadata["projectID"], proj.ID.String())
+			require.NotNil(t, itemIter.InvoiceItem().Invoice)
+			require.Equal(t, invoice.ID, itemIter.InvoiceItem().Invoice.ID)
+		}
+		require.NotZero(t, count)
 	})
 }
