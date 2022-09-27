@@ -248,6 +248,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
+	projectsController := consoleapi.NewProjects(logger, service)
+	router.Handle(
+		"/api/v0/projects/{id}/salt",
+		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
+	).Methods(http.MethodGet)
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 

@@ -4,7 +4,9 @@
 package consoleweb_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -17,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
@@ -360,6 +363,23 @@ func TestProjects(t *testing.T) {
 						}`}))
 			require.Contains(t, body, test.defaultProjectID())
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_Salt
+			projectID := test.defaultProjectID()
+			id, err := uuid.FromString(projectID)
+			require.NoError(t, err)
+
+			// get salt from endpoint
+			var b64Salt string
+			resp, body := test.request(http.MethodGet, fmt.Sprintf("/projects/%s/salt", test.defaultProjectID()), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &b64Salt))
+
+			// get salt from db and base64 encode it
+			salt, err := planet.Satellites[0].DB.Console().Projects().GetSalt(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
 		}
 
 		{ // Get_ProjectInfo
