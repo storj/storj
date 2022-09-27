@@ -26,6 +26,9 @@ func saveInitialConfig(ctx context.Context, ex ulext.External) error {
 	values := make(map[string]string)
 	if answer != "y" && answer != "yes" {
 		values["metrics.addr"] = ""
+		values["analytics.enabled"] = "false"
+	} else {
+		values["analytics.enabled"] = "true"
 	}
 
 	return ex.SaveConfig(values)

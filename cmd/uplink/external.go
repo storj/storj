@@ -14,7 +14,10 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
@@ -57,6 +60,10 @@ type external struct {
 		traceAddress string  // if non-zero, sampled spans are sent to this trace collector address.
 		sample       float64 // the chance (number between 0 and 1.0) to send samples to the server.
 		verbose      bool    // flag to print out tracing information (like the used trace id)
+	}
+
+	events struct {
+		address string // if non-zero, events are sent to this address.
 	}
 }
 
@@ -112,6 +119,11 @@ func (ex *external) Setup(f clingy.Flags) {
 		clingy.Advanced,
 	).(string)
 
+	ex.events.address = f.Flag(
+		"events-addr", "Specify where to send events", "eventkitd.datasci.storj.io:9002",
+		clingy.Advanced,
+	).(string)
+
 	ex.dirs.loaded = true
 }
 
@@ -153,6 +165,43 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 	return ex.config.values[name], nil
 }
 
+func (ex *external) analyticsEnabled() bool {
+	// N.B.: saveInitialConfig prompts the user if they want analytics enabled.
+	// In the past, even after prompting for this, we did not write out their
+	// answer in the config. Instead, what has historically happened is that
+	// if the user said yes, we wrote out an empty config, and if the user
+	// said no, we wrote out:
+	//
+	//     [metrics]
+	//     addr =
+	//
+	// So, if the new value (analytics.enabled) exists at all, we prefer that.
+	// Otherwise, we need to check for the existence of metrics.addr and if it
+	// is an empty value to determine if analytics are disabled. At some point
+	// in the future after enough upgrades have happened, perhaps we can switch
+	// to just analytics.enabled. Unfortunately, an entirely empty config file
+	// is precisely the config file we've been writing out if a user opts in
+	// to analytics, so we are only going to have analytics disabled if (a)
+	// analytics.enabled says so, or absent that, if the config file's final
+	// specification for metrics.addr is the empty string.
+	val, err := ex.Dynamic("analytics.enabled")
+	if err != nil {
+		return false
+	}
+	if len(val) > 0 {
+		enabled, err := strconv.ParseBool(val[len(val)-1])
+		if err != nil {
+			return false
+		}
+		return enabled
+	}
+	val, err = ex.Dynamic("metrics.addr")
+	if err != nil {
+		return false
+	}
+	return len(val) == 0 || val[len(val)-1] != ""
+}
+
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	if err := ex.migrate(); err != nil {
@@ -167,6 +216,10 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		}
 	}
 
+	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is
+	// something a user can only opt into. as a result, we don't check ex.analyticsEnabled()
+	// in this if statement. If we do ever start turning on trace samples by default, we
+	// will need to make sure we only do so if ex.analyticsEnabled().
 	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
 		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
 		if !version.Build.Release {
@@ -176,15 +229,11 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		if err != nil {
 			return err
 		}
-
-		collectorCtx, cancelCollector := context.WithCancel(ctx)
-		go collector.Run(collectorCtx)
-
 		defer func() {
-			// this will drain remaining messages
-			cancelCollector()
 			_ = collector.Close()
 		}()
+
+		defer tracked(ctx, collector.Run)()
 
 		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: ex.tracing.sample})
 		defer cancel()
@@ -206,10 +255,51 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 
 			defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
 		}
-
 	}
+
+	if ex.analyticsEnabled() && ex.events.address != "" {
+		var appname string
+		var appversion string
+		if version.Build.Release {
+			// TODO: eventkit should probably think through
+			// application and application version more carefully.
+			appname = "uplink-release"
+			appversion = version.Build.Version.String()
+		} else {
+			appname = "uplink-dev"
+			appversion = version.Build.Timestamp.Format(time.RFC3339)
+		}
+
+		client := eventkit.NewUDPClient(
+			appname,
+			appversion,
+			"TODO",
+			ex.events.address,
+		)
+
+		defer tracked(ctx, client.Run)()
+		eventkit.DefaultRegistry.AddDestination(client)
+		eventkit.DefaultRegistry.Scope("init").Event("init")
+	}
+
 	defer mon.Task()(&ctx)(&err)
 	return cmd.Execute(ctx)
+}
+
+func tracked(ctx context.Context, cb func(context.Context)) (done func()) {
+	ctx, cancel := context.WithCancel(ctx)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		cb(ctx)
+		wg.Done()
+	}()
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
 }
 
 // PromptInput gets a line of input text from the user and returns an error if
