@@ -377,50 +377,32 @@ func TestCpLocalToLocal(t *testing.T) {
 	)
 
 	t.Run("FolderToFolder", func(t *testing.T) {
-		state.Succeed(t, "cp", "/home/user1", "/home/user2", "--recursive").RequireFiles(t,
+		state.Fail(t, "cp", "/home/user1", "/home/user2", "--recursive").RequireFiles(t,
 			ultest.File{Loc: "/home/user1/folder1/file1.txt", Contents: "data1"},
 			ultest.File{Loc: "/home/user1/folder1/file2.txt", Contents: "data2"},
 			ultest.File{Loc: "/home/user1/folder2/file3.txt", Contents: "data3"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file4.txt", Contents: "data4"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file5.txt", Contents: "data4"},
-
-			ultest.File{Loc: "/home/user2/folder1/file1.txt", Contents: "data1"},
-			ultest.File{Loc: "/home/user2/folder1/file2.txt", Contents: "data2"},
-			ultest.File{Loc: "/home/user2/folder2/file3.txt", Contents: "data3"},
-			ultest.File{Loc: "/home/user2/folder2/folder3/file4.txt", Contents: "data4"},
-			ultest.File{Loc: "/home/user2/folder2/folder3/file5.txt", Contents: "data4"},
 		)
 	})
 
 	t.Run("FolderToEmpty", func(t *testing.T) {
-		state.Succeed(t, "cp", "/home/user1", "", "--recursive").RequireFiles(t,
+		state.Fail(t, "cp", "/home/user1", "", "--recursive").RequireFiles(t,
 			ultest.File{Loc: "/home/user1/folder1/file1.txt", Contents: "data1"},
 			ultest.File{Loc: "/home/user1/folder1/file2.txt", Contents: "data2"},
 			ultest.File{Loc: "/home/user1/folder2/file3.txt", Contents: "data3"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file4.txt", Contents: "data4"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file5.txt", Contents: "data4"},
-
-			ultest.File{Loc: "folder1/file1.txt", Contents: "data1"},
-			ultest.File{Loc: "folder1/file2.txt", Contents: "data2"},
-			ultest.File{Loc: "folder2/file3.txt", Contents: "data3"},
-			ultest.File{Loc: "folder2/folder3/file4.txt", Contents: "data4"},
-			ultest.File{Loc: "folder2/folder3/file5.txt", Contents: "data4"},
 		)
 	})
 
 	t.Run("RootToFolder", func(t *testing.T) {
-		state.Succeed(t, "cp", "/", "/pre", "--recursive").RequireFiles(t,
+		state.Fail(t, "cp", "/", "/pre", "--recursive").RequireFiles(t,
 			ultest.File{Loc: "/home/user1/folder1/file1.txt", Contents: "data1"},
 			ultest.File{Loc: "/home/user1/folder1/file2.txt", Contents: "data2"},
 			ultest.File{Loc: "/home/user1/folder2/file3.txt", Contents: "data3"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file4.txt", Contents: "data4"},
 			ultest.File{Loc: "/home/user1/folder2/folder3/file5.txt", Contents: "data4"},
-
-			ultest.File{Loc: "/pre/home/user1/folder1/file1.txt", Contents: "data1"},
-			ultest.File{Loc: "/pre/home/user1/folder1/file2.txt", Contents: "data2"},
-			ultest.File{Loc: "/pre/home/user1/folder2/file3.txt", Contents: "data3"},
-			ultest.File{Loc: "/pre/home/user1/folder2/folder3/file4.txt", Contents: "data4"},
-			ultest.File{Loc: "/pre/home/user1/folder2/folder3/file5.txt", Contents: "data4"},
 		)
 	})
 }
@@ -489,16 +471,14 @@ func TestCpStandard(t *testing.T) {
 	})
 
 	t.Run("StdinToLocal", func(t *testing.T) {
-		state.Succeed(t, "cp", "-", "/home/user/bar").RequireLocalFiles(t,
+		state.Fail(t, "cp", "-", "/home/user/bar").RequireLocalFiles(t,
 			ultest.File{Loc: "/home/user/foo"},
-			ultest.File{Loc: "/home/user/bar", Contents: "-"},
 		)
 	})
 
 	t.Run("StdinToLocalTrailing", func(t *testing.T) {
-		state.Succeed(t, "cp", "-", "/home/user/bar/").RequireLocalFiles(t,
+		state.Fail(t, "cp", "-", "/home/user/bar/").RequireLocalFiles(t,
 			ultest.File{Loc: "/home/user/foo"},
-			ultest.File{Loc: "/home/user/bar", Contents: "-"},
 		)
 	})
 
@@ -510,7 +490,7 @@ func TestCpStandard(t *testing.T) {
 	})
 
 	t.Run("LocalToStdout", func(t *testing.T) {
-		state.Succeed(t, "cp", "/home/user/foo", "-").RequireFiles(t,
+		state.Fail(t, "cp", "/home/user/foo", "-").RequireFiles(t,
 			ultest.File{Loc: "sj://user/foo"},
 			ultest.File{Loc: "/home/user/foo"},
 		)
@@ -521,4 +501,80 @@ func TestCpInputValidation(t *testing.T) {
 	state := ultest.Setup(commands)
 
 	state.Fail(t, "cp", "/home/user/file1.txt", "sj://testbucket/", "--parallelism-chunk-size", "-1")
+}
+
+func TestCpMultipleSourcePaths(t *testing.T) {
+	state := ultest.Setup(commands,
+		ultest.WithFile("/home/user/file1.txt", "local1"),
+		ultest.WithFile("/home/user/file2.txt", "local2"),
+		ultest.WithFile("sj://user/file1.txt", "remote1"),
+		ultest.WithFile("sj://user/file2.txt", "remote2"),
+	)
+
+	t.Run("LocalToRemoteOverwrite", func(t *testing.T) {
+		state.Succeed(t, "cp", "/home/user/file1.txt", "/home/user/file2.txt", "sj://user").RequireFiles(t,
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "local2"},
+
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "local2"},
+		)
+	})
+
+	t.Run("LocalToRemoteDirectory", func(t *testing.T) {
+		state.Succeed(t, "cp", "/home/user/file1.txt", "/home/user/file2.txt", "sj://user/new").RequireFiles(t,
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "local2"},
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "remote2"},
+
+			ultest.File{Loc: "sj://user/new/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "sj://user/new/file2.txt", Contents: "local2"},
+		)
+	})
+
+	t.Run("RemoteToLocalOverwrite", func(t *testing.T) {
+		state.Succeed(t, "cp", "sj://user/file1.txt", "sj://user/file2.txt", "/home/user").RequireFiles(t,
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "remote2"},
+
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "remote2"},
+		)
+	})
+
+	t.Run("RemoteToLocalDirectory", func(t *testing.T) {
+		state.Succeed(t, "cp", "sj://user/file1.txt", "sj://user/file2.txt", "/home/user/new").RequireFiles(t,
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "local2"},
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "remote2"},
+
+			ultest.File{Loc: "/home/user/new/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "/home/user/new/file2.txt", Contents: "remote2"},
+		)
+	})
+
+	t.Run("MixedToRemoteDirectory", func(t *testing.T) {
+		state.Succeed(t, "cp", "sj://user/file1.txt", "/home/user/file2.txt", "sj://user/new").RequireFiles(t,
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "local2"},
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "remote2"},
+
+			ultest.File{Loc: "sj://user/new/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/new/file2.txt", Contents: "local2"},
+		)
+	})
+
+	t.Run("MixedToLocalPartiallyFails", func(t *testing.T) {
+		state.Fail(t, "cp", "sj://user/file1.txt", "/home/user/file2.txt", "/home/user/new").RequireFiles(t,
+			ultest.File{Loc: "/home/user/file1.txt", Contents: "local1"},
+			ultest.File{Loc: "/home/user/file2.txt", Contents: "local2"},
+			ultest.File{Loc: "sj://user/file1.txt", Contents: "remote1"},
+			ultest.File{Loc: "sj://user/file2.txt", Contents: "remote2"},
+
+			ultest.File{Loc: "/home/user/new/file1.txt", Contents: "remote1"},
+		)
+	})
 }

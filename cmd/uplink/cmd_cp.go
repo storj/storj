@@ -41,8 +41,7 @@ type cmdCp struct {
 	parallelism          int
 	parallelismChunkSize memory.Size
 
-	source ulloc.Location
-	dest   ulloc.Location
+	locs []ulloc.Location
 }
 
 const maxPartCount int64 = 10000
@@ -103,11 +102,17 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		"optional metadata for the object. Please use a single level JSON object of string to string only",
 		nil, clingy.Transform(parseJSON), clingy.Type("string")).(map[string]string)
 
-	c.source = params.Arg("source", "Source to copy, use - for standard input", clingy.Transform(ulloc.Parse)).(ulloc.Location)
-	c.dest = params.Arg("dest", "Destination to copy, use - for standard output", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.locs = params.Arg("locations", "Locations to copy (at least one source and one destination). Use - for standard input/output",
+		clingy.Transform(ulloc.Parse),
+		clingy.Repeated,
+	).([]ulloc.Location)
 }
 
 func (c *cmdCp) Execute(ctx context.Context) error {
+	if len(c.locs) < 2 {
+		return errs.New("must have at least one source and destination path")
+	}
+
 	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.ConnectionPoolOptions(rpcpool.Options{
 		Capacity:       100 * c.parallelism,
 		KeyCapacity:    5,
@@ -118,50 +123,62 @@ func (c *cmdCp) Execute(ctx context.Context) error {
 	}
 	defer func() { _ = fs.Close() }()
 
+	var eg errs.Group
+	for _, source := range c.locs[:len(c.locs)-1] {
+		eg.Add(c.dispatchCopy(ctx, fs, source, c.locs[len(c.locs)-1]))
+	}
+	return combineErrs(eg)
+}
+
+func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+	if !source.Remote() && !dest.Remote() {
+		return errs.New("at least one location must be a remote sj:// location")
+	}
+
 	// we ensure the source and destination are lexically directoryish
 	// if they map to directories. the destination is always converted to be
-	// directoryish if the copy is recursive.
-	if fs.IsLocalDir(ctx, c.source) {
-		c.source = c.source.AsDirectoryish()
+	// directoryish if the copy is recursive or if there are multiple source paths
+	if fs.IsLocalDir(ctx, source) {
+		source = source.AsDirectoryish()
 	}
-	if c.recursive || fs.IsLocalDir(ctx, c.dest) {
-		c.dest = c.dest.AsDirectoryish()
+	if c.recursive || len(c.locs) > 2 || fs.IsLocalDir(ctx, dest) {
+		dest = dest.AsDirectoryish()
 	}
 
 	if c.recursive {
 		if c.byteRange != "" {
 			return errs.New("unable to do recursive copy with byte range")
 		}
-		return c.copyRecursive(ctx, fs)
+		return c.copyRecursive(ctx, fs, source, dest)
 	}
 
 	// if the destination is directoryish, we add the basename of the source
 	// to the end of the destination to pick a filename.
 	var base string
-	if c.dest.Directoryish() && !c.source.Std() {
+	if dest.Directoryish() && !source.Std() {
 		// we undirectoryish the source so that we ignore any trailing slashes
 		// when finding the base name.
 		var ok bool
-		base, ok = c.source.Undirectoryish().Base()
+		base, ok = source.Undirectoryish().Base()
 		if !ok {
-			return errs.New("destination is a directory and cannot find base name for source %q", c.source)
+			return errs.New("destination is a directory and cannot find base name for source %q", source)
 		}
 	}
-	c.dest = joinDestWith(c.dest, base)
+	dest = joinDestWith(dest, base)
 
-	if !c.source.Std() && !c.dest.Std() {
-		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(c.source, c.dest), c.source, "to", c.dest)
+	if !dest.Std() {
+		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 	}
 
-	return c.copyFile(ctx, fs, c.source, c.dest, c.progress)
+	return c.copyFile(ctx, fs, source, dest, c.progress)
 }
 
-func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem) error {
-	if c.source.Std() || c.dest.Std() {
+func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+	if source.Std() || dest.Std() {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
 
-	iter, err := fs.List(ctx, c.source, &ulfs.ListOptions{
+	iter, err := fs.List(ctx, source, &ulfs.ListOptions{
 		Recursive: true,
 	})
 	if err != nil {
@@ -193,18 +210,18 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem) error {
 	}
 
 	for iter.Next() {
-		source := iter.Item().Loc
-		rel, err := c.source.RelativeTo(source)
+		item := iter.Item().Loc
+		rel, err := source.RelativeTo(item)
 		if err != nil {
 			return err
 		}
-		dest := joinDestWith(c.dest, rel)
+		dest := joinDestWith(dest, rel)
 
 		ok := limiter.Go(ctx, func() {
-			fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
+			fprintln(clingy.Stdout(ctx), copyVerb(item, dest), item, "to", dest)
 
-			if err := c.copyFile(ctx, fs, source, dest, false); err != nil {
-				fprintln(clingy.Stdout(ctx), copyVerb(source, dest), "failed:", err.Error())
+			if err := c.copyFile(ctx, fs, item, dest, false); err != nil {
+				fprintln(clingy.Stdout(ctx), copyVerb(item, dest), "failed:", err.Error())
 				addError(err)
 			}
 		})
@@ -253,7 +270,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 	defer func() { _ = mwh.Abort(ctx) }()
 
 	var bar *progressbar.ProgressBar
-	if progress && !c.dest.Std() {
+	if progress && !dest.Std() {
 		bar = progressbar.New64(0).SetWriter(clingy.Stdout(ctx))
 		defer bar.Finish()
 	}
@@ -265,6 +282,7 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 
 	return errs.Wrap(c.parallelCopy(
 		ctx,
+		source, dest,
 		mwh, mrh,
 		c.parallelism, partSize,
 		offset, length,
@@ -313,7 +331,8 @@ func joinDestWith(dest ulloc.Location, suffix string) ulloc.Location {
 }
 
 func (c *cmdCp) parallelCopy(
-	clctx context.Context,
+	ctx context.Context,
+	source, dest ulloc.Location,
 	dst ulfs.MultiWriteHandle,
 	src ulfs.MultiReadHandle,
 	p int, chunkSize int64,
@@ -332,7 +351,7 @@ func (c *cmdCp) parallelCopy(
 		mu      sync.Mutex
 	)
 
-	ctx, cancel := context.WithCancel(clctx)
+	ctx, cancel := context.WithCancel(ctx)
 
 	defer func() { _ = src.Close() }()
 	defer func() {
@@ -358,7 +377,7 @@ func (c *cmdCp) parallelCopy(
 	}
 
 	var readBufs *ulfs.BytesPool
-	if p > 1 && c.dest.Std() {
+	if p > 1 && dest.Std() {
 		// Create the read buffer pool only for downloads to stdout with parallelism > 1.
 		readBufs = ulfs.NewBytesPool(int(chunkSize))
 	}
@@ -419,7 +438,7 @@ func (c *cmdCp) parallelCopy(
 				//
 				// Also, we may want to check that it actually helps, before implementing it.
 
-				addError(errs.New("failed to %s part %d: %v", copyVerb(c.source, c.dest), i, err))
+				addError(errs.New("failed to %s part %d: %v", copyVerb(source, dest), i, err))
 			}
 		})
 		if !ok {
