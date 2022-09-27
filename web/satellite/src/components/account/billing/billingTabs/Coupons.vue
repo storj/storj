@@ -59,6 +59,9 @@ import { Coupon } from '@/types/payments';
 import AddCouponCode2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -69,6 +72,8 @@ import VLoader from '@/components/common/VLoader.vue';
 export default class Coupons extends Vue {
     public isCouponFetching = true;
     public showCreateCode = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -88,6 +93,7 @@ export default class Coupons extends Vue {
      * Opens Add Coupon modal.
      */
     public toggleCreateModal(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED)
         this.showCreateCode = !this.showCreateCode;
     }
 

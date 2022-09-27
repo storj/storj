@@ -215,6 +215,9 @@ import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
@@ -289,6 +292,8 @@ export default class PaymentMethods extends Vue {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public beforeMount() {
         this.fetchHistory();
     }
@@ -353,6 +358,7 @@ export default class PaymentMethods extends Vue {
         if (!this.cardBeingEdited.isDefault) {
             try {
                 await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
+                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED)
                 await this.$notify.success('Credit card removed');
             } catch (error) {
                 await this.$notify.error(error.message);
@@ -419,9 +425,11 @@ export default class PaymentMethods extends Vue {
         if (this.isLoading) return;
         this.isLoading = true;
         await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
+        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING)
     }
 
     public addPaymentMethodHandler() {
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED)
         this.isAddingPayment = true;
     }
 

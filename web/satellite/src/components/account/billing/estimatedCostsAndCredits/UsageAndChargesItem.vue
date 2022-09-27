@@ -58,6 +58,9 @@ import { MetaUtils } from '@/utils/meta';
 import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
 import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -66,6 +69,9 @@ import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.
     },
 })
 export default class UsageAndChargesItem extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * item represents usage and charges of current project by period.
      */
@@ -155,6 +161,7 @@ export default class UsageAndChargesItem extends Vue {
      * toggleDetailedInfo expands an area with detailed information about project charges.
      */
     public toggleDetailedInfo(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.USAGE_DETAILED_INFO_CLICKED)
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
     }
 

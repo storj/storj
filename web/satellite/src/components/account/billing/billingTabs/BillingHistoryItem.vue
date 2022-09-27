@@ -54,6 +54,9 @@ import Resizable from '@/components/common/Resizable.vue';
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
 import Calendar from '@/../static/images/billing/calendar.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -66,7 +69,11 @@ export default class BillingHistoryItem extends Resizable {
     @Prop({ default: new PaymentsHistoryItem('', '', 0, 0, '', '', new Date(), new Date(), 0, 0) })
     private readonly item: PaymentsHistoryItem;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public downloadInvoice() {
+        this.analytics.eventTriggered(AnalyticsEvent.INVOICE_DOWNLOADED)
+
         if (this.isMobile || this.isTablet)
             window.open(this.item.link, '_blank', 'noreferrer');
     }

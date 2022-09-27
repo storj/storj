@@ -87,6 +87,9 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -100,6 +103,8 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 })
 export default class AddTokenCardNative extends Vue {
     public isLoading = true;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Mounted hook after initial render.
@@ -120,6 +125,7 @@ export default class AddTokenCardNative extends Vue {
      * Triggers Add funds popup.
      */
     public onAddTokensClick(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED)
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TOKEN_FUNDS_MODAL_SHOWN);
     }
 
