@@ -193,6 +193,9 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
@@ -214,9 +217,6 @@ import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.sv
 import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 interface StripeForm {
     onSubmit(): Promise<void>;
@@ -358,7 +358,7 @@ export default class PaymentMethods extends Vue {
         if (!this.cardBeingEdited.isDefault) {
             try {
                 await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
-                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED)
+                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
                 await this.$notify.success('Credit card removed');
             } catch (error) {
                 await this.$notify.error(error.message);
@@ -425,11 +425,11 @@ export default class PaymentMethods extends Vue {
         if (this.isLoading) return;
         this.isLoading = true;
         await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
-        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING)
+        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
     }
 
     public addPaymentMethodHandler() {
-        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED)
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
         this.isAddingPayment = true;
     }
 

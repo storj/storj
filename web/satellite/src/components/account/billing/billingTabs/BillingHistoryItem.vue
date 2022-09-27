@@ -49,13 +49,13 @@ import { Fragment } from 'vue-fragment';
 
 import { PaymentsHistoryItem } from '@/types/payments';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import Resizable from '@/components/common/Resizable.vue';
 
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
 import Calendar from '@/../static/images/billing/calendar.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -72,7 +72,7 @@ export default class BillingHistoryItem extends Resizable {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public downloadInvoice() {
-        this.analytics.eventTriggered(AnalyticsEvent.INVOICE_DOWNLOADED)
+        this.analytics.eventTriggered(AnalyticsEvent.INVOICE_DOWNLOADED);
 
         if (this.isMobile || this.isTablet)
             window.open(this.item.link, '_blank', 'noreferrer');

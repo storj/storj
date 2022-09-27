@@ -55,11 +55,11 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
 
-import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
-import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
+import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
 
 // @vue/component
 @Component({
@@ -161,7 +161,7 @@ export default class UsageAndChargesItem extends Vue {
      * toggleDetailedInfo expands an area with detailed information about project charges.
      */
     public toggleDetailedInfo(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.USAGE_DETAILED_INFO_CLICKED)
+        this.analytics.eventTriggered(AnalyticsEvent.USAGE_DETAILED_INFO_CLICKED);
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
     }
 

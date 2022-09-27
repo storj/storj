@@ -25,13 +25,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import AddCouponCodeInput2 from '@/components/common/AddCouponCodeInput2.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -54,7 +54,7 @@ export default class AddCouponCode2 extends Vue {
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED)
+        this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
         this.$emit('toggleMethod');
     }
 

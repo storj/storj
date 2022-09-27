@@ -92,15 +92,15 @@ import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -168,12 +168,12 @@ export default class BillingArea extends Vue {
     }
 
     public routeToBillingHistory(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED)
+        this.analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
     }
 
     public routeToPaymentMethods(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED)
+        this.analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
     }
 

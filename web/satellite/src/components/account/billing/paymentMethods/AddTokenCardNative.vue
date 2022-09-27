@@ -79,6 +79,9 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -86,9 +89,6 @@ import VLoader from '@/components/common/VLoader.vue';
 import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 // @vue/component
 @Component({
@@ -125,7 +125,7 @@ export default class AddTokenCardNative extends Vue {
      * Triggers Add funds popup.
      */
     public onAddTokensClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED)
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TOKEN_FUNDS_MODAL_SHOWN);
     }
 
