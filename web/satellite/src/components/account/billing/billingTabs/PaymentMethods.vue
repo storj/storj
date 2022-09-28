@@ -192,7 +192,6 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 

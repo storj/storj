@@ -91,7 +91,6 @@ import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 

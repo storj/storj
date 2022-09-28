@@ -48,7 +48,6 @@ import { Component, Prop } from 'vue-property-decorator';
 import { Fragment } from 'vue-fragment';
 
 import { PaymentsHistoryItem } from '@/types/payments';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 

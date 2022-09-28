@@ -55,7 +55,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
