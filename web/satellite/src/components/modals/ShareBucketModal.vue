@@ -6,29 +6,28 @@
         <template #content>
             <div class="modal">
                 <h1 class="modal__title">Share Bucket</h1>
-                <p class="modal__label">
-                    Share this link via...
-                </p>
                 <ShareContainer :link="link" />
                 <p class="modal__label">
-                    Or copy link
+                    Or copy link:
                 </p>
                 <VLoader v-if="isLoading" width="20px" height="20px" />
-                <p v-else class="modal__link">{{ link }}</p>
-                <div class="modal__buttons">
+                <div v-if="!isLoading" class="modal__input-group">
+                    <input
+                        id="url"
+                        class="modal__input"
+                        type="url"
+                        :value="link"
+                        aria-describedby="btn-copy-link"
+                        readonly
+                    >
                     <VButton
-                        label="Cancel"
-                        height="48px"
-                        is-transparent="true"
-                        :on-press="closeModal"
-                        :is-disabled="isLoading"
-                    />
-                    <VButton
-                        :label="copyButtonState === ButtonStates.Copy ? 'Copy Link' : 'Link Copied'"
-                        height="48px"
+                        :label="copyButtonState === ButtonStates.Copy ? 'Copy' : 'Copied'"
+                        width="114px"
+                        height="40px"
                         :on-press="onCopy"
                         :is-disabled="isLoading"
                         :is-green-white="copyButtonState === ButtonStates.Copied"
+                        :icon="copyButtonState === ButtonStates.Copied ? 'none' : 'copy'"
                     />
                 </div>
             </div>
@@ -196,7 +195,7 @@ export default class ShareBucketModal extends Vue {
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 35px 35px 35px 50px;
+        padding: 50px;
         max-width: 470px;
 
         @media screen and (max-width: 430px) {
@@ -208,15 +207,16 @@ export default class ShareBucketModal extends Vue {
             font-size: 22px;
             line-height: 29px;
             color: #1b2533;
+            margin: 10px 0 35px;
         }
 
         &__label {
             font-family: 'font_medium', sans-serif;
-            font-size: 16px;
+            font-size: 14px;
             line-height: 21px;
             color: #354049;
-            align-self: flex-start;
-            margin: 32px 0 16px;
+            align-self: center;
+            margin: 20px 0 10px;
         }
 
         &__link {
@@ -238,6 +238,31 @@ export default class ShareBucketModal extends Vue {
                 flex-direction: column-reverse;
                 column-gap: unset;
                 row-gap: 15px;
+            }
+        }
+
+        &__input-group {
+            border: 1px solid #c8d3de;
+            background: #fafafb;
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            border-radius: 8px;
+            width: 100%;
+            height: 42px;
+        }
+
+        &__input {
+            background: none;
+            border: none;
+            font-size: 14px;
+            color: #56606d;
+            outline: none;
+            max-width: 340px;
+            width: 100%;
+
+            @media screen and (max-width: 430px) {
+                max-width: 210px;
             }
         }
     }

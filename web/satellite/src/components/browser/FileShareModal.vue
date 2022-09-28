@@ -10,11 +10,12 @@
             aria-labelledby="shareModalLabel"
             aria-hidden="true"
         >
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content text-center border-0 p-2 p-sm-4">
-                    <div class="modal-header border-0">
-                        <h5 class="modal-title pt-2">Share</h5>
+            <div id="modal-content-container" class="modal-dialog modal-dialog-centered">
+                <div id="modal-content" class="modal-content text-center border-0 p-2 p-sm-4">
+                    <div id="header" class="modal-header border-0">
+                        <h5 class="modal-title pt-2">Share File</h5>
                         <button
+                            id="close-btn"
                             type="button"
                             class="close"
                             data-dismiss="modal"
@@ -29,17 +30,15 @@
                     </div>
                     <div class="modal-body pt-0 text-left">
                         <div>
-                            <hr>
                             <div class="social-share-icons my-4">
-                                <p>Share this link via</p>
                                 <ShareContainer :link="objectLink" />
                             </div>
 
-                            <hr>
+                            <p id="copy-text" class="my-4 text-center">Or copy link:</p>
+                            
+                            <VLoader v-if="isLoading" width="20px" height="20px" />
 
-                            <p class="my-4">Or copy link</p>
-
-                            <div class="input-group my-4">
+                            <div v-if="!isLoading" class="input-group">
                                 <input
                                     id="url"
                                     class="form-control"
@@ -48,21 +47,15 @@
                                     aria-describedby="btn-copy-link"
                                     readonly
                                 >
-                                <div class="input-group-append">
-                                    <button
-                                        id="btn-copy-link"
-                                        type="button"
-                                        name="copy"
-                                        class="
-											btn
-											btn-outline-secondary
-											btn-copy-link
-										"
-                                        @click="copy"
-                                    >
-                                        {{ copyText }}
-                                    </button>
-                                </div>
+                                <VButton
+                                    :label="copyButtonState === ButtonStates.Copy ? 'Copy' : 'Copied'"
+                                    width="114px"
+                                    height="40px"
+                                    :on-press="copy"
+                                    :is-disabled="isLoading"
+                                    :is-green-white="copyButtonState === ButtonStates.Copied"
+                                    :icon="copyButtonState === ButtonStates.Copied ? 'none' : 'copy'"
+                                />
                             </div>
                         </div>
                     </div>
@@ -77,16 +70,29 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import ShareContainer from '@/components/common/share/ShareContainer.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+
+enum ButtonStates {
+    Copy,
+    Copied,
+}
 
 // @vue/component
 @Component({
     components: {
         ShareContainer,
+        VLoader,
+        VButton,
     },
 })
 export default class FileShareModal extends Vue {
+    private readonly ButtonStates = ButtonStates;
+
     public objectLink = '';
-    public copyText = 'Copy Link';
+    public copyText = 'Copy';
+    public isLoading = true;
+    public copyButtonState = ButtonStates.Copy;
 
     /**
      * Retrieve the path to the current file that has the fileShareModal opened from the store.
@@ -102,6 +108,7 @@ export default class FileShareModal extends Vue {
         this.objectLink = await this.$store.state.files.fetchSharedLink(
             this.filePath,
         );
+        this.isLoading = false;
     }
 
     /**
@@ -109,9 +116,10 @@ export default class FileShareModal extends Vue {
      */
     public async copy(): Promise<void> {
         await this.$copyText(this.objectLink);
-        this.copyText = 'Copied!';
+        this.copyButtonState = ButtonStates.Copied;
+
         setTimeout(() => {
-            this.copyText = 'Copy Link';
+            this.copyButtonState = ButtonStates.Copy;
         }, 2000);
     }
 
@@ -119,6 +127,8 @@ export default class FileShareModal extends Vue {
      * Close the FileShareModal.
      */
     public close(): void {
+        if (this.isLoading) return;
+
         this.$store.commit('files/closeFileShareModal');
     }
 
@@ -134,7 +144,7 @@ export default class FileShareModal extends Vue {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .modal-open {
     display: block !important;
 }
@@ -142,10 +152,25 @@ export default class FileShareModal extends Vue {
 .modal-title {
     word-break: break-word;
     font-weight: bold;
+    font-family: 'font_bold', sans-serif;
+    font-size: 22px;
+    line-height: 29px;
 }
 
-.closex {
-    cursor: pointer;
+.file-browser .modal-dialog-centered {
+    display: block;
+}
+
+#header {
+    align-items: center;
+    justify-content: center;
+}
+
+#close-btn {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    font-size: 30px;
 }
 
 #share-modal {
@@ -162,4 +187,49 @@ export default class FileShareModal extends Vue {
     font-size: 14px;
     padding: 0 16px;
 }
+
+#modal-content {
+    padding: 35px !important;
+    border-radius: 10px;
+
+    @media screen and (max-width: 430px) {
+        padding: 20px;
+    }
+}
+
+#modal-content-container {
+    max-width: 585px;
+}
+
+#url {
+    background: none;
+    border: none;
+    font-size: 14px;
+    color: #56606d;
+    max-width: 340px;
+    width: 100%;
+    flex-wrap: inherit !important;
+}
+
+#copy-text {
+    font-family: 'font_medium', sans-serif;
+    font-size: 14px;
+    color: #354049;
+    margin-bottom: 15px !important;
+}
+
+.input-group {
+    border: 1px solid #c8d3de;
+    background: #fafafb;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    border-radius: 8px;
+    width: 100%;
+    height: 67px;
+    flex-wrap: inherit !important;
+    margin-bottom: 0 !important;
+    align-items: center !important;
+}
+
 </style>
