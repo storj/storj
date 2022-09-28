@@ -2,7 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="mask">
+    <div 
+        class="mask"
+        :class="{'mask__container': containerClass}"
+    >
         <div class="mask__wrapper">
             <div class="mask__wrapper__container">
                 <slot name="content" />
@@ -28,6 +31,8 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 export default class VModal extends Vue {
     @Prop({ default: () => () => {} })
     public readonly onClose: () => void;
+    @Prop({ default: false })
+    public readonly containerClass: boolean;
 }
 </script>
 
