@@ -16,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -622,7 +623,27 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
 		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort ||
 		oldInfo.CountryCode != node.CountryCode {
-		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		err = service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		if err != nil {
+			return err
+		}
+
+		if service.mail == nil || !service.config.SendNodeEmails {
+			return nil
+		}
+		if node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
+			err = service.mail.SendRendered(ctx, []post.Address{{Address: node.Operator.Email}}, &NodeOnlineEmail{
+				Origin:    service.satelliteAddress,
+				NodeID:    node.NodeID.String(),
+				Satellite: service.satelliteName,
+			})
+			if err != nil {
+				service.log.Error("could not send Node Online email", zap.Error(err))
+			} else {
+				mon.Counter("email_node_online").Inc(1)
+			}
+		}
+		return nil
 	}
 
 	service.log.Debug("ignoring unnecessary check-in",
