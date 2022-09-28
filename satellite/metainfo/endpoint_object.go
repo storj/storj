@@ -753,38 +753,67 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	resp = &pb.ObjectListResponse{}
-	// TODO: Replace with IterateObjectsLatestVersion when ready
-	err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
-		metabase.IterateObjectsWithStatus{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			Prefix:     prefix,
-			Cursor: metabase.IterateCursor{
-				Key:     metabase.ObjectKey(cursor),
-				Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
-			},
-			Recursive:             req.Recursive,
-			BatchSize:             limit + 1,
-			Status:                status,
-			IncludeCustomMetadata: includeCustomMetadata,
-			IncludeSystemMetadata: includeSystemMetadata,
-		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-			entry := metabase.ObjectEntry{}
-			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
-				if err != nil {
-					return err
-				}
-				resp.Items = append(resp.Items, item)
-			}
-			resp.More = it.Next(ctx, &entry)
-			return nil
-		},
-	)
-	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
-	}
+	if endpoint.config.TestListingQuery {
+		result, err := endpoint.metabase.ListObjects(ctx,
+			metabase.ListObjects{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     metabase.ObjectKey(cursor),
+					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
+				},
+				Recursive:             req.Recursive,
+				Limit:                 limit,
+				Status:                status,
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			})
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
 
+		for _, entry := range result.Objects {
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+			resp.Items = append(resp.Items, item)
+		}
+		resp.More = result.More
+	} else {
+		// TODO: Replace with IterateObjectsLatestVersion when ready
+		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
+			metabase.IterateObjectsWithStatus{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.IterateCursor{
+					Key:     metabase.ObjectKey(cursor),
+					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
+				},
+				Recursive:             req.Recursive,
+				BatchSize:             limit + 1,
+				Status:                status,
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+				entry := metabase.ObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+				resp.More = it.Next(ctx, &entry)
+				return nil
+			},
+		)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+	}
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
 	mon.Meter("req_list_object").Mark(1)
 
