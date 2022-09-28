@@ -111,7 +111,7 @@ export default class AccountArea extends Vue {
             this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path) :
             this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
 
-        this.analytics.pageVisit(this.$route.path.includes(RouteConfig.Billing.path));
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
         this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
 
     }
