@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -69,7 +69,7 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 
 	var passphrase string
 	if c.passphraseStdin {
-		stdinData, err := ioutil.ReadAll(clingy.Stdin(ctx))
+		stdinData, err := io.ReadAll(clingy.Stdin(ctx))
 		if err != nil {
 			return errs.Wrap(err)
 		}

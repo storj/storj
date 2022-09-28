@@ -125,6 +125,81 @@ func TestService_Success(t *testing.T) {
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
 }
 
+func TestService_Failures(t *testing.T) {
+	ctx := testcontext.New(t)
+	log := testplanet.NewLogger(t)
+
+	config := segmentverify.ServiceConfig{
+		NotFoundPath:      ctx.File("not-found.csv"),
+		RetryPath:         ctx.File("retry.csv"),
+		PriorityNodesPath: ctx.File("priority-nodes.txt"),
+
+		Check:       2,
+		BatchSize:   100,
+		Concurrency: 3,
+	}
+
+	// the node 1 is going to be priority
+	err := ioutil.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	require.NoError(t, err)
+
+	func() {
+		nodes := map[metabase.NodeAlias]storj.NodeID{}
+		for i := 1; i <= 0xFF; i++ {
+			nodes[metabase.NodeAlias(i)] = storj.NodeID{byte(i)}
+		}
+
+		segments := []metabase.VerifySegment{
+			{
+				StreamID:    uuid.UUID{0x10, 0x10},
+				AliasPieces: metabase.AliasPieces{{Number: 1, Alias: 8}, {Number: 3, Alias: 9}, {Number: 5, Alias: 10}, {Number: 0, Alias: 1}},
+			},
+			{
+				StreamID:    uuid.UUID{0x20, 0x20},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+			},
+			{
+				StreamID:    uuid.UUID{0x30, 0x30},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+			},
+		}
+
+		metabase := newMetabaseMock(nodes, segments...)
+		verifier := &verifierMock{
+			offline:  []storj.NodeID{{0x02}, {0x08}, {0x09}, {0x0A}},
+			success:  []uuid.UUID{segments[0].StreamID, segments[2].StreamID},
+			notFound: []uuid.UUID{segments[1].StreamID},
+		}
+
+		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
+		require.NoError(t, err)
+		require.NotNil(t, service)
+
+		defer ctx.Check(service.Close)
+
+		err = service.ProcessRange(ctx, uuid.UUID{}, maxUUID)
+		require.NoError(t, err)
+
+		for node, list := range verifier.processed {
+			assert.True(t, isUnique(list), "each node should process only once: %v %#v", node, list)
+		}
+	}()
+
+	retryCSV, err := ioutil.ReadFile(config.RetryPath)
+	require.NoError(t, err)
+	require.Equal(t, ""+
+		"stream id,position,found,not found,retry\n"+
+		"10100000-0000-0000-0000-000000000000,0,1,0,1\n",
+		string(retryCSV))
+
+	notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+	require.NoError(t, err)
+	require.Equal(t, ""+
+		"stream id,position,found,not found,retry\n"+
+		"20200000-0000-0000-0000-000000000000,0,0,2,0\n",
+		string(notFoundCSV))
+}
+
 func isUnique(segments []*segmentverify.Segment) bool {
 	type segmentID struct {
 		StreamID uuid.UUID
@@ -267,9 +342,9 @@ func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.Li
 type verifierMock struct {
 	allSuccess bool
 	fail       error
-	offline    []storj.NodeURL
-	success    []*segmentverify.Segment
-	notFound   []*segmentverify.Segment
+	offline    []storj.NodeID
+	success    []uuid.UUID
+	notFound   []uuid.UUID
 
 	mu        sync.Mutex
 	processed map[storj.NodeID][]*segmentverify.Segment
@@ -284,7 +359,7 @@ func (v *verifierMock) Verify(ctx context.Context, target storj.NodeURL, segment
 	v.mu.Unlock()
 
 	for _, n := range v.offline {
-		if n == target {
+		if n == target.ID {
 			return segmentverify.ErrNodeOffline.New("node did not respond %v", target)
 		}
 	}
@@ -300,10 +375,18 @@ func (v *verifierMock) Verify(ctx context.Context, target storj.NodeURL, segment
 	}
 
 	for _, seg := range v.success {
-		seg.Status.MarkFound()
+		for _, t := range segments {
+			if t.StreamID == seg {
+				t.Status.MarkFound()
+			}
+		}
 	}
 	for _, seg := range v.notFound {
-		seg.Status.MarkNotFound()
+		for _, t := range segments {
+			if t.StreamID == seg {
+				t.Status.MarkNotFound()
+			}
+		}
 	}
 
 	return nil

@@ -108,18 +108,22 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	}()
 
 	return IterateZipObjectKeys(ctx, *project, service.Config.Bucket, func(objectKey string) error {
+		limiter := sync2.NewLimiter(service.Config.ConcurrentSends)
 		err := IterateZipContent(ctx, *project, service.Config.Bucket, objectKey, func(zipEntry *zip.File) error {
 			retainInfo, err := UnpackZipEntry(zipEntry)
 			if err != nil {
 				service.log.Warn("Skipping retain filter entry: %s", zap.Error(err))
 				return nil
 			}
-			err = service.sendRetainRequest(ctx, retainInfo)
-			if err != nil {
-				service.log.Error("Error sending retain filter: %s", zap.Error(err))
-			}
+			limiter.Go(ctx, func() {
+				err := service.sendRetainRequest(ctx, retainInfo)
+				if err != nil {
+					service.log.Error("Error sending retain filter: %s", zap.Error(err))
+				}
+			})
 			return nil
 		})
+		limiter.Wait()
 
 		if err != nil {
 			// We store the error in the bucket and then continue with the next zip file.
