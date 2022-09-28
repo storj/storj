@@ -26,6 +26,7 @@ type Config struct {
 	UpdateStatsBatchSize       int           `help:"number of update requests to process per transaction" default:"100"`
 	NodeCheckInWaitPeriod      time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
 	RepairExcludedCountryCodes []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
+	SendNodeEmails             bool          `help:"whether to send emails to nodes" default:"false"`
 }
 
 // AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.

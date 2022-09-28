@@ -17,6 +17,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/geoip"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -288,9 +289,12 @@ func (node *SelectedNode) Clone() *SelectedNode {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log              *zap.Logger
+	db               DB
+	mail             *mailservice.Service
+	satelliteName    string
+	satelliteAddress string
+	config           Config
 
 	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
@@ -298,7 +302,7 @@ type Service struct {
 }
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -328,9 +332,12 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	}
 
 	return &Service{
-		log:    log,
-		db:     db,
-		config: config,
+		log:              log,
+		db:               db,
+		mail:             mailService,
+		satelliteAddress: satelliteAddr,
+		satelliteName:    satelliteName,
+		config:           config,
 
 		GeoIP: geoIP,
 

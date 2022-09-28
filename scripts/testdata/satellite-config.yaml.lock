@@ -697,6 +697,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of country codes to exclude nodes from target repair selection
 # overlay.repair-excluded-country-codes: []
 
+# whether to send emails to nodes
+# overlay.send-node-emails: false
+
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 

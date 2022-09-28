@@ -153,7 +153,7 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	// setup dependencies for verification
-	overlay, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), satelliteCfg.Overlay)
+	overlay, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), nil, "", "", satelliteCfg.Overlay)
 	if err != nil {
 		return Error.Wrap(err)
 	}
