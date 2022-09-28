@@ -558,3 +558,9 @@ func limitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, 
 	}
 	return impl.AsOfSystemTime(baseline)
 }
+
+// TestingEnableMultipleVersions enables or disables the use of multiple versions (for tests).
+// Will be removed when multiple versions is enabled in production.
+func (db *DB) TestingEnableMultipleVersions(enabled bool) {
+	db.config.MultipleVersions = enabled
+}

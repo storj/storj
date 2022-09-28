@@ -35,12 +35,6 @@ pipeline {
 
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'
-
-                // add a stub go.mod file to node projects to prevent go build ./... from scanning them
-                sh 'mkdir -p web/satellite/node_modules web/storagenode/node_modules web/multinode/node_modules'
-                sh 'echo "module stub" > web/satellite/node_modules/go.mod'
-                sh 'echo "module stub" > web/storagenode/node_modules/go.mod'
-                sh 'echo "module stub" > web/multinode/node_modules/go.mod'
             }
         }
         stage('Gerrit status') {

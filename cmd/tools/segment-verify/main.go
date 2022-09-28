@@ -149,7 +149,7 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 		return Error.Wrap(err)
 	}
 
-	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, db.Orders(), db.Buckets(), satelliteCfg.Orders)
+	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, db.Orders(), satelliteCfg.Orders)
 	if err != nil {
 		return Error.Wrap(err)
 	}
