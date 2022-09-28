@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/gracefulexit"
@@ -151,10 +150,6 @@ type Core struct {
 	Metrics struct {
 		Chore *metrics.Chore
 	}
-
-	Buckets struct {
-		Service *buckets.Service
-	}
 }
 
 // New creates a new satellite.
@@ -169,10 +164,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
-	}
-
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
 	{ // setup debug
@@ -301,7 +292,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
