@@ -207,7 +207,7 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
-// @vue/component
+//@vue/component
 @Component({
     components: {
         VLoader,
@@ -343,6 +343,13 @@ export default class NewProjectDashboard extends Vue {
         } catch (error) {
             await this.$notify.error(error.message);
         }
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
