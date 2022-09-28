@@ -71,10 +71,6 @@ type Repairer struct {
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
-
-	Buckets struct {
-		Service *buckets.Service
-	}
 }
 
 // NewRepairer creates a new repairer peer.
@@ -177,10 +173,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		})
 	}
 
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(bucketsDB, metabaseDB)
-	}
-
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
@@ -198,7 +190,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {

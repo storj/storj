@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -150,7 +149,9 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if err := ioutil.WriteFile(exportTo, []byte(newAccessData+"\n"), 0600); err != nil {
+		// TODO: this should use the ulfs package so that tests can run without actually
+		// writing files out.
+		if err := os.WriteFile(exportTo, []byte(newAccessData+"\n"), 0600); err != nil {
 			return err
 		}
 		fmt.Fprintln(clingy.Stdout(ctx), "Exported to:", exportTo)

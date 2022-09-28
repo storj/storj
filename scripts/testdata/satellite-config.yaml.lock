@@ -698,7 +698,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.billing-config.disable-loop: true
 
 # billing chore interval to query for new transactions from all payment types
-# payments.billing-config.interval: 1m0s
+# payments.billing-config.interval: 15s
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
