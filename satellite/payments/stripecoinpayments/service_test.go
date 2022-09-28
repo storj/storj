@@ -339,7 +339,7 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 		require.NoError(t, err)
 
 		// run apply token balance to see if there are no unexpected errors
-		err = payments.StripeService.InvoiceApplyTokenBalance(ctx)
+		err = payments.StripeService.InvoiceApplyTokenBalance(ctx, time.Time{})
 		require.NoError(t, err)
 	})
 }

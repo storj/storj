@@ -542,9 +542,9 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 	return nil
 }
 
-// InvoiceApplyTokenBalance iterates through customer storjscan wallets and creates invoice line items
-// for stripe customer.
-func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error) {
+// InvoiceApplyTokenBalance iterates through customer storjscan wallets and creates invoice credit notes
+// for stripe customers with invoices on or after the given date.
+func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnAfter time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// get all wallet entries
@@ -574,7 +574,7 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 			errGrp.Add(Error.New("unable to get stripe customer ID for user ID %s", wallet.UserID.String()))
 			continue
 		}
-		invoices, err := service.getInvoices(ctx, cusID)
+		invoices, err := service.getInvoices(ctx, cusID, createdOnAfter)
 		if err != nil {
 			errGrp.Add(Error.New("unable to get invoice balance for stripe customer ID %s", cusID))
 			continue
@@ -629,14 +629,15 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context) (err error
 	return errGrp.Err()
 }
 
-// getInvoices returns the stripe customer's open finalized invoices.
-func (service *Service) getInvoices(ctx context.Context, cusID string) (_ []stripe.Invoice, err error) {
+// getInvoices returns the stripe customer's open finalized invoices created on or after the given date.
+func (service *Service) getInvoices(ctx context.Context, cusID string, createdOnAfter time.Time) (_ []stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
 		Customer: stripe.String(cusID),
 		Status:   stripe.String(string(stripe.InvoiceStatusOpen)),
 	}
+	params.Filters.AddFilter("created", "gte", strconv.FormatInt(createdOnAfter.Unix(), 10))
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	var stripeInvoices []stripe.Invoice
 	for invoicesIterator.Next() {
@@ -988,13 +989,15 @@ func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (
 	return err
 }
 
-// PayInvoices attempts to transition all open finalized invoices to "paid" by charging the customer according to subscriptions settings.
-func (service *Service) PayInvoices(ctx context.Context) (err error) {
+// PayInvoices attempts to transition all open finalized invoices created on or after a certain time to "paid"
+// by charging the customer according to subscriptions settings.
+func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
 		Status: stripe.String("open"),
 	}
+	params.Filters.AddFilter("created", "gte", strconv.FormatInt(createdOnAfter.Unix(), 10))
 
 	var errGrp errs.Group
 

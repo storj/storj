@@ -793,12 +793,17 @@ func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
+	t, err := time.Parse("02/01/2006", args[0])
+	if err != nil {
+		return errs.New("invalid date specified specified: %v", err)
+	}
+
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		err := payments.InvoiceApplyTokenBalance(ctx)
+		err := payments.InvoiceApplyTokenBalance(ctx, t)
 		if err != nil {
 			return errs.New("error applying native token payments: %v", err)
 		}
-		return payments.PayInvoices(ctx)
+		return payments.PayInvoices(ctx, t)
 	})
 }
 
