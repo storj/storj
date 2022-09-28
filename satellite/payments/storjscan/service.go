@@ -73,6 +73,9 @@ func (service *Service) Claim(ctx context.Context, userID uuid.UUID) (_ blockcha
 	if err != nil {
 		return blockchain.Address{}, ErrService.Wrap(err)
 	}
+	service.log.Info("STORJ token wallet claimed",
+		zap.String("userid", userID.String()),
+		zap.String("wallet address", address.Hex()))
 
 	return address, nil
 }
