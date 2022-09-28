@@ -57,7 +57,7 @@
                     label="Back"
                     width="250px"
                     height="44px"
-                    is-blue-white="true"
+                    :is-blue-white="true"
                     :on-press="toggleConfirmMessage"
                 />
             </div>

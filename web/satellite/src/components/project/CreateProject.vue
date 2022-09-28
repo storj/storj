@@ -42,7 +42,7 @@
                     width="210px"
                     height="48px"
                     :on-press="onCancelClick"
-                    is-transparent="true"
+                    :is-transparent="true"
                 />
                 <VButton
                     label="Create Project +"

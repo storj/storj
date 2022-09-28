@@ -135,23 +135,11 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
-            <!---->
-            <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
-          </div>
+          <vbutton-stub label="Add STORJ" width="123px" height="46px" fontsize="16px" borderradius="6px" icon="none" isbluewhite="true" onpress="[Function]" class="add-storj-button"></vbutton-stub>
         </div>
       </div>
     </div>
-    <div class="payments-bonus-container payment-methods-area__functional-area__bonus"><svg class="banner-logo-svg"></svg>
-      <div class="payments-bonus-container__text-container">
-        <p class="payments-bonus-container__text-container__main-text">
-          Get free credits for paying in STORJ Token
-        </p>
-        <p class="payments-bonus-container__text-container__additional-text">
-          Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.
-        </p>
-      </div>
-    </div>
+    <paymentsbonus-stub anycreditcards="true" class="payment-methods-area__functional-area__bonus"></paymentsbonus-stub>
     <!---->
     <!---->
     <div class="add-card-button">
@@ -162,23 +150,7 @@ exports[`PaymentMethods renders correctly with card 1`] = `
   <!---->
   <!---->
   <div class="payment-methods-area__existing-cards-container">
-    <div class="payment-methods-container__card-container">
-      <div class="payment-methods-container__card-container__info-area">
-        <div class="payment-methods-container__card-container__info-area__card-logo"><svg></svg></div>
-        <div class="payment-methods-container__card-container__info-area__info-container"><img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image">
-          <h1 class="bold">0000</h1>
-        </div>
-        <div class="payment-methods-container__card-container__info-area__expire-container">
-          <h2 class="medium">Expires</h2>
-          <h1 class="bold">12/2100</h1>
-        </div>
-      </div>
-      <div class="payment-methods-container__card-container__button-area">
-        <div class="payment-methods-container__card-container__default-button">
-          <p class="payment-methods-container__card-container__default-button__label">Default</p>
-        </div>
-      </div>
-    </div>
+    <cardcomponent-stub creditcard="[object Object]"></cardcomponent-stub>
   </div>
   <!---->
 </div>
@@ -191,23 +163,11 @@ exports[`PaymentMethods renders correctly without card 1`] = `
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
-            <!---->
-            <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
-          </div>
+          <vbutton-stub label="Add STORJ" width="123px" height="46px" fontsize="16px" borderradius="6px" icon="none" isbluewhite="true" onpress="[Function]" class="add-storj-button"></vbutton-stub>
         </div>
       </div>
     </div>
-    <div class="payments-bonus-container payment-methods-area__functional-area__bonus"><svg class="banner-gift-svg"></svg>
-      <div class="payments-bonus-container__text-container">
-        <p class="payments-bonus-container__text-container__main-text">
-          Add a Payment Method to Get Started
-        </p>
-        <p class="payments-bonus-container__text-container__additional-text">
-          Your first 150GB are free. You will not be charged until you use more than 150GB.
-        </p>
-      </div>
-    </div>
+    <paymentsbonus-stub class="payment-methods-area__functional-area__bonus"></paymentsbonus-stub>
     <!---->
     <!---->
     <div class="add-card-button">

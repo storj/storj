@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
 
@@ -23,7 +23,7 @@ localVue.use(new NotificatorPlugin(store));
 
 describe('CreateProject.vue', (): void => {
     it('renders correctly', (): void => {
-        const wrapper = mount<CreateProject>(CreateProject, {
+        const wrapper = shallowMount<CreateProject>(CreateProject, {
             store,
             localVue,
         });
@@ -32,7 +32,7 @@ describe('CreateProject.vue', (): void => {
     });
 
     it('renders correctly with project name', async (): Promise<void> => {
-        const wrapper = mount<CreateProject>(CreateProject, {
+        const wrapper = shallowMount<CreateProject>(CreateProject, {
             store,
             localVue,
         });

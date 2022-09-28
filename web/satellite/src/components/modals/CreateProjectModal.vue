@@ -41,7 +41,7 @@
                         width="100%"
                         height="48px"
                         :on-press="closeModal"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Create Project"

@@ -19,7 +19,7 @@
                         width="100%"
                         height="48px"
                         :on-press="close"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Create Folder"
@@ -124,7 +124,7 @@ export default class NewFolderModal extends Vue {
      */
     public async createFolder(): Promise<void> {
         if (this.isLoading) return;
-        
+
         this.isLoading = true;
 
         if (!this.createFolderEnabled) {

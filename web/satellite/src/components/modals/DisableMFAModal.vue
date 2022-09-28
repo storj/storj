@@ -24,7 +24,7 @@
                         label="Cancel"
                         width="100%"
                         height="44px"
-                        is-white="true"
+                        :is-white="true"
                         :on-press="closeModal"
                     />
                     <VButton

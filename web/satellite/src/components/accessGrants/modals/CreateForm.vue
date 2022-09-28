@@ -191,7 +191,7 @@
                 <v-button
                     label="Learn More"
                     height="48px"
-                    is-transparent="true"
+                    :is-transparent="true"
                     font-size="14px"
                     class="create-access__buttons__button"
                 />

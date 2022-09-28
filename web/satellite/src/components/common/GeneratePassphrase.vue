@@ -42,8 +42,8 @@
                     label="Copy"
                     width="66px"
                     height="30px"
-                    is-blue-white="true"
-                    is-uppercase="true"
+                    :is-blue-white="true"
+                    :is-uppercase="true"
                     :on-press="onCopyClick"
                 />
             </div>
@@ -80,7 +80,7 @@
                 label="< Back"
                 height="64px"
                 border-radius="62px"
-                is-blue-white="true"
+                :is-blue-white="true"
                 :on-press="onBackClick"
                 :is-disabled="isLoading"
             />

@@ -48,7 +48,7 @@
             <VButton
                 class="token__action-area__history-btn"
                 label="See transactions"
-                is-transparent="true"
+                :is-transparent="true"
                 height="32px"
                 font-size="13px"
                 border-radius="6px"

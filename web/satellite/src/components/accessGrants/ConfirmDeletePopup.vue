@@ -31,7 +31,7 @@
                     width="50%"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
@@ -73,14 +73,14 @@
                     width="50%"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
                     label="Delete Access"
                     width="50%"
                     height="44px"
-                    is-solid-delete="true"
+                    :is-solid-delete="true"
                     :on-press="onDeleteClick"
                     :is-disabled="isLoading"
                 />
@@ -152,7 +152,7 @@ export default class ConfirmDeletePopup extends Vue {
     }
     /**
      * Checks for new access grant flag
-     */ 
+     */
     public get isNewAccessGrantFlow(): boolean {
         const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
         return isNewAccessGrantFlow === 'true';

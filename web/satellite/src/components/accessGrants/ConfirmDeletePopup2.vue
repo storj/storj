@@ -35,7 +35,7 @@
                     width="70px"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
@@ -44,7 +44,7 @@
                     height="44px"
                     :on-press="onDeleteClick"
                     :is-disabled="isLoading || confirmedInput !== selectedAccessGrants[0].name"
-                    is-solid-delete="true"
+                    :is-solid-delete="true"
                     has-trash-icon="true"
                 />
             </div>

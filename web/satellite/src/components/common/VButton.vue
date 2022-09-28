@@ -22,7 +22,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { computed, defineComponent } from 'vue';
 
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
@@ -30,81 +31,63 @@ import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 
-/**
- * Custom button component with label.
- */
-// @vue/component
-@Component({
+export default defineComponent({
+    name: 'VButton',
     components: {
         CopyIcon,
+        TrashIcon,
         LockIcon,
         CreditCardIcon,
         DocumentIcon,
-        TrashIcon,
     },
-})
-export default class VButton extends Vue {
-    @Prop({ default: 'Default' })
-    private readonly label: string;
-    @Prop({ default: 'inherit' })
-    private readonly width: string;
-    @Prop({ default: 'inherit' })
-    private readonly height: string;
-    @Prop({ default: '16px' })
-    private readonly fontSize: string;
-    @Prop({ default: '6px' })
-    private readonly borderRadius: string;
-    @Prop({ default: 'none' })
-    private readonly icon: string;
-    @Prop({ default: false })
-    private readonly isWhite: boolean;
-    @Prop({ default: false })
-    private readonly isSolidDelete: boolean;
-    @Prop({ default: false })
-    private readonly isTransparent: boolean;
-    @Prop({ default: false })
-    private readonly isDeletion: boolean;
-    @Prop({ default: false })
-    private readonly isGreyBlue: boolean;
-    @Prop({ default: false })
-    private readonly isBlueWhite: boolean;
-    @Prop({ default: false })
-    private readonly isWhiteGreen: boolean;
-    @Prop({ default: false })
-    private readonly isGreenWhite: boolean;
-    @Prop({ default: false })
-    private isDisabled: boolean;
-    @Prop({ default: false })
-    private readonly isUppercase: boolean;
-    @Prop({ default: () => () => {} })
-    private readonly onPress: () => void;
+    props:  {
+        label: { type: String, default: 'Default' },
+        width: { type: String, default: 'inherit' },
+        height: { type: String, default: 'inherit' },
+        fontSize: { type: String, default: '16px' },
+        borderRadius: { type: String, default: '6px' },
+        icon: { type: String, default: 'none' },
+        isWhite: Boolean,
+        isSolidDelete: Boolean,
+        isTransparent: Boolean,
+        isDeletion: Boolean,
+        isGreyBlue: Boolean,
+        isBlueWhite: Boolean,
+        isWhiteGreen: Boolean,
+        isGreenWhite: Boolean,
+        isDisabled: Boolean,
+        isUppercase: Boolean,
+        onPress: { type: Function as () => void, default: () => {} },
+    },
+    setup(props) {
+        return {
+            containerClassName: computed(() => {
+                if (props.isDisabled) return 'container disabled';
 
-    public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
-    }
+                if (props.isWhite) return 'container white';
 
-    public get containerClassName(): string {
-        if (this.isDisabled) return 'container disabled';
+                if (props.isSolidDelete) return 'container solid-red';
 
-        if (this.isWhite) return 'container white';
+                if (props.isTransparent) return 'container transparent';
 
-        if (this.isSolidDelete) return 'container solid-red';
+                if (props.isDeletion) return 'container red';
 
-        if (this.isTransparent) return 'container transparent';
+                if (props.isGreyBlue) return 'container grey-blue';
 
-        if (this.isDeletion) return 'container red';
+                if (props.isBlueWhite) return 'container blue-white';
 
-        if (this.isGreyBlue) return 'container grey-blue';
+                if (props.isWhiteGreen) return 'container white-green';
 
-        if (this.isBlueWhite) return 'container blue-white';
+                if (props.isGreenWhite) return 'container green-white';
 
-        if (this.isWhiteGreen) return 'container white-green';
-
-        if (this.isGreenWhite) return 'container green-white';
-
-        return 'container';
-    }
-}
+                return 'container';
+            }),
+            style: computed(() => {
+                return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
+            }),
+        };
+    },
+});
 </script>
 
 <style scoped lang="scss">

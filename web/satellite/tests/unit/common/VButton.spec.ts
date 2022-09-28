@@ -3,36 +3,27 @@
 
 import { mount, shallowMount } from '@vue/test-utils';
 
-import Button from '@/components/common/VButton.vue';
+import VButton from '@/components/common/VButton.vue';
 
 describe('Button.vue', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                onPress: () => { return; },
-            },
-        });
+        // VButton as never is not ideal. We will not need if after we upgrade from @vue/test-utils@1.3.0
+        const wrapper = mount(VButton as never);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isWhite prop', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                isWhite: true,
-                onPress: () => { return; },
-            },
+        const wrapper = shallowMount(VButton as never, {
+            propsData: { isWhite: true },
         });
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isDisabled prop', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                isDisabled: true,
-                onPress: () => { return; },
-            },
+        const wrapper = shallowMount(VButton as never, {
+            propsData: { isDisabled: true },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -43,12 +34,11 @@ describe('Button.vue', () => {
         const width = '30px';
         const height = '20px';
 
-        const wrapper = shallowMount(Button, {
+        const wrapper = shallowMount(VButton as never, {
             propsData: {
                 label,
                 width,
                 height,
-                onPress: () => { return; },
             },
         });
 
@@ -59,11 +49,7 @@ describe('Button.vue', () => {
     });
 
     it('renders correctly with default props', () => {
-        const wrapper = shallowMount(Button, {
-            propsData: {
-                onPress: () => { return; },
-            },
-        });
+        const wrapper = shallowMount(VButton as never);
 
         const el = wrapper.element as HTMLElement;
         expect(el.style.width).toMatch('inherit');
@@ -73,11 +59,13 @@ describe('Button.vue', () => {
 
     it('trigger onPress correctly', () => {
         const onPressSpy = jest.fn();
+        const onPress = onPressSpy;
+        const isDisabled = false;
 
-        const wrapper = mount(Button, {
+        const wrapper = shallowMount(VButton as never, {
             propsData: {
-                onPress: onPressSpy,
-                isDisabled: false,
+                onPress,
+                isDisabled,
             },
         });
 

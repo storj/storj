@@ -30,7 +30,7 @@
                     <VButton
                         label="Cancel"
                         height="48px"
-                        is-transparent="true"
+                        :is-transparent="true"
                         :on-press="closeModal"
                         :is-disabled="isLoading"
                     />

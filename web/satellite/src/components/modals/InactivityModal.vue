@@ -21,7 +21,7 @@
                         label="Log out"
                         height="40px"
                         font-size="13px"
-                        is-transparent="true"
+                        :is-transparent="true"
                         class="modal__buttons__button logout"
                         :on-press="withLoading(onLogout)"
                         :disabled="isLoading"

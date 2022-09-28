@@ -64,6 +64,7 @@ module.exports = {
             ],
             'newlines-between': 'always',
         }],
+
         'no-duplicate-imports': 'error',
         'object-curly-spacing': ['error', 'always'],
         'quotes': ['error', 'single', { 'allowTemplateLiterals': true }],

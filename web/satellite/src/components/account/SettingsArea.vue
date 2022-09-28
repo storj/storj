@@ -66,14 +66,14 @@
                         width="173px"
                         height="44px"
                         :on-press="toggleDisableMFAModal"
-                        is-deletion="true"
+                        :is-deletion="true"
                     />
                     <VButton
                         label="Regenerate Recovery Codes"
                         width="240px"
                         height="44px"
                         :on-press="generateNewMFARecoveryCodes"
-                        is-blue-white="true"
+                        :is-blue-white="true"
                         :is-disabled="isLoading"
                     />
                 </div>
