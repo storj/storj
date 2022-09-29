@@ -25,6 +25,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import AddCouponCodeInput2 from '@/components/common/AddCouponCodeInput2.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
@@ -45,10 +48,13 @@ export default class AddCouponCode2 extends Vue {
     @Prop({ default: false })
     protected readonly error: boolean;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
         this.$emit('toggleMethod');
     }
 

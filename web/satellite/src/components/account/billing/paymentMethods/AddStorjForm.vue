@@ -12,6 +12,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -24,6 +26,8 @@ export default class AddStorjForm extends Vue {
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     @Prop({ default: false })
     public readonly isLoading: boolean;
@@ -49,6 +53,7 @@ export default class AddStorjForm extends Vue {
         if (!this.isDepositValueValid) return;
 
         try {
+            this.analytics.eventTriggered(AnalyticsEvent.STORJ_TOKEN_ADDED_FROM_BILLING);
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
             const depositWindow = window.open(tokenResponse.link, '_blank');

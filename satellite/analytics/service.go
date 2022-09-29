@@ -60,6 +60,17 @@ const (
 	eventCreateAccessGrantClicked   = "Create Access Grant Clicked"
 	eventCreateS3CredentialsClicked = "Create S3 Credentials Clicked"
 	eventKeysForCLIClicked          = "Create Keys For CLI Clicked"
+	eventSeePaymentsClicked         = "See Payments Clicked"
+	eventEditPaymentMethodClicked   = "Edit Payment Method Clicked"
+	eventUsageDetailedInfoClicked   = "Usage Detailed Info Clicked"
+	eventAddNewPaymentMethodClicked = "Add New Payment Method Clicked"
+	eventApplyNewCouponClicked      = "Apply New Coupon Clicked"
+	eventCreditCardRemoved          = "Credit Card Removed"
+	eventCouponCodeApplied          = "Coupon Code Applied"
+	eventInvoiceDownloaded          = "Invoice Downloaded"
+	eventCreditCardAddedFromBilling = "Credit Card Added From Billing"
+	eventStorjTokenAddedFromBilling = "Storj Token Added From Billing"
+	eventAddFundsClicked            = "Add Funds Clicked"
 )
 
 var (
@@ -106,7 +117,10 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventUploadUsingCliClicked, eventUploadInWebClicked, eventNewProjectClicked, eventLogoutClicked, eventProfileUpdated,
 		eventPasswordChanged, eventMfaEnabled, eventBucketCreated, eventBucketDeleted, eventAccessGrantCreated, eventAPIAccessCreated,
 		eventUploadFileClicked, eventUploadFolderClicked, eventCreateKeysClicked, eventDownloadTxtClicked, eventEncryptMyAccessClicked,
-		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked} {
+		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked,
+		eventSeePaymentsClicked, eventEditPaymentMethodClicked, eventUsageDetailedInfoClicked, eventAddNewPaymentMethodClicked,
+		eventApplyNewCouponClicked, eventCreditCardRemoved, eventCouponCodeApplied, eventInvoiceDownloaded, eventCreditCardAddedFromBilling,
+		eventStorjTokenAddedFromBilling, eventAddFundsClicked} {
 		service.clientEvents[name] = true
 	}
 

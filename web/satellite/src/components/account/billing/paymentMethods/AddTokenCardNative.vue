@@ -78,6 +78,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VInfo from '@/components/common/VInfo.vue';
@@ -101,6 +103,8 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 export default class AddTokenCardNative extends Vue {
     public isLoading = true;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Mounted hook after initial render.
      * Fetches wallet from backend.
@@ -120,6 +124,7 @@ export default class AddTokenCardNative extends Vue {
      * Triggers Add funds popup.
      */
     public onAddTokensClick(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TOKEN_FUNDS_MODAL_SHOWN);
     }
 
