@@ -182,6 +182,7 @@ type NodeCriteria struct {
 
 // ReputationStatus indicates current reputation status for a node.
 type ReputationStatus struct {
+	Email                  string
 	Disqualified           *time.Time
 	DisqualificationReason *DisqualificationReason
 	UnknownAuditSuspended  *time.Time
