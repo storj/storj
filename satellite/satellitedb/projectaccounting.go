@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
@@ -18,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
@@ -266,6 +268,12 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 		storageRows, err := results.Query()
 		if err != nil {
+			if pgerrcode.FromError(err) == pgxerrcode.InvalidCatalogName {
+				// this error may happen if database is created in the last 5 minutes (`as of systemtime` points to a time before Genesis).
+				// in this case we can ignore the database not found error and return with no usage.
+				// if the database is really missing --> we have more serious problems than getting 0s from here.
+				return nil
+			}
 			return err
 		}
 
