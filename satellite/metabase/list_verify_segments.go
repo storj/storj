@@ -49,7 +49,7 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 	defer mon.Task()(&ctx)(&err)
 
 	if opts.Limit <= 0 {
-		return ListVerifySegmentsResult{}, Error.New("Invalid limit: %d", opts.Limit)
+		return ListVerifySegmentsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
 	ListVerifyLimit.Ensure(&opts.Limit)
 	result.Segments = make([]VerifySegment, 0, opts.Limit)
