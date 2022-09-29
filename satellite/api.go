@@ -307,7 +307,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			reputationDB = cachingDB
 		}
-		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.DB, reputationDB, config.Reputation)
+		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.Service, reputationDB, config.Reputation)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,

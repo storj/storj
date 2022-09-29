@@ -177,7 +177,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			reputationdb = cachingDB
 		}
 		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
-			overlayCache,
+			peer.Overlay,
 			reputationdb,
 			config.Reputation,
 		)
