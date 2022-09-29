@@ -740,30 +740,31 @@ func TestUpdateReputation(t *testing.T) {
 		t2 := t0.Add(2 * time.Hour)
 		t3 := t0.Add(3 * time.Hour)
 
-		reputationChange := overlay.ReputationUpdate{
+		reputationUpdate := overlay.ReputationUpdate{
 			Disqualified:          nil,
 			UnknownAuditSuspended: &t1,
 			OfflineSuspended:      &t2,
 			VettedAt:              &t3,
 		}
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		repChange := []nodeevents.Type{nodeevents.UnknownAuditSuspended, nodeevents.OfflineSuspended}
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
-		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
-		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
-		require.Equal(t, reputationChange.VettedAt, info.Reputation.Status.VettedAt)
+		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
+		require.Equal(t, reputationUpdate.UnknownAuditSuspended, info.UnknownAuditSuspended)
+		require.Equal(t, reputationUpdate.OfflineSuspended, info.OfflineSuspended)
+		require.Equal(t, reputationUpdate.VettedAt, info.Reputation.Status.VettedAt)
 
-		reputationChange.Disqualified = &t0
-
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		reputationUpdate.Disqualified = &t0
+		repChange = []nodeevents.Type{nodeevents.Disqualified}
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
 
 		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              node.ID(),
@@ -777,8 +778,8 @@ func TestUpdateReputation(t *testing.T) {
 
 		// make sure Disqualified field is not updated if a node has finished
 		// graceful exit
-		reputationChange.Disqualified = &t0
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		reputationUpdate.Disqualified = &t0
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		exitedNodeInfo, err := service.Get(ctx, node.ID())
@@ -879,6 +880,77 @@ func TestKnownReliableInExcludedCountries(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, node.ID(), nodes[0])
+	})
+}
+
+func TestUpdateReputationNodeEvents(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		email := "test@storj.test"
+		neDB := planet.Satellites[0].DB.NodeEvents()
+
+		now := time.Now()
+		repUpdate := overlay.ReputationUpdate{
+			UnknownAuditSuspended: &now,
+		}
+
+		repChanges := []nodeevents.Type{nodeevents.UnknownAuditSuspended}
+
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), email, repUpdate, repChanges))
+
+		ne, err := neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.UnknownAuditSuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.UnknownAuditSuspended, ne.Event)
+
+		repUpdate.UnknownAuditSuspended = nil
+		repChanges = []nodeevents.Type{nodeevents.UnknownAuditUnsuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.UnknownAuditUnsuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.UnknownAuditUnsuspended, ne.Event)
+
+		repUpdate.OfflineSuspended = &now
+		repChanges = []nodeevents.Type{nodeevents.OfflineSuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineSuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.OfflineSuspended, ne.Event)
+
+		repUpdate.OfflineSuspended = nil
+		repChanges = []nodeevents.Type{nodeevents.OfflineUnsuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineUnsuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.OfflineUnsuspended, ne.Event)
+
+		repUpdate.Disqualified = &now
+		repChanges = []nodeevents.Type{nodeevents.Disqualified}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.Disqualified)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.Disqualified, ne.Event)
 	})
 }
 

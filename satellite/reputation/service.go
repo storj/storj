@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -120,7 +121,8 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 	// the previous VettedAt time for a node.
 	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
 	// for the VettedAt status is done using time values that are truncated to second precision.
-	if hasReputationChanged(*statusUpdate, reputation, now) {
+	changed, repChanges := hasReputationChanged(*statusUpdate, reputation, now)
+	if changed {
 		reputationUpdate := &overlay.ReputationUpdate{
 			Disqualified:           statusUpdate.Disqualified,
 			DisqualificationReason: statusUpdate.DisqualificationReason,
@@ -128,7 +130,7 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 			OfflineSuspended:       statusUpdate.OfflineSuspended,
 			VettedAt:               statusUpdate.VettedAt,
 		}
-		err = service.overlay.UpdateReputation(ctx, nodeID, *reputationUpdate)
+		err = service.overlay.UpdateReputation(ctx, nodeID, reputation.Email, *reputationUpdate, repChanges)
 		if err != nil {
 			return err
 		}
@@ -184,7 +186,7 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 	if n.DisqualificationReason != nil {
 		update.DisqualificationReason = *n.DisqualificationReason
 	}
-	return service.overlay.UpdateReputation(ctx, nodeID, update)
+	return service.overlay.UpdateReputation(ctx, nodeID, "", update, []nodeevents.Type{nodeevents.UnknownAuditSuspended})
 }
 
 // TestDisqualifyNode disqualifies a storage node.
@@ -220,7 +222,7 @@ func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeI
 	if n.DisqualificationReason != nil {
 		update.DisqualificationReason = *n.DisqualificationReason
 	}
-	return service.overlay.UpdateReputation(ctx, nodeID, update)
+	return service.overlay.UpdateReputation(ctx, nodeID, "", update, []nodeevents.Type{nodeevents.UnknownAuditUnsuspended})
 }
 
 // TestFlushAllNodeInfo flushes any and all cached information about all
@@ -247,19 +249,35 @@ func (service *Service) Close() error { return nil }
 
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
-func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) bool {
-	if statusChanged(current.Disqualified, updated.Disqualified) ||
-		statusChanged(current.UnknownAuditSuspended, updated.UnknownAuditSuspended) ||
-		statusChanged(current.OfflineSuspended, updated.OfflineSuspended) {
-		return true
+func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) (changed bool, repChanges []nodeevents.Type) {
+	if statusChanged(current.Disqualified, updated.Disqualified) {
+		repChanges = append(repChanges, nodeevents.Disqualified)
+		changed = true
 	}
+	if statusChanged(current.UnknownAuditSuspended, updated.UnknownAuditSuspended) {
+		if updated.UnknownAuditSuspended != nil {
+			repChanges = append(repChanges, nodeevents.UnknownAuditSuspended)
+		} else {
+			repChanges = append(repChanges, nodeevents.UnknownAuditUnsuspended)
+		}
+		changed = true
+	}
+	if statusChanged(current.OfflineSuspended, updated.OfflineSuspended) {
+		if updated.OfflineSuspended != nil {
+			repChanges = append(repChanges, nodeevents.OfflineSuspended)
+		} else {
+			repChanges = append(repChanges, nodeevents.OfflineUnsuspended)
+		}
+		changed = true
+	}
+
 	// check for newly vetted nodes.
 	// Due to inconsistencies in the precision of time.Now() on different platforms and databases, the time comparison
 	// for the VettedAt status is done using time values that are truncated to second precision.
 	if updated.VettedAt != nil && updated.VettedAt.Truncate(time.Second).Equal(now.Truncate(time.Second)) {
-		return true
+		changed = true
 	}
-	return false
+	return changed, repChanges
 }
 
 // statusChanged determines if the two given statuses are different.

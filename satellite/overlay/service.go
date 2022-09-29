@@ -539,9 +539,19 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
-func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) (err error) {
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, email string, request ReputationUpdate, reputationChanges []nodeevents.Type) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateReputation(ctx, id, request)
+
+	err = service.db.UpdateReputation(ctx, id, request)
+	if err != nil {
+		return err
+	}
+
+	if service.config.SendNodeEmails {
+		service.insertReputationNodeEvents(ctx, email, id, reputationChanges)
+	}
+
+	return nil
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -764,4 +774,39 @@ func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.No
 	}
 
 	return nil
+}
+
+func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storj.NodeID, repEvents []nodeevents.Type) {
+	defer mon.Task()(&ctx)(nil)
+
+	for _, event := range repEvents {
+		switch event {
+		case nodeevents.Disqualified:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.Disqualified)
+			if err != nil {
+				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
+			}
+		case nodeevents.UnknownAuditSuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditSuspended)
+			if err != nil {
+				service.log.Error("could not insert node unknown audit suspended into node events", zap.Error(err))
+			}
+		case nodeevents.UnknownAuditUnsuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditUnsuspended)
+			if err != nil {
+				service.log.Error("could not insert node unknown audit unsuspended into node events", zap.Error(err))
+			}
+		case nodeevents.OfflineSuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineSuspended)
+			if err != nil {
+				service.log.Error("could not insert node offline suspended into node events", zap.Error(err))
+			}
+		case nodeevents.OfflineUnsuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineUnsuspended)
+			if err != nil {
+				service.log.Error("could not insert node offline unsuspended into node events", zap.Error(err))
+			}
+		default:
+		}
+	}
 }
