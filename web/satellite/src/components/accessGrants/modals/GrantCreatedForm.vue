@@ -367,7 +367,7 @@ export default class GrantCreated extends Vue {
         if (this.s3AndAccessSelected)
             type = 's3Access';
         const credentialMap = {
-            access: [`access grant: ${this.access}`],
+            access: [this.access],
             s3: [`access key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`],
             api: [`satellite address: ${this.satelliteAddress}\nrestricted key: ${this.restrictedKey}`],
             s3Access: [`access grant: ${this.access}\naccess key: ${this.gatewayCredentials.accessKeyId}\nsecret key: ${this.gatewayCredentials.secretKey}\nendpoint: ${this.gatewayCredentials.endpoint}`],
