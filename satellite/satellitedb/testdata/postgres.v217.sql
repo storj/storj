@@ -174,6 +174,18 @@ CREATE TABLE nodes (
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL DEFAULT false,
+	contained timestamp with time zone,
+	last_offline_email timestamp with time zone,
+	last_software_update_email timestamp with time zone,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE node_events (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	node_id bytea NOT NULL,
+	event integer NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -314,6 +326,24 @@ CREATE TABLE reset_password_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE verification_audits (
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	expires_at timestamp with time zone,
+	encrypted_size integer NOT NULL,
+	PRIMARY KEY ( inserted_at, stream_id, position )
+);
+CREATE TABLE reverification_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_num integer NOT NULL,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempt timestamp with time zone,
+	reverify_count bigint NOT NULL DEFAULT 0,
+	PRIMARY KEY ( node_id, stream_id, position )
 );
 CREATE TABLE revocations (
 	revoked bytea NOT NULL,
@@ -568,6 +598,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent IS NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -576,6 +607,7 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -748,4 +780,17 @@ INSERT INTO "projects"("id", "public_id", "name", "description", "usage_limit", 
 
 INSERT INTO "users" ("id", "full_name", "email", "normalized_email", "password_hash", "status", "created_at", "mfa_enabled", "mfa_secret_key", "mfa_recovery_codes", "signup_promo_code", "project_limit", "project_bandwidth_limit", "project_storage_limit", "project_segment_limit", "verification_reminders", "signup_captcha") VALUES (E'\\363\\311\\033w\\222\\303Ci\\266\\344U\\304\\312\\206",'::bytea, 'Harold Smith', '1testemail206@mail.test', '1TESTEMAIL206@MAIL.TEST', E'some_readable_hash'::bytea, 1, '2021-08-14 09:13:44.614594+00', true, 'mfa secret key', '["1a2b3c4d","e5f6d7h8"]', 'promo123', 3, 50000000000, 50000000000, 150000, 1, 1);
 
+INSERT INTO "reverification_audits" ("node_id", "stream_id", "position", "piece_num", "inserted_at", "last_attempt", "reverify_count") VALUES (E'\\xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', E'\\x01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b', 1152921504606846976, 4, '2008-06-06 14:13:08.845574-07', '2009-08-23 02:19:52.922832-07', 5);
+
+INSERT INTO "node_events" ("id", "email", "node_id", "event", "created_at", "email_sent") VALUES (E'\\362\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\017', 'test@storj.test', E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', 1, '2019-02-14 08:28:24.614594+00', '2019-02-14 08:28:24.614594+00');
+
+INSERT INTO "verification_audits" ("inserted_at", "stream_id", "position", "expires_at", "encrypted_size") VALUES ('2022-10-31 00:00:00.000000+00', E'\\xb5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c', 42949672970, NULL, 2147483647);
+INSERT INTO "verification_audits" ("inserted_at", "stream_id", "position", "expires_at", "encrypted_size") VALUES ('2022-10-31 00:01:00.000000+00', E'\\x6e96e45029870a9b08cff2ed6ac840ccde3edce244327cc1bddefa1e555bc81f', 450971566185, '2023-01-01 23:59:59.999999+13', 12);
+
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "wallet_features", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90","created_at", "updated_at", "last_contact_success", "last_contact_failure", "disqualified", "disqualification_reason", "exit_success", "contained") VALUES (E'\\342\\341\\363\\342>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55516', '', 0, 4, '', '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', NULL, NULL, false, '2022-06-14 05:07:31.108963+00');
+
 -- NEW DATA --
+
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "wallet_features", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90","created_at", "updated_at", "last_contact_success", "last_contact_failure", "disqualified", "disqualification_reason", "exit_success", "country_code", "last_offline_email") VALUES (E'\\362\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\345\\017', '127.0.0.1:55517', '', 0, 4, '', '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, '2020-02-14 08:07:31.028103+00', '2021-10-13 08:07:31.108963+00', 'epoch', 'epoch', '2021-10-13 08:07:31.108963+00', 0, false, NULL, '2021-10-13 08:07:31.108963+00');
+
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "wallet_features", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90","created_at", "updated_at", "last_contact_success", "last_contact_failure", "disqualified", "disqualification_reason", "exit_success", "country_code", "last_software_update_email") VALUES (E'\\362\\341\\363\\371>+F\\256\\262\\300\\273|\\342N\\347\\017', '127.0.0.1:55517', '', 0, 4, '', '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, '2020-02-14 08:07:31.028103+00', '2021-10-13 08:07:31.108963+00', 'epoch', 'epoch', '2021-10-13 08:07:31.108963+00', 0, false, NULL, '2021-10-13 08:07:31.108963+00');

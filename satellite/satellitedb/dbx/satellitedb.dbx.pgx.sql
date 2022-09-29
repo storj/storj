@@ -175,6 +175,8 @@ CREATE TABLE nodes (
 	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL DEFAULT false,
 	contained timestamp with time zone,
+	last_offline_email timestamp with time zone,
+	last_software_update_email timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (

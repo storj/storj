@@ -2156,6 +2156,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN contained timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add columns last_offline_email and last_software_update_email",
+				Version:     217,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN last_offline_email timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN last_software_update_email timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
