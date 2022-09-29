@@ -167,8 +167,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-var remoteSegmentFunc = mon.Task()
-
 var _ segmentloop.Observer = (*checkerObserver)(nil)
 
 // checkerObserver implements the metainfo loop Observer interface.
@@ -185,6 +183,20 @@ type checkerObserver struct {
 	log              *zap.Logger
 
 	lastStreamID uuid.UUID
+}
+
+// NewCheckerObserver creates new checker observer instance.
+func NewCheckerObserver(checker *Checker) segmentloop.Observer {
+	return &checkerObserver{
+		repairQueue:      checker.createInsertBuffer(),
+		nodestate:        checker.nodestate,
+		statsCollector:   checker.statsCollector,
+		monStats:         aggregateStats{},
+		repairOverrides:  checker.repairOverrides,
+		nodeFailureRate:  checker.nodeFailureRate,
+		getNodesEstimate: checker.getNodesEstimate,
+		log:              checker.logger,
+	}
 }
 
 // checks for a stream id in slice.
@@ -217,7 +229,7 @@ func (obs *checkerObserver) LoopStarted(context.Context, segmentloop.LoopInfo) (
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer remoteSegmentFunc(&ctx)(&err)
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	// ignore segment if expired
 	if segment.Expired(time.Now()) {
