@@ -17,7 +17,7 @@
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
                 class="full-input"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="projectName.length"
                 :max-symbols="20"
                 :error="nameError"
@@ -28,9 +28,9 @@
                 placeholder="Enter Project Description"
                 additional-label="Optional"
                 class="full-input"
-                is-multiline="true"
+                is-multiline
                 height="100px"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="description.length"
                 :max-symbols="100"
                 @setData="setProjectDescription"

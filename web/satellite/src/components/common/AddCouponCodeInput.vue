@@ -15,7 +15,7 @@
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
                     height="52px"
-                    :with-icon="true"
+                    with-icon
                     @setData="setCouponCode"
                 />
                 <CheckIcon

@@ -15,14 +15,14 @@
                     label="Bucket Name"
                     :init-value="bucketName"
                     role-description="bucket"
-                    disabled="true"
+                    :disabled="true"
                 />
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -150,7 +150,7 @@ export default class OpenBucketModal extends Vue {
 
         const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-        
+
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': grantEvent.data.value,

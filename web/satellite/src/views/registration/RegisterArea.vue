@@ -162,7 +162,7 @@
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                is-password="true"
+                                is-password
                                 role-description="password"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
@@ -179,7 +179,7 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            is-password="true"
+                            is-password
                             role-description="retype-password"
                             @setData="setRepeatedPassword"
                         />

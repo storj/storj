@@ -10,7 +10,7 @@
             <VInput
                 placeholder="Enter Coupon Code"
                 height="52px"
-                :with-icon="false"
+                with-icon
                 @setData="setCouponCode"
             />
         </div>
