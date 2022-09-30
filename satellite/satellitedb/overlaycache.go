@@ -1068,15 +1068,16 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Disqualified:           info.Disqualified,
-		DisqualificationReason: (*overlay.DisqualificationReason)(info.DisqualificationReason),
-		UnknownAuditSuspended:  info.UnknownAuditSuspended,
-		OfflineSuspended:       info.OfflineSuspended,
-		OfflineUnderReview:     info.UnderReview,
-		PieceCount:             info.PieceCount,
-		ExitStatus:             exitStatus,
-		CreatedAt:              info.CreatedAt,
-		LastNet:                info.LastNet,
+		Disqualified:            info.Disqualified,
+		DisqualificationReason:  (*overlay.DisqualificationReason)(info.DisqualificationReason),
+		UnknownAuditSuspended:   info.UnknownAuditSuspended,
+		OfflineSuspended:        info.OfflineSuspended,
+		OfflineUnderReview:      info.UnderReview,
+		PieceCount:              info.PieceCount,
+		ExitStatus:              exitStatus,
+		CreatedAt:               info.CreatedAt,
+		LastNet:                 info.LastNet,
+		LastSoftwareUpdateEmail: info.LastSoftwareUpdateEmail,
 	}
 	if info.LastIpPort != nil {
 		node.LastIPPort = *info.LastIpPort
@@ -1255,6 +1256,10 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			last_ip_port=$16,
 			wallet_features=$17,
 			country_code=$18
+			last_software_update_email = CASE
+				WHEN $19::bool IS TRUE THEN $15::timestamptz
+				WHEN $20::bool IS FALSE THEN NULL
+			END
 		WHERE id = $1
 	`, // args $1 - $4
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
@@ -1272,6 +1277,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		walletFeatures,
 		// args $18,
 		node.CountryCode.String(),
+		// args $19 - $20
+		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
 	)
 
 	if err == nil {
@@ -1327,7 +1334,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				last_ip_port=$17,
 				wallet_features=$18,
-				country_code=$19;
+				country_code=$19,
+				last_software_update_email = CASE
+					WHEN $20::bool IS TRUE THEN $16::timestamptz
+					WHEN $21::bool IS FALSE THEN NULL
+			END;
 			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
@@ -1345,6 +1356,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		walletFeatures,
 		// args $19,
 		node.CountryCode.String(),
+		// args $20 - $21
+		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
 	)
 	if err != nil {
 		return Error.Wrap(err)

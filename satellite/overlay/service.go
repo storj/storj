@@ -16,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
+	"storj.io/private/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -140,15 +141,17 @@ const (
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
-	NodeID      storj.NodeID
-	Address     *pb.NodeAddress
-	LastNet     string
-	LastIPPort  string
-	IsUp        bool
-	Operator    *pb.NodeOperator
-	Capacity    *pb.NodeCapacity
-	Version     *pb.NodeVersion
-	CountryCode location.CountryCode
+	NodeID                  storj.NodeID
+	Address                 *pb.NodeAddress
+	LastNet                 string
+	LastIPPort              string
+	IsUp                    bool
+	Operator                *pb.NodeOperator
+	Capacity                *pb.NodeCapacity
+	Version                 *pb.NodeVersion
+	CountryCode             location.CountryCode
+	SoftwareUpdateEmailSent bool
+	VersionBelowMin         bool
 }
 
 // InfoResponse contains node dossier info requested from the storage node.
@@ -220,23 +223,24 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                   pb.NodeType
-	Operator               pb.NodeOperator
-	Capacity               pb.NodeCapacity
-	Reputation             NodeStats
-	Version                pb.NodeVersion
-	Contained              bool
-	Disqualified           *time.Time
-	DisqualificationReason *DisqualificationReason
-	UnknownAuditSuspended  *time.Time
-	OfflineSuspended       *time.Time
-	OfflineUnderReview     *time.Time
-	PieceCount             int64
-	ExitStatus             ExitStatus
-	CreatedAt              time.Time
-	LastNet                string
-	LastIPPort             string
-	CountryCode            location.CountryCode
+	Type                    pb.NodeType
+	Operator                pb.NodeOperator
+	Capacity                pb.NodeCapacity
+	Reputation              NodeStats
+	Version                 pb.NodeVersion
+	Contained               bool
+	Disqualified            *time.Time
+	DisqualificationReason  *DisqualificationReason
+	UnknownAuditSuspended   *time.Time
+	OfflineSuspended        *time.Time
+	OfflineUnderReview      *time.Time
+	PieceCount              int64
+	ExitStatus              ExitStatus
+	CreatedAt               time.Time
+	LastNet                 string
+	LastIPPort              string
+	CountryCode             location.CountryCode
+	LastSoftwareUpdateEmail *time.Time
 }
 
 // NodeStats contains statistics about a node.
@@ -633,9 +637,33 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		node.CountryCode = oldInfo.CountryCode
 	}
 
+	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
+		min, err := version.NewSemVer(service.config.Node.MinimumVersion)
+		if err != nil {
+			return err
+		}
+		v, err := version.NewSemVer(node.Version.GetVersion())
+		if err != nil {
+			return err
+		}
+
+		if v.Compare(min) == -1 {
+			node.VersionBelowMin = true
+			if oldInfo.LastSoftwareUpdateEmail == nil ||
+				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(time.Now()) {
+				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
+				if err != nil {
+					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))
+				} else {
+					node.SoftwareUpdateEmailSent = true
+				}
+			}
+		}
+	}
+
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
 		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort ||
-		oldInfo.CountryCode != node.CountryCode {
+		oldInfo.CountryCode != node.CountryCode || node.SoftwareUpdateEmailSent {
 		err = service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 		if err != nil {
 			return Error.Wrap(err)

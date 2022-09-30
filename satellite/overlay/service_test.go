@@ -800,7 +800,7 @@ func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
 			Wallet: "0x123",
 		},
 		Version: &pb.NodeVersion{
-			Version:    "v0.0.0",
+			Version:    "v3.0.0",
 			CommitHash: "",
 			Timestamp:  time.Time{},
 			Release:    false,
@@ -997,5 +997,35 @@ func TestUpdateCheckInNodeEventOnline(t *testing.T) {
 		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.Online)
 		require.NoError(t, err)
 		require.Equal(t, node.ID(), ne.NodeID)
+	})
+}
+
+func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.Overlay.Node.MinimumVersion = "v2.0.0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		// Set version to above minimum because we have no control over initial testplanet check in and it
+		// fails the test due to wait period between version update emails
+		checkInInfo := getNodeInfo(node.ID())
+		checkInInfo.Version = &pb.NodeVersion{Version: "v2.0.0"}
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+		checkInInfo.Version = &pb.NodeVersion{Version: "v1.0.0"}
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.BelowMinVersion)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, checkInInfo.Operator.Email, ne.Email)
+		require.Equal(t, nodeevents.BelowMinVersion, ne.Event)
 	})
 }
