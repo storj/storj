@@ -119,9 +119,12 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 func (projects *projects) Insert(ctx context.Context, project *console.Project) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projectID, err := uuid.New()
-	if err != nil {
-		return nil, err
+	projectID := project.ID
+	if projectID.IsZero() {
+		projectID, err = uuid.New()
+		if err != nil {
+			return nil, err
+		}
 	}
 	publicID, err := uuid.New()
 	if err != nil {

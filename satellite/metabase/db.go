@@ -171,7 +171,7 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     39,
+				Version:     15,
 				Action: migrate.SQL{
 
 					`CREATE TABLE objects (

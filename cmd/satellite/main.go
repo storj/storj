@@ -60,6 +60,7 @@ type Satellite struct {
 			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
 			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
 		}
+		Migration string `help:"coma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
 	}
 
 	satellite.Config

@@ -119,11 +119,11 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
-		if dbVersion > -1 {
-			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
-		}
 
 		testMigration := db.TestPostgresMigration()
+		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
+			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
+		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)

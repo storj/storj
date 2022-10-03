@@ -4,6 +4,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -44,6 +46,31 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
+	for _, migration := range strings.Split(runCfg.DatabaseOptions.Migration, ",") {
+		switch migration {
+		case fullMigration:
+			err = db.MigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case snapshotMigration:
+			log.Info("Migration using latest snapshot. It's not for production", zap.String("db", "master"))
+			err = db.TestingMigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case testDataCreation:
+			err := createTestData(ctx, db)
+			if err != nil {
+				return err
+			}
+		case noMigration:
+		// noop
+		default:
+			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
+		}
+	}
+
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL, metabase.Config{
 		ApplicationName:  "satellite-api",
 		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
@@ -56,6 +83,26 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
+
+	for _, migration := range strings.Split(runCfg.DatabaseOptions.Migration, ",") {
+		switch migration {
+		case fullMigration:
+			err = metabaseDB.MigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case snapshotMigration:
+			log.Info("Migration using latest snapshot. It's not for production", zap.String("db", "master"))
+			err = metabaseDB.TestMigrateToLatest(ctx)
+			if err != nil {
+				return err
+			}
+		case noMigration, testDataCreation:
+		// noop
+		default:
+			return errs.New("unsupported migration type: %s, please try one of the: %s", migration, strings.Join(migrationTypes, ","))
+		}
+	}
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Config.Server.Config)
 	if err != nil {
