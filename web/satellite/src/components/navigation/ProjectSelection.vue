@@ -148,28 +148,51 @@ export default class ProjectSelection extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
             this.analytics.pageVisit(RouteConfig.Buckets.path);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
+
+            try {
+                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+
+            return;
         }
 
-        if (this.$route.path === RouteConfig.NewProjectDashboard.path) {
+        if (this.$route.name === RouteConfig.NewProjectDashboard.name) {
             const now = new Date();
             const past = new Date();
             past.setDate(past.getDate() - 30);
 
             try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
+                await Promise.all([
+                    this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
+                    this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+                    this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id),
+                    this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE),
+                ]);
             } catch (error) {
                 await this.$notify.error(error.message);
             }
+
+            return;
         }
 
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-        } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`);
+        if (this.$route.name === RouteConfig.AccessGrants.name) {
+            try {
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+
+            return;
+        }
+
+        if (this.$route.name === RouteConfig.Users.name) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
         }
     }
 
