@@ -74,9 +74,6 @@
                 <div class="project-dashboard__charts__container__header">
                     <h3 class="project-dashboard__charts__container__header__title">Storage</h3>
                 </div>
-                <p class="project-dashboard__charts__container__info">
-                    This is your total storage used per day
-                </p>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
                     <StorageChart
@@ -118,9 +115,6 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
-                    <p class="project-dashboard__charts__container__info">
-                        This is your bandwidth usage per day
-                    </p>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
@@ -558,11 +552,11 @@ export default class NewProjectDashboard extends Vue {
                         }
 
                         &__allocated-color {
-                            background: #ffc0cf;
+                            background: #c5baff;
                         }
 
                         &__settled-color {
-                            background: #ff458b;
+                            background: #a18eff;
                         }
 
                         &__allocated-label,
