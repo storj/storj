@@ -485,6 +485,10 @@ type CommitObject struct {
 	EncryptedMetadataEncryptedKey []byte // optional
 
 	DisallowDelete bool
+	// OnDelete will be triggered when/if existing object will be overwritten on commit.
+	// Wil be only executed after succesfull commit + delete DB operation.
+	// Error on this function won't revert back committed object.
+	OnDelete func(segments []DeletedSegmentInfo)
 }
 
 // Verify verifies reqest fields.
@@ -507,13 +511,16 @@ func (c *CommitObject) Verify() error {
 	return nil
 }
 
-// CommitObject adds a pending object to the database.
+// CommitObject adds a pending object to the database. If another committed object is under target location
+// it will be deleted.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
+
+	deletedSegments := []DeletedSegmentInfo{}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
@@ -657,8 +664,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		for _, version := range versionsToDelete {
-			// TODO delete pieces from stoage nodes
-			_, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+			deleteResult, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
 				ObjectLocation: ObjectLocation{
 					ProjectID:  opts.ProjectID,
 					BucketName: opts.BucketName,
@@ -669,6 +675,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			if err != nil {
 				return Error.New("failed to delete existing object: %w", err)
 			}
+
+			deletedSegments = append(deletedSegments, deleteResult.Segments...)
 		}
 
 		object.StreamID = opts.StreamID
@@ -685,6 +693,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	})
 	if err != nil {
 		return Object{}, err
+	}
+
+	// we can execute this only when whole transaction is committed without any error
+	if len(deletedSegments) > 0 && opts.OnDelete != nil {
+		opts.OnDelete(deletedSegments)
 	}
 
 	mon.Meter("object_commit").Mark(1)

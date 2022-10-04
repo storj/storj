@@ -270,6 +270,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		Encryption: encryption,
 
 		DisallowDelete: !allowDelete,
+		OnDelete: func(segments []metabase.DeletedSegmentInfo) {
+			endpoint.deleteSegmentPieces(ctx, segments)
+		},
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
