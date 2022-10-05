@@ -970,6 +970,9 @@ server.private-address: 127.0.0.1:7778
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
 
+# flag to switch between calculating bucket tallies using objects loop or custom query
+# tally.use-objects-loop: true
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
