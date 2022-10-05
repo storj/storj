@@ -109,6 +109,21 @@ func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) 
 	return aliases, nil
 }
 
+// Latest returns the latest NodeAliasMap.
+func (cache *NodeAliasCache) Latest(ctx context.Context) (_ *NodeAliasMap, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	latest, err := cache.refresh(ctx, nil, nil)
+	if err != nil {
+		return nil, Error.New("failed to refresh node alias db: %w", err)
+	}
+
+	xs := NewNodeAliasMap(nil)
+	xs.Merge(latest)
+
+	return xs, nil
+}
+
 // ensure tries to ensure that the specified missing node ID-s are assigned a alias.
 func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -121,7 +136,8 @@ func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID
 	return cache.refresh(ctx, missing, nil)
 }
 
-// refresh refreshses the state of the cache.
+// refresh refreshes the state of the cache, when missingNodes or missingAliases is still missing.
+// When both are nil, then it always refreshes.
 func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -131,7 +147,7 @@ func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.N
 	latest := cache.getLatest()
 
 	// Maybe some other goroutine already refreshed the list, double-check.
-	if latest.ContainsAll(missingNodes, missingAliases) {
+	if (len(missingNodes) > 0 || len(missingAliases) > 0) && latest.ContainsAll(missingNodes, missingAliases) {
 		return latest, nil
 	}
 
@@ -270,6 +286,12 @@ func (m *NodeAliasMap) Node(alias NodeAlias) (x storj.NodeID, ok bool) {
 	}
 	v := m.node[alias]
 	return v, !v.IsZero()
+}
+
+// Alias returns alias for the given node ID.
+func (m *NodeAliasMap) Alias(node storj.NodeID) (x NodeAlias, ok bool) {
+	x, ok = m.alias[node]
+	return x, ok
 }
 
 // Nodes returns NodeID-s for the given aliases and aliases that are not in this map.

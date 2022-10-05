@@ -67,6 +67,7 @@ func init() {
 	runCmd.AddCommand(rangeCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(rangeCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -175,7 +176,7 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	}
 
 	copy(low[:], lowBytes)
-	copy(low[:], highBytes)
+	copy(high[:], highBytes)
 
 	if high.IsZero() {
 		return Error.New("high argument not specified")

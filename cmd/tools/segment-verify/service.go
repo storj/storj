@@ -28,7 +28,7 @@ var Error = errs.Class("segment-verify")
 
 // Metabase defines implementation dependencies we need from metabase.
 type Metabase interface {
-	ConvertNodesToAliases(ctx context.Context, nodeID []storj.NodeID) ([]metabase.NodeAlias, error)
+	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
@@ -132,20 +132,21 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	nodeIDs := make([]storj.NodeID, len(nodes))
-	for i, node := range nodes {
-		nodeIDs[i] = node.ID
-	}
-
-	aliases, err := service.metabase.ConvertNodesToAliases(ctx, nodeIDs)
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	for i, alias := range aliases {
+	for _, node := range nodes {
+		alias, ok := aliasMap.Alias(node.ID)
+		if !ok {
+			// This means the node does not hold any data in metabase.
+			continue
+		}
+
 		service.aliasToNodeURL[alias] = storj.NodeURL{
-			ID:      nodes[i].ID,
-			Address: nodes[i].Address.Address,
+			ID:      node.ID,
+			Address: node.Address.Address,
 		}
 		service.onlineNodes.Add(alias)
 	}
@@ -164,6 +165,11 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 		return Error.New("unable to read priority nodes: %w", err)
 	}
 
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -175,13 +181,13 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		aliases, err := service.metabase.ConvertNodesToAliases(ctx, []storj.NodeID{nodeID})
-		if err != nil {
+		alias, ok := aliasMap.Alias(nodeID)
+		if !ok {
 			service.log.Info("priority node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
 			continue
 		}
 
-		service.priorityNodes.Add(aliases[0])
+		service.priorityNodes.Add(alias)
 	}
 
 	return nil

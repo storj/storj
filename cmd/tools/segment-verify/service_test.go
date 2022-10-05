@@ -263,16 +263,15 @@ func (db *metabaseMock) SelectAllStorageNodesDownload(ctx context.Context, onlin
 	return xs, nil
 }
 
-func (db *metabaseMock) ConvertNodesToAliases(ctx context.Context, nodeIDs []storj.NodeID) ([]metabase.NodeAlias, error) {
-	xs := make([]metabase.NodeAlias, len(nodeIDs))
-	for i, id := range nodeIDs {
-		alias, ok := db.nodeIDToAlias[id]
-		if !ok {
-			return nil, errs.New("id %v not found", id)
-		}
-		xs[i] = alias
+func (db *metabaseMock) LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error) {
+	var entries []metabase.NodeAliasEntry
+	for id, alias := range db.nodeIDToAlias {
+		entries = append(entries, metabase.NodeAliasEntry{
+			ID:    id,
+			Alias: alias,
+		})
 	}
-	return xs, nil
+	return metabase.NewNodeAliasMap(entries), nil
 }
 
 func (db *metabaseMock) ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error) {

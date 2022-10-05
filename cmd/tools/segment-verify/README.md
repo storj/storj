@@ -27,5 +27,5 @@ There are few parameters for controlling the verification itself:
 ## Running the tool
 
 ```
-segment-verify run range -low 0x00 -high 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --config-dir ./satellite-config-dir
+segment-verify run range --low 00 --high ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --config-dir ./satellite-config-dir
 ```
