@@ -274,18 +274,6 @@ func (db *metabaseMock) LatestNodesAliasMap(ctx context.Context) (*metabase.Node
 	return metabase.NewNodeAliasMap(entries), nil
 }
 
-func (db *metabaseMock) ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error) {
-	xs := make([]storj.NodeID, len(aliases))
-	for i, alias := range aliases {
-		id, ok := db.aliasToNodeID[alias]
-		if !ok {
-			return nil, errs.New("alias %v not found", alias)
-		}
-		xs[i] = id
-	}
-	return xs, nil
-}
-
 func (db *metabaseMock) DeleteSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) error {
 	for i, s := range db.segments {
 		if opts.StreamID == s.StreamID && opts.Position == s.Position {

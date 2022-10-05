@@ -104,13 +104,21 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
 	nodeURL, ok := service.aliasToNodeURL[alias]
 	if !ok {
-		// not in cache, use the slow path
-		nodeIDs, err := service.metabase.ConvertAliasesToNodes(ctx, []metabase.NodeAlias{alias})
-		if err != nil {
-			return storj.NodeURL{}, Error.Wrap(err)
+		nodeID, ok := service.aliasMap.Node(alias)
+		if !ok {
+			latest, err := service.metabase.LatestNodesAliasMap(ctx)
+			if !ok {
+				return storj.NodeURL{}, Error.Wrap(err)
+			}
+			service.aliasMap = latest
+
+			nodeID, ok = service.aliasMap.Node(alias)
+			if !ok {
+				return storj.NodeURL{}, Error.Wrap(err)
+			}
 		}
 
-		info, err := service.overlay.Get(ctx, nodeIDs[0])
+		info, err := service.overlay.Get(ctx, nodeID)
 		if err != nil {
 			return storj.NodeURL{}, Error.Wrap(err)
 		}

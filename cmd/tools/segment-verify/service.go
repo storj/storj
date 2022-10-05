@@ -29,7 +29,6 @@ var Error = errs.Class("segment-verify")
 // Metabase defines implementation dependencies we need from metabase.
 type Metabase interface {
 	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
-	ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
 }
@@ -77,6 +76,7 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
+	aliasMap       *metabase.NodeAliasMap
 	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
 	priorityNodes  NodeAliasSet
 	onlineNodes    NodeAliasSet
@@ -132,13 +132,8 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	for _, node := range nodes {
-		alias, ok := aliasMap.Alias(node.ID)
+		alias, ok := service.aliasMap.Alias(node.ID)
 		if !ok {
 			// This means the node does not hold any data in metabase.
 			continue
@@ -165,11 +160,6 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 		return Error.New("unable to read priority nodes: %w", err)
 	}
 
-	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -181,7 +171,7 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		alias, ok := aliasMap.Alias(nodeID)
+		alias, ok := service.aliasMap.Alias(nodeID)
 		if !ok {
 			service.log.Info("priority node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
 			continue
@@ -196,6 +186,12 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
 func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	service.aliasMap = aliasMap
 
 	err = service.loadOnlineNodes(ctx)
 	if err != nil {
