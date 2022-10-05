@@ -748,3 +748,23 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
+
+// CollectBucketTallies is for testing metabase.CollectBucketTallies.
+type CollectBucketTallies struct {
+	Opts     metabase.CollectBucketTallies
+	Result   []metabase.BucketTally
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.CollectBucketTallies(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortBucketTallies(result)
+	sortBucketTallies(step.Result)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
