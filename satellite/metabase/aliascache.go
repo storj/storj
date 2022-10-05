@@ -185,8 +185,6 @@ func (cache *NodeAliasCache) EnsurePiecesToAliases(ctx context.Context, pieces P
 
 // ConvertAliasesToPieces converts alias pieces to pieces.
 func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPieces AliasPieces) (_ Pieces, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	if len(aliasPieces) == 0 {
 		return Pieces{}, nil
 	}
