@@ -635,6 +635,16 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE reverification_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_num integer NOT NULL,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempt timestamp with time zone,
+	reverify_count bigint NOT NULL DEFAULT 0,
+	PRIMARY KEY ( node_id, stream_id, position )
+);
 CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
@@ -896,6 +906,7 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -1319,6 +1330,16 @@ CREATE TABLE reset_password_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE reverification_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_num integer NOT NULL,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempt timestamp with time zone,
+	reverify_count bigint NOT NULL DEFAULT 0,
+	PRIMARY KEY ( node_id, stream_id, position )
+);
 CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
@@ -1580,6 +1601,7 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -7334,6 +7356,177 @@ func (f ResetPasswordToken_CreatedAt_Field) value() interface{} {
 
 func (ResetPasswordToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type ReverificationAudits struct {
+	NodeId        []byte
+	StreamId      []byte
+	Position      uint64
+	PieceNum      int
+	InsertedAt    time.Time
+	LastAttempt   *time.Time
+	ReverifyCount int64
+}
+
+func (ReverificationAudits) _Table() string { return "reverification_audits" }
+
+type ReverificationAudits_Create_Fields struct {
+	InsertedAt    ReverificationAudits_InsertedAt_Field
+	LastAttempt   ReverificationAudits_LastAttempt_Field
+	ReverifyCount ReverificationAudits_ReverifyCount_Field
+}
+
+type ReverificationAudits_Update_Fields struct {
+	LastAttempt   ReverificationAudits_LastAttempt_Field
+	ReverifyCount ReverificationAudits_ReverifyCount_Field
+}
+
+type ReverificationAudits_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ReverificationAudits_NodeId(v []byte) ReverificationAudits_NodeId_Field {
+	return ReverificationAudits_NodeId_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_NodeId_Field) _Column() string { return "node_id" }
+
+type ReverificationAudits_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ReverificationAudits_StreamId(v []byte) ReverificationAudits_StreamId_Field {
+	return ReverificationAudits_StreamId_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_StreamId_Field) _Column() string { return "stream_id" }
+
+type ReverificationAudits_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ReverificationAudits_Position(v uint64) ReverificationAudits_Position_Field {
+	return ReverificationAudits_Position_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_Position_Field) _Column() string { return "position" }
+
+type ReverificationAudits_PieceNum_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func ReverificationAudits_PieceNum(v int) ReverificationAudits_PieceNum_Field {
+	return ReverificationAudits_PieceNum_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_PieceNum_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_PieceNum_Field) _Column() string { return "piece_num" }
+
+type ReverificationAudits_InsertedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ReverificationAudits_InsertedAt(v time.Time) ReverificationAudits_InsertedAt_Field {
+	return ReverificationAudits_InsertedAt_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_InsertedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_InsertedAt_Field) _Column() string { return "inserted_at" }
+
+type ReverificationAudits_LastAttempt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func ReverificationAudits_LastAttempt(v time.Time) ReverificationAudits_LastAttempt_Field {
+	return ReverificationAudits_LastAttempt_Field{_set: true, _value: &v}
+}
+
+func ReverificationAudits_LastAttempt_Raw(v *time.Time) ReverificationAudits_LastAttempt_Field {
+	if v == nil {
+		return ReverificationAudits_LastAttempt_Null()
+	}
+	return ReverificationAudits_LastAttempt(*v)
+}
+
+func ReverificationAudits_LastAttempt_Null() ReverificationAudits_LastAttempt_Field {
+	return ReverificationAudits_LastAttempt_Field{_set: true, _null: true}
+}
+
+func (f ReverificationAudits_LastAttempt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f ReverificationAudits_LastAttempt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_LastAttempt_Field) _Column() string { return "last_attempt" }
+
+type ReverificationAudits_ReverifyCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func ReverificationAudits_ReverifyCount(v int64) ReverificationAudits_ReverifyCount_Field {
+	return ReverificationAudits_ReverifyCount_Field{_set: true, _value: v}
+}
+
+func (f ReverificationAudits_ReverifyCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ReverificationAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
+
 type Revocation struct {
 	Revoked  []byte
 	ApiKeyId []byte
@@ -12084,6 +12277,64 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxImpl) Create_ReverificationAudits(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field,
+	reverification_audits_piece_num ReverificationAudits_PieceNum_Field,
+	optional ReverificationAudits_Create_Fields) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := reverification_audits_node_id.value()
+	__stream_id_val := reverification_audits_stream_id.value()
+	__position_val := reverification_audits_position.value()
+	__piece_num_val := reverification_audits_piece_num.value()
+	__last_attempt_val := optional.LastAttempt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, stream_id, position, piece_num, last_attempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" RETURNING reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.InsertedAt._set {
+		__values = append(__values, optional.InsertedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("inserted_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReverifyCount._set {
+		__values = append(__values, optional.ReverifyCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("reverify_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reverification_audits = &ReverificationAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reverification_audits, nil
 
 }
 
@@ -18610,6 +18861,35 @@ func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
@@ -19271,6 +19551,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reverification_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -19575,6 +19865,64 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return value_attribution, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ReverificationAudits(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field,
+	reverification_audits_piece_num ReverificationAudits_PieceNum_Field,
+	optional ReverificationAudits_Create_Fields) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__node_id_val := reverification_audits_node_id.value()
+	__stream_id_val := reverification_audits_stream_id.value()
+	__position_val := reverification_audits_position.value()
+	__piece_num_val := reverification_audits_piece_num.value()
+	__last_attempt_val := optional.LastAttempt.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("node_id, stream_id, position, piece_num, last_attempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO reverification_audits "), __clause, __sqlbundle_Literal(" RETURNING reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count")}}
+
+	var __values []interface{}
+	__values = append(__values, __node_id_val, __stream_id_val, __position_val, __piece_num_val, __last_attempt_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.InsertedAt._set {
+		__values = append(__values, optional.InsertedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("inserted_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.ReverifyCount._set {
+		__values = append(__values, optional.ReverifyCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("reverify_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reverification_audits = &ReverificationAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reverification_audits, nil
 
 }
 
@@ -26101,6 +26449,35 @@ func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.C
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM reverification_audits WHERE reverification_audits.node_id = ? AND reverification_audits.stream_id = ? AND reverification_audits.position = ?")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value(), reverification_audits_stream_id.value(), reverification_audits_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 	count int64, err error) {
@@ -26753,6 +27130,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM revocations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reverification_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -27666,6 +28053,21 @@ func (rx *Rx) Create_ResetPasswordToken(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_ReverificationAudits(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field,
+	reverification_audits_piece_num ReverificationAudits_PieceNum_Field,
+	optional ReverificationAudits_Create_Fields) (
+	reverification_audits *ReverificationAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ReverificationAudits(ctx, reverification_audits_node_id, reverification_audits_stream_id, reverification_audits_position, reverification_audits_piece_num, optional)
+
+}
+
 func (rx *Rx) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -27895,6 +28297,18 @@ func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Delete_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field,
+	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+	reverification_audits_position ReverificationAudits_Position_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx, reverification_audits_node_id, reverification_audits_stream_id, reverification_audits_position)
 }
 
 func (rx *Rx) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
@@ -29289,6 +29703,14 @@ type Methods interface {
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
 
+	Create_ReverificationAudits(ctx context.Context,
+		reverification_audits_node_id ReverificationAudits_NodeId_Field,
+		reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+		reverification_audits_position ReverificationAudits_Position_Field,
+		reverification_audits_piece_num ReverificationAudits_PieceNum_Field,
+		optional ReverificationAudits_Create_Fields) (
+		reverification_audits *ReverificationAudits, err error)
+
 	Create_StoragenodeBandwidthRollup(ctx context.Context,
 		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -29394,6 +29816,12 @@ type Methods interface {
 
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
+		deleted bool, err error)
+
+	Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
+		reverification_audits_node_id ReverificationAudits_NodeId_Field,
+		reverification_audits_stream_id ReverificationAudits_StreamId_Field,
+		reverification_audits_position ReverificationAudits_Position_Field) (
 		deleted bool, err error)
 
 	Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,

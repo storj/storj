@@ -129,3 +129,13 @@ func (queues *Queues) WaitForSwap(ctx context.Context) error {
 
 	return ctx.Err()
 }
+
+// ReverifyQueue controls manipulation of a queue of pieces to be _re_verified;
+// that is, a node timed out when we requested an audit of the piece, and now
+// we need to follow up with that node until we get a proper answer to the
+// audit. (Or until we try too many times, and disqualify the node.)
+type ReverifyQueue interface {
+	Insert(ctx context.Context, piece PieceLocator) (err error)
+	GetNextJob(ctx context.Context) (job ReverificationJob, err error)
+	Remove(ctx context.Context, piece PieceLocator) (wasDeleted bool, err error)
+}
