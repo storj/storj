@@ -60,6 +60,7 @@ type Satellite struct {
 			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
 			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
 		}
+		Migration string `help:"coma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
 	}
 
 	satellite.Config
@@ -220,6 +221,13 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerInvoices,
 	}
+	generateCustomerInvoicesCmd = &cobra.Command{
+		Use:   "generate-invoices [period]",
+		Short: "Performs all tasks necessary to generate Stripe invoices",
+		Long:  "Performs all tasks necessary to generate Stripe invoices. Equivalent to running apply-free-coupons, prepare-invoice-records, create-project-invoice-items, and create-invoices in order. Does not finalize invoices.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdGenerateCustomerInvoices,
+	}
 	finalizeCustomerInvoicesCmd = &cobra.Command{
 		Use:   "finalize-invoices",
 		Short: "Finalizes all draft stripe invoices",
@@ -346,6 +354,7 @@ func init() {
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
+	billingCmd.AddCommand(generateCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(payCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
@@ -373,6 +382,7 @@ func init() {
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(generateCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(payCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -760,6 +770,19 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	})
 }
 
+func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	period, err := parseBillingPeriod(args[0])
+	if err != nil {
+		return errs.New("invalid period specified: %v", err)
+	}
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+		return payments.GenerateInvoices(ctx, period)
+	})
+}
+
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
@@ -771,12 +794,17 @@ func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
+	t, err := time.Parse("02/01/2006", args[0])
+	if err != nil {
+		return errs.New("invalid date specified specified: %v", err)
+	}
+
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		err := payments.InvoiceApplyTokenBalance(ctx)
+		err := payments.InvoiceApplyTokenBalance(ctx, t)
 		if err != nil {
 			return errs.New("error applying native token payments: %v", err)
 		}
-		return payments.PayInvoices(ctx)
+		return payments.PayInvoices(ctx, t)
 	})
 }
 

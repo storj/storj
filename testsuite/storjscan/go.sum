@@ -1266,7 +1266,7 @@ storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca/go.mod h1:iK+dmHZZXQlW
 storj.io/private v0.0.0-20220823161836-79135887c9be/go.mod h1:GbCItLcLLzsrMClBAa2aaj8xlawtHXWrqhr3D1I3NPM=
 storj.io/private v0.0.0-20220915132359-957cab776577 h1:Oy9maD0fOrtoUkhpkOMBtLH0QyQMNVNT6NtFg+ONM5w=
 storj.io/private v0.0.0-20220915132359-957cab776577/go.mod h1:GbCItLcLLzsrMClBAa2aaj8xlawtHXWrqhr3D1I3NPM=
-storj.io/storjscan v0.0.0-20220909003402-28d145ea1272 h1:ZUsmoEwpTo9w2h82K61IgNQUyKOAEE6P8TduRyUknAM=
-storj.io/storjscan v0.0.0-20220909003402-28d145ea1272/go.mod h1:5nLgAOl1KTDVyqORAhvrp+167PtShEuS1L3pJgXPjwo=
+storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0 h1:pSfGf9E9OlUd17W7LSpL4tTONIyFji6dz8I2iTDd8BY=
+storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0/go.mod h1:5nLgAOl1KTDVyqORAhvrp+167PtShEuS1L3pJgXPjwo=
 storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31 h1:wRpjo1lgzigTRWEFNj50VW8wRigetEpHvQZ/5aO1O20=
 storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31/go.mod h1:YHtYuVqGUtczViQPlPqfXz3+3Hgyzh91UcV5SlJV27w=
