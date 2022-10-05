@@ -235,6 +235,8 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return errAtRest
 }
 
+var objectFunc = mon.Task()
+
 // BucketTallyCollector collects and adds up tallies for buckets.
 type BucketTallyCollector struct {
 	Now    time.Time
@@ -297,7 +299,9 @@ func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocat
 }
 
 // Object is called for each object once.
-func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) (err error) {
+func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) error {
+	defer objectFunc(&ctx)(nil)
+
 	if object.Expired(observer.Now) {
 		return nil
 	}
