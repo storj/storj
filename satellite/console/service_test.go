@@ -927,7 +927,7 @@ func TestWalletJsonMarshall(t *testing.T) {
 
 	out, err := json.Marshal(wi)
 	require.NoError(t, err)
-	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
+	require.Contains(t, string(out), "\"address\":\"0x0102030000000000000000000000000000000000\"")
 	require.Contains(t, string(out), "\"balance\":{\"value\":\"100\",\"currency\":\"USD\"}")
 
 }

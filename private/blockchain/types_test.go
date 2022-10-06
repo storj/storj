@@ -1,20 +1,54 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
-package blockchain
+package blockchain_test
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/private/blockchain"
 )
 
 func TestBytesToAddress(t *testing.T) {
-	a := Address{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 10}
-	gotA, err := BytesToAddress(a.Bytes())
+	a := blockchain.Address{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 10}
+	gotA, err := blockchain.BytesToAddress(a.Bytes())
 	require.NoError(t, err)
 	require.Equal(t, a, gotA)
 
-	_, err = BytesToAddress([]byte{1, 2, 3})
+	_, err = blockchain.BytesToAddress([]byte{1, 2, 3})
 	require.Error(t, err)
+}
 
+func TestHex(t *testing.T) {
+	addresses := []string{
+		"0xd15aaacddf4b72ba8fc5c41fc4b03f05aa73385c",
+		"0xbe8f1abb014ec9988b6185ab4d8870992e838231",
+		"0xd24400ae8bfebb18ca49be86258a3c749cf46853",
+	}
+	hashes := []string{
+		"0xdea1082dbea119c822dfe804264f5b880d4208ef51e8c5a8995eff10a5094de8",
+		"0xd1a78f16158b550945dd39182d188c3fb7285b431223c8b0fe38f4181e9ac197",
+		"0x47a5b3fae0bad45631a65324001f75dea311898e26ee10597a66953b57dfe332",
+	}
+
+	for _, address := range addresses {
+		decoded, err := hex.DecodeString(address[2:])
+		require.NoError(t, err)
+
+		a, err := blockchain.BytesToAddress(decoded)
+		require.NoError(t, err)
+
+		require.Equal(t, address, a.Hex())
+	}
+	for _, hash := range hashes {
+		decoded, err := hex.DecodeString(hash[2:])
+		require.NoError(t, err)
+
+		h, err := blockchain.BytesToHash(decoded)
+		require.NoError(t, err)
+
+		require.Equal(t, hash, h.Hex())
+	}
 }
