@@ -532,25 +532,6 @@ func (payment Payments) BillingHistory(ctx context.Context) (billingHistory []*B
 	return billingHistory, nil
 }
 
-// TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "token deposit")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
-
-	return tx, nil
-}
-
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
 func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -262,68 +262,6 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TokenDeposit creates new deposit transaction and info about address and amount of newly created tx.
-func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	var requestData struct {
-		Amount int64 `json:"amount"`
-	}
-
-	if err = json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if requestData.Amount < 0 {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount can not be negative"))
-		return
-	}
-	if requestData.Amount == 0 {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount should be greater than zero"))
-		return
-	}
-
-	tx, err := p.service.Payments().TokenDeposit(ctx, requestData.Amount)
-	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
-			return
-		}
-
-		p.serveJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	var responseData struct {
-		Address     string    `json:"address"`
-		Amount      float64   `json:"amount"`
-		TokenAmount string    `json:"tokenAmount"`
-		Rate        string    `json:"rate"`
-		Status      string    `json:"status"`
-		Link        string    `json:"link"`
-		ExpiresAt   time.Time `json:"expires"`
-	}
-
-	responseData.Address = tx.Address
-	responseData.Amount = float64(requestData.Amount) / 100
-	responseData.TokenAmount = tx.Amount.AsDecimal().String()
-	responseData.Rate = tx.Rate.StringFixed(8)
-	responseData.Status = tx.Status.String()
-	responseData.Link = tx.Link
-	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
-
-	err = json.NewEncoder(w).Encode(responseData)
-	if err != nil {
-		p.log.Error("failed to write json token deposit response", zap.Error(ErrPaymentsAPI.Wrap(err)))
-	}
-}
-
 // ApplyCouponCode applies a coupon code to the user's account.
 func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

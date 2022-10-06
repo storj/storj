@@ -23,13 +23,6 @@ func convertToCents(rate decimal.Decimal, amount currency.Amount) int64 {
 	return usdCents.Round(0).IntPart()
 }
 
-// convertFromCents convert amount in cents to a StorjTokenAmount with given rate.
-func convertFromCents(rate decimal.Decimal, usdCents int64) currency.Amount {
-	usd := decimal.NewFromInt(usdCents).Shift(-2)
-	numStorj := usd.Div(rate)
-	return currency.AmountFromDecimal(numStorj, currency.USDollars)
-}
-
 // ErrConversion defines version service error.
 var ErrConversion = errs.Class("conversion service")
 
