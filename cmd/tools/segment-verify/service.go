@@ -35,7 +35,7 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error
 }
 
 // Overlay is used to fetch information about nodes.

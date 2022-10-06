@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -21,9 +22,14 @@ import (
 
 func TestVerifier(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(4, 4, 4, 4),
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
+
+		snoCount := int32(len(planet.StorageNodes))
 
 		config := segmentverify.VerifierConfig{
 			PerPieceTimeout:    time.Second,
@@ -56,18 +62,31 @@ func TestVerifier(t *testing.T) {
 		for _, raw := range result.Segments {
 			validSegments = append(validSegments, &segmentverify.Segment{
 				VerifySegment: raw,
-				Status:        segmentverify.Status{Retry: 1},
+				Status:        segmentverify.Status{Retry: snoCount},
 			})
 		}
 
-		// expect all segments are found on the node
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments, true)
+		aliasMap, err := satellite.Metabase.DB.LatestNodesAliasMap(ctx)
 		require.NoError(t, err)
+
+		var g errgroup.Group
+		for _, node := range planet.StorageNodes {
+			node := node
+			alias, ok := aliasMap.Alias(node.ID())
+			require.True(t, ok)
+			g.Go(func() error {
+				return service.Verify(ctx, alias, node.NodeURL(), validSegments, true)
+			})
+		}
+		require.NoError(t, g.Wait())
 		for _, seg := range validSegments {
-			require.Equal(t, segmentverify.Status{Found: 1, NotFound: 0, Retry: 0}, seg.Status)
+			require.Equal(t, segmentverify.Status{Found: snoCount, NotFound: 0, Retry: 0}, seg.Status)
 		}
 
 		// segment not found
+		alias0, ok := aliasMap.Alias(planet.StorageNodes[0].ID())
+		require.True(t, ok)
+
 		validSegment0 := &segmentverify.Segment{
 			VerifySegment: result.Segments[0],
 			Status:        segmentverify.Status{Retry: 1},
@@ -77,7 +96,8 @@ func TestVerifier(t *testing.T) {
 				StreamID:    testrand.UUID(),
 				Position:    metabase.SegmentPosition{},
 				RootPieceID: testrand.PieceID(),
-				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 1}},
+				Redundancy:  result.Segments[0].Redundancy,
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: alias0}},
 			},
 			Status: segmentverify.Status{Retry: 1},
 		}
@@ -86,7 +106,7 @@ func TestVerifier(t *testing.T) {
 			Status:        segmentverify.Status{Retry: 1},
 		}
 
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(),
+		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(),
 			[]*segmentverify.Segment{validSegment0, missingSegment, validSegment1}, true)
 		require.NoError(t, err)
 		require.Equal(t, segmentverify.Status{Found: 1}, validSegment0.Status)
@@ -96,7 +116,7 @@ func TestVerifier(t *testing.T) {
 		// Test throttling
 		verifyStart := time.Now()
 		const throttleN = 5
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
+		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
 		require.NoError(t, err)
 		verifyDuration := time.Since(verifyStart)
 		require.Greater(t, verifyDuration, config.RequestThrottle*(throttleN-1))
@@ -106,7 +126,7 @@ func TestVerifier(t *testing.T) {
 		// node offline
 		err = planet.StopNodeAndUpdate(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
-		err = service.Verify(ctx, planet.StorageNodes[0].NodeURL(), validSegments, true)
+		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments, true)
 		require.Error(t, err)
 		require.True(t, segmentverify.ErrNodeOffline.Has(err))
 	})
