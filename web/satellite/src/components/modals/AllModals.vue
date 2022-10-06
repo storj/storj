@@ -15,6 +15,8 @@
         <AddTeamMemberModal v-if="isAddTeamMembersModal" />
         <AddTokenFundsModal v-if="isAddTokenFundsModal" />
         <ShareBucketModal v-if="isShareBucketModal" />
+        <ObjectDetailsModal v-if="isObjectDetailsModal" />
+        <NewFolderModal v-if="isNewFolderModal" />
     </div>
 </template>
 
@@ -33,6 +35,8 @@ import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue';
 import AddTeamMemberModal from '@/components/modals/AddTeamMemberModal.vue';
 import AddTokenFundsModal from '@/components/modals/AddTokenFundsModal.vue';
 import ShareBucketModal from '@/components/modals/ShareBucketModal.vue';
+import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
+import NewFolderModal from '@/components/modals/NewFolderModal.vue';
 
 // @vue/component
 @Component({
@@ -49,6 +53,8 @@ import ShareBucketModal from '@/components/modals/ShareBucketModal.vue';
         AddTeamMemberModal,
         AddTokenFundsModal,
         ShareBucketModal,
+        ObjectDetailsModal,
+        NewFolderModal,
     },
 })
 export default class AllModals extends Vue {
@@ -135,6 +141,20 @@ export default class AllModals extends Vue {
      */
     public get isShareBucketModal(): boolean {
         return this.$store.state.appStateModule.appState.isShareBucketModalShown;
+    }
+
+    /**
+     * Indicates if object details modal is shown.
+     */
+    public get isObjectDetailsModal(): boolean {
+        return this.$store.state.appStateModule.appState.isObjectDetailsModalShown;
+    }
+
+    /**
+     * Indicates if new folder modal is shown.
+     */
+    public get isNewFolderModal(): boolean {
+        return this.$store.state.appStateModule.appState.isNewFolderModalShown;
     }
 }
 </script>

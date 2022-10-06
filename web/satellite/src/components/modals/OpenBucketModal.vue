@@ -221,6 +221,10 @@ export default class OpenBucketModal extends Vue {
         padding: 62px 62px 54px;
         max-width: 500px;
 
+        @media screen and (max-width: 600px) {
+            padding: 62px 24px 54px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 26px;
@@ -246,6 +250,12 @@ export default class OpenBucketModal extends Vue {
             column-gap: 20px;
             margin-top: 31px;
             width: 100%;
+
+            @media screen and (max-width: 500px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 20px;
+            }
         }
     }
 </style>

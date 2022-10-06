@@ -78,7 +78,7 @@
                                 <button
                                     type="button"
                                     class="btn btn-sm btn-light btn-block new-folder-button"
-                                    @click="toggleFolderCreationInput"
+                                    @click="toggleFolderCreationModal"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
@@ -195,152 +195,7 @@
                         class="upload-help"
                         @click="buttonFileUpload"
                     >
-                        <svg
-                            viewBox="0 0 300 172"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <path
-                                d="M188.5 140C218.047 140 242 116.047 242 86.5C242 56.9528 218.047 33 188.5 33C158.953 33 135 56.9528 135 86.5C135 116.047 158.953 140 188.5 140Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M123.5 167C147.524 167 167 147.524 167 123.5C167 99.4756 147.524 80 123.5 80C99.4756 80 80 99.4756 80 123.5C80 147.524 99.4756 167 123.5 167Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M71.5 49C78.9558 49 85 42.9558 85 35.5C85 28.0442 78.9558 22 71.5 22C64.0442 22 58 28.0442 58 35.5C58 42.9558 64.0442 49 71.5 49Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M262.5 143C268.851 143 274 137.851 274 131.5C274 125.149 268.851 120 262.5 120C256.149 120 251 125.149 251 131.5C251 137.851 256.149 143 262.5 143Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M185.638 64.338L191 57M153 109L179.458 72.7948L153 109Z"
-                                stroke="#276CFF"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M121.08 153.429L115 161M153 108L127.16 144.343L153 108Z"
-                                stroke="#276CFF"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M134 71L115 31M152 109L139 81L152 109Z"
-                                stroke="#FF458B"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M180.73 129.5L210 151M153 108L173.027 123.357L153 108Z"
-                                stroke="#FF458B"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M86.7375 77.1845L72 70M152 109L109.06 88.0667L152 109Z"
-                                stroke="#FFC600"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M152.762 109.227L244.238 76.7727"
-                                stroke="#00E567"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                d="M154.5 104.5L111 131"
-                                stroke="#00E567"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M224 57H238V71H224V57Z"
-                                fill="#00E567"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M127 2H137V12H127V2Z"
-                                fill="#FF458B"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M150 166H156V172H150V166Z"
-                                fill="#FF458B"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M44 0H50V6H44V0Z"
-                                fill="#00E567"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M294 111H300V117H294V111Z"
-                                fill="#276CFF"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M0 121H6V127H0V121Z"
-                                fill="#276CFF"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M268 86H274V92H268V86Z"
-                                fill="#FFC600"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M28 91H46V109H28V91Z"
-                                fill="#FFC600"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M181 21H203V43H181V21Z"
-                                fill="#276CFF"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M154.958 55L179 79.0416V136H122V55H154.958Z"
-                                fill="#0218A7"
-                            />
-                            <path
-                                d="M146.5 80H136.5C135.119 80 134 81.1193 134 82.5C134 83.8807 135.119 85 136.5 85H146.5C147.881 85 149 83.8807 149 82.5C149 81.1193 147.881 80 146.5 80Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M164.5 92H136.5C135.119 92 134 93.1193 134 94.5C134 95.8807 135.119 97 136.5 97H164.5C165.881 97 167 95.8807 167 94.5C167 93.1193 165.881 92 164.5 92Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M164.5 104H136.5C135.119 104 134 105.119 134 106.5C134 107.881 135.119 109 136.5 109H164.5C165.881 109 167 107.881 167 106.5C167 105.119 165.881 104 164.5 104Z"
-                                fill="white"
-                            />
-                            <path
-                                d="M164.5 116H136.5C135.119 116 134 117.119 134 118.5C134 119.881 135.119 121 136.5 121H164.5C165.881 121 167 119.881 167 118.5C167 117.119 165.881 116 164.5 116Z"
-                                fill="white"
-                            />
-                            <path
-                                fill-rule="evenodd"
-                                clip-rule="evenodd"
-                                d="M154.958 79.0416V55L179 79.0416H154.958Z"
-                                fill="#276CFF"
-                            />
-                        </svg>
+                        <UploadIcon />
                         <p class="drop-files-text mt-4 mb-0">
                             Drop Files Here to Upload
                         </p>
@@ -353,11 +208,7 @@
                     </div>
                 </div>
 
-                <file-modal v-if="showFileModal" />
-
                 <file-share-modal v-if="showFileShareModal" />
-
-                <new-folder-modal v-if="showCreateFolderInput" />
             </div>
         </div>
     </div>
@@ -369,20 +220,20 @@ import { Component, Vue, Watch } from 'vue-property-decorator';
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
-import FileModal from './FileModal.vue';
 import FileShareModal from './FileShareModal.vue';
-import NewFolderModal from './NewFolderModal.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 
 import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
+import UploadIcon from '@/../static/images/browser/upload.svg';
 
 // @vue/component
 @Component({
@@ -392,11 +243,10 @@ import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
         BreadCrumbs,
         VTable,
         FileBrowserHeader,
-        FileModal,
         FileShareModal,
         BlackArrowExpand,
         BlackArrowHide,
-        NewFolderModal,
+        UploadIcon,
     },
 })
 export default class FileBrowser extends Vue {
@@ -404,9 +254,6 @@ export default class FileBrowser extends Vue {
         folderInput: HTMLInputElement;
         fileInput: HTMLInputElement;
     };
-    public createFolderInput = '';
-    public creatingFolderSpinner = false;
-    public deleteConfirmation = false;
     public fetchingFilesSpinner = false;
     public isUploadDropDownShown = false;
 
@@ -462,33 +309,6 @@ export default class FileBrowser extends Vue {
         }
 
         return `${this.filesUploadingLength} ${file}`;
-    }
-
-    /**
-     * Return a boolean signifying whether the current folder name abides by our convention.
-     */
-    public get createFolderEnabled(): boolean {
-        const charsOtherThanSpaceExist =
-            this.createFolderInput.trim().length > 0;
-
-        const noForwardSlashes = this.createFolderInput.indexOf('/') === -1;
-
-        const nameIsNotOnlyPeriods =
-            [...this.createFolderInput.trim()].filter(
-                (char) => char === '.',
-            ).length !== this.createFolderInput.trim().length;
-
-        const notDuplicate =
-            this.files.filter(
-                (file) => file.Key === this.createFolderInput.trim(),
-            ).length === 0;
-
-        return (
-            charsOtherThanSpaceExist &&
-            noForwardSlashes &&
-            nameIsNotOnlyPeriods &&
-            notDuplicate
-        );
     }
 
     /**
@@ -552,20 +372,6 @@ export default class FileBrowser extends Vue {
     }
 
     /**
-     * Return a boolean signifying whether the create folder input can be shown.
-     */
-    public get showCreateFolderInput(): boolean {
-        return this.$store.state.files.createFolderInputShow;
-    }
-
-    /**
-     * Return a boolean signifying whether the file modal can be shown.
-     */
-    public get showFileModal(): boolean {
-        return this.$store.state.files.modalPath !== null;
-    }
-
-    /**
      * Return a boolean signifying whether the file share modal can be shown.
      */
     public get showFileShareModal(): null | string {
@@ -616,10 +422,6 @@ export default class FileBrowser extends Vue {
      * Close modal, file share modal, dropdown, and remove all selected files from the store.
      */
     public closeModalDropdown(): void {
-        if (this.$store.state.files.modalPath) {
-            this.$store.commit('files/closeModal');
-        }
-
         if (this.$store.state.files.fileShareModal) {
             this.$store.commit('files/closeFileShareModal');
         }
@@ -634,13 +436,10 @@ export default class FileBrowser extends Vue {
     }
 
     /**
-     * Toggle the folder creation input in the store.
+     * Toggle the folder creation modal in the store.
      */
-    public toggleFolderCreationInput(): void {
-        this.$store.dispatch(
-            'files/updateCreateFolderInputShow',
-            !this.$store.state.files.createFolderInputShow,
-        );
+    public toggleFolderCreationModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
     }
 
     /**
@@ -682,7 +481,6 @@ export default class FileBrowser extends Vue {
      * Remove the folder creation input and close any opened dropdowns when a user chooses to navigate back to the previous folder.
      */
     public async back(): Promise<void> {
-        this.$store.dispatch('files/updateCreateFolderInputShow', false);
         await this.$store.dispatch('files/closeDropdown');
     }
 
@@ -714,40 +512,6 @@ export default class FileBrowser extends Vue {
         const folderInputElement = this.$refs.folderInput as HTMLInputElement;
         folderInputElement.click();
         this.closeUploadDropdown();
-    }
-
-    /**
-     * Create a folder from the name inside of the folder creation input.
-     */
-    public async createFolder(): Promise<void> {
-        // exit function if folder name violates our naming convention
-        if (!this.createFolderEnabled) return;
-
-        // add spinner
-        this.creatingFolderSpinner = true;
-
-        // create folder
-        await this.$store.dispatch(
-            'files/createFolder',
-            this.createFolderInput.trim(),
-        );
-
-        // clear folder input
-        this.createFolderInput = '';
-
-        // remove the folder creation input
-        this.$store.dispatch('files/updateCreateFolderInputShow', false);
-
-        // remove the spinner
-        this.creatingFolderSpinner = false;
-    }
-
-    /**
-     * Cancel folder creation clearing out the input and hiding the folder creation input.
-     */
-    public cancelFolderCreation(): void {
-        this.createFolderInput = '';
-        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**
