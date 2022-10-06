@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -225,12 +226,22 @@ type IterateLoopSegments struct {
 	BatchSize          int
 	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
+	StartStreamID      uuid.UUID
+	EndStreamID        uuid.UUID
 }
 
 // Verify verifies segments request fields.
 func (opts *IterateLoopSegments) Verify() error {
 	if opts.BatchSize < 0 {
 		return ErrInvalidRequest.New("BatchSize is negative")
+	}
+	if !opts.EndStreamID.IsZero() {
+		if opts.EndStreamID.Less(opts.StartStreamID) {
+			return ErrInvalidRequest.New("EndStreamID is smaller than StartStreamID")
+		}
+		if opts.StartStreamID == opts.EndStreamID {
+			return ErrInvalidRequest.New("StartStreamID and EndStreamID must be different")
+		}
 	}
 	return nil
 }
@@ -251,7 +262,21 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		batchSize:          opts.BatchSize,
 
 		curIndex: 0,
-		cursor:   loopSegmentIteratorCursor{},
+		cursor: loopSegmentIteratorCursor{
+			StartStreamID: opts.StartStreamID,
+			EndStreamID:   opts.EndStreamID,
+		},
+	}
+
+	if !opts.StartStreamID.IsZero() {
+		// uses MaxInt32 instead of MaxUint32 because position is an int8 in db.
+		it.cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
+	}
+	if it.cursor.EndStreamID.IsZero() {
+		it.cursor.EndStreamID, err = maxUUID()
+		if err != nil {
+			return err
+		}
 	}
 
 	loopIteratorBatchSizeLimit.Ensure(&it.batchSize)
@@ -288,8 +313,9 @@ type loopSegmentIterator struct {
 }
 
 type loopSegmentIteratorCursor struct {
-	StreamID uuid.UUID
-	Position SegmentPosition
+	StartStreamID uuid.UUID
+	StartPosition SegmentPosition
+	EndStreamID   uuid.UUID
 }
 
 // Next returns true if there was another item and copy it in item.
@@ -329,8 +355,8 @@ func (it *loopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry)
 	}
 
 	it.curIndex++
-	it.cursor.StreamID = item.StreamID
-	it.cursor.Position = item.Position
+	it.cursor.StartStreamID = item.StreamID
+	it.cursor.StartPosition = item.Position
 
 	return true
 }
@@ -351,11 +377,11 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 		FROM segments
 		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE
-			(stream_id, position) > ($1, $2)
+			(stream_id, position) > ($1, $2) AND stream_id <= $4
 		ORDER BY (stream_id, position) ASC
 		LIMIT $3
-		`, it.cursor.StreamID, it.cursor.Position,
-		it.batchSize,
+		`, it.cursor.StartStreamID, it.cursor.StartPosition.Encode(),
+		it.batchSize, it.cursor.EndStreamID,
 	)
 }
 
@@ -382,4 +408,9 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 	}
 
 	return nil
+}
+
+func maxUUID() (uuid.UUID, error) {
+	maxUUID, err := uuid.FromString("ffffffff-ffff-ffff-ffff-ffffffffffff")
+	return maxUUID, err
 }

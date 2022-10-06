@@ -399,6 +399,9 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 	}
 
 	sort.Slice(step.Result, func(i, j int) bool {
+		if step.Result[i].StreamID == step.Result[j].StreamID {
+			return step.Result[i].Position.Less(step.Result[j].Position)
+		}
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
