@@ -520,6 +520,39 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// InsertOfflineNodeEvents inserts offline events into node events.
+func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown time.Duration, cutoff time.Duration, limit int) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !service.config.SendNodeEmails {
+		return 0, nil
+	}
+
+	nodes, err := service.db.GetOfflineNodesForEmail(ctx, service.config.Node.OnlineWindow, cutoff, cooldown, limit)
+	if err != nil {
+		return 0, err
+	}
+
+	count = len(nodes)
+
+	var successful storj.NodeIDList
+	for id, email := range nodes {
+		_, err = service.nodeEvents.Insert(ctx, email, id, nodeevents.Offline)
+		if err != nil {
+			service.log.Error("could not insert node offline into node events", zap.Error(err))
+		} else {
+			successful = append(successful, id)
+		}
+	}
+	if len(successful) > 0 {
+		err = service.db.UpdateLastOfflineEmail(ctx, successful, time.Now())
+		if err != nil {
+			return count, err
+		}
+	}
+	return count, err
+}
+
 // KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
 func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, nodeIds storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)

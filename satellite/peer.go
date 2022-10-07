@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -143,10 +144,11 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact    contact.Config
-	Overlay    overlay.Config
-	NodeEvents nodeevents.Config
-	StrayNodes straynodes.Config
+	Contact      contact.Config
+	Overlay      overlay.Config
+	OfflineNodes offlinenodes.Config
+	NodeEvents   nodeevents.Config
+	StrayNodes   straynodes.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config

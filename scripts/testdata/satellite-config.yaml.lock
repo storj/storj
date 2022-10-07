@@ -676,6 +676,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s
 
+# how long to wait between sending Node Offline emails
+# offline-nodes.cooldown: 24h0m0s
+
+# how often to check for offline nodes and send them emails
+# offline-nodes.interval: 1h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# offline-nodes.limit: 1000
+
+# max number of offline emails to send a node operator until the node comes back online
+# offline-nodes.max-emails: 3
+
 # encryption keys to encrypt info in orders
 # orders.encryption-keys: ""
 

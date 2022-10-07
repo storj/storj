@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -83,9 +84,10 @@ type Core struct {
 
 	// services and endpoints
 	Overlay struct {
-		DB           overlay.DB
-		Service      *overlay.Service
-		DQStrayNodes *straynodes.Chore
+		DB                overlay.DB
+		Service           *overlay.Service
+		OfflineNodeEmails *offlinenodes.Chore
+		DQStrayNodes      *straynodes.Chore
 	}
 
 	NodeEvents struct {
@@ -268,6 +270,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
+
+		if config.Overlay.SendNodeEmails {
+			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "overlay:offline-node-emails",
+				Run:   peer.Overlay.OfflineNodeEmails.Run,
+				Close: peer.Overlay.OfflineNodeEmails.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Overlay Offline Node Emails", peer.Overlay.OfflineNodeEmails.Loop))
+		}
 
 		if config.StrayNodes.EnableDQ {
 			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.Service, config.StrayNodes)
