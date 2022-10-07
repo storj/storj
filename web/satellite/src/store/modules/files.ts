@@ -371,7 +371,7 @@ export const makeFilesModule = (): FilesModule => ({
             dispatch('list', getParentDirectory(state.path));
         },
 
-        async upload({ commit, state, dispatch }, e: DragEvent) {
+        async upload({ commit, state, dispatch }, { e, callback }: { e: DragEvent, callback: () => void }) {
             assertIsInitialized(state);
 
             type Item = DataTransferItem | FileSystemEntry;
@@ -460,7 +460,8 @@ export const makeFilesModule = (): FilesModule => ({
                     { partSize: 64 * 1024 * 1024 },
                 );
 
-                upload.on('httpUploadProgress', (progress) => {
+                upload.on('httpUploadProgress', async (progress) => {
+                    await callback();
                     commit('setProgress', {
                         Key: params.Key,
                         progress: Math.round((progress.loaded / progress.total) * 100),

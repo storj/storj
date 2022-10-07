@@ -227,6 +227,7 @@ import { BrowserFile } from '@/types/browser';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import eventBus from '@/utils/eventBus';
 
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -447,7 +448,10 @@ export default class FileBrowser extends Vue {
      * Upload the current selected or dragged-and-dropped file.
      */
     public async upload(e: Event): Promise<void> {
-        await this.$store.dispatch('files/upload', e);
+        const callback = () => {
+            eventBus.$emit('upload_progress');
+        };
+        await this.$store.dispatch('files/upload', { e, callback });
         this.analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
         const target = e.target as HTMLInputElement;
         target.value = '';

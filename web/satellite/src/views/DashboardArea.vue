@@ -35,7 +35,7 @@
             :on-continue="refreshSession"
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
-            :initial-seconds="inactivityModalTime/1000"
+            :initial-seconds="inactivityModalTime / 1000"
         />
         <v-banner
             v-if="limitState.isShown && !isLoading"
@@ -79,6 +79,7 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import eventBus from '@/utils/eventBus';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -125,6 +126,7 @@ export default class DashboardArea extends Vue {
     private inactivityTimerId: ReturnType<typeof setTimeout> | null;
     private inactivityModalShown = false;
     private inactivityModalTime = 60000;
+    private ACTIVITY_REFRESH_TIME_LIMIT = 180000;
     private sessionRefreshInterval: number = this.sessionDuration/2;
     private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
     private isSessionActive = false;
@@ -182,6 +184,19 @@ export default class DashboardArea extends Vue {
         }
 
         return result;
+    }
+
+    /**
+     * Subscribes to activity events to refresh session timers.
+     */
+    public created(): void {
+        eventBus.$on('upload_progress', () => {
+            this.resetSessionOnLogicRelatedActivity();
+        });
+    }
+
+    public beforeDestroy(): void {
+        eventBus.$off('upload_progress');
     }
 
     /**
@@ -274,6 +289,28 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Used to trigger session timer update while doing not UI-related work for a long time.
+     */
+    public async resetSessionOnLogicRelatedActivity(): Promise<void> {
+        const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+        if (!isInactivityTimerEnabled) {
+            return;
+        }
+
+        const expiresAt = LocalData.getSessionExpirationDate();
+
+        if (expiresAt) {
+            const ms = Math.max(0, expiresAt.getTime() - Date.now());
+
+            // Isn't triggered when decent amount of session time is left.
+            if (ms < this.ACTIVITY_REFRESH_TIME_LIMIT) {
+                await this.refreshSession();
+            }
+        }
     }
 
     /**
