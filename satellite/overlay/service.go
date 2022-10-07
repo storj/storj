@@ -99,6 +99,11 @@ type DB interface {
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
 
+	// GetOfflineNodesForEmail gets offline nodes in need of an email.
+	GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error)
+	// UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
+	UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error)
+
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
 	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error)
@@ -239,8 +244,9 @@ type NodeDossier struct {
 	CreatedAt               time.Time
 	LastNet                 string
 	LastIPPort              string
-	CountryCode             location.CountryCode
+	LastOfflineEmail        *time.Time
 	LastSoftwareUpdateEmail *time.Time
+	CountryCode             location.CountryCode
 }
 
 // NodeStats contains statistics about a node.

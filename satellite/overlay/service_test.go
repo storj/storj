@@ -645,6 +645,26 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, updated2Node.Reputation.LastContactSuccess.Equal(updatedNode.Reputation.LastContactSuccess))
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
+
+		// check that UpdateCheckIn updates last_offline_email
+		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storj.NodeID{updated2Node.Id}, time.Now()))
+		nodeInfo, err := db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.NotNil(t, nodeInfo.LastOfflineEmail)
+		lastEmail := nodeInfo.LastOfflineEmail
+
+		// first that it is not updated if node is offline
+		require.NoError(t, db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{}))
+		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.Equal(t, lastEmail, nodeInfo.LastOfflineEmail)
+
+		// then that it is nullified if node is online
+		updatedInfo2.IsUp = true
+		require.NoError(t, db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{}))
+		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.Nil(t, nodeInfo.LastOfflineEmail)
 	})
 }
 

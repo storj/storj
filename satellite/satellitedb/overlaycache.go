@@ -406,6 +406,57 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, err
 }
 
+// GetOfflineNodesForEmail gets nodes that we want to send an email to. These are non-disqualified, non-exited nodes where
+// last_contact_success is between two points: the point where it is considered offline (offlineWindow), and the point where we don't want
+// to send more emails (cutoff). It also filters nodes where last_offline_email is too recent (cooldown).
+func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineWindow, cutoff, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	nodes = make(map[storj.NodeID]string)
+	rows, err := cache.db.QueryContext(ctx, `
+		SELECT id, email
+		FROM nodes
+		WHERE last_contact_success < $1
+			AND last_contact_success > $2
+			AND (last_offline_email IS NULL OR last_offline_email < $3)
+			AND email != ''
+			AND disqualified is NULL
+			AND exit_finished_at is NULL
+		LIMIT $4
+	`, now.Add(-offlineWindow), now.Add(-cutoff), now.Add(-cooldown), limit)
+	if err != nil {
+		return
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var idBytes []byte
+	var email string
+	var nodeID storj.NodeID
+	for rows.Next() {
+		err = rows.Scan(&idBytes, &email)
+		nodeID, err = storj.NodeIDFromBytes(idBytes)
+		if err != nil {
+			return
+		}
+		nodes[nodeID] = email
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
+// UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
+func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET last_offline_email = $1
+		WHERE id = any($2::bytea[])
+	`, timestamp, pgutil.NodeIDArray(nodeIDs))
+	return err
+}
+
 // KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
 func (cache *overlaycache) KnownReliableInExcludedCountries(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
 	for {
@@ -1077,6 +1128,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		ExitStatus:              exitStatus,
 		CreatedAt:               info.CreatedAt,
 		LastNet:                 info.LastNet,
+		LastOfflineEmail:        info.LastOfflineEmail,
 		LastSoftwareUpdateEmail: info.LastSoftwareUpdateEmail,
 	}
 	if info.LastIpPort != nil {
@@ -1259,6 +1311,10 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			last_software_update_email = CASE
 				WHEN $19::bool IS TRUE THEN $15::timestamptz
 				WHEN $20::bool IS FALSE THEN NULL
+			END,
+			last_offline_email = CASE WHEN $8::bool IS TRUE
+				THEN NULL
+				ELSE nodes.last_offline_email
 			END
 		WHERE id = $1
 	`, // args $1 - $4
@@ -1338,7 +1394,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_software_update_email = CASE
 					WHEN $20::bool IS TRUE THEN $16::timestamptz
 					WHEN $21::bool IS FALSE THEN NULL
-			END;
+				END,
+				last_offline_email = CASE WHEN $9::bool IS TRUE
+					THEN NULL
+					ELSE nodes.last_offline_email
+				END;
 			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
