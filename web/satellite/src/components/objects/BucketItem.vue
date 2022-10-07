@@ -5,6 +5,9 @@
     <table-item
         :item="itemToRender"
         :on-click="onClick"
+        :show-guide="shouldShowGuide"
+        :hide-guide="hideGuidePermanently"
+        table-type="bucket"
     >
         <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
@@ -16,15 +19,6 @@
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
                     <delete-icon />
                     <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
-                </div>
-            </div>
-            <div v-if="shouldShowGuide" class="bucket-item__functional__message" @click.stop>
-                <p class="bucket-item__functional__message__title">Upload</p>
-                <p class="bucket-item__functional__message__content">To upload files, open an existing bucket or create a new one.</p>
-                <div class="bucket-item__functional__message__actions">
-                    <div class="bucket-item__functional__message__actions__primary" @click.stop="hideGuidePermanently">
-                        <p class="bucket-item__functional__message__actions__primary__label">OK</p>
-                    </div>
                 </div>
             </div>
         </th>
@@ -138,8 +132,8 @@ export default class BucketItem extends Resizable {
 
         &__functional {
             padding: 0 10px;
-            position: relative;
             cursor: pointer;
+            pointer-events: auto;
 
             &__dropdown {
                 position: absolute;
