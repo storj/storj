@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"time"
 
@@ -54,4 +55,39 @@ func parseHumanDate(date string) (time.Time, error) {
 		t, err := time.Parse(time.RFC3339, date)
 		return t, errs.Wrap(err)
 	}
+}
+
+// NoneDate is a date type which tracks if it was set to "none" explicitly.
+type NoneDate struct {
+	isExplicitNone bool
+	Date           time.Time
+}
+
+// IsImplicitZero indicates if the date has defaulted to empty becaues the argument was empty.
+func (e NoneDate) IsImplicitZero() bool {
+	return e.Date.IsZero() && !e.isExplicitNone
+}
+
+func parseNoneDate(date string) (result NoneDate, err error) {
+	if date == "none" {
+		result.isExplicitNone = true
+	}
+
+	result.Date, err = parseHumanDate(date)
+
+	return result, err
+}
+
+// parseJSON parses command-line flags which accept JSON string.
+// It can be passed to clingy.Transform to create a clingy.Option.
+func parseJSON(jsonString string) (map[string]string, error) {
+	if len(jsonString) > 0 {
+		var jsonValue map[string]string
+		err := json.Unmarshal([]byte(jsonString), &jsonValue)
+		if err != nil {
+			return nil, err
+		}
+		return jsonValue, nil
+	}
+	return nil, nil
 }

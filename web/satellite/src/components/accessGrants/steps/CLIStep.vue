@@ -53,12 +53,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
-
-import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -76,12 +77,15 @@ export default class CLIStep extends Vue {
         addressContainer: HTMLElement;
     };
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Sets local key from props value.
      */
     public mounted(): void {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -96,6 +100,7 @@ export default class CLIStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
@@ -109,6 +114,7 @@ export default class CLIStep extends Vue {
      * Redirects to upload step.
      */
     public onDoneClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -181,7 +187,7 @@ export default class CLIStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -190,7 +196,7 @@ export default class CLIStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 50px 0;
+            margin: 0 0 50px;
         }
 
         &__token-area {
@@ -205,7 +211,7 @@ export default class CLIStep extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
-                margin: 0 0 5px 0;
+                margin: 0 0 5px;
             }
 
             &__container {
@@ -213,7 +219,7 @@ export default class CLIStep extends Vue {
                 align-items: center;
                 padding: 10px 10px 10px 20px;
                 width: calc(100% - 30px);
-                border: 1px solid rgba(56, 75, 101, 0.4);
+                border: 1px solid rgb(56 75 101 / 40%);
                 border-radius: 6px;
                 margin-bottom: 20px;
 

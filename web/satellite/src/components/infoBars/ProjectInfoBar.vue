@@ -28,10 +28,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 /**
  * VBanner is common banner for needed pages
@@ -91,7 +91,8 @@ export default class ProjectInfoBar extends Vue {
         justify-content: space-between;
         align-items: center;
         background-color: #2582ff;
-        width: calc(100% - 60px);
+        width: 100%;
+        box-sizing: border-box;
         padding: 5px 30px;
         font-family: 'font_regular', sans-serif;
         color: #fff;
@@ -99,6 +100,7 @@ export default class ProjectInfoBar extends Vue {
         &__info {
             display: flex;
             align-items: center;
+            justify-content: flex-start;
 
             &__message {
                 display: flex;
@@ -106,7 +108,6 @@ export default class ProjectInfoBar extends Vue {
                 margin-right: 5px;
                 font-size: 14px;
                 line-height: 17px;
-                white-space: nowrap;
 
                 &__value {
                     margin: 0 5px;
@@ -119,6 +120,7 @@ export default class ProjectInfoBar extends Vue {
             line-height: 17px;
             font-family: 'font_medium', sans-serif;
             color: #fff;
+            text-align: right;
         }
     }
 

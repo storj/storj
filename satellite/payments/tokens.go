@@ -9,8 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/storj/private/blockchain"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.
@@ -23,6 +24,18 @@ type StorjTokens interface {
 	ListTransactionInfos(ctx context.Context, userID uuid.UUID) ([]TransactionInfo, error)
 	// ListDepositBonuses returns all deposit bonuses associated with user.
 	ListDepositBonuses(ctx context.Context, userID uuid.UUID) ([]DepositBonus, error)
+}
+
+// DepositWallets exposes all needed functionality to manage token deposit wallets.
+//
+// architecture: Service
+type DepositWallets interface {
+	// Claim gets a new crypto wallet and associates it with a user.
+	Claim(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
+	// Get returns the crypto wallet address associated with the given user.
+	Get(ctx context.Context, userID uuid.UUID) (blockchain.Address, error)
+	// Payments returns payments for a particular wallet.
+	Payments(ctx context.Context, wallet blockchain.Address, limit int, offset int64) ([]WalletPayment, error)
 }
 
 // TransactionStatus defines allowed statuses
@@ -55,7 +68,7 @@ func (id TransactionID) String() string {
 // accepts user funds on a specific wallet address.
 type Transaction struct {
 	ID        TransactionID
-	Amount    monetary.Amount
+	Amount    currency.Amount
 	Rate      decimal.Decimal
 	Address   string
 	Status    TransactionStatus
@@ -68,8 +81,8 @@ type Transaction struct {
 // such as links and expiration time.
 type TransactionInfo struct {
 	ID            TransactionID
-	Amount        monetary.Amount
-	Received      monetary.Amount
+	Amount        currency.Amount
+	Received      currency.Amount
 	AmountCents   int64
 	ReceivedCents int64
 	Address       string
@@ -85,4 +98,28 @@ type DepositBonus struct {
 	AmountCents   int64
 	Percentage    int64
 	CreatedAt     time.Time
+}
+
+// PaymentStatus indicates payment status.
+type PaymentStatus string
+
+const (
+	// PaymentStatusConfirmed indicates that payment has required number of confirmations.
+	PaymentStatusConfirmed = "confirmed"
+	// PaymentStatusPending indicates that payment has not meet confirmation requirements.
+	PaymentStatusPending = "pending"
+)
+
+// WalletPayment holds storj token payment data.
+type WalletPayment struct {
+	From        blockchain.Address `json:"from"`
+	To          blockchain.Address `json:"to"`
+	TokenValue  currency.Amount    `json:"tokenValue"`
+	USDValue    currency.Amount    `json:"usdValue"`
+	Status      PaymentStatus      `json:"status"`
+	BlockHash   blockchain.Hash    `json:"blockHash"`
+	BlockNumber int64              `json:"blockNumber"`
+	Transaction blockchain.Hash    `json:"transaction"`
+	LogIndex    int                `json:"logIndex"`
+	Timestamp   time.Time          `json:"timestamp"`
 }

@@ -352,6 +352,8 @@ func (loop *Service) Wait() {
 var errNoObservers = errs.New("no observers")
 
 func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerContext) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	defer func() {
 		if err != nil {
 			errorObservers(observers, err)
@@ -500,7 +502,6 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 }
 
 func withObservers(ctx context.Context, observers []*observerContext, handleObserver func(ctx context.Context, observer *observerContext) bool) []*observerContext {
-	defer mon.Task()(&ctx)(nil)
 	nextObservers := observers[:0]
 	for _, observer := range observers {
 		keepObserver := handleObserver(ctx, observer)
@@ -512,8 +513,6 @@ func withObservers(ctx context.Context, observers []*observerContext, handleObse
 }
 
 func handleSegment(ctx context.Context, observer *observerContext, segment *Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	if segment.Inline() {
 		if err := observer.InlineSegment(ctx, segment); err != nil {
 			return err

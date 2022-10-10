@@ -9,6 +9,8 @@ import {
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
     TokenDeposit,
+    NativePaymentHistoryItem,
+    Wallet,
 } from '@/types/payments';
 
 /**
@@ -53,6 +55,10 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
+    nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
+        return Promise.resolve([]);
+    }
+
     makeTokenDeposit(amount: number): Promise<TokenDeposit> {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
@@ -63,5 +69,13 @@ export class PaymentsMock implements PaymentsApi {
 
     getCoupon(): Promise<Coupon | null> {
         return Promise.resolve(this.mockCoupon);
+    }
+
+    getWallet(): Promise<Wallet> {
+        return Promise.resolve(new Wallet());
+    }
+
+    claimWallet(): Promise<Wallet> {
+        return Promise.resolve(new Wallet());
     }
 }

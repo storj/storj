@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -49,11 +50,27 @@ var (
 type irreparableError struct {
 	piecesAvailable int32
 	piecesRequired  int32
-	errlist         []error
 }
 
 func (ie *irreparableError) Error() string {
 	return fmt.Sprintf("%d available pieces < %d required", ie.piecesAvailable, ie.piecesRequired)
+}
+
+// PieceFetchResult combines a piece pointer with the error we got when we tried
+// to acquire that piece.
+type PieceFetchResult struct {
+	Piece metabase.Piece
+	Err   error
+}
+
+// FetchResultReport contains a categorization of a set of pieces based on the results of
+// GET operations.
+type FetchResultReport struct {
+	Successful []PieceFetchResult
+	Failed     []PieceFetchResult
+	Offline    []PieceFetchResult
+	Contained  []PieceFetchResult
+	Unknown    []PieceFetchResult
 }
 
 // SegmentRepairer for segments.
@@ -65,7 +82,7 @@ type SegmentRepairer struct {
 	overlay        *overlay.Service
 	ec             *ECRepairer
 	timeout        time.Duration
-	reporter       *audit.Reporter
+	reporter       audit.Reporter
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -77,7 +94,7 @@ type SegmentRepairer struct {
 
 	nowFn                            func() time.Time
 	OnTestingCheckSegmentAlteredHook func()
-	OnTestingPiecesReportHook        func(pieces audit.Pieces)
+	OnTestingPiecesReportHook        func(pieces FetchResultReport)
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -90,7 +107,7 @@ func NewSegmentRepairer(
 	metabase *metabase.DB,
 	orders *orders.Service,
 	overlay *overlay.Service,
-	reporter *audit.Reporter,
+	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	repairOverrides checker.RepairOverrides,
 	timeout time.Duration, excessOptimalThreshold float64,
@@ -142,6 +159,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 
 	// ignore segment if expired
 	if segment.Expired(repairer.nowFn()) {
+		mon.Meter("repair_unnecessary").Mark(1)
+		mon.Meter("segment_expired_before_repair").Mark(1)
 		repairer.log.Debug("segment has expired", zap.Stringer("Stream ID", segment.StreamID), zap.Uint64("Position", queueSegment.Position.Encode()))
 		return true, nil
 	}
@@ -173,7 +192,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
-	// irreparable piece
+	// irreparable segment
 	if numHealthy < int(segment.Redundancy.RequiredShares) {
 		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
 		stats.repairerSegmentsBelowMinReq.Inc(1)
@@ -250,9 +269,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 			mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 			stats.repairerNodesUnavailable.Mark(1)
 
-			repairer.log.Warn("irreparable segment",
+			repairer.log.Warn("irreparable segment: too many nodes offline",
 				zap.String("StreamID", queueSegment.StreamID.String()),
 				zap.Uint64("Position", queueSegment.Position.Encode()),
+				zap.Int("piecesAvailable", len(healthyPieces)),
+				zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
 				zap.Error(err),
 			)
 		}
@@ -299,7 +320,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedNodesInfo, getPrivateKey, redundancy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
-	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
+	mon.Meter("repair_too_many_nodes_failed").Mark(0)     //mon:locked
+	mon.Meter("repair_suspected_network_problem").Mark(0) //mon:locked
 	stats.repairTooManyNodesFailed.Mark(0)
 
 	if repairer.OnTestingPiecesReportHook != nil {
@@ -338,16 +360,65 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		// to wait for nodes to come back online.
 		var irreparableErr *irreparableError
 		if errors.As(err, &irreparableErr) {
-			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
+			// piecesReport.Offline:
+			// Nodes which were online recently, but which we couldn't contact for
+			// this operation.
+			//
+			// piecesReport.Failed:
+			// Nodes which we contacted successfully but which indicated they
+			// didn't have the piece we wanted.
+			//
+			// piecesReport.Contained:
+			// Nodes which we contacted successfully but timed out after we asked
+			// for the piece.
+			//
+			// piecesReport.Unknown:
+			// Something else went wrong, and we don't know what.
+			//
+			// In a network failure scenario, we expect more than half of the outcomes
+			// will be in Offline or Contained.
+			if len(piecesReport.Offline)+len(piecesReport.Contained) > len(piecesReport.Successful)+len(piecesReport.Failed)+len(piecesReport.Unknown) {
+				mon.Meter("repair_suspected_network_problem").Mark(1) //mon:locked
+			} else {
+				mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
+			}
 			stats.repairTooManyNodesFailed.Mark(1)
 
-			repairer.log.Warn("irreparable segment",
+			failedNodeIDs := make([]string, 0, len(piecesReport.Failed))
+			offlineNodeIDs := make([]string, 0, len(piecesReport.Offline))
+			timedOutNodeIDs := make([]string, 0, len(piecesReport.Contained))
+			unknownErrs := make([]string, 0, len(piecesReport.Unknown))
+			for _, outcome := range piecesReport.Failed {
+				failedNodeIDs = append(failedNodeIDs, outcome.Piece.StorageNode.String())
+			}
+			for _, outcome := range piecesReport.Offline {
+				offlineNodeIDs = append(offlineNodeIDs, outcome.Piece.StorageNode.String())
+			}
+			for _, outcome := range piecesReport.Contained {
+				timedOutNodeIDs = append(timedOutNodeIDs, outcome.Piece.StorageNode.String())
+			}
+			for _, outcome := range piecesReport.Unknown {
+				// We are purposefully using the error's string here, as opposed
+				// to wrapping the error. It is not likely that we need the local-side
+				// traceback of where this error was initially wrapped, and this will
+				// keep the logs more readable.
+				unknownErrs = append(unknownErrs, fmt.Sprintf("node ID [%s] err: %v", outcome.Piece.StorageNode, outcome.Err))
+			}
+
+			repairer.log.Warn("irreparable segment: could not acquire enough shares",
 				zap.String("StreamID", queueSegment.StreamID.String()),
 				zap.Uint64("Position", queueSegment.Position.Encode()),
 				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
 				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
-				zap.Error(errs.Combine(irreparableErr.errlist...)),
+				zap.Int("numFailedNodes", len(failedNodeIDs)),
+				zap.Stringer("failedNodes", commaSeparatedArray(failedNodeIDs)),
+				zap.Int("numOfflineNodes", len(offlineNodeIDs)),
+				zap.Stringer("offlineNodes", commaSeparatedArray(offlineNodeIDs)),
+				zap.Int("numTimedOutNodes", len(timedOutNodeIDs)),
+				zap.Stringer("timedOutNodes", commaSeparatedArray(timedOutNodeIDs)),
+				zap.Stringer("unknownErrors", commaSeparatedArray(unknownErrs)),
 			)
+			// repair will be attempted again if the segment remains unhealthy.
 			return false, nil
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
@@ -365,17 +436,17 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		NodesReputation: cachedNodesReputation,
 	}
 
-	for _, piece := range piecesReport.Successful {
-		report.Successes = append(report.Successes, piece.StorageNode)
+	for _, outcome := range piecesReport.Successful {
+		report.Successes = append(report.Successes, outcome.Piece.StorageNode)
 	}
-	for _, piece := range piecesReport.Failed {
-		report.Fails = append(report.Fails, piece.StorageNode)
+	for _, outcome := range piecesReport.Failed {
+		report.Fails = append(report.Fails, outcome.Piece.StorageNode)
 	}
-	for _, piece := range piecesReport.Offline {
-		report.Offlines = append(report.Offlines, piece.StorageNode)
+	for _, outcome := range piecesReport.Offline {
+		report.Offlines = append(report.Offlines, outcome.Piece.StorageNode)
 	}
-	for _, piece := range piecesReport.Unknown {
-		report.Unknown = append(report.Unknown, piece.StorageNode)
+	for _, outcome := range piecesReport.Unknown {
+		report.Unknown = append(report.Unknown, outcome.Piece.StorageNode)
 	}
 	_, reportErr := repairer.reporter.RecordAudits(ctx, report)
 	if reportErr != nil {
@@ -452,7 +523,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// add pieces that failed piece hashes verification to the removal list
-	toRemove = append(toRemove, piecesReport.Failed...)
+	for _, outcome := range piecesReport.Failed {
+		toRemove = append(toRemove, outcome.Piece)
+	}
 
 	newPieces, err := segment.Pieces.Update(repairedPieces, toRemove)
 	if err != nil {
@@ -625,4 +698,12 @@ func sliceToSet(slice []uint16) map[uint16]bool {
 		set[value] = true
 	}
 	return set
+}
+
+// commaSeparatedArray concatenates an array into a comma-separated string,
+// lazily.
+type commaSeparatedArray []string
+
+func (c commaSeparatedArray) String() string {
+	return strings.Join(c, ", ")
 }

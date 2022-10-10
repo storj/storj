@@ -33,12 +33,12 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
+import { OnPageClickCallback, Page } from '@/types/pagination';
+
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
 import PaginationLeftIcon from '@/../static/images/common/paginationLeft.svg';
 import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
-
-import { OnPageClickCallback, Page } from '@/types/pagination';
 
 // @vue/component
 @Component({
@@ -58,9 +58,9 @@ export default class VPagination extends Vue {
     public middleBlockPages: Page[] = [];
     public lastBlockPages: Page[] = [];
 
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     /**

@@ -16,7 +16,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
@@ -40,12 +39,6 @@ type Config struct {
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
-// BucketsDB returns information about buckets.
-type BucketsDB interface {
-	// GetBucketID returns an existing bucket id.
-	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
-}
-
 // Service for creating order limits.
 //
 // architecture: Service
@@ -54,7 +47,6 @@ type Service struct {
 	satellite signing.Signer
 	overlay   *overlay.Service
 	orders    DB
-	buckets   BucketsDB
 
 	encryptionKeys EncryptionKeys
 
@@ -67,8 +59,7 @@ type Service struct {
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
-	orders DB, buckets BucketsDB,
-	config Config,
+	orders DB, config Config,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
@@ -79,7 +70,6 @@ func NewService(
 		satellite: satellite,
 		overlay:   overlay,
 		orders:    orders,
-		buckets:   buckets,
 
 		encryptionKeys: config.EncryptionKeys,
 
@@ -142,7 +132,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodes, err := service.overlay.CachedGetOnlineNodesForGet(ctx, nodeIDs)
 	if err != nil {
 		service.log.Debug("error getting nodes from overlay", zap.Error(err))
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)

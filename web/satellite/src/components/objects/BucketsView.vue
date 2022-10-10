@@ -5,34 +5,61 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
-                <BucketIcon />
-                <p class="buckets-view__title-area__button__label">New Bucket</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
             </div>
         </div>
+
+        <div class="buckets-view__divider" />
+
         <VLoader
             v-if="isLoading"
             width="100px"
             height="100px"
             class="buckets-view__loader"
         />
-        <p v-if="!(isLoading || bucketsList.length)" class="buckets-view__no-buckets">No Buckets</p>
-        <div v-if="!isLoading && bucketsList.length" class="buckets-view__list">
-            <div class="buckets-view__list__sorting-header">
-                <p class="buckets-view__list__sorting-header__name">Name</p>
-                <p class="buckets-view__list__sorting-header__date">Date Added</p>
-                <p class="buckets-view__list__sorting-header__empty" />
+
+        <div v-if="!(isLoading || (bucketsPage.buckets && bucketsPage.buckets.length))" class="buckets-view__no-buckets-area">
+            <EmptyBucketIcon class="buckets-view__no-buckets-area__image" />
+            <h4 class="buckets-view__no-buckets-area__title">There are no buckets in this project</h4>
+            <p class="buckets-view__no-buckets-area__body">Create a new bucket to upload files</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
             </div>
-            <div v-for="(bucket, key) in bucketsList" :key="key" class="buckets-view__list__item" @click.stop="openBucket(bucket.Name)">
+        </div>
+
+        <v-table
+            v-if="!isLoading && bucketsPage.buckets && bucketsPage.buckets.length"
+            class="buckets-view__list"
+            :limit="bucketsPage.limit"
+            :total-page-count="bucketsPage.pageCount"
+            :items="bucketsPage.buckets"
+            items-label="buckets"
+            :on-page-click-callback="fetchBuckets"
+            :total-items-count="bucketsPage.totalCount"
+        >
+            <template #head>
+                <th class="buckets-view__list__sorting-header__name align-left">Name</th>
+                <th class="buckets-view__list__sorting-header__date align-left">Date Added</th>
+                <th class="buckets-view__list__sorting-header__empty" />
+            </template>
+            <template #body>
                 <BucketItem
+                    v-for="(bucket, key) in bucketsPage.buckets"
+                    :key="key"
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
                     :dropdown-key="key"
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
+                    :show-guide="key === 0"
+                    :on-click="() => openBucket(bucket.name)"
                 />
-            </div>
-        </div>
+            </template>
+        </v-table>
+        <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
         <ObjectsPopup
             v-if="isCreatePopupVisible"
             :on-click="onCreateBucketClick"
@@ -59,29 +86,40 @@
 </template>
 
 <script lang="ts">
-import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue, Watch } from 'vue-property-decorator';
+
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
+import { LocalData } from '@/utils/localData';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { BucketPage } from '@/types/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
+import VTable from '@/components/common/VTable.vue';
+import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 
-import BucketIcon from '@/../static/images/objects/bucket.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { DEMO_BUCKET_NAME, OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MetaUtils } from '@/utils/meta';
-import { Validator } from '@/utils/validation';
+import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
+import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
 
 // @vue/component
 @Component({
     components: {
-        BucketIcon,
+        VTable,
+        WhitePlusIcon,
+        EmptyBucketIcon,
         ObjectsPopup,
         BucketItem,
         VLoader,
+        EncryptionBanner,
     },
 })
 export default class BucketsView extends Vue {
@@ -97,29 +135,25 @@ export default class BucketsView extends Vue {
     public isRequestProcessing = false;
     public errorMessage = '';
     public activeDropdown = -1;
+    public isServerSideEncryptionBannerHidden = true;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
-     * Setup gateway credentials.
+     * Sets bucket view.
      */
     public async mounted(): Promise<void> {
-        if (!this.$store.state.objectsModule.passphrase && !this.isNewObjectsFlow) {
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-            return;
-        }
-
+        this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
         await this.setBucketsView();
     }
 
     @Watch('selectedProjectID')
     public async handleProjectChange(): Promise<void> {
-        if (this.isNewObjectsFlow) {
-            this.isLoading = true;
+        this.isLoading = true;
 
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            await this.setBucketsView();
-        }
+        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        await this.setBucketsView();
     }
 
     /**
@@ -132,12 +166,34 @@ export default class BucketsView extends Vue {
             await this.setAccess();
             await this.fetchBuckets();
 
-            if (!this.bucketsList.length) await this.createDemoBucket();
+            const wasDemoBucketCreated = LocalData.getDemoBucketCreatedStatus();
+
+            if (this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
+                LocalData.setDemoBucketCreatedStatus();
+
+                return;
+            }
+
+            if (!this.bucketsPage.buckets.length && wasDemoBucketCreated) {
+                await this.removeTemporaryAccessGrant();
+
+                return;
+            }
+
+            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
+                if (this.isNewObjectsFlow) {
+                    this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                    await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                    return;
+                }
+
+                await this.createDemoBucket();
+            }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
+        } finally {
+            this.isLoading = false;
         }
-
-        this.isLoading = false;
     }
 
     /**
@@ -168,14 +224,10 @@ export default class BucketsView extends Vue {
         }
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-        let passphrase = '';
-        if (!this.isNewObjectsFlow) {
-            passphrase = this.passphrase;
-        }
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.grantWithPermissions,
-            'passphrase': passphrase,
+            'passphrase': '',
             'projectID': this.$store.getters.selectedProject.id,
             'satelliteNodeURL': satelliteNodeURL,
         });
@@ -187,16 +239,20 @@ export default class BucketsView extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant, isPublic: false});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant, isPublic: false });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
     }
 
     /**
-     * Fetches bucket using S3 client.
+     * Fetches bucket using api.
      */
-    public async fetchBuckets(): Promise<void> {
-        await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+    public async fetchBuckets(page = 1): Promise<void> {
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+        }
     }
 
     /**
@@ -207,6 +263,13 @@ export default class BucketsView extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+    }
+
+    public onNewBucketButtonClick(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+        this.isNewObjectsFlow
+            ? this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path)
+            : this.showCreateBucketPopup();
     }
 
     /**
@@ -220,15 +283,13 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = true;
 
         try {
-            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            if (this.isNewObjectsFlow) {
-                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
-                this.createBucketName = '';
-                this.isRequestProcessing = false;
-                this.hideCreateBucketPopup();
-
-                return;
+            if (!this.edgeCredentials.accessKeyId) {
+                await this.setAccess();
             }
+            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
+            await this.fetchBuckets();
+            this.createBucketName = '';
+            this.hideCreateBucketPopup();
         } catch (error) {
             const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
 
@@ -237,17 +298,9 @@ export default class BucketsView extends Vue {
             } else {
                 await this.$notify.error(error.message);
             }
-
+        } finally {
             this.isRequestProcessing = false;
-
-            return;
         }
-
-        const bucket = this.createBucketName;
-        this.createBucketName = '';
-        this.isRequestProcessing = false;
-
-        this.openBucket(bucket);
     }
 
     /**
@@ -260,22 +313,14 @@ export default class BucketsView extends Vue {
 
         try {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
-            if (this.isNewObjectsFlow) {
-                await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
-                this.isRequestProcessing = false;
+            await this.fetchBuckets();
 
-                return;
-            }
+            LocalData.setDemoBucketCreatedStatus();
         } catch (error) {
             await this.$notify.error(error.message);
+        } finally {
             this.isRequestProcessing = false;
-
-            return;
         }
-
-        this.isRequestProcessing = false;
-
-        this.openBucket(DEMO_BUCKET_NAME);
     }
 
     /**
@@ -289,19 +334,34 @@ export default class BucketsView extends Vue {
         this.isRequestProcessing = true;
 
         try {
+            if (!this.edgeCredentials.accessKeyId) {
+                await this.setAccess();
+            }
             await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.deleteBucketName);
-            await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+            await this.fetchBuckets();
         } catch (error) {
             await this.$notify.error(error.message);
-
-            this.isRequestProcessing = false;
-
             return;
+        } finally {
+            this.isRequestProcessing = false;
         }
 
-        this.isRequestProcessing = false;
+        this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
+
         this.deleteBucketName = '';
         this.hideDeleteBucketPopup();
+    }
+
+    /**
+     * Removes temporary created access grant.
+     */
+    public async removeTemporaryAccessGrant(): Promise<void> {
+        try {
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
     }
 
     /**
@@ -366,14 +426,11 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Removes temporary created access grant.
+     * Hides server-side encryption banner.
      */
-    public async removeTemporaryAccessGrant(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
+    public hideBanner(): void {
+        this.isServerSideEncryptionBannerHidden = true;
+        LocalData.setServerSideEncryptionBannerHidden(true);
     }
 
     /**
@@ -381,28 +438,17 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-
-        if (this.isNewObjectsFlow) {
-            this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-
-            return;
-        }
-
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.isNewObjectsFlow
+            ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
+            : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
     }
 
     /**
-     * Returns fetched buckets from store.
+     * Returns fetched buckets page from store.
      */
-    public get bucketsList(): Bucket[] {
-        return this.$store.state.objectsModule.bucketsList;
-    }
-
-    /**
-     * Returns passphrase from store.
-     */
-    private get passphrase(): string {
-        return this.$store.state.objectsModule.passphrase;
+    public get bucketsPage(): BucketPage {
+        return this.$store.state.bucketUsageModule.page;
     }
 
     /**
@@ -417,6 +463,13 @@ export default class BucketsView extends Vue {
      */
     private get selectedProjectID(): string {
         return this.$store.getters.selectedProject.id;
+    }
+
+    /**
+     * Returns edge credentials from store.
+     */
+    private get edgeCredentials(): EdgeCredentials {
+        return this.$store.state.objectsModule.gatewayCredentials;
     }
 
     /**
@@ -441,12 +494,38 @@ export default class BucketsView extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .new-bucket-button {
+        padding: 0 15px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #0149ff;
+        border-radius: 8px;
+        cursor: pointer;
+
+        &__label {
+            font-family: 'font-medium', sans-serif;
+            font-weight: 700;
+            font-size: 13px;
+            line-height: 20px;
+            color: #fff;
+            margin: 0 0 0 5px;
+        }
+
+        &__icon {
+            color: #fff;
+        }
+
+        &:hover {
+            background-color: #0000c2;
+        }
+    }
+
     .buckets-view {
         display: flex;
         flex-direction: column;
         align-items: center;
-        font-family: 'font_regular', sans-serif;
-        font-style: normal;
         background-color: #f5f6fa;
 
         &__title-area {
@@ -457,84 +536,61 @@ export default class BucketsView extends Vue {
 
             &__title {
                 font-family: 'font_medium', sans-serif;
-                font-weight: bold;
-                font-size: 18px;
-                line-height: 26px;
+                font-weight: 600;
+                font-size: 28px;
+                line-height: 34px;
                 color: #232b34;
                 margin: 0;
-                width: 100%;
                 text-align: left;
             }
+        }
 
-            &__button {
-                width: 154px;
-                height: 46px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                background-color: #0068dc;
-                border-radius: 4px;
-                cursor: pointer;
-
-                &__label {
-                    font-weight: normal;
-                    font-size: 12px;
-                    line-height: 17px;
-                    color: #fff;
-                    margin: 0 0 0 5px;
-                }
-
-                &:hover {
-                    background-color: #0000c2;
-                }
-            }
+        &__divider {
+            width: 100%;
+            height: 1px;
+            background: #dadfe7;
+            margin: 24px 0;
         }
 
         &__loader {
             margin-top: 100px;
         }
 
-        &__no-buckets {
+        &__no-buckets-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 0;
             width: 100%;
-            text-align: center;
-            font-size: 30px;
-            line-height: 42px;
-            margin: 100px 0 0 0;
+            box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+            background-color: #fcfcfc;
+            border-radius: 20px;
+
+            &__image {
+                margin-bottom: 60px;
+            }
+
+            &__title {
+                font-family: 'font_medium', sans-serif;
+                font-weight: 800;
+                font-size: 18px;
+                line-height: 16px;
+                margin-bottom: 17px;
+            }
+
+            &__body {
+                font-family: 'font_regular', sans-serif;
+                font-weight: 400;
+                font-size: 16px;
+                line-height: 24px;
+                margin-bottom: 24px;
+            }
         }
 
         &__list {
             margin-top: 40px;
             width: 100%;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            padding-bottom: 100px;
-
-            &__sorting-header {
-                display: flex;
-                align-items: center;
-                padding: 0 20px 5px 20px;
-                width: calc(100% - 40px);
-                font-weight: bold;
-                font-size: 14px;
-                line-height: 20px;
-                color: #768394;
-                border-bottom: 1px solid rgba(169, 181, 193, 0.4);
-
-                &__name {
-                    width: calc(70% - 16px);
-                    margin: 0;
-                }
-
-                &__date {
-                    width: 30%;
-                    margin: 0;
-                }
-
-                &__empty {
-                    margin: 0;
-                }
-            }
         }
     }
 

@@ -1,20 +1,20 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="container">
-        <TopArrowIcon :class="{ active: isActive && isTop }" />
-        <BottomArrowIcon :class="{ active: isActive && isBottom }" />
+        <TopArrowIcon :class="`${ isActive && isTop?'active':'inactive' }`" />
+        <BottomArrowIcon :class="`${ isActive && isBottom?'active':'inactive' }`" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { SortingDirectionEnum } from '@/types/sortingArrows';
+
 import BottomArrowIcon from '@/../static/images/common/bottomArrow.svg';
 import TopArrowIcon from '@/../static/images/common/topArrow.svg';
-
-import { SortingDirectionEnum } from '@/types/sortingArrows';
 
 // @vue/component
 @Component({
@@ -24,9 +24,9 @@ import { SortingDirectionEnum } from '@/types/sortingArrows';
     },
 })
 export default class VerticalArrows extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private isActive: boolean;
-    @Prop({default: SortingDirectionEnum.BOTTOM})
+    @Prop({ default: SortingDirectionEnum.BOTTOM })
     private direction: SortingDirectionEnum;
 
     public get isTop(): boolean {
@@ -48,10 +48,16 @@ export default class VerticalArrows extends Vue {
         height: 17px;
     }
 
-    .active {
+    .inactive {
+        opacity: 0.5;
+    }
 
-        .arrow-svg-path {
+    .active {
+        opacity: 1;
+
+        :deep(path) {
             fill: #2683ff !important;
         }
     }
+
 </style>

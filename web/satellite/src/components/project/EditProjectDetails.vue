@@ -199,27 +199,25 @@
 </template>
 
 <script lang="ts">
-import { Dimensions, Memory, Size } from '@/utils/bytesSize';
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-
+import { Dimensions, Memory, Size } from '@/utils/bytesSize';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import {
     MAX_DESCRIPTION_LENGTH,
     MAX_NAME_LENGTH,
     Project,
-    ProjectFields, ProjectLimits
+    ProjectFields, ProjectLimits,
 } from '@/types/projects';
-
 import { MetaUtils } from '@/utils/meta';
 
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
     components: {
         VButton,
-    }
+    },
 })
 export default class EditProjectDetails extends Vue {
 
@@ -239,7 +237,6 @@ export default class EditProjectDetails extends Vue {
     public descriptionLength: number = MAX_DESCRIPTION_LENGTH;
     public storageLimitValue = 0;
     public bandwidthLimitValue = 0;
-
 
     /**
      * Returns selected project from store.
@@ -317,7 +314,6 @@ export default class EditProjectDetails extends Vue {
         return this.formattedValue(new Size(this.currentLimits.bandwidthLimit, 2));
     }
 
-
     public get storageLimitFormatted(): string {
         return this.formattedValue(new Size(this.currentLimits.storageLimit, 2));
     }
@@ -329,7 +325,6 @@ export default class EditProjectDetails extends Vue {
         return new Size(this.currentLimits.bandwidthLimit, 2).formattedBytes;
     }
 
-
     public get storageLimitMeasurement(): string {
         return new Size(this.currentLimits.storageLimit, 2).formattedBytes;
     }
@@ -339,19 +334,19 @@ export default class EditProjectDetails extends Vue {
      */
     public get bandwidthCharLimit(): number {
 
-        if(this.activeBandwidthMeasurement == Dimensions.GB) {
-            return 5
+        if (this.activeBandwidthMeasurement == Dimensions.GB) {
+            return 5;
         } else {
-            return 2
+            return 2;
         }
     }
 
     public get storageCharLimit(): number {
 
-        if(this.activeStorageMeasurement == Dimensions.GB) {
-            return 5
+        if (this.activeStorageMeasurement == Dimensions.GB) {
+            return 5;
         } else {
-            return 2
+            return 2;
         }
     }
 
@@ -359,7 +354,7 @@ export default class EditProjectDetails extends Vue {
      * Returns the current measurement that is being input.
      */
     public get storageMeasurementFormatted(): string {
-        if(this.isStorageLimitEditing) {
+        if (this.isStorageLimitEditing) {
             return this.activeStorageMeasurement;
         } else {
             return new Size(this.currentLimits.storageLimit, 2).label;
@@ -367,7 +362,7 @@ export default class EditProjectDetails extends Vue {
     }
 
     public get bandwidthMeasurementFormatted(): string {
-        if(this.isBandwidthLimitEditing) {
+        if (this.isBandwidthLimitEditing) {
             return this.activeBandwidthMeasurement;
         } else {
             return new Size(this.currentLimits.bandwidthLimit, 2).label;
@@ -378,7 +373,7 @@ export default class EditProjectDetails extends Vue {
      * Gets current default limit for paid accounts.
      */
     public get paidBandwidthLimit(): number {
-        if(this.activeBandwidthMeasurement == Dimensions.GB) {
+        if (this.activeBandwidthMeasurement == Dimensions.GB) {
             return this.toGB(this.getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit')));
         } else {
             return this.getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit'));
@@ -386,7 +381,7 @@ export default class EditProjectDetails extends Vue {
     }
 
     public get paidStorageLimit(): number {
-        if(this.activeStorageMeasurement == Dimensions.GB) {
+        if (this.activeStorageMeasurement == Dimensions.GB) {
             return this.toGB(this.getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit')));
         } else {
             return this.getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit'));
@@ -397,37 +392,37 @@ export default class EditProjectDetails extends Vue {
      * Convert value from GB to TB
      */
     public toTB(limitValue: number): number {
-        return limitValue / 1000
+        return limitValue / 1000;
     }
 
     /**
      * Convert value from TB to GB
      */
     public toGB(limitValue: number): number {
-        return limitValue * 1000
+        return limitValue * 1000;
     }
 
     /**
      * Get limit numeric value separated from included measurement
      */
     public getLimitValue(limit: string): number {
-        return parseInt(limit.split(" ")[0])
+        return parseInt(limit.split(' ')[0]);
     }
 
     /**
      * Check if measurement unit is currently active.
      */
     public isActiveStorageUnit(isTB: boolean): boolean {
-        if(isTB) {
-            return this.activeStorageMeasurement == Dimensions.TB
+        if (isTB) {
+            return this.activeStorageMeasurement == Dimensions.TB;
         } else {
             return this.activeStorageMeasurement == Dimensions.GB;
         }
     }
 
     public isActiveBandwidthUnit(isTB: boolean): boolean {
-        if(isTB) {
-            return this.activeBandwidthMeasurement == Dimensions.TB
+        if (isTB) {
+            return this.activeBandwidthMeasurement == Dimensions.TB;
         } else {
             return this.activeBandwidthMeasurement == Dimensions.GB;
         }
@@ -438,7 +433,7 @@ export default class EditProjectDetails extends Vue {
      */
     public toggleStorageMeasurement(isTB: boolean): void {
 
-        if(isTB) {
+        if (isTB) {
             this.activeStorageMeasurement = Dimensions.TB;
             this.storageLimitValue = this.toTB(this.storageLimitValue);
         } else {
@@ -449,7 +444,7 @@ export default class EditProjectDetails extends Vue {
 
     public toggleBandwidthMeasurement(isTB: boolean): void {
 
-        if(isTB) {
+        if (isTB) {
             this.activeBandwidthMeasurement = Dimensions.TB;
             this.bandwidthLimitValue = this.toTB(this.bandwidthLimitValue);
         } else {
@@ -469,7 +464,7 @@ export default class EditProjectDetails extends Vue {
         if (target.value.length > paidStorageCharLimit) {
             const formattedLimit = target.value.slice(0, paidStorageCharLimit);
             this.storageLimitValue = parseInt(formattedLimit);
-        } else if(parseInt(target.value) > this.paidStorageLimit) {
+        } else if (parseInt(target.value) > this.paidStorageLimit) {
             this.storageLimitValue = this.paidStorageLimit;
         } else {
             this.storageLimitValue = parseInt(target.value);
@@ -483,7 +478,7 @@ export default class EditProjectDetails extends Vue {
         if (target.value.length > paidBandwidthCharLimit) {
             const formattedLimit = target.value.slice(0, paidBandwidthCharLimit);
             this.bandwidthLimitValue = parseInt(formattedLimit);
-        } else if(parseInt(target.value) > this.paidBandwidthLimit) {
+        } else if (parseInt(target.value) > this.paidBandwidthLimit) {
             this.bandwidthLimitValue = this.paidBandwidthLimit;
         } else {
             this.bandwidthLimitValue = parseInt(target.value);
@@ -542,9 +537,9 @@ export default class EditProjectDetails extends Vue {
         try {
             let storageLimitValue = this.storageLimitValue;
 
-            if(this.activeStorageMeasurement == Dimensions.GB) {
+            if (this.activeStorageMeasurement == Dimensions.GB) {
                 storageLimitValue = storageLimitValue * Number(Memory.GB);
-            } else if(this.activeStorageMeasurement == Dimensions.TB) {
+            } else if (this.activeStorageMeasurement == Dimensions.TB) {
                 storageLimitValue = storageLimitValue * Number(Memory.TB);
             }
 
@@ -565,9 +560,9 @@ export default class EditProjectDetails extends Vue {
         try {
             let bandwidthLimitValue = this.bandwidthLimitValue;
 
-            if(this.activeBandwidthMeasurement == Dimensions.GB) {
+            if (this.activeBandwidthMeasurement == Dimensions.GB) {
                 bandwidthLimitValue = bandwidthLimitValue * Number(Memory.GB);
-            } else if(this.activeBandwidthMeasurement == Dimensions.TB) {
+            } else if (this.activeBandwidthMeasurement == Dimensions.TB) {
                 bandwidthLimitValue = bandwidthLimitValue * Number(Memory.TB);
             }
 
@@ -607,9 +602,9 @@ export default class EditProjectDetails extends Vue {
         if (this.$store.state.usersModule.user.paidTier) {
             this.isStorageLimitEditing = !this.isStorageLimitEditing;
 
-            if(this.activeStorageMeasurement == Dimensions.TB && storageLimitUnit !== Dimensions.TB) {
+            if (this.activeStorageMeasurement == Dimensions.TB && storageLimitUnit !== Dimensions.TB) {
                 this.storageLimitValue = this.toTB(parseInt(this.storageLimitMeasurement));
-            } else if(this.activeStorageMeasurement == Dimensions.GB && storageLimitUnit !== Dimensions.GB) {
+            } else if (this.activeStorageMeasurement == Dimensions.GB && storageLimitUnit !== Dimensions.GB) {
                 this.storageLimitValue = parseInt(this.storageLimitMeasurement);
             } else {
                 this.storageLimitValue = parseInt(this.storageLimitMeasurement);
@@ -627,9 +622,9 @@ export default class EditProjectDetails extends Vue {
         if (this.$store.state.usersModule.user.paidTier) {
             this.isBandwidthLimitEditing = !this.isBandwidthLimitEditing;
 
-            if(this.activeBandwidthMeasurement == Dimensions.TB && bandwidthLimitUnit !== Dimensions.TB) {
+            if (this.activeBandwidthMeasurement == Dimensions.TB && bandwidthLimitUnit !== Dimensions.TB) {
                 this.bandwidthLimitValue = this.toTB(parseInt(this.bandwidthLimitMeasurement));
-            } else if(this.activeBandwidthMeasurement == Dimensions.GB && bandwidthLimitUnit !== Dimensions.GB) {
+            } else if (this.activeBandwidthMeasurement == Dimensions.GB && bandwidthLimitUnit !== Dimensions.GB) {
                 this.bandwidthLimitValue = parseInt(this.bandwidthLimitMeasurement);
             } else {
                 this.bandwidthLimitValue = parseInt(this.bandwidthLimitMeasurement);
@@ -667,7 +662,7 @@ export default class EditProjectDetails extends Vue {
                 font-size: 16px;
                 line-height: 23px;
                 color: #2582ff;
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
             }
 
             &__container {
@@ -681,7 +676,7 @@ export default class EditProjectDetails extends Vue {
                     font-size: 22px;
                     line-height: 27px;
                     color: #384b65;
-                    margin: 0 0 35px 0;
+                    margin: 0 0 35px;
                 }
 
                 &__label {
@@ -689,7 +684,7 @@ export default class EditProjectDetails extends Vue {
                     font-size: 16px;
                     line-height: 16px;
                     color: #384b65;
-                    margin: 0 0 15px 0;
+                    margin: 0 0 15px;
                 }
 
                 &__name-area,
@@ -758,7 +753,7 @@ export default class EditProjectDetails extends Vue {
                     &__limit {
                         font-size: 14px;
                         line-height: 21px;
-                        color: rgba(0, 0, 0, 0.3);
+                        color: rgb(0 0 0 / 30%);
                         margin: 0 0 0 15px;
                         min-width: 53px;
                         text-align: right;
@@ -810,11 +805,11 @@ export default class EditProjectDetails extends Vue {
 
                         &__input {
                             width: 95%;
-                            -webkit-appearance: none;
+                            appearance: none;
                             height: 8px;
                             background: #f5f6fa;
                             outline: none;
-                            -webkit-transition: 0.2s;
+                            transition: 0.2s;
                             transition: opacity 0.2s;
                             border: none;
                             border-radius: 6px;
@@ -825,7 +820,6 @@ export default class EditProjectDetails extends Vue {
                         }
 
                         &__input::-webkit-slider-thumb {
-                            -webkit-appearance: none;
                             appearance: none;
                             width: 30px;
                             height: 30px;

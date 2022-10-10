@@ -5,6 +5,7 @@
     <div class="permissions-select">
         <div
             class="permissions-select__toggle-container"
+            aria-roledescription="select-permissions"
             @click.stop="toggleDropdown"
         >
             <p class="permissions-select__toggle-container__name">
@@ -43,8 +44,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { ACCESS_GRANTS_MUTATIONS } from "@/store/modules/accessGrants";
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -75,28 +76,28 @@ export default class PermissionsSelect extends Vue {
      * Sets is download permission.
      */
     public toggleIsDownload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION);
     }
 
     /**
      * Sets is upload permission.
      */
     public toggleIsUpload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION);
     }
 
     /**
      * Sets is list permission.
      */
     public toggleIsList(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION);
     }
 
     /**
      * Sets is delete permission.
      */
     public toggleIsDelete(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION);
     }
 
     /**
@@ -148,9 +149,9 @@ export default class PermissionsSelect extends Vue {
         background-color: #fff;
         cursor: pointer;
         border-radius: 6px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         font-family: 'font_regular', sans-serif;
-        width: 235px;
+        width: 100%;
         position: relative;
 
         &__toggle-container {
@@ -176,11 +177,11 @@ export default class PermissionsSelect extends Vue {
             left: 0;
             z-index: 1;
             border-radius: 6px;
-            border: 1px solid rgba(56, 75, 101, 0.4);
+            border: 1px solid rgb(56 75 101 / 40%);
             background-color: #fff;
             padding: 10px 20px;
             width: calc(100% - 40px);
-            box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+            box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
 
             &__item {
                 display: flex;

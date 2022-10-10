@@ -104,10 +104,10 @@ func TestAutoUpdater(t *testing.T) {
 	if assert.NoError(t, logErr) {
 		logStr := string(logData)
 		t.Log(logStr)
-		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Service": "storagenode"}`) {
+		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode"}`) {
 			t.Log(logStr)
 		}
-		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Service": "storagenode-updater"}`) {
+		if !assert.Contains(t, logStr, `Service restarted successfully.	{"Process": "storagenode-updater", "Service": "storagenode-updater"}`) {
 			t.Log(logStr)
 		}
 	} else {

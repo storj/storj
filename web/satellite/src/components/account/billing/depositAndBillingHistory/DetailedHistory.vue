@@ -27,15 +27,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import BackImage from '@/../static/images/account/billing/back.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -48,6 +49,7 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 })
 export default class DetailedHistory extends Vue {
     public isDataFetching = true;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -89,6 +91,7 @@ export default class DetailedHistory extends Vue {
      * Replaces location to root billing route.
      */
     public onBackToBillingClick(): void {
+        this.analytics.pageVisit(RouteConfig.Billing.path);
         this.$router.push(RouteConfig.Billing.path);
     }
 }
@@ -102,7 +105,7 @@ export default class DetailedHistory extends Vue {
 
     .history-area {
         margin-top: 27px;
-        padding: 0 0 80px 0;
+        padding: 0 0 80px;
         background-color: #f5f6fa;
         font-family: 'font_regular', sans-serif;
 
@@ -145,7 +148,7 @@ export default class DetailedHistory extends Vue {
 
         &__content {
             background-color: #fff;
-            padding: 30px 40px 0 40px;
+            padding: 30px 40px 0;
             border-radius: 8px;
         }
 

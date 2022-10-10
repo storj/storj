@@ -32,7 +32,28 @@ type BeginObjectNextVersion struct {
 func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Version, got)
+
+	if step.ErrClass == nil {
+		require.Equal(t, step.Version, got.Version)
+		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
+
+		require.Equal(t, step.Opts.ObjectStream.ProjectID, got.ObjectStream.ProjectID)
+		require.Equal(t, step.Opts.ObjectStream.BucketName, got.ObjectStream.BucketName)
+		require.Equal(t, step.Opts.ObjectStream.ObjectKey, got.ObjectStream.ObjectKey)
+		require.Equal(t, step.Opts.ObjectStream.StreamID, got.ObjectStream.StreamID)
+		require.Equal(t, metabase.Pending, got.Status)
+
+		require.Equal(t, step.Opts.ExpiresAt, got.ExpiresAt)
+
+		gotDeadline := got.ZombieDeletionDeadline
+		optsDeadline := step.Opts.ZombieDeletionDeadline
+		if optsDeadline == nil {
+			require.WithinDuration(t, time.Now().Add(24*time.Hour), *gotDeadline, 5*time.Second)
+		} else {
+			require.WithinDuration(t, *optsDeadline, *gotDeadline, 5*time.Second)
+		}
+		require.Equal(t, step.Opts.Encryption, got.Encryption)
+	}
 }
 
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.
@@ -44,7 +65,7 @@ type BeginObjectExactVersion struct {
 }
 
 // Check runs the test.
-func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
@@ -72,7 +93,7 @@ type CommitObject struct {
 }
 
 // Check runs the test.
-func (step CommitObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
+func (step CommitObject) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) metabase.Object {
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
@@ -108,7 +129,7 @@ type BeginSegment struct {
 }
 
 // Check runs the test.
-func (step BeginSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step BeginSegment) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	err := db.BeginSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -121,7 +142,7 @@ type CommitSegment struct {
 }
 
 // Check runs the test.
-func (step CommitSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+func (step CommitSegment) Check(ctx *testcontext.Context, t require.TestingT, db *metabase.DB) {
 	err := db.CommitSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -193,6 +214,22 @@ func (step GetObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, 
 	result, err := db.GetObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// GetObjectLastCommitted is for testing metabase.GetObjectLastCommitted.
+type GetObjectLastCommitted struct {
+	Opts     metabase.GetObjectLastCommitted
+	Result   metabase.Object
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetObjectLastCommitted(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
@@ -210,7 +247,7 @@ func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t testing.TB, d
 	result, err := db.GetSegmentByPosition(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -227,7 +264,7 @@ func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t testing
 	result, err := db.GetLatestObjectLastSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -264,7 +301,41 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 		return
 	}
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	require.Zero(t, diff)
+}
+
+// ListVerifySegments is for testing metabase.ListVerifySegments.
+type ListVerifySegments struct {
+	Opts     metabase.ListVerifySegments
+	Result   metabase.ListVerifySegmentsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step ListVerifySegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListVerifySegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
+// ListObjects is for testing metabase.ListObjects.
+type ListObjects struct {
+	Opts     metabase.ListObjects
+	Result   metabase.ListObjectsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step ListObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
@@ -281,7 +352,7 @@ func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db
 	result, err := db.ListStreamPositions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -330,7 +401,7 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 	sort.Slice(step.Result, func(i, j int) bool {
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -353,7 +424,7 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second), cmpopts.EquateEmpty())
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
@@ -376,7 +447,7 @@ func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -399,7 +470,7 @@ func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t t
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -422,7 +493,7 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.T
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -480,30 +551,6 @@ func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjec
 	return nil
 }
 
-// IterateObjects is for testing metabase.IterateObjects.
-type IterateObjects struct {
-	Opts metabase.IterateObjects
-
-	Result   []metabase.ObjectEntry
-	ErrClass *errs.Class
-	ErrText  string
-}
-
-// Check runs the test.
-func (step IterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var collector IterateCollector
-
-	err := db.IterateObjectsAllVersions(ctx, step.Opts, collector.Add)
-	checkError(t, err, step.ErrClass, step.ErrText)
-
-	result := []metabase.ObjectEntry(collector)
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].ObjectKey < result[j].ObjectKey
-	})
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
-}
-
 // IteratePendingObjectsByKey is for testing metabase.IteratePendingObjectsByKey.
 type IteratePendingObjectsByKey struct {
 	Opts metabase.IteratePendingObjectsByKey
@@ -522,7 +569,7 @@ func (step IteratePendingObjectsByKey) Check(ctx *testcontext.Context, t *testin
 
 	result := []metabase.ObjectEntry(collector)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -542,7 +589,7 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -562,7 +609,7 @@ func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db 
 	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), DefaultTimeDiff())
 	require.Zero(t, diff)
 }
 
@@ -672,22 +719,29 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	result, err := db.FinishCopyObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 	return result
 }
 
-// GetProjectSegmentCount is for testing metabase.GetProjectSegmentCount.
-type GetProjectSegmentCount struct {
-	Opts     metabase.GetProjectSegmentCount
-	Result   int64
+// DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
+type DeleteObjectLastCommitted struct {
+	Opts     metabase.DeleteObjectLastCommitted
+	Result   metabase.DeleteObjectResult
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 // Check runs the test.
-func (step GetProjectSegmentCount) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.GetProjectSegmentCount(ctx, step.Opts)
+func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Result, result)
+
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
 }

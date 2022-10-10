@@ -21,24 +21,33 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 
 // @vue/component
-@Component
+@Component({
+    filters: {
+        leadingZero(value: number): string {
+            if (value <= 9) {
+                return `0${value}`;
+            }
+            return `${value}`;
+        },
+    },
+})
 export default class PaymentsHistoryItemDate extends Vue {
     /**
      * expiration date.
      */
-    @Prop({default: () => new Date()})
+    @Prop({ default: () => new Date() })
     private readonly expiration: Date;
     /**
      * creation date.
      */
-    @Prop({default: () => new Date()})
+    @Prop({ default: () => new Date() })
     private readonly start: Date;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly type: PaymentsHistoryItemType;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly status: PaymentsHistoryItemStatus;
 
-    private readonly expirationTimeInSeconds: number;
+    private expirationTimeInSeconds: number;
     private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
     private intervalID: ReturnType<typeof setInterval>;
 
@@ -47,9 +56,7 @@ export default class PaymentsHistoryItemDate extends Vue {
      */
     public isExpired: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.expirationTimeInSeconds = Math.trunc(new Date(this.expiration).getTime() / 1000);
         this.isExpired = (this.expirationTimeInSeconds - this.nowInSeconds) < 0;
 

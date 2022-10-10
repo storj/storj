@@ -12,8 +12,8 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 const (
@@ -88,11 +88,11 @@ func TestProcessingConversionRates(t *testing.T) {
 	require.Truef(t, rateInfos["USD"].RateBTC.LessThan(decimal.NewFromInt(1)),
 		"expected value less than 1, but got %v", rateInfos["USD"].RateBTC.String())
 
-	rateInfo, ok := rateInfos.ForCurrency(monetary.USDollars)
+	rateInfo, ok := rateInfos.ForCurrency(currency.USDollars)
 	require.True(t, ok)
 	require.True(t, rateInfo.IsFiat)
 
-	_, ok = rateInfos.ForCurrency(monetary.LiveGoats)
+	_, ok = rateInfos.ForCurrency(currency.LiveGoats)
 	require.False(t, ok)
 
 	rateInfo, ok = rateInfos.ForCurrency(CurrencyLTCT)

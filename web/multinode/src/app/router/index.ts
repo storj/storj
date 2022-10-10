@@ -94,7 +94,7 @@ export class Config {
     public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
     // nodes.
     public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
-    public static MyNodes: Route = new Route('/my-nodes', 'MyNodes', MyNodes);
+    public static MyNodes: Route = new Route('/my-nodes', 'My Nodes', MyNodes);
     // payouts.
     public static PayoutsSummary: Route = new Route('summary', 'PayoutsSummary', PayoutsPage);
     public static PayoutsByNode: Route = new Route('by-node/:id', 'PayoutsByNode', PayoutsByNode);

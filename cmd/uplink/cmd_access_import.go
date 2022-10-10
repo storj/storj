@@ -4,14 +4,12 @@
 package main
 
 import (
-	"bytes"
-	"io/ioutil"
+	"context"
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplink/ulext"
-	"storj.io/uplink"
 )
 
 type cmdAccessImport struct {
@@ -33,21 +31,14 @@ func (c *cmdAccessImport) Setup(params clingy.Parameters) {
 	c.access = params.Arg("access|filename", "Serialized access value or file path to save").(string)
 }
 
-func (c *cmdAccessImport) Execute(ctx clingy.Context) (err error) {
+func (c *cmdAccessImport) Execute(ctx context.Context) (err error) {
 	if c.name == "" {
 		return errs.New("Must specify a name to import the access as.")
 	}
 
-	access, err := uplink.ParseAccess(c.access)
+	access, err := parseAccessDataOrPossiblyFile(c.access)
 	if err != nil {
-		data, err := ioutil.ReadFile(c.access)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		access, err = uplink.ParseAccess(string(bytes.TrimSpace(data)))
-		if err != nil {
-			return errs.Wrap(err)
-		}
+		return errs.Wrap(err)
 	}
 
 	_, err = c.am.Execute(ctx, c.name, access)

@@ -5,7 +5,7 @@
     <div class="name-step" :class="{ 'border-radius': isOnboardingTour }">
         <h1 class="name-step__title" aria-roledescription="name-ag-title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
-        <HeaderedInput
+        <VInput
             label="Access Grant Name"
             placeholder="Enter a name here..."
             :error="errorMessage"
@@ -36,18 +36,19 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import VButton from '@/components/common/VButton.vue';
-
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
     },
 })
@@ -58,6 +59,8 @@ export default class NameStep extends Vue {
     private key = '';
 
     private readonly FIRST_PAGE = 1;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Changes name data from input value.
@@ -73,6 +76,7 @@ export default class NameStep extends Vue {
      */
     public onCancelClick(): void {
         this.onChangeName('');
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -128,6 +132,7 @@ export default class NameStep extends Vue {
 
         this.isLoading = false;
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).path);
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
@@ -163,7 +168,7 @@ export default class NameStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -172,7 +177,7 @@ export default class NameStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 80px 0;
+            margin: 0 0 80px;
         }
 
         &__buttons-area {

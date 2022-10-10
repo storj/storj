@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { ProjectMember } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
 
 const localVue = createLocalVue();
 
@@ -22,7 +22,7 @@ describe('', () => {
     const member: ProjectMember = new ProjectMember('testFullName', 'testShortName', 'test@example.com', data, '1');
     const project: Project = new Project('testId', 'testName', 'testDescr', 'testDate', '1');
 
-    const store = new Vuex.Store({modules: { projectsModule }});
+    const store = new Vuex.Store({ modules: { projectsModule } });
 
     store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
     store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, 'testId');
@@ -38,7 +38,7 @@ describe('', () => {
 
         expect(wrapper).toMatchSnapshot();
         expect(store.getters.selectedProject.ownerId).toBe(member.user.id);
-        expect(wrapper.findAll('.user-container__base-info__name-area__owner-status').length).toBe(1);
+        expect(wrapper.findAll('.owner').length).toBe(1);
     });
 
     it('should render correctly with item row highlighted', function () {

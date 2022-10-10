@@ -4,6 +4,7 @@
 package metabasetest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -19,6 +20,13 @@ import (
 
 // RunWithConfig runs tests with specific metabase configuration.
 func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+	RunWithConfigAndMigration(t, config, fn, func(ctx context.Context, db *metabase.DB) error {
+		return db.TestMigrateToLatest(ctx)
+	})
+}
+
+// RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
+func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error) {
 	for _, dbinfo := range satellitedbtest.Databases() {
 		dbinfo := dbinfo
 		t.Run(dbinfo.Name, func(t *testing.T) {
@@ -37,7 +45,7 @@ func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontex
 				}
 			}()
 
-			if err := db.MigrateToLatest(ctx); err != nil {
+			if err := migration(ctx, db); err != nil {
 				t.Fatal(err)
 			}
 
@@ -54,10 +62,12 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	)
 
 	RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-test",
-		MinPartSize:      config.MinPartSize,
-		MaxNumberOfParts: config.MaxNumberOfParts,
-		ServerSideCopy:   config.ServerSideCopy,
+		ApplicationName:        "satellite-test",
+		MinPartSize:            config.MinPartSize,
+		MaxNumberOfParts:       config.MaxNumberOfParts,
+		ServerSideCopy:         config.ServerSideCopy,
+		ServerSideCopyDisabled: config.ServerSideCopyDisabled,
+		MultipleVersions:       config.MultipleVersions,
 	}, fn)
 }
 

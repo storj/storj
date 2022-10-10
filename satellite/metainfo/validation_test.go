@@ -48,6 +48,11 @@ func TestEndpoint_validateAuthN(t *testing.T) {
 	endpoint := Endpoint{
 		log:     zaptest.NewLogger(t),
 		apiKeys: &mockAPIKeys{secret: secret},
+		top: endpointTop{
+			Project:   func(name string) {},
+			Partner:   func(name string) {},
+			UserAgent: func(name string) {},
+		},
 	}
 
 	now := time.Now()

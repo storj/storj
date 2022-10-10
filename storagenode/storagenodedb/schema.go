@@ -90,17 +90,17 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						{
 							Name:       "notes",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
 							Name:       "period",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
 							Name:       "receipt",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: true,
 						},
 						{
@@ -116,7 +116,7 @@ func Schema() map[string]*dbschema.Schema {
 					Columns: []*dbschema.Column{
 						{
 							Name:       "codes",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: false,
 						},
 						{
@@ -181,7 +181,7 @@ func Schema() map[string]*dbschema.Schema {
 						},
 						{
 							Name:       "period",
-							Type:       "text",
+							Type:       "TEXT",
 							IsNullable: false,
 						},
 						{
@@ -710,7 +710,7 @@ func Schema() map[string]*dbschema.Schema {
 			Tables: []*dbschema.Table{
 				{
 					Name:       "storage_usage",
-					PrimaryKey: []string{"interval_start", "satellite_id"},
+					PrimaryKey: []string{"satellite_id", "timestamp"},
 					Columns: []*dbschema.Column{
 						{
 							Name:       "at_rest_total",
@@ -718,13 +718,18 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						{
-							Name:       "interval_start",
+							Name:       "interval_end_time",
 							Type:       "TIMESTAMP",
 							IsNullable: false,
 						},
 						{
 							Name:       "satellite_id",
 							Type:       "BLOB",
+							IsNullable: false,
+						},
+						{
+							Name:       "timestamp",
+							Type:       "TIMESTAMP",
 							IsNullable: false,
 						},
 					},

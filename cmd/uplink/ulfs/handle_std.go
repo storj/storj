@@ -77,6 +77,11 @@ func (o *stdMultiReadHandle) Info(ctx context.Context) (*ObjectInfo, error) {
 	return &ObjectInfo{ContentLength: -1}, nil
 }
 
+// Length returns the size of the object.
+func (o *stdMultiReadHandle) Length() int64 {
+	return -1
+}
+
 // stdReadHandle implements ReadHandle for stdin.
 type stdReadHandle struct {
 	stdin  io.Reader
@@ -135,7 +140,7 @@ func (o *stdReadHandle) Read(p []byte) (int, error) {
 
 // stdMultiWriteHandle implements MultiWriteHandle for stdouts.
 type stdMultiWriteHandle struct {
-	stdout io.Writer
+	stdout closableWriter
 
 	mu   sync.Mutex
 	next *sync.Mutex
@@ -145,7 +150,7 @@ type stdMultiWriteHandle struct {
 
 func newStdMultiWriteHandle(stdout io.Writer) *stdMultiWriteHandle {
 	return &stdMultiWriteHandle{
-		stdout: stdout,
+		stdout: closableWriter{Writer: stdout},
 		next:   new(sync.Mutex),
 	}
 }
@@ -164,7 +169,7 @@ func (s *stdMultiWriteHandle) NextPart(ctx context.Context, length int64) (Write
 	next.Lock()
 
 	w := &stdWriteHandle{
-		stdout: s.stdout,
+		stdout: &s.stdout,
 		mu:     s.next,
 		next:   next,
 		tail:   length < 0,
@@ -195,15 +200,18 @@ func (s *stdMultiWriteHandle) Abort(ctx context.Context) error {
 
 // stdWriteHandle implements WriteHandle for stdouts.
 type stdWriteHandle struct {
-	stdout io.Writer
+	stdout *closableWriter
 	mu     *sync.Mutex
 	next   *sync.Mutex
 	tail   bool
 	len    int64
 }
 
-func (s *stdWriteHandle) unlockNext() {
+func (s *stdWriteHandle) unlockNext(err error) {
 	if s.next != nil {
+		if err != nil {
+			s.stdout.close(err)
+		}
 		s.next.Unlock()
 		s.next = nil
 	}
@@ -226,7 +234,7 @@ func (s *stdWriteHandle) Write(p []byte) (int, error) {
 	if !s.tail {
 		s.len -= int64(n)
 		if s.len == 0 {
-			s.unlockNext()
+			s.unlockNext(err)
 		}
 	}
 
@@ -238,7 +246,7 @@ func (s *stdWriteHandle) Commit() error {
 	defer s.mu.Unlock()
 
 	s.len = 0
-	s.unlockNext()
+	s.unlockNext(nil)
 
 	return nil
 }
@@ -248,7 +256,25 @@ func (s *stdWriteHandle) Abort() error {
 	defer s.mu.Unlock()
 
 	s.len = 0
-	s.unlockNext()
+	s.unlockNext(context.Canceled)
 
 	return nil
+}
+
+type closableWriter struct {
+	io.Writer
+	err error
+}
+
+func (out *closableWriter) Write(p []byte) (int, error) {
+	if out.err != nil {
+		return 0, out.err
+	}
+	n, err := out.Writer.Write(p)
+	out.err = err
+	return n, err
+}
+
+func (out *closableWriter) close(err error) {
+	out.err = err
 }

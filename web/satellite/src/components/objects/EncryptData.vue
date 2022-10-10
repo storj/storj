@@ -63,14 +63,15 @@ import pbkdf2 from 'pbkdf2';
 
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { LocalData } from "@/utils/localData";
-import { EdgeCredentials } from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { MetaUtils } from "@/utils/meta";
+import { LocalData } from '@/utils/localData';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import GeneratePassphrase from "@/components/common/GeneratePassphrase.vue";
-import FAQBullet from "@/components/objects/FAQBullet.vue";
+import GeneratePassphrase from '@/components/common/GeneratePassphrase.vue';
+import FAQBullet from '@/components/objects/FAQBullet.vue';
 
 // @vue/component
 @Component({
@@ -85,12 +86,15 @@ export default class EncryptData extends Vue {
     public isLoading = false;
     public passphrase = '';
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Sets passphrase from child component.
      */
     public navigateToCLIFlow(): void {
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
-        this.$router.push({name: RouteConfig.AGName.name});
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
+        this.$router.push({ name: RouteConfig.AGName.name });
     }
 
     /**
@@ -98,13 +102,12 @@ export default class EncryptData extends Vue {
      * Sets local worker if new flow is used.
      */
     public mounted(): void {
-        if (this.isNewObjectsFlow) {
-            if (!this.apiKey) {
-                this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
-            }
-
-            this.setWorker();
+        if (!this.apiKey) {
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         }
+
+        this.setWorker();
     }
 
     /**
@@ -142,33 +145,27 @@ export default class EncryptData extends Vue {
             return;
         }
 
-        const keyToBeStored = await result.toString('hex');
+        const keyToBeStored = result.toString('hex');
 
         await LocalData.setUserIDPassSalt(this.$store.getters.user.id, keyToBeStored, SALT);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
 
-        if (this.isNewObjectsFlow) {
-            try {
-                await this.setAccess();
-                await this.$router.push(RouteConfig.UploadFile.path);
-            } catch (e) {
-                await this.$notify.error(e.message);
-            }
-
+        try {
+            await this.setAccess();
+            this.analytics.pageVisit(RouteConfig.UploadFile.path);
+            await this.$router.push(RouteConfig.UploadFile.path);
+        } catch (e) {
+            await this.$notify.error(e.message);
+        } finally {
             this.isLoading = false;
-
-            return;
         }
-
-        this.isLoading = false;
-
-        await this.$router.push(RouteConfig.BucketsManagement.path);
     }
 
     /**
      * Holds on back button click logic.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.BucketsManagement.path);
         this.$router.push(RouteConfig.BucketsManagement.path);
     }
 
@@ -211,7 +208,7 @@ export default class EncryptData extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     }
 
@@ -242,13 +239,6 @@ export default class EncryptData extends Vue {
     private get bucket(): string {
         return this.$store.state.objectsModule.fileComponentBucketName;
     }
-
-    /**
-     * Returns objects flow status from store.
-     */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
-    }
 }
 </script>
 
@@ -258,7 +248,7 @@ export default class EncryptData extends Vue {
         padding-bottom: 30px;
 
         &__msg-container {
-            margin: -20px auto 40px auto;
+            margin: -20px auto 40px;
             max-width: 620px;
             background-color: #ffd78a;
             display: flex;
@@ -304,6 +294,7 @@ export default class EncryptData extends Vue {
 
         &__faq {
             max-width: 620px;
+
             // display: flex; revert this when FAQ content will be confirmed
             display: none;
             flex-direction: column;
@@ -316,7 +307,7 @@ export default class EncryptData extends Vue {
                 line-height: 56px;
                 letter-spacing: 1px;
                 color: #14142b;
-                margin: 75px 0 30px 0;
+                margin: 75px 0 30px;
             }
         }
     }

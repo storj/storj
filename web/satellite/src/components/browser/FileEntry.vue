@@ -7,7 +7,7 @@
         :class="{ 'selected-row': isFileSelected }"
         @click.stop="selectFile"
     >
-        <td class="w-50" data-ls-disabled>
+        <td data-ls-disabled>
             <span v-if="fileTypeIsFolder" class="folder-name">
                 <svg
                     class="ml-2 mr-1"
@@ -46,7 +46,7 @@
                     width="1.5em"
                     height="1.5em"
                     viewBox="0 0 16 16"
-                    class="bi bi-file-earmark ml-1 mr-1 mb-1"
+                    class="bi bi-file-earmark mx-1 flex-shrink-0"
                     fill="#768394"
                     xmlns="http://www.w3.org/2000/svg"
                 >
@@ -55,11 +55,10 @@
                     />
                     <path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z" />
                 </svg>
-
-                {{ filename }}
+                <middle-truncate :text="filename" />
             </span>
         </td>
-        <td class="w-25">
+        <td>
             <span v-if="fileTypeIsFile" aria-roledescription="file-size">{{
                 size
             }}</span>
@@ -367,16 +366,23 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-import type { BrowserFile } from "@/types/browser.ts";
-import prettyBytes from "pretty-bytes";
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import prettyBytes from 'pretty-bytes';
+
+import MiddleTruncate from './MiddleTruncate.vue';
+
+import type { BrowserFile } from '@/types/browser';
 
 // @vue/component
-@Component
+@Component({
+    components: {
+        MiddleTruncate,
+    },
+})
 export default class FileEntry extends Vue {
     public deleteConfirmation = false;
 
-    @Prop({default: ""})
+    @Prop({ default: '' })
     private readonly path: string;
     @Prop()
     private readonly file: BrowserFile;
@@ -385,9 +391,7 @@ export default class FileEntry extends Vue {
      * Return the name of file/folder formatted.
      */
     public get filename(): string {
-        return this.file.Key.length > 25
-            ? this.file.Key.slice(0, 25) + "..."
-            : this.file.Key;
+        return this.file.Key;
     }
 
     /**
@@ -401,7 +405,7 @@ export default class FileEntry extends Vue {
      * Return the upload date of the file formatted.
      */
     public get uploadDate(): string {
-        return this.file.LastModified.toLocaleString().split(",")[0];
+        return this.file.LastModified.toLocaleString().split(',')[0];
     }
 
     /**
@@ -419,7 +423,7 @@ export default class FileEntry extends Vue {
         const pathAndKey = this.$store.state.files.path + this.file.Key;
         const url =
             pathAndKey.length > 0
-                ? browserRoot + pathAndKey + "/"
+                ? browserRoot + pathAndKey + '/'
                 : browserRoot;
         return url;
     }
@@ -431,10 +435,10 @@ export default class FileEntry extends Vue {
         return !!(
             this.$store.state.files.selectedAnchorFile === this.file ||
             this.$store.state.files.selectedFiles.find(
-                (file) => file === this.file
+                (file) => file === this.file,
             ) ||
             this.$store.state.files.shiftSelectedFiles.find(
-                (file) => file === this.file
+                (file) => file === this.file,
             )
         );
     }
@@ -443,22 +447,22 @@ export default class FileEntry extends Vue {
      * Return a boolean signifying whether the current file/folder is a folder.
      */
     public get fileTypeIsFolder(): boolean {
-        return this.file.type === "folder";
+        return this.file.type === 'folder';
     }
 
     /**
      * Return a boolean signifying whether the current file/folder is a folder.
      */
     public get fileTypeIsFile(): boolean {
-        return this.file.type === "file";
+        return this.file.type === 'file';
     }
 
     /**
      * Open the modal for the current file.
      */
     public openModal(): void {
-        this.$store.commit("files/openModal", this.path + this.file.Key);
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.commit('files/openModal', this.path + this.file.Key);
+        this.$store.dispatch('files/closeDropdown');
     }
 
     /**
@@ -466,7 +470,7 @@ export default class FileEntry extends Vue {
      */
     public loadingSpinner(): boolean {
         return !!this.$store.state.files.filesToBeDeleted.find(
-            (file) => file === this.file
+            (file) => file === this.file,
         );
     }
 
@@ -474,7 +478,7 @@ export default class FileEntry extends Vue {
      * Hide the folder creation input on navigation due to folder click.
      */
     public fileClick(): void {
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**
@@ -482,7 +486,7 @@ export default class FileEntry extends Vue {
      */
     public selectFile(event: KeyboardEvent): void {
         if (this.$store.state.files.openedDropdown) {
-            this.$store.dispatch("files/closeDropdown");
+            this.$store.dispatch('files/closeDropdown');
         }
 
         if (event.shiftKey) {
@@ -502,7 +506,7 @@ export default class FileEntry extends Vue {
 
         const files = [
             ...this.$store.state.files.selectedFiles,
-            ...this.$store.state.files.shiftSelectedFiles
+            ...this.$store.state.files.shiftSelectedFiles,
         ];
 
         const selectedAnchorFile =
@@ -514,23 +518,23 @@ export default class FileEntry extends Vue {
         if (command && this.file === selectedAnchorFile) {
             /* if it's [CMD + click] and the file selected is the actual selectedAnchorFile, then unselect the file but store it under unselectedAnchorFile in case the user decides to do a [shift + click] right after this action. */
 
-            this.$store.commit("files/setUnselectedAnchorFile", this.file);
-            this.$store.commit("files/setSelectedAnchorFile", null);
+            this.$store.commit('files/setUnselectedAnchorFile', this.file);
+            this.$store.commit('files/setSelectedAnchorFile', null);
         } else if (command && files.includes(this.file)) {
             /* if it's [CMD + click] and the file selected is a file that has already been selected in selectedFiles and shiftSelectedFiles, then unselect it by filtering it out. */
 
             this.$store.dispatch(
-                "files/updateSelectedFiles",
+                'files/updateSelectedFiles',
                 selectedFiles.filter(
-                    (fileSelected) => fileSelected !== this.file
-                )
+                    (fileSelected) => fileSelected !== this.file,
+                ),
             );
 
             this.$store.dispatch(
-                "files/updateShiftSelectedFiles",
+                'files/updateShiftSelectedFiles',
                 shiftSelectedFiles.filter(
-                    (fileSelected) => fileSelected !== this.file
-                )
+                    (fileSelected) => fileSelected !== this.file,
+                ),
             );
         } else if (command && selectedAnchorFile) {
             /* if it's [CMD + click] and there is already a selectedAnchorFile, then add the selectedAnchorFile and shiftSelectedFiles into the array of selectedFiles, set selectedAnchorFile to the file that was clicked, set unselectedAnchorFile to null, and set shiftSelectedFiles to an empty array. */
@@ -541,34 +545,34 @@ export default class FileEntry extends Vue {
                 filesSelected.push(selectedAnchorFile);
             }
 
-            this.$store.dispatch("files/updateSelectedFiles", [
+            this.$store.dispatch('files/updateSelectedFiles', [
                 ...filesSelected,
                 ...shiftSelectedFiles.filter(
-                    (file) => !filesSelected.includes(file)
-                )
+                    (file) => !filesSelected.includes(file),
+                ),
             ]);
 
-            this.$store.commit("files/setSelectedAnchorFile", this.file);
-            this.$store.commit("files/setUnselectedAnchorFile", null);
-            this.$store.dispatch("files/updateShiftSelectedFiles", []);
+            this.$store.commit('files/setSelectedAnchorFile', this.file);
+            this.$store.commit('files/setUnselectedAnchorFile', null);
+            this.$store.dispatch('files/updateShiftSelectedFiles', []);
         } else if (command) {
             /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
 
-            this.$store.commit("files/setSelectedAnchorFile", this.file);
-            this.$store.commit("files/setUnselectedAnchorFile", null);
+            this.$store.commit('files/setSelectedAnchorFile', this.file);
+            this.$store.commit('files/setUnselectedAnchorFile', null);
 
-            this.$store.dispatch("files/updateSelectedFiles", [
+            this.$store.dispatch('files/updateSelectedFiles', [
                 ...selectedFiles,
-                ...shiftSelectedFiles
+                ...shiftSelectedFiles,
             ]);
 
-            this.$store.dispatch("files/updateShiftSelectedFiles", []);
+            this.$store.dispatch('files/updateShiftSelectedFiles', []);
         } else {
             /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
 
-            this.$store.commit("files/setSelectedAnchorFile", this.file);
-            this.$store.dispatch("files/updateShiftSelectedFiles", []);
-            this.$store.dispatch("files/updateSelectedFiles", []);
+            this.$store.commit('files/setSelectedAnchorFile', this.file);
+            this.$store.dispatch('files/updateShiftSelectedFiles', []);
+            this.$store.dispatch('files/updateSelectedFiles', []);
         }
     }
 
@@ -578,7 +582,7 @@ export default class FileEntry extends Vue {
     private setShiftSelectedFiles(): void {
         /* this function is responsible for selecting all files from selectedAnchorFile to the file that was selected with [shift + click] */
 
-        const files = this.$store.getters["files/sortedFiles"];
+        const files = this.$store.getters['files/sortedFiles'];
         const unselectedAnchorFile =
             this.$store.state.files.unselectedAnchorFile;
 
@@ -586,22 +590,22 @@ export default class FileEntry extends Vue {
             /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
 
             this.$store.commit(
-                "files/setSelectedAnchorFile",
-                unselectedAnchorFile
+                'files/setSelectedAnchorFile',
+                unselectedAnchorFile,
             );
-            this.$store.commit("files/setUnselectedAnchorFile", null);
+            this.$store.commit('files/setUnselectedAnchorFile', null);
         }
 
         const selectedAnchorFile =
             this.$store.state.files.selectedAnchorFile;
 
         if (!selectedAnchorFile) {
-            this.$store.commit("files/setSelectedAnchorFile", this.file);
+            this.$store.commit('files/setSelectedAnchorFile', this.file);
             return;
         }
 
         const anchorIdx = files.findIndex(
-            (file) => file === selectedAnchorFile
+            (file) => file === selectedAnchorFile,
         );
         const shiftIdx = files.findIndex((file) => file === this.file);
 
@@ -609,15 +613,15 @@ export default class FileEntry extends Vue {
         const end = Math.max(anchorIdx, shiftIdx) + 1;
 
         this.$store.dispatch(
-            "files/updateShiftSelectedFiles",
+            'files/updateShiftSelectedFiles',
             files
                 .slice(start, end)
                 .filter(
                     (file) =>
                         !this.$store.state.files.selectedFiles.includes(
-                            file
-                        ) && file !== selectedAnchorFile
-                )
+                            file,
+                        ) && file !== selectedAnchorFile,
+                ),
         );
     }
 
@@ -625,11 +629,11 @@ export default class FileEntry extends Vue {
      * Open the share modal for the current file.
      */
     public async share(): Promise<void> {
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/closeDropdown');
 
         this.$store.commit(
-            "files/setFileShareModal",
-            this.path + this.file.Key
+            'files/setFileShareModal',
+            this.path + this.file.Key,
         );
     }
 
@@ -638,9 +642,9 @@ export default class FileEntry extends Vue {
      */
     public toggleDropdown(): void {
         if (this.$store.state.files.openedDropdown === this.file.Key) {
-            this.$store.dispatch("files/closeDropdown");
+            this.$store.dispatch('files/closeDropdown');
         } else {
-            this.$store.dispatch("files/openDropdown", this.file.Key);
+            this.$store.dispatch('files/openDropdown', this.file.Key);
         }
 
         // remove the dropdown delete confirmation
@@ -652,13 +656,13 @@ export default class FileEntry extends Vue {
      */
     public download(): void {
         try {
-            this.$store.dispatch("files/download", this.file);
-            this.$notify.warning("Do not share download link with other people. If you want to share this data better use \"Share\" option.");
+            this.$store.dispatch('files/download', this.file);
+            this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
         } catch (error) {
-            this.$notify.error("Can not download your file");
+            this.$notify.error('Can not download your file');
         }
 
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/closeDropdown');
         this.deleteConfirmation = false;
     }
 
@@ -673,23 +677,23 @@ export default class FileEntry extends Vue {
      * Delete the selected file/folder.
      */
     public async finalDelete(): Promise<void> {
-        this.$store.dispatch("files/closeDropdown");
-        this.$store.dispatch("files/addFileToBeDeleted", this.file);
+        this.$store.dispatch('files/closeDropdown');
+        this.$store.dispatch('files/addFileToBeDeleted', this.file);
 
         const params = {
             path: this.path,
-            file: this.file
+            file: this.file,
         };
 
-        if (this.file.type === "file") {
-            await this.$store.dispatch("files/delete", params);
+        if (this.file.type === 'file') {
+            await this.$store.dispatch('files/delete', params);
         } else {
-            this.$store.dispatch("files/deleteFolder", params);
+            this.$store.dispatch('files/deleteFolder', params);
         }
 
         // refresh the files displayed
-        await this.$store.dispatch("files/list");
-        this.$store.dispatch("files/removeFileFromToBeDeleted", this.file);
+        await this.$store.dispatch('files/list');
+        this.$store.dispatch('files/removeFileFromToBeDeleted', this.file);
         this.deleteConfirmation = false;
     }
 
@@ -697,7 +701,7 @@ export default class FileEntry extends Vue {
      * Abort the deletion of the current file/folder.
      */
     public cancelDeletion(): void {
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/closeDropdown');
         this.deleteConfirmation = false;
     }
 }
@@ -768,9 +772,12 @@ a {
 }
 
 .file-name {
+    position: relative;
     margin-left: 5px;
     cursor: pointer;
     color: #000;
+    display: flex;
+    align-items: center;
 }
 
 .file-name:hover {

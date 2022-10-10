@@ -3,6 +3,7 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
+import { RouteRecord } from 'vue-router';
 
 import { AccessGrantsApiGql } from '@/api/accessGrants';
 import { AuthHttpApi } from '@/api/auth';
@@ -10,40 +11,21 @@ import { BucketsApiGql } from '@/api/buckets';
 import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
-import { notProjectRelatedRoutes, router } from '@/router';
+import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
 import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
-import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
+import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
-
 import { FilesState, makeFilesModule } from '@/store/modules/files';
+import { NavigationLink } from '@/types/navigation';
 
 Vue.use(Vuex);
-
-type Mutation<State> =
-    (state: State, ...args: any[]) => any; // eslint-disable-line @typescript-eslint/no-explicit-any
-
-type Action<Context> =
-    (context: Context, ...args: any[]) => (Promise<any> | void | any); // eslint-disable-line @typescript-eslint/no-explicit-any
-
-type Getter<State, Context> =
-    Context extends {rootGetters: any} ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
-        ((state: State) => any) | // eslint-disable-line @typescript-eslint/no-explicit-any
-        ((state: State, rootGetters: Context["rootGetters"]) => any) // eslint-disable-line @typescript-eslint/no-explicit-any
-    ) : ((state: State) => any); // eslint-disable-line @typescript-eslint/no-explicit-any
-
-export interface StoreModule<State, Context> { // eslint-disable-line @typescript-eslint/no-unused-vars
-    state: State;
-    mutations: Record<string, Mutation<State>>
-    actions: Record<string, Action<Context>>
-    getters?: Record<string, Getter<State, Context>>
-}
 
 // TODO: remove it after we will use modules as classes and use some DI framework
 const authApi = new AuthHttpApi();
@@ -52,6 +34,14 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
+
+// We need to use a WebWorker facotory because jest testing does not support
+// WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
+const webWorkerFactory = {
+    create(): Worker {
+        return new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
+    },
+};
 
 export interface ModulesState {
     notificationsModule: NotificationsState;
@@ -69,7 +59,7 @@ export interface ModulesState {
 export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
-        accessGrantsModule: makeAccessGrantsModule(accessGrantsApi),
+        accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
         appStateModule,
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
@@ -98,3 +88,81 @@ store.subscribe((mutation, state) => {
 });
 
 export default store;
+
+/*
+  These router methods have been moved here to avoid circular imports between
+  store and the router. Many of the tests require router, however, this implementation
+  relies on store state for the routing behavior.
+*/
+router.beforeEach(async (to, _, next) => {
+    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+        if (areUploadsInProgress) return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
+        next(RouteConfig.Account.with(RouteConfig.Billing).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant))) {
+        next(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep))) {
+        next(RouteConfig.OnboardingTour.path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Buckets)) {
+        next(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+
+        return;
+    }
+
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectDashboard.path);
+
+        return;
+    }
+
+    next();
+});
+
+router.afterEach(({ name }, _from) => {
+    if (!name) {
+        return;
+    }
+
+    if (notProjectRelatedRoutes.includes(name)) {
+        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+
+        return;
+    }
+
+    const selectedProjectName = store.state.projectsModule.selectedProject.name ?
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
+
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+});
+
+/**
+ * if our route is a tab and has no sub tab route - we will navigate to default subtab.
+ * F.E. /account/ -> /account/billing/;
+ * @param routes - array of RouteRecord from vue-router
+ * @param tabRoute - tabNavigator route
+ */
+function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
+    return (routes.length === 2 && (routes[1].name as string) === tabRoute.name) ||
+        (routes.length === 3 && (routes[2].name as string) === tabRoute.name);
+}

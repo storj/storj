@@ -27,13 +27,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
-import VLoader from '@/components/common/VLoader.vue';
-
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
+
+import VLoader from '@/components/common/VLoader.vue';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
 // @vue/component
 @Component({
@@ -102,7 +102,7 @@ export default class EstimatedCostsAndCredits extends Vue {
 
     .current-month-area {
         margin-bottom: 32px;
-        padding: 40px 40px 0 40px;
+        padding: 40px 40px 0;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
@@ -124,7 +124,7 @@ export default class EstimatedCostsAndCredits extends Vue {
             font-size: 14px;
             line-height: 20px;
             color: #909090;
-            margin: 15px 0 0 0;
+            margin: 15px 0 0;
         }
 
         &__content {
@@ -140,7 +140,7 @@ export default class EstimatedCostsAndCredits extends Vue {
             }
 
             &__usage-charges {
-                margin: 18px 0 0 0;
+                margin: 18px 0 0;
                 background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;

@@ -92,7 +92,7 @@ func (service *Service) dialStats(ctx context.Context, node nodes.Node, satellit
 
 	req := &multinodepb.ReputationRequest{
 		Header: &multinodepb.RequestHeader{
-			ApiKey: node.APISecret,
+			ApiKey: node.APISecret[:],
 		},
 		SatelliteId: satelliteID,
 	}

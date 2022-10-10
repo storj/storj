@@ -63,6 +63,7 @@ type Config struct {
 	Name        string
 	Host        string
 	NonParallel bool
+	Timeout     time.Duration
 }
 
 // DatabaseConfig defines connection strings for database.

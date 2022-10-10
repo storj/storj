@@ -1,11 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import * as sinon from 'sinon';
+import { mount, shallowMount } from '@vue/test-utils';
 
 import Button from '@/components/common/VButton.vue';
-
-import { mount, shallowMount } from '@vue/test-utils';
 
 describe('Button.vue', () => {
     it('renders correctly', () => {
@@ -54,8 +52,9 @@ describe('Button.vue', () => {
             },
         });
 
-        expect(wrapper.element.style.width).toMatch(width);
-        expect(wrapper.element.style.height).toMatch(height);
+        const el = wrapper.element as HTMLElement;
+        expect(el.style.width).toMatch(width);
+        expect(el.style.height).toMatch(height);
         expect(wrapper.text()).toMatch(label);
     });
 
@@ -66,13 +65,14 @@ describe('Button.vue', () => {
             },
         });
 
-        expect(wrapper.element.style.width).toMatch('inherit');
-        expect(wrapper.element.style.height).toMatch('inherit');
+        const el = wrapper.element as HTMLElement;
+        expect(el.style.width).toMatch('inherit');
+        expect(el.style.height).toMatch('inherit');
         expect(wrapper.text()).toMatch('Default');
     });
 
     it('trigger onPress correctly', () => {
-        const onPressSpy = sinon.spy();
+        const onPressSpy = jest.fn();
 
         const wrapper = mount(Button, {
             propsData: {
@@ -83,6 +83,6 @@ describe('Button.vue', () => {
 
         wrapper.find('div.container').trigger('click');
 
-        expect(onPressSpy.callCount).toBe(1);
+        expect(onPressSpy).toHaveBeenCalledTimes(1);
     });
 });

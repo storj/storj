@@ -24,6 +24,7 @@ type StripeClient interface {
 	CustomerBalanceTransactions() StripeCustomerBalanceTransactions
 	Charges() StripeCharges
 	PromoCodes() StripePromoCodes
+	CreditNotes() StripeCreditNotes
 }
 
 // StripeCustomers Stripe Customers interface.
@@ -45,13 +46,17 @@ type StripePaymentMethods interface {
 type StripeInvoices interface {
 	New(params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	List(listParams *stripe.InvoiceListParams) *invoice.Iter
+	Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error)
+	Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error)
 }
 
 // StripeInvoiceItems Stripe InvoiceItems interface.
 type StripeInvoiceItems interface {
 	New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
+	Update(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 	List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter
+	Del(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 }
 
 // StripeCharges Stripe Charges interface.
@@ -68,6 +73,11 @@ type StripePromoCodes interface {
 type StripeCustomerBalanceTransactions interface {
 	New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error)
 	List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter
+}
+
+// StripeCreditNotes Stripe CreditNotes interface.
+type StripeCreditNotes interface {
+	New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error)
 }
 
 type stripeClient struct {
@@ -100,6 +110,10 @@ func (s *stripeClient) Charges() StripeCharges {
 
 func (s *stripeClient) PromoCodes() StripePromoCodes {
 	return s.client.PromotionCodes
+}
+
+func (s *stripeClient) CreditNotes() StripeCreditNotes {
+	return s.client.CreditNotes
 }
 
 // NewStripeClient creates Stripe client from configuration.

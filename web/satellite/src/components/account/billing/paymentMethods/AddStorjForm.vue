@@ -3,41 +3,17 @@
 
 <template>
     <div class="add-storj-area">
-        <div class="add-storj-area__selection-container">
-            <p class="add-storj-area__selection-container__label">Deposit STORJ Tokens via Coin Payments</p>
-            <TokenDepositSelection
-                class="add-storj-area__selection-container__form"
-                :payment-options="paymentOptions"
-                @onChangeTokenValue="onChangeTokenValue"
-            />
-        </div>
-        <div class="add-storj-area__submit-area">
-            <img
-                v-if="isLoading"
-                class="loading-image"
-                src="@/../static/images/account/billing/loading.gif"
-                alt="loading gif"
-            >
-            <VButton
-                class="confirm-add-storj-button"
-                label="Continue to Coin Payments"
-                width="251px"
-                height="48px"
-                :on-press="onConfirmAddSTORJ"
-                :is-disabled="isLoading"
-            />
-        </div>
+        <p class="add-storj-area__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import TokenDepositSelection from '@/components/account/billing/paymentMethods/TokenDepositSelection.vue';
-import VButton from '@/components/common/VButton.vue';
-
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentAmountOption } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -45,16 +21,13 @@ const {
 } = PAYMENTS_ACTIONS;
 
 // @vue/component
-@Component({
-    components: {
-        TokenDepositSelection,
-        VButton,
-    },
-})
+@Component
 export default class AddStorjForm extends Vue {
     private readonly DEFAULT_TOKEN_DEPOSIT_VALUE = 10; // in dollars.
     private readonly MAX_TOKEN_AMOUNT = 1000000; // in dollars.
     private tokenDepositValue: number = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     @Prop({ default: false })
     public readonly isLoading: boolean;
@@ -80,6 +53,7 @@ export default class AddStorjForm extends Vue {
         if (!this.isDepositValueValid) return;
 
         try {
+            this.analytics.eventTriggered(AnalyticsEvent.STORJ_TOKEN_ADDED_FROM_BILLING);
             const tokenResponse = await this.$store.dispatch(MAKE_TOKEN_DEPOSIT, this.tokenDepositValue * 100);
             await this.$notify.success(`Successfully created new deposit transaction! \nAddress:${tokenResponse.address} \nAmount:${tokenResponse.amount}`);
             const depositWindow = window.open(tokenResponse.link, '_blank');
@@ -154,7 +128,7 @@ export default class AddStorjForm extends Vue {
     }
 
     .add-storj-area {
-        margin-top: 44px;
+        margin: 20px 0;
         font-family: 'font_regular', sans-serif;
         display: flex;
         max-height: 52px;
@@ -179,6 +153,17 @@ export default class AddStorjForm extends Vue {
             display: flex;
             align-items: center;
             min-width: 135px;
+        }
+
+        &__support-info {
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 20px;
+            color: #000;
+
+            a {
+                color: #0149ff;
+            }
         }
     }
 

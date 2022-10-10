@@ -34,7 +34,7 @@ class DayShowingConditions {
     extends: Line,
 })
 export default class VChart extends Vue {
-    @Prop({ default: () => { console.error('Tooltip constructor is undefined'); } })
+    @Prop({ default: () => () => { console.error('Tooltip constructor is undefined'); } })
     private tooltipConstructor: (tooltipModel) => void;
     @Prop({ default: {} })
     private readonly chartData: ChartData;
@@ -63,7 +63,7 @@ export default class VChart extends Vue {
                     ctx.stroke();
                     ctx.restore();
                 }
-            }
+            },
         });
         (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
     }
@@ -87,7 +87,7 @@ export default class VChart extends Vue {
             maintainAspectRatios: false,
             animation: false,
             hover: {
-                animationDuration: 0
+                animationDuration: 0,
             },
             responsiveAnimationDuration: 0,
             legend: {
@@ -96,7 +96,7 @@ export default class VChart extends Vue {
             layout: {
                 padding: {
                     top: 40,
-                }
+                },
             },
             elements: {
                 point: {
@@ -104,10 +104,16 @@ export default class VChart extends Vue {
                     hoverRadius: 10,
                     hitRadius: 8,
                 },
+                line: {
+                    tension: 0,
+                },
             },
             scales: {
                 yAxes: [{
                     display: false,
+                    ticks: {
+                        beginAtZero: true,
+                    },
                 }],
                 xAxes: [{
                     display: true,

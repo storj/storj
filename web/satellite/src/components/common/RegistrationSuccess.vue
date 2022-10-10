@@ -30,7 +30,7 @@
                         width="450px"
                         height="50px"
                         :on-press="onResendEmailButtonClick"
-                        :is-disabled="secondsToWait != 0"
+                        :is-disabled="secondsToWait !== 0"
                     />
                 </div>
                 <p class="register-success-area__form-container__contact">
@@ -53,13 +53,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AuthHttpApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
-
-import { AuthHttpApi } from '@/api/auth';
-import { RouteConfig } from "@/router";
 
 // @vue/component
 @Component({
@@ -70,9 +70,9 @@ import { RouteConfig } from "@/router";
     },
 })
 export default class RegistrationSuccess extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly email: string;
-    @Prop({default: true})
+    @Prop({ default: true })
     private readonly showManualActivationMsg: boolean;
 
     private secondsToWait = 30;
@@ -178,6 +178,11 @@ export default class RegistrationSuccess extends Vue {
         &__logo-wrapper {
             text-align: center;
             margin-top: 60px;
+
+            svg {
+                width: 207px;
+                height: 37px;
+            }
         }
     }
 
@@ -191,7 +196,7 @@ export default class RegistrationSuccess extends Vue {
         width: 75%;
         height: 50vh;
         margin-top: 50px;
-        padding: 70px 90px 30px 90px;
+        padding: 70px 90px 30px;
         max-width: 1200px;
 
         &__form-container {
@@ -233,7 +238,7 @@ export default class RegistrationSuccess extends Vue {
                 font-family: 'font_medium', sans-serif;
                 font-size: 12px;
                 line-height: 16px;
-                padding: 27px 0 0 0;
+                padding: 27px 0 0;
                 margin: 0;
 
                 &__bold-text {
@@ -282,7 +287,7 @@ export default class RegistrationSuccess extends Vue {
             }
         }
 
-        ::v-deep .container {
+        :deep(.container) {
             width: 100% !important;
         }
     }

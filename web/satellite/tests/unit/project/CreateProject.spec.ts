@@ -2,27 +2,28 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import CreateProject from '@/components/project/CreateProject.vue';
-
-import { makeProjectsModule } from '@/store/modules/projects';
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
 
-const notificationPlugin = new NotificatorPlugin();
+import { makeProjectsModule } from '@/store/modules/projects';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
+
+import CreateProject from '@/components/project/CreateProject.vue';
+
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
-localVue.use(notificationPlugin);
 
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule } });
+
+localVue.use(new NotificatorPlugin(store));
 
 describe('CreateProject.vue', (): void => {
     it('renders correctly', (): void => {
-        const wrapper = mount(CreateProject, {
+        const wrapper = mount<CreateProject>(CreateProject, {
             store,
             localVue,
         });
@@ -31,7 +32,7 @@ describe('CreateProject.vue', (): void => {
     });
 
     it('renders correctly with project name', async (): Promise<void> => {
-        const wrapper = mount(CreateProject, {
+        const wrapper = mount<CreateProject>(CreateProject, {
             store,
             localVue,
         });

@@ -107,17 +107,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VInfo from '@/components/common/VInfo.vue';
-
-import BackIcon from '@/../static/images/accessGrants/back.svg';
-import InfoIcon from '@/../static/images/accessGrants/info.svg';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import VInfo from '@/components/common/VInfo.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import InfoIcon from '@/../static/images/accessGrants/info.svg';
+import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 // @vue/component
 @Component({
@@ -143,6 +143,7 @@ export default class GatewayStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -185,6 +186,7 @@ export default class GatewayStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
             params: {
@@ -200,6 +202,7 @@ export default class GatewayStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -213,7 +216,7 @@ export default class GatewayStep extends Vue {
         this.isLoading = true;
 
         try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: this.access });
 
             await this.$notify.success('Gateway credentials were generated successfully');
 
@@ -278,7 +281,7 @@ export default class GatewayStep extends Vue {
             background: #f5f6fa;
             border-radius: 6px;
             padding: 50px;
-            margin: 55px 0 40px 0;
+            margin: 55px 0 40px;
             width: calc(100% - 100px);
 
             &__title {
@@ -286,7 +289,7 @@ export default class GatewayStep extends Vue {
                 font-size: 22px;
                 line-height: 27px;
                 color: #000;
-                margin: 0 0 25px 0;
+                margin: 0 0 25px;
                 text-align: center;
             }
 
@@ -294,7 +297,7 @@ export default class GatewayStep extends Vue {
                 font-size: 16px;
                 line-height: 28px;
                 color: #000;
-                margin: 0 0 25px 0;
+                margin: 0 0 25px;
                 text-align: center;
             }
 
@@ -306,7 +309,7 @@ export default class GatewayStep extends Vue {
                 &__label-area {
                     display: flex;
                     align-items: center;
-                    margin: 20px 0 10px 0;
+                    margin: 20px 0 10px;
 
                     &__label {
                         font-family: 'font_bold', sans-serif;
@@ -349,7 +352,7 @@ export default class GatewayStep extends Vue {
                     padding: 10px;
                     width: calc(100% - 20px);
                     max-width: calc(100% - 20px);
-                    border: 1px solid rgba(56, 75, 101, 0.4);
+                    border: 1px solid rgb(56 75 101 / 40%);
                     background-color: #fff;
 
                     &__value {
@@ -373,7 +376,7 @@ export default class GatewayStep extends Vue {
         border-radius: 6px;
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 300px;
     }
 </style>

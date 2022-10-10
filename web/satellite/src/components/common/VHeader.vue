@@ -6,11 +6,20 @@
         <div class="header-container__buttons-area">
             <slot />
         </div>
-        <VSearch
-            ref="search"
-            :placeholder="placeholder"
-            :search="search"
-        />
+        <div v-if="styleType === 'common'" class="search-container">
+            <VSearch
+                ref="search"
+                :placeholder="placeholder"
+                :search="search"
+            />
+        </div>
+        <div v-if="styleType === 'access'">
+            <VSearchAlternateStyling
+                ref="search"
+                :placeholder="placeholder"
+                :search="search"
+            />
+        </div>
     </div>
 </template>
 
@@ -18,26 +27,29 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VSearch from '@/components/common/VSearch.vue';
+import VSearchAlternateStyling from '@/components/common/VSearchAlternateStyling.vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
-declare interface ClearSearch {
-    clearSearch(): void;
-}
 
 // @vue/component
 @Component({
     components: {
         VSearch,
+        VSearchAlternateStyling,
     },
 })
 export default class VHeader extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: 'common' })
+    private readonly styleType: string;
+    @Prop({ default: '' })
     private readonly placeholder: string;
-    @Prop({default: () => ''})
+    @Prop({ default: function(): searchCallback {
+        return async function(_: string) {};
+    } })
     private readonly search: searchCallback;
 
     public $refs!: {
-        search: VSearch & ClearSearch;
+        search: VSearch;
     };
 
     public clearSearch(): void {
@@ -60,6 +72,24 @@ export default class VHeader extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
+        }
+
+        .search-container {
+            position: relative;
+        }
+    }
+
+    @media screen and (max-width: 1150px) {
+
+        .header-container {
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 75px;
+
+            .search-container {
+                width: 100%;
+                margin-top: 30px;
+            }
         }
     }
 </style>

@@ -3,7 +3,7 @@
 exports[`NoBucketsArea.vue renders correctly 1`] = `
 <div class="no-buckets-area"><img src="@/../static/images/buckets/bucket.png" alt="bucket image" class="no-buckets-area__image">
   <h2 class="no-buckets-area__message">Create your first bucket to get started.</h2>
-  <vbutton-stub label="Get Started" width="156px" height="47px" fontsize="16px" borderradius="6px" onpress="function () { [native code] }"></vbutton-stub> <a href="https://docs.storj.io/" target="_blank" rel="noopener noreferrer" class="no-buckets-area__second-button">
+  <vbutton-stub label="Get Started" width="156px" height="47px" fontsize="16px" borderradius="6px" icon="none" onpress="[Function]"></vbutton-stub> <a href="https://docs.storj.io/" target="_blank" rel="noopener noreferrer" class="no-buckets-area__second-button">
     Visit the Docs
   </a>
 </div>

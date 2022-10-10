@@ -62,7 +62,6 @@ func TestStorageNodeUsage(t *testing.T) {
 		rollups, tallies, lastDate := makeRollupsAndStorageNodeStorageTallies(nodes, startDate, days)
 
 		lastRollup := rollups[lastDate]
-		delete(rollups, lastDate)
 
 		accountingDB := db.StoragenodeAccounting()
 
@@ -156,14 +155,16 @@ func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
 		rollups[t2] = make(map[storj.NodeID]*accounting.Rollup)
 
 		rollups[t1][nodeID] = &accounting.Rollup{
-			NodeID:      nodeID,
-			AtRestTotal: 1000,
-			StartTime:   t1,
+			NodeID:          nodeID,
+			AtRestTotal:     1000,
+			StartTime:       t1,
+			IntervalEndTime: t1,
 		}
 		rollups[t2][nodeID] = &accounting.Rollup{
-			NodeID:      nodeID,
-			AtRestTotal: 500,
-			StartTime:   t2,
+			NodeID:          nodeID,
+			AtRestTotal:     500,
+			StartTime:       t2,
+			IntervalEndTime: t2,
 		}
 		// save rollup
 		err = accountingDB.SaveRollup(ctx, now.Add(time.Hour*-24), rollups)
@@ -265,14 +266,15 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 			}
 
 			for h := 0; h < hours; h++ {
-				startTime := startDay.Add(time.Hour * time.Duration(h))
-				if tallies[startTime] == nil {
-					tallies[startTime] = make(map[storj.NodeID]float64)
+				intervalEndTime := startDay.Add(time.Hour * time.Duration(h))
+				if tallies[intervalEndTime] == nil {
+					tallies[intervalEndTime] = make(map[storj.NodeID]float64)
 				}
 
 				tallieAtRest := math.Round(testrand.Float64n(1000))
-				tallies[startTime][node] = tallieAtRest
+				tallies[intervalEndTime][node] = tallieAtRest
 				rollup.AtRestTotal += tallieAtRest
+				rollup.IntervalEndTime = intervalEndTime
 			}
 
 			rollups[startDay][node] = rollup

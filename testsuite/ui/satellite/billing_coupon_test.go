@@ -18,7 +18,7 @@ import (
 func navigateToBilling(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser, signupQuery string) *rod.Page {
 	signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup" + signupQuery
 	fullName := "John Doe"
-	emailAddress := "test@email.com"
+	emailAddress := "test@email.test"
 	password := "qazwsx123"
 
 	page := openPage(browser, signupPageURL)
@@ -56,7 +56,6 @@ func navigateToBilling(t *testing.T, ctx *testcontext.Context, planet *testplane
 
 func TestCouponCodes(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
-
 		page := navigateToBilling(t, ctx, planet, browser, "")
 
 		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
@@ -128,9 +127,8 @@ func TestCouponCodes(t *testing.T) {
 	})
 }
 
-func TestCouponCodeSignupGood(t *testing.T) {
+func TestCouponCode_SignupGood(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
-
 		page := navigateToBilling(t, ctx, planet, browser, "/?promo=promo1")
 
 		couponText := page.MustElement(".coupon-area__container__text-container").MustText()
@@ -140,9 +138,8 @@ func TestCouponCodeSignupGood(t *testing.T) {
 	})
 }
 
-func TestCouponCodeSignupBad(t *testing.T) {
+func TestCouponCode_SignupBad(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
-
 		page := navigateToBilling(t, ctx, planet, browser, "/?promo=badCode")
 
 		couponText := page.MustElement(".coupon-area__container__text-container").MustText()

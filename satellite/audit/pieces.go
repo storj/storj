@@ -11,7 +11,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/storj/satellite/metabase"
 )
 
 // PieceAudit is piece audit status.
@@ -29,15 +28,6 @@ const (
 	// PieceAuditSuccess is successful piece audit.
 	PieceAuditSuccess
 )
-
-// Pieces contains pieces structured by piece audit.
-type Pieces struct {
-	Successful metabase.Pieces
-	Failed     metabase.Pieces
-	Offline    metabase.Pieces
-	Contained  metabase.Pieces
-	Unknown    metabase.Pieces
-}
 
 // PieceAuditFromErr returns piece audit based on error.
 func PieceAuditFromErr(err error) PieceAudit {

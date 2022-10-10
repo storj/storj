@@ -46,6 +46,8 @@ if [ ! -f "storagenode" ]; then
   fi
 fi
 
+SUPERVISOR_SERVER="${SUPERVISOR_SERVER:-unix}"
+
 RUN_PARAMS="${RUN_PARAMS:-} --config-dir config"
 RUN_PARAMS="${RUN_PARAMS} --identity-dir identity"
 RUN_PARAMS="${RUN_PARAMS} --metrics.app-suffix=-alpha"
@@ -87,6 +89,37 @@ else
   sed -i \
   "s#^command=/app/storagenode\$#command=/app/storagenode run ${SNO_RUN_PARAMS} ${*}#" \
   /etc/supervisor/supervisord.conf
+
+  # remove explicit user flag when container is run as non-root
+  if [ $EUID != "0" ]; then
+     sed -i "s#^user=root##" /etc/supervisor/supervisord.conf
+  fi
+
+  #
+  case ${SUPERVISOR_SERVER} in
+  	unix) # default
+  	;;
+  	public_port)
+  	  # replace unix_http_server section to inet_http_server
+  		sed -i "s#^\[unix_http_server\]\$#\[inet_http_server\]#" /etc/supervisor/supervisord.conf
+  		# replace unix socket file with tcp public port
+      sed -i "s#^file=/etc/supervisor/supervisor.sock\$#port=*:9001#" /etc/supervisor/supervisord.conf
+      # set server url to http server address
+      sed -i "s#^serverurl=unix:///etc/supervisor/supervisor.sock\$#serverurl=http://127.0.0.1:9001#" /etc/supervisor/supervisord.conf
+  	;;
+  	private_port)
+  	  # replace unix_http_server section to inet_http_server
+  		sed -i "s#^\[unix_http_server\]\$#\[inet_http_server\]#" /etc/supervisor/supervisord.conf
+  		# replace unix socket file with tcp private port .i.e. listens on only localhost
+      sed -i "s#^file=/etc/supervisor/supervisor.sock\$#port=127.0.0.1:9001#" /etc/supervisor/supervisord.conf
+       # set server url to http server address
+      sed -i "s#^serverurl=unix:///etc/supervisor/supervisor.sock\$#serverurl=http://127.0.0.1:9001#" /etc/supervisor/supervisord.conf
+  	;;
+  	*)
+  		echo "Invalid value '${SUPERVISOR_SERVER}' for SUPERVISOR_SERVER. Expected 'unix', 'public_port' or 'private_port'"
+  		exit 1
+  	;;
+  esac
 
   exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 fi

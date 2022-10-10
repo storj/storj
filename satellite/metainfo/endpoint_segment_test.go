@@ -153,7 +153,7 @@ func TestInlineSegment(t *testing.T) {
 			StreamID:                      beginObjectResp.StreamID,
 			EncryptedMetadata:             metadata,
 			EncryptedMetadataNonce:        testrand.Nonce(),
-			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+			EncryptedMetadataEncryptedKey: randomEncryptedKey,
 		})
 		require.NoError(t, err)
 
@@ -165,7 +165,7 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedObjectKey, objects[0].EncryptedObjectKey)
-		// TODO find better way to compare (one ExpiresAt contains time zone informations)
+		// TODO find better way to compare (one ExpiresAt contains time zone information)
 		require.Equal(t, params.ExpiresAt.Unix(), objects[0].ExpiresAt.Unix())
 
 		object, err := metainfoClient.GetObject(ctx, metaclient.GetObjectParams{

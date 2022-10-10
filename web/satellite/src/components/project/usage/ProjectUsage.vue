@@ -23,9 +23,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import UsageArea from '@/components/project/usage/UsageArea.vue';
-
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+
+import UsageArea from '@/components/project/usage/UsageArea.vue';
 
 // @vue/component
 @Component({

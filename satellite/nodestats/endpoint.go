@@ -93,7 +93,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		OfflineSuspended:   node.OfflineSuspended,
 		OfflineUnderReview: reputationInfo.UnderReview,
 		VettedAt:           node.Reputation.Status.VettedAt,
-		AuditHistory:       reputation.AuditHistoryToPB(reputationInfo.AuditHistory),
+		AuditHistory:       reputation.DuplicateAuditHistory(reputationInfo.AuditHistory),
 		JoinedAt:           node.CreatedAt,
 	}, nil
 }
@@ -145,8 +145,9 @@ func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyS
 
 	for _, usage := range usages {
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
-			AtRestTotal: usage.StorageUsed,
-			Timestamp:   usage.Timestamp,
+			AtRestTotal:     usage.StorageUsed,
+			Timestamp:       usage.Timestamp,
+			IntervalEndTime: usage.IntervalEndTime,
 		})
 	}
 

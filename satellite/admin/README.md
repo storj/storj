@@ -16,6 +16,7 @@ Requires setting `Authorization` header for requests.
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+            * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
             * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
@@ -31,6 +32,7 @@ Requires setting `Authorization` header for requests.
                 * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
                 * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
                 * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
+                * [POST /api/projects/{project-id}/limit?segments={value}](#post-apiprojectsproject-idlimitsegmentsvalue)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
@@ -146,6 +148,10 @@ A successful response body:
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
+
+#### DELETE /api/users/{user-email}/mfa
+
+Disables the user's mfa.
 
 ### OAuth Client Management
 

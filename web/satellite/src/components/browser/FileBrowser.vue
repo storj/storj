@@ -3,7 +3,7 @@
 
 <template>
     <div class="file-browser">
-        <div v-if="isInitialized" class="row white-background p-4 p-lg-5" @click="closeModalDropdown">
+        <div v-if="isInitialized" class="row white-background" @click="closeModalDropdown">
             <div class="col-sm-12">
                 <div
                     v-cloak
@@ -11,246 +11,191 @@
                     @drop.prevent="upload"
                     @dragover.prevent
                 >
-                    <div class="row mb-2 d-flex justify-content-end">
-                        <div v-click-outside="closeUploadDropdown" class="position-relative">
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-primary btn-block upload-button"
-                                @click.stop="toggleUploadDropdown"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M8.32666 0.974108L8.34573 0.992444L11.7281 4.37479C11.9849 4.63164 11.9849 5.04808 11.7281 5.30494C11.4775 5.55552 11.075 5.56164 10.817 5.32327L10.7979 5.30494L8.5164 3.02335V10.4543C8.5164 10.8175 8.22193 11.112 7.85869 11.112C7.5043 11.112 7.21538 10.8317 7.2015 10.4808L7.20097 10.4543V3.06712L4.96339 5.30494C4.7128 5.55552 4.31031 5.56164 4.05232 5.32327L4.03324 5.30494C3.78266 5.05435 3.77654 4.65186 4.01491 4.39386L4.03324 4.37479L7.41559 0.992444C7.66618 0.741856 8.06866 0.735744 8.32666 0.974108ZM15.2008 13.8745C15.2008 14.2378 14.9063 14.5322 14.5431 14.5322H1.50841C1.14517 14.5322 0.850702 14.2378 0.850702 13.8745C0.850702 13.5113 1.14517 13.2168 1.50841 13.2168H14.5431C14.9063 13.2168 15.2008 13.5113 15.2008 13.8745ZM1.45849 14.4823C1.09525 14.4823 0.800781 14.1878 0.800781 13.8246V11.1937C0.800781 10.8305 1.09525 10.536 1.45849 10.536C1.82174 10.536 2.11621 10.8305 2.11621 11.1937V13.8246C2.11621 14.1878 1.82174 14.4823 1.45849 14.4823ZM14.4931 14.4823C14.1299 14.4823 13.8354 14.1878 13.8354 13.8246V11.1937C13.8354 10.8305 14.1299 10.536 14.4931 10.536C14.8564 10.536 15.1509 10.8305 15.1509 11.1937V13.8246C15.1509 14.1878 14.8564 14.4823 14.4931 14.4823Z" fill="white" />
-                                </svg>
-                                Upload
-                                <span class="upload-button__divider" />
-                                <BlackArrowHide v-if="isUploadDropDownShown" class="arrow" />
-                                <BlackArrowExpand v-else class="arrow" />
-                            </button>
-                            <div v-if="isUploadDropDownShown" class="dropdown">
-                                <div class="dropdown__item">
-                                    <input
-                                        ref="fileInput"
-                                        type="file"
-                                        aria-roledescription="file-upload"
-                                        hidden
-                                        multiple
-                                        @change="upload"
-                                    >
-                                    <div
-                                        class="upload-option"
-                                        @click="buttonFileUpload"
-                                    >
-                                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M8.75652 0.799805C9.13527 0.799805 9.49851 0.950259 9.76632 1.21807L13.5258 4.97747C13.7937 5.24529 13.9441 5.60854 13.9441 5.9873V12.9387C13.9441 14.1875 12.9318 15.1998 11.683 15.1998H4.66153C3.41274 15.1998 2.40039 14.1875 2.40039 12.9387V3.06104C2.40039 1.81225 3.41274 0.799805 4.66153 0.799805H8.75652ZM8.17213 2.10889H4.66153C4.14568 2.10889 3.72559 2.51926 3.70993 3.03139L3.70947 3.06104V12.9387C3.70947 13.4545 4.11979 13.8746 4.63188 13.8903L4.66153 13.8907H11.683C12.1989 13.8907 12.6189 13.4804 12.6346 12.9683L12.635 12.9387V6.57167L8.82679 6.57176C8.47412 6.57176 8.18659 6.29284 8.17277 5.94355L8.17225 5.91722L8.17213 2.10889ZM11.9597 5.26259L9.48122 2.78425L9.48134 5.26268L11.9597 5.26259Z" fill="black" />
-                                        </svg>
-                                        Upload File
+                    <bread-crumbs @bucketClick="goToBuckets" />
+
+                    <div class="tile-action-bar">
+                        <h2 class="tile-action-bar__title">{{ bucketName }}</h2>
+                        <div class="tile-action-bar__actions">
+                            <div v-click-outside="closeUploadDropdown" class="position-relative">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-primary btn-block upload-button"
+                                    @click.stop="toggleUploadDropdown"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M8.32666 0.974108L8.34573 0.992444L11.7281 4.37479C11.9849 4.63164 11.9849 5.04808 11.7281 5.30494C11.4775 5.55552 11.075 5.56164 10.817 5.32327L10.7979 5.30494L8.5164 3.02335V10.4543C8.5164 10.8175 8.22193 11.112 7.85869 11.112C7.5043 11.112 7.21538 10.8317 7.2015 10.4808L7.20097 10.4543V3.06712L4.96339 5.30494C4.7128 5.55552 4.31031 5.56164 4.05232 5.32327L4.03324 5.30494C3.78266 5.05435 3.77654 4.65186 4.01491 4.39386L4.03324 4.37479L7.41559 0.992444C7.66618 0.741856 8.06866 0.735744 8.32666 0.974108ZM15.2008 13.8745C15.2008 14.2378 14.9063 14.5322 14.5431 14.5322H1.50841C1.14517 14.5322 0.850702 14.2378 0.850702 13.8745C0.850702 13.5113 1.14517 13.2168 1.50841 13.2168H14.5431C14.9063 13.2168 15.2008 13.5113 15.2008 13.8745ZM1.45849 14.4823C1.09525 14.4823 0.800781 14.1878 0.800781 13.8246V11.1937C0.800781 10.8305 1.09525 10.536 1.45849 10.536C1.82174 10.536 2.11621 10.8305 2.11621 11.1937V13.8246C2.11621 14.1878 1.82174 14.4823 1.45849 14.4823ZM14.4931 14.4823C14.1299 14.4823 13.8354 14.1878 13.8354 13.8246V11.1937C13.8354 10.8305 14.1299 10.536 14.4931 10.536C14.8564 10.536 15.1509 10.8305 15.1509 11.1937V13.8246C15.1509 14.1878 14.8564 14.4823 14.4931 14.4823Z" fill="white" />
+                                    </svg>
+                                    Upload
+                                    <span class="upload-button__divider" />
+                                    <BlackArrowHide v-if="isUploadDropDownShown" class="arrow" />
+                                    <BlackArrowExpand v-else class="arrow" />
+                                </button>
+                                <input
+                                    ref="fileInput"
+                                    type="file"
+                                    aria-roledescription="file-upload"
+                                    hidden
+                                    multiple
+                                    @change="upload"
+                                >
+                                <input
+                                    ref="folderInput"
+                                    type="file"
+                                    aria-roledescription="folder-upload"
+                                    hidden
+                                    multiple
+                                    webkitdirectory
+                                    mozdirectory
+                                    @change="upload"
+                                >
+                                <div v-if="isUploadDropDownShown" class="dropdown">
+                                    <div class="dropdown__item">
+                                        <div
+                                            class="upload-option"
+                                            @click="buttonFileUpload"
+                                        >
+                                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M8.75652 0.799805C9.13527 0.799805 9.49851 0.950259 9.76632 1.21807L13.5258 4.97747C13.7937 5.24529 13.9441 5.60854 13.9441 5.9873V12.9387C13.9441 14.1875 12.9318 15.1998 11.683 15.1998H4.66153C3.41274 15.1998 2.40039 14.1875 2.40039 12.9387V3.06104C2.40039 1.81225 3.41274 0.799805 4.66153 0.799805H8.75652ZM8.17213 2.10889H4.66153C4.14568 2.10889 3.72559 2.51926 3.70993 3.03139L3.70947 3.06104V12.9387C3.70947 13.4545 4.11979 13.8746 4.63188 13.8903L4.66153 13.8907H11.683C12.1989 13.8907 12.6189 13.4804 12.6346 12.9683L12.635 12.9387V6.57167L8.82679 6.57176C8.47412 6.57176 8.18659 6.29284 8.17277 5.94355L8.17225 5.91722L8.17213 2.10889ZM11.9597 5.26259L9.48122 2.78425L9.48134 5.26268L11.9597 5.26259Z" fill="black" />
+                                            </svg>
+                                            Upload File
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="dropdown__item">
-                                    <input
-                                        ref="folderInput"
-                                        type="file"
-                                        aria-roledescription="folder-upload"
-                                        hidden
-                                        webkitdirectory
-                                        mozdirectory
-                                        multiple
-                                        @change="upload"
-                                    >
-                                    <div
-                                        class="upload-option"
-                                        @click="buttonFolderUpload"
-                                    >
-                                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
-                                        </svg>
-                                        Upload Folder
+                                    <div class="dropdown__item">
+                                        <div
+                                            class="upload-option"
+                                            @click="buttonFolderUpload"
+                                        >
+                                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
+                                            </svg>
+                                            Upload Folder
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="position-relative">
-                            <button
-                                type="button"
-                                class="btn btn-sm btn-light btn-block new-folder-button"
-                                @click="toggleFolderCreationInput"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
-                                </svg>
-                                New Folder
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="row mb-2 d-flex justify-content-between">
-                        <div class="col-sm-12 col-md-12 col-xl-8 mb-3">
-                            <bread-crumbs />
-                        </div>
-                    </div>
-
-                    <div>
-                        <table class="table table-hover no-selection">
-                            <file-browser-header />
-
-                            <tbody>
-                                <tr
-                                    v-for="file in formattedFilesUploading"
-                                    :key="file.ETag"
-                                    scope="row"
+                            <div class="position-relative">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-light btn-block new-folder-button"
+                                    @click="toggleFolderCreationInput"
                                 >
-                                    <td
-                                        class="upload-text"
-                                        aria-roledescription="file-uploading"
-                                    >
-                                        <span>
-                                            <svg
-                                                width="21"
-                                                height="18"
-                                                viewBox="0 0 16 16"
-                                                fill="currentColor"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                class="bi bi-file-earmark ml-2 mr-1"
-                                            >
-                                                <path
-                                                    d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
-                                                />
-                                                <path
-                                                    d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"
-                                                />
-                                            </svg>
-                                            {{ filename(file) }}
-                                        </span>
-                                    </td>
-                                    <td aria-roledescription="progress-bar">
-                                        <div class="progress">
-                                            <div
-                                                class="progress-bar"
-                                                role="progressbar"
-                                                :style="{
-                                                    width: `${file.progress}%`
-                                                }"
-                                            >
-                                                {{ file.progress }}%
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <button
-                                            type="button"
-                                            class="btn btn-danger btn-sm"
-                                            @click="cancelUpload(file.Key)"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </td>
-                                    <td />
-                                </tr>
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M6.30544 1.63444C6.45643 1.66268 6.59063 1.70959 6.72634 1.78156L6.76941 1.80506C6.88832 1.87193 7.00713 1.95699 7.28196 2.18186L9.17564 3.73123H11.997C13.111 3.73123 13.515 3.84722 13.9223 4.06503C14.3295 4.28284 14.6492 4.60247 14.867 5.00975L14.8903 5.0542C15.0931 5.44734 15.2008 5.8615 15.2008 6.93502V11.104C15.2008 12.4302 15.0627 12.9111 14.8034 13.396C14.5441 13.8808 14.1636 14.2613 13.6787 14.5206L13.6302 14.5461L13.5824 14.5704C13.1346 14.7936 12.6429 14.9137 11.4512 14.918H4.61483C3.2886 14.918 2.80768 14.7799 2.32283 14.5206C1.83798 14.2613 1.45747 13.8808 1.19817 13.396L1.17264 13.3475C0.934003 12.8862 0.805265 12.4029 0.800781 11.1696V4.36463C0.800781 3.69226 0.909136 3.24683 1.1133 2.86088C1.31746 2.47493 1.61743 2.17098 2.00065 1.96174C2.38387 1.75251 2.82783 1.63828 3.50014 1.62941L5.70273 1.60054L5.81497 1.6001C6.06913 1.60045 6.18205 1.61136 6.30544 1.63444ZM7.08876 6.29289C6.82188 6.49471 6.49897 6.60794 6.16527 6.6174L6.1197 6.61805H3.03986C2.70795 6.61805 2.39296 6.54561 2.10984 6.41568V11.1649L2.11118 11.3259L2.11278 11.4328C2.12691 12.1945 2.19366 12.4815 2.35254 12.7786C2.48984 13.0353 2.68348 13.2289 2.94019 13.3662L2.97747 13.3857L3.01739 13.4054C3.30474 13.543 3.62468 13.5996 4.40102 13.6078L4.61483 13.6089L11.4963 13.6086C12.4225 13.6041 12.7384 13.539 13.0614 13.3662C13.3181 13.2289 13.5117 13.0353 13.649 12.7786L13.6685 12.7413L13.6882 12.7014C13.8257 12.414 13.8824 12.0941 13.8906 11.3178L13.8917 11.104V6.93502C13.8917 6.11696 13.8448 5.87439 13.7126 5.62711C13.6168 5.44797 13.484 5.31521 13.3049 5.21941L13.274 5.20332C13.0416 5.08595 12.7921 5.04222 12.0474 5.04038L8.74506 5.04026L7.08876 6.29289ZM5.75624 2.90917L5.6387 2.9104L3.51741 2.93839L3.42225 2.94052C3.03877 2.95287 2.81488 3.00869 2.62798 3.11073C2.47022 3.19687 2.35451 3.31411 2.27046 3.473C2.16869 3.66538 2.11572 3.89577 2.11033 4.29509C2.11339 4.31637 2.1153 4.33777 2.11616 4.35945L2.11668 4.38577C2.11668 4.88583 2.51425 5.29302 3.01055 5.3085L3.03986 5.30896H6.1197C6.17638 5.30896 6.2317 5.29277 6.27926 5.26255L6.29915 5.24874L7.68339 4.20185L6.38268 3.13773C6.22518 3.00999 6.16925 2.96959 6.12489 2.94458L6.11301 2.93809C6.09421 2.92812 6.08564 2.92512 6.06472 2.92121L6.03713 2.91681L6.01827 2.91465C5.97123 2.91001 5.90046 2.90815 5.75624 2.90917Z" fill="black" />
+                                    </svg>
+                                    New Folder
+                                </button>
+                            </div>
+                            <bucket-settings-nav class="new-folder-button" :bucket-name="bucket" />
+                        </div>
+                    </div>
 
-                                <tr v-if="filesUploadingLength">
-                                    <div class="files-uploading-count my-3">
-                                        <div
-                                            class="px-2"
-                                            aria-roledescription="files-uploading-count"
+                    <div class="hr-divider" />
+
+                    <v-table class="file-browser-table">
+                        <template #head>
+                            <file-browser-header />
+                        </template>
+                        <template #body>
+                            <tr
+                                v-for="file in formattedFilesUploading"
+                                :key="file.ETag"
+                                scope="row"
+                            >
+                                <td
+                                    class="upload-text"
+                                    aria-roledescription="file-uploading"
+                                >
+                                    <span>
+                                        <svg
+                                            width="21"
+                                            height="18"
+                                            viewBox="0 0 16 16"
+                                            fill="currentColor"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="bi bi-file-earmark ml-2 mr-1"
                                         >
-                                            {{ formattedFilesWaitingToBeUploaded }}
-                                            waiting to be uploaded...
+                                            <path
+                                                d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
+                                            />
+                                            <path
+                                                d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"
+                                            />
+                                        </svg>
+                                        {{ filename(file) }}
+                                    </span>
+                                </td>
+                                <td aria-roledescription="progress-bar">
+                                    <div class="progress">
+                                        <div
+                                            class="progress-bar"
+                                            role="progressbar"
+                                            :style="{
+                                                width: `${file.progress}%`
+                                            }"
+                                        >
+                                            {{ file.progress }}%
                                         </div>
                                     </div>
-                                </tr>
+                                </td>
+                                <td>
+                                    <button
+                                        type="button"
+                                        class="btn btn-danger btn-sm"
+                                        @click="cancelUpload(file.Key)"
+                                    >
+                                        Cancel
+                                    </button>
+                                </td>
+                                <td />
+                            </tr>
 
-                                <tr v-if="path.length > 0">
-                                    <td class="px-3">
-                                        <router-link to="../">
-                                            <a
-                                                id="navigate-back"
-                                                href="javascript:null"
-                                                class="px-2 font-weight-bold"
-                                                @click="back"
-                                            >..</a>
-                                        </router-link>
-                                    </td>
-                                </tr>
+                            <tr v-if="filesUploadingLength">
+                                <div class="files-uploading-count my-3">
+                                    <div
+                                        class="px-2"
+                                        aria-roledescription="files-uploading-count"
+                                    >
+                                        {{ formattedFilesWaitingToBeUploaded }}
+                                        waiting to be uploaded...
+                                    </div>
+                                </div>
+                            </tr>
 
-                                <tr
-                                    v-if="showCreateFolderInput"
-                                    class="new-folder-row"
-                                >
-                                    <td span="3">
-                                        <input
-                                            v-model="createFolderInput"
-                                            class="form-control input-folder"
-                                            :class="{
-                                                'folder-input':
-                                                    createFolderInput.length > 0 &&
-                                                    !createFolderEnabled
-                                            }"
-                                            type="text"
-                                            placeholder="Name of the folder"
-                                            @keypress.enter="createFolder"
-                                        >
-                                    </td>
-                                    <td span="3">
-                                        <button
-                                            type="button"
-                                            :disabled="!createFolderEnabled"
-                                            class="btn btn-primary btn-sm px-4"
-                                            @click="createFolder"
-                                        >
-                                            Save Folder
-                                        </button>
-                                        <span class="mx-1" />
-                                        <button
-                                            type="button"
-                                            class="btn btn-light btn-sm px-4"
-                                            @click="cancelFolderCreation"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </td>
-                                    <td span="3" />
-                                    <td span="3">
-                                        <div
-                                            v-if="creatingFolderSpinner"
-                                            class="spinner-border"
-                                            role="status"
-                                        />
-                                    </td>
-                                </tr>
+                            <tr v-if="path.length > 0">
+                                <td class="px-3">
+                                    <router-link to="../">
+                                        <a
+                                            id="navigate-back"
+                                            href="javascript:null"
+                                            class="px-2 font-weight-bold"
+                                            @click="back"
+                                        >..</a>
+                                    </router-link>
+                                </td>
+                            </tr>
 
-                                <file-entry
-                                    v-for="file in folders"
-                                    :key="file.Key"
-                                    :path="path"
-                                    :file="file"
-                                />
+                            <file-entry
+                                v-for="file in folders"
+                                :key="file.Key"
+                                :path="path"
+                                :file="file"
+                            />
 
-                                <file-entry
-                                    v-for="file in singleFiles"
-                                    :key="file.Key"
-                                    :path="path"
-                                    :file="file"
-                                />
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div
-                        v-if="fetchingFilesSpinner"
-                        class="d-flex justify-content-center"
-                    >
-                        <div class="spinner-border" />
-                    </div>
-
+                            <file-entry
+                                v-for="file in singleFiles"
+                                :key="file.Key"
+                                :path="path"
+                                :file="file"
+                            />
+                        </template>
+                    </v-table>
                     <div
                         v-if="displayUpload"
                         class="upload-help"
                         @click="buttonFileUpload"
                     >
                         <svg
-                            width="300"
-                            height="172"
                             viewBox="0 0 300 172"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
@@ -400,11 +345,19 @@
                             Drop Files Here to Upload
                         </p>
                     </div>
+                    <div
+                        v-if="fetchingFilesSpinner"
+                        class="d-flex justify-content-center"
+                    >
+                        <div class="spinner-border" />
+                    </div>
                 </div>
 
                 <file-modal v-if="showFileModal" />
 
                 <file-share-modal v-if="showFileShareModal" />
+
+                <new-folder-modal v-if="showCreateFolderInput" />
             </div>
         </div>
     </div>
@@ -412,29 +365,38 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import FileBrowserHeader from "./FileBrowserHeader.vue";
-import FileEntry from "./FileEntry.vue";
-import BreadCrumbs from "./BreadCrumbs.vue";
-import FileModal from "./FileModal.vue";
-import FileShareModal from "./FileShareModal.vue";
-import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
-import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
+
+import FileBrowserHeader from './FileBrowserHeader.vue';
+import FileEntry from './FileEntry.vue';
+import BreadCrumbs from './BreadCrumbs.vue';
+import FileModal from './FileModal.vue';
+import FileShareModal from './FileShareModal.vue';
+import NewFolderModal from './NewFolderModal.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { BrowserFile } from "@/types/browser.ts";
+import { BrowserFile } from '@/types/browser';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+
+import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
+import VTable from '@/components/common/VTable.vue';
+
+import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
+import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 
 // @vue/component
 @Component({
     components: {
+        BucketSettingsNav,
         FileEntry,
         BreadCrumbs,
+        VTable,
         FileBrowserHeader,
         FileModal,
         FileShareModal,
         BlackArrowExpand,
         BlackArrowHide,
+        NewFolderModal,
     },
 })
 export default class FileBrowser extends Vue {
@@ -442,7 +404,7 @@ export default class FileBrowser extends Vue {
         folderInput: HTMLInputElement;
         fileInput: HTMLInputElement;
     };
-    public createFolderInput = "";
+    public createFolderInput = '';
     public creatingFolderSpinner = false;
     public deleteConfirmation = false;
     public fetchingFilesSpinner = false;
@@ -454,7 +416,7 @@ export default class FileBrowser extends Vue {
      * Check if the s3 client has been initialized in the store.
      */
     public get isInitialized(): boolean {
-        return this.$store.getters["files/isInitialized"];
+        return this.$store.getters['files/isInitialized'];
     }
 
     /**
@@ -493,10 +455,10 @@ export default class FileBrowser extends Vue {
      * Return the text of how many files in total are being uploaded to be displayed to give users more context.
      */
     public get formattedFilesWaitingToBeUploaded(): string {
-        let file = "file";
+        let file = 'file';
 
         if (this.filesUploadingLength > 1) {
-            file = "files";
+            file = 'files';
         }
 
         return `${this.filesUploadingLength} ${file}`;
@@ -509,16 +471,16 @@ export default class FileBrowser extends Vue {
         const charsOtherThanSpaceExist =
             this.createFolderInput.trim().length > 0;
 
-        const noForwardSlashes = this.createFolderInput.indexOf("/") === -1;
+        const noForwardSlashes = this.createFolderInput.indexOf('/') === -1;
 
         const nameIsNotOnlyPeriods =
             [...this.createFolderInput.trim()].filter(
-                (char) => char === "."
+                (char) => char === '.',
             ).length !== this.createFolderInput.trim().length;
 
         const notDuplicate =
             this.files.filter(
-                (file) => file.Key === this.createFolderInput.trim()
+                (file) => file.Key === this.createFolderInput.trim(),
             ).length === 0;
 
         return (
@@ -540,21 +502,21 @@ export default class FileBrowser extends Vue {
      * Retrieve all of the files sorted from the store.
      */
     private get files(): BrowserFile[] {
-        return this.$store.getters["files/sortedFiles"];
+        return this.$store.getters['files/sortedFiles'];
     }
 
     /**
      * Return an array of BrowserFile type that are files and not folders.
      */
     public get singleFiles(): BrowserFile[] {
-        return this.files.filter((f) => f.type === "file");
+        return this.files.filter((f) => f.type === 'file');
     }
 
     /**
      * Return an array of BrowserFile type that are folders and not files.
      */
     public get folders(): BrowserFile[] {
-        return this.files.filter((f) => f.type === "folder");
+        return this.files.filter((f) => f.type === 'folder');
     }
 
     /**
@@ -563,7 +525,7 @@ export default class FileBrowser extends Vue {
     private get routePath(): string {
         let pathMatch = this.$route.params.pathMatch;
         pathMatch = Array.isArray(pathMatch)
-            ? pathMatch.join("/") + "/"
+            ? pathMatch.join('/') + '/'
             : pathMatch;
         return pathMatch;
     }
@@ -613,7 +575,7 @@ export default class FileBrowser extends Vue {
     /**
      * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
      */
-    @Watch("routePath")
+    @Watch('routePath')
     private async handleRoutePathChange() {
         await this.goToRoutePath();
     }
@@ -626,6 +588,7 @@ export default class FileBrowser extends Vue {
             const path = this.isNewObjectsFlow ? RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path :
                 RouteConfig.Buckets.with(RouteConfig.EncryptData).path;
 
+            this.analytics.pageVisit(path);
             await this.$router.push(path);
 
             return;
@@ -636,11 +599,12 @@ export default class FileBrowser extends Vue {
 
         if (!this.routePath) {
             try {
+                this.analytics.pageVisit(`${this.$store.state.files.browserRoot}${this.path}`);
                 await this.$router.push({
-                    path: `${this.$store.state.files.browserRoot}${this.path}`
+                    path: `${this.$store.state.files.browserRoot}${this.path}`,
                 });
             } catch (err) {
-                await this.list("");
+                await this.list('');
             }
         }
 
@@ -653,19 +617,19 @@ export default class FileBrowser extends Vue {
      */
     public closeModalDropdown(): void {
         if (this.$store.state.files.modalPath) {
-            this.$store.commit("files/closeModal");
+            this.$store.commit('files/closeModal');
         }
 
         if (this.$store.state.files.fileShareModal) {
-            this.$store.commit("files/closeFileShareModal");
+            this.$store.commit('files/closeFileShareModal');
         }
 
         if (this.$store.state.files.openedDropdown) {
-            this.$store.dispatch("files/closeDropdown");
+            this.$store.dispatch('files/closeDropdown');
         }
 
         if (this.$store.state.files.selectedFile) {
-            this.$store.dispatch("files/clearAllSelectedFiles");
+            this.$store.dispatch('files/clearAllSelectedFiles');
         }
     }
 
@@ -674,8 +638,8 @@ export default class FileBrowser extends Vue {
      */
     public toggleFolderCreationInput(): void {
         this.$store.dispatch(
-            "files/updateCreateFolderInputShow",
-            !this.$store.state.files.createFolderInputShow
+            'files/updateCreateFolderInputShow',
+            !this.$store.state.files.createFolderInputShow,
         );
     }
 
@@ -684,7 +648,7 @@ export default class FileBrowser extends Vue {
      */
     public filename(file: BrowserFile): string {
         return file.Key.length > 25
-            ? file.Key.slice(0, 25) + "..."
+            ? file.Key.slice(0, 25) + '...'
             : file.Key;
     }
 
@@ -692,25 +656,25 @@ export default class FileBrowser extends Vue {
      * Upload the current selected or dragged-and-dropped file.
      */
     public async upload(e: Event): Promise<void> {
-        await this.$store.dispatch("files/upload", e);
+        await this.$store.dispatch('files/upload', e);
         this.analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
         const target = e.target as HTMLInputElement;
-        target.value = "";
+        target.value = '';
     }
 
     /**
      * Cancel the upload of the current file that's passed in as an argument.
      */
     public cancelUpload(fileName: string): void {
-        this.$store.dispatch("files/cancelUpload", fileName);
+        this.$store.dispatch('files/cancelUpload', fileName);
     }
 
     /**
      * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
      */
     private async list(path: string): Promise<void> {
-        await this.$store.dispatch("files/list", path, {
-            root: true
+        await this.$store.dispatch('files/list', path, {
+            root: true,
         });
     }
 
@@ -718,16 +682,16 @@ export default class FileBrowser extends Vue {
      * Remove the folder creation input and close any opened dropdowns when a user chooses to navigate back to the previous folder.
      */
     public async back(): Promise<void> {
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
-        await this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
+        await this.$store.dispatch('files/closeDropdown');
     }
 
     /**
      * Navigate to the path under routePath.
      */
     private async goToRoutePath(): Promise<void> {
-        if (typeof this.routePath === "string") {
-            await this.$store.dispatch("files/closeDropdown");
+        if (typeof this.routePath === 'string') {
+            await this.$store.dispatch('files/closeDropdown');
             await this.list(this.routePath);
         }
     }
@@ -736,6 +700,7 @@ export default class FileBrowser extends Vue {
      * Open the operating system's file system for file upload.
      */
     public async buttonFileUpload(): Promise<void> {
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
         const fileInputElement = this.$refs.fileInput as HTMLInputElement;
         fileInputElement.click();
         this.closeUploadDropdown();
@@ -745,6 +710,7 @@ export default class FileBrowser extends Vue {
      * Open the operating system's file system for folder upload.
      */
     public async buttonFolderUpload(): Promise<void> {
+        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
         const folderInputElement = this.$refs.folderInput as HTMLInputElement;
         folderInputElement.click();
         this.closeUploadDropdown();
@@ -762,15 +728,15 @@ export default class FileBrowser extends Vue {
 
         // create folder
         await this.$store.dispatch(
-            "files/createFolder",
-            this.createFolderInput.trim()
+            'files/createFolder',
+            this.createFolderInput.trim(),
         );
 
         // clear folder input
-        this.createFolderInput = "";
+        this.createFolderInput = '';
 
         // remove the folder creation input
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
 
         // remove the spinner
         this.creatingFolderSpinner = false;
@@ -780,8 +746,8 @@ export default class FileBrowser extends Vue {
      * Cancel folder creation clearing out the input and hiding the folder creation input.
      */
     public cancelFolderCreation(): void {
-        this.createFolderInput = "";
-        this.$store.dispatch("files/updateCreateFolderInputShow", false);
+        this.createFolderInput = '';
+        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**
@@ -797,15 +763,20 @@ export default class FileBrowser extends Vue {
     public closeUploadDropdown(): void {
         this.isUploadDropDownShown = false;
     }
+
+    /**
+     * Redirects to buckets list view.
+     */
+    public goToBuckets(): void {
+        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+    }
+
 }
 </script>
 
 <style scoped lang="scss">
 @import './scoped-bootstrap.css';
-
-.white-background {
-    background-color: #fff;
-}
 
 .file-browser {
     min-height: 500px;
@@ -813,27 +784,17 @@ export default class FileBrowser extends Vue {
 
 .no-selection {
     user-select: none;
-    -moz-user-select: none;
-    -khtml-user-select: none;
-    -webkit-user-select: none;
-    -o-user-select: none;
-}
-
-tbody {
-    user-select: none;
-}
-
-.table-heading {
-    color: #768394;
-    border-top: 0;
-    border-bottom: 1px solid #dee2e6;
-    padding-left: 0;
-    cursor: pointer;
 }
 
 .path {
     font-size: 18px;
     font-weight: 700;
+}
+
+.file-browser-table {
+    padding: 0 12px 24px;
+    border: 1px solid #d8dee3;
+    box-shadow: none;
 }
 
 .upload-help {
@@ -846,6 +807,14 @@ tbody {
     padding: 80px 20px;
     background: #fafafb;
     cursor: pointer;
+
+    svg {
+        width: 300px;
+
+        @media screen and (max-width: 425px) {
+            width: unset;
+        }
+    }
 }
 
 .metric {
@@ -858,7 +827,7 @@ tbody {
 
 .folder-input:focus {
     color: #fe5d5d;
-    box-shadow: 0 0 0 0.2rem rgba(254, 93, 93, 0.5) !important;
+    box-shadow: 0 0 0 0.2rem rgb(254 93 93 / 50%) !important;
     border-color: #fe5d5d !important;
     outline: none !important;
 }
@@ -909,7 +878,7 @@ tbody {
     transform: translateY(-50%);
     margin: unset;
 
-    & path {
+    :deep(path) {
         fill: white;
     }
 }
@@ -919,7 +888,7 @@ tbody {
     top: 45px;
     left: 0;
     border-radius: 8px;
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
     width: 240px;
     height: auto;
     overflow: hidden;
@@ -975,7 +944,7 @@ tbody {
     border-radius: 8px;
     width: auto;
     padding: 0 17px;
-    height: 40px;
+    height: 44px;
     font-family: 'font_bold', sans-serif;
     line-height: 2.4;
 
@@ -985,24 +954,57 @@ tbody {
 }
 
 .new-folder-button {
-    margin-left: 15px;
     background: white;
     border: 1px solid #d8dee3;
     color: #56606d;
+    border-radius: 8px;
 }
 
 .upload-button {
-    padding-right: 24px;
     color: white;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    background-color: #0149ff;
 
     &__divider {
         height: 100%;
         width: 1px;
         background: #56606d;
-        margin-left: 16px;
+        margin: 0 7px;
     }
+}
+
+.tile-action-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 1.5em 0;
+
+    @media screen and (max-width: 768px) {
+        flex-direction: column;
+        justify-content: start;
+        align-items: start;
+    }
+
+    &__title {
+        margin: 0;
+
+        @media screen and (max-width: 768px) {
+            margin-bottom: 0.5rem;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: start;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+}
+
+.hr-divider {
+    margin-bottom: 1.5em;
+    border-bottom: 1px solid #dadfe7;
 }
 </style>

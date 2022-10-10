@@ -42,7 +42,7 @@ export default class VModal extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(37, 42, 50, 0.7);
+        background-color: rgb(37 42 50 / 70%);
         z-index: 1000;
         display: flex;
         justify-content: center;

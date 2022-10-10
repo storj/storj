@@ -50,14 +50,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-
-import BackIcon from '@/../static/images/accessGrants/back.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
-import { Download } from "@/utils/download";
+import { Download } from '@/utils/download';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VButton from '@/components/common/VButton.vue';
+
+import WarningIcon from '@/../static/images/accessGrants/warning.svg';
+import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 // @vue/component
 @Component({
@@ -74,12 +75,15 @@ export default class ResultStep extends Vue {
     public access = '';
     public isGatewayLinkVisible = false;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Lifecycle hook after initial render.
      * Sets local access from props value.
      */
     public mounted(): void {
         if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -121,6 +125,7 @@ export default class ResultStep extends Vue {
      */
     public onBackClick(): void {
         if (this.accessGrantsAmount > 1) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).path);
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                 params: {
@@ -132,6 +137,7 @@ export default class ResultStep extends Vue {
             return;
         }
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
             params: {
@@ -146,6 +152,7 @@ export default class ResultStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -154,6 +161,7 @@ export default class ResultStep extends Vue {
      * Proceed to gateway step.
      */
     public navigateToGatewayStep(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.GatewayStep)).name,
             params: {
@@ -208,7 +216,7 @@ export default class ResultStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 30px 0;
+            margin: 0 0 30px;
         }
 
         &__warning {
@@ -236,7 +244,7 @@ export default class ResultStep extends Vue {
                 font-size: 16px;
                 line-height: 22px;
                 color: #1b2533;
-                margin: 8px 0 0 0;
+                margin: 8px 0 0;
             }
         }
 
@@ -249,7 +257,7 @@ export default class ResultStep extends Vue {
                 font-size: 16px;
                 line-height: 21px;
                 color: #354049;
-                margin: 0 0 10px 0;
+                margin: 0 0 10px;
             }
 
             &__container {
@@ -258,7 +266,7 @@ export default class ResultStep extends Vue {
                 border-radius: 9px;
                 padding: 10px;
                 width: calc(100% - 22px);
-                border: 1px solid rgba(56, 75, 101, 0.4);
+                border: 1px solid rgb(56 75 101 / 40%);
 
                 &__value {
                     text-overflow: ellipsis;
@@ -285,7 +293,7 @@ export default class ResultStep extends Vue {
             line-height: 23px;
             text-align: center;
             color: #0068dc;
-            margin: 30px 0 0 0;
+            margin: 30px 0 0;
             cursor: pointer;
 
             &:hover {

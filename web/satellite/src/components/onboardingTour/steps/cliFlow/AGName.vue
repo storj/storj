@@ -6,14 +6,14 @@
         :on-back-click="onBackClick"
         :on-next-click="onNextClick"
         :is-loading="isLoading"
-        title="Lets Create an Access Grant"
+        title="Create an Access Grant"
     >
         <template #icon>
             <Icon />
         </template>
         <template #content class="permissions">
             <p class="permissions__msg">Access Grants are keys that allow access to upload, delete, and view your project’s data.</p>
-            <HeaderedInput
+            <VInput
                 label="Access Grant Name"
                 placeholder="Enter a name here..."
                 :error="errorMessage"
@@ -27,27 +27,31 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { AccessGrant} from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { RouteConfig } from '@/router';
+import { AccessGrant } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import HeaderedInput from "@/components/common/HeaderedInput.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import VInput from '@/components/common/VInput.vue';
+
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
 // @vue/component
 @Component({
     components: {
         CLIFlowContainer,
-        HeaderedInput,
+        VInput,
         Icon,
-    }
+    },
 })
 export default class AGName extends Vue {
     private name = '';
     private errorMessage = '';
     private isLoading = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Changes name data from input value.
@@ -63,9 +67,10 @@ export default class AGName extends Vue {
      * Navigates to previous screen.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OverviewStep.path);
         this.backRoute ?
             await this.$router.push(this.backRoute).catch(() => {return; }) :
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
+            await this.$router.push({ name: RouteConfig.OverviewStep.name });
     }
 
     /**
@@ -85,18 +90,19 @@ export default class AGName extends Vue {
         let createdAccessGrant: AccessGrant;
         try {
             createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.name);
-        } catch (error) {
-            await this.$notify.error(error.message);
-            this.isLoading = false;
 
+            await this.$notify.success('New clean access grant was generated successfully.');
+        } catch {
             return;
+        } finally {
+            this.isLoading = false;
         }
 
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY, createdAccessGrant.secret);
         this.name = '';
-        this.isLoading = false;
 
-        await this.$router.push({name: RouteConfig.AGPermissions.name,});
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);
+        await this.$router.push({ name: RouteConfig.AGPermissions.name });
     }
 
     /**
@@ -113,11 +119,10 @@ export default class AGName extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
+            font-size: 16px;
+            line-height: 24px;
             color: #4e4b66;
-            margin: 10px 0 30px 0;
+            margin-bottom: 20px;
         }
     }
 </style>

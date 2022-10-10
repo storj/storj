@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { AuthHttpApi } from '@/api/auth';
 import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const authApi = new AuthHttpApi();

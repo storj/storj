@@ -49,14 +49,16 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
-import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
-
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg';
+import ChargesExpandIcon from '@/../static/images/account/billing/chargesExpand.svg';
 
 // @vue/component
 @Component({
@@ -66,10 +68,13 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class UsageAndChargesItem extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * item represents usage and charges of current project by period.
      */
-    @Prop({default: () => new ProjectUsageAndCharges()})
+    @Prop({ default: () => new ProjectUsageAndCharges() })
     private readonly item: ProjectUsageAndCharges;
 
     /**
@@ -155,6 +160,7 @@ export default class UsageAndChargesItem extends Vue {
      * toggleDetailedInfo expands an area with detailed information about project charges.
      */
     public toggleDetailedInfo(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.USAGE_DETAILED_INFO_CLICKED);
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
     }
 
@@ -228,7 +234,7 @@ export default class UsageAndChargesItem extends Vue {
 
             &__content-area {
                 width: 100%;
-                padding: 10px 0 0 0;
+                padding: 10px 0 0;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;

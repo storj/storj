@@ -3,10 +3,10 @@
 
 import S3, { Bucket } from 'aws-sdk/clients/s3';
 
-import { StoreModule } from '@/store';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FilesState } from '@/store/modules/files';
+import { StoreModule } from '@/types/store';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -51,7 +51,7 @@ export class ObjectsState {
     public gatewayCredentials: EdgeCredentials = new EdgeCredentials();
     public s3Client: S3 = new S3({
         s3ForcePathStyle: true,
-        signatureVersion: "v4",
+        signatureVersion: 'v4',
         httpOptions: { timeout: 0 },
     });
     public bucketsList: Bucket[] = [];
@@ -64,7 +64,7 @@ interface ObjectsContext {
     state: ObjectsState
     commit: (string, ...unknown) => void
     dispatch: (string, ...unknown) => Promise<any> // eslint-disable-line @typescript-eslint/no-explicit-any
-	rootState: {
+    rootState: {
         files: FilesState
     }
 }
@@ -88,7 +88,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     secretAccessKey: state.gatewayCredentials.secretKey,
                     endpoint: state.gatewayCredentials.endpoint,
                     s3ForcePathStyle: true,
-                    signatureVersion: "v4",
+                    signatureVersion: 'v4',
                     httpOptions: { timeout: 0 },
                 };
 
@@ -112,7 +112,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 state.gatewayCredentials = new EdgeCredentials();
                 state.s3Client = new S3({
                     s3ForcePathStyle: true,
-                    signatureVersion: "v4",
+                    signatureVersion: 'v4',
                     httpOptions: { timeout: 0 },
                 });
                 state.bucketsList = [];
@@ -120,19 +120,19 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             },
         },
         actions: {
-            setApiKey: function({commit}: ObjectsContext, apiKey: string): void {
+            setApiKey: function({ commit }: ObjectsContext, apiKey: string): void {
                 commit(SET_API_KEY, apiKey);
             },
-            setGatewayCredentials: function({commit}: ObjectsContext, credentials: EdgeCredentials): void {
+            setGatewayCredentials: function({ commit }: ObjectsContext, credentials: EdgeCredentials): void {
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
             },
-            setS3Client: function({commit}: ObjectsContext): void {
+            setS3Client: function({ commit }: ObjectsContext): void {
                 commit(SET_S3_CLIENT);
             },
-            setPassphrase: function({commit}: ObjectsContext, passphrase: string): void {
+            setPassphrase: function({ commit }: ObjectsContext, passphrase: string): void {
                 commit(SET_PASSPHRASE, passphrase);
             },
-            setFileComponentBucketName: function({commit}: ObjectsContext, bucketName: string): void {
+            setFileComponentBucketName: function({ commit }: ObjectsContext, bucketName: string): void {
                 commit(SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
             },
             fetchBuckets: async function(ctx): Promise<void> {
@@ -155,16 +155,16 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     Bucket: name,
                 }).promise();
             },
-            clearObjects: function({commit}: ObjectsContext): void {
+            clearObjects: function({ commit }: ObjectsContext): void {
                 commit(CLEAR);
             },
-            checkOngoingUploads: function({commit, dispatch, rootState}: ObjectsContext, leaveRoute: string): boolean {
+            checkOngoingUploads: function({ commit, dispatch, rootState }: ObjectsContext, leaveRoute: string): boolean {
                 if (!rootState.files.uploading.length) {
                     return false;
                 }
 
                 commit(SET_LEAVE_ROUTE, leaveRoute);
-                dispatch(APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP, null, {root: true});
+                dispatch(APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP, null, { root: true });
 
                 return true;
             },

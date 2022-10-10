@@ -97,9 +97,7 @@ export class Project {
      */
     public createdDate(): string {
         const createdAt = new Date(this.createdAt);
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-
-        return createdAt.toLocaleString('en-US', options);
+        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
     }
 }
 
@@ -117,12 +115,8 @@ export class ProjectFields {
      * checkName checks if project name is valid.
      */
     public checkName(): void {
-        try {
-            this.nameIsNotEmpty();
-            this.nameHasLessThenTwentySymbols();
-        } catch (error) {
-            throw new Error(error.message);
-        }
+        this.nameIsNotEmpty();
+        this.nameHasLessThenTwentySymbols();
     }
 
     /**
@@ -193,7 +187,7 @@ export class ProjectsCursor {
 export class DataStamp {
     public constructor(
         public value = 0,
-        public intervalStart = new Date()
+        public intervalStart = new Date(),
     ) {}
 
     /**

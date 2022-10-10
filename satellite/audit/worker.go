@@ -33,33 +33,30 @@ type Config struct {
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log      *zap.Logger
-	queues   *Queues
-	verifier *Verifier
-	reporter *Reporter
-	Loop     *sync2.Cycle
-	limiter  *sync2.Limiter
+	log         *zap.Logger
+	queues      *Queues
+	verifier    *Verifier
+	reporter    Reporter
+	Loop        *sync2.Cycle
+	concurrency int
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter *Reporter, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter Reporter, config Config) (*Worker, error) {
 	return &Worker{
 		log: log,
 
-		queues:   queues,
-		verifier: verifier,
-		reporter: reporter,
-		Loop:     sync2.NewCycle(config.QueueInterval),
-		limiter:  sync2.NewLimiter(config.WorkerConcurrency),
+		queues:      queues,
+		verifier:    verifier,
+		reporter:    reporter,
+		Loop:        sync2.NewCycle(config.QueueInterval),
+		concurrency: config.WorkerConcurrency,
 	}, nil
 }
 
 // Run runs audit service 2.0.
 func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	// Wait for all audits to run.
-	defer worker.limiter.Wait()
 
 	return worker.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
@@ -84,7 +81,9 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 	// get the current queue
 	queue := worker.queues.Fetch()
 
-	worker.limiter.Wait()
+	limiter := sync2.NewLimiter(worker.concurrency)
+	defer limiter.Wait()
+
 	for {
 		segment, err := queue.Next()
 		if err != nil {
@@ -99,7 +98,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 			return err
 		}
 
-		worker.limiter.Go(ctx, func() {
+		started := limiter.Go(ctx, func() {
 			err := worker.work(ctx, segment)
 			if err != nil {
 				worker.log.Error("error(s) during audit",
@@ -108,6 +107,9 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 					zap.Error(err))
 			}
 		})
+		if !started {
+			return ctx.Err()
+		}
 	}
 }
 

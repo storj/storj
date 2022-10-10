@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import UsageArea from '@/components/project/usage/UsageArea.vue';
-
 import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import UsageArea from '@/components/project/usage/UsageArea.vue';
 
 const localVue = createLocalVue();
 

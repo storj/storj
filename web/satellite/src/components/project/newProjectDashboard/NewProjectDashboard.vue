@@ -2,8 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div ref="dashboard" class="project-dashboard">
+    <div class="project-dashboard">
         <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
+        <p class="project-dashboard__message">
+            Expect a delay of a few hours between network activity and the latest dashboard stats.
+        </p>
         <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
         <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
             Your
@@ -16,6 +19,14 @@
             <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
                 Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
             </p>
+        </template>
+        <p class="project-dashboard__limits">
+            <span class="project-dashboard__limits--bold">Storage Limit</span>
+            per month: {{ limits.storageLimit | bytesToBase10String }} |
+            <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
+            per month: {{ limits.bandwidthLimit | bytesToBase10String }}
+        </p>
+        <template v-if="!isDataFetching && !limits.objectCount">
             <VButton
                 class="project-dashboard__upload-button"
                 label="Upload"
@@ -59,7 +70,7 @@
             </div>
         </div>
         <div class="project-dashboard__charts">
-            <div class="project-dashboard__charts__container">
+            <div ref="chartContainer" class="project-dashboard__charts__container">
                 <div class="project-dashboard__charts__container__header">
                     <h3 class="project-dashboard__charts__container__header__title">Storage</h3>
                 </div>
@@ -133,10 +144,9 @@
                 </template>
             </InfoContainer>
             <InfoContainer
-                class="project-dashboard__info__middle"
                 title="Objects"
                 :subtitle="`Updated ${now}`"
-                :value="limits.objectCount"
+                :value="limits.objectCount.toString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
@@ -148,13 +158,13 @@
             <InfoContainer
                 title="Segments"
                 :subtitle="`Updated ${now}`"
-                :value="limits.segmentCount"
+                :value="limits.segmentCount.toString()"
                 :is-data-fetching="isDataFetching"
             >
                 <template #side-value>
                     <a
                         class="project-dashboard__info__link"
-                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing/billing-and-payment"
+                        href="https://docs.storj.io/dcs/billing-payment-and-accounts-1/pricing#segments"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
@@ -167,35 +177,37 @@
             <p class="project-dashboard__stats-header__title">Buckets</p>
         </div>
         <VLoader v-if="areBucketsFetching" />
-        <BucketArea v-else />
+        <BucketArea v-else class="project-dashboard__bucket-area" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from "@/store/modules/payments";
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { RouteConfig } from "@/router";
-import { DataStamp, ProjectLimits } from "@/types/projects";
-import { Dimensions, Size } from "@/utils/bytesSize";
-import { ChartUtils } from "@/utils/chart";
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { RouteConfig } from '@/router';
+import { DataStamp, ProjectLimits } from '@/types/projects';
+import { Dimensions, Size } from '@/utils/bytesSize';
+import { ChartUtils } from '@/utils/chart';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VLoader from "@/components/common/VLoader.vue";
-import InfoContainer from "@/components/project/newProjectDashboard/InfoContainer.vue";
-import StorageChart from "@/components/project/newProjectDashboard/StorageChart.vue";
-import BandwidthChart from "@/components/project/newProjectDashboard/BandwidthChart.vue";
-import VButton from "@/components/common/VButton.vue";
-import DateRangeSelection from "@/components/project/newProjectDashboard/DateRangeSelection.vue";
-import VInfo from "@/components/common/VInfo.vue";
+import VLoader from '@/components/common/VLoader.vue';
+import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
+import StorageChart from '@/components/project/newProjectDashboard/StorageChart.vue';
+import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthChart.vue';
+import VButton from '@/components/common/VButton.vue';
+import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
+import VInfo from '@/components/common/VInfo.vue';
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
 
-import NewProjectIcon from "@/../static/images/project/newProject.svg";
+import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
-// @vue/component
+//@vue/component
 @Component({
     components: {
         VLoader,
@@ -208,7 +220,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         NewProjectIcon,
         InfoIcon,
         BucketArea,
-    }
+    },
 })
 export default class NewProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
@@ -218,8 +230,10 @@ export default class NewProjectDashboard extends Vue {
     public chartWidth = 0;
 
     public $refs: {
-        dashboard: HTMLDivElement;
-    }
+        chartContainer: HTMLDivElement;
+    };
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -227,26 +241,28 @@ export default class NewProjectDashboard extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
+            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
         }
 
-        window.addEventListener('resize', this.recalculateChartWidth)
+        window.addEventListener('resize', this.recalculateChartWidth);
         this.recalculateChartWidth();
 
         try {
-            const now = new Date()
-            const past = new Date()
-            past.setDate(past.getDate() - 30)
+            const now = new Date();
+            const past = new Date();
+            past.setDate(past.getDate() - 30);
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
 
-            this.isDataFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
+        } finally {
+            this.isDataFetching = false;
         }
 
         const FIRST_PAGE = 1;
@@ -272,22 +288,21 @@ export default class NewProjectDashboard extends Vue {
      * Used container size recalculation for charts resizing.
      */
     public recalculateChartWidth(): void {
-        // sixty pixels.
-        const additionalPaddingRight = 60;
-        this.chartWidth = this.$refs.dashboard.getBoundingClientRect().width / 2 - additionalPaddingRight;
+        this.chartWidth = this.$refs.chartContainer.getBoundingClientRect().width;
     }
 
     /**
      * Holds on upgrade button click logic.
      */
     public onUpgradeClick(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
      * Holds on create project button click logic.
      */
     public onCreateProjectClick(): void {
+        this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
     }
 
@@ -295,7 +310,8 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upload button click logic.
      */
     public onUploadClick(): void {
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;})
+        this.analytics.pageVisit(RouteConfig.Buckets.path);
+        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
 
     /**
@@ -318,14 +334,22 @@ export default class NewProjectDashboard extends Vue {
      * @param dateRange
      */
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
-        const since = new Date(dateRange[0])
-        const before = new Date(dateRange[1])
+        const since = new Date(dateRange[0]);
+        const before = new Date(dateRange[1]);
+        before.setHours(23,59,59,999);
 
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since, before})
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
         } catch (error) {
             await this.$notify.error(error.message);
         }
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
@@ -354,13 +378,6 @@ export default class NewProjectDashboard extends Vue {
      */
     public get isProAccount(): boolean {
         return this.$store.getters.user.paidTier;
-    }
-
-    /**
-     * Returns user's projects count from store.
-     */
-    public get ownProjectsCount(): number {
-        return this.$store.getters.projectsCount;
     }
 
     /**
@@ -422,13 +439,21 @@ export default class NewProjectDashboard extends Vue {
 <style scoped lang="scss">
     .project-dashboard {
         padding: 56px 55px 56px 40px;
-        height: calc(100% - 112px);
         max-width: calc(100vw - 280px - 95px);
         background-image: url('../../../../static/images/project/background.png');
         background-position: top right;
         background-size: 70%;
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
+
+        &__limits {
+            font-size: 14px;
+            margin-top: 11px;
+
+            &--bold {
+                font-family: 'font_bold', sans-serif;
+            }
+        }
 
         &__loader {
             display: inline-block;
@@ -439,7 +464,13 @@ export default class NewProjectDashboard extends Vue {
             font-size: 16px;
             line-height: 24px;
             color: #000;
-            margin-bottom: 64px;
+        }
+
+        &__message {
+            font-size: 16px;
+            line-height: 20px;
+            color: #384b65;
+            margin: 10px 0 64px;
         }
 
         &__subtitle {
@@ -458,14 +489,19 @@ export default class NewProjectDashboard extends Vue {
         }
 
         &__upload-button {
-            margin-top: 24px;
+            margin-top: 16px;
         }
 
         &__stats-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin: 65px 0 16px 0;
+            flex-wrap: wrap;
+            margin: 63px -8px 14px;
+
+            > * {
+                margin: 2px 8px;
+            }
 
             &__title {
                 font-family: 'font_Bold', sans-serif;
@@ -488,11 +524,12 @@ export default class NewProjectDashboard extends Vue {
         &__charts {
             display: flex;
             align-items: center;
+            justify-content: space-between;
 
             &__container {
-                width: 100%;
+                width: calc((100% - 20px) / 2);
                 background-color: #fff;
-                box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+                box-shadow: 0 0 32px rgb(0 0 0 / 4%);
                 border-radius: 10px;
 
                 &__header {
@@ -579,19 +616,18 @@ export default class NewProjectDashboard extends Vue {
                     color: #000;
                 }
             }
-
-            > *:first-child {
-                margin-right: 20px;
-            }
         }
 
         &__info {
             display: flex;
-            align-items: center;
             margin-top: 16px;
+            justify-content: space-between;
+            align-items: stretch;
+            flex-wrap: wrap;
 
-            &__middle {
-                margin: 0 16px;
+            .info-container {
+                width: calc((100% - 32px) / 3);
+                box-sizing: border-box;
             }
 
             &__label,
@@ -611,6 +647,10 @@ export default class NewProjectDashboard extends Vue {
                 }
             }
         }
+
+        &__bucket-area {
+            margin-top: 0;
+        }
     }
 
     .new-project-button {
@@ -619,38 +659,108 @@ export default class NewProjectDashboard extends Vue {
             margin-right: 9px;
         }
 
-        &:hover {
-
-            svg path {
-                fill: #fff;
-            }
+        &:hover svg :deep(path) {
+            fill: #fff;
         }
     }
 
-    ::v-deep .info__box {
+    :deep(.info__box) {
         width: 180px;
         left: calc(50% - 20px);
         top: calc(100% + 1px);
         cursor: default;
+    }
 
-        &__message {
-            background: #56606d;
-            border-radius: 4px;
-            padding: 8px;
-        }
+    :deep(.info__box__message) {
+        background: #56606d;
+        border-radius: 4px;
+        padding: 8px;
+        position: relative;
+        right: 25%;
+    }
 
-        &__arrow {
-            background: #56606d;
-            width: 10px;
-            height: 10px;
-            margin: 0 0 -2px 40px;
-        }
+    :deep(.info__box__arrow) {
+        background: #56606d;
+        width: 10px;
+        height: 10px;
+        margin: 0 0 -2px 40px;
+    }
+
+    :deep(.range-selection__popup) {
+        z-index: 1;
     }
 
     @media screen and (max-width: 1280px) {
 
         .project-dashboard {
             max-width: calc(100vw - 86px - 95px);
+        }
+    }
+
+    @media screen and (max-width: 960px) {
+
+        :deep(.range-selection__popup) {
+            right: -148px;
+        }
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .project-dashboard {
+
+            &__stats-header {
+                margin-bottom: 20px;
+            }
+
+            &__charts {
+                flex-direction: column;
+
+                &__container {
+                    width: 100%;
+                }
+
+                &__container:first-child {
+                    margin-right: 0;
+                    margin-bottom: 22px;
+                }
+            }
+
+            &__info {
+                margin-top: 52px;
+
+                > .info-container {
+                    width: calc((100% - 25px) / 2);
+                    margin-bottom: 24px;
+                }
+
+                > .info-container:last-child {
+                    width: 100%;
+                    margin-bottom: 0;
+                }
+            }
+        }
+
+        :deep(.range-selection__popup) {
+            left: 0;
+        }
+    }
+
+    @media screen and (max-width: 480px) {
+
+        .project-dashboard {
+
+            &__charts__container:first-child {
+                margin-bottom: 20px;
+            }
+
+            &__info {
+                margin-top: 32px;
+
+                > .info-container {
+                    width: 100%;
+                    margin-bottom: 16px;
+                }
+            }
         }
     }
 </style>

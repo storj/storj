@@ -15,7 +15,6 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // UUIDAuthorizeGenerate generates an auth code using Storj's uuid.
@@ -65,13 +64,7 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 		return nil, err
 	}
 
-	ctx = console.WithAuth(ctx, console.Authorization{
-		User: *user,
-		Claims: consoleauth.Claims{
-			ID:    user.ID,
-			Email: user.Email,
-		},
-	})
+	ctx = console.WithUser(ctx, user)
 
 	oauthClient := data.Client.(OAuthClient)
 	name := oauthClient.AppName + " / " + oauthClient.ID.String()
@@ -95,12 +88,12 @@ func (a *MacaroonAccessGenerate) apiKeyForProject(ctx context.Context, data *oau
 // Token issues access and refresh tokens that are backed by storj's Macaroons. This expects several scopes to be set on
 // the request. The following describes the available scopes supported by the macaroon style of access token.
 //
-//    project:<projectId>  - required, scopes operations to a single project (one)
-//    bucket:<name>        - optional, scopes operations to one or many buckets (repeatable)
-//    object:list          - optional, allows listing object data
-//    object:read          - optional, allows reading object data
-//    object:write         - optional, allows writing object data
-//    object:delete        - optional, allows deleting object data
+//	project:<projectId>  - required, scopes operations to a single project (one)
+//	bucket:<name>        - optional, scopes operations to one or many buckets (repeatable)
+//	object:list          - optional, allows listing object data
+//	object:read          - optional, allows reading object data
+//	object:write         - optional, allows writing object data
+//	object:delete        - optional, allows deleting object data
 //
 // In OAuth2.0, access_tokens are short-lived tokens that authorize operations to be performed on behalf of an end user.
 // refresh_tokens are longer lived tokens that allow you to obtain new authorization tokens.

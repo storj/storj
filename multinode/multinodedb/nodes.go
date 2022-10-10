@@ -13,6 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/multinode/multinodedb/dbx"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/private/multinodeauth"
 )
 
 // ErrNodesDB indicates about internal NodesDB error.
@@ -110,7 +111,7 @@ func (n *nodesdb) Add(ctx context.Context, node nodes.Node) (err error) {
 		dbx.Node_Id(node.ID.Bytes()),
 		dbx.Node_Name(node.Name),
 		dbx.Node_PublicAddress(node.PublicAddress),
-		dbx.Node_ApiSecret(node.APISecret),
+		dbx.Node_ApiSecret(node.APISecret[:]),
 	)
 
 	return ErrNodesDB.Wrap(err)
@@ -145,9 +146,14 @@ func fromDBXNode(ctx context.Context, node *dbx.Node) (_ nodes.Node, err error) 
 		return nodes.Node{}, err
 	}
 
+	secret, err := multinodeauth.SecretFromBytes(node.ApiSecret)
+	if err != nil {
+		return nodes.Node{}, err
+	}
+
 	result := nodes.Node{
 		ID:            id,
-		APISecret:     node.ApiSecret,
+		APISecret:     secret,
 		Name:          node.Name,
 		PublicAddress: node.PublicAddress,
 	}

@@ -42,9 +42,7 @@ const (
 	folderPermissions = 0744
 )
 
-var (
-	defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
-)
+var defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
 
 const (
 	// The following values of peer class and endpoints are used
@@ -88,6 +86,7 @@ func networkExec(flags *Flags, args []string, command string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = processes.Output.Flush() }()
 
 	ctx, cancel := NewCLIContext(context.Background())
 	defer cancel()
@@ -135,6 +134,7 @@ func networkEnv(flags *Flags, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = processes.Output.Flush() }()
 
 	// run exec before, since it will load env vars from configs
 	for _, process := range processes.List {
@@ -170,6 +170,7 @@ func networkTest(flags *Flags, command string, args []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = processes.Output.Flush() }()
 
 	ctx, cancel := NewCLIContext(context.Background())
 
@@ -186,23 +187,33 @@ func networkTest(flags *Flags, command string, args []string) error {
 		process.Status.Started.Wait(ctx)
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		// If the context has been cancelled, it means that one of the processes failed.
+		// Wait for the processes to shut down themselves and return the first error.
+		return fmt.Errorf("network canceled: %w", group.Wait())
 	}
 
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Env = append(os.Environ(), processes.Env()...)
+
 	stdout := processes.Output.Prefixed("test:out")
+	defer func() { _ = stdout.Flush() }()
 	stderr := processes.Output.Prefixed("test:err")
+	defer func() { _ = stderr.Flush() }()
 	cmd.Stdout, cmd.Stderr = stdout, stderr
+
 	processgroup.Setup(cmd)
 
 	if printCommands {
 		fmt.Fprintf(processes.Output, "exec: %v\n", strings.Join(cmd.Args, " "))
 	}
 	errRun := cmd.Run()
+	if errRun != nil {
+		fmt.Fprintf(processes.Output, "test command failed: %v\n", errRun)
+	}
 
 	cancel()
-	return errs.Combine(errRun, processes.Close(), group.Wait())
+	_ = group.Wait()
+	return errs.Combine(errRun, processes.Close())
 }
 
 func networkDestroy(flags *Flags, args []string) error {
@@ -242,7 +253,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	processes := NewProcesses(flags.Directory, flags.FailFast)
 
-	var host = flags.Host
+	host := flags.Host
 	versioncontrol := processes.New(Info{
 		Name:       "versioncontrol/0",
 		Executable: "versioncontrol",
@@ -353,6 +364,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
+				"--admin.static-dir", filepath.Join(storjRoot, "satellite/admin/ui/build"),
 			},
 			"run": {"api"},
 		})
@@ -382,7 +394,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			if err != nil {
 				return err
 			}
-			process.AddExtra("ID", satNodeID.String())
+			process.Info.ID = satNodeID.String()
 			return nil
 		}
 
@@ -507,7 +519,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				var consoleAddress string
 				err := readConfigString(&consoleAddress, satellite.Directory, "console.address")
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read config string: %w", err)
 				}
 
 				// try with 100ms delays until we hit 3s
@@ -515,14 +527,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				for apiKey == "" {
 					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey(context.Background())
 					if err != nil && time.Since(start) > 3*time.Second {
-						return err
+						return fmt.Errorf("failed to create account: %w", err)
 					}
 					time.Sleep(100 * time.Millisecond)
 				}
 
 				satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to get node id from path: %w", err)
 				}
 				nodeURL := storj.NodeURL{
 					ID:      satNodeID,
@@ -531,17 +543,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				access, err := uplink.RequestAccessWithPassphrase(context.Background(), nodeURL.String(), apiKey, "")
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to get passphrase: %w", err)
 				}
 
 				accessData, err := access.Serialize()
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to serialize access: %w", err)
 				}
 				vip.Set("access", accessData)
 
 				if err := vip.WriteConfig(); err != nil {
-					return err
+					return fmt.Errorf("failed to write config: %w", err)
 				}
 			}
 

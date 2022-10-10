@@ -2,17 +2,20 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
+import { PaymentsMock } from '../../../mock/api/payments';
 
 import { appStateModule } from '@/store/modules/appState';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { makePaymentsModule } from '@/store/modules/payments';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
-import { PaymentsMock } from '../../../mock/api/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 
+import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
+
 const localVue = createLocalVue();
+localVue.use(Vuex);
+
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 paymentsApi.setMockCoupon(new Coupon(
@@ -23,10 +26,10 @@ paymentsApi.setMockCoupon(new Coupon(
     0,
     new Date(2021, 9, 1),
     new Date(2021, 11, 1),
-    CouponDuration.Repeating
+    CouponDuration.Repeating,
 ));
 
-const store = new Vuex.Store({ modules: { paymentsModule, appStateModule }});
+const store = new Vuex.Store({ modules: { paymentsModule, appStateModule } });
 store.commit(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, true);
 
 describe('CouponArea', (): void => {

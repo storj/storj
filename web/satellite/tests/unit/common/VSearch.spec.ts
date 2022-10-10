@@ -1,28 +1,25 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import * as sinon from 'sinon';
+import { mount, shallowMount } from '@vue/test-utils';
 
 import SearchComponent from '@/components/common/VSearch.vue';
 
-import { mount, shallowMount } from '@vue/test-utils';
-
 describe('SearchComponent.vue', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount(SearchComponent);
+        const wrapper = shallowMount<SearchComponent>(SearchComponent);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with default props', () => {
-        const wrapper = mount(SearchComponent);
+        const wrapper = mount<SearchComponent>(SearchComponent);
 
         expect(wrapper.vm.$props.placeholder).toMatch('');
-        expect(wrapper.vm.$props.search).toMatch('');
     });
 
     it('functions onMouseEnter/onMouseLeave work correctly', () => {
-        const wrapper = mount(SearchComponent);
+        const wrapper = mount<SearchComponent>(SearchComponent);
 
         wrapper.vm.onMouseEnter();
 
@@ -35,14 +32,14 @@ describe('SearchComponent.vue', () => {
     });
 
     it('function clearSearch works correctly', () => {
-        const processSearchQuerySpy = sinon.spy();
+        const processSearchQuerySpy = jest.fn();
 
-        const wrapper = mount(SearchComponent);
+        const wrapper = mount<SearchComponent>(SearchComponent);
 
         wrapper.vm.processSearchQuery = processSearchQuerySpy;
         wrapper.vm.clearSearch();
 
-        expect(processSearchQuerySpy.callCount).toBe(1);
+        expect(processSearchQuerySpy).toHaveBeenCalledTimes(1);
         expect(wrapper.vm.$data.inputWidth).toMatch('56px');
     });
 });

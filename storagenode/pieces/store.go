@@ -208,7 +208,7 @@ func (store *Store) VerifyStorageDir(ctx context.Context, id storj.NodeID) error
 }
 
 // Writer returns a new piece writer.
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
 	blobWriter, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
@@ -218,7 +218,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite)
+	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 
@@ -226,7 +226,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 // This is meant to be used externally only in test situations (thus the StoreForTest receiver
 // type).
 func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Writer, err error) {
+	pieceID storj.PieceID, formatVersion storage.FormatVersion, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 
 	defer mon.Task()(&ctx)(&err)
 
@@ -252,7 +252,7 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite)
+	writer, err := NewWriter(store.log.Named("blob-writer"), blobWriter, store.blobs, satellite, hashAlgorithm)
 	return writer, Error.Wrap(err)
 }
 
@@ -304,17 +304,27 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		return Error.Wrap(err)
 	}
 
-	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
-	// both of these calls should return no error if the requested record is not found.
+	// delete expired piece records
+	err = store.DeleteExpired(ctx, satellite, pieceID)
+	if err == nil {
+		store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
+			zap.String("Piece ID", pieceID.String()))
+	}
+
+	return Error.Wrap(err)
+}
+
+// DeleteExpired deletes records in both the piece_expirations and pieceinfo DBs, wherever we find it.
+// Should return no error if the requested record is not found in any of the DBs.
+func (store *Store) DeleteExpired(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if store.expirationInfo != nil {
 		_, err = store.expirationInfo.DeleteExpiration(ctx, satellite, pieceID)
 	}
 	if store.v0PieceInfo != nil {
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
-
-	store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
-		zap.String("Piece ID", pieceID.String()))
 
 	return Error.Wrap(err)
 }
@@ -413,7 +423,7 @@ func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID,
 		}
 		defer func() { err = errs.Combine(err, r.Close()) }()
 
-		w, err := store.Writer(ctx, satelliteID, pieceID)
+		w, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 		if err != nil {
 			return err
 		}
@@ -476,11 +486,12 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 		return pb.PieceHash{}, pb.OrderLimit{}, Error.Wrap(err)
 	}
 	pieceHash := pb.PieceHash{
-		PieceId:   pieceID,
-		Hash:      header.GetHash(),
-		PieceSize: reader.Size(),
-		Timestamp: header.GetCreationTime(),
-		Signature: header.GetSignature(),
+		PieceId:       pieceID,
+		Hash:          header.GetHash(),
+		HashAlgorithm: header.GetHashAlgorithm(),
+		PieceSize:     reader.Size(),
+		Timestamp:     header.GetCreationTime(),
+		Signature:     header.GetSignature(),
 	}
 	return pieceHash, header.OrderLimit, nil
 }

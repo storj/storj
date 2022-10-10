@@ -92,8 +92,8 @@ type OAuthTokens interface {
 	// Create creates a new OAuthToken. If the token already exists, no value is modified and nil is returned.
 	Create(ctx context.Context, token OAuthToken) error
 
-	// RevokeAccountManagementTokenV0 revokes a v0 account management token by setting its expires_at time to zero.
-	RevokeAccountManagementTokenV0(ctx context.Context, token string) error
+	// RevokeRESTTokenV0 revokes a v0 rest token by setting its expires_at time to zero.
+	RevokeRESTTokenV0(ctx context.Context, token string) error
 }
 
 // OAuthTokenKind defines an enumeration of different types of supported tokens.
@@ -106,8 +106,8 @@ const (
 	KindAccessToken = 1
 	// KindRefreshToken represents a refresh token within the database.
 	KindRefreshToken = 2
-	// KindAccountManagementTokenV0 represents an account management token within the database.
-	KindAccountManagementTokenV0 = 3
+	// KindRESTTokenV0 represents a REST token within the database.
+	KindRESTTokenV0 = 3
 )
 
 // OAuthCode represents a code stored within our database.

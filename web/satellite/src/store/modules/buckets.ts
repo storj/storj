@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
+import { StoreModule } from '@/types/store';
 
 export const BUCKET_ACTIONS = {
     FETCH: 'setBuckets',
@@ -78,7 +78,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState, Bu
             },
         },
         actions: {
-            [FETCH]: async function({commit, rootGetters, state}: BucketsContext, page: number): Promise<BucketPage> {
+            [FETCH]: async function({ commit, rootGetters, state }: BucketsContext, page: number): Promise<BucketPage> {
                 const projectID = rootGetters.selectedProject.id;
                 const before = new Date();
                 state.cursor.page = page;
@@ -91,17 +91,17 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState, Bu
 
                 return result;
             },
-            [FETCH_ALL_BUCKET_NAMES]: async function({commit, rootGetters}: BucketsContext): Promise<string[]> {
+            [FETCH_ALL_BUCKET_NAMES]: async function({ commit, rootGetters }: BucketsContext): Promise<string[]> {
                 const result: string[] = await api.getAllBucketNames(rootGetters.selectedProject.id);
 
                 commit(SET_ALL_BUCKET_NAMES, result);
 
                 return result;
             },
-            [BUCKET_ACTIONS.SET_SEARCH]: function({commit}: BucketsContext, search: string) {
+            [BUCKET_ACTIONS.SET_SEARCH]: function({ commit }: BucketsContext, search: string) {
                 commit(SET_SEARCH, search);
             },
-            [BUCKET_ACTIONS.CLEAR]: function({commit}: BucketsContext) {
+            [BUCKET_ACTIONS.CLEAR]: function({ commit }: BucketsContext) {
                 commit(CLEAR);
             },
         },

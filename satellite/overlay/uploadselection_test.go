@@ -43,8 +43,8 @@ const (
 	// staleness is how stale the cache can be before we sync with
 	// the database to refresh the cache.
 
-	// using a negative time will force the cache to refresh every time.
-	lowStaleness = -time.Hour
+	// using a low time will force the cache to refresh every time.
+	lowStaleness = 2 * time.Nanosecond
 
 	// using a positive time will make it so that the cache is only refreshed when
 	// it hasn't been in the past hour.
@@ -53,15 +53,22 @@ const (
 
 func TestRefresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
 		)
-		// the cache should have no nodes to start
-		err := cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new := cache.Size()
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
+
+		// the cache should have no nodes to start
+		err = cache.Refresh(ctx)
+		require.NoError(t, err)
+		reputable, new, err := cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 0, reputable)
 		require.Equal(t, 0, new)
 
@@ -72,7 +79,8 @@ func TestRefresh(t *testing.T) {
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new = cache.Size()
+		reputable, new, err = cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 2, new)
 		require.Equal(t, 0, reputable)
 	})
@@ -148,11 +156,16 @@ func TestRefreshConcurrent(t *testing.T) {
 	// concurrent cache.Refresh with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.Refresh
 	mockDB := mockdb{}
-	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
 	)
+	require.NoError(t, err)
+
+	cacheCtx, cacheCancel := context.WithCancel(ctx)
+	defer cacheCancel()
+	ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -161,19 +174,20 @@ func TestRefreshConcurrent(t *testing.T) {
 	group.Go(func() error {
 		return cache.Refresh(ctx)
 	})
-	err := group.Wait()
-	require.NoError(t, err)
+	require.NoError(t, group.Wait())
 
 	require.Equal(t, 1, mockDB.callCount)
 
 	// concurrent cache.Refresh with low staleness, where low staleness
 	// means that the cache will refresh *every time* cache.Refresh is called
 	mockDB = mockdb{}
-	cache = overlay.NewUploadSelectionCache(zap.NewNop(),
+	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
 	)
+	require.NoError(t, err)
+	ctx.Go(func() error { return cache.Run(cacheCtx) })
 	group.Go(func() error {
 		return cache.Refresh(ctx)
 	})
@@ -183,7 +197,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	err = group.Wait()
 	require.NoError(t, err)
 
-	require.Equal(t, 2, mockDB.callCount)
+	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
 }
 
 func TestGetNodes(t *testing.T) {
@@ -195,13 +209,20 @@ func TestGetNodes(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
-		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
 		)
+		require.NoError(t, err)
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
+
 		// the cache should have no nodes to start
-		reputable, new := cache.Size()
+		reputable, new, err := cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 0, reputable)
 		require.Equal(t, 0, new)
 
@@ -213,7 +234,8 @@ func TestGetNodes(t *testing.T) {
 		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 		require.NoError(t, err)
-		reputable, new = cache.Size()
+		reputable, new, err = cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 2, new)
 		require.Equal(t, 2, reputable)
 		require.Equal(t, 2, len(selectedNodes))
@@ -241,7 +263,8 @@ func TestGetNodesExcludeCountryCodes(t *testing.T) {
 		// we only expect one node to be returned, even though we requested two, so there will be an error
 		require.Error(t, err)
 
-		_, new := cache.Size()
+		_, new, err := cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 2, new)
 		require.Equal(t, 1, len(selectedNodes))
 		// the node that was returned should be the one that does not have the "FR" country code
@@ -272,11 +295,16 @@ func TestGetNodesConcurrent(t *testing.T) {
 		reputable: reputableNodes,
 		new:       newNodes,
 	}
-	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
 	)
+	require.NoError(t, err)
+
+	cacheCtx, cacheCancel := context.WithCancel(ctx)
+	defer cacheCancel()
+	ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 	var group errgroup.Group
 	group.Go(func() error {
@@ -301,8 +329,8 @@ func TestGetNodesConcurrent(t *testing.T) {
 		nodes[0] = nil
 		return err
 	})
-	err := group.Wait()
-	require.NoError(t, err)
+
+	require.NoError(t, group.Wait())
 	// expect only one call to the db via cache.GetNodes
 	require.Equal(t, 1, mockDB.callCount)
 
@@ -312,11 +340,14 @@ func TestGetNodesConcurrent(t *testing.T) {
 		reputable: reputableNodes,
 		new:       newNodes,
 	}
-	cache = overlay.NewUploadSelectionCache(zap.NewNop(),
+	cache, err = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
 	)
+	require.NoError(t, err)
+
+	ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 	group.Go(func() error {
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
@@ -342,8 +373,8 @@ func TestGetNodesConcurrent(t *testing.T) {
 	})
 	err = group.Wait()
 	require.NoError(t, err)
-	// expect two calls to the db via cache.GetNodes
-	require.Equal(t, 2, mockDB.callCount)
+	// expect up to two calls to the db via cache.GetNodes
+	require.True(t, 1 <= mockDB.callCount && mockDB.callCount <= 2, "calls %d", mockDB.callCount)
 }
 
 func TestGetNodesDistinct(t *testing.T) {
@@ -399,11 +430,16 @@ func TestGetNodesDistinct(t *testing.T) {
 		config := nodeSelectionConfig
 		config.NewNodeFraction = 0.5
 		config.DistinctIP = true
-		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			&mockDB,
 			highStaleness,
 			config,
 		)
+		require.NoError(t, err)
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 		// selecting 3 should be possible
 		nodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
@@ -427,13 +463,18 @@ func TestGetNodesDistinct(t *testing.T) {
 		config := nodeSelectionConfig
 		config.NewNodeFraction = 0.5
 		config.DistinctIP = false
-		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			&mockDB,
 			highStaleness,
 			config,
 		)
+		require.NoError(t, err)
 
-		_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
+
+		_, err = cache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 			RequestedCount: 6,
 		})
 		require.NoError(t, err)
@@ -445,20 +486,26 @@ func TestGetNodesError(t *testing.T) {
 	defer ctx.Cleanup()
 
 	mockDB := mockdb{}
-	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+	cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
 	)
+	require.NoError(t, err)
+
+	cacheCtx, cacheCancel := context.WithCancel(ctx)
+	defer cacheCancel()
+	ctx.Go(func() error { return cache.Run(cacheCtx) })
 
 	// there should be 0 nodes in the cache
-	reputable, new := cache.Size()
+	reputable, new, err := cache.Size(ctx)
+	require.NoError(t, err)
 	require.Equal(t, 0, reputable)
 	require.Equal(t, 0, new)
 
 	// since the cache has no nodes, we should not be able
 	// to get 2 storage nodes from it and we expect an error
-	_, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
+	_, err = cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})
 	require.Error(t, err)
 }
 
@@ -472,15 +519,22 @@ func TestNewNodeFraction(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 10 * memory.MiB,
 		}
-		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
+		cache, err := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
 		)
-		// the cache should have no nodes to start
-		err := cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new := cache.Size()
+
+		cacheCtx, cacheCancel := context.WithCancel(ctx)
+		defer cacheCancel()
+		ctx.Go(func() error { return cache.Run(cacheCtx) })
+
+		// the cache should have no nodes to start
+		err = cache.Refresh(ctx)
+		require.NoError(t, err)
+		reputable, new, err := cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 0, reputable)
 		require.Equal(t, 0, new)
 
@@ -491,7 +545,8 @@ func TestNewNodeFraction(t *testing.T) {
 		// confirm nodes are in the cache once
 		err = cache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new = cache.Size()
+		reputable, new, err = cache.Size(ctx)
+		require.NoError(t, err)
 		require.Equal(t, 6, new)
 		require.Equal(t, 4, reputable)
 

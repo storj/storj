@@ -257,7 +257,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
 	peer.Storage2.PieceDeleter.SetupTest()
 
-	err = db.MigrateToLatest(ctx)
+	err = db.TestMigrateToLatest(ctx)
 	if err != nil {
 		return nil, err
 	}

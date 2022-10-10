@@ -1,12 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import * as sinon from 'sinon';
-
-import PagesBlock from '@/components/common/PagesBlock.vue';
+import { shallowMount } from '@vue/test-utils';
 
 import { Page } from '@/types/pagination';
-import { shallowMount } from '@vue/test-utils';
+
+import PagesBlock from '@/components/common/PagesBlock.vue';
 
 describe('Pagination.vue', () => {
     it('renders correctly without props', () => {
@@ -16,7 +15,7 @@ describe('Pagination.vue', () => {
     });
 
     it('renders correctly with props', () => {
-        const callbackSpy = sinon.spy();
+        const callbackSpy = jest.fn();
         const pagesArray: Page[] = [];
         const SELECTED_PAGE_INDEX = 3;
 
@@ -37,7 +36,7 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on page click', () => {
-        const callbackSpy = sinon.spy();
+        const callbackSpy = jest.fn();
         const pagesArray: Page[] = [];
 
         for (let i = 1; i <= 3; i++) {
@@ -53,6 +52,6 @@ describe('Pagination.vue', () => {
 
         wrapper.findAll('span').at(1).trigger('click');
 
-        expect(callbackSpy.callCount).toBe(1);
+        expect(callbackSpy).toHaveBeenCalledTimes(1);
     });
 });

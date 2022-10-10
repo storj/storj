@@ -52,6 +52,12 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdRestart,
 	}
+	shouldUpdateCmd = &cobra.Command{
+		Use:   "should-update <service>",
+		Short: "Check if service should be updated to suggested version",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdShouldUpdate,
+	}
 
 	runCfg struct {
 		Identity identity.Config
@@ -76,9 +82,11 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(restartCmd)
+	rootCmd.AddCommand(shouldUpdateCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restartCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(shouldUpdateCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -134,6 +142,62 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+func cmdShouldUpdate(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	service := args[0]
+
+	switch service {
+	case "storagenode", "storagenode-updater":
+	default: // do not decide if other than above mentioned processes should be updated
+		zap.L().Error("Process is not allowed", zap.String("service", service))
+		os.Exit(1)
+	}
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.L().Fatal("Error loading identity.", zap.Error(err))
+	}
+	nodeID = ident.ID
+	if nodeID.IsZero() {
+		zap.L().Fatal("Empty node ID.")
+	}
+
+	ver, err := checker.New(runCfg.Version.ClientConfig).Process(ctx, service)
+	if err != nil {
+		zap.L().Fatal("Error retrieving version info.", zap.Error(err))
+	}
+
+	var shouldUpdate bool
+
+	if runCfg.BinaryLocation != "" && fileExists(runCfg.BinaryLocation) {
+		currentVersion, err := binaryVersion(runCfg.BinaryLocation)
+		if err != nil {
+			zap.L().Fatal("Error retrieving binary version.", zap.Error(err))
+		}
+
+		updateVersion, _, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)
+		if err != nil {
+			zap.L().Error("Error on should update version",
+				zap.String("service", service),
+				zap.Error(err))
+		}
+
+		shouldUpdate = !updateVersion.IsZero()
+	} else {
+		shouldUpdate = version.ShouldUpdate(ver.Rollout, nodeID)
+	}
+
+	if shouldUpdate {
+		zap.L().Info("Service should be updated", zap.String("service", service))
+		os.Exit(0)
+	} else {
+		zap.L().Info("Service should not be updated", zap.String("service", service))
+		os.Exit(1)
+	}
+
+	return nil
+}
+
 func fileExists(filename string) bool {
 	info, err := os.Stat(filename)
 	if os.IsNotExist(err) {
@@ -152,6 +216,6 @@ func openLog(logPath string) error {
 		return err
 	}
 
-	zap.ReplaceGlobals(logger)
+	zap.ReplaceGlobals(logger.With(zap.String("Process", updaterServiceName)))
 	return nil
 }

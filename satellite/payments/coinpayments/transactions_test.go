@@ -9,10 +9,10 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -38,8 +38,8 @@ func TestListInfos(t *testing.T) {
 		tx, err := payments.Create(ctx,
 			&coinpayments.CreateTX{
 				Amount:      decimal.NewFromInt(100),
-				CurrencyIn:  monetary.StorjToken,
-				CurrencyOut: monetary.StorjToken,
+				CurrencyIn:  currency.StorjToken,
+				CurrencyOut: currency.StorjToken,
 				BuyerEmail:  "test@test.com",
 			},
 		)

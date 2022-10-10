@@ -39,13 +39,15 @@ func TestActivationRouting(t *testing.T) {
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
 		require.NoError(t, err)
 
+		client := http.Client{}
+
 		checkActivationRedirect := func(testMsg, redirectURL string, shouldHaveCookie bool) {
 			url := "http://" + sat.API.Console.Listener.Addr().String() + "/activation/?token=" + activationToken
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err, testMsg)
 
-			result, err := http.DefaultClient.Do(req)
+			result, err := client.Do(req)
 			require.NoError(t, err, testMsg)
 
 			// cookie should be set on successful activation
@@ -63,7 +65,7 @@ func TestActivationRouting(t *testing.T) {
 			require.NoError(t, result.Body.Close(), testMsg)
 		}
 
-		http.DefaultClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
 
@@ -119,20 +121,22 @@ func TestUserIDRateLimiter(t *testing.T) {
 				require.NoError(t, err)
 
 				// sat.AddUser sets password to full name.
-				token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+				tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 				require.NoError(t, err)
 
+				tokenStr := tokenInfo.Token.String()
+
 				if userNum == 1 {
-					firstToken = token
+					firstToken = tokenStr
 				}
 
 				// Expect burst number of successes.
 				for burstNum := 0; burstNum < sat.Config.Console.RateLimit.Burst; burstNum++ {
-					require.NotEqual(t, http.StatusTooManyRequests, applyCouponStatus(token))
+					require.NotEqual(t, http.StatusTooManyRequests, applyCouponStatus(tokenStr))
 				}
 
 				// Expect failure.
-				require.Equal(t, http.StatusTooManyRequests, applyCouponStatus(token))
+				require.Equal(t, http.StatusTooManyRequests, applyCouponStatus(tokenStr))
 			})
 		}
 

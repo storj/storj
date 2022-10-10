@@ -23,10 +23,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VerticalArrows from '@/components/common/VerticalArrows.vue';
-
 import { AccessGrantsOrderBy, OnHeaderClickCallback } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
+
+import VerticalArrows from '@/components/common/VerticalArrows.vue';
 
 // @vue/component
 @Component({
@@ -35,7 +35,7 @@ import { SortDirection } from '@/types/common';
     },
 })
 export default class SortAccessGrantsHeader extends Vue {
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onHeaderClickCallback: OnHeaderClickCallback;
 
     public AccessGrantsOrderBy = AccessGrantsOrderBy;
@@ -85,7 +85,7 @@ export default class SortAccessGrantsHeader extends Vue {
         height: 40px;
         background-color: #fff;
         margin-top: 31px;
-        padding: 16px 16px 0 16px;
+        padding: 16px 16px 0;
         border-radius: 8px 8px 0 0;
 
         &__name-item,

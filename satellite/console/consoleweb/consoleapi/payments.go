@@ -374,7 +374,79 @@ func (p *Payments) GetCoupon(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetWallet returns the wallet address (with balance) already assigned to the user.
+func (p *Payments) GetWallet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	walletInfo, err := p.service.Payments().GetWallet(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(walletInfo); err != nil {
+		p.log.Error("failed to encode wallet info", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// ClaimWallet will claim a new wallet address. Returns with existing if it's already claimed.
+func (p *Payments) ClaimWallet(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	walletInfo, err := p.service.Payments().ClaimWallet(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(walletInfo); err != nil {
+		p.log.Error("failed to encode wallet info", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// WalletPayments returns with the list of storjscan transactions for user`s wallet.
+func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	walletPayments, err := p.service.Payments().WalletPayments(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(walletPayments); err != nil {
+		p.log.Error("failed to encode payments", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(p.log, w, status, err)
+	ServeJSONError(p.log, w, status, err)
 }

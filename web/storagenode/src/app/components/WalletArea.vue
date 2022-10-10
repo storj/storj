@@ -149,7 +149,7 @@ export default class WalletArea extends Vue {
                     background: white;
                     border-radius: 50%;
 
-                    path {
+                    ::v-deep path {
                         fill: var(--wallet-feature-opted-in);
                     }
                 }
@@ -187,7 +187,7 @@ export default class WalletArea extends Vue {
                 margin-bottom: 20px;
 
                 &__label {
-                    margin: 20px 0 6px 0;
+                    margin: 20px 0 6px;
                 }
             }
         }
@@ -205,7 +205,7 @@ export default class WalletArea extends Vue {
                 margin-bottom: 10px;
 
                 &__label {
-                    margin: 20px 0 6px 0;
+                    margin: 20px 0 6px;
                 }
             }
 
@@ -214,7 +214,7 @@ export default class WalletArea extends Vue {
                 width: 100%;
 
                 & .wallet-area__button {
-                    margin: 0 0 15px 0;
+                    margin: 0 0 15px;
                     width: 100%;
                 }
 

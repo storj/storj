@@ -15,7 +15,7 @@
             <OSContainer is-install-step="true">
                 <template #windows>
                     <div class="cli-install__windows">
-                        <h2 class="cli-install__macos__sub-title">
+                        <h2 class="cli-install__windows__sub-title">
                             1. Download the
                             <a href="https://github.com/storj/storj/releases/latest/download/uplink_windows_amd64.zip">
                                 Windows Uplink Binary
@@ -41,15 +41,21 @@
                         <h1 class="cli-install__linux__title">AMD64</h1>
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
-                            <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink_linux_amd64.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_amd64.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_amd64.zip -o uplink_linux_amd64.zip"
+                                aria-role-description="linux-amd64-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_linux_amd64.zip"
+                                aria-role-description="linux-amd64-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="linux-amd64-install"
+                            />
                         </div>
                         <a
                             class="cli-install__linux__link"
@@ -60,15 +66,21 @@
                         <h1 class="cli-install__linux__title margin-top">ARM</h1>
                         <h2 class="cli-install__linux__sub-title">Curl Download</h2>
                         <div class="cli-install__linux__commands">
-                            <p class="cli-install__linux__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip -o uplink_linux_arm.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                unzip -o uplink_linux_arm.zip
-                            </p>
-                            <p class="cli-install__linux__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_linux_arm.zip -o uplink_linux_arm.zip"
+                                aria-role-description="linux-arm-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_linux_arm.zip"
+                                aria-role-description="linux-arm-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="linux-arm-install"
+                            />
                         </div>
                         <a
                             class="cli-install__linux__link"
@@ -82,15 +94,21 @@
                     <div class="cli-install__macos">
                         <h2 class="cli-install__macos__sub-title">Curl Download</h2>
                         <div class="cli-install__macos__commands">
-                            <p class="cli-install__macos__commands__item">
-                                curl -L https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip -o uplink_darwin_amd64.zip
-                            </p>
-                            <p class="cli-install__macos__commands__item">
-                                unzip -o uplink_darwin_amd64.zip
-                            </p>
-                            <p class="cli-install__macos__commands__item">
-                                sudo install uplink /usr/local/bin/uplink
-                            </p>
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="curl -L https://github.com/storj/storj/releases/latest/download/uplink_darwin_amd64.zip -o uplink_darwin_amd64.zip"
+                                aria-role-description="macos-curl"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="unzip -o uplink_darwin_amd64.zip"
+                                aria-role-description="macos-unzip"
+                            />
+                            <TabWithCopy
+                                class="cli-install__linux__commands__item"
+                                value="sudo install uplink /usr/local/bin/uplink"
+                                aria-role-description="macos-install"
+                            />
                         </div>
                         <a
                             class="cli-install__macos__link"
@@ -108,10 +126,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
+import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
 
@@ -121,13 +141,18 @@ import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
         CLIFlowContainer,
         Icon,
         OSContainer,
-    }
+        TabWithCopy,
+    },
 })
 export default class CLIInstall extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     }
 
@@ -135,6 +160,7 @@ export default class CLIInstall extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLISetup)).path);
     }
 }
@@ -145,19 +171,19 @@ export default class CLIInstall extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
+            align-self: flex-start;
         }
 
         &__macos,
         &__linux,
         &__windows {
-            border: 1px solid rgb(230, 236, 241);
+            border: 1px solid rgb(230 236 241);
             display: block;
             padding: 24px;
-            background: rgb(255, 255, 255);
+            background: rgb(255 255 255);
             border-radius: 0 6px 6px;
 
             &__title {
@@ -176,20 +202,24 @@ export default class CLIInstall extends Vue {
             }
 
             &__commands {
-                color: rgb(230, 236, 241);
+                color: rgb(230 236 241);
                 margin: 32px 0;
                 padding: 24px;
                 overflow: auto;
                 font-size: 14px;
-                background: rgb(24, 48, 85);
+                background: rgb(24 48 85);
 
                 &__item {
                     white-space: nowrap;
+
+                    &:nth-child(2) {
+                        margin: 10px 0;
+                    }
                 }
             }
 
             &__link {
-                color: rgb(55, 111, 255);
+                color: rgb(55 111 255);
             }
 
             &__msg {
@@ -206,5 +236,15 @@ export default class CLIInstall extends Vue {
 
     .margin-top {
         margin-top: 24px;
+    }
+
+    :deep(.tab-copy) {
+        display: inline-flex;
+        padding: 0;
+    }
+
+    :deep(.tab-copy__value) {
+        overflow: unset;
+        text-overflow: unset;
     }
 </style>

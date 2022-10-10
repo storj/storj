@@ -4,7 +4,9 @@
 package oidc
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -12,9 +14,11 @@ import (
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/manage"
 	"github.com/go-oauth2/oauth2/v4/server"
+	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
@@ -25,15 +29,16 @@ var (
 
 // NewEndpoint constructs an OpenID identity provider.
 func NewEndpoint(
-	externalAddress string, log *zap.Logger,
+	nodeURL storj.NodeURL, externalAddress string, log *zap.Logger,
 	oidcService *Service, service *console.Service,
 	codeExpiry, accessTokenExpiry, refreshTokenExpiry time.Duration,
 ) *Endpoint {
 	manager := manage.NewManager()
 
+	clientStore := oidcService.ClientStore()
 	tokenStore := oidcService.TokenStore()
 
-	manager.MapClientStorage(oidcService.ClientStore())
+	manager.MapClientStorage(clientStore)
 	manager.MapTokenStorage(tokenStore)
 
 	manager.MapAuthorizeGenerate(&UUIDAuthorizeGenerate{})
@@ -49,21 +54,23 @@ func NewEndpoint(
 	svr := server.NewDefaultServer(manager)
 
 	svr.SetUserAuthorizationHandler(func(w http.ResponseWriter, r *http.Request) (userID string, err error) {
-		auth, err := console.GetAuth(r.Context())
+		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", console.ErrUnauthorized.Wrap(err)
 		}
 
-		return auth.User.ID.String(), nil
+		return user.ID.String(), nil
 	})
 
 	// externalAddress _should_ end with a '/' suffix based on the calling path
 	return &Endpoint{
-		tokenStore: tokenStore,
-		service:    service,
-		server:     svr,
-		log:        log,
+		clientStore: clientStore,
+		tokenStore:  tokenStore,
+		service:     service,
+		server:      svr,
+		log:         log,
 		config: ProviderConfig{
+			NodeURL:     nodeURL.String(),
 			Issuer:      externalAddress,
 			AuthURL:     externalAddress + "oauth/v2/authorize",
 			TokenURL:    externalAddress + "oauth/v2/tokens",
@@ -77,11 +84,12 @@ func NewEndpoint(
 //
 // architecture: Endpoint
 type Endpoint struct {
-	tokenStore oauth2.TokenStore
-	service    *console.Service
-	server     *server.Server
-	log        *zap.Logger
-	config     ProviderConfig
+	clientStore oauth2.ClientStore
+	tokenStore  oauth2.TokenStore
+	service     *console.Service
+	server      *server.Server
+	log         *zap.Logger
+	config      ProviderConfig
 }
 
 // WellKnownConfiguration renders the identity provider configuration that points clients to various endpoints.
@@ -178,8 +186,36 @@ func (e *Endpoint) UserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetClient returns non-sensitive information about an OAuthClient. This information is used to initially verify client
+// applications who are requesting information on behalf of a user.
+func (e *Endpoint) GetClient(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+
+	client, err := e.clientStore.GetByID(ctx, vars["id"])
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		http.NotFound(w, r)
+		return
+	case err != nil:
+		http.Error(w, "", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	err = json.NewEncoder(w).Encode(client)
+	if err != nil {
+		e.log.Error("failed to encode oauth client", zap.Error(err))
+	}
+}
+
 // ProviderConfig defines a subset of elements used by OIDC to auto-discover endpoints.
 type ProviderConfig struct {
+	NodeURL     string `json:"node_url"`
 	Issuer      string `json:"issuer"`
 	AuthURL     string `json:"authorization_endpoint"`
 	TokenURL    string `json:"token_endpoint"`

@@ -14,12 +14,12 @@ import (
 
 // Mixed dispatches to either the local or remote filesystem depending on the location.
 type Mixed struct {
-	local  *Local
-	remote *Remote
+	local  FilesystemLocal
+	remote FilesystemRemote
 }
 
 // NewMixed returns a Mixed backed by the provided local and remote filesystems.
-func NewMixed(local *Local, remote *Remote) *Mixed {
+func NewMixed(local FilesystemLocal, remote FilesystemRemote) *Mixed {
 	return &Mixed{
 		local:  local,
 		remote: remote,
@@ -32,27 +32,27 @@ func (m *Mixed) Close() error {
 }
 
 // Open returns a MultiReadHandle to either a local file, remote object, or stdin.
-func (m *Mixed) Open(ctx clingy.Context, loc ulloc.Location) (MultiReadHandle, error) {
+func (m *Mixed) Open(ctx context.Context, loc ulloc.Location) (MultiReadHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
 		return m.remote.Open(ctx, bucket, key)
 	} else if path, ok := loc.LocalParts(); ok {
 		return m.local.Open(ctx, path)
 	}
-	return newStdMultiReadHandle(ctx.Stdin()), nil
+	return newStdMultiReadHandle(clingy.Stdin(ctx)), nil
 }
 
 // Create returns a WriteHandle to either a local file, remote object, or stdout.
-func (m *Mixed) Create(ctx clingy.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error) {
+func (m *Mixed) Create(ctx context.Context, loc ulloc.Location, opts *CreateOptions) (MultiWriteHandle, error) {
 	if bucket, key, ok := loc.RemoteParts(); ok {
 		return m.remote.Create(ctx, bucket, key, opts)
 	} else if path, ok := loc.LocalParts(); ok {
 		return m.local.Create(ctx, path)
 	}
-	return newStdMultiWriteHandle(ctx.Stdout()), nil
+	return newStdMultiWriteHandle(clingy.Stdout(ctx)), nil
 }
 
 // Move moves either a local file or remote object.
-func (m *Mixed) Move(ctx clingy.Context, source, dest ulloc.Location) error {
+func (m *Mixed) Move(ctx context.Context, source, dest ulloc.Location) error {
 	if oldbucket, oldkey, ok := source.RemoteParts(); ok {
 		if newbucket, newkey, ok := dest.RemoteParts(); ok {
 			return m.remote.Move(ctx, oldbucket, oldkey, newbucket, newkey)
@@ -66,7 +66,7 @@ func (m *Mixed) Move(ctx clingy.Context, source, dest ulloc.Location) error {
 }
 
 // Copy copies either a local file or remote object.
-func (m *Mixed) Copy(ctx clingy.Context, source, dest ulloc.Location) error {
+func (m *Mixed) Copy(ctx context.Context, source, dest ulloc.Location) error {
 	if oldbucket, oldkey, ok := source.RemoteParts(); ok {
 		if newbucket, newkey, ok := dest.RemoteParts(); ok {
 			return m.remote.Copy(ctx, oldbucket, oldkey, newbucket, newkey)

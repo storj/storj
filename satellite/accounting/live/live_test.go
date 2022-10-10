@@ -132,17 +132,23 @@ func TestGetAllProjectTotals(t *testing.T) {
 				projectIDs[i] = testrand.UUID()
 				err := cache.AddProjectStorageUsage(ctx, projectIDs[i], int64(i))
 				require.NoError(t, err)
+				err = cache.UpdateProjectSegmentUsage(ctx, projectIDs[i], int64(i))
+				require.NoError(t, err)
 			}
 
-			projectTotals, err := cache.GetAllProjectTotals(ctx)
+			usage, err := cache.GetAllProjectTotals(ctx)
 			require.NoError(t, err)
-			require.Len(t, projectTotals, len(projectIDs))
+			require.Len(t, usage, len(projectIDs))
 
 			// make sure each project ID and total was received
 			for _, projID := range projectIDs {
-				total, err := cache.GetProjectStorageUsage(ctx, projID)
+				totalStorage, err := cache.GetProjectStorageUsage(ctx, projID)
 				require.NoError(t, err)
-				assert.Equal(t, total, projectTotals[projID])
+				assert.Equal(t, totalStorage, usage[projID].Storage)
+
+				totalSegments, err := cache.GetProjectSegmentUsage(ctx, projID)
+				require.NoError(t, err)
+				assert.Equal(t, totalSegments, usage[projID].Segments)
 			}
 		})
 	}
@@ -186,6 +192,73 @@ func TestLiveAccountingCache_ProjectBandwidthUsage_expiration(t *testing.T) {
 			)
 			err = cache.UpdateProjectBandwidthUsage(ctx, projectID, rand.Int63n(4096)+1, time.Second, now)
 			require.NoError(t, err)
+
+			if tt.backend == "redis" {
+				redis.FastForward(time.Second)
+			}
+
+			time.Sleep(2 * time.Second)
+			_, err = cache.GetProjectBandwidthUsage(ctx, projectID, now)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestInsertProjectBandwidthUsage(t *testing.T) {
+	tests := []struct {
+		backend string
+	}{
+		{
+			backend: "redis",
+		},
+	}
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	redis, err := testredis.Start(ctx)
+	require.NoError(t, err)
+
+	defer ctx.Check(redis.Close)
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.backend, func(t *testing.T) {
+			ctx := testcontext.New(t)
+
+			var config live.Config
+			if tt.backend == "redis" {
+				config = live.Config{
+					StorageBackend: "redis://" + redis.Addr() + "?db=0",
+				}
+			}
+
+			cache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
+			require.NoError(t, err)
+			defer ctx.Check(cache.Close)
+
+			var (
+				projectID = testrand.UUID()
+				now       = time.Now()
+			)
+			expVal := rand.Int63n(4096) + 1
+			inserted, err := cache.InsertProjectBandwidthUsage(ctx, projectID, expVal, time.Second, now)
+			require.NoError(t, err)
+			assert.True(t, inserted, "is inserted")
+
+			val, err := cache.GetProjectBandwidthUsage(ctx, projectID, now)
+			require.NoError(t, err)
+			require.Equal(t, expVal, val, "inserted value")
+
+			{ // This shouldn't set the value because it already exists.
+				newVal := rand.Int63n(4096) + 1
+				inserted, err := cache.InsertProjectBandwidthUsage(ctx, projectID, newVal, time.Second, now)
+				require.NoError(t, err)
+				assert.False(t, inserted, "is inserted")
+
+				val, err := cache.GetProjectBandwidthUsage(ctx, projectID, now)
+				require.NoError(t, err)
+				require.Equal(t, expVal, val, "inserted value")
+			}
 
 			if tt.backend == "redis" {
 				redis.FastForward(time.Second)

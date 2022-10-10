@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/base58"
 	"storj.io/common/encryption"
@@ -21,11 +21,11 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -33,33 +33,42 @@ import (
 // * Set up a network with one storagenode
 // * Upload two objects
 // * Delete one object from the metainfo service on the satellite
-// * Wait for bloom filter generation
+// * Do bloom filter generation
+// * Send out bloom filters
 // * Check that pieces of the deleted object are deleted on the storagenode
 // * Check that pieces of the kept object are not deleted on the storagenode.
 func TestGarbageCollection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GarbageCollection.FalsePositiveRate = 0.000000001
-				config.GarbageCollection.Interval = 500 * time.Millisecond
-			},
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.Retain.MaxTimeSkew = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// Set satellite 1 to store bloom filters of satellite 0
+		access := planet.Uplinks[0].Access[planet.Satellites[1].NodeURL().ID]
+		accessString, err := access.Serialize()
+		require.NoError(t, err)
+
+		// configure sender
+		gcsender := planet.Satellites[0].GarbageCollection.Sender
+		gcsender.Config.AccessGrant = accessString
+
+		// configure filter uploader
+		config := planet.Satellites[0].Config.GarbageCollectionBF
+		config.AccessGrant = accessString
+		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
+
 		satellite := planet.Satellites[0]
 		upl := planet.Uplinks[0]
 		targetNode := planet.StorageNodes[0]
-		gcService := satellite.GarbageCollection.Service
-		gcService.Loop.Pause()
 
 		// Upload two objects
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
 
-		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
+		err = upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
 		require.NoError(t, err)
 
 		objectLocationToDelete, segmentToDelete := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/1")
@@ -102,14 +111,18 @@ func TestGarbageCollection(t *testing.T) {
 
 		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
 		// to datetime in sql. This chops off all precision beyond seconds.
-		// In this test, the amount of time that elapses between piece uploads and the gc loop is
+		// In this test, the amount of time that elapses between piece uploads and the gc loop might be
 		// less than a second, meaning datetime(piece_creation) < datetime(filter_creation) is false unless we sleep
 		// for a second.
 		time.Sleep(1 * time.Second)
 
 		// Wait for next iteration of garbage collection to finish
-		gcService.Loop.Restart()
-		gcService.Loop.TriggerWait()
+		err = bloomFilterService.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// send to storagenode
+		err = gcsender.RunOnce(ctx)
+		require.NoError(t, err)
 
 		// Wait for the storagenode's RetainService queue to be empty
 		targetNode.Storage2.RetainService.TestWaitUntilEmpty()
@@ -142,8 +155,18 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		gcService := satellite.GarbageCollection.Service
-		gcService.Loop.Pause()
+
+		access := planet.Uplinks[0].Access[planet.Satellites[0].NodeURL().ID]
+		accessString, err := access.Serialize()
+		require.NoError(t, err)
+
+		gcsender := planet.Satellites[0].GarbageCollection.Sender
+		gcsender.Config.AccessGrant = accessString
+
+		// configure filter uploader
+		config := planet.Satellites[0].Config.GarbageCollectionBF
+		config.AccessGrant = accessString
+		bloomFilterService := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
 
 		project, err := planet.Uplinks[0].OpenProject(ctx, satellite)
 		require.NoError(t, err)
@@ -151,9 +174,9 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 
 		allSpaceUsedForPieces := func() (all int64) {
 			for _, node := range planet.StorageNodes {
-				total, _, _, err := node.Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
+				_, piecesContent, _, err := node.Storage2.Store.SpaceUsedTotalAndBySatellite(ctx)
 				require.NoError(t, err)
-				all += total
+				all += piecesContent
 			}
 			return all
 		}
@@ -161,15 +184,21 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 		expectedRemoteData := testrand.Bytes(8 * memory.KiB)
 		expectedInlineData := testrand.Bytes(1 * memory.KiB)
 
+		encryptedSize, err := encryption.CalcEncryptedSize(int64(len(expectedRemoteData)), storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   29 * 256 * memory.B.Int32(), // hardcoded value from uplink
+		})
+		require.NoError(t, err)
+
+		redundancyStrategy, err := planet.Satellites[0].Config.Metainfo.RS.RedundancyStrategy()
+		require.NoError(t, err)
+
+		pieceSize := eestream.CalcPieceSize(encryptedSize, redundancyStrategy.ErasureScheme)
+		singleRemoteUsed := pieceSize * int64(len(planet.StorageNodes))
+		totalUsedByNodes := 2 * singleRemoteUsed // two remote objects
+
 		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "remote", expectedRemoteData))
 		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "inline", expectedInlineData))
-
-		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
-
-		// how much used space we should have after deleting objects
-		expectedUsedAfterDeleteAndGC := allSpaceUsedForPieces()
-		require.NotZero(t, expectedUsedAfterDeleteAndGC)
-
 		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "remote-no-copy", expectedRemoteData))
 
 		_, err = project.CopyObject(ctx, "testbucket", "remote", "testbucket", "remote-copy", nil)
@@ -179,50 +208,80 @@ func TestGarbageCollectionWithCopies(t *testing.T) {
 
 		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
-		totalUsedByNodes := allSpaceUsedForPieces()
+		afterTotalUsedByNodes := allSpaceUsedForPieces()
+		require.Equal(t, totalUsedByNodes, afterTotalUsedByNodes)
 
-		// run GC
-		gcService.Loop.TriggerWait()
+		// Wait for next iteration of garbage collection to finish
+		err = bloomFilterService.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// send to storagenode
+		err = gcsender.RunOnce(ctx)
+		require.NoError(t, err)
+
 		for _, node := range planet.StorageNodes {
 			node.Storage2.RetainService.TestWaitUntilEmpty()
 		}
 
 		// we should see all space used by all objects
-		afterTotalUsedByNodes := allSpaceUsedForPieces()
+		afterTotalUsedByNodes = allSpaceUsedForPieces()
 		require.Equal(t, totalUsedByNodes, afterTotalUsedByNodes)
 
-		// delete ancestors, no change in used space
-		_, err = project.DeleteObject(ctx, "testbucket", "remote")
-		require.NoError(t, err)
-
-		_, err = project.DeleteObject(ctx, "testbucket", "inline")
-		require.NoError(t, err)
-
-		// delete object without copy, used space should be decreased
-		_, err = project.DeleteObject(ctx, "testbucket", "remote-no-copy")
-		require.NoError(t, err)
+		for _, toDelete := range []string{
+			// delete ancestors, no change in used space
+			"remote",
+			"inline",
+			// delete object without copy, used space should be decreased
+			"remote-no-copy",
+		} {
+			_, err = project.DeleteObject(ctx, "testbucket", toDelete)
+			require.NoError(t, err)
+		}
 
 		planet.WaitForStorageNodeDeleters(ctx)
 
 		// run GC
-		gcService.Loop.TriggerWait()
+		err = bloomFilterService.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// send to storagenode
+		err = gcsender.RunOnce(ctx)
+		require.NoError(t, err)
+
 		for _, node := range planet.StorageNodes {
 			node.Storage2.RetainService.TestWaitUntilEmpty()
 		}
 
 		// verify that we deleted only pieces for "remote-no-copy" object
 		afterTotalUsedByNodes = allSpaceUsedForPieces()
-		require.Equal(t, expectedUsedAfterDeleteAndGC, afterTotalUsedByNodes)
+		require.Equal(t, singleRemoteUsed, afterTotalUsedByNodes)
+
+		// delete rest of objects to verify that everything will be removed also from SNs
+		for _, toDelete := range []string{
+			"remote-copy",
+			"inline-copy",
+		} {
+			_, err = project.DeleteObject(ctx, "testbucket", toDelete)
+			require.NoError(t, err)
+		}
+
+		planet.WaitForStorageNodeDeleters(ctx)
 
 		// run GC
-		gcService.Loop.TriggerWait()
+		err = bloomFilterService.RunOnce(ctx)
+		require.NoError(t, err)
+
+		// send to storagenode
+		err = gcsender.RunOnce(ctx)
+		require.NoError(t, err)
+
 		for _, node := range planet.StorageNodes {
 			node.Storage2.RetainService.TestWaitUntilEmpty()
 		}
 
 		// verify that nothing more was deleted from storage nodes after GC
 		afterTotalUsedByNodes = allSpaceUsedForPieces()
-		require.Equal(t, expectedUsedAfterDeleteAndGC, afterTotalUsedByNodes)
+		require.EqualValues(t, 0, afterTotalUsedByNodes)
 	})
 }
 
@@ -276,21 +335,11 @@ func encryptionAccess(access string) (*encryption.Store, error) {
 	return store, nil
 }
 
+// TestGarbageCollection_PendingObject verifies that segments from pending objects
+// are also processed by GC piece tracker.
 func TestGarbageCollection_PendingObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.GarbageCollection.FalsePositiveRate = 0.000000001
-					config.GarbageCollection.Interval = 500 * time.Millisecond
-				},
-				testplanet.MaxSegmentSize(20*memory.KiB),
-			),
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Retain.MaxTimeSkew = 0
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		upl := planet.Uplinks[0]
@@ -303,14 +352,8 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 		require.Len(t, segments, 1)
 		require.Len(t, segments[0].Pieces, 1)
 
-		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
-		// to datetime in sql. This chops off all precision beyond seconds.
-		// In this test, the amount of time that elapses between piece uploads and the gc loop is
-		// less than a second, meaning datetime(piece_creation) < datetime(filter_creation) is false unless we sleep
-		// for a second.
-
-		lastPieceCounts := map[storj.NodeID]int{}
-		pieceTracker := gc.NewPieceTracker(satellite.Log.Named("gc observer"), gc.Config{
+		lastPieceCounts := map[storj.NodeID]int64{}
+		pieceTracker := bloomfilter.NewPieceTracker(satellite.Log.Named("gc observer"), bloomfilter.Config{
 			FalsePositiveRate: 0.000000001,
 			InitialPieces:     10,
 		}, lastPieceCounts)

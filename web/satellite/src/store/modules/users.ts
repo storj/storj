@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
+import { StoreModule } from '@/types/store';
 
 export const USER_ACTIONS = {
+    LOGIN: 'loginUser',
     UPDATE: 'updateUser',
     GET: 'getUser',
     ENABLE_USER_MFA: 'enableUserMFA',
@@ -92,12 +93,12 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
         },
 
         actions: {
-            [UPDATE]: async function ({commit}: UsersContext, userInfo: UpdatedUser): Promise<void> {
+            [UPDATE]: async function ({ commit }: UsersContext, userInfo: UpdatedUser): Promise<void> {
                 await api.update(userInfo);
 
                 commit(UPDATE_USER, userInfo);
             },
-            [GET]: async function ({commit}: UsersContext): Promise<User> {
+            [GET]: async function ({ commit }: UsersContext): Promise<User> {
                 const user = await api.get();
 
                 commit(SET_USER, user);
@@ -110,17 +111,17 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
             [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
                 await api.enableUserMFA(passcode);
             },
-            [GENERATE_USER_MFA_SECRET]: async function ({commit}: UsersContext): Promise<void> {
+            [GENERATE_USER_MFA_SECRET]: async function ({ commit }: UsersContext): Promise<void> {
                 const secret = await api.generateUserMFASecret();
 
                 commit(SET_USER_MFA_SECRET, secret);
             },
-            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: UsersContext): Promise<void> {
+            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({ commit }: UsersContext): Promise<void> {
                 const codes = await api.generateUserMFARecoveryCodes();
 
                 commit(SET_USER_MFA_RECOVERY_CODES, codes);
             },
-            [CLEAR]: function({commit}: UsersContext) {
+            [CLEAR]: function({ commit }: UsersContext) {
                 commit(CLEAR);
             },
         },

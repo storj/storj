@@ -35,14 +35,16 @@ func (collector *Collector) LoopStarted(context.Context, segmentloop.LoopInfo) (
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
-func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	for _, piece := range segment.Pieces {
-		if _, ok := collector.Reservoirs[piece.StorageNode]; !ok {
-			collector.Reservoirs[piece.StorageNode] = NewReservoir(collector.slotCount)
+		res, ok := collector.Reservoirs[piece.StorageNode]
+		if !ok {
+			res = NewReservoir(collector.slotCount)
+			collector.Reservoirs[piece.StorageNode] = res
 		}
-		collector.Reservoirs[piece.StorageNode].Sample(collector.rand, NewSegment(segment))
+		res.Sample(collector.rand, segment)
 	}
 	return nil
 }

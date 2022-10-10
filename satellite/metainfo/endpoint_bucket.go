@@ -25,10 +25,7 @@ import (
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
@@ -63,10 +60,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
@@ -89,17 +83,17 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
-		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), nil); err != nil {
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
 	}
 
-	// check if project has exceeded its allocated bucket limit
-	maxBuckets, err := endpoint.projects.GetMaxBuckets(ctx, keyInfo.ProjectID)
+	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, err
 	}
+	maxBuckets := project.MaxBuckets
 	if maxBuckets == nil {
 		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
 		maxBuckets = &defaultMaxBuckets
@@ -124,7 +118,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// Once we have created the bucket, we can try setting the attribution.
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent); err != nil {
 		return nil, err
 	}
 
@@ -147,10 +141,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 
@@ -309,10 +300,7 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	action := macaroon.Action{
 		// TODO: This has to be ActionList, but it seems to be set to
@@ -345,6 +333,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		bucketItems[i] = &pb.BucketListItem{
 			Name:      []byte(item.Name),
 			CreatedAt: item.Created,
+			UserAgent: item.UserAgent,
 		}
 	}
 

@@ -63,6 +63,14 @@ export interface PaymentsApi {
     paymentsHistory(): Promise<PaymentsHistoryItem[]>;
 
     /**
+     * Returns a list of invoices, transactions and all others payments history items for payment account.
+     *
+     * @returns list of payments history items
+     * @throws Error
+     */
+    nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
+
+    /**
      * Creates token transaction in CoinPayments
      *
      * @param amount
@@ -84,6 +92,21 @@ export interface PaymentsApi {
      * @throws Error
      */
     getCoupon(): Promise<Coupon | null>;
+
+    /**
+     * get native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    getWallet(): Promise<Wallet>;
+    /**
+     * claim new native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    claimWallet(): Promise<Wallet>;
 }
 
 export class AccountBalance {
@@ -146,15 +169,15 @@ export class PaymentsHistoryItem {
         return this.status.charAt(0).toUpperCase() + this.status.substring(1);
     }
 
+    public get formattedStart(): string {
+        return this.start.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
     public get hasExpiration(): boolean {
         // Go's zero date is passed in if the coupon does not expire
         // Go's zero date is 0001-01-01 00:00:00 +0000 UTC
         // Javascript's zero date is 1970-01-01 00:00:00 +0000 UTC
-        if (this.end.valueOf() <= 0) {
-            return false;
-        }
-
-        return true;
+        return this.end.valueOf() > 0;
     }
 
     /**
@@ -175,9 +198,9 @@ export class PaymentsHistoryItem {
     public get label(): string {
         switch (this.type) {
         case PaymentsHistoryItemType.Transaction:
-            return "Checkout"
+            return 'Checkout';
         default:
-            return "Invoice PDF"
+            return 'Invoice PDF';
         }
     }
 
@@ -327,15 +350,60 @@ export enum CouponDuration {
     /**
      * Indicates that a coupon can only be applied once.
      */
-    Once = "once",
+    Once = 'once',
 
     /**
      * Indicates that a coupon is applied every billing period for a definite amount of time.
      */
-    Repeating = "repeating",
+    Repeating = 'repeating',
 
     /**
      * Indicates that a coupon is applied every billing period forever.
      */
-    Forever = "forever"
+    Forever = 'forever'
+}
+
+/**
+ * Represents STORJ native token payments wallet.
+ */
+export class Wallet {
+    public constructor(
+      public address: string = '',
+      public balance: TokenAmount = new TokenAmount(),
+    ) { }
+}
+
+/**
+ * TokenPaymentHistoryItem holds all public information about token payments history line.
+ */
+export class NativePaymentHistoryItem {
+    public constructor(
+        public readonly id: string = '',
+        public readonly wallet: string = '',
+        public readonly type: string = '',
+        public readonly amount: TokenAmount = new TokenAmount(),
+        public readonly received: TokenAmount = new TokenAmount(),
+        public readonly status: string = '',
+        public readonly link: string = '',
+        public readonly timestamp: Date = new Date(),
+    ) { }
+
+    public get formattedStatus(): string {
+        return this.status.charAt(0).toUpperCase() + this.status.substring(1);
+    }
+
+    public get formattedType(): string {
+        return this.type.charAt(0).toUpperCase() + this.type.substring(1);
+    }
+}
+
+export class TokenAmount {
+    public constructor(
+        private readonly _value: string = '0.0',
+        public readonly currency: string = '',
+    ) { }
+
+    public get value(): number {
+        return Number.parseFloat(this._value);
+    }
 }

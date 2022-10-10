@@ -67,7 +67,7 @@ func TestHeldAmountApi(t *testing.T) {
 			err := payoutsDB.StorePayStub(ctx, paystub)
 			require.NoError(t, err)
 
-			t.Run("test SatellitePayStubMonthly", func(t *testing.T) {
+			t.Run("SatellitePayStubMonthly", func(t *testing.T) {
 				// should return paystub inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s?id=%s", baseURL, period, satellite.ID().String())
 				res, err := httpGet(ctx, url)
@@ -145,7 +145,7 @@ func TestHeldAmountApi(t *testing.T) {
 			err = payoutsDB.StorePayStub(ctx, paystub2)
 			require.NoError(t, err)
 
-			t.Run("test AllPayStubsMonthly", func(t *testing.T) {
+			t.Run("AllPayStubsMonthly", func(t *testing.T) {
 				// should return 2 paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s", baseURL, period)
 				res, err := httpGet(ctx, url)
@@ -211,7 +211,7 @@ func TestHeldAmountApi(t *testing.T) {
 			err = payoutsDB.StorePayStub(ctx, paystub3)
 			require.NoError(t, err)
 
-			t.Run("test SatellitePayStubPeriod", func(t *testing.T) {
+			t.Run("SatellitePayStubPeriod", func(t *testing.T) {
 				// should return all paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period2, period, satellite.ID().String())
 				res, err := httpGet(ctx, url)
@@ -299,7 +299,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
-			t.Run("test AllPayStubsPeriod", func(t *testing.T) {
+			t.Run("AllPayStubsPeriod", func(t *testing.T) {
 				// should return all paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s/%s", baseURL, period2, period)
 				res, err := httpGet(ctx, url)
@@ -355,7 +355,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
-			t.Run("test HeldbackHistory", func(t *testing.T) {
+			t.Run("HeldbackHistory", func(t *testing.T) {
 				date := time.Now().UTC().AddDate(0, -2, 0).Round(time.Minute)
 				err = reputationDB.Store(context.Background(), reputation.Stats{
 					SatelliteID: satellite.ID(),
@@ -399,7 +399,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, string(expected)+"\n", string(body))
 			})
 
-			t.Run("test Periods", func(t *testing.T) {
+			t.Run("Periods", func(t *testing.T) {
 				url := fmt.Sprintf("%s/periods", baseURL)
 				res, err := httpGet(ctx, url)
 				require.NoError(t, err)

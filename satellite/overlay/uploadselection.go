@@ -5,13 +5,13 @@ package overlay
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
 
@@ -36,54 +36,50 @@ type UploadSelectionCache struct {
 	log             *zap.Logger
 	db              UploadSelectionDB
 	selectionConfig NodeSelectionConfig
-	staleness       time.Duration
 
-	mu          sync.RWMutex
-	lastRefresh time.Time
-	state       *uploadselection.State
+	cache sync2.ReadCache
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
-func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig) *UploadSelectionCache {
-	return &UploadSelectionCache{
+func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig) (*UploadSelectionCache, error) {
+	cache := &UploadSelectionCache{
 		log:             log,
 		db:              db,
-		staleness:       staleness,
 		selectionConfig: config,
 	}
+	return cache, cache.cache.Init(staleness/2, staleness, cache.read)
+}
+
+// Run runs the background task for cache.
+func (cache *UploadSelectionCache) Run(ctx context.Context) (err error) {
+	return cache.cache.Run(ctx)
 }
 
 // Refresh populates the cache with all of the reputableNodes and newNode nodes
 // This method is useful for tests.
 func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = cache.refresh(ctx)
+	_, err = cache.cache.RefreshAndGet(ctx, time.Now())
 	return err
 }
 
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *uploadselection.State, err error) {
+func (cache *UploadSelectionCache) read(ctx context.Context) (_ interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	if cache.state != nil && time.Since(cache.lastRefresh) <= cache.staleness {
-		return cache.state, nil
-	}
 
 	reputableNodes, newNodes, err := cache.db.SelectAllStorageNodesUpload(ctx, cache.selectionConfig)
 	if err != nil {
-		return cache.state, err
+		return nil, Error.Wrap(err)
 	}
 
-	cache.lastRefresh = time.Now().UTC()
-	cache.state = uploadselection.NewState(convSelectedNodesToNodes(reputableNodes), convSelectedNodesToNodes(newNodes))
+	state := uploadselection.NewState(convSelectedNodesToNodes(reputableNodes), convSelectedNodesToNodes(newNodes))
 
 	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
 	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
-	return cache.state, nil
+
+	return state, nil
 }
 
 // GetNodes selects nodes from the cache that will be used to upload a file.
@@ -92,18 +88,11 @@ func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *uploadse
 func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cache.mu.RLock()
-	lastRefresh := cache.lastRefresh
-	state := cache.state
-	cache.mu.RUnlock()
-
-	// if the cache is stale, then refresh it before we get nodes
-	if state == nil || time.Since(lastRefresh) > cache.staleness {
-		state, err = cache.refresh(ctx)
-		if err != nil {
-			return nil, err
-		}
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+	state := stateAny.(*uploadselection.State)
 
 	selected, err := state.Select(ctx, uploadselection.Request{
 		Count:                req.RequestedCount,
@@ -121,17 +110,14 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 }
 
 // Size returns how many reputable nodes and new nodes are in the cache.
-func (cache *UploadSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
-	cache.mu.RLock()
-	state := cache.state
-	cache.mu.RUnlock()
-
-	if state == nil {
-		return 0, 0
+func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount int, newNodeCount int, _ error) {
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return 0, 0, Error.Wrap(err)
 	}
-
+	state := stateAny.(*uploadselection.State)
 	stats := state.Stats()
-	return stats.Reputable, stats.New
+	return stats.Reputable, stats.New, nil
 }
 
 func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {

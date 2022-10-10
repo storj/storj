@@ -9,44 +9,74 @@
         @click="onPress"
     >
         <slot name="icon" />
-        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
+        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
+        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
+import LockIcon from '@/../static/images/common/lockIcon.svg';
+import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
+import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+
 /**
  * Custom button component with label.
  */
 // @vue/component
-@Component
+@Component({
+    components: {
+        CopyIcon,
+        LockIcon,
+        CreditCardIcon,
+        DocumentIcon,
+        TrashIcon,
+    },
+})
 export default class VButton extends Vue {
-    @Prop({default: 'Default'})
+    @Prop({ default: 'Default' })
     private readonly label: string;
-    @Prop({default: 'inherit'})
+    @Prop({ default: 'inherit' })
     private readonly width: string;
-    @Prop({default: 'inherit'})
+    @Prop({ default: 'inherit' })
     private readonly height: string;
-    @Prop({default: '16px'})
+    @Prop({ default: '16px' })
     private readonly fontSize: string;
-    @Prop({default: '6px'})
+    @Prop({ default: '6px' })
     private readonly borderRadius: string;
-    @Prop({default: false})
+    @Prop({ default: 'none' })
+    private readonly icon: string;
+    @Prop({ default: false })
     private readonly isWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
+    private readonly isSolidDelete: boolean;
+    @Prop({ default: false })
     private readonly isTransparent: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isDeletion: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isGreyBlue: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isBlueWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
+    private readonly isWhiteGreen: boolean;
+    @Prop({ default: false })
+    private readonly isGreenWhite: boolean;
+    @Prop({ default: false })
     private isDisabled: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isUppercase: boolean;
-    @Prop({default: () => { return; }})
+    @Prop({ default: () => () => {} })
     private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {
@@ -58,6 +88,8 @@ export default class VButton extends Vue {
 
         if (this.isWhite) return 'container white';
 
+        if (this.isSolidDelete) return 'container solid-red';
+
         if (this.isTransparent) return 'container transparent';
 
         if (this.isDeletion) return 'container red';
@@ -66,18 +98,41 @@ export default class VButton extends Vue {
 
         if (this.isBlueWhite) return 'container blue-white';
 
+        if (this.isWhiteGreen) return 'container white-green';
+
+        if (this.isGreenWhite) return 'container green-white';
+
         return 'container';
     }
 }
 </script>
 
 <style scoped lang="scss">
+    .label {
+        display: flex;
+        align-items: center;
+    }
+
     .transparent {
         background-color: transparent !important;
         border: 1px solid #afb7c1 !important;
 
         .label {
             color: #354049 !important;
+        }
+    }
+
+    .solid-red {
+        background-color: #ba0000 !important;
+        border: 1px solid #ba0000 !important;
+
+        .label {
+            color: #fff !important;
+        }
+
+        &:hover {
+            background-color: #790000 !important;
+            border: 1px solid #790000 !important;
         }
     }
 
@@ -97,6 +152,20 @@ export default class VButton extends Vue {
         .label {
             color: #2683ff !important;
         }
+    }
+
+    .white-green {
+        background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
+        .label {
+            color: #00ac26 !important;
+        }
+    }
+
+    .green-white {
+        background-color: #00ac26 !important;
+        border: 1px solid #00ac26 !important;
     }
 
     .grey-blue {
@@ -131,8 +200,22 @@ export default class VButton extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2683ff;
+        background-color: #0149ff;
         cursor: pointer;
+
+        .trash-icon {
+            margin-right: 5px;
+        }
+
+        .greenCheck {
+            color: #00ac26 !important;
+            margin-right: 5px;
+        }
+
+        .whiteCheck {
+            color: #fff !important;
+            margin-right: 5px;
+        }
 
         .label {
             font-family: 'font_medium', sans-serif;
@@ -151,6 +234,11 @@ export default class VButton extends Vue {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
+
+                :deep(path),
+                :deep(rect) {
+                    stroke: white;
+                }
 
                 .label {
                     color: white !important;

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -21,7 +22,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/console/accountmanagementapikeys"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -65,8 +66,8 @@ type Admin struct {
 		Service *buckets.Service
 	}
 
-	AccountManagementAPIKeys struct {
-		Service *accountmanagementapikeys.Service
+	REST struct {
+		Keys *restkeys.Service
 	}
 }
 
@@ -87,8 +88,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
-	{ // setup account management api keys
-		peer.AccountManagementAPIKeys.Service = accountmanagementapikeys.NewService(db.OIDC().OAuthTokens(), config.AccountManagementAPIKeys)
+	{ // setup rest keys
+		peer.REST.Keys = restkeys.NewService(db.OIDC().OAuthTokens(), config.RESTKeys)
 	}
 
 	{ // setup debug
@@ -149,6 +150,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
 			pc.StorageTBPrice,
@@ -163,6 +166,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 	}
+
 	{ // setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
@@ -173,7 +177,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.AccountManagementAPIKeys.Service, peer.Payments.Accounts, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.Payments.Accounts, config.Console, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,
@@ -190,10 +194,15 @@ func (peer *Admin) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "admin"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

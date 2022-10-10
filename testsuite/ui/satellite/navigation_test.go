@@ -60,9 +60,9 @@ func TestNavigation(t *testing.T) {
 		page.MustElement("[aria-roledescription=project-selection]").MustClick()
 		page.MustElementR("p", "Create new").MustClick()
 		waitVueTick(page)
-		createProjectTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, createProjectTitle, "Create a Project")
-		page.MustNavigateBack()
+		createProjectPromptTitle := page.MustElement("[aria-roledescription=modal-title]").MustText()
+		require.Contains(t, createProjectPromptTitle, "Get more projects\nwhen you upgrade")
+		page.MustElement(".close-cross-container").MustClick()
 
 		// project dashboard route
 		page.MustElementR("p", "Dashboard").MustClick()

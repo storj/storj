@@ -21,9 +21,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
+import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 
@@ -40,9 +40,9 @@ export default class DateRangeSelection extends Vue {
     public readonly since: Date;
     @Prop({ default: new Date() })
     public readonly before: Date;
-    @Prop({ default: () => false })
+    @Prop({ default: () => () => {} })
     public readonly onDatePick: (dateRange: Date[]) => void;
-    @Prop({ default: () => false })
+    @Prop({ default: () => () => {} })
     public readonly toggle: () => void;
     @Prop({ default: false })
     public readonly isOpen: boolean;
@@ -59,7 +59,7 @@ export default class DateRangeSelection extends Vue {
      */
     public get dateRangeLabel(): string {
         if (this.since.getTime() === this.before.getTime()) {
-            return this.since.toLocaleDateString('en-US')
+            return this.since.toLocaleDateString('en-US');
         }
 
         const sinceFormattedString = this.since.toLocaleDateString('en-US');
@@ -71,7 +71,7 @@ export default class DateRangeSelection extends Vue {
      * Returns date range to be displayed in date range picker.
      */
     public get pickerDateRange(): Date[] {
-        return [this.since, this.before]
+        return [this.since, this.before];
     }
 }
 </script>
@@ -106,7 +106,7 @@ export default class DateRangeSelection extends Vue {
             top: calc(100% + 5px);
             right: 0;
             width: 640px;
-            box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+            box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
             border-radius: 8px;
         }
     }
@@ -118,7 +118,7 @@ export default class DateRangeSelection extends Vue {
             color: #0149ff;
         }
 
-        svg path {
+        svg :deep(path) {
             fill: #0149ff;
         }
     }

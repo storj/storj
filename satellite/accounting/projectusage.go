@@ -18,10 +18,11 @@ import (
 
 var mon = monkit.Package()
 
-var (
-	// ErrProjectUsage general error for project usage.
-	ErrProjectUsage = errs.Class("project usage")
-)
+// ErrProjectUsage general error for project usage.
+var ErrProjectUsage = errs.Class("project usage")
+
+// ErrProjectLimitExceeded is used when the configured limits of a project are reached.
+var ErrProjectLimitExceeded = errs.Class("project limit")
 
 // Service is handling project usage related logic.
 //
@@ -59,9 +60,10 @@ func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, lim
 func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var group errgroup.Group
-	var bandwidthGetTotal int64
-	var bandwidthUsage int64
+	var (
+		group          errgroup.Group
+		bandwidthUsage int64
+	)
 
 	group.Go(func() error {
 		var err error
@@ -79,18 +81,16 @@ func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.
 
 				// Get current bandwidth value from database.
 				now := usage.nowFn()
-				bandwidthGetTotal, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+				bandwidthUsage, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
 				if err != nil {
 					return err
 				}
 
 				// Create cache key with database value.
-				err = usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, bandwidthGetTotal, usage.bandwidthCacheTTL, usage.nowFn())
+				_, err = usage.liveAccounting.InsertProjectBandwidthUsage(ctx, projectID, bandwidthUsage, usage.bandwidthCacheTTL, usage.nowFn())
 				if err != nil {
 					return err
 				}
-
-				bandwidthUsage = bandwidthGetTotal
 			}
 		}
 		return err
@@ -118,45 +118,35 @@ type UploadLimit struct {
 }
 
 // ExceedsUploadLimits returns combined checks for storage and segment limits.
-func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UUID, checkSegmentsLimit bool) (limit UploadLimit, err error) {
+// Supply nonzero headroom parameters to check if there is room for a new object.
+func (usage *Service) ExceedsUploadLimits(
+	ctx context.Context, projectID uuid.UUID, storageSizeHeadroom int64, segmentCountHeadroom int64) (limit UploadLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
 	var segmentUsage, storageUsage int64
 
-	if checkSegmentsLimit {
-		group.Go(func() error {
-			var err error
-			limit.SegmentsLimit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
+	group.Go(func() error {
+		var err error
+		limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+		if err != nil {
 			return err
-		})
-		group.Go(func() error {
-			var err error
-			segmentUsage, err = usage.GetProjectSegmentUsage(ctx, projectID)
-			// Verify If the cache key was not found
-			if err != nil && ErrKeyNotFound.Has(err) {
-				segmentGetTotal, err := usage.GetProjectSegments(ctx, projectID)
-				if err != nil {
-					return err
-				}
-
-				// Create cache key with database value.
-				if err := usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, segmentGetTotal, usage.bandwidthCacheTTL); err != nil {
-					return err
-				}
-
-				segmentUsage = segmentGetTotal
-				return nil
-			}
-			return err
-		})
-	}
+		}
+		limit.SegmentsLimit = *limits.Segments
+		limit.StorageLimit = memory.Size(*limits.Usage)
+		return nil
+	})
 
 	group.Go(func() error {
 		var err error
-		limit.StorageLimit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
+		segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+		// Verify If the cache key was not found
+		if err != nil && ErrKeyNotFound.Has(err) {
+			return nil
+		}
 		return err
 	})
+
 	group.Go(func() error {
 		var err error
 		storageUsage, err = usage.GetProjectStorageTotals(ctx, projectID)
@@ -168,15 +158,37 @@ func (usage *Service) ExceedsUploadLimits(ctx context.Context, projectID uuid.UU
 		return UploadLimit{}, ErrProjectUsage.Wrap(err)
 	}
 
-	if segmentUsage >= limit.SegmentsLimit {
-		limit.ExceedsSegments = true
-	}
-
-	if storageUsage >= limit.StorageLimit.Int64() {
-		limit.ExceedsStorage = true
-	}
+	limit.ExceedsSegments = (segmentUsage + segmentCountHeadroom) > limit.SegmentsLimit
+	limit.ExceedsStorage = (storageUsage + storageSizeHeadroom) > limit.StorageLimit.Int64()
 
 	return limit, nil
+}
+
+// AddProjectUsageUpToLimit increases segment and storage usage up to the projects limit.
+// If the limit is exceeded, neither usage is increased and accounting.ErrProjectLimitExceeded is returned.
+func (usage *Service) AddProjectUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return err
+	}
+
+	err = usage.liveAccounting.AddProjectStorageUsageUpToLimit(ctx, projectID, storage, *limits.Usage)
+	if err != nil {
+		return err
+	}
+
+	err = usage.liveAccounting.AddProjectSegmentUsageUpToLimit(ctx, projectID, segments, *limits.Segments)
+	if ErrProjectLimitExceeded.Has(err) {
+		// roll back storage increase
+		err = usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, -1*storage)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
 }
 
 // GetProjectStorageTotals returns total amount of storage used by project.
@@ -214,34 +226,21 @@ func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UU
 	return total, ErrProjectUsage.Wrap(err)
 }
 
-// GetProjectSegments returns project allocated segment usage.
-func (usage *Service) GetProjectSegments(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-
-	total, err := usage.metabaseDB.GetProjectSegmentCount(ctx, metabase.GetProjectSegmentCount{
-		ProjectID: projectID,
-
-		AsOfSystemInterval: usage.asOfSystemInterval,
-	})
-	return total, ErrProjectUsage.Wrap(err)
-}
-
 // GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
+	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return 0, ErrProjectUsage.Wrap(err)
+	}
+
+	return memory.Size(*limits.Usage), nil
 }
 
 // GetProjectBandwidthLimit returns current project bandwidth limit.
 func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
-}
-
-// GetProjectSegmentLimit returns current project segment limit.
-func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.
@@ -264,7 +263,7 @@ func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uu
 // UpdateProjectBandwidthUsage increments the bandwidth cache key for a specific project.
 //
 // It can return one of the following errors returned by
-// storj.io/storj/satellite/accounting.Cache.UpdatProjectBandwidthUsage, wrapped
+// storj.io/storj/satellite/accounting.Cache.UpdateProjectBandwidthUsage, wrapped
 // by ErrProjectUsage.
 func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
 	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
@@ -283,8 +282,7 @@ func (usage *Service) GetProjectSegmentUsage(ctx context.Context, projectID uuid
 // It can return one of the following errors returned by
 // storj.io/storj/satellite/accounting.Cache.UpdatProjectSegmentUsage.
 func (usage *Service) UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
-	// TODO rename bandwidthCacheTTL to cacheTTL
-	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment, usage.bandwidthCacheTTL)
+	return usage.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given

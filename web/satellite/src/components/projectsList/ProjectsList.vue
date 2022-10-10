@@ -13,35 +13,41 @@
                 :is-disabled="areProjectsFetching"
             />
         </div>
-        <VLoader v-if="areProjectsFetching" width="100px" height="100px" class="projects-loader" />
-        <div v-if="projectsPage.projects.length && !areProjectsFetching" class="projects-list-items">
-            <SortProjectsListHeader />
-            <div class="projects-list-items__content">
-                <VList
-                    :data-set="projectsPage.projects"
-                    :item-component="itemComponent"
-                    :on-item-click="onProjectSelected"
+        <VLoader
+            v-if="areProjectsFetching"
+            width="100px"
+            height="100px"
+            class="projects-loader"
+        />
+        <v-table
+            v-if="projectsPage.projects.length && !areProjectsFetching"
+            class="projects-list-items"
+            :limit="projectsPage.limit"
+            :total-page-count="projectsPage.pageCount"
+            :items="projectsPage.projects"
+            items-label="projects"
+            :on-page-click-callback="onPageClick"
+            :total-items-count="projectsPage.totalCount"
+        >
+            <template #head>
+                <th class="sort-header-container__name-item align-left">Name</th>
+                <th class="ort-header-container__users-item align-left"># Users</th>
+                <th class="sort-header-container__date-item align-left">Date Added</th>
+            </template>
+            <template #body>
+                <ProjectsListItem
+                    v-for="(project, key) in projectsPage.projects"
+                    :key="key"
+                    :item-data="project"
+                    :on-click="onProjectSelected"
                 />
-            </div>
-            <div v-if="projectsPage.pageCount > 1" class="projects-list-items__pagination-area">
-                <VPagination
-                    :total-page-count="projectsPage.pageCount"
-                    :on-page-click-callback="onPageClick"
-                />
-            </div>
-        </div>
+            </template>
+        </v-table>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
-import VButton from '@/components/common/VButton.vue';
-import VList from '@/components/common/VList.vue';
-import VLoader from '@/components/common/VLoader.vue';
-import VPagination from '@/components/common/VPagination.vue';
-import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
-import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -51,6 +57,15 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { User } from '@/types/users';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
+import VTable from '@/components/common/VTable.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
 
 const {
     FETCH_OWNED,
@@ -59,18 +74,20 @@ const {
 // @vue/component
 @Component({
     components: {
-        SortProjectsListHeader,
+        ProjectsListItem,
         VButton,
-        VList,
-        VPagination,
         VLoader,
+        VTable,
     },
 })
 export default class Projects extends Vue {
     private currentPageNumber = 1;
     private FIRST_PAGE = 1;
+    private isLoading = false;
 
     public areProjectsFetching = true;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render where list of existing owned projects is fetched.
@@ -102,7 +119,17 @@ export default class Projects extends Vue {
      * Redirects to create project page.
      */
     public onCreateClick(): void {
-        this.$router.push(RouteConfig.CreateProject.path);
+        this.analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
+
+        const user: User = this.$store.getters.user;
+        const ownProjectsCount: number = this.$store.getters.projectsCount;
+
+        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+        } else {
+            this.analytics.pageVisit(RouteConfig.CreateProject.path);
+            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+        }
     }
 
     /**
@@ -110,6 +137,10 @@ export default class Projects extends Vue {
      * @param project
      */
     public async onProjectSelected(project: Project): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         const projectID = project.id;
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
@@ -122,16 +153,13 @@ export default class Projects extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
 
-            if (this.isNewNavStructure) {
-                await this.$router.push(RouteConfig.EditProjectDetails.path);
-
-                return;
-            }
-
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
+            this.analytics.pageVisit(RouteConfig.EditProjectDetails.path);
+            await this.$router.push(RouteConfig.EditProjectDetails.path);
         } catch (error) {
             await this.$notify.error(`Unable to select project. ${error.message}`);
         }
+
+        this.isLoading = false;
     }
 
     /**
@@ -148,18 +176,12 @@ export default class Projects extends Vue {
         return this.$store.state.projectsModule.page;
     }
 
-    /**
-     * Indicates if new navigation structure is used.
-     */
-    public get isNewNavStructure(): boolean {
-        return this.$store.state.appStateModule.isNewNavStructure;
-    }
 }
 </script>
 
 <style lang="scss">
     .projects-list {
-        padding: 40px 30px 55px 30px;
+        padding: 40px 30px 55px;
         height: calc(100% - 95px);
         font-family: 'font_regular', sans-serif;
 
@@ -179,16 +201,7 @@ export default class Projects extends Vue {
         }
 
         .projects-list-items {
-
-            &__content {
-                background-color: #fff;
-                display: flex;
-                flex-direction: column;
-                width: calc(100% - 32px);
-                justify-content: flex-start;
-                padding: 16px;
-                border-radius: 0 0 8px 8px;
-            }
+            margin-top: 40px;
         }
     }
 

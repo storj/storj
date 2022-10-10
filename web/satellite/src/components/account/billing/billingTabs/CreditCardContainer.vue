@@ -1,0 +1,301 @@
+// Copyright (C) 2022 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <div class="payment-methods-container__card-container">
+        <div class="payment-methods-container__card-container__info-area__card-logo">
+            <component :is="cardIcon" />
+        </div>
+        <div class="payment-methods-container__card-container__info-area__card-text">
+            Card Number
+        </div>
+        <div class="payment-methods-container__card-container__info-area__expiration-text">
+            Exp. Date
+        </div>
+        
+        <div class="payment-methods-container__card-container__info-area__info-container">
+            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+            {{ creditCard.last4 }}
+        </div>
+        <div class="payment-methods-container__card-container__info-area__expire-container">
+            {{ creditCard.expMonth }}/{{ creditCard.expYear }}
+        </div>
+        <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-area">
+            <div class="payment-methods-container__card-container__default-text">Default</div> 
+        </div>
+        <div class="payment-methods-container__card-container__function-buttons">
+            <div class="remove-button" @click="remove">
+                <div class="remove-button__text">Remove</div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script lang="ts">
+import Vue, { VueConstructor } from 'vue';
+import { Component, Prop } from 'vue-property-decorator';
+
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
+import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
+
+import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
+import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
+import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
+import DiscoverIcon from '@/../static/images/payments/cardIcons/discover.svg';
+import JCBIcon from '@/../static/images/payments/cardIcons/smalljcb.svg';
+import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercard.svg';
+import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
+import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
+
+const {
+    TOGGLE_CARD_SELECTION,
+} = PAYMENTS_ACTIONS;
+
+// @vue/component
+@Component({
+    components: {
+        CardDialog,
+        JCBIcon,
+        DinersIcon,
+        MastercardIcon,
+        AmericanExpressIcon,
+        DiscoverIcon,
+        UnionPayIcon,
+        VisaIcon,
+        DefaultIcon,
+    },
+})
+export default class CardComponent extends Vue {
+    @Prop({ default: () => new CreditCard() })
+    private readonly creditCard: CreditCard;
+    public isEditPaymentMethodsModalOpen = false;
+
+    public edit(): void {
+        this.$emit('edit', this.creditCard);
+    }
+
+    public remove(): void {
+        this.$emit('remove', this.creditCard);
+    }
+    public get cardIcon(): VueConstructor<Vue> {
+        switch (this.creditCard.brand) {
+        case 'jcb':
+            return JCBIcon;
+        case 'diners':
+            return DinersIcon;
+        case 'mastercard':
+            return MastercardIcon;
+        case 'amex':
+            return AmericanExpressIcon;
+        case 'discover':
+            return DiscoverIcon;
+        case 'unionpay':
+            return UnionPayIcon;
+        case 'visa':
+            return VisaIcon;
+        default:
+            return DefaultIcon;
+        }
+    }
+
+    /**
+     * Toggle card selection dialog.
+     */
+    public toggleSelection(): void {
+        this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
+    }
+}
+</script>
+
+<style scoped lang="scss">
+.medium {
+    font-family: 'font_regular', sans-serif;
+    font-size: 16px;
+    line-height: 21px;
+    color: #61666b;
+    margin-right: 5px;
+}
+
+.remove-button:hover > .remove-button__text {
+    background-color: #2683ff;
+    color: white !important;
+}
+
+.remove-button {
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    border: 1px solid #d8dee3;
+    box-shadow: 0 0 3px rgb(0 0 0 / 8%);
+    border-radius: 6px;
+    width: 70px;
+    height: 30px;
+    font-size: 13px;
+    line-height: 23px;
+    margin: 0 7px 0 0;
+    white-space: nowrap;
+    color: #354049;
+    align-self: end;
+
+    &:hover {
+        background-color: #2683ff;
+        color: white;
+    }
+
+    &__text {
+        font-family: 'font_medium', sans-serif;
+        line-height: 23px;
+        white-space: nowrap;
+        color: #354049 !important;
+        margin: 4px 0 0 9px;
+    }
+}
+
+.edit-button {
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    width: 70px;
+    height: 30px;
+    background: white;
+    border: 1px solid #d8dee3;
+    box-shadow: 0 0 3px rgb(0 0 0 / 8%);
+    border-radius: 6px;
+    font-family: 'font_medium', sans-serif;
+    line-height: 23px;
+    margin: 0;
+    white-space: nowrap;
+    color: #354049 !important;
+
+    &__text {
+        font-family: 'font_medium', sans-serif;
+        line-height: 23px;
+        white-space: nowrap;
+        color: #354049 !important;
+        font-size: 13px;
+        margin: 4px 0 0 22px;
+    }
+}
+
+.payment-methods-container__card-container {
+    justify-content: space-between;
+    border-radius: 6px;
+    display: grid;
+    grid-template-columns: 4fr 2fr;
+    grid-template-rows: 1fr 0fr 1fr 1fr;
+    height: 100%;
+
+    &__function-buttons {
+        grid-column: 1;
+        grid-row: 4;
+        display: flex;
+    }
+
+    &__info-area {
+        width: 75%;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+
+        &__card-logo {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        &__card-text {
+            grid-column: 1;
+            grid-row: 2;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 18px;
+            color: #56606d;
+        }
+
+        &__expiration-text {
+            grid-column: 2;
+            grid-row: 2;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 18px;
+            color: #56606d;
+        }
+
+        &__last-four {
+            grid-row: 3;
+            grid-column: 1;
+        }
+
+        &__info-container {
+            grid-row: 3;
+            grid-column: 1;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 24px;
+            color: #000;
+
+            &__image {
+                width: 50%;
+            }
+        }
+
+        &__expire-container {
+            grid-row: 3;
+            grid-column: 2;
+            font-family: sans-serif;
+            font-style: normal;
+            font-weight: 700;
+            font-size: 16px;
+            line-height: 24px;
+            color: #000;
+        }
+    }
+
+    &__default-area {
+        grid-row: 1;
+        grid-column: 2;
+        width: 58px;
+        height: 24px;
+        background: #e6edf7;
+        border: 1px solid #d7e8ff;
+        border-radius: 4px;
+        justify-self: end;
+    }
+
+    &__default-text {
+        font-family: sans-serif;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 20px;
+        color: #003dc1;
+        margin-left: 8px;
+        margin-top: 3px;
+    }
+
+    &__dots-container {
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 10px;
+        cursor: pointer;
+        position: relative;
+    }
+}
+
+.discover-svg-path {
+    max-width: 80px;
+}
+</style>

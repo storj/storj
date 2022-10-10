@@ -76,7 +76,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			}
 
 			if tt.disqualified {
-				err = cache.DisqualifyNode(ctx, tt.nodeID)
+				err = cache.DisqualifyNode(ctx, tt.nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 				require.NoError(t, err)
 			}
 			if tt.offline {

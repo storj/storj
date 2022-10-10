@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -37,7 +38,7 @@ func (c *cmdAccessInspect) Setup(params clingy.Parameters) {
 }
 
 // Execute runs the command.
-func (c *cmdAccessInspect) Execute(ctx clingy.Context) error {
+func (c *cmdAccessInspect) Execute(ctx context.Context) error {
 	toOpen := ""
 	if c.access != nil {
 		toOpen = *c.access
@@ -96,7 +97,7 @@ func (c *cmdAccessInspect) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(ctx, string(bs))
+	fmt.Fprintln(clingy.Stdout(ctx), string(bs))
 
 	return nil
 }

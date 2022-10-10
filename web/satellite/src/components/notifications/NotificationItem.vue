@@ -30,11 +30,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CloseIcon from '@/../static/images/notifications/close.svg';
-
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from "@/utils/meta";
+import { MetaUtils } from '@/utils/meta';
+
+import CloseIcon from '@/../static/images/notifications/close.svg';
 
 // @vue/component
 @Component({
@@ -43,7 +43,7 @@ import { MetaUtils } from "@/utils/meta";
     },
 })
 export default class NotificationItem extends Vue {
-    @Prop({default: () => new DelayedNotification(() => { return; }, '', '')})
+    @Prop({ default: () => new DelayedNotification(() => { return; }, '', '') })
     private notification: DelayedNotification;
 
     public readonly requestUrl = MetaUtils.getMetaContent('general-request-url');

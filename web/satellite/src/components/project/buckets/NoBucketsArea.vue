@@ -25,21 +25,26 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VButton from "@/components/common/VButton.vue";
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
     components: {
         VButton,
-    }
+    },
 })
 export default class NoBucketArea extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Navigates user to welcome screen.
      */
     public navigateToWelcomeScreen(): void {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
     }
 }
@@ -70,7 +75,8 @@ export default class NoBucketArea extends Vue {
             font-size: 18px;
             line-height: 26px;
             color: #354049;
-            margin: 15px 0 30px 0;
+            margin: 15px 15px 30px;
+            text-align: center;
         }
 
         &__second-button {

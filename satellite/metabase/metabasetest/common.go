@@ -43,7 +43,7 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	sortRawCopies(step.Copies)
 
 	diff := cmp.Diff(metabase.RawState(step), *state,
-		cmpopts.EquateApproxTime(5*time.Second),
+		DefaultTimeDiff(),
 		cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
@@ -81,7 +81,7 @@ func sortDeletedSegments(segments []metabase.DeletedSegmentInfo) {
 	})
 }
 
-func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
+func checkError(t require.TestingT, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)
 	}
@@ -91,4 +91,9 @@ func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)
 	}
+}
+
+// DefaultTimeDiff is the central place to adjust test sql "timeout" (accepted diff between start and end of the test).
+func DefaultTimeDiff() cmp.Option {
+	return cmpopts.EquateApproxTime(20 * time.Second)
 }

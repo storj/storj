@@ -45,6 +45,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		SELECT
 			position,
 			created_at,
+			expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
@@ -62,7 +63,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.Position,
-				&segment.CreatedAt,
+				&segment.CreatedAt, &segment.ExpiresAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 				&segment.EncryptedETag,

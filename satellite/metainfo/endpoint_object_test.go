@@ -4,16 +4,19 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"sort"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
@@ -38,7 +41,13 @@ import (
 	"storj.io/uplink/private/testuplink"
 )
 
-func TestObject_NoStorageNodes(t *testing.T) {
+func assertRPCStatusCode(t *testing.T, actualError error, expectedStatusCode rpcstatus.StatusCode) {
+	statusCode := rpcstatus.Code(actualError)
+	require.NotEqual(t, rpcstatus.Unknown, statusCode, "expected rpcstatus error, got \"%v\"", actualError)
+	require.Equal(t, expectedStatusCode, statusCode, "wrong %T, got %v", statusCode, actualError)
+}
+
+func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -46,6 +55,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		satellite := planet.Satellites[0]
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
@@ -220,7 +230,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.Error(t, err)
 			assertInvalidArgument(t, err, true)
@@ -235,7 +245,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
 		})
@@ -263,7 +273,7 @@ func TestObject_NoStorageNodes(t *testing.T) {
 			require.NoError(t, err)
 
 			testEncryptedMetadata := testrand.BytesInt(64)
-			testEncryptedMetadataEncryptedKey := testrand.BytesInt(32)
+			testEncryptedMetadataEncryptedKey := randomEncryptedKey
 			testEncryptedMetadataNonce := testrand.Nonce()
 
 			// update the object metadata
@@ -471,7 +481,12 @@ func TestObject_NoStorageNodes(t *testing.T) {
 			// pending non-existent objects return an RPC error
 			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 			streamUUID := testrand.UUID()
-			satStreamID := &internalpb.StreamID{CreationDate: time.Now(), StreamId: streamUUID[:]}
+			satStreamID := &internalpb.StreamID{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: []byte("bad path"),
+				StreamId:           streamUUID[:],
+				CreationDate:       time.Now(),
+			}
 			signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
 			require.NoError(t, err)
 			encodedStreamID, err := pb.Marshal(signedStreamID)
@@ -486,9 +501,219 @@ func TestObject_NoStorageNodes(t *testing.T) {
 			})
 			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
 		})
+
+		t.Run("get object", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object", testrand.Bytes(256))
+			require.NoError(t, err)
+
+			objects, err := satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			committedObject := objects[0]
+
+			pendingObject, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  committedObject.ProjectID,
+					BucketName: committedObject.BucketName,
+					ObjectKey:  committedObject.ObjectKey,
+					StreamID:   committedObject.StreamID,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
+
+			getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:        []byte("testbucket"),
+				EncryptedPath: []byte(committedObject.ObjectKey),
+				Version:       int32(committedObject.Version),
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, committedObject.BucketName, getObjectResponse.Object.Bucket)
+			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.Version, getObjectResponse.Object.Version)
+		})
+
+		t.Run("download object", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object", testrand.Bytes(256))
+			require.NoError(t, err)
+
+			objects, err := satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			committedObject := objects[0]
+
+			pendingObject, err := satellite.API.Metainfo.Metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  committedObject.ProjectID,
+					BucketName: committedObject.BucketName,
+					ObjectKey:  committedObject.ObjectKey,
+					StreamID:   committedObject.StreamID,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
+
+			downloadObjectResponse, err := satellite.API.Metainfo.Endpoint.DownloadObject(ctx, &pb.ObjectDownloadRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+			})
+			require.NoError(t, err)
+			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
+			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.Version, downloadObjectResponse.Object.Version)
+		})
+
+		t.Run("begin expired object", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+			require.NoError(t, err)
+
+			params := metaclient.BeginObjectParams{
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte("encrypted-path"),
+				Redundancy: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      256,
+					RequiredShares: 1,
+					RepairShares:   1,
+					OptimalShares:  3,
+					TotalShares:    4,
+				},
+				EncryptionParameters: storj.EncryptionParameters{
+					BlockSize:   256,
+					CipherSuite: storj.EncNull,
+				},
+				ExpiresAt: time.Now().Add(-24 * time.Hour),
+			}
+
+			_, err = metainfoClient.BeginObject(ctx, params)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "Invalid expiration time")
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
+
 	})
+
 }
 
+// TODO remove when listing query tests feature flag is removed.
+func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(testplanet.MaxObjectKeyLength(1024), func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.TestListingQuery = true
+			}),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		bucketName := "testbucket"
+		deleteBucket := func() error {
+			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			return err
+		}
+
+		t.Run("list service with listing query test", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			items := []struct {
+				Key   string
+				Value []byte
+			}{
+				{Key: "sample.😶", Value: []byte{1}},
+				{Key: "müsic", Value: []byte{2}},
+				{Key: "müsic/söng1.mp3", Value: []byte{3}},
+				{Key: "müsic/söng2.mp3", Value: []byte{4}},
+				{Key: "müsic/album/söng3.mp3", Value: []byte{5}},
+				{Key: "müsic/söng4.mp3", Value: []byte{6}},
+				{Key: "ビデオ/movie.mkv", Value: []byte{7}},
+			}
+
+			for _, item := range items {
+				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, item.Key, item.Value)
+				assert.NoError(t, err)
+			}
+
+			project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			objects := project.ListObjects(ctx, "testbucket", &uplink.ListObjectsOptions{
+				Recursive: true,
+			})
+
+			listItems := make([]*uplink.Object, 0)
+			for objects.Next() {
+				listItems = append(listItems, objects.Item())
+			}
+			require.NoError(t, objects.Err())
+
+			expected := []storj.Object{
+				{Path: "müsic"},
+				{Path: "müsic/album/söng3.mp3"},
+				{Path: "müsic/söng1.mp3"},
+				{Path: "müsic/söng2.mp3"},
+				{Path: "müsic/söng4.mp3"},
+				{Path: "sample.😶"},
+				{Path: "ビデオ/movie.mkv"},
+			}
+
+			require.Equal(t, len(expected), len(listItems))
+			sort.Slice(listItems, func(i, k int) bool {
+				return listItems[i].Key < listItems[k].Key
+			})
+			for i, item := range expected {
+				require.Equal(t, item.Path, listItems[i].Key)
+				require.Equal(t, item.IsPrefix, listItems[i].IsPrefix)
+			}
+
+			objects = project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{
+				Recursive: false,
+			})
+
+			listItems = make([]*uplink.Object, 0)
+			for objects.Next() {
+				listItems = append(listItems, objects.Item())
+			}
+			require.NoError(t, objects.Err())
+
+			expected = []storj.Object{
+				{Path: "müsic"},
+				{Path: "müsic/", IsPrefix: true},
+				{Path: "sample.😶"},
+				{Path: "ビデオ/", IsPrefix: true},
+			}
+
+			require.Equal(t, len(expected), len(listItems))
+			sort.Slice(listItems, func(i, k int) bool {
+				return listItems[i].Key < listItems[k].Key
+			})
+			for i, item := range expected {
+				t.Log(item.Path, listItems[i].Key)
+				require.Equal(t, item.Path, listItems[i].Key)
+				require.Equal(t, item.IsPrefix, listItems[i].IsPrefix)
+			}
+		})
+
+	})
+}
 func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -610,7 +835,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				StreamID:                      beginObjectResponse.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 			require.NoError(t, err)
 
@@ -661,6 +886,99 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			}
 		})
 
+		t.Run("get object IP with same location committed and pending status", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+			uplnk := planet.Uplinks[0]
+			sat := planet.Satellites[0]
+
+			require.NoError(t, uplnk.Upload(ctx, sat, bucketName, "jones", testrand.Bytes(20*memory.KB)))
+
+			ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
+			require.NoError(t, err)
+			require.True(t, len(ips) > 0)
+
+			// verify it's a real IP with valid host and port
+			for _, ip := range ips {
+				host, port, err := net.SplitHostPort(string(ip))
+				require.NoError(t, err)
+				netIP := net.ParseIP(host)
+				require.NotNil(t, netIP)
+				_, err = strconv.Atoi(port)
+				require.NoError(t, err)
+			}
+
+			objects, err := sat.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			committedObject := objects[0]
+
+			pendingObject, err := sat.Metabase.DB.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  committedObject.ProjectID,
+					BucketName: committedObject.BucketName,
+					ObjectKey:  committedObject.ObjectKey,
+					StreamID:   committedObject.StreamID,
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, committedObject.Version+1, pendingObject.Version)
+
+			newIps, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
+			require.NoError(t, err)
+
+			sort.Slice(ips, func(i, j int) bool {
+				return bytes.Compare(ips[i], ips[j]) < 0
+			})
+			sort.Slice(newIps, func(i, j int) bool {
+				return bytes.Compare(newIps[i], newIps[j]) < 0
+			})
+			require.Equal(t, ips, newIps)
+		})
+
+		t.Run("get object IP with version != 1", func(t *testing.T) {
+			defer ctx.Check(deleteBucket(bucketName))
+
+			access := planet.Uplinks[0].Access[planet.Satellites[0].ID()]
+			uplnk := planet.Uplinks[0]
+			sat := planet.Satellites[0]
+
+			require.NoError(t, uplnk.Upload(ctx, sat, bucketName, "jones", testrand.Bytes(20*memory.KB)))
+
+			objects, err := sat.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			committedObject := objects[0]
+			randomVersion := metabase.Version(2 + testrand.Intn(9))
+
+			// atm there's no better way to change object's version
+			res, err := planet.Satellites[0].Metabase.DB.UnderlyingTagSQL().Exec(ctx,
+				"UPDATE objects SET version = $1 WHERE project_id = $2 AND bucket_name = $3 AND object_key = $4 AND stream_id = $5",
+				randomVersion, committedObject.ProjectID, committedObject.BucketName, committedObject.ObjectKey, committedObject.StreamID,
+			)
+			require.NoError(t, err)
+
+			affected, err := res.RowsAffected()
+			require.NoError(t, err)
+			require.EqualValues(t, 1, affected)
+
+			ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
+			require.NoError(t, err)
+			require.True(t, len(ips) > 0)
+
+			// verify it's a real IP with valid host and port
+			for _, ip := range ips {
+				host, port, err := net.SplitHostPort(string(ip))
+				require.NoError(t, err)
+				netIP := net.ParseIP(host)
+				require.NotNil(t, netIP)
+				_, err = strconv.Atoi(port)
+				require.NoError(t, err)
+			}
+		})
+
 		t.Run("multipart object download rejection", func(t *testing.T) {
 			defer ctx.Check(deleteBucket("pip-first"))
 			defer ctx.Check(deleteBucket("pip-second"))
@@ -672,6 +990,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 			require.NoError(t, err)
+			defer ctx.Check(project.Close)
 
 			_, err = project.EnsureBucket(ctx, "pip-second")
 			require.NoError(t, err)
@@ -913,146 +1232,113 @@ func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, buckets *buck
 }
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
-	bucketName := "a-bucket"
-	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
+	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket, key, data)
 		require.NoError(t, err)
 	}
-	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
 
-		for _, item := range items {
-			_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, item.ObjectKey)
-			require.NoError(t, err)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
+		_, err := planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucket, metabase.ObjectKey(encryptedKey))
 		require.NoError(t, err)
-		require.Len(t, items, 0)
 	}
-	testDeleteObject(t, createObject, deleteAllObjects)
+	testDeleteObject(t, createObject, deleteObject)
 }
 
 func TestEndpoint_DeletePendingObject(t *testing.T) {
-	bucketName := "a-bucket"
-	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
+	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
+		defer func() { require.NoError(t, project.Close()) }()
 
-		_, err = project.EnsureBucket(ctx, bucketName)
+		_, err = project.EnsureBucket(ctx, bucket)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
+		upload, err := project.UploadPart(ctx, bucket, key, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
 		_, err = upload.Write(data)
 		require.NoError(t, err, "failed to put object part")
 		require.NoError(t, upload.Commit(), "failed to put object part")
 	}
-	deleteAllObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
 
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
-				metabase.ObjectStream{
-					ProjectID:  projectID,
-					BucketName: bucketName,
-					ObjectKey:  item.ObjectKey,
-					Version:    metabase.DefaultVersion,
-					StreamID:   item.StreamID,
-				})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
+			metabase.ObjectStream{
+				ProjectID:  projectID,
+				BucketName: bucket,
+				ObjectKey:  metabase.ObjectKey(encryptedKey),
+				Version:    metabase.DefaultVersion,
+				StreamID:   streamID,
+			})
 		require.NoError(t, err)
-		require.Len(t, items, 0)
+		require.Len(t, deletedObjects, 1)
 	}
-	testDeleteObject(t, createObject, deleteAllObjects)
+	testDeleteObject(t, createPendingObject, deletePendingObject)
 }
 
 func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
-	bucketName := "a-bucket"
-	createCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
+	createCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket, key, data)
 		require.NoError(t, err)
 	}
-	deleteAllCommittedObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deleteCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllCommittedObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
 
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				ObjectKey:  item.ObjectKey,
-			})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			ObjectKey:  metabase.ObjectKey(encryptedKey),
+		})
 		require.NoError(t, err)
-		require.Len(t, items, 0)
+		require.Len(t, deletedObjects, 1)
+
 	}
-	testDeleteObject(t, createCommittedObject, deleteAllCommittedObjects)
+	testDeleteObject(t, createCommittedObject, deleteCommittedObject)
 
-	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
+	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
+		defer func() { require.NoError(t, project.Close()) }()
 
-		_, err = project.EnsureBucket(ctx, bucketName)
+		_, err = project.EnsureBucket(ctx, bucket)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucket, key, &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
+		upload, err := project.UploadPart(ctx, bucket, key, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
 		_, err = upload.Write(data)
 		require.NoError(t, err, "failed to start multipart upload")
 		require.NoError(t, upload.Commit(), "failed to start multipart upload")
 	}
 
-	deleteAllPendingObjects := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID) {
 		projectID := planet.Uplinks[0].Projects[0].ID
-		items, err := planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
-		require.NoError(t, err)
-		require.GreaterOrEqual(t, len(items), 1)
 
-		for _, item := range items {
-			deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				ObjectKey:  item.ObjectKey,
-			})
-			require.NoError(t, err)
-			require.Len(t, deletedObjects, 1)
-		}
-
-		items, err = planet.Satellites[0].Metabase.DB.TestingAllPendingObjects(ctx, projectID, bucketName)
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			ObjectKey:  metabase.ObjectKey(encryptedKey),
+		})
 		require.NoError(t, err)
-		require.Len(t, items, 0)
+		require.Len(t, deletedObjects, 1)
 	}
 
-	testDeleteObject(t, createPendingObject, deleteAllPendingObjects)
+	testDeleteObject(t, createPendingObject, deletePendingObject)
 }
 
-func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet,
-	data []byte), deleteAllObjects func(ctx context.Context, t *testing.T, planet *testplanet.Planet)) {
+func testDeleteObject(t *testing.T,
+	createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, key string, data []byte),
+	deleteObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet, bucket, encryptedKey string, streamID uuid.UUID),
+) {
+	bucketName := "deleteobjects"
 	t.Run("all nodes up", func(t *testing.T) {
 		t.Parallel()
 
@@ -1085,7 +1371,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 				tc := tc
 				t.Run(tc.caseDescription, func(t *testing.T) {
 
-					createObject(ctx, t, planet, tc.objData)
+					createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
 
 					// calculate the SNs total used space after data upload
 					var totalUsedSpace int64
@@ -1095,7 +1381,11 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 						totalUsedSpace += piecesTotal
 					}
 
-					deleteAllObjects(ctx, t, planet)
+					objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+					require.NoError(t, err)
+					for _, object := range objects {
+						deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
+					}
 
 					planet.WaitForStorageNodeDeleters(ctx)
 
@@ -1145,7 +1435,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 			numToShutdown := 2
 
 			for _, tc := range testCases {
-				createObject(ctx, t, planet, tc.objData)
+				createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
 			}
 
 			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
@@ -1161,7 +1451,11 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 				require.NoError(t, planet.StopPeer(planet.StorageNodes[i]))
 			}
 
-			deleteAllObjects(ctx, t, planet)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, object := range objects {
+				deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
+			}
 
 			planet.WaitForStorageNodeDeleters(ctx)
 
@@ -1204,7 +1498,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 			},
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			for _, tc := range testCases {
-				createObject(ctx, t, planet, tc.objData)
+				createObject(ctx, t, planet, bucketName, tc.caseDescription, tc.objData)
 			}
 
 			// calculate the SNs total used space after data upload
@@ -1220,7 +1514,11 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 				require.NoError(t, planet.StopPeer(sn))
 			}
 
-			deleteAllObjects(ctx, t, planet)
+			objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, object := range objects {
+				deleteObject(ctx, t, planet, bucketName, string(object.ObjectKey), object.StreamID)
+			}
 
 			// Check that storage nodes that were offline when deleting the pieces
 			// they are still holding data
@@ -1238,7 +1536,7 @@ func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *te
 
 func TestEndpoint_CopyObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		satelliteSys := planet.Satellites[0]
@@ -1280,6 +1578,38 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			Position:          beginResp.SegmentKeys[0].Position,
 			EncryptedKeyNonce: testrand.Nonce(),
 			EncryptedKey:      []byte("newencryptedkey"),
+		}
+
+		{
+			// metadata too large
+			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     getResp.Object.StreamId,
+				NewBucket:                    []byte("testbucket"),
+				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize + 1),
+				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
+				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
+				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+			// invalid encrypted metadata key
+			_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     getResp.Object.StreamId,
+				NewBucket:                    []byte("testbucket"),
+				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				NewEncryptedMetadata:         testrand.Bytes(satelliteSys.Config.Metainfo.MaxMetadataSize),
+				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
+				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
+				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		}
 
 		_, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
@@ -1329,5 +1659,412 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, originalSegment.EncryptedInlineData, copiedSegment.EncryptedInlineData)
+
+		{ // test copy respects project storage size limit
+			// set storage limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
+			require.NoError(t, err)
+
+			// test object below the limit when copied
+			err = planet.Uplinks[1].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[1].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
+			})
+			require.NoError(t, err)
+			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			require.NoError(t, err)
+
+			// set storage limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[2].Projects[0].ID, 1000)
+			require.NoError(t, err)
+
+			// test object exceeding the limit when copied
+			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(400))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[2].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
+			})
+			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			assert.EqualError(t, err, "Exceeded Storage Limit")
+
+			// metabaseObjects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			// require.NoError(t, err)
+			// metabaseObj := metabaseObjects[0]
+
+			// randomEncKey := testrand.Key()
+
+			// somehow triggers error "proto: can't skip unknown wire type 7" in endpoint.unmarshalSatStreamID
+
+			// _, err = satelliteSys.API.Metainfo.Endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+			//	Header: &pb.RequestHeader{
+			//		ApiKey: planet.Uplinks[2].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+			//	},
+			//	StreamId:                     metabaseObj.ObjectStream.StreamID.Bytes(),
+			//	NewBucket:                    []byte("testbucket"),
+			//	NewEncryptedObjectKey:        []byte("newencryptedobjectkey"),
+			//	NewEncryptedMetadata:         testrand.Bytes(10),
+			//	NewEncryptedMetadataKey:      randomEncKey.Raw()[:],
+			//	NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+			//	NewSegmentKeys: []*pb.EncryptedKeyAndNonce{
+			//		{
+			//			Position: &pb.SegmentPosition{
+			//				PartNumber: 0,
+			//				Index:      0,
+			//			},
+			//			EncryptedKeyNonce: testrand.Nonce(),
+			//			EncryptedKey:      randomEncKey.Raw()[:],
+			//		},
+			//	},
+			// })
+			// assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			// assert.EqualError(t, err, "Exceeded Storage Limit")
+
+			// test that a smaller object can still be uploaded and copied
+			err = planet.Uplinks[2].Upload(ctx, planet.Satellites[0], "testbucket", "testobject2", testrand.Bytes(10))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[2].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject2", "testbucket", "testobject2copy")
+			require.NoError(t, err)
+
+			err = satelliteSys.API.Metainfo.Metabase.TestingDeleteAll(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // test copy respects project segment limit
+			// set segment limit
+			err = planet.Satellites[0].DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[3].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(100))
+			require.NoError(t, err)
+			objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+
+			err = planet.Uplinks[3].CopyObject(ctx, planet.Satellites[0], "testbucket", "testobject", "testbucket", "testobject1")
+			require.NoError(t, err)
+
+			_, err = satelliteSys.API.Metainfo.Endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: planet.Uplinks[3].APIKey[planet.Satellites[0].ID()].SerializeRaw(),
+				},
+				Bucket:                []byte("testbucket"),
+				EncryptedObjectKey:    []byte(objects[0].ObjectKey),
+				NewBucket:             []byte("testbucket"),
+				NewEncryptedObjectKey: []byte("newencryptedobjectkey1"),
+			})
+			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
+			assert.EqualError(t, err, "Exceeded Segments Limit")
+		}
 	})
+}
+
+func TestEndpoint_ParallelDeletes(t *testing.T) {
+	t.Skip("to be fixed - creating deadlocks")
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+		testData := testrand.Bytes(5 * memory.KiB)
+		for i := 0; i < 50; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object"+strconv.Itoa(i), testData)
+			require.NoError(t, err)
+			_, err = project.CopyObject(ctx, "bucket", "object"+strconv.Itoa(i), "bucket", "object"+strconv.Itoa(i)+"copy", nil)
+			require.NoError(t, err)
+		}
+		list := project.ListObjects(ctx, "bucket", nil)
+		keys := []string{}
+		for list.Next() {
+			item := list.Item()
+			keys = append(keys, item.Key)
+		}
+		require.NoError(t, list.Err())
+		var wg sync.WaitGroup
+		wg.Add(len(keys))
+		var errlist errs.Group
+
+		for i, name := range keys {
+			name := name
+			go func(toDelete string, index int) {
+				_, err := project.DeleteObject(ctx, "bucket", toDelete)
+				errlist.Add(err)
+				wg.Done()
+			}(name, i)
+		}
+		wg.Wait()
+
+		require.NoError(t, errlist.Err())
+
+		// check all objects have been deleted
+		listAfterDelete := project.ListObjects(ctx, "bucket", nil)
+		require.False(t, listAfterDelete.Next())
+		require.NoError(t, listAfterDelete.Err())
+
+		_, err = project.DeleteBucket(ctx, "bucket")
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_ParallelDeletesSameAncestor(t *testing.T) {
+	t.Skip("to be fixed - creating deadlocks")
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+		testData := testrand.Bytes(5 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "original-object", testData)
+		require.NoError(t, err)
+		for i := 0; i < 50; i++ {
+			_, err = project.CopyObject(ctx, "bucket", "original-object", "bucket", "copy"+strconv.Itoa(i), nil)
+			require.NoError(t, err)
+		}
+		list := project.ListObjects(ctx, "bucket", nil)
+		keys := []string{}
+		for list.Next() {
+			item := list.Item()
+			keys = append(keys, item.Key)
+		}
+		require.NoError(t, list.Err())
+		var wg sync.WaitGroup
+		wg.Add(len(keys))
+		var errlist errs.Group
+
+		for i, name := range keys {
+			name := name
+			go func(toDelete string, index int) {
+				_, err := project.DeleteObject(ctx, "bucket", toDelete)
+				errlist.Add(err)
+				wg.Done()
+			}(name, i)
+		}
+		wg.Wait()
+
+		require.NoError(t, errlist.Err())
+
+		// check all objects have been deleted
+		listAfterDelete := project.ListObjects(ctx, "bucket", nil)
+		require.False(t, listAfterDelete.Next())
+		require.NoError(t, listAfterDelete.Err())
+
+		_, err = project.DeleteBucket(ctx, "bucket")
+		require.NoError(t, err)
+	})
+}
+
+func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()
+		err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "object", testrand.Bytes(256))
+		require.NoError(t, err)
+
+		objects, err := satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+
+		validMetadata := testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize)
+		validKey := randomEncryptedKey
+
+		getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+			Header:        &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+			Version:       int32(objects[0].Version),
+		})
+		require.NoError(t, err)
+
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:                        &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:                        []byte("testbucket"),
+			EncryptedObjectKey:            []byte(objects[0].ObjectKey),
+			Version:                       int32(objects[0].Version),
+			StreamId:                      getObjectResponse.Object.StreamId,
+			EncryptedMetadata:             validMetadata,
+			EncryptedMetadataEncryptedKey: validKey,
+		})
+		require.NoError(t, err)
+
+		// too large metadata
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
+
+			EncryptedMetadata:             testrand.Bytes(satellite.Config.Metainfo.MaxMetadataSize + 1),
+			EncryptedMetadataEncryptedKey: validKey,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// invalid encrypted metadata key
+		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
+
+			EncryptedMetadata:             validMetadata,
+			EncryptedMetadataEncryptedKey: testrand.Bytes(16),
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+
+		// verify that metadata didn't change with rejected requests
+		objects, err = satellite.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Equal(t, validMetadata, objects[0].EncryptedMetadata)
+		require.Equal(t, validKey, objects[0].EncryptedMetadataEncryptedKey)
+	})
+}
+
+func TestEndpoint_Object_MultipleVersions(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MultipleVersions = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", testrand.Bytes(10*memory.MiB))
+		require.NoError(t, err)
+
+		// override object to have it with version 2
+		expectedData := testrand.Bytes(11 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", expectedData)
+		require.NoError(t, err)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		require.EqualValues(t, 2, objects[0].Version)
+
+		// add some pending uploads, each will have version higher then 2
+		uploadIDs := []string{}
+		for i := 0; i < 10; i++ {
+			info, err := project.BeginUpload(ctx, "multipleversions", "object", nil)
+			require.NoError(t, err)
+			uploadIDs = append(uploadIDs, info.UploadID)
+		}
+
+		checkDownload := func(objectKey string, expectedData []byte) {
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "multipleversions", objectKey)
+			require.NoError(t, err)
+			require.Equal(t, expectedData, data)
+		}
+
+		checkDownload("object", expectedData)
+
+		err = project.MoveObject(ctx, "multipleversions", "object", "multipleversions", "object_moved", nil)
+		require.NoError(t, err)
+
+		checkDownload("object_moved", expectedData)
+
+		err = project.MoveObject(ctx, "multipleversions", "object_moved", "multipleversions", "object", nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		iterator := project.ListObjects(ctx, "multipleversions", nil)
+		require.True(t, iterator.Next())
+		require.Equal(t, "object", iterator.Item().Key)
+		require.NoError(t, iterator.Err())
+
+		{ // server side copy
+			_, err = project.CopyObject(ctx, "multipleversions", "object", "multipleversions", "object_copy", nil)
+			require.NoError(t, err)
+
+			checkDownload("object_copy", expectedData)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object")
+			require.NoError(t, err)
+
+			_, err = project.CopyObject(ctx, "multipleversions", "object_copy", "multipleversions", "object", nil)
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object_copy")
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+		}
+
+		err = project.AbortUpload(ctx, "multipleversions", "object", uploadIDs[0])
+		require.NoError(t, err)
+		checkDownload("object", expectedData)
+
+		expectedData = testrand.Bytes(12 * memory.KiB)
+		upload, err := project.UploadPart(ctx, "multipleversions", "object", uploadIDs[1], 1)
+		require.NoError(t, err)
+		_, err = upload.Write(expectedData)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
+		_, err = project.CommitUpload(ctx, "multipleversions", "object", uploadIDs[1], nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		_, err = project.DeleteObject(ctx, "multipleversions", "object")
+		require.NoError(t, err)
+
+		iterator = project.ListObjects(ctx, "multipleversions", nil)
+		require.False(t, iterator.Next())
+		require.NoError(t, iterator.Err())
+
+		// use next available pending upload
+		upload, err = project.UploadPart(ctx, "multipleversions", "object", uploadIDs[2], 1)
+		require.NoError(t, err)
+		_, err = upload.Write(expectedData)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
+		_, err = project.CommitUpload(ctx, "multipleversions", "object", uploadIDs[2], nil)
+		require.NoError(t, err)
+
+		checkDownload("object", expectedData)
+
+		uploads := project.ListUploads(ctx, "multipleversions", nil)
+		count := 0
+		for uploads.Next() {
+			require.Equal(t, "object", uploads.Item().Key)
+			count++
+		}
+		// we started with 10 pending object and during test we abort/commit 3 objects
+		pendingUploadsLeft := 7
+		require.Equal(t, pendingUploadsLeft, count)
+	})
+
 }

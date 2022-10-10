@@ -99,11 +99,8 @@ export default class SNOFooter extends Vue {
         }
     }
 
-    .storj-logo {
-
-        path {
-            fill: var(--icon-color) !important;
-        }
+    .storj-logo ::v-deep path {
+        fill: var(--icon-color) !important;
     }
 
     @media screen and (max-width: 600px) {

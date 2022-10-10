@@ -20,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/experiment"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
@@ -219,7 +220,12 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 	defer mon.Task()(&ctx)(&err)
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
-	syncErr := file.Sync()
+
+	var syncErr error
+	if experiment.GetExperiment(ctx) != "nosync" {
+		syncErr = file.Sync()
+	}
+
 	chmodErr := os.Chmod(file.Name(), blobPermission)
 	closeErr := file.Close()
 

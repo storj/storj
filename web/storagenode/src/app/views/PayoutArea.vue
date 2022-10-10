@@ -263,7 +263,7 @@ export default class PayoutArea extends Vue {
     @media screen and (max-width: 640px) {
 
         .payout-area-container-overflow {
-            padding: 0 15px 80px 15px;
+            padding: 0 15px 80px;
             width: calc(100% - 30px);
         }
 

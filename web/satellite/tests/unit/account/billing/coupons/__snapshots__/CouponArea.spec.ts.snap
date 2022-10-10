@@ -4,7 +4,7 @@ exports[`CouponArea renders correctly 1`] = `
 <div class="coupon-area">
   <div class="coupon-area__top-container">
     <h1 class="coupon-area__top-container__title">Coupon</h1>
-    <vbutton-stub label="Add Coupon Code" width="inherit" height="inherit" fontsize="16px" borderradius="6px" onpress="function () { [native code] }" class="coupon-area__top-container__add-button"></vbutton-stub>
+    <vbutton-stub label="Add Coupon Code" width="inherit" height="inherit" fontsize="16px" borderradius="6px" icon="none" onpress="[Function]" class="coupon-area__top-container__add-button"></vbutton-stub>
   </div>
   <div class="coupon-area__container">
     <couponicon-stub class="coupon-area__container__coupon-icon"></couponicon-stub>

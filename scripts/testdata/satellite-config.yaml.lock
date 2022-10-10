@@ -1,56 +1,5 @@
-# expiration to use if user does not specify an account management api key expiration
-# account-management-api-keys.default-expiration: 720h0m0s
-
 # admin peer http listening address
 # admin.address: ""
-
-# default duration for AS OF SYSTEM TIME
-# admin.console-config.as-of-system-time-duration: -5m0s
-
-# default project limits for users
-# admin.console-config.default-project-limit: 1
-
-# enable open registration
-# admin.console-config.open-registration-enabled: false
-
-# password hashing cost (0=automatic)
-# admin.console-config.password-cost: 0
-
-# whether or not reCAPTCHA is enabled for user registration
-# admin.console-config.recaptcha.enabled: false
-
-# reCAPTCHA secret key
-# admin.console-config.recaptcha.secret-key: ""
-
-# reCAPTCHA site key
-# admin.console-config.recaptcha.site-key: ""
-
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# admin.console-config.token-expiration-time: 24h0m0s
-
-# the default free-tier bandwidth usage limit
-# admin.console-config.usage-limits.bandwidth.free: 150.00 GB
-
-# the default paid-tier bandwidth usage limit
-# admin.console-config.usage-limits.bandwidth.paid: 100.00 TB
-
-# the default free-tier project limit
-# admin.console-config.usage-limits.project.free: 1
-
-# the default paid-tier project limit
-# admin.console-config.usage-limits.project.paid: 3
-
-# the default free-tier segment usage limit
-# admin.console-config.usage-limits.segment.free: 150000
-
-# the default paid-tier segment usage limit
-# admin.console-config.usage-limits.segment.paid: 100000000
-
-# the default free-tier storage usage limit
-# admin.console-config.usage-limits.storage.free: 150.00 GB
-
-# the default paid-tier storage usage limit
-# admin.console-config.usage-limits.storage.paid: 25.00 TB
 
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
@@ -109,6 +58,9 @@
 # comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
 # checker.repair-overrides: 29/80/110-52,29/80/95-52,29/80/130-52
 
+# Number of damaged segments to buffer in-memory before flushing to the repair queue
+# checker.repair-queue-insert-batch-size: 100
+
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
 
@@ -133,6 +85,9 @@ compensation.rates.put-tb: "0"
 # comma separated monthly withheld percentage rates
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
+# expiration time for account recovery and activation tokens
+# console-auth.token-expiration-time: 24h0m0s
+
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 
@@ -153,6 +108,42 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link for for beta satellite support
 # console.beta-satellite-support-url: ""
+
+# whether or not captcha is enabled
+# console.captcha.login.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.login.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.login.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.login.recaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.hcaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.hcaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.hcaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.recaptcha.enabled: false
+
+# captcha secret key
+# console.captcha.registration.recaptcha.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.recaptcha.site-key: ""
 
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
@@ -175,6 +166,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# incremental duration of penalty for failed login attempts in minutes
+# console.failed-login-penalty: 2
+
 # indicates if file browser flow is disabled
 # console.file-browser-flow-disabled: false
 
@@ -182,7 +176,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.us1.storjshare.io
+# console.gateway-credentials-request-url: https://auth.storjshare.io
 
 # url link to general request page
 # console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
@@ -190,11 +184,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if generated console api should be used
 # console.generated-api-enabled: false
 
-# inactivity timer delay in seconds
-# console.inactivity-timer-delay: 600
-
-# indicates if session can be timed out due inactivity
-# console.inactivity-timer-enabled: false
+# url link to storj.io homepage
+# console.homepage-url: https://www.storj.io
 
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
@@ -203,16 +194,25 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
 # url link for linksharing requests
-# console.linksharing-url: https://link.us1.storjshare.io
+# console.linksharing-url: https://link.storjshare.io
 
-# indicates if new navigation structure should be rendered
-# console.new-navigation: true
+# number of times user can try to login without penalty
+# console.login-attempts-without-penalty: 3
+
+# indicates if storj native token payments system is enabled
+# console.native-token-payments-enabled: false
+
+# indicates if new access grant flow should be used
+# console.new-access-grant-flow: true
+
+# indicates if new billing screens should be used
+# console.new-billing-screen: false
 
 # indicates if new objects flow should be used
 # console.new-objects-flow: true
 
 # indicates if new project dashboard should be used
-# console.new-project-dashboard: false
+# console.new-project-dashboard: true
 
 # how long oauth access tokens are issued for
 # console.oauth-access-token-expiry: 24h0m0s
@@ -230,7 +230,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.optional-signup-success-url: ""
 
 # names and addresses of partnered satellites in JSON list format
-# console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
+# console.partnered-satellites: '[{"name":"US1","address":"https://us1.storj.io"},{"name":"EU1","address":"https://eu1.storj.io"},{"name":"AP1","address":"https://ap1.storj.io"}]'
 
 # password hashing cost (0=automatic)
 # console.password-cost: 0
@@ -250,15 +250,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of clients whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
-# whether or not reCAPTCHA is enabled for user registration
-# console.recaptcha.enabled: false
-
-# reCAPTCHA secret key
-# console.recaptcha.secret-key: ""
-
-# reCAPTCHA site key
-# console.recaptcha.site-key: ""
-
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -268,14 +259,23 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
+# duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)
+# console.session.duration: 168h0m0s
+
+# inactivity timer delay in seconds
+# console.session.inactivity-timer-duration: 600
+
+# indicates if session can be timed out due inactivity
+# console.session.inactivity-timer-enabled: false
+
+# indicates whether remaining session time is shown for debugging
+# console.session.inactivity-timer-viewer-enabled: false
+
 # path to static resources
 # console.static-dir: ""
 
 # url link to terms and conditions page
-# console.terms-and-conditions-url: https://storj.io/storage-sla/
-
-# expiration time for auth tokens, account recovery tokens, and activation tokens
-# console.token-expiration-time: 24h0m0s
+# console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
 # the default free-tier bandwidth usage limit
 # console.usage-limits.bandwidth.free: 150.00 GB
@@ -303,6 +303,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to load templates on each request
 # console.watch: false
+
+# allow private IPs in CheckIn and PingMe
+# contact.allow-private-ip: false
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -355,6 +358,18 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
+# how often to send reminders to users who need to verify their email
+# email-reminders.chore-interval: 24h0m0s
+
+# enable sending emails reminding users to verify their email
+# email-reminders.enable: false
+
+# amount of time before sending first reminder to users who need to verify their email
+# email-reminders.first-verification-reminder: 24h0m0s
+
+# amount of time before sending second reminder to users who need to verify their email
+# email-reminders.second-verification-reminder: 120h0m0s
+
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 
@@ -364,20 +379,47 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
-# the number of nodes to concurrently send garbage collection bloom filters to
-# garbage-collection.concurrent-sends: 1
+# Access Grant which will be used to upload bloom filters to the bucket
+# garbage-collection-bf.access-grant: ""
 
-# set if garbage collection is enabled or not
-# garbage-collection.enabled: true
+# Bucket which will be used to upload bloom filters
+# garbage-collection-bf.bucket: ""
+
+# set if garbage collection bloom filters is enabled or not
+# garbage-collection-bf.enabled: true
+
+# how quickly uploaded bloom filters will be automatically deleted
+# garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
-# garbage-collection.false-positive-rate: 0.1
+# garbage-collection-bf.false-positive-rate: 0.1
 
 # the initial number of pieces expected for a storage node to have, used for creating a filter
-# garbage-collection.initial-pieces: 400000
+# garbage-collection-bf.initial-pieces: 400000
 
-# the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 120h0m0s
+# the time between each garbage collection executions
+# garbage-collection-bf.interval: 120h0m0s
+
+# how many bloom filters will be packed in a single zip
+# garbage-collection-bf.zip-batch-size: 500
+
+# Access to download the bloom filters. Needs read and write permission.
+# garbage-collection.access-grant: ""
+
+# bucket where retain info is stored
+# garbage-collection.bucket: ""
+
+# the number of nodes to concurrently send garbage collection retain filters to
+# garbage-collection.concurrent-sends: 1
+
+# set if loop to send garbage collection retain filters is enabled
+# garbage-collection.enabled: false
+
+# Expiration of newly created objects. These objects store error messages.
+# garbage-collection.expire-in: 336h0m0s
+
+# the time between each attempt to download and send garbage collection retain filters to storage nodes
+# garbage-collection.interval: 48h0m0s
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
@@ -439,7 +481,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
 # log.encoding: ""
 
 # the minimum log level to log
@@ -508,6 +550,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# feature flag to enable using multple objects versions in the system internally
+# metainfo.multiple-versions: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -534,9 +579,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
-
-# whether segment limit validation is enabled.
-# metainfo.project-limits.validate-segment-limit: false
 
 # number of projects to cache.
 # metainfo.rate-limiter.cache-capacity: 10000
@@ -568,8 +610,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # ratio where to consider processed count as supicious
 # metainfo.segment-loop.suspicious-processed-ratio: 0.03
 
-# enable code for server-side copy
-# metainfo.server-side-copy: false
+# enable code for server-side copy, deprecated. please leave this to true.
+# metainfo.server-side-copy: true
+
+# disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
+# metainfo.server-side-copy-disabled: false
+
+# test the new query for non-recursive listing
+# metainfo.test-listing-query: false
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
@@ -608,7 +656,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.geo-ip.db: ""
 
 # a mock list of countries the satellite will attribute to nodes (useful for testing)
-# overlay.geo-ip.mock-countries: '[]'
+# overlay.geo-ip.mock-countries: []
 
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
 # overlay.node-check-in-wait-period: 2h0m0s
@@ -641,13 +689,19 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # overlay.node.online-window: 4h0m0s
 
 # list of country codes to exclude from node selection for uploads
-# overlay.node.upload-excluded-country-codes: '[]'
+# overlay.node.upload-excluded-country-codes: []
 
 # list of country codes to exclude nodes from target repair selection
-# overlay.repair-excluded-country-codes: '[]'
+# overlay.repair-excluded-country-codes: []
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
+
+# flag to disable querying for new billing transactions by billing chore
+# payments.billing-config.disable-loop: true
+
+# billing chore interval to query for new transactions from all payment types
+# payments.billing-config.interval: 15s
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
@@ -675,6 +729,24 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for storing TB per month
 # payments.storage-tb-price: "4"
+
+# basic auth identifier
+# payments.storjscan.auth.identifier: ""
+
+# basic auth secret
+# payments.storjscan.auth.secret: ""
+
+# required number of following blocks in the chain to accept payment as confirmed
+# payments.storjscan.confirmations: 15
+
+# flag to disable querying new storjscan payments by storjscan chore
+# payments.storjscan.disable-loop: true
+
+# storjscan API endpoint
+# payments.storjscan.endpoint: ""
+
+# storjscan chore interval to query new payments for all satellite deposit wallets
+# payments.storjscan.interval: 1m0s
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s
@@ -743,7 +815,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # reputation.audit-count: 100
 
 # the reputation cut-off for disqualifying SNs based on audit history
-# reputation.audit-dq: 0.6
+# reputation.audit-dq: 0.96
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # reputation.audit-history.grace-period: 168h0m0s
@@ -763,8 +835,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # The length of time spanning a single audit window
 # reputation.audit-history.window-size: 12h0m0s
 
-# the forgetting factor used to calculate the audit SNs reputation
-# reputation.audit-lambda: 0.95
+# the forgetting factor used to update storage node reputation due to audits
+# reputation.audit-lambda: 0.999
 
 # weight to apply to audit reputation for total repair reputation calculation
 # reputation.audit-repair-weight: 1
@@ -775,11 +847,32 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the normalization weight used to calculate the audit SNs reputation
 # reputation.audit-weight: 1
 
+# the amount of time that should elapse before the cache retries failed database operations
+# reputation.error-retry-interval: 1m0s
+
+# the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
+# reputation.flush-interval: 2h0m0s
+
+# the value to which an alpha reputation value should be initialized
+# reputation.initial-alpha: 1000
+
+# the value to which a beta reputation value should be initialized
+# reputation.initial-beta: 0
+
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false
 
 # the time period that must pass before suspended nodes will be disqualified
 # reputation.suspension-grace-period: 168h0m0s
+
+# the reputation cut-off for disqualifying SNs based on returning 'unknown' errors during audit
+# reputation.unknown-audit-dq: 0.6
+
+# the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'
+# reputation.unknown-audit-lambda: 0.95
+
+# expiration to use if user does not specify an rest key expiration
+# rest-keys.default-expiration: 720h0m0s
 
 # age at which a rollup is archived
 # rollup-archive.archive-age: 2160h0m0s
@@ -795,6 +888,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
+
+# how many tallies to delete in a batch
+# rollup.delete-tallies-batch-size: 10000
 
 # how frequently rollup should run
 # rollup.interval: 24h0m0s
@@ -863,7 +959,7 @@ server.private-address: 127.0.0.1:7778
 # tracing.buffer-size: 0
 
 # whether tracing collector is enabled
-# tracing.enabled: false
+# tracing.enabled: true
 
 # how frequently to flush traces to tracing agent
 # tracing.interval: 0s

@@ -35,9 +35,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
-
 import { PaymentsHistoryItem } from '@/types/payments';
+
+import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
 // @vue/component
 @Component({
@@ -46,7 +46,7 @@ import { PaymentsHistoryItem } from '@/types/payments';
     },
 })
 export default class PaymentsItem extends Vue {
-    @Prop({default: () => new PaymentsHistoryItem()})
+    @Prop({ default: () => new PaymentsHistoryItem() })
     private readonly billingItem: PaymentsHistoryItem;
 }
 </script>

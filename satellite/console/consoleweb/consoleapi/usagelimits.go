@@ -133,8 +133,8 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
+	since := time.Unix(sinceStamp, 0)
+	before := time.Unix(beforeStamp, 0)
 
 	dailyUsage, err := ul.service.GetDailyProjectUsage(ctx, projectID, since, before)
 	if err != nil {
@@ -155,5 +155,5 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (ul *UsageLimits) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(ul.log, w, status, err)
+	ServeJSONError(ul.log, w, status, err)
 }

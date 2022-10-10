@@ -1,60 +1,101 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="account-billing-area">
-        <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
-            <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
-                <NegativeBalanceIcon />
-                <p class="account-billing-area__notification-container__negative-balance__text">
-                    Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
-                    prevent data loss.
-                </p>
+        <div v-if="isNewBillingScreen" class="account-billing-area__header__div">
+            <div class="account-billing-area__title">
+                <h1 class="account-billing-area__title__text">Billing</h1>
             </div>
-            <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
-                <LowBalanceIcon />
-                <p class="account-billing-area__notification-container__low-balance__text">
-                    Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
-                </p>
-            </div>
-        </div>
-        <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
-            <div class="account-billing-area__title-area__balance-area">
-                <div class="account-billing-area__title-area__balance-area__free-credits">
-                    <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                    <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
+            <div class="account-billing-area__header">
+                <div
+                    :class="`account-billing-area__header__tab first-header-tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                    @click="routeToOverview"
+                >
+                    <p>Overview</p>
                 </div>
-                <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
-                    <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
-                        Available Balance:
-                    </p>
-                    <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
-                    <p v-else>
-                        {{ balance.coins | centsToDollars }}
-                    </p>
-                    <HideIcon v-if="isBalanceDropdownShown" class="icon" />
-                    <ExpandIcon v-else class="icon" />
-                    <HistoryDropdown
-                        v-show="isBalanceDropdownShown"
-                        label="Balance History"
-                        :route="balanceHistoryRoute"
-                        @close="closeDropdown"
-                    />
+                <div
+                    :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
+                    @click="routeToPaymentMethods"
+                >
+                    <p>Payment Methods</p>
+                </div>
+                <div
+                    :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
+                    @click="routeToBillingHistory"
+                >
+                    <p>Billing History</p>
+                </div>
+                <div
+                    :class="`account-billing-area__header__tab last-header-tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                    @click="routeToCoupons"
+                >
+                    <p>Coupons</p>
                 </div>
             </div>
-            <PeriodSelection v-if="userHasOwnProject" />
+            <div class="account-billing-area__divider" />
         </div>
-        <EstimatedCostsAndCredits v-if="isSummaryVisible" />
-        <PaymentMethods />
-        <SmallDepositHistory />
-        <CouponArea />
+        <div v-if="!isNewBillingScreen">
+            <div v-if="hasNoCreditCard" class="account-billing-area__notification-container">
+                <div v-if="isBalanceNegative" class="account-billing-area__notification-container__negative-balance">
+                    <NegativeBalanceIcon />
+                    <p class="account-billing-area__notification-container__negative-balance__text">
+                        Your usage charges exceed your account balance. Please add STORJ Tokens or a debit/credit card to
+                        prevent data loss.
+                    </p>
+                </div>
+                <div v-if="isBalanceLow" class="account-billing-area__notification-container__low-balance">
+                    <LowBalanceIcon />
+                    <p class="account-billing-area__notification-container__low-balance__text">
+                        Your account balance is running low. Please add STORJ Tokens or a debit/credit card to prevent data loss.
+                    </p>
+                </div>
+            </div>
+            <div v-if="userHasOwnProject" class="account-billing-area__title-area" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
+                <div class="account-billing-area__title-area__balance-area">
+                    <div class="account-billing-area__title-area__balance-area__free-credits">
+                        <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
+                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
+                        <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
+                    </div>
+                    <div class="account-billing-area__title-area__balance-area__tokens-area" @click.stop="toggleBalanceDropdown">
+                        <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
+                            Available Balance:
+                        </p>
+                        <VLoader v-if="isBalanceFetching" width="20px" height="20px" />
+                        <p v-else>
+                            {{ balance.coins | centsToDollars }}
+                        </p>
+                        <HideIcon v-if="isBalanceDropdownShown" class="icon" />
+                        <ExpandIcon v-else class="icon" />
+                        <HistoryDropdown
+                            v-show="isBalanceDropdownShown"
+                            label="Balance History"
+                            :route="balanceHistoryRoute"
+                            @close="closeDropdown"
+                        />
+                    </div>
+                </div>
+                <PeriodSelection v-if="userHasOwnProject" />
+            </div>
+            <EstimatedCostsAndCredits v-if="isSummaryVisible" />
+            <PaymentMethods />
+            <SmallDepositHistory />
+            <CouponArea />
+        </div>
         <router-view />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
+import { MetaUtils } from '@/utils/meta';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AccountBalance } from '@/types/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
@@ -68,11 +109,6 @@ import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AccountBalance } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -93,6 +129,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 export default class BillingArea extends Vue {
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
     public isBalanceFetching = true;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Mounted lifecycle hook after initial render.
@@ -195,6 +233,49 @@ export default class BillingArea extends Vue {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
+    /**
+     * Routes for new billing screens.
+     */
+    public routeToOverview(): void {
+        const overviewPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+        if (this.$route.path !== overviewPath) {
+            this.analytics.pageVisit(overviewPath);
+            this.$router.push(overviewPath);
+        }
+    }
+
+    public routeToPaymentMethods(): void {
+        const payMethodsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+        if (this.$route.path !== payMethodsPath) {
+            this.analytics.pageVisit(payMethodsPath);
+            this.$router.push(payMethodsPath);
+        }
+    }
+
+    public routeToBillingHistory(): void {
+        const billingPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
+        if (this.$route.path !== billingPath) {
+            this.analytics.pageVisit(billingPath);
+            this.$router.push(billingPath);
+        }
+    }
+
+    public routeToCoupons(): void {
+        const couponsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+        if (this.$route.path !== couponsPath) {
+            this.analytics.pageVisit(couponsPath);
+            this.$router.push(couponsPath);
+        }
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === 'true';
+    }
+
 }
 </script>
 
@@ -234,7 +315,7 @@ export default class BillingArea extends Vue {
                 font-weight: bold;
                 font-size: 16px;
                 line-height: 148.31%;
-                margin: 30px 0 10px 0;
+                margin: 30px 0 10px;
                 display: inline-block;
             }
 
@@ -277,8 +358,62 @@ export default class BillingArea extends Vue {
         }
     }
 
+    .selected-tab {
+        border-bottom: 5px solid black;
+    }
+
     .account-billing-area {
         padding-bottom: 40px;
+
+        &__title {
+            padding-top: 20px;
+
+            &__text {
+                font-family: sans-serif;
+            }
+        }
+
+        &__divider {
+            width: 100%;
+            border-bottom: 1px solid #dadfe7;
+        }
+
+        &__header {
+            width: 100%;
+            max-width: 750px;
+            height: 40px;
+            display: flex;
+            align-content: center;
+            justify-content: space-between;
+            padding-top: 25px;
+            overflow-y: auto;
+
+            /* Hide scrollbar for IE, Edge and Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+
+            /* Hide scrollbar for Chrome, Safari and Opera */
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
+
+            &__tab {
+                font-family: sans-serif;
+                color: #56606d;
+                font-size: 16px;
+                height: auto;
+                width: auto;
+                transition-duration: 50ms;
+                white-space: nowrap;
+                padding: 0 8px;
+            }
+
+            &__tab:hover {
+                border-bottom: 5px solid black;
+                cursor: pointer;
+            }
+        }
 
         &__title-area {
             display: flex;
@@ -333,7 +468,7 @@ export default class BillingArea extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: flex-start;
-                padding: 20px 20px 20px 20px;
+                padding: 20px;
                 border-radius: 12px;
 
                 &__text {
@@ -356,11 +491,31 @@ export default class BillingArea extends Vue {
     }
 
     .custom-position {
-        margin: 30px 0 20px 0;
+        margin: 30px 0 20px;
     }
 
     .icon {
         min-width: 14px;
         margin-left: 10px;
+    }
+
+    @media only screen and (max-width: 625px) {
+
+        .account-billing-area__header__div {
+            margin-right: -24px;
+            margin-left: -24px;
+        }
+
+        .account-billing-area__title {
+            margin-left: 24px;
+        }
+
+        .first-header-tab {
+            margin-left: 24px;
+        }
+
+        .last-header-tab {
+            margin-right: 24px;
+        }
     }
 </style>

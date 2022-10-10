@@ -22,7 +22,7 @@ const satelliteUrl = new HttpLink({
 /**
  * Adding additional headers.
  */
-const authLink = setContext((_, {headers}) => {
+const authLink = setContext((_, { headers }) => {
     // return the headers to the context so httpLink can read them
     return {
         headers: {

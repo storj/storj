@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -64,16 +65,12 @@ type Repairer struct {
 	}
 
 	Audit struct {
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
-
-	Buckets struct {
-		Service *buckets.Service
-	}
 }
 
 // NewRepairer creates a new repairer peer.
@@ -150,11 +147,20 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Run,
 			Close: peer.Overlay.Close,
 		})
 	}
 
 	{ // setup reputation
+		if config.Reputation.FlushInterval > 0 {
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationdb, config.Reputation)
+			peer.Services.Add(lifecycle.Item{
+				Name: "reputation:writecache",
+				Run:  cachingDB.Manage,
+			})
+			reputationdb = cachingDB
+		}
 		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
 			overlayCache,
 			reputationdb,
@@ -165,10 +171,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			Name:  "reputation",
 			Close: peer.Reputation.Close,
 		})
-	}
-
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(bucketsDB, metabaseDB)
 	}
 
 	{ // setup orders
@@ -188,7 +190,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -244,10 +245,15 @@ func (peer *Repairer) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "repairer"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

@@ -1,26 +1,74 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="!isNavigationHidden" class="navigation-area">
-        <EditProjectDropdown />
-        <router-link
-            v-for="navItem in navigation"
-            :key="navItem.name"
-            :aria-label="navItem.name"
-            class="navigation-area__item-container"
-            :to="navItem.path"
-            @click.native="trackClickEvent(navItem.name)"
-        >
-            <div class="navigation-area__item-container__link">
-                <component :is="navItem.icon" class="navigation-area__item-container__link__icon" />
-                <p class="navigation-area__item-container__link__title">{{ navItem.name }}</p>
+    <div class="navigation-area">
+        <div ref="navigationContainer" class="navigation-area__container">
+            <div class="navigation-area__container__wrap">
+                <LogoIcon class="navigation-area__container__wrap__logo" @click.stop="onLogoClick" />
+                <SmallLogoIcon class="navigation-area__container__wrap__small-logo" @click.stop="onLogoClick" />
+                <div class="navigation-area__container__wrap__edit">
+                    <ProjectSelection />
+                </div>
+                <div class="navigation-area__container__wrap__border" />
+                <router-link
+                    v-for="navItem in navigation"
+                    :key="navItem.name"
+                    :aria-label="navItem.name"
+                    class="navigation-area__container__wrap__item-container"
+                    :to="navItem.path"
+                    @click.native="trackClickEvent(navItem.path)"
+                >
+                    <div class="navigation-area__container__wrap__item-container__left">
+                        <component :is="navItem.icon" class="navigation-area__container__wrap__item-container__left__image" />
+                        <p class="navigation-area__container__wrap__item-container__left__label">{{ navItem.name }}</p>
+                    </div>
+                </router-link>
+                <div class="navigation-area__container__wrap__border" />
+                <div ref="resourcesContainer" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        :class="{ active: isResourcesDropdownShown }"
+                        @click.stop="toggleResourcesDropdown"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <ResourcesIcon class="navigation-area__container__wrap__item-container__left__image" />
+                            <p class="navigation-area__container__wrap__item-container__left__label">Resources</p>
+                        </div>
+                        <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
+                    </div>
+                    <GuidesDropdown
+                        v-if="isResourcesDropdownShown"
+                        :close="closeDropdowns"
+                        :y-position="resourcesDropdownYPos"
+                        :x-position="resourcesDropdownXPos"
+                    >
+                        <ResourcesLinks />
+                    </GuidesDropdown>
+                </div>
+                <div ref="quickStartContainer" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        :class="{ active: isQuickStartDropdownShown }"
+                        @click.stop="toggleQuickStartDropdown"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <QuickStartIcon class="navigation-area__container__wrap__item-container__left__image" />
+                            <p class="navigation-area__container__wrap__item-container__left__label">Quickstart</p>
+                        </div>
+                        <ArrowIcon class="navigation-area__container__wrap__item-container__arrow" />
+                    </div>
+                    <GuidesDropdown
+                        v-if="isQuickStartDropdownShown"
+                        :close="closeDropdowns"
+                        :y-position="quickStartDropdownYPos"
+                        :x-position="quickStartDropdownXPos"
+                    >
+                        <QuickStartLinks :close-dropdowns="closeDropdowns" />
+                    </GuidesDropdown>
+                </div>
             </div>
-        </router-link>
-        <div class="navigation-area__selection-wrapper">
-            <ProjectSelection in-navigation="true" class="project-selection" />
-            <ResourcesSelection in-navigation="true" class="resources-selection" />
-            <SettingsSelection in-navigation="true" class="settings-selection" />
+            <AccountArea />
         </div>
     </div>
 </template>
@@ -28,185 +76,432 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
-
-import AccessGrantsIcon from '@/../static/images/navigation/apiKeys.svg';
-import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
-import BucketsIcon from '@/../static/images/navigation/objects.svg';
-import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelection.vue';
-import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
-import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
-import TeamIcon from '@/../static/images/navigation/team.svg';
-
+import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
-import { MetaUtils } from '@/utils/meta';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
+import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
+import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
+import AccountArea from '@/components/navigation/AccountArea.vue';
+import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
+import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import SmallLogoIcon from '@/../static/images/smallLogo.svg';
+import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
+import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
+import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import UsersIcon from '@/../static/images/navigation/users.svg';
+import ResourcesIcon from '@/../static/images/navigation/resources.svg';
+import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
+import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
 // @vue/component
 @Component({
     components: {
+        QuickStartLinks,
+        ResourcesLinks,
+        ProjectSelection,
+        GuidesDropdown,
+        AccountArea,
+        LogoIcon,
+        SmallLogoIcon,
         DashboardIcon,
         AccessGrantsIcon,
-        TeamIcon,
-        EditProjectDropdown,
+        UsersIcon,
         BucketsIcon,
-        ProjectSelection,
-        ResourcesSelection,
-        SettingsSelection
+        ResourcesIcon,
+        QuickStartIcon,
+        ArrowIcon,
     },
 })
 export default class NavigationArea extends Vue {
-    public navigation: NavigationLink[] = [];
-
+    private readonly TWENTY_PIXELS = 20;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+    public resourcesDropdownYPos = 0;
+    public resourcesDropdownXPos = 0;
+    public quickStartDropdownYPos = 0;
+    public quickStartDropdownXPos = 0;
+    public navigation: NavigationLink[] = [
+        RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
+        RouteConfig.Buckets.withIcon(BucketsIcon),
+        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
+        RouteConfig.Users.withIcon(UsersIcon),
+    ];
+
+    public $refs!: {
+        resourcesContainer: HTMLDivElement;
+        quickStartContainer: HTMLDivElement;
+        navigationContainer: HTMLDivElement;
+    };
+
+    private windowWidth = window.innerWidth;
 
     /**
-     * Lifecycle hook before initial render.
-     * Sets navigation side bar list.
+     * Mounted hook after initial render.
+     * Adds scroll event listener to close dropdowns.
      */
-    public beforeMount(): void {
-        const value = MetaUtils.getMetaContent('file-browser-flow-disabled');
-        if (value === "true") {
-            this.navigation = [
-                RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-                RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-                RouteConfig.Users.withIcon(TeamIcon),
-            ];
+    public mounted(): void {
+        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns);
+        window.addEventListener('resize', this.onResize);
+    }
+
+    /**
+     * Mounted hook before component destroy.
+     * Removes scroll event listener.
+     */
+    public beforeDestroy(): void {
+        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns);
+        window.removeEventListener('resize', this.onResize);
+    }
+
+    /**
+     * On screen resize handler.
+     */
+    public onResize(): void {
+        this.windowWidth = window.innerWidth;
+        this.closeDropdowns();
+    }
+
+    /**
+     * Redirects to project dashboard.
+     */
+    public onLogoClick(): void {
+        if (this.$route.name === RouteConfig.ProjectDashboard.name || this.$route.name === RouteConfig.NewProjectDashboard.name) {
+            return;
+        }
+
+        if (this.isNewProjectDashboard) {
+            this.$router.push(RouteConfig.NewProjectDashboard.path);
 
             return;
         }
 
-        this.navigation = [
-            RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-            RouteConfig.Buckets.withIcon(BucketsIcon),
-            RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-            RouteConfig.Users.withIcon(TeamIcon),
-        ];
+        this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
     /**
-     * Indicates if navigation side bar is hidden.
+     * Sets resources dropdown Y position depending on container's current position.
+     * It is used to handle small screens.
      */
-    public get isNavigationHidden(): boolean {
-        return this.isOnboardingTour || this.isCreateProjectPage;
+    public setResourcesDropdownYPos(): void {
+        const container = this.$refs.resourcesContainer.getBoundingClientRect();
+        this.resourcesDropdownYPos =  container.top + container.height / 2;
+    }
+
+    /**
+     * Sets resources dropdown X position depending on container's current position.
+     * It is used to handle small screens.
+     */
+    public setResourcesDropdownXPos(): void {
+        this.resourcesDropdownXPos = this.$refs.resourcesContainer.getBoundingClientRect().width - this.TWENTY_PIXELS;
+    }
+
+    /**
+     * Sets quick start dropdown Y position depending on container's current position.
+     * It is used to handle small screens.
+     */
+    public setQuickStartDropdownYPos(): void {
+        const container = this.$refs.quickStartContainer.getBoundingClientRect();
+        this.quickStartDropdownYPos =  container.top + container.height / 2;
+    }
+
+    /**
+     * Sets quick start dropdown X position depending on container's current position.
+     * It is used to handle small screens.
+     */
+    public setQuickStartDropdownXPos(): void {
+        this.quickStartDropdownXPos = this.$refs.quickStartContainer.getBoundingClientRect().width - this.TWENTY_PIXELS;
+    }
+
+    /**
+     * Toggles resources dropdown visibility.
+     */
+    public toggleResourcesDropdown(): void {
+        this.setResourcesDropdownYPos();
+        this.setResourcesDropdownXPos();
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN);
+    }
+
+    /**
+     * Toggles quick start dropdown visibility.
+     */
+    public toggleQuickStartDropdown(): void {
+        this.setQuickStartDropdownYPos();
+        this.setQuickStartDropdownXPos();
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN);
+    }
+
+    /**
+     * Closes dropdowns.
+     */
+    public closeDropdowns(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    }
+
+    /**
+     * Indicates if resources dropdown shown.
+     */
+    public get isResourcesDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isResourcesDropdownShown;
+    }
+
+    /**
+     * Indicates if quick start dropdown shown.
+     */
+    public get isQuickStartDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isQuickStartDropdownShown;
+    }
+
+    /**
+     * Indicates if new project dashboard should be used.
+     */
+    public get isNewProjectDashboard(): boolean {
+        return this.$store.state.appStateModule.isNewProjectDashboard;
     }
 
     /**
      * Sends new path click event to segment.
      */
-    public trackClickEvent(name: string): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, name);
+    public trackClickEvent(path: string): void {
+        if (this.isNewBillingScreen && path === '/account/billing') {
+            this.routeToOverview();
+        } else {
+            this.analytics.pageVisit(path);
+        }
     }
 
     /**
-     * Indicates if current route is create project page.
+     * Routes for new billing screens.
      */
-    private get isCreateProjectPage(): boolean {
-        return this.$route.name === RouteConfig.CreateProject.name;
+    public routeToOverview(): void {
+        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
     }
 
     /**
-     * Indicates  if current route is onboarding tour.
-     * Overviewstep needs navigation.
+     * Indicates if tabs options are hidden.
      */
-    private get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === 'true';
     }
+
 }
 </script>
 
 <style scoped lang="scss">
     .navigation-svg-path {
-        fill: rgb(53, 64, 73);
+        fill: rgb(53 64 73);
+    }
+
+    .container-wrapper {
+        width: 100%;
     }
 
     .navigation-area {
-        padding: 25px;
-        min-width: 170px;
-        max-width: 170px;
-        background: #e6e9ef;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        min-width: 280px;
+        max-width: 280px;
+        background-color: #fff;
         font-family: 'font_regular', sans-serif;
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
 
-        &__item-container {
-            flex: 0 0 auto;
-            padding: 10px;
-            width: calc(100% - 20px);
+        &__container {
             display: flex;
-            justify-content: flex-start;
+            flex-direction: column;
             align-items: center;
-            margin-bottom: 40px;
-            text-decoration: none;
+            justify-content: space-between;
+            overflow-x: hidden;
+            overflow-y: auto;
+            width: 100%;
+            height: 100%;
 
-            &__link {
+            &__wrap {
                 display: flex;
-                justify-content: flex-start;
+                flex-direction: column;
                 align-items: center;
+                width: 100%;
+                padding-top: 40px;
 
-                &__icon {
-                    min-width: 24px;
+                &__logo {
+                    cursor: pointer;
+                    min-height: 37px;
+                    width: 207px;
+                    height: 37px;
                 }
 
-                &__title {
-                    font-family: 'font_medium', sans-serif;
-                    font-size: 16px;
-                    line-height: 23px;
-                    color: #1b2533;
-                    margin: 0 0 0 18px;
-                    white-space: nowrap;
-                }
-            }
-
-            &.router-link-active,
-            &:hover {
-                font-family: 'font_bold', sans-serif;
-                background: #0068dc;
-                border-radius: 6px;
-
-                .navigation-area__item-container__link__title {
-                    color: #fff;
+                &__small-logo {
+                    display: none;
                 }
 
-                .svg .navigation-svg-path:not(.white) {
-                    fill: #fff !important;
-                    opacity: 1;
+                &__edit {
+                    margin-top: 40px;
+                    width: 100%;
                 }
-            }
-        }
 
-        &__selection-wrapper {
-            display: none;
+                &__item-container {
+                    padding: 22px 32px;
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    border-left: 4px solid #fff;
+                    color: #56606d;
+                    position: static;
+                    cursor: pointer;
+                    box-sizing: border-box;
 
-            .project-selection {
+                    &__left {
+                        display: flex;
+                        align-items: center;
 
-                &__toggle-container {
-                    background: none;
+                        &__label {
+                            font-size: 14px;
+                            line-height: 20px;
+                            margin-left: 24px;
+                        }
+                    }
 
-                    &__name {
-                        font-family: 'font_medium', sans-serif;
-                        font-size: 16px;
-                        line-height: 23px;
-                        color: #1b2533;
-                        margin: 0 0 0 18px;
-                        white-space: nowrap;
+                    &:hover {
+                        border-color: #fafafb;
+                        background-color: #fafafb;
+                        color: #0149ff;
+
+                        :deep(path) {
+                            fill: #0149ff;
+                        }
                     }
                 }
+
+                &__border {
+                    margin: 8px 24px;
+                    height: 1px;
+                    width: calc(100% - 48px);
+                    background: #ebeef1;
+                }
             }
         }
+    }
 
-        @media screen and (max-width: 768px) {
+    .router-link-active,
+    .active {
+        border-color: #000;
+        color: #091c45;
+        font-family: 'font_bold', sans-serif;
 
-            .navigation-area {
+        :deep(path) {
+            fill: #000;
+        }
 
-                &__selection-wrapper {
+        &:hover {
+            color: #0149ff;
+            border-color: #0149ff;
+
+            :deep(path) {
+                fill: #0149ff;
+            }
+        }
+    }
+
+    :deep(.dropdown-item) {
+        display: flex;
+        align-items: center;
+        font-family: 'font_regular', sans-serif;
+        padding: 10px 16px;
+        cursor: pointer;
+        border-top: 1px solid #ebeef1;
+        border-bottom: 1px solid #ebeef1;
+    }
+
+    :deep(.dropdown-item__icon) {
+        max-width: 40px;
+        min-width: 40px;
+    }
+
+    :deep(.dropdown-item__text) {
+        margin-left: 10px;
+    }
+
+    :deep(.dropdown-item__text__title) {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+        line-height: 22px;
+        color: #091c45;
+    }
+
+    :deep(.dropdown-item__text__label) {
+        font-size: 12px;
+        line-height: 21px;
+        color: #091c45;
+    }
+
+    :deep(.dropdown-item:first-of-type) {
+        border-radius: 8px 8px 0 0;
+    }
+
+    :deep(.dropdown-item:last-of-type) {
+        border-radius: 0 0 8px 8px;
+    }
+
+    :deep(.dropdown-item:hover) {
+        background-color: #fafafb;
+    }
+
+    :deep(.dropdown-item:hover h2),
+    :deep(.dropdown-item:hover p) {
+        color: #0149ff;
+    }
+
+    @media screen and (max-width: 1280px) {
+
+        .navigation-area {
+            min-width: unset;
+            max-width: unset;
+
+            &__container__wrap {
+
+                &__border {
+                    margin: 8px 16px;
+                    width: calc(100% - 32px);
+                }
+
+                &__logo {
+                    display: none;
+                }
+
+                &__item-container {
+                    justify-content: center;
+                    align-items: center;
+                    padding: 10px 27px 10px 23px;
+
+                    &__left {
+                        flex-direction: column;
+
+                        &__label {
+                            font-family: 'font_medium', sans-serif;
+                            font-size: 9px;
+                            margin: 10px 0 0;
+                        }
+                    }
+
+                    &__arrow {
+                        display: none;
+                    }
+                }
+
+                &__small-logo {
+                    cursor: pointer;
+                    min-height: 40px;
                     display: block;
                 }
             }
+        }
+
+        .router-link-active,
+        .active {
+            font-family: 'font_medium', sans-serif;
         }
     }
 </style>

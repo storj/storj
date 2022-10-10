@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -48,9 +47,11 @@ type Auth struct {
 	LetUsKnowURL              string
 	TermsAndConditionsURL     string
 	ContactInfoURL            string
+	GeneralRequestURL         string
 	PasswordRecoveryURL       string
 	CancelPasswordRecoveryURL string
 	ActivateAccountURL        string
+	SatelliteName             string
 	service                   *console.Service
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
@@ -59,13 +60,15 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
 		LetUsKnowURL:              letUsKnowURL,
 		TermsAndConditionsURL:     termsAndConditionsURL,
 		ContactInfoURL:            contactInfoURL,
+		GeneralRequestURL:         generalRequestURL,
+		SatelliteName:             satelliteName,
 		PasswordRecoveryURL:       externalAddress + "password-recovery/",
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery/",
 		ActivateAccountURL:        externalAddress + "activation/",
@@ -90,10 +93,17 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest)
+	tokenRequest.UserAgent = r.UserAgent()
+	tokenRequest.IP, err = web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, 200, err, a.getUserErrorMessage(err))
+			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -101,10 +111,13 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetTokenCookie(w, token)
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(token)
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -116,9 +129,27 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	a.cookieAuth.RemoveTokenCookie(w)
-
 	w.Header().Set("Content-Type", "application/json")
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteSession(ctx, id)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.RemoveTokenCookie(w)
 }
 
 // replaceURLCharacters replaces slash, colon, and dot characters in a string with a hyphen.
@@ -147,34 +178,23 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID uuid.UUID
-	defer func() {
-		if err == nil {
-			w.Header().Set("Content-Type", "application/json")
-			err = json.NewEncoder(w).Encode(userID)
-			if err != nil {
-				a.log.Error("registration handler could not encode userID", zap.Error(ErrAuthAPI.Wrap(err)))
-			}
-		}
-	}()
-
 	var registerData struct {
-		FullName          string `json:"fullName"`
-		ShortName         string `json:"shortName"`
-		Email             string `json:"email"`
-		Partner           string `json:"partner"`
-		PartnerID         string `json:"partnerId"`
-		UserAgent         []byte `json:"userAgent"`
-		Password          string `json:"password"`
-		SecretInput       string `json:"secret"`
-		ReferrerUserID    string `json:"referrerUserId"`
-		IsProfessional    bool   `json:"isProfessional"`
-		Position          string `json:"position"`
-		CompanyName       string `json:"companyName"`
-		EmployeeCount     string `json:"employeeCount"`
-		HaveSalesContact  bool   `json:"haveSalesContact"`
-		RecaptchaResponse string `json:"recaptchaResponse"`
-		SignupPromoCode   string `json:"signupPromoCode"`
+		FullName         string `json:"fullName"`
+		ShortName        string `json:"shortName"`
+		Email            string `json:"email"`
+		Partner          string `json:"partner"`
+		PartnerID        string `json:"partnerId"`
+		UserAgent        []byte `json:"userAgent"`
+		Password         string `json:"password"`
+		SecretInput      string `json:"secret"`
+		ReferrerUserID   string `json:"referrerUserId"`
+		IsProfessional   bool   `json:"isProfessional"`
+		Position         string `json:"position"`
+		CompanyName      string `json:"companyName"`
+		EmployeeCount    string `json:"employeeCount"`
+		HaveSalesContact bool   `json:"haveSalesContact"`
+		CaptchaResponse  string `json:"captchaResponse"`
+		SignupPromoCode  string `json:"signupPromoCode"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -196,6 +216,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	registerData.FullName = replaceURLCharacters(registerData.FullName)
 	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
 
+	if len([]rune(registerData.Partner)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
+		return
+	}
+
+	if len([]rune(registerData.SignupPromoCode)) > 100 {
+		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Promo code must be less than or equal to 100 characters")))
+		return
+	}
+
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		a.serveJSONError(w, err)
@@ -203,31 +233,21 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		recoveryToken, err := a.service.GeneratePasswordRecoveryToken(ctx, verified.ID)
-		if err != nil {
-			a.serveJSONError(w, err)
-			return
+		satelliteAddress := a.ExternalAddress
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
 		}
-
-		userName := verified.ShortName
-		if verified.ShortName == "" {
-			userName = verified.FullName
-		}
-
 		a.mailService.SendRenderedAsync(
 			ctx,
-			[]post.Address{{Address: verified.Email, Name: userName}},
-			&consoleql.ForgotPasswordEmail{
-				Origin:                     a.ExternalAddress,
-				UserName:                   userName,
-				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
-				CancelPasswordRecoveryLink: a.CancelPasswordRecoveryURL + "?token=" + recoveryToken,
-				LetUsKnowURL:               a.LetUsKnowURL,
-				ContactInfoURL:             a.ContactInfoURL,
-				TermsAndConditionsURL:      a.TermsAndConditionsURL,
+			[]post.Address{{Address: verified.Email}},
+			&console.AccountAlreadyExistsEmail{
+				Origin:            satelliteAddress,
+				SatelliteName:     a.SatelliteName,
+				SignInLink:        satelliteAddress + "login",
+				ResetPasswordLink: satelliteAddress + "forgot-password",
+				CreateAccountLink: satelliteAddress + "signup",
 			},
 		)
-		userID = verified.ID
 		return
 	}
 
@@ -259,20 +279,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		user, err = a.service.CreateUser(ctx,
 			console.CreateUser{
-				FullName:          registerData.FullName,
-				ShortName:         registerData.ShortName,
-				Email:             registerData.Email,
-				PartnerID:         registerData.PartnerID,
-				UserAgent:         registerData.UserAgent,
-				Password:          registerData.Password,
-				IsProfessional:    registerData.IsProfessional,
-				Position:          registerData.Position,
-				CompanyName:       registerData.CompanyName,
-				EmployeeCount:     registerData.EmployeeCount,
-				HaveSalesContact:  registerData.HaveSalesContact,
-				RecaptchaResponse: registerData.RecaptchaResponse,
-				IP:                ip,
-				SignupPromoCode:   registerData.SignupPromoCode,
+				FullName:         registerData.FullName,
+				ShortName:        registerData.ShortName,
+				Email:            registerData.Email,
+				PartnerID:        registerData.PartnerID,
+				UserAgent:        registerData.UserAgent,
+				Password:         registerData.Password,
+				IsProfessional:   registerData.IsProfessional,
+				Position:         registerData.Position,
+				CompanyName:      registerData.CompanyName,
+				EmployeeCount:    registerData.EmployeeCount,
+				HaveSalesContact: registerData.HaveSalesContact,
+				CaptchaResponse:  registerData.CaptchaResponse,
+				IP:               ip,
+				SignupPromoCode:  registerData.SignupPromoCode,
 			},
 			secret,
 		)
@@ -301,6 +321,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			OriginHeader: origin,
 			Referrer:     referrer,
 			HubspotUTK:   hubspotUTK,
+			UserAgent:    string(user.UserAgent),
 		}
 		if user.IsProfessional {
 			trackCreateUserFields.Type = analytics.Professional
@@ -311,7 +332,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 		a.analytics.TrackCreateUser(trackCreateUserFields)
 	}
-	userID = user.ID
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
@@ -328,16 +348,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
 			UserName:       userName,
 		},
 	)
-
-	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
-		a.serveJSONError(w, err)
-	}
 }
 
 // ValidateEmail validates email to have correct form and syntax.
@@ -405,27 +421,27 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
 	}
 
-	auth, err := console.GetAuth(ctx)
+	consoleUser, err := console.GetUser(ctx)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user.ShortName = auth.User.ShortName
-	user.FullName = auth.User.FullName
-	user.Email = auth.User.Email
-	user.ID = auth.User.ID
-	user.PartnerID = auth.User.PartnerID
-	user.UserAgent = auth.User.UserAgent
-	user.ProjectLimit = auth.User.ProjectLimit
-	user.IsProfessional = auth.User.IsProfessional
-	user.CompanyName = auth.User.CompanyName
-	user.Position = auth.User.Position
-	user.EmployeeCount = auth.User.EmployeeCount
-	user.HaveSalesContact = auth.User.HaveSalesContact
-	user.PaidTier = auth.User.PaidTier
-	user.MFAEnabled = auth.User.MFAEnabled
-	user.MFARecoveryCodeCount = len(auth.User.MFARecoveryCodes)
+	user.ShortName = consoleUser.ShortName
+	user.FullName = consoleUser.FullName
+	user.Email = consoleUser.Email
+	user.ID = consoleUser.ID
+	user.PartnerID = consoleUser.PartnerID
+	user.UserAgent = consoleUser.UserAgent
+	user.ProjectLimit = consoleUser.ProjectLimit
+	user.IsProfessional = consoleUser.IsProfessional
+	user.CompanyName = consoleUser.CompanyName
+	user.Position = consoleUser.Position
+	user.EmployeeCount = consoleUser.EmployeeCount
+	user.HaveSalesContact = consoleUser.HaveSalesContact
+	user.PaidTier = consoleUser.PaidTier
+	user.MFAEnabled = consoleUser.MFAEnabled
+	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -497,16 +513,56 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
-		err = errs.New("email expected")
+	var forgotPassword struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&forgotPassword)
+	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	valid, err := a.service.VerifyForgotPasswordCaptcha(ctx, forgotPassword.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
+		satelliteAddress := a.ExternalAddress
+
+		if !strings.HasSuffix(satelliteAddress, "/") {
+			satelliteAddress += "/"
+		}
+		resetPasswordLink := satelliteAddress + "forgot-password"
+		doubleCheckLink := satelliteAddress + "login"
+		createAccountLink := satelliteAddress + "signup"
+
+		a.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: forgotPassword.Email, Name: ""}},
+			&console.UnknownResetPasswordEmail{
+				Satellite:           a.SatelliteName,
+				Email:               forgotPassword.Email,
+				DoubleCheckLink:     doubleCheckLink,
+				ResetPasswordLink:   resetPasswordLink,
+				CreateAnAccountLink: createAccountLink,
+				SupportTeamLink:     a.GeneralRequestURL,
+			},
+		)
 		return
 	}
 
@@ -530,7 +586,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.ForgotPasswordEmail{
+		&console.ForgotPasswordEmail{
 			Origin:                     a.ExternalAddress,
 			UserName:                   userName,
 			ResetLink:                  passwordRecoveryLink,
@@ -575,7 +631,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		a.mailService.SendRenderedAsync(
 			ctx,
 			[]post.Address{{Address: verified.Email, Name: userName}},
-			&consoleql.ForgotPasswordEmail{
+			&console.ForgotPasswordEmail{
 				Origin:                     a.ExternalAddress,
 				UserName:                   userName,
 				ResetLink:                  a.PasswordRecoveryURL + "?token=" + recoveryToken,
@@ -608,7 +664,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	a.mailService.SendRenderedAsync(
 		ctx,
 		[]post.Address{{Address: user.Email, Name: userName}},
-		&consoleql.AccountActivationEmail{
+		&console.AccountActivationEmail{
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
@@ -616,10 +672,6 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			UserName:              userName,
 		},
 	)
-
-	if err = a.service.UpdateEmailVerificationReminder(ctx, time.Now().UTC()); err != nil {
-		a.serveJSONError(w, err)
-	}
 }
 
 // EnableUserMFA enables multi-factor authentication for the user.
@@ -745,6 +797,41 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		a.serveJSONError(w, err)
+	} else {
+		a.cookieAuth.RemoveTokenCookie(w)
+	}
+}
+
+// RefreshSession refreshes the user's session.
+func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, tokenInfo)
+
+	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
+	if err != nil {
+		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
 	}
 }
 
@@ -757,9 +844,9 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err), console.ErrMFAMissing.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -775,8 +862,8 @@ func (a *Auth) getStatusCode(err error) int {
 // getUserErrorMessage returns a user-friendly representation of the error.
 func (a *Auth) getUserErrorMessage(err error) string {
 	switch {
-	case console.ErrRecaptcha.Has(err):
-		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrCaptcha.Has(err):
+		return "Validation of captcha was unsuccessful"
 	case console.ErrRegToken.Has(err):
 		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	case console.ErrEmailUsed.Has(err):
@@ -791,11 +878,15 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFAConflict.Has(err):
 		return "Expected either passcode or recovery code, but got both"
 	case console.ErrMFAPasscode.Has(err):
-		return "The MFA passcode is not valid or has expired"
+		return "The MFA passcode is not valid or has expired. You have just used up one of your login attempts"
 	case console.ErrMFARecoveryCode.Has(err):
-		return "The MFA recovery code is not valid or has been previously used"
+		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
+	case console.ErrLoginPassword.Has(err):
+		return "Your login credentials are incorrect. You have just used up one of your login attempts"
+	case console.ErrValidation.Has(err):
+		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
 	default:

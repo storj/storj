@@ -1,21 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import * as sinon from 'sinon';
+import { mount, shallowMount } from '@vue/test-utils';
 
 import Pagination from '@/components/common/VPagination.vue';
 
-import { mount, shallowMount } from '@vue/test-utils';
-
 describe('Pagination.vue', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount(Pagination);
+        const wrapper = shallowMount<Pagination>(Pagination);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with props', () => {
-        const wrapper = shallowMount(Pagination, {
+        const wrapper = shallowMount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 10,
                 onPageClickCallback: () => new Promise(() => false),
@@ -26,7 +24,7 @@ describe('Pagination.vue', () => {
     });
 
     it('inits correctly with totalPageCount equals 10 and current pageNumber in first block', async () => {
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 10,
                 onPageClickCallback: () => new Promise(() => false),
@@ -44,7 +42,7 @@ describe('Pagination.vue', () => {
     });
 
     it('inits correctly with totalPageCount equals 4', () => {
-        const wrapper = shallowMount(Pagination, {
+        const wrapper = shallowMount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 4,
                 onPageClickCallback: () => new Promise(() => false),
@@ -61,9 +59,9 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on page click', async () => {
-        const callbackSpy = sinon.stub();
+        const callbackSpy = jest.fn();
 
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 9,
                 onPageClickCallback: callbackSpy,
@@ -73,7 +71,7 @@ describe('Pagination.vue', () => {
         const wrapperData = await wrapper.vm.$data;
 
         await wrapper.findAll('span').at(2).trigger('click');
-        await expect(callbackSpy.callCount).toBe(1);
+        await expect(callbackSpy).toHaveBeenCalledTimes(1);
 
         expect(wrapperData.currentPageNumber).toBe(3);
         expect(wrapperData.firstBlockPages.length).toBe(1);
@@ -82,9 +80,9 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on next page button click', async () => {
-        const callbackSpy = sinon.stub();
+        const callbackSpy = jest.fn();
 
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 9,
                 onPageClickCallback: callbackSpy,
@@ -94,7 +92,7 @@ describe('Pagination.vue', () => {
         const wrapperData = wrapper.vm.$data;
 
         wrapper.findAll('.pagination-container__button').at(1).trigger('click');
-        await expect(callbackSpy.callCount).toBe(1);
+        await expect(callbackSpy).toHaveBeenCalledTimes(1);
 
         expect(wrapperData.currentPageNumber).toBe(2);
         expect(wrapperData.firstBlockPages.length).toBe(3);
@@ -103,9 +101,9 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on previous page button click', async () => {
-        const callbackSpy = sinon.stub();
+        const callbackSpy = jest.fn();
 
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 9,
                 onPageClickCallback: callbackSpy,
@@ -117,7 +115,7 @@ describe('Pagination.vue', () => {
         const wrapperData = wrapper.vm.$data;
 
         wrapper.findAll('.pagination-container__button').at(0).trigger('click');
-        await expect(callbackSpy.callCount).toBe(2);
+        await expect(callbackSpy).toHaveBeenCalledTimes(2);
 
         expect(wrapperData.currentPageNumber).toBe(7);
         expect(wrapperData.firstBlockPages.length).toBe(1);
@@ -126,9 +124,9 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on previous page button click when current is 1', async () => {
-        const callbackSpy = sinon.stub();
+        const callbackSpy = jest.fn();
 
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 9,
                 onPageClickCallback: callbackSpy,
@@ -138,7 +136,7 @@ describe('Pagination.vue', () => {
         const wrapperData = wrapper.vm.$data;
 
         wrapper.findAll('.pagination-container__button').at(0).trigger('click');
-        await expect(callbackSpy.callCount).toBe(0);
+        await expect(callbackSpy).toHaveBeenCalledTimes(0);
 
         expect(wrapperData.currentPageNumber).toBe(1);
         expect(wrapperData.firstBlockPages.length).toBe(3);
@@ -147,9 +145,9 @@ describe('Pagination.vue', () => {
     });
 
     it('behaves correctly on next page button click when current is last', async () => {
-        const callbackSpy = sinon.stub();
+        const callbackSpy = jest.fn();
 
-        const wrapper = mount(Pagination, {
+        const wrapper = mount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 9,
                 onPageClickCallback: callbackSpy,
@@ -161,7 +159,7 @@ describe('Pagination.vue', () => {
         await wrapper.vm.onPageClick(9);
 
         wrapper.findAll('.pagination-container__button').at(1).trigger('click');
-        await expect(callbackSpy.callCount).toBe(1);
+        await expect(callbackSpy).toHaveBeenCalledTimes(1);
 
         expect(wrapperData.currentPageNumber).toBe(9);
         expect(wrapperData.firstBlockPages.length).toBe(1);
@@ -170,7 +168,7 @@ describe('Pagination.vue', () => {
     });
 
     it('should reset current page index to 1', async () => {
-        const wrapper = shallowMount(Pagination, {
+        const wrapper = shallowMount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 4,
                 onPageClickCallback: () => Promise.resolve({}),
@@ -190,7 +188,7 @@ describe('Pagination.vue', () => {
     });
 
     it('should completely reinitialize Pagination on totalPageCount change', async () => {
-        const wrapper = shallowMount(Pagination, {
+        const wrapper = shallowMount<Pagination>(Pagination, {
             propsData: {
                 totalPageCount: 4,
                 onPageClickCallback: () => Promise.resolve({}),
@@ -201,7 +199,7 @@ describe('Pagination.vue', () => {
 
         expect(wrapper.vm.$data.currentPageNumber).toBe(2);
 
-        await wrapper.setProps({totalPageCount: 7});
+        await wrapper.setProps({ totalPageCount: 7 });
 
         const wrapperData = wrapper.vm.$data;
 

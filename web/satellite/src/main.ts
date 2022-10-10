@@ -3,12 +3,14 @@
 
 import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
-
-import { NotificatorPlugin } from '@/utils/plugins/notificator';
+import VueSanitize from 'vue-sanitize';
 
 import App from './App.vue';
 import { router } from './router';
 import { store } from './store';
+
+import { Size } from '@/utils/bytesSize';
+import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
 window['VueNextTick'] = function(callback) {
     return Vue.nextTick(callback);
@@ -18,10 +20,9 @@ Vue.config.devtools = true;
 Vue.config.performance = true;
 Vue.config.productionTip = false;
 
-const notificator = new NotificatorPlugin();
-
-Vue.use(notificator);
+Vue.use(new NotificatorPlugin(store));
 Vue.use(VueClipboard);
+Vue.use(VueSanitize);
 
 /**
  * Click outside handlers.
@@ -70,21 +71,17 @@ Vue.directive('number', {
 });
 
 /**
- * leadingZero adds zero to the start of single digit number.
- */
-Vue.filter('leadingZero', function (value: number): string {
-    if (value <= 9) {
-        return `0${value}`;
-    }
-
-    return `${value}`;
-});
-
-/**
  * centsToDollars is a Vue filter that converts amount of cents in dollars string.
  */
 Vue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
+});
+
+/**
+ * Converts bytes to base-10 types.
+ */
+Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
+    return `${Size.toBase10String(amountInBytes)}`;
 });
 
 new Vue({

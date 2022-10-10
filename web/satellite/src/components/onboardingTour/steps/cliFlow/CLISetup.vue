@@ -5,23 +5,14 @@
     <CLIFlowContainer
         :on-back-click="onBackClick"
         :on-next-click="onNextClick"
-        title="CLI Setup"
+        title="Uplink setup"
     >
         <template #icon>
             <Icon />
         </template>
         <template #content class="cli">
             <p class="cli__msg">
-                Make sure you've already downloaded the
-                <a
-                    href="https://docs.storj.io/dcs/downloads/download-uplink-cli"
-                    class="cli__msg__link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    Uplink CLI
-                </a>
-                and run
+                To configure your Uplink CLI, run
                 <b class="cli__msg__bold">uplink setup</b>.
             </p>
             <OSContainer>
@@ -43,11 +34,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
-import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
+import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
 
@@ -58,13 +50,17 @@ import Icon from '@/../static/images/onboardingTour/cliSetupStep.svg';
         Icon,
         OSContainer,
         TabWithCopy,
-    }
+    },
 })
 export default class CLISetup extends Vue {
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Holds on back button click logic.
      */
     public async onBackClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CLIInstall)).path);
     }
 
@@ -72,6 +68,7 @@ export default class CLISetup extends Vue {
      * Holds on next button click logic.
      */
     public async onNextClick(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
         await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.CreateBucket)).path);
     }
 }
@@ -82,27 +79,21 @@ export default class CLISetup extends Vue {
         font-family: 'font_regular', sans-serif;
 
         &__msg {
-            font-size: 18px;
-            line-height: 32px;
-            letter-spacing: 0.15px;
-            color: #4e4b66;
-
-            &__link {
-                font-family: 'font_medium', sans-serif;
-                color: #0149ff;
-                text-decoration: underline !important;
-
-                &:hover {
-                    text-decoration: underline;
-                }
-
-                &:visited {
-                    color: #0149ff;
-                }
-            }
+            font-size: 16px;
+            line-height: 24px;
+            color: #1b2533;
+            align-self: flex-start;
 
             &__bold {
                 font-family: 'font_medium', sans-serif;
+            }
+
+            &:first-of-type {
+                margin-bottom: 40px;
+            }
+
+            &:last-of-type {
+                margin-top: 40px;
             }
         }
     }

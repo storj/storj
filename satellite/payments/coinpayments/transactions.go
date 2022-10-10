@@ -14,7 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/common/currency"
 )
 
 const (
@@ -92,7 +92,7 @@ func (list TransactionIDList) Encode() string {
 type Transaction struct {
 	ID             TransactionID
 	Address        string
-	Amount         monetary.Amount
+	Amount         currency.Amount
 	DestTag        string
 	ConfirmsNeeded int
 	Timeout        time.Duration
@@ -119,7 +119,7 @@ func (tx *Transaction) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	amount, err := monetary.AmountFromString(txRaw.Amount, monetary.StorjToken)
+	amount, err := currency.AmountFromString(txRaw.Amount, currency.StorjToken)
 	if err != nil {
 		return err
 	}
@@ -227,8 +227,8 @@ func (infos *TransactionInfos) UnmarshalJSON(b []byte) error {
 // CreateTX defines parameters for transaction creating.
 type CreateTX struct {
 	Amount      decimal.Decimal
-	CurrencyIn  *monetary.Currency
-	CurrencyOut *monetary.Currency
+	CurrencyIn  *currency.Currency
+	CurrencyOut *currency.Currency
 	BuyerEmail  string
 }
 

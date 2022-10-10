@@ -28,11 +28,15 @@ func TestBrowser_Features(t *testing.T) {
 		// Navigate into browser with new onboarding.
 		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
 		page.MustElementR("p", "Buckets").MustClick()
-		wait := page.MustWaitRequestIdle()
-		page.MustElementR("p", "demo-bucket").MustClick()
-		wait()
+		page.MustElementR("[aria-roledescription=title]", "Create a bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Generate a passphrase")
 		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
-		page.MustElementR("span", "Next >").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
 
 		// Verify that browser component has loaded and that the dropzone is present.
 		page.MustElementR("p", "Drop Files Here to Upload")
@@ -64,6 +68,7 @@ func TestBrowser_Features(t *testing.T) {
 		page.MustElementR("button", "Cancel").MustClick()
 
 		// Add a file into folder and check that dropzone is still visible.
+		page.MustElementR("button", "Upload").MustClick()
 		wait1 := page.MustWaitRequestIdle()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/img.png")
 		wait1()
@@ -74,7 +79,7 @@ func TestBrowser_Features(t *testing.T) {
 
 		// Click on the file name.
 		page.MustElementR("[aria-roledescription=file]", "img.png").MustClick()
-		require.Contains(t, page.MustElement("[aria-roledescription=image-preview]").MustProperty("src").Str(), "img.png", "The modal did not open on file click")
+		page.MustElement("[aria-roledescription=image-preview]")
 
 		// Share a file.
 		page.MustElementR("span", "Share").MustClick()
@@ -90,7 +95,7 @@ func TestBrowser_Features(t *testing.T) {
 		// Click on the hamburger and then details.
 		page.MustElement("button[aria-roledescription=dropdown]").MustClick()
 		page.MustElementR("button", "Details").MustClick()
-		require.Contains(t, page.MustElement("[aria-roledescription=image-preview]").MustProperty("src").Str(), "img.png", "The dropdown details functionality is not working")
+		page.MustElement("[aria-roledescription=image-preview]")
 		page.MustElementR("span", "Share").MustClick()
 		page.MustElement("#generateShareLink")
 		page.MustElement("#close-modal").MustClick()
@@ -106,6 +111,7 @@ func TestBrowser_Features(t *testing.T) {
 		page.MustElementR("[aria-roledescription=folder]", "go-rod-test3")
 
 		// Add two files.
+		page.MustElementR("button", "Upload").MustClick()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/img2.png")
 		page.MustElement("#close-modal").MustClick()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/img.png")
@@ -225,6 +231,7 @@ func TestBrowser_Features(t *testing.T) {
 		page.MustElementR("[aria-roledescription=folder]", "Свобода")
 
 		// upload a video.
+		page.MustElementR("button", "Upload").MustClick()
 		wait3 := page.MustWaitRequestIdle()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/movie.mp4")
 		wait3()
@@ -234,7 +241,7 @@ func TestBrowser_Features(t *testing.T) {
 		page.MustElementR("[aria-roledescription=file-size]", "1.48 kB")
 		page.MustElement("[aria-roledescription=file-upload-date]")
 		page.MustElementR("[aria-roledescription=file]", "movie.mp4").MustClick()
-		require.Contains(t, page.MustElement("[aria-roledescription=video-preview]").MustProperty("src").Str(), "movie.mp4", "The modal did not open on video file click")
+		page.MustElement("[aria-roledescription=video-preview]")
 		page.MustElement("#close-modal").MustClick()
 
 		// Upload an audio file.
@@ -242,7 +249,7 @@ func TestBrowser_Features(t *testing.T) {
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/audio.mp3")
 		wait4()
 		page.MustElementR("[aria-roledescription=file]", "audio.mp3").MustClick()
-		require.Contains(t, page.MustElement("[aria-roledescription=audio-preview]").MustProperty("src").Str(), "audio.mp3", "The modal did not open on video file click")
+		page.MustElement("[aria-roledescription=audio-preview]")
 		page.MustElement("#close-modal").MustClick()
 
 		// Navigate out of nested folder and delete everything.
@@ -266,11 +273,15 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 		// Navigate into browser with new onboarding.
 		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
 		page.MustElementR("p", "Buckets").MustClick()
-		wait := page.MustWaitRequestIdle()
-		page.MustElementR("p", "demo-bucket").MustClick()
-		wait()
+		page.MustElementR("[aria-roledescription=title]", "Create a bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Generate a passphrase")
 		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
-		page.MustElementR("span", "Next >").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
 
 		// Verify that browser component has loaded and that the dropzone is present.
 		page.MustElementR("p", "Drop Files Here to Upload")
@@ -307,6 +318,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 			require.Equal(t, "   ", page.MustElement("[placeholder=\"Name of the folder\"]").MustText(), "Folder input does not contain the empty invalid name")
 			page.MustElementR("button", "Cancel").MustClick()
 
+			page.MustElementR("button", "Upload").MustClick()
 			wait1 := page.MustWaitRequestIdle()
 			page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/test0bytes.txt")
 			wait1()
@@ -315,6 +327,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 			page.MustElementR("[aria-roledescription=file]", "test0bytes.txt").MustClick()
 			require.Contains(t, page.MustElement("[aria-roledescription=preview-placeholder]").String(), "svg", "The modal did not open upon clicking the test0bytes.txt file")
 		} else {
+			page.MustElementR("button", "Upload").MustClick()
 			wait2 := page.MustWaitRequestIdle()
 			page.MustElement("input[aria-roledescription=folder-upload]").MustSetFiles("./testdata")
 			wait2()
@@ -345,6 +358,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 			require.Equal(t, "   ", page.MustElement("[placeholder=\"Name of the folder\"]").MustText(), "Folder input does not contain the empty invalid name")
 			page.MustElementR("button", "Cancel").MustClick()
 
+			page.MustElementR("button", "Upload").MustClick()
 			wait3 := page.MustWaitRequestIdle()
 			page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/test0bytes.txt")
 			wait3()
@@ -353,11 +367,13 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 			page.MustElementR("[aria-roledescription=file]", "test0bytes.txt").MustClick()
 			require.Contains(t, page.MustElement("[aria-roledescription=preview-placeholder]").String(), "svg", "The modal did not open upon clicking the test0bytes.txt file")
 		} else {
+			page.MustElementR("button", "Upload").MustClick()
 			wait4 := page.MustWaitRequestIdle()
 			page.MustElement("input[aria-roledescription=folder-upload]").MustSetFiles("./testdata")
 			wait4()
 			page.MustElementR("table > tbody > tr:nth-child(1) > td", "..")
 			page.MustElementR("[aria-roledescription=folder]", "testdata \\(1\\)").MustClick()
+			waitVueTick(page)
 			page.MustElementR("[aria-roledescription=file]", "test0bytes.txt").MustClick()
 			require.Contains(t, page.MustElement("[aria-roledescription=preview-placeholder]").String(), "svg", "The uploaded folder did not upload the files correctly")
 		}
@@ -366,6 +382,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 		page.MustElement("#navigate-back").MustClick()
 
 		// Upload a 0 byte file.
+		page.MustElementR("button", "Upload").MustClick()
 		page.MustElement("input[aria-roledescription=file-upload]").MustSetFiles("./testdata/test0bytes.txt")
 		page.MustElementR("span", "testing/test0bytes.txt")
 		page.MustElement("#close-modal").MustClick()
@@ -382,7 +399,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 		if !testing.Short() {
 			slowpage := page.Sleeper(uitest.MaxDuration(20 * time.Second))
 
-			// Upload a 50 MB file.
+			// Upload a 5 MB file.
 			testFile := generateEmptyFile(t, ctx, "testFile", 5*memory.MiB)
 			wait5 := slowpage.MustWaitRequestIdle()
 			slowpage.MustElement("input[aria-roledescription=file-upload]").MustSetFiles(testFile)
@@ -403,6 +420,7 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 			slowpage.MustElement("#close-modal").MustClick()
 
 			// Upload a 130MB file.
+			page.MustElementR("button", "Upload").MustClick()
 			wait6 := slowpage.MustWaitRequestIdle()
 			slowpage.MustElement("input[aria-roledescription=file-upload]").MustSetFiles(testFile2)
 			require.Equal(t, " testing/testFile2", slowpage.MustElement("[aria-roledescription=file-uploading]").MustText(), "The testFile2 file has not started uploading")
@@ -420,5 +438,49 @@ func TestBrowser_FolderAndDifferentFileSizesUpload(t *testing.T) {
 		wait7 := page.MustWaitRequestIdle()
 		page.MustElementR("button", "Yes").MustClick()
 		wait7()
+	})
+}
+
+func TestBrowser_OpenBucket(t *testing.T) {
+	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet, browser *rod.Browser) {
+		page := openPage(browser, planet.Satellites[0].ConsoleURL())
+
+		// Sign up and login.
+		signUpWithUser(t, planet, page)
+		loginWithUser(t, planet, page)
+
+		// Navigate into browser with new onboarding.
+		page.MustElementR("a", "Skip and go directly to dashboard").MustClick()
+		page.MustElementR("p", "Buckets").MustClick()
+		page.MustElementR("[aria-roledescription=title]", "Create a bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Encrypt your bucket")
+		page.MustElementR("span", "Continue").MustClick()
+		waitVueTick(page)
+		page.MustElementR("[aria-roledescription=title]", "Generate a passphrase")
+		page.MustElementR("label", "I understand, and I have saved the passphrase.").MustClick()
+		page.MustElementR("span", "Continue").MustClick()
+
+		// Verify that browser component has loaded and that the dropzone is present.
+		page.MustElementR("p", "Drop Files Here to Upload")
+
+		// Navigate to buckets view
+		page.MustElementR("p", "<- Back to Buckets").MustClick()
+		waitVueTick(page)
+
+		// Open bucket
+		page.MustElementR("p", "demo-bucket").MustClick()
+		page.MustElementR("h1", "Open a Bucket")
+		input := page.MustElement("[aria-roledescription=bucket] input").MustText()
+		require.Equal(t, "demo-bucket", input)
+
+		page.MustElement("[aria-roledescription=passphrase] input").MustInput("passphrase")
+		wait := page.MustWaitRequestIdle()
+		page.MustElementR("span", "Continue ->").MustClick()
+		wait()
+
+		// Verify that browser component has loaded and that the dropzone is present.
+		page.MustElementR("p", "Drop Files Here to Upload")
 	})
 }

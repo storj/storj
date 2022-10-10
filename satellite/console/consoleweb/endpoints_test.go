@@ -4,11 +4,14 @@
 package consoleweb_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
 
 func TestAuth(t *testing.T) {
@@ -69,10 +74,13 @@ func TestAuth(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
+		var oldCookies []*http.Cookie
+
 		{ // Get_AccountInfo
 			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			require.Equal(test.t, http.StatusOK, resp.StatusCode)
 			require.Contains(test.t, body, "fullName")
+			oldCookies = resp.Cookies()
 
 			var userIdentifier struct{ ID string }
 			require.NoError(test.t, json.Unmarshal([]byte(body), &userIdentifier))
@@ -91,6 +99,16 @@ func TestAuth(t *testing.T) {
 			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			// TODO: wrong error text
 			// require.Contains(test.t, body, "unauthorized")
+			require.Contains(test.t, body, "error")
+			require.Equal(test.t, http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		{ // Get_AccountInfo shouldn't succeed with reused session cookie
+			satURL, err := url.Parse(test.url(""))
+			require.NoError(t, err)
+			test.client.Jar.SetCookies(satURL, oldCookies)
+
+			resp, body := test.request(http.MethodGet, "/auth/account", nil)
 			require.Contains(test.t, body, "error")
 			require.Equal(test.t, http.StatusUnauthorized, resp.StatusCode)
 		}
@@ -158,6 +176,28 @@ func TestPayments(t *testing.T) {
 			require.Contains(t, body, "egress")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
+	})
+}
+
+func TestWalletPayments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		test := newTest(t, ctx, planet)
+		sat := planet.Satellites[0]
+
+		userData := test.defaultUser()
+		test.login(userData.email, userData.password)
+
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, userData.email)
+		require.NoError(t, err)
+
+		wallet := blockchaintest.NewAddress()
+		err = sat.DB.Wallets().Add(ctx, user.ID, wallet)
+		require.NoError(t, err)
+
+		resp, _ := test.request(http.MethodGet, "/payments/wallet/payments", nil)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 }
 
@@ -323,6 +363,23 @@ func TestProjects(t *testing.T) {
 						}`}))
 			require.Contains(t, body, test.defaultProjectID())
 			require.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+
+		{ // Get_Salt
+			projectID := test.defaultProjectID()
+			id, err := uuid.FromString(projectID)
+			require.NoError(t, err)
+
+			// get salt from endpoint
+			var b64Salt string
+			resp, body := test.request(http.MethodGet, fmt.Sprintf("/projects/%s/salt", test.defaultProjectID()), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &b64Salt))
+
+			// get salt from db and base64 encode it
+			salt, err := planet.Satellites[0].DB.Console().Projects().GetSalt(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
 		}
 
 		{ // Get_ProjectInfo
@@ -821,7 +878,7 @@ func (test *test) defaultUser() registeredUser {
 
 func (test *test) defaultProjectID() string { return test.planet.Uplinks[0].Projects[0].ID.String() }
 
-func (test *test) login(email, password string) {
+func (test *test) login(email, password string) Response {
 	resp, body := test.request(
 		http.MethodPost, "/auth/token",
 		test.toJSON(map[string]string{
@@ -831,10 +888,14 @@ func (test *test) login(email, password string) {
 	cookie := findCookie(resp, "_tokenKey")
 	require.NotNil(test.t, cookie)
 
-	var rawToken string
-	require.NoError(test.t, json.Unmarshal([]byte(body), &rawToken))
+	var tokenInfo struct {
+		Token string `json:"token"`
+	}
+	require.NoError(test.t, json.Unmarshal([]byte(body), &tokenInfo))
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
-	require.Equal(test.t, rawToken, cookie.Value)
+	require.Equal(test.t, tokenInfo.Token, cookie.Value)
+
+	return resp
 }
 
 func (test *test) registerUser(email, password string) registeredUser {
@@ -856,7 +917,6 @@ func (test *test) registerUser(email, password string) registeredUser {
 		}))
 
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
-	require.NotEmpty(test.t, body)
 
 	time.Sleep(time.Second) // TODO: hack-fix, register activates account asynchronously
 

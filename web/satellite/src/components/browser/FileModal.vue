@@ -28,31 +28,37 @@
 										"
                                     >
                                         <img
-                                            v-if="previewIsImage"
-                                            ref="previewImage"
-                                            class="preview img-fluid"
-                                            src="/static/static/images/common/loader.svg"
-                                            aria-roledescription="image-preview"
+                                            v-if="previewAndMapFailed"
+                                            class="failed-preview"
+                                            src="/static/static/images/common/errorNotice.svg"
+                                            alt="failed preview"
                                         >
+                                        <template v-else>
+                                            <img
+                                                v-if="previewIsImage && !isLoading"
+                                                class="preview img-fluid"
+                                                :src="objectPreviewUrl"
+                                                aria-roledescription="image-preview"
+                                                alt="preview"
+                                            >
 
-                                        <video
-                                            v-if="previewIsVideo"
-                                            ref="previewVideo"
-                                            class="preview"
-                                            controls
-                                            src=""
-                                            aria-roledescription="video-preview"
-                                        />
+                                            <video
+                                                v-if="previewIsVideo && !isLoading"
+                                                class="preview"
+                                                controls
+                                                :src="objectPreviewUrl"
+                                                aria-roledescription="video-preview"
+                                            />
 
-                                        <audio
-                                            v-if="previewIsAudio"
-                                            ref="previewAudio"
-                                            class="preview"
-                                            controls
-                                            src=""
-                                            aria-roledescription="audio-preview"
-                                        />
-                                        <PlaceholderImage v-if="placeHolderDisplayable" />
+                                            <audio
+                                                v-if="previewIsAudio && !isLoading"
+                                                class="preview"
+                                                controls
+                                                :src="objectPreviewUrl"
+                                                aria-roledescription="audio-preview"
+                                            />
+                                            <PlaceholderImage v-if="placeHolderDisplayable" />
+                                        </template>
                                     </div>
                                 </div>
                                 <div class="col-6 col-lg-4 pr-5">
@@ -160,7 +166,6 @@
                                                 width="16"
                                                 height="16"
                                                 viewBox="0 0 16 16"
-                                                alt="Share"
                                                 class="ml-2"
                                                 fill="none"
                                                 xmlns="http://www.w3.org/2000/svg"
@@ -176,13 +181,33 @@
                                             </svg>
                                         </span>
                                     </button>
-
-                                    <div class="mt-5">
+                                    <div
+                                        v-if="isLoading"
+                                        class="d-flex justify-content-center text-primary mt-4"
+                                    >
+                                        <div
+                                            class="spinner-border mt-3"
+                                            role="status"
+                                        />
+                                    </div>
+                                    <div
+                                        v-if="objectMapUrl && !previewAndMapFailed"
+                                        class="mt-5"
+                                    >
                                         <div class="storage-nodes">
                                             Nodes storing this file
                                         </div>
-                                        <img ref="objectMap" src="/static/static/images/common/loader.svg" class="object-map" alt="object map">
+                                        <img
+                                            class="object-map"
+                                            :src="objectMapUrl"
+                                            alt="object map"
+                                        >
                                     </div>
+                                    <p v-if="!placeHolderDisplayable && !previewAndMapFailed && !isLoading" class="text-lighter mt-2">
+                                        Note: If you would like to share this object with others, please use the 'Share'
+                                        button rather than copying the path from the object preview. This object preview
+                                        link will expire within 24 hours.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -196,26 +221,32 @@
 
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
-import { BrowserFile } from '@/types/browser.ts';
 import prettyBytes from 'pretty-bytes';
 
-import PlaceholderImage from '@/../static/images/browser/placeholder.svg'
+import { BrowserFile } from '@/types/browser';
+
+import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
 // @vue/component
 @Component({
     components: {
         PlaceholderImage,
-    }
+    },
 })
 export default class FileModal extends Vue {
+    public isLoading = false;
+    public objectMapUrl = '';
+    public objectPreviewUrl = '';
+    public previewAndMapFailed = false;
+
     public objectLink = '';
     public copyText = 'Copy Link';
 
-    public $refs!: {
-        objectMap: HTMLImageElement;
-        previewImage: HTMLImageElement;
-        previewVideo: HTMLVideoElement;
-        previewAudio: HTMLAudioElement;
+    /**
+     * Call `fetchPreviewAndMapUrl` on the created lifecycle method.
+     */
+    public created(): void {
+        this.fetchPreviewAndMapUrl();
     }
 
     /**
@@ -223,7 +254,7 @@ export default class FileModal extends Vue {
      */
     private get file(): BrowserFile {
         return this.$store.state.files.files.find(
-            (file) => file.Key === this.filePath.split("/").slice(-1)[0]
+            (file) => file.Key === this.filePath.split('/').slice(-1)[0],
         );
     }
 
@@ -240,8 +271,8 @@ export default class FileModal extends Vue {
     public get size(): string {
         return prettyBytes(
             this.$store.state.files.files.find(
-                (file) => file.Key === this.file.Key
-            ).Size
+                (file) => file.Key === this.file.Key,
+            ).Size,
         );
     }
 
@@ -249,7 +280,7 @@ export default class FileModal extends Vue {
      * Format the upload date of the current file.
      */
     public get uploadDate(): string {
-        return this.file.LastModified.toLocaleString().split(",")[0];
+        return this.file.LastModified.toLocaleString().split(',')[0];
     }
 
     /**
@@ -268,7 +299,7 @@ export default class FileModal extends Vue {
         }
 
         return ['bmp', 'svg', 'jpg', 'jpeg', 'png', 'ico', 'gif'].includes(
-            this.extension.toLowerCase()
+            this.extension.toLowerCase(),
         );
     }
 
@@ -281,7 +312,7 @@ export default class FileModal extends Vue {
         }
 
         return ['m4v', 'mp4', 'webm', 'mov', 'mkv'].includes(
-            this.extension.toLowerCase()
+            this.extension.toLowerCase(),
         );
     }
 
@@ -303,48 +334,46 @@ export default class FileModal extends Vue {
         return [
             this.previewIsImage,
             this.previewIsVideo,
-            this.previewIsAudio
+            this.previewIsAudio,
         ].every((value) => !value);
     }
 
     /**
      * Watch for changes on the filepath and call `fetchObjectMapUrl` the moment it updates.
      */
-    @Watch("filePath")
+    @Watch('filePath')
     private handleFilePathChange() {
-        this.fetchObjectMap();
-        if (!this.placeHolderDisplayable) this.setPreview();
+        this.fetchPreviewAndMapUrl();
     }
 
     /**
-     * Call `fetchObjectMapUrl` on the mounted lifecycle method.
+     * Get the object map url for the file being displayed.
      */
-    public mounted(): void {
-        this.fetchObjectMap();
-        if (!this.placeHolderDisplayable) this.setPreview();
-    }
+    private async fetchPreviewAndMapUrl(): Promise<void> {
+        this.isLoading = true;
+        const url: string = await this.$store.state.files.fetchPreviewAndMapUrl(
+            this.filePath,
+        );
 
-    /**
-     * Get the object map for the file being displayed.
-     */
-    private async fetchObjectMap(): Promise<void> {
-        try {
-            if (!this.$store.state.files.fetchObjectMap) {
-                return;
-            }
+        if (!url) {
+            this.previewAndMapFailed = true;
+            this.isLoading = false;
 
-            const objectMap: Blob | null = await this.$store.state.files.fetchObjectMap(
-                this.filePath
-            );
-
-            if (!objectMap) {
-                return;
-            }
-
-            this.$refs.objectMap.src = URL.createObjectURL(objectMap);
-        } catch (error) {
-            await this.$notify.error(error.message);
+            return;
         }
+
+        const mapURL = `${url}?map=1`;
+        const previewURL = `${url}?view=1`;
+
+        await new Promise((resolve) => {
+            const preload = new Image();
+            preload.onload = resolve;
+            preload.src = mapURL;
+        });
+
+        this.objectMapUrl = mapURL;
+        this.objectPreviewUrl = previewURL;
+        this.isLoading = false;
     }
 
     /**
@@ -352,44 +381,10 @@ export default class FileModal extends Vue {
      */
     public download(): void {
         try {
-            this.$store.dispatch("files/download", this.file);
-            this.$notify.warning("Do not share download link with other people. If you want to share this data better use \"Share\" option.");
+            this.$store.dispatch('files/download', this.file);
+            this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
         } catch (error) {
-            this.$notify.error("Can not download your file");
-        }
-    }
-
-    /**
-     * Set preview object.
-     */
-    public async setPreview(): Promise<void> {
-        try {
-            if (!this.$store.state.files.fetchObjectPreview) {
-                return;
-            }
-
-            const object: Blob | null = await this.$store.state.files.fetchObjectPreview(
-                this.filePath
-            );
-
-            if (!object) {
-                return;
-            }
-
-            const objectURL = URL.createObjectURL(object);
-
-            switch (true) {
-            case this.previewIsImage:
-                this.$refs.previewImage.src = objectURL;
-                break;
-            case this.previewIsVideo:
-                this.$refs.previewVideo.src = objectURL;
-                break;
-            case this.previewIsAudio:
-                this.$refs.previewAudio.src = objectURL;
-            }
-        } catch (error) {
-            await this.$notify.error(error.message);
+            this.$notify.error('Can not download your file');
         }
     }
 
@@ -404,7 +399,7 @@ export default class FileModal extends Vue {
      * Copy the current opened file.
      */
     public async copy(): Promise<void> {
-        await navigator.clipboard.writeText(this.objectLink);
+        await this.$copyText(this.objectLink);
         this.copyText = 'Copied!';
         setTimeout(() => {
             this.copyText = 'Copy Link';
@@ -416,7 +411,7 @@ export default class FileModal extends Vue {
      */
     public async getSharedLink(): Promise<void> {
         this.objectLink = await this.$store.state.files.fetchSharedLink(
-            this.filePath
+            this.filePath,
         );
     }
 
@@ -425,7 +420,7 @@ export default class FileModal extends Vue {
      */
     public stopClickPropagation(e: Event): void {
         const target = e.target as HTMLElement;
-        if (target.id !== "detail-modal") {
+        if (target.id !== 'detail-modal') {
             e.stopPropagation();
         }
     }
@@ -433,7 +428,6 @@ export default class FileModal extends Vue {
 </script>
 
 <style scoped>
-
 .modal-header {
     border-bottom-color: #eee;
     background-color: #fafafa;
@@ -491,7 +485,7 @@ export default class FileModal extends Vue {
 
 .storage-nodes {
     padding: 5px;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgb(0 0 0 / 80%);
     font-weight: normal;
     color: white;
     font-size: 0.8rem;
@@ -529,5 +523,9 @@ export default class FileModal extends Vue {
     border-bottom-right-radius: 4px;
     font-size: 14px;
     padding: 0 16px;
+}
+
+.failed-preview {
+    width: 50%;
 }
 </style>

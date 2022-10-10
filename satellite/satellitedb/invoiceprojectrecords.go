@@ -52,7 +52,7 @@ func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoi
 				return Error.Wrap(err)
 			}
 
-			_, err = db.db.Create_StripecoinpaymentsInvoiceProjectRecord(ctx,
+			_, err = tx.Create_StripecoinpaymentsInvoiceProjectRecord(ctx,
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Id(id[:]),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_ProjectId(record.ProjectID[:]),
 				dbx.StripecoinpaymentsInvoiceProjectRecord_Storage(record.Storage),

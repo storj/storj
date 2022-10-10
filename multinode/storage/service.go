@@ -197,7 +197,7 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 
 	diskSpaceResponse, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{
 		Header: &multinodepb.RequestHeader{
-			ApiKey: node.APISecret,
+			ApiKey: node.APISecret[:],
 		},
 	})
 	if err != nil {
@@ -233,7 +233,7 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 
 	req := &multinodepb.StorageUsageRequest{
 		Header: &multinodepb.RequestHeader{
-			ApiKey: node.APISecret,
+			ApiKey: node.APISecret[:],
 		},
 		From: from,
 		To:   to,
@@ -276,7 +276,7 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 
 	req := &multinodepb.StorageUsageSatelliteRequest{
 		Header: &multinodepb.RequestHeader{
-			ApiKey: node.APISecret,
+			ApiKey: node.APISecret[:],
 		},
 		SatelliteId: satelliteID,
 		From:        from,

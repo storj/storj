@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`GeneratePassphrase.vue renders correctly with default props 1`] = `
+<div class="encrypt-container">
+  <encrypticon-stub></encrypticon-stub>
+  <h1 aria-roledescription="enc-title" class="encrypt-container__title">Encryption passphrase</h1>
+  <p class="encrypt-container__info">
+    The encryption passphrase is used to encrypt and access the data that you upload to Storj.
+  </p>
+  <div class="encrypt-container__functional">
+    <div class="encrypt-container__functional__header">
+      <p class="encrypt-container__functional__header__gen active">
+        Generate a new passphrase
+      </p>
+      <div class="encrypt-container__functional__header__right">
+        <p aria-roledescription="enter-passphrase-label" class="encrypt-container__functional__header__right__enter">
+          Enter your own passphrase
+        </p>
+        <vinfo-stub title="" buttonlabel="" onbuttonclick="[Function]" class="encrypt-container__functional__header__right__info-button"></vinfo-stub>
+      </div>
+    </div>
+    <div class="encrypt-container__functional__generate">
+      <p class="encrypt-container__functional__generate__value"></p>
+      <vbutton-stub label="Copy" width="66px" height="30px" fontsize="16px" borderradius="6px" icon="none" isbluewhite="true" isuppercase="true" onpress="[Function]" class="encrypt-container__functional__generate__button"></vbutton-stub>
+    </div>
+    <h2 aria-roledescription="warning-title" class="encrypt-container__functional__warning-title">
+      Save your encryption passphrase
+    </h2>
+    <p class="encrypt-container__functional__warning-msg">
+      Please note that Storj does not know or store your encryption passphrase. If you lose it, you will not
+      be able to recover your files.
+    </p>
+    <p class="encrypt-container__functional__download">Download as a text file</p>
+    <vcheckbox-stub label="I understand, and I have saved the passphrase." class="encrypt-container__functional__checkbox"></vcheckbox-stub>
+  </div>
+  <div class="encrypt-container__buttons">
+    <!---->
+    <vbutton-stub label="Next >" width="inherit" height="64px" fontsize="16px" borderradius="62px" icon="none" isdisabled="true" onpress="[Function]"></vbutton-stub>
+  </div>
+</div>
+`;

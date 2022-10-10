@@ -14,24 +14,24 @@
 </template>
 
 <script lang="ts">
-import {Component, Prop, Vue} from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VLoader from "@/components/common/VLoader.vue";
+import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-    }
+    },
 })
 export default class InfoContainer extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isDataFetching: boolean;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly title: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly subtitle: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly value: string;
 }
 </script>
@@ -42,7 +42,7 @@ export default class InfoContainer extends Vue {
         width: calc(100% - 48px);
         font-family: 'font_regular', sans-serif;
         background-color: #fff;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 10px;
 
         &__title {

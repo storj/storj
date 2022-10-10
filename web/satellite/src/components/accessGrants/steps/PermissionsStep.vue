@@ -69,6 +69,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { DurationPermission } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
@@ -76,11 +82,6 @@ import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { DurationPermission } from '@/types/accessGrants';
 
 // @vue/component
 @Component({
@@ -104,6 +105,8 @@ export default class PermissionsStep extends Vue {
     public isList = true;
     public isDelete = true;
     public areBucketNamesFetching = true;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -137,6 +140,7 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
         this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
     }
 
@@ -170,6 +174,7 @@ export default class PermissionsStep extends Vue {
 
         this.isLoading = false;
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).path);
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
             params: {
@@ -199,6 +204,7 @@ export default class PermissionsStep extends Vue {
         this.isLoading = false;
 
         if (this.accessGrantsAmount > 1) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).path);
             await this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                 params: {
@@ -210,6 +216,7 @@ export default class PermissionsStep extends Vue {
             return;
         }
 
+        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).path);
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
             params: {
@@ -254,8 +261,8 @@ export default class PermissionsStep extends Vue {
             'isDelete': this.isDelete,
         };
 
-        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
-        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, { 'notBefore': this.notBeforePermission.toISOString() });
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': this.notAfterPermission.toISOString() });
 
         await this.worker.postMessage(permissionsMsg);
 
@@ -328,7 +335,7 @@ export default class PermissionsStep extends Vue {
             font-size: 22px;
             line-height: 27px;
             color: #000;
-            margin: 0 0 10px 0;
+            margin: 0 0 10px;
         }
 
         &__sub-title {
@@ -337,7 +344,7 @@ export default class PermissionsStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 70px 0;
+            margin: 0 0 70px;
         }
 
         &__content {
@@ -418,6 +425,6 @@ export default class PermissionsStep extends Vue {
 
     .disabled {
         pointer-events: none;
-        color: rgba(0, 0, 0, 0.4);
+        color: rgb(0 0 0 / 40%);
     }
 </style>

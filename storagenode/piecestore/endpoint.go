@@ -60,6 +60,7 @@ type Config struct {
 	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
@@ -226,6 +227,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected order limit as the first message")
 	}
 	limit := message.Limit
+	hashAlgorithm := message.HashAlgorithm
 
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
@@ -299,7 +301,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		zap.Int64("Available Space", availableSpace))
 	mon.Counter("upload_started_count").Inc(1)
 
-	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -386,6 +388,10 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 
 		if message.Done != nil {
+			if message.Done.HashAlgorithm != hashAlgorithm {
+				return rpcstatus.Wrap(rpcstatus.Internal, errs.New("Hash algorithm in the first and last upload message are different %s %s", hashAlgorithm, message.Done.HashAlgorithm))
+			}
+
 			calculatedHash := pieceWriter.Hash()
 			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
 				return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -398,10 +404,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 			{
 				info := &pb.PieceHeader{
-					Hash:         calculatedHash,
-					CreationTime: message.Done.Timestamp,
-					Signature:    message.Done.GetSignature(),
-					OrderLimit:   *limit,
+					Hash:          calculatedHash,
+					HashAlgorithm: hashAlgorithm,
+					CreationTime:  message.Done.Timestamp,
+					Signature:     message.Done.GetSignature(),
+					OrderLimit:    *limit,
 				}
 				if err := pieceWriter.Commit(ctx, info); err != nil {
 					return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -416,10 +423,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
-				PieceId:   limit.PieceId,
-				Hash:      calculatedHash,
-				PieceSize: pieceWriter.Size(),
-				Timestamp: time.Now(),
+				PieceId:       limit.PieceId,
+				Hash:          calculatedHash,
+				HashAlgorithm: hashAlgorithm,
+				PieceSize:     pieceWriter.Size(),
+				Timestamp:     time.Now(),
 			})
 			if err != nil {
 				return rpcstatus.Wrap(rpcstatus.Internal, err)

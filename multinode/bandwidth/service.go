@@ -162,7 +162,7 @@ func (service *Service) getMonthlySatellite(ctx context.Context, node nodes.Node
 
 	bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
 	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
+		ApiKey: node.APISecret[:],
 	}
 
 	ingress, err := bandwidthClient.IngressSummarySatellite(ctx, &multinodepb.IngressSummarySatelliteRequest{
@@ -240,7 +240,7 @@ func (service *Service) getMonthly(ctx context.Context, node nodes.Node) (_ Mont
 
 	bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
 	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
+		ApiKey: node.APISecret[:],
 	}
 
 	ingress, err := bandwidthClient.IngressSummary(ctx, &multinodepb.IngressSummaryRequest{

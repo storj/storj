@@ -26,14 +26,42 @@
                 </div>
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
                 <div class="forgot-area__content-area__container__input-wrapper">
-                    <HeaderlessInput
+                    <VInput
                         label="Email Address"
                         placeholder="user@example.com"
                         :error="emailError"
                         @setData="setEmail"
                     />
                 </div>
-                <p class="forgot-area__content-area__container__button" @click.prevent="onSendConfigurations">Reset Password</p>
+                <VueRecaptcha
+                    v-if="recaptchaEnabled"
+                    ref="captcha"
+                    :sitekey="recaptchaSiteKey"
+                    :load-recaptcha-script="true"
+                    size="invisible"
+                    @verify="onCaptchaVerified"
+                    @error="onCaptchaError"
+                />
+                <VueHcaptcha
+                    v-else-if="hcaptchaEnabled"
+                    ref="captcha"
+                    :sitekey="hcaptchaSiteKey"
+                    :re-captcha-compat="false"
+                    size="invisible"
+                    @verify="onCaptchaVerified"
+                    @error="onCaptchaError"
+                />
+                <v-button
+                    class="forgot-area__content-area__container__button"
+                    width="100%"
+                    height="48px"
+                    label="Reset Password"
+                    border-radius="50px"
+                    :is-disabled="isLoading"
+                    :on-press="onSendConfigurations"
+                >
+                    Reset Password
+                </v-button>
             </div>
             <div class="forgot-area__content-area__login-container">
                 <router-link :to="loginPath" class="forgot-area__content-area__login-container__link">
@@ -46,37 +74,58 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
+import VueRecaptcha from 'vue-recaptcha';
+import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 // @vue/component
 @Component({
     components: {
-        HeaderlessInput,
+        VInput,
+        VButton,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
+        VueRecaptcha,
+        VueHcaptcha,
     },
 })
 export default class ForgotPassword extends Vue {
     private email = '';
     private emailError = '';
+    private captchaResponseToken = '';
+    private isLoading = false;
+
+    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
+    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
+    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
+    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     // tardigrade logic
     public isDropdownShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
+
+    public $refs!: {
+        captcha: VueRecaptcha | VueHcaptcha;
+    };
 
     /**
      * Sets the email field to the given value.
@@ -115,36 +164,62 @@ export default class ForgotPassword extends Vue {
     }
 
     /**
+     * Handles captcha verification response.
+     */
+    public onCaptchaVerified(response: string): void {
+        this.captchaResponseToken = response;
+        this.onSendConfigurations();
+    }
+
+    /**
+     * Handles captcha error.
+     */
+    public onCaptchaError(): void {
+        this.captchaResponseToken = '';
+        this.$notify.error('The captcha encountered an error. Please try again.');
+    }
+
+    /**
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
-        if (!this.validateFields()) {
+        if (this.isLoading || !this.validateFields()) {
             return;
         }
+
+        if (this.$refs.captcha && !this.captchaResponseToken) {
+            this.$refs.captcha.execute();
+            return;
+        }
+
+        this.isLoading = true;
 
         try {
-            await this.auth.forgotPassword(this.email);
+            await this.auth.forgotPassword(this.email, this.captchaResponseToken);
+            await this.$notify.success('Please look for instructions in your email');
         } catch (error) {
             await this.$notify.error(error.message);
-
-            return;
         }
 
-        await this.$notify.success('Please look for instructions at your email');
+        this.$refs.captcha?.reset();
+        this.captchaResponseToken = '';
+        this.isLoading = false;
     }
 
     /**
      * Changes location to Login route.
      */
     public onBackToLoginClick(): void {
+        this.analytics.pageVisit(RouteConfig.Login.path);
         this.$router.push(RouteConfig.Login.path);
     }
 
     /**
-     * Reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**
@@ -183,6 +258,8 @@ export default class ForgotPassword extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 
@@ -208,7 +285,7 @@ export default class ForgotPassword extends Vue {
                 background-color: #fff;
                 z-index: 1000;
                 border: 1px solid #c5cbdb;
-                box-shadow: 0 8px 34px rgba(161, 173, 185, 0.41);
+                box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                 border-radius: 6px;
                 min-width: 250px;
 
@@ -264,7 +341,7 @@ export default class ForgotPassword extends Vue {
                     &__title {
                         font-size: 24px;
                         margin: 10px 0;
-                        letter-spacing: -0.100741px;
+                        letter-spacing: -0.1007px;
                         color: #252525;
                         font-family: 'font_bold', sans-serif;
                         font-weight: 800;
@@ -276,22 +353,7 @@ export default class ForgotPassword extends Vue {
                 }
 
                 &__button {
-                    font-family: 'font_regular', sans-serif;
-                    font-weight: 700;
                     margin-top: 40px;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background-color: #376fff;
-                    border-radius: 50px;
-                    color: #fff;
-                    cursor: pointer;
-                    width: 100%;
-                    height: 48px;
-
-                    &:hover {
-                        background-color: #0059d0;
-                    }
                 }
             }
 
@@ -346,7 +408,7 @@ export default class ForgotPassword extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 60px 60px;
+                    padding: 60px;
                     border-radius: 0;
                 }
             }

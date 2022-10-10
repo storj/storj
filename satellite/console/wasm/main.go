@@ -7,20 +7,56 @@
 package main
 
 import (
+	"crypto/aes"
+	"crypto/sha256"
 	"encoding/json"
 	"syscall/js"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/base58"
 	console "storj.io/storj/satellite/console/consolewasm"
 )
 
 func main() {
+	js.Global().Set("deriveAndEncryptRootKey", deriveAndEncryptRootKey())
 	js.Global().Set("generateAccessGrant", generateAccessGrant())
 	js.Global().Set("setAPIKeyPermission", setAPIKeyPermission())
 	js.Global().Set("newPermission", newPermission())
 	js.Global().Set("restrictGrant", restrictGrant())
 	<-make(chan bool)
+}
+
+// deriveAndEncryptRootKey derives the root key portion of the access grant and then encrypts it using the provided aes
+// key. To ensure the key used in encryption is a proper length, we take a sha256 of the provided key and use it instead
+// of using the key directly. Then we base58 encode the result and return it to the caller.
+func deriveAndEncryptRootKey() js.Func {
+	return js.FuncOf(responseHandler(func(this js.Value, args []js.Value) (interface{}, error) {
+		if len(args) < 3 {
+			return nil, errs.New("not enough arguments. Need 3, but only %d supplied. The order of arguments are: encryption passphrase, project ID, and AES Key.", len(args))
+		}
+
+		encryptionPassphrase := args[0].String()
+		projectSalt := args[1].String()
+		aesKey := args[2].String()
+
+		rootKey, err := console.DeriveRootKey(encryptionPassphrase, projectSalt)
+		if err != nil {
+			return nil, err
+		}
+
+		key := sha256.Sum256([]byte(aesKey))
+		cipher, err := aes.NewCipher(key[:])
+		if err != nil {
+			return nil, err
+		}
+
+		value := *(rootKey.Raw())
+		out := make([]byte, len(value))
+		cipher.Encrypt(out, value[:])
+
+		return base58.Encode(out), nil
+	}))
 }
 
 // generateAccessGrant creates a new access grant with the provided api key and encryption passphrase.

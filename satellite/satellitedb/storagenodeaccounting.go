@@ -269,6 +269,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 		getRepairTotal := make([]int64, n)
 		putRepairTotal := make([]int64, n)
 		atRestTotal := make([]float64, n)
+		intervalEndTime := make([]time.Time, n)
 
 		for i, ar := range batch {
 			nodeID[i] = ar.NodeID
@@ -279,6 +280,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 			getRepairTotal[i] = ar.GetRepairTotal
 			putRepairTotal[i] = ar.PutRepairTotal
 			atRestTotal[i] = ar.AtRestTotal
+			intervalEndTime[i] = ar.IntervalEndTime
 		}
 
 		_, err = db.ExecContext(ctx, `
@@ -286,13 +288,15 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				node_id, start_time,
 				put_total, get_total,
 				get_audit_total, get_repair_total, put_repair_total,
-				at_rest_total
+				at_rest_total,
+				interval_end_time
 			)
 			SELECT * FROM unnest(
 				$1::bytea[], $2::timestamptz[],
 				$3::int8[], $4::int8[],
 				$5::int8[], $6::int8[], $7::int8[],
-				$8::float8[]
+				$8::float8[],
+				$9::timestamptz[]
 			)
 			ON CONFLICT ( node_id, start_time )
 			DO UPDATE SET
@@ -301,11 +305,13 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				get_audit_total = EXCLUDED.get_audit_total,
 				get_repair_total = EXCLUDED.get_repair_total,
 				put_repair_total = EXCLUDED.put_repair_total,
-				at_rest_total = EXCLUDED.at_rest_total
+				at_rest_total = EXCLUDED.at_rest_total,
+				interval_end_time = EXCLUDED.interval_end_time
 		`, pgutil.NodeIDArray(nodeID), pgutil.TimestampTZArray(startTime),
 			pgutil.Int8Array(putTotal), pgutil.Int8Array(getTotal),
 			pgutil.Int8Array(getAuditTotal), pgutil.Int8Array(getRepairTotal), pgutil.Int8Array(putRepairTotal),
-			pgutil.Float8Array(atRestTotal))
+			pgutil.Float8Array(atRestTotal),
+			pgutil.TimestampTZArray(intervalEndTime))
 
 		return Error.Wrap(err)
 	}
@@ -469,24 +475,30 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 
 	start, end = start.UTC(), end.UTC()
 
+	// TODO: remove COALESCE when we're sure the interval_end_time in the
+	// accounting_rollups table are fully populated or back-filled with
+	// the start_time, and the interval_end_time is non-nullable
 	query := `
-		SELECT SUM(at_rest_total), (start_time at time zone 'UTC')::date as start_time
-		FROM accounting_rollups
-		WHERE node_id = $1
-		AND $2 <= start_time AND start_time <= $3
-		GROUP BY (start_time at time zone 'UTC')::date
+		SELECT SUM(r1.at_rest_total) as at_rest_total, 
+				(r1.start_time at time zone 'UTC')::date as start_time,
+				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
+		FROM accounting_rollups r1
+		WHERE r1.node_id = $1
+		AND $2 <= r1.start_time AND r1.start_time <= $3
+		GROUP BY (r1.start_time at time zone 'UTC')::date
 		UNION
-		SELECT SUM(data_total) AS at_rest_total, (interval_end_time at time zone 'UTC')::date AS start_time
-				FROM storagenode_storage_tallies
-				WHERE node_id = $1
+		SELECT SUM(t.data_total) AS at_rest_total, (t.interval_end_time at time zone 'UTC')::date AS start_time,
+				MAX(t.interval_end_time) AS interval_end_time
+				FROM storagenode_storage_tallies t
+				WHERE t.node_id = $1
 				AND NOT EXISTS (
-					SELECT 1 FROM accounting_rollups
-					WHERE node_id = $1
-					AND $2 <= start_time AND start_time <= $3
-					AND (start_time at time zone 'UTC')::date = (interval_end_time at time zone 'UTC')::date
+					SELECT 1 FROM accounting_rollups r2
+					WHERE r2.node_id = $1
+					AND $2 <= r2.start_time AND r2.start_time <= $3
+					AND (r2.start_time at time zone 'UTC')::date = (t.interval_end_time at time zone 'UTC')::date
 				)
-				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < interval_end_time AND interval_end_time <= $3
-				GROUP BY (interval_end_time at time zone 'UTC')::date
+				AND (SELECT value FROM accounting_timestamps WHERE name = $4) < t.interval_end_time AND t.interval_end_time <= $3
+				GROUP BY (t.interval_end_time at time zone 'UTC')::date
 		ORDER BY start_time;
 	`
 
@@ -501,17 +513,18 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 	var nodeStorageUsages []accounting.StorageNodeUsage
 	for rows.Next() {
 		var atRestTotal float64
-		var startTime dbutil.NullTime
+		var startTime, intervalEndTime dbutil.NullTime
 
-		err = rows.Scan(&atRestTotal, &startTime)
+		err = rows.Scan(&atRestTotal, &startTime, &intervalEndTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
-			NodeID:      nodeID,
-			StorageUsed: atRestTotal,
-			Timestamp:   startTime.Time,
+			NodeID:          nodeID,
+			StorageUsed:     atRestTotal,
+			Timestamp:       startTime.Time,
+			IntervalEndTime: intervalEndTime.Time,
 		})
 	}
 
@@ -519,11 +532,52 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time.
-func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
+func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
-	return err
+
+	if batchSize <= 0 {
+		batchSize = 10000
+	}
+
+	var query string
+	switch db.db.impl {
+	case dbutil.Cockroach:
+		query = `
+			DELETE FROM storagenode_storage_tallies
+			WHERE interval_end_time < ?
+			LIMIT ?`
+	case dbutil.Postgres:
+		query = `
+			DELETE FROM storagenode_storage_tallies
+			WHERE ctid IN (
+				SELECT ctid
+				FROM storagenode_storage_tallies
+				WHERE interval_end_time < ?
+				ORDER BY interval_end_time
+				LIMIT ?
+			)`
+	default:
+		return Error.New("unsupported database: %v", db.db.impl)
+	}
+	query = db.db.Rebind(query)
+
+	for {
+		res, err := db.db.DB.ExecContext(ctx, query, latestRollup, batchSize)
+		if err != nil {
+			if errs.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if affected == 0 {
+			return nil
+		}
+	}
 }
 
 // ArchiveRollupsBefore archives rollups older than a given time.

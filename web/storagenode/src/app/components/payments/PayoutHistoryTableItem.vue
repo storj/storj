@@ -313,7 +313,7 @@ export default class PayoutHistoryTableItem extends Vue {
                         &__icon {
                             margin-left: 7px;
 
-                            path {
+                            ::v-deep path {
                                 stroke: var(--navigation-link-color);
                             }
                         }
@@ -367,7 +367,7 @@ export default class PayoutHistoryTableItem extends Vue {
         min-width: 40px;
         min-height: 40px;
 
-        path {
+        ::v-deep path {
             fill: #909bad;
         }
     }
@@ -382,7 +382,7 @@ export default class PayoutHistoryTableItem extends Vue {
     @media screen and (max-width: 800px) {
 
         .payout-history-item {
-            padding: 17px 10px 12px 10px;
+            padding: 17px 10px 12px;
             width: calc(100% - 20px);
 
             &__header {

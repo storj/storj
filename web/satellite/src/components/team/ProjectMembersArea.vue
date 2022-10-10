@@ -8,51 +8,61 @@
                 :header-state="headerState"
                 :selected-project-members-count="selectedProjectMembersLength"
                 :is-add-button-disabled="areMembersFetching"
-                @onSuccessAction="resetPaginator"
             />
         </div>
         <VLoader v-if="areMembersFetching" width="100px" height="100px" />
-        <template v-else>
-            <div v-if="isTeamAreaShown" id="team-container" class="team-area__container">
-                <SortingListHeader :on-header-click-callback="onHeaderSectionClickCallback" />
-                <div class="team-area__container__content">
-                    <VList
-                        :data-set="projectMembers"
-                        :item-component="getItemComponent"
-                        :on-item-click="onMemberClick"
-                    />
-                </div>
-            </div>
-            <VPagination
-                v-if="totalPageCount > 1"
-                ref="pagination"
-                class="pagination-area"
-                :total-page-count="totalPageCount"
-                :on-page-click-callback="onPageClick"
-            />
-            <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
-                <h1 class="team-area__empty-search-result-area__title">No results found</h1>
-                <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
-            </div>
-        </template>
+
+        <div v-if="isEmptySearchResultShown" class="team-area__empty-search-result-area">
+            <h1 class="team-area__empty-search-result-area__title">No results found</h1>
+            <EmptySearchResultIcon class="team-area__empty-search-result-area__image" />
+        </div>
+
+        <v-table
+            v-if="!areMembersFetching && !isEmptySearchResultShown"
+            class="team-area__table"
+            items-label="project members"
+            :selectable="true"
+            :limit="projectMemberLimit"
+            :total-page-count="totalPageCount"
+            :items="projectMembers"
+            :total-items-count="projectMembersTotalCount"
+            :on-page-click-callback="onPageClick"
+        >
+            <template #head>
+                <th class="align-left">Name</th>
+                <th class="align-left date-added">Date Added</th>
+                <th class="align-left">Email</th>
+            </template>
+            <template #body>
+                <ProjectMemberListItem
+                    v-for="(member, key) in projectMembers"
+                    :key="key"
+                    :item-data="member"
+                    @memberClick="onMemberCheckChange"
+                    @selectChange="(_) => onMemberCheckChange(member)"
+                />
+            </template>
+        </v-table>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VList from '@/components/common/VList.vue';
+import { SortDirection } from '@/types/common';
+import {
+    ProjectMember,
+    ProjectMemberHeaderState,
+    ProjectMemberOrderBy,
+} from '@/types/projectMembers';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+
 import VLoader from '@/components/common/VLoader.vue';
-import VPagination from '@/components/common/VPagination.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
-import SortingListHeader from '@/components/team/SortingListHeader.vue';
+import VTable from '@/components/common/VTable.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
-
-import { SortDirection } from '@/types/common';
-import { ProjectMember, ProjectMemberHeaderState, ProjectMemberOrderBy } from '@/types/projectMembers';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 const {
     FETCH,
@@ -61,29 +71,20 @@ const {
     SET_SORT_DIRECTION,
 } = PM_ACTIONS;
 
-declare interface ResetPagination {
-    resetPageIndex(): void;
-}
-
 // @vue/component
 @Component({
     components: {
+        ProjectMemberListItem,
         HeaderArea,
-        VList,
-        VPagination,
-        SortingListHeader,
-        EmptySearchResultIcon,
         VLoader,
+        VTable,
+        EmptySearchResultIcon,
     },
 })
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
 
     public areMembersFetching = true;
-
-    public $refs!: {
-        pagination: HTMLElement & ResetPagination;
-    };
 
     /**
      * Lifecycle hook after initial render.
@@ -103,9 +104,9 @@ export default class ProjectMembersArea extends Vue {
      * Selects team member if this user has no owner status.
      * @param member
      */
-    public onMemberClick(member: ProjectMember): void {
+    public async onMemberCheckChange(member: ProjectMember) {
         if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
-            this.$store.dispatch(TOGGLE_SELECTION, member);
+            await this.$store.dispatch(TOGGLE_SELECTION, member);
         }
     }
 
@@ -124,15 +125,18 @@ export default class ProjectMembersArea extends Vue {
         return projectMembersToReturn;
     }
 
-    public get getItemComponent(): typeof ProjectMemberListItem {
-        return ProjectMemberListItem;
-    }
-
     /**
      * Returns team members total page count from store.
      */
     public get projectMembersTotalCount(): number {
         return this.$store.state.projectMembersModule.page.totalCount;
+    }
+
+    /**
+     * Returns team members limit from store.
+     */
+    public get projectMemberLimit(): number {
+        return this.$store.state.projectMembersModule.page.limit;
     }
 
     /**
@@ -152,10 +156,6 @@ export default class ProjectMembersArea extends Vue {
 
     public get headerState(): number {
         return this.selectedProjectMembersLength > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
-    }
-
-    public get isTeamAreaShown(): boolean {
-        return this.projectMembersCount > 0 || this.projectMembersTotalCount > 0;
     }
 
     public get isEmptySearchResultShown(): boolean {
@@ -187,21 +187,13 @@ export default class ProjectMembersArea extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
-
-        this.resetPaginator();
-    }
-
-    public resetPaginator(): void {
-        if (this.totalPageCount > 1) {
-            this.$refs.pagination.resetPageIndex();
-        }
     }
 }
 </script>
 
 <style scoped lang="scss">
     .team-area {
-        padding: 40px 30px 55px 30px;
+        padding: 40px 30px 55px;
         height: calc(100% - 95px);
         font-family: 'font_regular', sans-serif;
 
@@ -209,16 +201,6 @@ export default class ProjectMembersArea extends Vue {
             width: 100%;
             background-color: #f5f6fa;
             top: auto;
-        }
-
-        &__container {
-
-            &__content {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 20px;
-                flex-direction: column;
-            }
         }
 
         &__empty-search-result-area {
@@ -241,8 +223,10 @@ export default class ProjectMembersArea extends Vue {
         }
     }
 
-    .pagination-area {
-        margin-left: -25px;
-        padding-bottom: 15px;
+    @media screen and (max-width: 800px) and (min-width: 500px) {
+
+        .date-added {
+            display: none;
+        }
     }
 </style>

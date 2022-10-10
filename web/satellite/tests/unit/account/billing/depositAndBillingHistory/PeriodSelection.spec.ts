@@ -1,23 +1,26 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import sinon from 'sinon';
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 import Vuex from 'vuex';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
-import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
+import { ProjectsApiMock } from '../../../mock/api/projects';
+import { PaymentsMock } from '../../../mock/api/payments';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { makePaymentsModule } from '@/store/modules/payments';
 
-import { ProjectsApiMock } from '../../../mock/api/projects';
+import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 
 const localVue = createLocalVue();
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
+const paymentsApi = new PaymentsMock();
+const paymentsModule = makePaymentsModule(paymentsApi);
 const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', false);
 
 let clickOutsideEvent: EventListener;
@@ -29,7 +32,7 @@ localVue.directive('click-outside', {
                 return;
             }
 
-            if (vnode.context) {
+            if (vnode.context && binding.expression) {
                 vnode.context[binding.expression](event);
             }
         };
@@ -43,7 +46,11 @@ localVue.directive('click-outside', {
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { projectsModule, appStateModule }});
+const store = new Vuex.Store({ modules: {
+    projectsModule,
+    appStateModule,
+    paymentsModule,
+} });
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
@@ -69,10 +76,11 @@ describe('PeriodSelection', (): void => {
     });
 
     it('clicks work correctly', async (): Promise<void> => {
-        const currentClickSpy = sinon.spy();
-        const previousClickSpy = sinon.spy();
-        const historyClickSpy = sinon.spy();
-        const wrapper = mount(PeriodSelection, {
+        const currentClickSpy = jest.fn();
+        const previousClickSpy = jest.fn();
+        const historyClickSpy = jest.fn();
+
+        const wrapper = mount<PeriodSelection>(PeriodSelection, {
             localVue,
             store,
         });
@@ -84,16 +92,16 @@ describe('PeriodSelection', (): void => {
         await wrapper.find('.period-selection').trigger('click');
         await wrapper.findAll('.period-selection__dropdown__item').at(0).trigger('click');
 
-        expect(currentClickSpy.callCount).toBe(1);
+        expect(currentClickSpy).toHaveBeenCalledTimes(1);
 
         await wrapper.find('.period-selection').trigger('click');
         await wrapper.findAll('.period-selection__dropdown__item').at(1).trigger('click');
 
-        expect(previousClickSpy.callCount).toBe(1);
+        expect(previousClickSpy).toHaveBeenCalledTimes(1);
 
         await wrapper.find('.period-selection').trigger('click');
         await wrapper.find('.period-selection__dropdown__link-container').trigger('click');
 
-        expect(historyClickSpy.callCount).toBe(1);
+        expect(historyClickSpy).toHaveBeenCalledTimes(1);
     });
 });

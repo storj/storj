@@ -46,36 +46,6 @@ type iterateCursor struct {
 	Inclusive bool
 }
 
-func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	it := &objectsIterator{
-		db: db,
-
-		projectID:             opts.ProjectID,
-		bucketName:            []byte(opts.BucketName),
-		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
-		batchSize:             opts.BatchSize,
-		recursive:             true,
-		includeCustomMetadata: true,
-		includeSystemMetadata: true,
-
-		curIndex:    0,
-		cursor:      firstIterateCursor(true, opts.Cursor, opts.Prefix),
-		doNextQuery: doNextQueryAllVersionsWithoutStatus,
-	}
-
-	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
-		it.cursor.Key = opts.Prefix
-		it.cursor.Version = -1
-		it.cursor.Inclusive = true
-	}
-
-	return iterate(ctx, it, fn)
-}
-
 func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -169,11 +139,6 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 
 	// TODO: implement this on the database side
 
-	ok := it.next(ctx, item)
-	if !ok {
-		return false
-	}
-
 	// skip until we are past the prefix we returned before.
 	if it.skipPrefix != "" {
 		for strings.HasPrefix(string(item.ObjectKey), string(it.skipPrefix)) {
@@ -182,6 +147,11 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 			}
 		}
 		it.skipPrefix = ""
+	} else {
+		ok := it.next(ctx, item)
+		if !ok {
+			return false
+		}
 	}
 
 	// should this be treated as a prefix?
@@ -208,6 +178,16 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		if it.curRows.Err() != nil {
 			return false
+		}
+
+		if !it.recursive {
+			afterPrefix := it.cursor.Key[len(it.prefix):]
+			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
+			if p >= 0 {
+				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
+				it.cursor.StreamID = uuid.UUID{}
+				it.cursor.Version = 0
+			}
 		}
 
 		rows, err := it.doNextQuery(ctx, it)
@@ -249,59 +229,6 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	item.ObjectKey = item.ObjectKey[len(it.prefix):]
 
 	return true
-}
-
-func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursorCompare := ">"
-	if it.cursor.Inclusive {
-		cursorCompare = ">="
-	}
-
-	if it.prefixLimit == "" {
-		return it.db.db.QueryContext(ctx, `
-			SELECT
-				object_key, stream_id, version, encryption, status,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
-			FROM objects
-			WHERE
-				project_id = $1 AND bucket_name = $2
-				AND (object_key, version) `+cursorCompare+` ($3, $4)
-			ORDER BY object_key ASC, version ASC
-			LIMIT $5
-			`, it.projectID, it.bucketName,
-			[]byte(it.cursor.Key), int(it.cursor.Version),
-			it.batchSize,
-		)
-	}
-
-	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
-	// works with CRDB.
-	return it.db.db.QueryContext(ctx, `
-		SELECT
-			object_key, stream_id, version, encryption, status,
-			created_at, expires_at,
-			segment_count,
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
-		FROM objects
-		WHERE
-			project_id = $1 AND bucket_name = $2
-			AND (object_key, version) `+cursorCompare+` ($3, $4)
-			AND object_key < $5
-		ORDER BY object_key ASC, version ASC
-		LIMIT $6
-	`, it.projectID, it.bucketName,
-		[]byte(it.cursor.Key), int(it.cursor.Version),
-		[]byte(it.prefixLimit),
-		it.batchSize,
-
-		// len(it.prefix)+1, // TODO uncomment when CRDB issue will be fixed
-	)
 }
 
 func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
@@ -346,6 +273,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
 				AND (project_id, bucket_name) < ($1, $7)
 				AND status = $3
+				AND (expires_at IS NULL OR expires_at > now())
 				ORDER BY (project_id, bucket_name, object_key, version) ASC
 			LIMIT $6
 			`, it.projectID, it.bucketName,
@@ -366,6 +294,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
 			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
 			AND status = $3
+			AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY (project_id, bucket_name, object_key, version) ASC
 		LIMIT $7
 	`, it.projectID, it.bucketName,

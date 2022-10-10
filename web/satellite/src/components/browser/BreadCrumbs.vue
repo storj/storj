@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="my-3">
+    <div class="mb-3">
         <div class="d-inline">
-            <p class="d-inline path-buckets">Buckets</p>
+            <a class="d-inline path-buckets" @click="() => $emit('bucketClick')">Buckets</a>
             <svg
                 class="mx-3"
                 width="6"
@@ -66,7 +66,7 @@ export default class BreadCrumbs extends Vue {
      * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
      */
     public get crumbs(): string[] {
-        let path: string[] = this.$store.state.files.path.split("/");
+        let path: string[] = this.$store.state.files.path.split('/');
         path =
             path.length > 1
                 ? [this.bucketName, ...path.slice(0, path.length - 1)]
@@ -79,8 +79,8 @@ export default class BreadCrumbs extends Vue {
      */
     public link(idx: number): string {
         const crumbs = this.crumbs;
-        let path = "";
-        if (idx > 0) path = crumbs.slice(1, idx + 1).join("/") + "/";
+        let path = '';
+        if (idx > 0) path = crumbs.slice(1, idx + 1).join('/') + '/';
         return this.$store.state.files.browserRoot + path;
     }
 
@@ -96,8 +96,9 @@ export default class BreadCrumbs extends Vue {
 
 <style scoped lang="css">
 .path {
-    font-size: 18px;
-    color: #232b34;
+    font-family: 'font_bold', sans-serif;
+    font-size: 14px;
+    color: #1b2533;
     font-weight: bold;
     cursor: pointer;
 }
@@ -107,7 +108,12 @@ export default class BreadCrumbs extends Vue {
 }
 
 .path-buckets {
-    font-size: 18px;
-    color: #232b34;
+    font-size: 14px;
+    color: #232a34;
+    cursor: pointer;
+}
+
+.path-buckets:hover {
+    color: #376fff;
 }
 </style>

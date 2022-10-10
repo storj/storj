@@ -15,37 +15,37 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
-import BaseChart from '@/components/common/BaseChart.vue';
-import VChart from '@/components/common/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
-import { DataStamp } from "@/types/projects";
-import { ChartUtils } from "@/utils/chart";
+import { DataStamp } from '@/types/projects';
+import { ChartUtils } from '@/utils/chart';
+
+import VChart from '@/components/common/VChart.vue';
+import BaseChart from '@/components/common/BaseChart.vue';
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class StorageChart extends BaseChart {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public readonly data: DataStamp[];
-    @Prop({default: new Date()})
+    @Prop({ default: new Date() })
     public readonly since: Date;
-    @Prop({default: new Date()})
+    @Prop({ default: new Date() })
     public readonly before: Date;
 
     /**
      * Returns formatted data to render chart.
      */
     public get chartData(): ChartData {
-        const data: number[] = this.data.map(el => el.value)
+        const data: number[] = this.data.map(el => el.value);
         const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.since, this.before);
 
         return new ChartData(
             xAxisDateLabels,
-            "#E6EDF7",
-            "#D7E8FF",
-            "#003DC1",
+            '#E6EDF7',
+            '#D7E8FF',
+            '#003DC1',
             data,
         );
     }
@@ -83,7 +83,7 @@ export default class StorageChart extends BaseChart {
     .tooltip {
         margin: 8px;
         position: relative;
-        box-shadow: 0 5px 14px rgba(9, 87, 203, 0.26);
+        box-shadow: 0 5px 14px rgb(9 87 203 / 26%);
         border-radius: 100px;
         padding-top: 8px;
         width: 145px;
@@ -108,7 +108,7 @@ export default class StorageChart extends BaseChart {
         &__arrow {
             width: 12px;
             height: 12px;
-            border-radius: 8px 0 0 0;
+            border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
             background-color: #003dc1;

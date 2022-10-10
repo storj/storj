@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"crypto/sha256"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -13,12 +12,14 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/encryption"
+	"storj.io/common/eventstat"
 	"storj.io/common/lrucache"
 	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/private/debug"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
@@ -81,6 +82,15 @@ type Endpoint struct {
 	defaultRS            *pb.RedundancyScheme
 	config               Config
 	versionCollector     *versionCollector
+	top                  endpointTop
+}
+
+// endpointTop represents in-memory counter stats.
+// Cached info can be retrieved from the /mon monitoring endpoint.
+type endpointTop struct {
+	Project   eventstat.Sink
+	Partner   eventstat.Sink
+	UserAgent eventstat.Sink
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -131,6 +141,11 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		defaultRS:            defaultRSScheme,
 		config:               config,
 		versionCollector:     newVersionCollector(log),
+		top: endpointTop{
+			Project:   debug.Top.NewTagCounter("auth_request_project", "project"),
+			Partner:   debug.Top.NewTagCounter("auth_request_partner", "partner"),
+			UserAgent: debug.Top.NewTagCounter("auth_request_user_agent", "agent"),
+		},
 	}, nil
 }
 
@@ -141,10 +156,7 @@ func (endpoint *Endpoint) Close() error { return nil }
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
@@ -154,10 +166,13 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		return nil, err
 	}
 
-	salt := sha256.Sum256(keyInfo.ProjectID[:])
+	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: salt[:],
+		ProjectSalt: salt,
 	}, nil
 }
 
@@ -165,10 +180,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	macToRevoke, err := macaroon.ParseMacaroon(req.GetApiKey())
 	if err != nil {
@@ -271,6 +283,11 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 
 // convertMetabaseErr converts domain errors from metabase to appropriate rpc statuses errors.
 func (endpoint *Endpoint) convertMetabaseErr(err error) error {
+	if rpcstatus.Code(err) != rpcstatus.Unknown {
+		// it's already RPC error
+		return err
+	}
+
 	switch {
 	case storj.ErrObjectNotFound.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
@@ -280,6 +297,10 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	case metabase.ErrObjectAlreadyExists.Has(err):
 		return rpcstatus.Error(rpcstatus.AlreadyExists, err.Error())
+	case metabase.ErrPendingObjectMissing.Has(err):
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrPermissionDenied.Has(err):
+		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())

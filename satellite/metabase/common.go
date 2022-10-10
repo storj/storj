@@ -16,11 +16,16 @@ import (
 	"storj.io/common/uuid"
 )
 
-// Error is the default error for metabase.
-var Error = errs.Class("metabase")
-
-// ErrObjectAlreadyExists is used to indicate that object already exists.
-var ErrObjectAlreadyExists = errs.Class("object already exists")
+var (
+	// Error is the default error for metabase.
+	Error = errs.Class("metabase")
+	// ErrObjectAlreadyExists is used to indicate that object already exists.
+	ErrObjectAlreadyExists = errs.Class("object already exists")
+	// ErrPendingObjectMissing is used to indicate a pending object is no longer accessible.
+	ErrPendingObjectMissing = errs.Class("pending object missing")
+	// ErrPermissionDenied general error for denying permission.
+	ErrPermissionDenied = errs.Class("permission denied")
+)
 
 // Common constants for segment keys.
 const (
@@ -32,8 +37,8 @@ const (
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
 
-// MoveLimit is the maximum number of segments that can be moved.
-const MoveLimit = int64(10000)
+// MoveSegmentLimit is the maximum number of segments that can be moved.
+const MoveSegmentLimit = int64(10000)
 
 // CopySegmentLimit is the maximum number of segments that can be copied.
 const CopySegmentLimit = int64(10000)

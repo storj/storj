@@ -367,7 +367,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_filter_size").Observe(filter.Size())
 	mon.IntVal("garbage_collection_started").Observe(started.Unix())
 
-	s.log.Debug("Prepared to run a Retain request.",
+	s.log.Info("Prepared to run a Retain request.",
 		zap.Time("Created Before", createdBefore),
 		zap.Int64("Filter Size", filter.Size()),
 		zap.Stringer("Satellite ID", satelliteID))
@@ -430,7 +430,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_pieces_to_delete_count").Observe(piecesToDeleteCount)
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
 	mon.DurationVal("garbage_collection_loop_duration").Observe(time.Now().UTC().Sub(started))
-	s.log.Debug("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
+	s.log.Info("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
 
 	return nil
 }
@@ -439,4 +439,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
 	return s.store.Trash(ctx, satelliteID, pieceID)
+}
+
+// HowManyQueued peeks at the number of bloom filters queued.
+func (s *Service) HowManyQueued() int {
+	return len(s.queued)
 }

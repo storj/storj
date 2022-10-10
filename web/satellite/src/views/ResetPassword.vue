@@ -38,7 +38,7 @@
                 <template v-else>
                     <p class="reset-area__content-area__container__message">Please enter your new password.</p>
                     <div class="reset-area__content-area__container__input-wrapper password">
-                        <HeaderlessInput
+                        <VInput
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
@@ -53,7 +53,7 @@
                         />
                     </div>
                     <div class="reset-area__content-area__container__input-wrapper">
-                        <HeaderlessInput
+                        <VInput
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
@@ -77,25 +77,27 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import PasswordStrength from '@/components/common/PasswordStrength.vue';
-
-import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-import KeyIcon from '@/../static/images/resetPassword/success.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
+import VInput from '@/components/common/VInput.vue';
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+
+import KeyIcon from '@/../static/images/resetPassword/success.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
 // @vue/component
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        VInput,
         PasswordStrength,
         KeyIcon,
         ConfirmMFAInput,
@@ -123,6 +125,8 @@ export default class ResetPassword extends Vue {
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public $refs!: {
         mfaInput: ConfirmMFAInput;
     };
@@ -146,6 +150,7 @@ export default class ResetPassword extends Vue {
         if (this.$route.query.token) {
             this.token = this.$route.query.token.toString();
         } else {
+            this.analytics.pageVisit(RouteConfig.Login.path);
             this.$router.push(RouteConfig.Login.path);
         }
     }
@@ -175,7 +180,6 @@ export default class ResetPassword extends Vue {
 
         try {
             await this.auth.resetPassword(this.token, this.password, this.passcode.trim(), this.recoveryCode.trim());
-            await this.auth.logout();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
         } catch (error) {
             this.isLoading = false;
@@ -231,10 +235,11 @@ export default class ResetPassword extends Vue {
     }
 
     /**
-     * Reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 
     /**
@@ -307,6 +312,8 @@ export default class ResetPassword extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 
@@ -344,7 +351,7 @@ export default class ResetPassword extends Vue {
                 &__title {
                     font-size: 24px;
                     margin: 10px 0;
-                    letter-spacing: -0.100741px;
+                    letter-spacing: -0.1007px;
                     color: #252525;
                     font-family: 'font_bold', sans-serif;
                     font-weight: 800;
@@ -463,7 +470,7 @@ export default class ResetPassword extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 60px 60px;
+                    padding: 60px;
                     border-radius: 0;
                 }
             }

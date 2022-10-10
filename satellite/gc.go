@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -22,7 +23,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
@@ -60,7 +61,7 @@ type GarbageCollection struct {
 	}
 
 	GarbageCollection struct {
-		Service *gc.Service
+		Sender *sender.Service
 	}
 }
 
@@ -145,19 +146,19 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup garbage collection
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage-collection"),
+		peer.GarbageCollection.Sender = sender.NewService(
+			peer.Log.Named("gc-sender"),
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
-			peer.Metainfo.SegmentLoop,
 		)
+
 		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection",
-			Run:  peer.GarbageCollection.Service.Run,
+			Name: "gc-sender",
+			Run:  peer.GarbageCollection.Sender.Run,
 		})
 		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
+			debug.Cycle("Garbage Collection", peer.GarbageCollection.Sender.Loop))
 	}
 
 	return peer, nil
@@ -169,10 +170,15 @@ func (peer *GarbageCollection) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "gc"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

@@ -4,27 +4,15 @@ exports[`SortingListHeader.vue should render correctly 1`] = `
 <div class="sort-header-container">
   <div class="sort-header-container__name-container">
     <p class="sort-header-container__name-container__title">Name</p>
-    <div class="container"><svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="">
-        <path d="M4.73684 5.70565e-07L9 6L-9.53674e-07 6L4.73684 5.70565e-07Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg> <svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="active">
-        <path d="M4.26316 6L1.90735e-06 0L9 1.59559e-06L4.26316 6Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="active"></svg></div>
   </div>
   <div class="sort-header-container__added-container">
     <p class="sort-header-container__added-container__title">Added</p>
-    <div class="container"><svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="">
-        <path d="M4.73684 5.70565e-07L9 6L-9.53674e-07 6L4.73684 5.70565e-07Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg> <svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="">
-        <path d="M4.26316 6L1.90735e-06 0L9 1.59559e-06L4.26316 6Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="inactive"></svg></div>
   </div>
   <div class="sort-header-container__email-container">
     <p class="sort-header-container__email-container__title">Email</p>
-    <div class="container"><svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="">
-        <path d="M4.73684 5.70565e-07L9 6L-9.53674e-07 6L4.73684 5.70565e-07Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg> <svg width="9" height="6" viewBox="0 0 9 6" fill="none" xmlns="http://www.w3.org/2000/svg" class="">
-        <path d="M4.26316 6L1.90735e-06 0L9 1.59559e-06L4.26316 6Z" fill="#354049" class="arrow-svg-path"></path>
-      </svg></div>
+    <div class="container"><svg class="inactive"></svg> <svg class="inactive"></svg></div>
   </div>
 </div>
 `;

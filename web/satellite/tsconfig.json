@@ -13,6 +13,8 @@
     "sourceMap": true,
     "baseUrl": ".",
     "strictPropertyInitialization": false,
+    "resolveJsonModule": true,
+    "useUnknownInCatchVariables": false, // TODO: reenable it later
     "types": [
       "webpack-env",
       "jest",
@@ -34,7 +36,7 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.vue",
-    "src/types/svg.d.ts",
+    "src/types/*.d.ts",
     "tests/**/*.ts",
     "tests/**/*.tsx"
   ],

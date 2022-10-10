@@ -5,13 +5,11 @@ exports[`BucketArea.vue renders correctly with bucket 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+      <vheader-stub styletype="common" placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
-      <sortingheader-stub></sortingheader-stub>
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]" class="buckets-list"></vlist-stub>
+      <sortingheader-stub class="buckets-container__header"></sortingheader-stub>
+      <vlist-stub itemcomponent="[Function]" onitemclick="[Function]" dataset="[object Object]" class="buckets-list"></vlist-stub>
     </div>
     <!---->
   </div>
@@ -24,18 +22,16 @@ exports[`BucketArea.vue renders correctly with pagination 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+      <vheader-stub styletype="common" placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
     </div>
     <div class="buckets-container">
-      <sortingheader-stub></sortingheader-stub>
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]" class="buckets-list"></vlist-stub>
+      <sortingheader-stub class="buckets-container__header"></sortingheader-stub>
+      <vlist-stub itemcomponent="[Function]" onitemclick="[Function]" dataset="[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]" class="buckets-list"></vlist-stub>
     </div>
     <!---->
   </div>
   <div class="buckets-area__pagination-area">
-    <vpagination-stub totalpagecount="2" onpageclickcallback="function () { [native code] }"></vpagination-stub>
+    <vpagination-stub totalpagecount="2" onpageclickcallback="[Function]"></vpagination-stub>
   </div>
 </div>
 `;
@@ -52,7 +48,7 @@ exports[`BucketArea.vue renders correctly without search results 1`] = `
   <div class="buckets-overflow">
     <div class="buckets-header">
       <p class="buckets-header__title">Usage per bucket</p>
-      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+      <vheader-stub styletype="common" placeholder="Buckets" search="[Function]" class="buckets-header-component"></vheader-stub>
     </div>
     <!---->
     <div class="empty-search-result-area">

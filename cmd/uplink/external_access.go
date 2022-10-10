@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -57,14 +57,20 @@ func (ex *external) loadAccesses() error {
 }
 
 func parseAccessDataOrPossiblyFile(accessDataOrFile string) (*uplink.Access, error) {
-	if access, err := uplink.ParseAccess(accessDataOrFile); err == nil {
+	access, parseErr := uplink.ParseAccess(accessDataOrFile)
+	if parseErr == nil {
 		return access, nil
 	}
 
-	accessData, err := ioutil.ReadFile(accessDataOrFile)
-	if err != nil {
-		return nil, errs.Wrap(err)
+	accessData, readErr := os.ReadFile(accessDataOrFile)
+	if readErr != nil {
+		var pathErr *os.PathError
+		if errors.As(readErr, &pathErr) {
+			readErr = pathErr.Err
+		}
+		return nil, errs.New("unable to open or parse access: %w", errs.Combine(parseErr, readErr))
 	}
+
 	return uplink.ParseAccess(string(bytes.TrimSpace(accessData)))
 }
 
@@ -157,7 +163,7 @@ func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, pa
 	return access, nil
 }
 
-func (ex *external) ExportAccess(ctx clingy.Context, access *uplink.Access, filename string) error {
+func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, filename string) error {
 	serialized, err := access.Serialize()
 	if err != nil {
 		return errs.Wrap(err)
@@ -185,6 +191,6 @@ func (ex *external) ExportAccess(ctx clingy.Context, access *uplink.Access, file
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(ctx, "Exported access to:", filename)
+	fmt.Fprintln(clingy.Stdout(ctx), "Exported access to:", filename)
 	return nil
 }

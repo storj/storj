@@ -11,7 +11,7 @@
                     src="@/../static/images/account/billing/coupon.png"
                     alt="Coupon"
                 >
-                <HeaderlessInput
+                <VInput
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
                     height="52px"
@@ -68,21 +68,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { PaymentsHttpApi } from '@/api/payments';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+
+import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
-import { PaymentsHttpApi } from '@/api/payments';
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-
 // @vue/component
 @Component({
     components: {
         VButton,
-        HeaderlessInput,
+        VInput,
         CheckIcon,
         ValidationMessage,
     },
@@ -171,7 +171,6 @@ export default class AddCouponCodeInput extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .add-coupon {
 
         &__input-wrapper {

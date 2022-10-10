@@ -347,6 +347,13 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 	return migration.Run(ctx, db.log.Named("migration"))
 }
 
+// TestMigrateToLatest creates any necessary tables from snapshot.
+// it's faster for the testing but should be the same as MigrateToLatest.
+func (db *DB) TestMigrateToLatest(ctx context.Context) error {
+	migration := db.Snapshot(ctx)
+	return migration.Run(ctx, db.log.Named("migration"))
+}
+
 // Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
 func (db *DB) Preflight(ctx context.Context) (err error) {
 	for dbName, dbContainer := range db.SQLDBs {
@@ -2001,6 +2008,32 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE satellites ADD COLUMN address TEXT;
 					 UPDATE satellites SET address = 'satellite.stefan-benten.de:7777' WHERE node_id = X'004ae89e970e703df42ba4ab1416a3b30b7e1d8e14aa0e558f7ee26800000000'`,
 				},
+			},
+			{
+				DB:          &db.storageUsageDB.DB,
+				Description: "Add interval_end_time field to storage_usage db, backfill interval_end_time with interval_start, rename interval_start to timestamp",
+				Version:     54,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) error {
+					_, err := rtx.Exec(ctx, `
+						CREATE TABLE storage_usage_new (
+							timestamp TIMESTAMP NOT NULL,
+							satellite_id BLOB NOT NULL,
+							at_rest_total REAL NOT NULL,
+							interval_end_time TIMESTAMP NOT NULL,
+							PRIMARY KEY (timestamp, satellite_id)
+						);
+						INSERT INTO storage_usage_new SELECT
+							interval_start,
+							satellite_id,
+							at_rest_total,
+							interval_start
+						FROM storage_usage;
+						DROP TABLE storage_usage;
+						ALTER TABLE storage_usage_new RENAME TO storage_usage;
+					`)
+
+					return errs.Wrap(err)
+				}),
 			},
 		},
 	}

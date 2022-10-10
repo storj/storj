@@ -34,7 +34,9 @@ type Config struct {
 	MaxNumberOfParts int
 
 	// TODO remove this flag when server-side copy implementation will be finished
-	ServerSideCopy bool
+	ServerSideCopy         bool
+	ServerSideCopyDisabled bool
+	MultipleVersions       bool
 }
 
 // DB implements a database for storing objects and segments.
@@ -127,6 +129,125 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 	`)
 	db.aliasCache = NewNodeAliasCache(db)
 	return Error.Wrap(err)
+}
+
+// TestMigrateToLatest replaces the migration steps with only one step to create metabase db.
+func (db *DB) TestMigrateToLatest(ctx context.Context) error {
+	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
+	// will need to create any schemas specified in the search path, and cockroach
+	// will need to create the database it was told to connect to. These things should
+	// not really be here, and instead should be assumed to exist.
+	// This is tracked in jira ticket SM-200
+	switch db.impl {
+	case dbutil.Postgres:
+		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+
+		if schema != "" {
+			err = pgutil.CreateSchema(ctx, db.db, schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+			return errs.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+			pgutil.QuoteIdentifier(dbName)))
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	migration := &migrate.Migration{
+		Table: "metabase_versions",
+		Steps: []*migrate.Step{
+			{
+				DB:          &db.db,
+				Description: "Test snapshot",
+				Version:     15,
+				Action: migrate.SQL{
+
+					`CREATE TABLE objects (
+						project_id   BYTEA NOT NULL,
+						bucket_name  BYTEA NOT NULL, -- we're using bucket_name here to avoid a lookup into buckets table
+						object_key   BYTEA NOT NULL, -- using 'object_key' instead of 'key' to avoid reserved word
+						version      INT4  NOT NULL,
+						stream_id    BYTEA NOT NULL,
+
+						created_at TIMESTAMPTZ NOT NULL default now(),
+						expires_at TIMESTAMPTZ,
+
+						status         INT2 NOT NULL default ` + pendingStatus + `,
+						segment_count  INT4 NOT NULL default 0,
+
+						encrypted_metadata_nonce         BYTEA default NULL,
+						encrypted_metadata               BYTEA default NULL,
+						encrypted_metadata_encrypted_key BYTEA default NULL,
+
+						total_plain_size     INT8 NOT NULL default 0, -- migrated objects have this = 0
+						total_encrypted_size INT8 NOT NULL default 0,
+						fixed_segment_size   INT4 NOT NULL default 0, -- migrated objects have this = 0
+
+						encryption INT8 NOT NULL default 0,
+
+						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
+
+						PRIMARY KEY (project_id, bucket_name, object_key, version)
+					);
+					CREATE TABLE segments (
+						stream_id  BYTEA NOT NULL,
+						position   INT8  NOT NULL,
+
+						root_piece_id       BYTEA NOT NULL,
+						encrypted_key_nonce BYTEA NOT NULL,
+						encrypted_key       BYTEA NOT NULL,
+						remote_alias_pieces BYTEA,
+
+						encrypted_size INT4 NOT NULL,
+						plain_offset   INT8 NOT NULL, -- migrated objects have this = 0
+						plain_size     INT4 NOT NULL, -- migrated objects have this = 0
+
+						redundancy INT8 NOT NULL default 0,
+
+						inline_data  BYTEA DEFAULT NULL,
+
+						created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+						repaired_at TIMESTAMPTZ,
+						expires_at TIMESTAMPTZ,
+
+						placement integer,
+						encrypted_etag BYTEA default NULL,
+
+						PRIMARY KEY (stream_id, position)
+					);
+					CREATE SEQUENCE node_alias_seq
+						INCREMENT BY 1
+						MINVALUE 1 MAXVALUE 2147483647 -- MaxInt32
+						START WITH 1;
+					CREATE TABLE node_aliases (
+						node_id    BYTEA  NOT NULL UNIQUE,
+						node_alias INT4   NOT NULL UNIQUE default nextval('node_alias_seq')
+					);
+
+					CREATE TABLE segment_copies (
+						stream_id BYTEA NOT NULL PRIMARY KEY,
+						ancestor_stream_id BYTEA NOT NULL,
+
+						CONSTRAINT not_self_ancestor CHECK (stream_id != ancestor_stream_id)
+					);
+					CREATE INDEX ON segment_copies (ancestor_stream_id);`,
+				},
+			},
+		},
+	}
+	return migration.Run(ctx, db.log.Named("migrate"))
 }
 
 // MigrateToLatest migrates database to the latest version.
@@ -436,4 +557,10 @@ func limitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, 
 		return impl.AsOfSystemInterval(maxInterval)
 	}
 	return impl.AsOfSystemTime(baseline)
+}
+
+// TestingEnableMultipleVersions enables or disables the use of multiple versions (for tests).
+// Will be removed when multiple versions is enabled in production.
+func (db *DB) TestingEnableMultipleVersions(enabled bool) {
+	db.config.MultipleVersions = enabled
 }

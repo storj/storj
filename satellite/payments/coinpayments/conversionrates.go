@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/common/currency"
 )
 
 // cmdRates is API command for retrieving currency rate infos.
@@ -81,7 +81,7 @@ type CurrencyRateInfos map[CurrencySymbol]CurrencyRateInfo
 
 // ForCurrency allows lookup into a CurrencyRateInfos map by currency
 // object, instead of by its coinpayments.net-specific symbol.
-func (infos CurrencyRateInfos) ForCurrency(currency *monetary.Currency) (info CurrencyRateInfo, ok bool) {
+func (infos CurrencyRateInfos) ForCurrency(currency *currency.Currency) (info CurrencyRateInfo, ok bool) {
 	coinpaymentsSymbol, ok := currencySymbols[currency]
 	if !ok {
 		return info, false

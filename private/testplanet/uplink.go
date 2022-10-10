@@ -147,11 +147,11 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 			return nil, err
 		}
 
-		authCtx, err := satellite.AuthenticatedContext(ctx, user.ID)
+		userCtx, err := satellite.UserContext(ctx, user.ID)
 		if err != nil {
 			return nil, err
 		}
-		_, apiKey, err := consoleAPI.Service.CreateAPIKey(authCtx, project.ID, "root")
+		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
 		if err != nil {
 			return nil, err
 		}
@@ -333,6 +333,20 @@ func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bu
 	if err != nil {
 		return err
 	}
+	return err
+}
+
+// CopyObject copies an object.
+func (client *Uplink) CopyObject(ctx context.Context, satellite *Satellite, oldBucket, oldKey, newBucket, newKey string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	_, err = project.CopyObject(ctx, oldBucket, oldKey, newBucket, newKey, nil)
 	return err
 }
 

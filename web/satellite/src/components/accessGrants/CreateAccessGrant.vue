@@ -16,12 +16,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import ProgressBar from '@/components/accessGrants/ProgressBar.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 
 // @vue/component
 @Component({
@@ -31,11 +32,15 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class CreateAccessGrant extends Vue {
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Closes popup.
      */
     public onCloseClick(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        this.analytics.pageVisit(RouteConfig.AccessGrants.path);
         this.$router.push(RouteConfig.AccessGrants.path);
     }
 
@@ -63,7 +68,7 @@ export default class CreateAccessGrant extends Vue {
         left: 0;
         right: 0;
         z-index: 100;
-        background: rgba(27, 37, 51, 0.75);
+        background: rgb(27 37 51 / 75%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -96,7 +101,7 @@ export default class CreateAccessGrant extends Vue {
     @media screen and (max-height: 800px) {
 
         .create-grant {
-            padding: 50px 0 20px 0;
+            padding: 50px 0 20px;
             overflow-y: scroll;
         }
     }
@@ -104,42 +109,42 @@ export default class CreateAccessGrant extends Vue {
     @media screen and (max-height: 750px) {
 
         .create-grant {
-            padding: 100px 0 20px 0;
+            padding: 100px 0 20px;
         }
     }
 
     @media screen and (max-height: 700px) {
 
         .create-grant {
-            padding: 150px 0 20px 0;
+            padding: 150px 0 20px;
         }
     }
 
     @media screen and (max-height: 650px) {
 
         .create-grant {
-            padding: 200px 0 20px 0;
+            padding: 200px 0 20px;
         }
     }
 
     @media screen and (max-height: 600px) {
 
         .create-grant {
-            padding: 250px 0 20px 0;
+            padding: 250px 0 20px;
         }
     }
 
     @media screen and (max-height: 550px) {
 
         .create-grant {
-            padding: 300px 0 20px 0;
+            padding: 300px 0 20px;
         }
     }
 
     @media screen and (max-height: 500px) {
 
         .create-grant {
-            padding: 350px 0 20px 0;
+            padding: 350px 0 20px;
         }
     }
 </style>

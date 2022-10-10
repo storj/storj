@@ -4,8 +4,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"strings"
 
@@ -45,7 +46,7 @@ func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 	c.am.Setup(params, c.ex)
 }
 
-func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {
+func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 	if c.satelliteAddr == "" {
 		if c.passphraseStdin {
 			return errs.New("Must specify the satellite address as a flag when passphrase-stdin is set.")
@@ -68,7 +69,7 @@ func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {
 
 	var passphrase string
 	if c.passphraseStdin {
-		stdinData, err := ioutil.ReadAll(ctx.Stdin())
+		stdinData, err := io.ReadAll(clingy.Stdin(ctx))
 		if err != nil {
 			return errs.Wrap(err)
 		}
@@ -106,7 +107,7 @@ func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(ctx, serialized)
+	fmt.Fprintln(clingy.Stdout(ctx), serialized)
 
 	return nil
 }

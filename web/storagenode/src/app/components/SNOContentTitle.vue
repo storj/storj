@@ -19,15 +19,14 @@
             </div>
             <div class="title-area-divider" />
 
-            <VInfo
+            <div
                 v-if="info.quicEnabled"
-                :text="'QUIC is configured to use UDP port ' + info.configuredPort"
             >
                 <div class="title-area__info-container__info-item">
                     <p class="title-area__info-container__info-item__title">QUIC</p>
                     <p class="title-area__info-container__info-item__content online-status">OK</p>
                 </div>
-            </VInfo>
+            </div>
             <VInfo
                 v-if="!info.quicEnabled"
                 :text="'QUIC is misconfigured. You must forward port ' + info.configuredPort + ' for both TCP and UDP to enable QUIC.'"
@@ -182,11 +181,8 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
     .title-area {
@@ -225,18 +221,15 @@ export default class SNOContentTitle extends Vue {
                 border-color: var(--node-id-border-hover-color);
                 color: var(--node-id-hover-text-color);
 
-                .svg {
-
-                    path {
-                        fill: var(--node-id-border-hover-color) !important;
-                    }
+                .svg ::v-deep path {
+                    fill: var(--node-id-border-hover-color) !important;
                 }
             }
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            margin: 0 0 21px 0;
+            margin: 0 0 21px;
             font-size: 32px;
             line-height: 57px;
             color: var(--regular-text-color);
@@ -255,7 +248,7 @@ export default class SNOContentTitle extends Vue {
                     font-size: 12px;
                     line-height: 20px;
                     color: #9ca5b6;
-                    margin: 0 0 5px 0;
+                    margin: 0 0 5px;
                 }
 
                 &__content {
@@ -287,7 +280,7 @@ export default class SNOContentTitle extends Vue {
         background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;
-        padding: 20px 20px 25px 20px;
+        padding: 20px 20px 25px;
 
         &__text {
             align-items: flex-start;
@@ -306,7 +299,7 @@ export default class SNOContentTitle extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
                 height: auto;
 
                 &__id {

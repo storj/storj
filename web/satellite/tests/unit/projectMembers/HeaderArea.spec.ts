@@ -2,17 +2,17 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import HeaderArea from '@/components/team/HeaderArea.vue';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
 const date = new Date(0);
@@ -34,7 +34,7 @@ const store = new Vuex.Store({ modules: { appStateModule, projectMembersModule, 
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
         });
@@ -50,31 +50,28 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with opened Add team member popup', () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
         });
 
-        const addNewTemMemberPopup = wrapper.findAll('adduserpopup-stub');
-
         expect(wrapper).toMatchSnapshot();
-        expect(addNewTemMemberPopup.length).toBe(1);
         expect(wrapper.findAll('.header-default-state').length).toBe(1);
         expect(wrapper.vm.isDeleteClicked).toBe(false);
         expect(wrapper.findAll('.blur-content').length).toBe(0);
         expect(wrapper.findAll('.blur-search').length).toBe(0);
 
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
     });
 
     it('renders correctly with selected users', () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {
@@ -93,11 +90,11 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 2 selected users and delete clicked once', async () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 2;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {
@@ -120,11 +117,11 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 1 selected user and delete clicked once', async () => {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
 
         const selectedUsersCount = 1;
 
-        const wrapper = shallowMount(HeaderArea, {
+        const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
             propsData: {

@@ -316,7 +316,7 @@ export default class PayoutPeriodCalendar extends Vue {
         width: 170px;
         height: 215px;
         background: var(--block-background-color);
-        box-shadow: 0 10px 25px rgba(175, 183, 193, 0.1);
+        box-shadow: 0 10px 25px rgb(175 183 193 / 10%);
         border-radius: 5px;
         padding: 24px;
         font-family: 'font_regular', sans-serif;
@@ -438,10 +438,7 @@ export default class PayoutPeriodCalendar extends Vue {
         }
     }
 
-    .arrow-icon {
-
-        path {
-            fill: var(--year-selection-arrow-color);
-        }
+    .arrow-icon ::v-deep path {
+        fill: var(--year-selection-arrow-color);
     }
 </style>

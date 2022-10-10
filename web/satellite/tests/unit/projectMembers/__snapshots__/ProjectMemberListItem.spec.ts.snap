@@ -1,35 +1,31 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`should render correctly 1`] = `
-<div class="user-container owner">
-  <div class="user-container__base-info">
-    <!---->
-    <div class="user-container__base-info__avatar extra-margin" style="background: rgb(88, 185, 255);">
-      <h1 class="user-container__base-info__avatar__letter">T</h1>
-    </div>
-    <div title="testShortName" class="user-container__base-info__name-area">
-      <p class="user-container__base-info__name-area__user-name">testShortName</p>
-      <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
-    </div>
-  </div>
-  <p class="user-container__date">1/1/1970</p>
-  <p title="test@example.com" class="user-container__user-email">test@example.com</p>
-</div>
+exports[` should render correctly 1`] = `
+<tr class="owner">
+  <th class="icon select"><label class="container"><input id="checkbox" disabled="disabled" type="checkbox" class="checkmark-input"> <span class="checkmark"></span></label></th>
+  <th class="align-left data">
+    <p>testShortName</p>
+  </th>
+  <th class="align-left data">
+    <p>1/1/1970</p>
+  </th>
+  <th class="align-left data">
+    <p>test@example.com</p>
+  </th>
+</tr>
 `;
 
-exports[`should render correctly with item row highlighted 1`] = `
-<div class="user-container owner">
-  <div class="user-container__base-info">
-    <!---->
-    <div class="user-container__base-info__avatar extra-margin" style="background: rgb(88, 185, 255);">
-      <h1 class="user-container__base-info__avatar__letter">T</h1>
-    </div>
-    <div title="testShortName" class="user-container__base-info__name-area">
-      <p class="user-container__base-info__name-area__user-name">testShortName</p>
-      <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
-    </div>
-  </div>
-  <p class="user-container__date">1/1/1970</p>
-  <p title="test@example.com" class="user-container__user-email">test@example.com</p>
-</div>
+exports[` should render correctly with item row highlighted 1`] = `
+<tr class="selected owner">
+  <th class="icon select"><label class="container"><input id="checkbox" disabled="disabled" type="checkbox" class="checkmark-input"> <span class="checkmark"></span></label></th>
+  <th class="align-left data">
+    <p>testShortName</p>
+  </th>
+  <th class="align-left data">
+    <p>1/1/1970</p>
+  </th>
+  <th class="align-left data">
+    <p>test@example.com</p>
+  </th>
+</tr>
 `;

@@ -6,11 +6,11 @@ exports[`ProjectMembersArea.vue empty search result area render correctly 1`] = 
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
   <!---->
-  <!---->
   <div class="team-area__empty-search-result-area">
     <h1 class="team-area__empty-search-result-area__title">No results found</h1>
     <emptysearchresulticon-stub class="team-area__empty-search-result-area__image"></emptysearchresulticon-stub>
   </div>
+  <!---->
 </div>
 `;
 
@@ -19,16 +19,9 @@ exports[`ProjectMembersArea.vue renders correctly 1`] = `
   <div class="team-area__header">
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
-  <div id="team-container" class="team-area__container">
-    <sortinglistheader-stub onheaderclickcallback="function () { [native code] }"></sortinglistheader-stub>
-    <div class="team-area__container__content">
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
-    </div>
-  </div>
   <!---->
   <!---->
+  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="6" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
 </div>
 `;
 
@@ -37,15 +30,8 @@ exports[`ProjectMembersArea.vue team area renders correctly 1`] = `
   <div class="team-area__header">
     <headerarea-stub headerstate="0" selectedprojectmemberscount="0"></headerarea-stub>
   </div>
-  <div id="team-container" class="team-area__container">
-    <sortinglistheader-stub onheaderclickcallback="function () { [native code] }"></sortinglistheader-stub>
-    <div class="team-area__container__content">
-      <vlist-stub itemcomponent="function VueComponent (options) {
-      this._init(options);
-    }" onitemclick="function () { [native code] }" dataset="[object Object]"></vlist-stub>
-    </div>
-  </div>
   <!---->
   <!---->
+  <v-table-stub selectable="true" totalpagecount="1" itemslabel="project members" limit="6" items="[object Object]" totalitemscount="1" onpageclickcallback="[Function]" class="team-area__table"></v-table-stub>
 </div>
 `;

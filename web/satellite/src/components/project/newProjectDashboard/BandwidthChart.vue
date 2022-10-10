@@ -15,25 +15,25 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
-import BaseChart from '@/components/common/BaseChart.vue';
-import VChart from '@/components/common/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
-import { DataStamp } from "@/types/projects";
-import { ChartUtils } from "@/utils/chart";
+import { DataStamp } from '@/types/projects';
+import { ChartUtils } from '@/utils/chart';
+
+import VChart from '@/components/common/VChart.vue';
+import BaseChart from '@/components/common/BaseChart.vue';
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class BandwidthChart extends BaseChart {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public readonly settledData: DataStamp[];
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public readonly allocatedData: DataStamp[];
-    @Prop({default: new Date()})
+    @Prop({ default: new Date() })
     public readonly since: Date;
-    @Prop({default: new Date()})
+    @Prop({ default: new Date() })
     public readonly before: Date;
 
     /**
@@ -41,18 +41,18 @@ export default class BandwidthChart extends BaseChart {
      */
     public get chartData(): ChartData {
         const mainData: number[] = this.settledData.map(el => el.value);
-        const secondaryData: number[] = this.allocatedData.map(el => el.value)
+        const secondaryData: number[] = this.allocatedData.map(el => el.value);
         const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.since, this.before);
 
         return new ChartData(
             xAxisDateLabels,
-            "#FFE0E7",
-            "#EE86AD",
-            "#FF458B",
+            '#FFE0E7',
+            '#EE86AD',
+            '#FF458B',
             mainData,
-            "#FFF6F8",
-            "#FFC0CF",
-            "#FFC0CF",
+            '#FFF6F8',
+            '#FFC0CF',
+            '#FFC0CF',
             secondaryData,
         );
     }
@@ -62,10 +62,10 @@ export default class BandwidthChart extends BaseChart {
      */
     public tooltip(tooltipModel: TooltipModel): void {
         if (!tooltipModel.dataPoints) {
-            const settledTooltip = Tooltip.createTooltip('settled-bandwidth-tooltip')
-            const allocatedTooltip = Tooltip.createTooltip('allocated-bandwidth-tooltip')
-            Tooltip.remove(settledTooltip)
-            Tooltip.remove(allocatedTooltip)
+            const settledTooltip = Tooltip.createTooltip('settled-bandwidth-tooltip');
+            const allocatedTooltip = Tooltip.createTooltip('allocated-bandwidth-tooltip');
+            Tooltip.remove(settledTooltip);
+            Tooltip.remove(allocatedTooltip);
 
             return;
         }
@@ -81,7 +81,7 @@ export default class BandwidthChart extends BaseChart {
             }
 
             Tooltip.custom(tooltipParams);
-        })
+        });
     }
 
     /**
@@ -179,7 +179,7 @@ export default class BandwidthChart extends BaseChart {
 
         &__arrow {
             margin-bottom: -4px;
-            border-radius: 8px 0 0 0;
+            border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             background-color: #ee86ad;
         }

@@ -97,7 +97,6 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 		for i, cus := range page.Customers {
 			assert.Equal(t, "customerID"+strconv.Itoa(2-i), cus.ID)
-
 		}
 	})
 }

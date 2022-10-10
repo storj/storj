@@ -1,0 +1,225 @@
+pipeline {
+    agent {
+        docker {
+            label 'main'
+            image 'storjlabs/ci:latest'
+            alwaysPull true
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm'
+        }
+    }
+    options {
+        timeout(time: 40, unit: 'MINUTES')
+        skipDefaultCheckout(true)
+    }
+    environment {
+        NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
+        COCKROACH_MEMPROF_INTERVAL=0
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                // Delete any content left over from a previous run.
+                sh "chmod -R 777 ."
+                // Bash requires extglob option to support !(.git) syntax,
+                // and we don't want to delete .git to have faster clones.
+                sh 'bash -O extglob -c "rm -rf !(.git)"'
+
+                checkout scm
+
+                sh 'mkdir -p .build'
+
+                // download dependencies
+                sh 'go mod download'
+                sh 'cd testsuite/ui && go mod download'
+
+                // pre-check that we cannot do at a later stage reliably
+                sh 'check-large-files'
+            }
+        }
+        stage('Gerrit status') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                    sh './scripts/gerrit-status.sh verify start 0'
+                }
+            }
+        }
+        stage('Build') {
+            parallel {
+                stage('go') {
+                    steps {
+                        // use go test to build all the packages, including tests
+                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ ./...'
+                    }
+                }
+                stage('go -race') {
+                    steps {
+                        // use go test to build all the packages, including tests
+                        sh 'go test -v -p 16 -tags noembed -bench XYZXYZXYZXYZ -run XYZXYZXYZXYZ -race ./...'
+
+                        // install storj-sim
+                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
+                                'storj.io/storj/cmd/storagenode ' +
+                                'storj.io/storj/cmd/storj-sim ' +
+                                'storj.io/storj/cmd/versioncontrol ' +
+                                'storj.io/storj/cmd/uplink ' +
+                                'storj.io/storj/cmd/identity ' +
+                                'storj.io/storj/cmd/certificates ' +
+                                'storj.io/storj/cmd/multinode'
+                    }
+                }
+                stage('go -race gateway') {
+                    steps {
+                        // install gateway for storj-sim
+                        sh 'go install -race -v storj.io/gateway@latest'
+                    }
+                }
+
+                stage('db') {
+                    steps {
+                        sh 'service postgresql start'
+                        dir('.build') {
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Web') {
+            // The build code depends on the following assets being loaded.
+            parallel {
+                stage('web/satellite') {
+                    steps {
+                        sh './web/satellite/build-if-changed.sh'
+                    }
+                }
+                stage('web/storagenode') {
+                    steps {
+                        sh './web/storagenode/build-if-changed.sh'
+                    }
+                }
+                stage('web/multinode') {
+                    steps {
+                        sh './web/multinode/build-if-changed.sh'
+                    }
+                }
+                stage('satellite/admin/ui') {
+                    steps {
+                        sh './satellite/admin/ui/build-if-changed.sh'
+                    }
+                }
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh 'check-mod-tidy'
+                sh 'check-copyright'
+                sh 'check-imports -race ./...'
+                sh 'check-peer-constraints -race'
+                sh 'check-atomic-align ./...'
+                sh 'check-monkit ./...'
+                sh 'check-errs ./...'
+                sh 'staticcheck ./...'
+                sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                sh 'check-downgrades'
+                sh 'make check-monitoring'
+                sh 'make test-wasm-size'
+
+                sh 'protolock status'
+
+                dir("testsuite/ui") {
+                    sh 'check-imports ./...'
+                    sh 'check-atomic-align ./...'
+                    sh 'check-monkit ./...'
+                    sh 'check-errs ./...'
+                    sh 'staticcheck ./...'
+                    sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
+                }
+
+                sh './scripts/check-package-lock.sh'
+            }
+        }
+
+        stage('Tests') {
+            environment {
+                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                    'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
+                    'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
+                    'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                STORJ_TEST_COCKROACH_NODROP = 'true'
+                STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
+                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_LOG_LEVEL = 'info'
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+            }
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach;\''
+                sh 'cockroach sql --insecure --host=localhost:26258 -e \'create database testcockroach;\''
+                sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
+                sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
+
+                sh 'psql -U postgres -c \'create database teststorj;\''
+
+                sh 'use-ports -from 1024 -to 10000 &'
+
+                sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+            }
+
+            post {
+                always {
+                    archiveArtifacts artifacts: '.build/tests.json'
+                    sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                    junit '.build/tests.xml'
+
+                    script {
+                        if(fileExists(".build/coverprofile")){
+                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                            sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                            sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                            cobertura coberturaReportFile: '.build/cobertura.xml',
+                                lineCoverageTargets: '70, 60, 50',
+                                autoUpdateHealth: false,
+                                autoUpdateStability: false,
+                                failUnhealthy: true
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Post') {
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'check-clean-directory'
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify success +1'
+            }
+        }
+        failure {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify failure -1'
+            }
+        }
+        aborted {
+            withCredentials([sshUserPrivateKey(credentialsId: 'gerrit-trigger-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
+                sh './scripts/gerrit-status.sh verify failure -1'
+            }
+        }
+    }
+}

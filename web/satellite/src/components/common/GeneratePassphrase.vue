@@ -48,7 +48,7 @@
                 />
             </div>
             <div v-else class="encrypt-container__functional__enter">
-                <HeaderlessInput
+                <VInput
                     label="Your Passphrase"
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
@@ -97,18 +97,18 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
-import { LocalData, UserIDPassSalt } from "@/utils/localData";
-import { Download } from "@/utils/download";
+import { LocalData, UserIDPassSalt } from '@/utils/localData';
+import { Download } from '@/utils/download';
 
 import VButton from '@/components/common/VButton.vue';
-import VInfo from "@/components/common/VInfo.vue";
-import HeaderlessInput from "@/components/common/HeaderlessInput.vue";
-import VCheckbox from "@/components/common/VCheckbox.vue";
+import VInfo from '@/components/common/VInfo.vue';
+import VInput from '@/components/common/VInput.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
-import EncryptIcon from "@/../static/images/objects/encrypt.svg";
-import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
+import EncryptIcon from '@/../static/images/objects/encrypt.svg';
+import InfoIcon from '@/../static/images/common/smallGreyInfo.svg';
 
 // @vue/component
 @Component({
@@ -117,16 +117,16 @@ import InfoIcon from "@/../static/images/common/smallGreyInfo.svg";
         InfoIcon,
         VInfo,
         VButton,
-        HeaderlessInput,
+        VInput,
         VCheckbox,
     },
 })
 export default class GeneratePassphrase extends Vue {
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly onBackClick: () => unknown;
-    @Prop({ default: () => null })
+    @Prop({ default: () => () => null })
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
     public readonly isLoading: boolean;
@@ -243,12 +243,12 @@ export default class GeneratePassphrase extends Vue {
 <style scoped lang="scss">
     .encrypt-container {
         font-family: 'font_regular', sans-serif;
-        padding: 40px 60px 60px 60px;
+        padding: 40px 60px 60px;
         max-width: 500px;
         background: #fcfcfc;
-        box-shadow: 0 0 32px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 0 32px rgb(0 0 0 / 4%);
         border-radius: 20px;
-        margin: 30px auto 0 auto;
+        margin: 30px auto 0;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -333,7 +333,7 @@ export default class GeneratePassphrase extends Vue {
                 padding: 16px 22px;
                 background: #eff0f7;
                 border-radius: 10px;
-                margin: 25px 25px 0 25px;
+                margin: 25px 25px 0;
 
                 &__value {
                     font-size: 14px;
@@ -348,7 +348,7 @@ export default class GeneratePassphrase extends Vue {
             }
 
             &__enter {
-                margin: 25px 25px 0 25px;
+                margin: 25px 25px 0;
             }
 
             &__download {
@@ -366,7 +366,7 @@ export default class GeneratePassphrase extends Vue {
                 font-size: 16px;
                 line-height: 19px;
                 color: #1b2533;
-                margin: 25px 25px 10px 25px;
+                margin: 25px 25px 10px;
             }
 
             &__warning-msg {
@@ -402,7 +402,7 @@ export default class GeneratePassphrase extends Vue {
         fill: #0149ff;
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 440px;
     }
 </style>

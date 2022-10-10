@@ -13,9 +13,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/storj/cmd/uplink/ulfs"
 	"storj.io/uplink"
 )
@@ -31,18 +31,19 @@ type External interface {
 	GetAccessInfo(required bool) (string, map[string]string, error)
 	SaveAccessInfo(defaultName string, accesses map[string]string) error
 	RequestAccess(ctx context.Context, satelliteAddress, apiKey, passphrase string) (*uplink.Access, error)
-	ExportAccess(ctx clingy.Context, access *uplink.Access, filename string) error
+	ExportAccess(ctx context.Context, access *uplink.Access, filename string) error
 
 	ConfigFile() string
 	SaveConfig(values map[string]string) error
 
-	PromptInput(ctx clingy.Context, prompt string) (input string, err error)
-	PromptSecret(ctx clingy.Context, prompt string) (secret string, err error)
+	PromptInput(ctx context.Context, prompt string) (input string, err error)
+	PromptSecret(ctx context.Context, prompt string) (secret string, err error)
 }
 
 // Options contains all of the possible options for opening a filesystem or project.
 type Options struct {
-	EncryptionBypass bool
+	EncryptionBypass      bool
+	ConnectionPoolOptions rpcpool.Options
 }
 
 // LoadOptions takes a slice of Option values and returns a filled out Options struct.
@@ -61,6 +62,11 @@ type Option struct {
 // BypassEncryption will disable decrypting of path names if bypass is true.
 func BypassEncryption(bypass bool) Option {
 	return Option{apply: func(opt *Options) { opt.EncryptionBypass = bypass }}
+}
+
+// ConnectionPoolOptions will initialize the connection pool with options.
+func ConnectionPoolOptions(options rpcpool.Options) Option {
+	return Option{apply: func(opt *Options) { opt.ConnectionPoolOptions = options }}
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.

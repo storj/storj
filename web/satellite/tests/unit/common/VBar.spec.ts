@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import VBar from '@/components/common/VBar.vue';
-
 import { mount } from '@vue/test-utils';
+
+import VBar from '@/components/common/VBar.vue';
 
 describe('VBar.vue', () => {
     it('renders correctly', () => {
@@ -26,6 +26,8 @@ describe('VBar.vue', () => {
         });
 
         expect(wrapper).toMatchSnapshot();
-        expect(wrapper.find('.bar-container__fill').element.style.width).toMatch('100%');
+
+        const el = wrapper.find('.bar-container__fill').element as HTMLElement;
+        expect(el.style.width).toMatch('100%');
     });
 });

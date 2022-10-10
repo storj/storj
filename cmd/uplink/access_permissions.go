@@ -28,7 +28,7 @@ type accessPermissions struct {
 	disallowWrites  bool
 
 	notBefore time.Time
-	notAfter  time.Time
+	notAfter  NoneDate
 }
 
 func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
@@ -49,7 +49,7 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowLists = params.Flag("disallow-lists", "Disallow lists with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
-	ap.disallowReads = params.Flag("disallow-reads", "Disallow reasd with the access", false,
+	ap.disallowReads = params.Flag("disallow-reads", "Disallow reads with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
 	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean).(bool)
@@ -58,8 +58,8 @@ func (ap *accessPermissions) Setup(params clingy.Parameters, prefixFlags bool) {
 		"Disallow access before this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
 	ap.notAfter = params.Flag("not-after",
-		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
-		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
+		"Disallow access after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')", NoneDate{},
+		clingy.Transform(parseNoneDate)).(NoneDate)
 
 	if !prefixFlags {
 		ap.prefixes = params.Arg("prefix", "Key prefix access will be restricted to",
@@ -88,7 +88,7 @@ func (ap *accessPermissions) Apply(access *uplink.Access) (*uplink.Access, error
 		AllowDownload: ap.AllowDownload(),
 		AllowUpload:   ap.AllowUpload(),
 		NotBefore:     ap.notBefore,
-		NotAfter:      ap.notAfter,
+		NotAfter:      ap.notAfter.Date,
 	}
 
 	// if we aren't actually restricting anything, then we don't need to Share.

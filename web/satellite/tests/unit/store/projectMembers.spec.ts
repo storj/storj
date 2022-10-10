@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
@@ -11,7 +12,6 @@ import { SortDirection } from '@/types/common';
 import { ProjectMember, ProjectMemberOrderBy, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { createLocalVue } from '@vue/test-utils';
 
 const projectsApi = new ProjectsApiGql();
 const projectsModule = makeProjectsModule(projectsApi);
@@ -20,7 +20,7 @@ selectedProject.id = '1';
 projectsModule.state.selectedProject = selectedProject;
 
 const FIRST_PAGE = 1;
-const TEST_ERROR = 'testError';
+const TEST_ERROR = new Error('testError');
 const UNREACHABLE_ERROR = 'should be unreachable';
 
 const Vue = createLocalVue();
@@ -32,7 +32,7 @@ Vue.use(Vuex);
 const store = new Vuex.Store<{
     projectsModule: typeof projectsModule.state,
     projectMembersModule: typeof projectMembersModule.state,
-}>({modules: { projectsModule, projectMembersModule }});
+}>({ modules: { projectsModule, projectMembersModule } });
 const state = store.state.projectMembersModule;
 const date = new Date(0);
 const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
@@ -134,15 +134,15 @@ describe('actions', () => {
 
         try {
             await store.dispatch(PM_ACTIONS.ADD, [projectMember1.user.email]);
-            throw new Error(TEST_ERROR);
+            throw TEST_ERROR;
         } catch (err) {
-            expect(err.message).toBe(TEST_ERROR);
+            expect(err).toBe(TEST_ERROR);
         }
     });
 
     it('add project member throws error when api call fails', async function () {
         jest.spyOn(pmApi, 'add').mockImplementation(() => {
-            throw new Error(TEST_ERROR);
+            throw TEST_ERROR;
         });
 
         const stateDump = state;
@@ -150,7 +150,7 @@ describe('actions', () => {
         try {
             await store.dispatch(PM_ACTIONS.ADD, [projectMember1.user.email]);
         } catch (err) {
-            expect(err.message).toBe(TEST_ERROR);
+            expect(err).toBe(TEST_ERROR);
             expect(state).toBe(stateDump);
 
             return;
@@ -164,15 +164,15 @@ describe('actions', () => {
 
         try {
             await store.dispatch(PM_ACTIONS.DELETE, [projectMember1.user.email]);
-            throw new Error(TEST_ERROR);
+            throw TEST_ERROR;
         } catch (err) {
-            expect(err.message).toBe(TEST_ERROR);
+            expect(err).toBe(TEST_ERROR);
         }
     });
 
     it('delete project member throws error when api call fails', async function () {
         jest.spyOn(pmApi, 'delete').mockImplementation(() => {
-            throw new Error(TEST_ERROR);
+            throw TEST_ERROR;
         });
 
         const stateDump = state;
@@ -180,7 +180,7 @@ describe('actions', () => {
         try {
             await store.dispatch(PM_ACTIONS.DELETE, [projectMember1.user.email]);
         } catch (err) {
-            expect(err.message).toBe(TEST_ERROR);
+            expect(err).toBe(TEST_ERROR);
             expect(state).toBe(stateDump);
 
             return;
@@ -215,7 +215,7 @@ describe('actions', () => {
 
     it('fetch project members throws error when api call fails', async function () {
         jest.spyOn(pmApi, 'get').mockImplementation(() => {
-            throw new Error(TEST_ERROR);
+            throw TEST_ERROR;
         });
 
         const stateDump = state;
@@ -223,7 +223,7 @@ describe('actions', () => {
         try {
             await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
         } catch (err) {
-            expect(err.message).toBe(TEST_ERROR);
+            expect(err).toBe(TEST_ERROR);
             expect(state).toBe(stateDump);
 
             return;

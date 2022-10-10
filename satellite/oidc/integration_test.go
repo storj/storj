@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/uplink"
 )
@@ -122,18 +121,15 @@ func TestOIDC(t *testing.T) {
 		activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
 		require.NoError(t, err)
 
-		consoleToken, err := sat.API.Console.Service.ActivateAccount(ctx, activationToken)
+		user, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
+		require.NoError(t, err)
+
+		tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "")
 		require.NoError(t, err)
 
 		// Set up a test project and bucket
 
-		authed := console.WithAuth(ctx, console.Authorization{
-			User: *user,
-			Claims: consoleauth.Claims{
-				ID:    user.ID,
-				Email: user.Email,
-			},
-		})
+		authed := console.WithUser(ctx, user)
 
 		project, err := sat.API.Console.Service.CreateProject(authed, console.ProjectInfo{
 			Name: "test",
@@ -250,7 +246,7 @@ func TestOIDC(t *testing.T) {
 
 		{
 			body := strings.NewReader(consent.Encode())
-			send(t, body, &token, http.StatusOK, authEndpoint, http.MethodPost, consoleToken, "application/x-www-form-urlencoded")
+			send(t, body, &token, http.StatusOK, authEndpoint, http.MethodPost, tokenInfo.Token.String(), "application/x-www-form-urlencoded")
 		}
 
 		require.Equal(t, "Bearer", token.TokenType)

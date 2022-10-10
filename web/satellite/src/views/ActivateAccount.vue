@@ -11,7 +11,7 @@
             <div v-else class="activate-area__content-area__container">
                 <h1 class="activate-area__content-area__container__title">Activate Account</h1>
                 <div class="activate-area__content-area__container__input-wrapper">
-                    <HeaderlessInput
+                    <VInput
                         label="Email Address"
                         placeholder="user@example.com"
                         :error="emailError"
@@ -32,20 +32,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
-
-import LogoIcon from '@/../static/images/logo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
+import VInput from '@/components/common/VInput.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
 
 // @vue/component
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        VInput,
         RegistrationSuccess,
     },
 })
@@ -63,7 +64,7 @@ export default class ActivateAccount extends Vue {
      */
     public async onActivateClick(): Promise<void> {
         if (!Validator.email(this.email)) {
-            this.emailError = "Invalid email";
+            this.emailError = 'Invalid email';
             return;
         }
 
@@ -84,10 +85,11 @@ export default class ActivateAccount extends Vue {
     }
 
     /**
-     * onLogoClick reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 }
 </script>
@@ -114,6 +116,8 @@ export default class ActivateAccount extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 

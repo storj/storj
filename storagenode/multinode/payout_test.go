@@ -195,7 +195,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		t.Run("test EstimatedPayoutTotal", func(t *testing.T) {
+		t.Run("EstimatedPayoutTotal", func(t *testing.T) {
 			estimation, err := estimatedPayoutsService.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 			require.NoError(t, err)
 
@@ -289,10 +289,12 @@ func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, ma
 
 	for _, satellite := range satellites {
 		for i := 0; i < now; i++ {
+			intervalEndTime := time.Now().UTC().Add(time.Hour * -24 * time.Duration(i))
 			stamp := storageusage.Stamp{
-				SatelliteID:   satellite,
-				AtRestTotal:   31234567891234,
-				IntervalStart: time.Now().UTC().Add(time.Hour * -24 * time.Duration(i)),
+				SatelliteID:     satellite,
+				AtRestTotal:     31234567891234,
+				IntervalStart:   time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
+				IntervalEndTime: intervalEndTime,
 			}
 
 			summary[satellite] += stamp.AtRestTotal

@@ -21,11 +21,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
-
-import { RouteConfig } from '@/router';
 
 // @vue/component
 @Component({
@@ -36,22 +37,24 @@ import { RouteConfig } from '@/router';
 })
 export default class AddCouponCode extends Vue {
 
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly success: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly error: boolean;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
 }
 </script>
 
 <style scoped lang="scss">
-
     .add-coupon {
 
         &__wrapper {

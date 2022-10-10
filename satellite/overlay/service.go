@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/metabase"
 )
@@ -42,7 +43,7 @@ var ErrNotEnoughNodes = errs.Class("not enough nodes")
 // architecture: Database
 type DB interface {
 	// GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs
-	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (map[storj.NodeID]*SelectedNode, error)
+	GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (map[storj.NodeID]*SelectedNode, error)
 	// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
 	// The return value contains necessary information to create orders as well as nodes'
 	// current reputation status.
@@ -67,16 +68,16 @@ type DB interface {
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
-	UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) error
+	UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
-	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
-	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
@@ -93,7 +94,7 @@ type DB interface {
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
@@ -113,11 +114,27 @@ type DB interface {
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
-	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
-	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
+
+// DisqualificationReason is disqualification reason enum type.
+type DisqualificationReason int
+
+const (
+	// DisqualificationReasonUnknown denotes undetermined disqualification reason.
+	DisqualificationReasonUnknown DisqualificationReason = 0
+	// DisqualificationReasonAuditFailure denotes disqualification due to audit score falling below threshold.
+	DisqualificationReasonAuditFailure DisqualificationReason = 1
+	// DisqualificationReasonSuspension denotes disqualification due to unknown audit failure after grace period for unknown audits
+	// has elapsed.
+	DisqualificationReasonSuspension DisqualificationReason = 2
+	// DisqualificationReasonNodeOffline denotes disqualification due to node's online score falling below threshold after tracking
+	// period has elapsed.
+	DisqualificationReasonNodeOffline DisqualificationReason = 3
+)
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
@@ -163,52 +180,20 @@ type NodeCriteria struct {
 
 // ReputationStatus indicates current reputation status for a node.
 type ReputationStatus struct {
-	Contained             bool // TODO: check to see if this column is still used.
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineSuspended      *time.Time
-	VettedAt              *time.Time
+	Disqualified           *time.Time
+	DisqualificationReason *DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	VettedAt               *time.Time
 }
 
-// Equal checks if two ReputationStatus contains the same value.
-func (status ReputationStatus) Equal(value ReputationStatus) bool {
-	if status.Contained != value.Contained {
-		return false
-	}
-
-	if status.Disqualified != nil && value.Disqualified != nil {
-		if !status.Disqualified.Equal(*value.Disqualified) {
-			return false
-		}
-	} else if !(status.Disqualified == nil && value.Disqualified == nil) {
-		return false
-	}
-
-	if status.UnknownAuditSuspended != nil && value.UnknownAuditSuspended != nil {
-		if !status.UnknownAuditSuspended.Equal(*value.UnknownAuditSuspended) {
-			return false
-		}
-	} else if !(status.UnknownAuditSuspended == nil && value.UnknownAuditSuspended == nil) {
-		return false
-	}
-
-	if status.OfflineSuspended != nil && value.OfflineSuspended != nil {
-		if !status.OfflineSuspended.Equal(*value.OfflineSuspended) {
-			return false
-		}
-	} else if !(status.OfflineSuspended == nil && value.OfflineSuspended == nil) {
-		return false
-	}
-
-	if status.VettedAt != nil && value.VettedAt != nil {
-		if !status.VettedAt.Equal(*value.VettedAt) {
-			return false
-		}
-	} else if !(status.VettedAt == nil && value.VettedAt == nil) {
-		return false
-	}
-
-	return true
+// ReputationUpdate contains reputation update data for a node.
+type ReputationUpdate struct {
+	Disqualified           *time.Time
+	DisqualificationReason DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	VettedAt               *time.Time
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -232,22 +217,23 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                  pb.NodeType
-	Operator              pb.NodeOperator
-	Capacity              pb.NodeCapacity
-	Reputation            NodeStats
-	Version               pb.NodeVersion
-	Contained             bool
-	Disqualified          *time.Time
-	UnknownAuditSuspended *time.Time
-	OfflineSuspended      *time.Time
-	OfflineUnderReview    *time.Time
-	PieceCount            int64
-	ExitStatus            ExitStatus
-	CreatedAt             time.Time
-	LastNet               string
-	LastIPPort            string
-	CountryCode           location.CountryCode
+	Type                   pb.NodeType
+	Operator               pb.NodeOperator
+	Capacity               pb.NodeCapacity
+	Reputation             NodeStats
+	Version                pb.NodeVersion
+	Contained              bool
+	Disqualified           *time.Time
+	DisqualificationReason *DisqualificationReason
+	UnknownAuditSuspended  *time.Time
+	OfflineSuspended       *time.Time
+	OfflineUnderReview     *time.Time
+	PieceCount             int64
+	ExitStatus             ExitStatus
+	CreatedAt              time.Time
+	LastNet                string
+	LastIPPort             string
+	CountryCode            location.CountryCode
 }
 
 // NodeStats contains statistics about a node.
@@ -315,7 +301,7 @@ type Service struct {
 func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	var geoIP geoip.IPToCountry = geoip.NewMockIPToCountry(config.GeoIP.MockCountries)
@@ -326,6 +312,21 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		}
 	}
 
+	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
+		config.NodeSelectionCache.Staleness, config.Node,
+	)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	downloadSelectionCache, err := NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
+		Staleness:      config.NodeSelectionCache.Staleness,
+		OnlineWindow:   config.Node.OnlineWindow,
+		AsOfSystemTime: config.Node.AsOfSystemTime,
+	})
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
 	return &Service{
 		log:    log,
 		db:     db,
@@ -333,16 +334,17 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 		GeoIP: geoIP,
 
-		UploadSelectionCache: NewUploadSelectionCache(log, db,
-			config.NodeSelectionCache.Staleness, config.Node,
-		),
-
-		DownloadSelectionCache: NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
-			Staleness:      config.NodeSelectionCache.Staleness,
-			OnlineWindow:   config.Node.OnlineWindow,
-			AsOfSystemTime: config.Node.AsOfSystemTime,
-		}),
+		UploadSelectionCache:   uploadSelectionCache,
+		DownloadSelectionCache: downloadSelectionCache,
 	}, nil
+}
+
+// Run runs the background processes needed for caches.
+func (service *Service) Run(ctx context.Context) error {
+	return errs.Combine(sync2.Concurrently(
+		func() error { return service.UploadSelectionCache.Run(ctx) },
+		func() error { return service.DownloadSelectionCache.Run(ctx) },
+	)...)
 }
 
 // Close closes resources.
@@ -363,7 +365,13 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
+	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow, service.config.Node.AsOfSystemTime)
+}
+
+// CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
+func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
 // GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
@@ -520,7 +528,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
-func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateReputation(ctx, id, request)
 }
@@ -552,6 +560,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if oldInfo == nil {
+		if !node.IsUp {
+			// this is a previously unknown node, and we couldn't pingback to verify that it even
+			// exists. Don't bother putting it in the db.
+			return nil
+		}
+
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
@@ -657,37 +671,43 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.DisqualifyNode(ctx, nodeID)
+	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+}
+
+// SelectAllStorageNodesDownload returns a nodes that are ready for downloading.
+func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
-func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network string, err error) {
+func ResolveIPAndNetwork(ctx context.Context, target string) (ip net.IP, port, network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	host, port, err := net.SplitHostPort(target)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 	ipAddr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
 	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
 		// Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
-		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv4.Mask(mask).String(), nil
 	}
 	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
 		// Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
-		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
+		return ipAddr.IP, port, ipv6.Mask(mask).String(), nil
 	}
 
-	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+	return nil, "", "", errors.New("unable to get network for address " + ipAddr.String())
 }
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

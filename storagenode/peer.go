@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
@@ -76,6 +77,10 @@ var (
 type DB interface {
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
+
+	// TestMigrateToLatest is a fast migration with skipping test (not safe for production + old db state)
+	TestMigrateToLatest(ctx context.Context) error
+
 	// Close closes the database
 	Close() error
 
@@ -122,6 +127,8 @@ type Config struct {
 	Nodestats nodestats.Config
 
 	Console consoleserver.Config
+
+	Healthcheck healthcheck.Config
 
 	Version checker.Config
 
@@ -208,6 +215,11 @@ type Peer struct {
 		Service *checker.Service
 	}
 
+	Healthcheck struct {
+		Service  *healthcheck.Service
+		Endpoint *healthcheck.Endpoint
+	}
+
 	Debug struct {
 		Listener net.Listener
 		Server   *debug.Server
@@ -265,7 +277,7 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Service      gracefulexit.Service
+		Service      *gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
@@ -347,6 +359,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 	}
 
+	{
+
+		peer.Healthcheck.Service = healthcheck.NewService(peer.DB.Reputation(), config.Healthcheck.Details)
+		peer.Healthcheck.Endpoint = healthcheck.NewEndpoint(peer.Healthcheck.Service)
+	}
+
 	{ // setup listener and server
 		sc := config.Server
 
@@ -360,6 +378,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		if config.Healthcheck.Enabled {
+			peer.Server.AddHTTPFallback(peer.Healthcheck.Endpoint.HandleHTTP)
 		}
 
 		peer.Servers.Add(lifecycle.Item{
@@ -462,6 +484,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BlobsCache,
 			peer.Storage2.Store,
 			config.Storage2.CacheSyncInterval,
+			config.Storage2.PieceScanOnStartup,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecestore:cache",

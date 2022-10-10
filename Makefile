@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.17.5
+GO_VERSION ?= 1.17.12
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -51,11 +51,6 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
 	go get github.com/github-release/github-release
 
-.PHONY: lint
-lint: ## Analyze and find programs in source code
-	@echo "Running ${@}"
-	@golangci-lint run
-
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
 	goimports -w -local storj.io $$(find . -type f -name '*.go' -not -path "*/vendor/*")
@@ -102,22 +97,133 @@ install-sim: ## install storj-sim
 	## install the latest stable version of Gateway-ST
 	go install -race -v storj.io/gateway@latest
 
+##@ Lint
+
+LINT_TARGET="./..."
+
+.PHONY: .lint
+.lint:
+	go run ./scripts/lint.go \
+		-parallel 4 \
+		-race \
+		-modules \
+		-copyright \
+		-imports \
+		-peer-constraints \
+		-atomic-align \
+		-monkit \
+		-errs \
+		-staticcheck \
+		-golangci \
+		-monitoring \
+		-wasm-size \
+		-protolock \
+		$(LINT_TARGET)
+
+.PHONY: lint
+lint:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci-slim \
+		make .lint LINT_TARGET="$(LINT_TARGET)"
+
+.PHONY: .lint/testsuite/ui
+.lint/testsuite/ui:
+	go run ./scripts/lint.go \
+		-work-dir testsuite/ui \
+		-parallel 4 \
+		-imports \
+		-atomic-align \
+		-errs \
+		-staticcheck \
+		-golangci \
+		$(LINT_TARGET)
+
+.PHONY: lint/testsuite/ui
+lint/testsuite/ui:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci \
+		make .lint/testsuite/ui LINT_TARGET="$(LINT_TARGET)"
+
 ##@ Test
 
+TEST_TARGET ?= "./..."
+
+.PHONY: test/setup
+test/setup:
+	@docker compose -f docker-compose.tests.yaml down -v --remove-orphans ## cleanup previous data
+	@docker compose -f docker-compose.tests.yaml up -d
+	@sleep 3
+	@docker compose -f docker-compose.tests.yaml exec crdb1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb2 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb3 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb5 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database teststorj;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "ALTER ROLE postgres CONNECTION LIMIT -1;"'
+
+.PHONY: test/postgres
+test/postgres: test/setup ## Run tests against Postgres (developer)
+	@env \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
+		STORJ_TEST_COCKROACH='omit' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml down -v; \
+		}
+	@docker compose -f docker-compose.tests.yaml down -v
+	@echo done
+
+.PHONY: test/cockroach
+test/cockroach: test/setup ## Run tests against CockroachDB (developer)
+	@env \
+		STORJ_TEST_COCKROACH_NODROP='true' \
+		STORJ_TEST_POSTGRES='omit' \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26358/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml down -v; \
+		}
+	@docker compose -f docker-compose.tests.yaml down -v
+	@echo done
+
 .PHONY: test
-test: ## Run tests on source code (jenkins)
-	go test -race -v -cover -coverprofile=.coverprofile ./...
+test: test/setup ## Run tests against CockroachDB and Postgres (developer)
+	@env \
+		STORJ_TEST_COCKROACH_NODROP='true' \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26358/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml rm -fs; \
+		}
+	@docker compose -f docker-compose.tests.yaml rm -fs
 	@echo done
 
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh
+	@./scripts/tests/integration/test-sim.sh
 
 .PHONY: test-sim-redis-unavailability
 test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-redis-up-and-down.sh
+	@./scripts/tests/redis/test-sim-redis-up-and-down.sh
 
 
 .PHONY: test-certificates
@@ -128,7 +234,7 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-backwards.sh
+	@./scripts/tests/backwardcompatibility/test-sim-backwards.sh
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
@@ -462,7 +568,7 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
-	cd testsuite;\
+	cd testsuite/ui;\
 		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
 		go mod tidy;
 

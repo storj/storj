@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
@@ -62,7 +63,7 @@ func (c *cmdMv) Setup(params clingy.Parameters) {
 	c.dest = params.Arg("dest", "Destination to move", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
-func (c *cmdMv) Execute(ctx clingy.Context) error {
+func (c *cmdMv) Execute(ctx context.Context) error {
 	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
@@ -113,7 +114,7 @@ func (c *cmdMv) Execute(ctx clingy.Context) error {
 	return c.moveFile(ctx, fs, c.source, c.dest)
 }
 
-func (c *cmdMv) moveRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
+func (c *cmdMv) moveRecursive(ctx context.Context, fs ulfs.Filesystem) error {
 	iter, err := fs.List(ctx, c.source, &ulfs.ListOptions{
 		Recursive: true,
 	})
@@ -166,11 +167,11 @@ func (c *cmdMv) moveRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 
 		ok := limiter.Go(ctx, func() {
 			if c.progress {
-				fprintln(ctx.Stdout(), "Move", source, "to", dest)
+				fprintln(clingy.Stdout(ctx), "Move", source, "to", dest)
 			}
 
 			if err := c.moveFile(ctx, fs, source, dest); err != nil {
-				fprintln(ctx.Stderr(), "Move", "failed:", err.Error())
+				fprintln(clingy.Stdout(ctx), "Move", "failed:", err.Error())
 				addError(err)
 			}
 		})
@@ -187,7 +188,7 @@ func (c *cmdMv) moveRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	return nil
 }
 
-func (c *cmdMv) moveFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
+func (c *cmdMv) moveFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
 	if c.dryrun {
 		return nil
 	}
