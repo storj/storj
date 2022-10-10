@@ -56,6 +56,7 @@ type ServiceConfig struct {
 	NotFoundPath      string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
 	RetryPath         string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
 	PriorityNodesPath string `help:"list of priority node ID-s" default:""`
+	IgnoreNodesPath   string `help:"list of nodes to ignore" default:""`
 
 	Check       int `help:"how many storagenodes to query per segment" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
@@ -155,9 +156,33 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 		return nil
 	}
 
-	data, err := ioutil.ReadFile(service.config.PriorityNodesPath)
+	service.priorityNodes, err = service.parseNodeFile(service.config.PriorityNodesPath)
+	return Error.Wrap(err)
+}
+
+// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority and online nodes.
+func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
+	if service.config.IgnoreNodesPath == "" {
+		return nil
+	}
+
+	ignoreNodes, err := service.parseNodeFile(service.config.IgnoreNodesPath)
 	if err != nil {
-		return Error.New("unable to read priority nodes: %w", err)
+		return Error.Wrap(err)
+	}
+
+	service.onlineNodes.RemoveAll(ignoreNodes)
+	service.priorityNodes.RemoveAll(ignoreNodes)
+
+	return nil
+}
+
+// parseNodeFile parses a file containing node ID-s.
+func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
+	set := NodeAliasSet{}
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return set, Error.New("unable to read nodes file: %w", err)
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
@@ -168,19 +193,19 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 
 		nodeID, err := storj.NodeIDFromString(line)
 		if err != nil {
-			return Error.Wrap(err)
+			return set, Error.Wrap(err)
 		}
 
 		alias, ok := service.aliasMap.Alias(nodeID)
 		if !ok {
-			service.log.Info("priority node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
+			service.log.Info("node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
 			continue
 		}
 
-		service.priorityNodes.Add(alias)
+		set.Add(alias)
 	}
 
-	return nil
+	return set, nil
 }
 
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
@@ -199,6 +224,11 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 	}
 
 	err = service.loadPriorityNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.applyIgnoreNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
