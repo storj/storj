@@ -49,6 +49,13 @@ var (
 		RunE:  verifySegmentsRange,
 	}
 
+	summarizeCmd = &cobra.Command{
+		Use:   "summarize-log",
+		Short: "summarizes verification log",
+		Args:  cobra.ExactArgs(1),
+		RunE:  summarizeVerificationLog,
+	}
+
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
 
@@ -64,6 +71,7 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(summarizeCmd)
 	runCmd.AddCommand(rangeCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
