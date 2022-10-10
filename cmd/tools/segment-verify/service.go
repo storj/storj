@@ -210,6 +210,7 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 		cursorPosition = metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 	}
 
+	var progress int64
 	for {
 		result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
 			CursorStreamID: cursorStreamID,
@@ -245,6 +246,14 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 			segments[i] = &segmentsData[i]
 		}
 
+		service.log.Info("processing segments",
+			zap.Int64("progress", progress),
+			zap.Int("count", len(segments)),
+			zap.Stringer("first", segments[0].StreamID),
+			zap.Stringer("last", segments[len(segments)-1].StreamID),
+		)
+		progress += int64(len(segments))
+
 		// Process the data.
 		err = service.ProcessSegments(ctx, segments)
 		if err != nil {
@@ -256,12 +265,6 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 // ProcessSegments processes a collection of segments.
 func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	service.log.Info("processing segments",
-		zap.Int("count", len(segments)),
-		zap.Stringer("first", segments[0].StreamID),
-		zap.Stringer("last", segments[len(segments)-1].StreamID),
-	)
 
 	// Verify all the segments against storage nodes.
 	err = service.Verify(ctx, segments)
