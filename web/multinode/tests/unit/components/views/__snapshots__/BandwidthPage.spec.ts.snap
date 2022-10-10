@@ -28,7 +28,7 @@ exports[`BandwidthPage renders correctly 1`] = `
       <div class="chart-container__title-area disk-space-title">
         <p class="chart-container__title-area__title">Disk Space Used This Month</p>
       </div>
-      <p class="chart-container__amount disk-space-amount"><b>0B*h</b></p>
+      <p class="chart-container__amount disk-space-amount"><b>0B*d</b></p>
       <div onresize="recalculateChartDimensions()" class="chart-container__chart">
         <disk-space-chart-stub width="0" height="0"></disk-space-chart-stub>
       </div>
@@ -68,7 +68,7 @@ exports[`BandwidthPage renders correctly with egress chart 1`] = `
       <div class="chart-container__title-area disk-space-title">
         <p class="chart-container__title-area__title">Disk Space Used This Month</p>
       </div>
-      <p class="chart-container__amount disk-space-amount"><b>0B*h</b></p>
+      <p class="chart-container__amount disk-space-amount"><b>0B*d</b></p>
       <div onresize="recalculateChartDimensions()" class="chart-container__chart">
         <disk-space-chart-stub width="0" height="0"></disk-space-chart-stub>
       </div>
@@ -108,7 +108,7 @@ exports[`BandwidthPage renders correctly with ingress chart 1`] = `
       <div class="chart-container__title-area disk-space-title">
         <p class="chart-container__title-area__title">Disk Space Used This Month</p>
       </div>
-      <p class="chart-container__amount disk-space-amount"><b>0B*h</b></p>
+      <p class="chart-container__amount disk-space-amount"><b>0B*d</b></p>
       <div onresize="recalculateChartDimensions()" class="chart-container__chart">
         <disk-space-chart-stub width="0" height="0"></disk-space-chart-stub>
       </div>

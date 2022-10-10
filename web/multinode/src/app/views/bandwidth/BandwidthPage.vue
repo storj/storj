@@ -55,7 +55,7 @@
                 <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}*h</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}*d</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
                     <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" />
                 </div>
