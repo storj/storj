@@ -226,7 +226,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 				err := overlayDB.UpdateCheckIn(ctx, checkIn, now, overlay.NodeSelectionConfig{})
 				require.NoError(t, err)
 
-				err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
+				_, err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
 				require.NoError(t, err)
 
 				info, err := overlayDB.Get(ctx, testcase.NodeID)

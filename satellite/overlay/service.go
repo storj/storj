@@ -96,7 +96,7 @@ type DB interface {
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
@@ -703,7 +703,17 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 // DisqualifyNode disqualifies a storage node.
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+	email, err := service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+	if err != nil {
+		return err
+	}
+	if service.config.SendNodeEmails {
+		_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+		if err != nil {
+			service.log.Error("could not insert node disqualified into node events")
+		}
+	}
+	return nil
 }
 
 // SelectAllStorageNodesDownload returns a nodes that are ready for downloading.

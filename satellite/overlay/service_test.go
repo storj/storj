@@ -454,7 +454,7 @@ func TestKnownReliable(t *testing.T) {
 		oc := satellite.DB.OverlayCache()
 
 		// Disqualify storage node #0
-		err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
+		_, err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		// Stop storage node #1
@@ -951,6 +951,28 @@ func TestUpdateReputationNodeEvents(t *testing.T) {
 		require.Equal(t, email, ne.Email)
 		require.Equal(t, node.ID(), ne.NodeID)
 		require.Equal(t, nodeevents.Disqualified, ne.Event)
+	})
+}
+
+func TestDisqualifyNodeEmails(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		require.NoError(t, service.DisqualifyNode(ctx, node.ID(), overlay.DisqualificationReasonUnknown))
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, node.Config.Operator.Email, nodeevents.Disqualified)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), ne.NodeID)
 	})
 }
 

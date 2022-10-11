@@ -701,7 +701,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (err error) {
+func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.Disqualified = dbx.Node_Disqualified(disqualifiedAt.UTC())
@@ -709,12 +709,12 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if dbNode == nil {
-		return errs.New("unable to get node by ID: %v", nodeID)
+		return "", errs.New("unable to get node by ID: %v", nodeID)
 	}
-	return nil
+	return dbNode.Email, nil
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
