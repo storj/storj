@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -49,7 +48,7 @@ func TestECClient(t *testing.T) {
 		rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 		require.NoError(t, err)
 
-		data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
+		data, err := io.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
 		require.NoError(t, err)
 
 		// Erasure encode some random data and upload the pieces
@@ -116,7 +115,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 
 	r, err := rr.Range(ctx, 0, rr.Size())
 	require.NoError(t, err)
-	readData, err := ioutil.ReadAll(r)
+	readData, err := io.ReadAll(r)
 	require.NoError(t, err)
 	assert.Equal(t, data, readData)
 	assert.NoError(t, r.Close())

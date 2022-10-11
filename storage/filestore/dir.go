@@ -115,7 +115,7 @@ func (dir *Dir) CreateVerificationFile(ctx context.Context, id storj.NodeID) err
 // Verify verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
 func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
-	content, err := ioutil.ReadFile(filepath.Join(dir.path, verificationFileName))
+	content, err := os.ReadFile(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
 	}

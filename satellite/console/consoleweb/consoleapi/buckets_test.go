@@ -5,7 +5,7 @@ package consoleapi_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -86,7 +86,7 @@ func Test_AllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, result.StatusCode)
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		var output []string

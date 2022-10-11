@@ -4,7 +4,7 @@
 package main_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -65,11 +65,11 @@ func TestProcess(t *testing.T) {
 
 		require.NoError(t, service.Close())
 
-		retryCSV, err := ioutil.ReadFile(config.RetryPath)
+		retryCSV, err := os.ReadFile(config.RetryPath)
 		require.NoError(t, err)
 		require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
 
-		notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+		notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 		require.NoError(t, err)
 		require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
 	})

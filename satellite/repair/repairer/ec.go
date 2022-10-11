@@ -9,7 +9,6 @@ import (
 	"errors"
 	"hash"
 	"io"
-	"io/ioutil"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -288,12 +287,12 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	var downloadedPieceSize int64
 
 	if ec.inmemory {
-		pieceBytes, err := ioutil.ReadAll(downloadReader)
+		pieceBytes, err := io.ReadAll(downloadReader)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		downloadedPieceSize = int64(len(pieceBytes))
-		pieceReadCloser = ioutil.NopCloser(bytes.NewReader(pieceBytes))
+		pieceReadCloser = io.NopCloser(bytes.NewReader(pieceBytes))
 	} else {
 		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
@@ -388,7 +387,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	readers, err := eestream.EncodeReader2(ctx, ioutil.NopCloser(data), rs)
+	readers, err := eestream.EncodeReader2(ctx, io.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -508,7 +507,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
-		_, _ = io.Copy(ioutil.Discard, data)
+		_, _ = io.Copy(io.Discard, data)
 		return nil, nil
 	}
 

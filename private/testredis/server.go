@@ -92,7 +92,7 @@ func Process(ctx context.Context) (Server, error) {
 	}
 
 	conf := strings.Join(arguments, "\n") + "\n"
-	err = ioutil.WriteFile(confpath, []byte(conf), 0755)
+	err = os.WriteFile(confpath, []byte(conf), 0755)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func Process(ctx context.Context) (Server, error) {
 			}
 		}
 		waitForReady <- scanner.Err()
-		_, _ = io.Copy(ioutil.Discard, read)
+		_, _ = io.Copy(io.Discard, read)
 	}()
 
 	select {

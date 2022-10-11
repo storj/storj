@@ -6,7 +6,7 @@ package admin_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -228,7 +228,7 @@ func TestProjectAdd(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 
@@ -383,7 +383,7 @@ func TestProjectCheckUsage_withoutUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"result\":\"no project usage exist\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -454,7 +454,7 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.Equal(t, http.StatusOK, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"result\":\"no project usage exist\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -477,7 +477,7 @@ func TestProjectCheckUsage_withUsage(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
-		responseBody, err = ioutil.ReadAll(response.Body)
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -555,7 +555,7 @@ func TestProjectCheckUsage_lastMonthUnappliedInvoice(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"unapplied project invoice record exist\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -632,7 +632,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 		require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for current month exists\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -654,7 +654,7 @@ func TestProjectDelete_withUsageCurrentMonth(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
-		responseBody, err = ioutil.ReadAll(response.Body)
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -731,7 +731,7 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -755,7 +755,7 @@ func TestProjectDelete_withUsagePreviousMonthUncharged(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
-		responseBody, err = ioutil.ReadAll(response.Body)
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -832,7 +832,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 
 		response, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		responseBody, err := ioutil.ReadAll(response.Body)
+		responseBody, err := io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"usage for last month exist, but is not billed yet\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -855,7 +855,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		// Project should fail to delete since the project record has not been used/billed yet.
 		response, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		responseBody, err = ioutil.ReadAll(response.Body)
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "{\"error\":\"unapplied project invoice record exist\",\"detail\":\"\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
@@ -877,7 +877,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
-		responseBody, err = ioutil.ReadAll(response.Body)
+		responseBody, err = io.ReadAll(response.Body)
 		require.NoError(t, err)
 		require.Equal(t, "", string(responseBody))
 		require.NoError(t, response.Body.Close())

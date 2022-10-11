@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -180,7 +180,7 @@ func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
 // parseNodeFile parses a file containing node ID-s.
 func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
 	set := NodeAliasSet{}
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return set, Error.New("unable to read nodes file: %w", err)
 	}

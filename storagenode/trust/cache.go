@@ -6,7 +6,6 @@ package trust
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -86,7 +85,7 @@ func NewCacheData() *CacheData {
 
 // LoadCacheData loads the cache data from the given path.
 func LoadCacheData(path string) (*CacheData, error) {
-	dataBytes, err := ioutil.ReadFile(path)
+	dataBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

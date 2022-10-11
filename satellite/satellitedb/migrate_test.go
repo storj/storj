@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -74,7 +74,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string, maxSnapshots 
 				return errs.New("invalid testdata file %q: %v", match, err)
 			}
 
-			scriptData, err := ioutil.ReadFile(match)
+			scriptData, err := os.ReadFile(match)
 			if err != nil {
 				return errs.New("could not read testdata file for version %d: %v", version, err)
 			}

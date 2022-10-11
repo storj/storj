@@ -6,7 +6,7 @@ package consoleweb
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"regexp"
@@ -58,7 +58,7 @@ func queryPOST(w http.ResponseWriter, req *http.Request) (query graphqlJSON, err
 	limitedReader := http.MaxBytesReader(w, req.Body, ContentLengthLimit.Int64())
 	switch typ := req.Header.Get(contentType); typ {
 	case applicationGraphql:
-		body, err := ioutil.ReadAll(limitedReader)
+		body, err := io.ReadAll(limitedReader)
 		query.Query = string(body)
 		return query, errs.Combine(err, limitedReader.Close())
 	case applicationJSON:

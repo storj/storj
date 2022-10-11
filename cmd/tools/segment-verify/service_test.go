@@ -6,7 +6,7 @@ package main_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -64,7 +64,7 @@ func TestService_Success(t *testing.T) {
 	}
 
 	// the node 1 is going to be priority
-	err := ioutil.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -116,11 +116,11 @@ func TestService_Success(t *testing.T) {
 		assert.Len(t, verifier.processed[nodes[4]], 1)
 	}()
 
-	retryCSV, err := ioutil.ReadFile(config.RetryPath)
+	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
 
-	notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
 }
@@ -140,7 +140,7 @@ func TestService_Failures(t *testing.T) {
 	}
 
 	// the node 1 is going to be priority
-	err := ioutil.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -185,14 +185,14 @@ func TestService_Failures(t *testing.T) {
 		}
 	}()
 
-	retryCSV, err := ioutil.ReadFile(config.RetryPath)
+	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
 		"stream id,position,found,not found,retry\n"+
 		"10100000-0000-0000-0000-000000000000,0,1,0,1\n",
 		string(retryCSV))
 
-	notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
 		"stream id,position,found,not found,retry\n"+

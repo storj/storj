@@ -4,7 +4,7 @@
 package metainfo_test
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -58,7 +58,7 @@ func TestUserAgentTransferStats(t *testing.T) {
 			download, err := project.DownloadObject(ctx, "testbucket", name, nil)
 			require.NoError(t, err)
 
-			_, err = ioutil.ReadAll(download)
+			_, err = io.ReadAll(download)
 			require.NoError(t, err)
 			require.NoError(t, download.Close())
 		}

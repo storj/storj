@@ -6,7 +6,7 @@ package ultest
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"sort"
 	"testing"
 
@@ -143,7 +143,7 @@ func collectIterator(ctx context.Context, t *testing.T, fs ulfs.FilesystemLocal,
 			require.NoError(t, err)
 			defer func() { _ = rh.Close() }()
 
-			data, err := ioutil.ReadAll(rh)
+			data, err := io.ReadAll(rh)
 			require.NoError(t, err)
 			files = append(files, File{
 				Loc:      loc,
