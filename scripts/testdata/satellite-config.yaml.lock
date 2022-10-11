@@ -445,7 +445,7 @@ contact.external-address: ""
 # set if garbage collection bloom filters is enabled or not
 # garbage-collection-bf.enabled: true
 
-# how quickly uploaded bloom filters will be automatically deleted
+# how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted
 # garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
@@ -478,7 +478,7 @@ contact.external-address: ""
 # set if loop to send garbage collection retain filters is enabled
 # garbage-collection.enabled: false
 
-# Expiration of newly created objects. These objects store error messages.
+# Expiration of newly created objects in the bucket. These objects are under the prefix error-[timestamp] and store error messages.
 # garbage-collection.expire-in: 336h0m0s
 
 # the time between each attempt to download and send garbage collection retain filters to storage nodes
