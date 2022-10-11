@@ -2337,7 +2337,8 @@ func TestRepairGracefullyExited(t *testing.T) {
 }
 
 // getRemoteSegment returns a remote pointer its path from satellite.
-// nolint:golint
+//
+//nolint:golint
 func getRemoteSegment(
 	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName string,
 ) (_ metabase.Segment, key metabase.SegmentKey) {
