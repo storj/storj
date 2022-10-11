@@ -7,6 +7,17 @@
             <LogoIcon class="forgot-area__logo-wrapper__logo" @click="onLogoClick" />
         </div>
         <div class="forgot-area__content-area">
+            <div v-if="isMessageShowing && isPasswordResetExpired" class="forgot-area__content-area__message-banner">
+                <div class="forgot-area__content-area__message-banner__content">
+                    <div class="forgot-area__content-area__message-banner__content__left">
+                        <InfoIcon class="forgot-area__content-area__message-banner__content__left__icon" />
+                        <span class="forgot-area__content-area__message-banner__content__left__message">
+                            The password reset link you clicked on has expired. Request a new link.
+                        </span>
+                    </div>
+                    <CloseIcon class="forgot-area__content-area__message-banner__content__right" @click="closeMessage" />
+                </div>
+            </div>
             <div class="forgot-area__content-area__container">
                 <div class="forgot-area__content-area__container__title-area">
                     <h1 class="forgot-area__content-area__container__title-area__title">Reset Password</h1>
@@ -56,17 +67,17 @@
                     width="100%"
                     height="48px"
                     label="Reset Password"
-                    border-radius="50px"
+                    border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onSendConfigurations"
                 >
                     Reset Password
                 </v-button>
-            </div>
-            <div class="forgot-area__content-area__login-container">
-                <router-link :to="loginPath" class="forgot-area__content-area__login-container__link">
-                    Back to Login
-                </router-link>
+                <div class="forgot-area__content-area__container__login-container">
+                    <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
+                        Back to Login
+                    </router-link>
+                </div>
             </div>
         </div>
     </div>
@@ -88,6 +99,8 @@ import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
@@ -99,6 +112,8 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
+        InfoIcon,
+        CloseIcon,
         VueRecaptcha,
         VueHcaptcha,
     },
@@ -108,6 +123,8 @@ export default class ForgotPassword extends Vue {
     private emailError = '';
     private captchaResponseToken = '';
     private isLoading = false;
+    private isPasswordResetExpired = false;
+    private isMessageShowing = true;
 
     private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
     private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
@@ -126,6 +143,17 @@ export default class ForgotPassword extends Vue {
     public $refs!: {
         captcha: VueRecaptcha | VueHcaptcha;
     };
+
+    public mounted(): void {
+        this.isPasswordResetExpired = this.$route.query.expired === 'true';
+    }
+
+    /**
+     * Close the expiry message banner.
+     */
+    public closeMessage() {
+        this.isMessageShowing = false;
+    }
 
     /**
      * Sets the email field to the given value.
@@ -355,22 +383,53 @@ export default class ForgotPassword extends Vue {
                 &__button {
                     margin-top: 40px;
                 }
+
+                &__login-container {
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 1.5rem;
+
+                    &__link {
+                        font-family: 'font_medium', sans-serif;
+                        text-decoration: none;
+                        font-size: 14px;
+                        line-height: 18px;
+                        color: #0149ff;
+                    }
+                }
             }
 
-            &__login-container {
-                width: 100%;
-                align-items: center;
-                justify-content: center;
-                margin-top: 50px;
-                display: block;
-                text-align: center;
+            &__message-banner {
+                padding: 1.5rem;
+                border-radius: 0.6rem;
+                width: 570px;
+                margin-bottom: 2.5rem;
+                background-color: #ffe0e7;
+                border: 1px solid #ffc0cf;
+                box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
+                color: #000;
 
-                &__link {
-                    font-family: 'font_medium', sans-serif;
-                    text-decoration: none;
-                    font-size: 14px;
-                    line-height: 18px;
-                    color: #376fff;
+                &__content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+
+                    &__left {
+                        display: flex;
+                        align-items: center;
+                        justify-content: start;
+                        gap: 1.5rem;
+
+                        &__message {
+                            font-size: 0.95rem;
+                            line-height: 1.4px;
+                            margin: 0;
+                        }
+
+                        &__icon {
+                            fill: #ff458b;
+                        }
+                    }
                 }
             }
         }

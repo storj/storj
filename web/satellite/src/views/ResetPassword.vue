@@ -84,6 +84,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -187,6 +188,11 @@ export default class ResetPassword extends Vue {
             if (error instanceof ErrorMFARequired) {
                 if (this.isMFARequired) this.isMFAError = true;
                 this.isMFARequired = true;
+                return;
+            }
+
+            if (error instanceof ErrorTokenExpired) {
+                await this.$router.push(`${RouteConfig.ForgotPassword.path}?expired=true`);
                 return;
             }
 

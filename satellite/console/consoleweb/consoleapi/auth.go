@@ -795,6 +795,22 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if console.ErrTokenExpiration.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "token_expired",
+		})
+
+		if err != nil {
+			a.log.Error("password-reset-token expired: failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	} else {
@@ -846,7 +862,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict

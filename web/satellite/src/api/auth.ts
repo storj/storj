@@ -7,6 +7,7 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -410,6 +411,9 @@ export class AuthHttpApi implements UsersApi {
             if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
+            if (result.code == 'token_expired') {
+                throw new ErrorTokenExpired();
+            }
             if (result.error) {
                 errMsg = result.error;
             }
@@ -431,7 +435,7 @@ export class AuthHttpApi implements UsersApi {
 
     /**
      * Used to refresh the expiration time of the current session.
-     * 
+     *
      * @returns new expiration timestamp
      * @throws Error
      */
