@@ -310,9 +310,35 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 	return limits, signer.PrivateKey, cachedNodesInfo, nil
 }
 
-// CreateAuditOrderLimit creates an order limit for auditing a single the piece from a segment.
+// CreateAuditOrderLimit creates an order limit for auditing a single piece from a segment.
 func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	// TODO reduce number of params ?
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
+	}
+	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
+}
+
+// CreateAuditPieceOrderLimit creates an order limit for auditing a single
+// piece from a segment, requesting that the original order limit and piece
+// hash be included.
+//
+// Unfortunately, because of the way the protocol works historically, we
+// must use GET_REPAIR for this operation instead of GET_AUDIT.
+func (service *Service) CreateAuditPieceOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, pieceSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerRepairGet(service, rootPieceID, time.Now(), int64(pieceSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
+	}
+	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
+}
+
+func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, signer *Signer) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.overlay.Get(ctx, nodeID)
@@ -336,11 +362,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.
 	}
 	if !service.overlay.IsOnline(node) {
 		return nil, storj.PiecePrivateKey{}, nodeInfo, overlay.ErrNodeOffline.New("%v", nodeID)
-	}
-
-	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
 	}
 
 	orderLimit, err := signer.Sign(ctx, storj.NodeURL{
