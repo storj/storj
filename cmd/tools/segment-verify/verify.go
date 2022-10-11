@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -51,6 +52,12 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 	if config.DialTimeout > 0 {
 		configuredDialer.DialTimeout = config.DialTimeout
 	}
+
+	configuredDialer.Pool = rpcpool.New(rpcpool.Options{
+		Capacity:       1000,
+		KeyCapacity:    5,
+		IdleExpiration: 10 * time.Minute,
+	})
 
 	return &NodeVerifier{
 		log:    log,
