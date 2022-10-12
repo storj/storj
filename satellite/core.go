@@ -263,7 +263,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 
 		if config.StrayNodes.EnableDQ {
-			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.DB, config.StrayNodes)
+			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.Service, config.StrayNodes)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "overlay:dq-stray-nodes",
 				Run:   peer.Overlay.DQStrayNodes.Run,

@@ -1131,20 +1131,21 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 
 // DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 // or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIDs []storj.NodeID
+	nodeEmails = make(map[storj.NodeID]string)
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
-			return 0, err
+			return nil, 0, err
 		}
 		if len(nodeIDs) == 0 {
-			return 0, nil
+			return nil, 0, nil
 		}
 		break
 	}
@@ -1159,28 +1160,29 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
 			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
-		RETURNING id, last_contact_success;
+		RETURNING id, email, last_contact_success;
 	`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var id storj.NodeID
+		var email string
 		var lcs time.Time
-		err = rows.Scan(&id, &lcs)
+		err = rows.Scan(&id, &email, &lcs)
 		if err != nil {
-			return count, err
+			return nil, count, err
 		}
 		cache.db.log.Info("Disqualified",
 			zap.String("DQ type", "stray node"),
 			zap.Stringer("Node ID", id),
 			zap.Stringer("Last contacted", lcs))
-
+		nodeEmails[id] = email
 		count++
 	}
-	return count, rows.Err()
+	return nodeEmails, count, rows.Err()
 }
 
 func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {

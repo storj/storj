@@ -100,7 +100,7 @@ type DB interface {
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error)
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error)
 
 	// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
@@ -698,6 +698,25 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 		}
 	}
 	return piecesInExcluded, nil
+}
+
+// DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.
+func (service *Service) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, count, err := service.db.DQNodesLastSeenBefore(ctx, cutoff, limit)
+	if err != nil {
+		return 0, err
+	}
+	if service.config.SendNodeEmails {
+		for nodeID, email := range nodes {
+			_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+			if err != nil {
+				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
+			}
+		}
+	}
+	return count, err
 }
 
 // DisqualifyNode disqualifies a storage node.
