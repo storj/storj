@@ -846,11 +846,15 @@ export default class RegisterArea extends Vue {
                         @extend %subtitle-text;
 
                         text-align: center;
-                    }
 
-                    :deep(p a) {
-                        text-decoration: underline !important;
-                        color: inherit !important;
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
                     }
 
                     :deep(ol) {
@@ -894,11 +898,15 @@ export default class RegisterArea extends Vue {
 
                     :deep(p) {
                         @extend %subtitle-text;
-                    }
 
-                    :deep(p a) {
-                        text-decoration: underline !important;
-                        color: inherit !important;
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
                     }
 
                     :deep(ol) {
