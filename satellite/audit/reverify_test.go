@@ -457,6 +457,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		err = audits.Reporter.RecordReverificationResult(ctx, &audit.ReverificationJob{Locator: *pending}, outcome, reputation)
 		require.NoError(t, err)
+		require.Equal(t, audit.OutcomeNotNecessary, outcome)
 
 		// expect that the node was removed from containment since the piece it was contained for is no longer part of the segment
 		_, err = containment.Get(ctx, segment.Pieces[otherPiece].StorageNode)
@@ -654,6 +655,7 @@ func TestReverifySlowDownload(t *testing.T) {
 
 		err = audits.Reporter.RecordReverificationResult(ctx, &audit.ReverificationJob{Locator: *pending}, outcome, reputation)
 		require.NoError(t, err)
+		require.Equal(t, audit.OutcomeTimedOut, outcome)
 
 		// expect that the node is still in containment
 		_, err = containment.Get(ctx, slowNode)
@@ -738,6 +740,8 @@ func TestMaxReverifyCount(t *testing.T) {
 					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
 					config.Audit.MinDownloadTimeout = auditTimeout
+					// disable reputation write cache so changes are immediate
+					config.Reputation.FlushInterval = 0
 				},
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),

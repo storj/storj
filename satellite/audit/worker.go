@@ -135,7 +135,13 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 	// Next, audit the remaining nodes that are not in containment mode.
 	report, err := worker.verifier.Verify(ctx, segment, skip)
 	if err != nil {
-		errlist.Add(err)
+		if metabase.ErrSegmentNotFound.Has(err) {
+			// no need to add this error; Verify() will encounter it again
+			// and will handle the verification job as appropriate.
+			err = nil
+		} else {
+			errlist.Add(err)
+		}
 	}
 
 	worker.reporter.RecordAudits(ctx, report)
