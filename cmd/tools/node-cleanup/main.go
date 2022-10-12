@@ -51,6 +51,7 @@ func init() {
 type Config struct {
 	SatelliteDB string
 	Limit       int
+	CreatedAt   string
 
 	MaxIterations int
 }
@@ -59,6 +60,7 @@ type Config struct {
 func (config *Config) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&config.SatelliteDB, "satellitedb", "", "connection URL for satelliteDB")
 	flag.IntVar(&config.Limit, "limit", 1000, "number of deletes to perform at once")
+	flag.StringVar(&config.CreatedAt, "created-at", "", "latest node creation date for which to delete in iso8601 format YYYY-MM-DD")
 	flag.IntVar(&config.MaxIterations, "max-iterations", -1, "number of maximum iterations (negative is unlimited)")
 }
 
@@ -154,7 +156,9 @@ func DeleteFromTables(ctx context.Context, log *zap.Logger, db tagsql.DB, config
 		err = db.QueryRowContext(ctx, `
 			WITH deleted_nodes AS (
 				DELETE FROM nodes
-				WHERE id > $1 AND id <= $2 AND email LIKE '%@atredis.com'
+				WHERE id > $1 AND id <= $2
+				AND last_contact_success = '0001-01-01 00:00:00+00'
+				AND created_at <= $3
 				RETURNING id
 			),
 				deleted_paystubs AS (
@@ -177,7 +181,7 @@ func DeleteFromTables(ctx context.Context, log *zap.Logger, db tagsql.DB, config
 				(select count(*) from deleted_paystubs),
 				(select count(*) from deleted_peer_identities),
 				(select count(*) from deleted_node_api_versions)
-		`, cursor, batchEnd).Scan(&deletedNodes, &deletedPaystubs, &deletedPeerIdentities, &deletedNodeAPIVersions)
+		`, cursor, batchEnd, config.CreatedAt).Scan(&deletedNodes, &deletedPaystubs, &deletedPeerIdentities, &deletedNodeAPIVersions)
 		if err != nil {
 			return errs.New("batch deletion failed: %w", err)
 		}
