@@ -628,6 +628,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
+# address(es) to send telemetry to (comma-separated)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
+
 # instance id prefix
 # metrics.instance-prefix: ""
 

@@ -11,7 +11,7 @@ require (
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	storj.io/common v0.0.0-20220923163402-3816c1e17d27
-	storj.io/private v0.0.0-20220915132359-957cab776577
+	storj.io/private v0.0.0-20221011183246-586e5f48357a
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
 	storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d
@@ -145,5 +145,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.32 // indirect
-	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
+	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 )
