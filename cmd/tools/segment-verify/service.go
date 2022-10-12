@@ -140,9 +140,14 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 			continue
 		}
 
+		addr := node.Address.Address
+		if node.LastIPPort != "" {
+			addr = node.LastIPPort
+		}
+
 		service.aliasToNodeURL[alias] = storj.NodeURL{
 			ID:      node.ID,
-			Address: node.Address.Address,
+			Address: addr,
 		}
 		service.onlineNodes.Add(alias)
 	}
