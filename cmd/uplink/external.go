@@ -273,7 +273,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		client := eventkit.NewUDPClient(
 			appname,
 			appversion,
-			"TODO",
+			"",
 			ex.events.address,
 		)
 
