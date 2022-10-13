@@ -34,6 +34,7 @@ func TestService_EmptyRange(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath: ctx.File("not-found.csv"),
 		RetryPath:    ctx.File("retry.csv"),
+		MaxOffline:   2,
 	}
 
 	metabase := newMetabaseMock(map[metabase.NodeAlias]storj.NodeID{})
@@ -61,6 +62,7 @@ func TestService_Success(t *testing.T) {
 		Check:       3,
 		BatchSize:   100,
 		Concurrency: 3,
+		MaxOffline:  2,
 	}
 
 	// the node 1 is going to be priority
@@ -137,6 +139,7 @@ func TestService_Failures(t *testing.T) {
 		Check:       2,
 		BatchSize:   100,
 		Concurrency: 3,
+		MaxOffline:  2,
 	}
 
 	// the node 1 is going to be priority
@@ -337,7 +340,7 @@ type verifierMock struct {
 	processed map[storj.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) error {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
 		v.processed = map[storj.NodeID][]*segmentverify.Segment{}
@@ -347,18 +350,18 @@ func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, tar
 
 	for _, n := range v.offline {
 		if n == target.ID {
-			return segmentverify.ErrNodeOffline.New("node did not respond %v", target)
+			return 0, segmentverify.ErrNodeOffline.New("node did not respond %v", target)
 		}
 	}
 	if v.fail != nil {
-		return errs.Wrap(v.fail)
+		return 0, errs.Wrap(v.fail)
 	}
 
 	if v.allSuccess {
 		for _, seg := range segments {
 			seg.Status.MarkFound()
 		}
-		return nil
+		return len(segments), nil
 	}
 
 	for _, seg := range v.success {
@@ -376,5 +379,5 @@ func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, tar
 		}
 	}
 
-	return nil
+	return len(segments), nil
 }

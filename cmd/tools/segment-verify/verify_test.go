@@ -75,7 +75,8 @@ func TestVerifier(t *testing.T) {
 			alias, ok := aliasMap.Alias(node.ID())
 			require.True(t, ok)
 			g.Go(func() error {
-				return service.Verify(ctx, alias, node.NodeURL(), validSegments, true)
+				_, err := service.Verify(ctx, alias, node.NodeURL(), validSegments, true)
+				return err
 			})
 		}
 		require.NoError(t, g.Wait())
@@ -106,9 +107,11 @@ func TestVerifier(t *testing.T) {
 			Status:        segmentverify.Status{Retry: 1},
 		}
 
-		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(),
+		var count int
+		count, err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(),
 			[]*segmentverify.Segment{validSegment0, missingSegment, validSegment1}, true)
 		require.NoError(t, err)
+		require.Equal(t, 3, count)
 		require.Equal(t, segmentverify.Status{Found: 1}, validSegment0.Status)
 		require.Equal(t, segmentverify.Status{NotFound: 1}, missingSegment.Status)
 		require.Equal(t, segmentverify.Status{Found: 1}, validSegment1.Status)
@@ -116,9 +119,10 @@ func TestVerifier(t *testing.T) {
 		// Test throttling
 		verifyStart := time.Now()
 		const throttleN = 5
-		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
+		count, err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments[:throttleN], false)
 		require.NoError(t, err)
 		verifyDuration := time.Since(verifyStart)
+		require.Equal(t, throttleN, count)
 		require.Greater(t, verifyDuration, config.RequestThrottle*(throttleN-1))
 
 		// TODO: test download timeout
@@ -126,8 +130,9 @@ func TestVerifier(t *testing.T) {
 		// node offline
 		err = planet.StopNodeAndUpdate(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
-		err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments, true)
+		count, err = service.Verify(ctx, alias0, planet.StorageNodes[0].NodeURL(), validSegments, true)
 		require.Error(t, err)
+		require.Equal(t, 0, count)
 		require.True(t, segmentverify.ErrNodeOffline.Has(err))
 	})
 }

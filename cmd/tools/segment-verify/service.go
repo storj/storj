@@ -35,7 +35,7 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -61,6 +61,7 @@ type ServiceConfig struct {
 	Check       int `help:"how many storagenodes to query per segment" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
+	MaxOffline  int `help:"maximum number of offline in a sequence" default:"2"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
@@ -81,6 +82,7 @@ type Service struct {
 	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
 	priorityNodes  NodeAliasSet
 	onlineNodes    NodeAliasSet
+	offlineCount   map[metabase.NodeAlias]int
 }
 
 // NewService returns a new service for verifying segments.
@@ -109,6 +111,7 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
 		priorityNodes:  NodeAliasSet{},
 		onlineNodes:    NodeAliasSet{},
+		offlineCount:   map[metabase.NodeAlias]int{},
 	}, nil
 }
 

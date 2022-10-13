@@ -68,10 +68,10 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error {
+func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, _ error) {
 	client, err := piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
 	if err != nil {
-		return ErrNodeOffline.Wrap(err)
+		return 0, ErrNodeOffline.Wrap(err)
 	}
 	defer func() {
 		if client != nil {
@@ -93,34 +93,34 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 			_ = client.Close()
 			client = nil
 			if !sync2.Sleep(ctx, service.config.RequestThrottle) {
-				return Error.Wrap(ctx.Err())
+				return i, Error.Wrap(ctx.Err())
 			}
 
 			// redial the client
 			client, err = piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
 			if err != nil {
-				return errs.Combine(ErrNodeOffline.Wrap(err), firstError)
+				return i, errs.Combine(ErrNodeOffline.Wrap(err), firstError)
 			}
 
 			// and then retry verifying the segment
 			downloadStart = time.Now()
 			err = service.verifySegment(ctx, client, alias, target, segment)
 			if err != nil {
-				return errs.Combine(Error.Wrap(err), firstError)
+				return i, errs.Combine(Error.Wrap(err), firstError)
 			}
 		}
 
 		if err != nil {
-			return Error.Wrap(err)
+			return i, Error.Wrap(err)
 		}
 		throttle := service.config.RequestThrottle - time.Since(downloadStart)
 		if !ignoreThrottle && throttle > 0 && i < len(segments)-1 {
 			if !sync2.Sleep(ctx, throttle) {
-				return Error.Wrap(ctx.Err())
+				return i, Error.Wrap(ctx.Err())
 			}
 		}
 	}
-	return nil
+	return len(segments), nil
 }
 
 // verifySegment tries to verify the segment by downloading a single byte from the specified segment.

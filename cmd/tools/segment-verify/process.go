@@ -84,14 +84,27 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
-					service.onlineNodes.Remove(batch.Alias)
+					if verifiedCount == 0 {
+						service.onlineNodes.Remove(batch.Alias)
+					} else {
+						service.offlineCount[batch.Alias]++
+						if service.offlineCount[batch.Alias] >= service.config.MaxOffline {
+							service.onlineNodes.Remove(batch.Alias)
+						}
+					}
 					mu.Unlock()
 				}
 				service.log.Error("verifying a batch failed", zap.Error(err))
+			} else {
+				mu.Lock()
+				if service.offlineCount[batch.Alias] > 0 {
+					service.offlineCount[batch.Alias]--
+				}
+				mu.Unlock()
 			}
 		})
 	}

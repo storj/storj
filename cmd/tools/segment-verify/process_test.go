@@ -41,6 +41,7 @@ func TestProcess(t *testing.T) {
 			Check:        2,
 			BatchSize:    4,
 			Concurrency:  2,
+			MaxOffline:   3,
 		}
 
 		service, err := segmentverify.NewService(
