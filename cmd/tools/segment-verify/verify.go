@@ -73,11 +73,43 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 	if err != nil {
 		return ErrNodeOffline.Wrap(err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	}()
+
+	const maxRedials = 1
+	redialCount := 0
 
 	for i, segment := range segments {
 		downloadStart := time.Now()
 		err := service.verifySegment(ctx, client, alias, target, segment)
+
+		if redialCount < maxRedials && ErrNodeOffline.Has(err) {
+			redialCount++
+			firstError := err
+
+			_ = client.Close()
+			client = nil
+			if !sync2.Sleep(ctx, service.config.RequestThrottle) {
+				return Error.Wrap(ctx.Err())
+			}
+
+			// redial the client
+			client, err = piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
+			if err != nil {
+				return errs.Combine(ErrNodeOffline.Wrap(err), firstError)
+			}
+
+			// and then retry verifying the segment
+			downloadStart = time.Now()
+			err = service.verifySegment(ctx, client, alias, target, segment)
+			if err != nil {
+				return errs.Combine(Error.Wrap(err), firstError)
+			}
+		}
+
 		if err != nil {
 			return Error.Wrap(err)
 		}
