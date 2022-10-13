@@ -395,6 +395,13 @@ export class NativePaymentHistoryItem {
     public get formattedType(): string {
         return this.type.charAt(0).toUpperCase() + this.type.substring(1);
     }
+
+    public get linkName(): string {
+        if (this.type === 'storjscan') {
+            return 'Etherscan';
+        }
+        return this.formattedType;
+    }
 }
 
 export class TokenAmount {

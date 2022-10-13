@@ -58,7 +58,7 @@
                 <a
                     v-if="item.link" class="download-link" target="_blank"
                     rel="noopener noreferrer" :href="item.link"
-                >View on {{ item.formattedType }}</a>
+                >View on {{ item.linkName }}</a>
             </th>
         </fragment>
     </tr>
