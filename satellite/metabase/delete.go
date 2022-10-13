@@ -448,7 +448,7 @@ func (db *DB) promoteNewAncestors(ctx context.Context, tx tagsql.Tx, objects []d
 		for i, segment := range object.Segments {
 			positions[i] = int64(segment.Position.Encode())
 
-			aliases, err := db.aliasCache.ConvertPiecesToAliases(ctx, segment.Pieces)
+			aliases, err := db.aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
 			if err != nil {
 				return err
 			}

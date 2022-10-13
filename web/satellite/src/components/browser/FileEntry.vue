@@ -23,7 +23,7 @@
                     />
                 </svg>
 
-                <span @click.stop="fileClick">
+                <span>
                     <router-link :to="link">
                         <a
                             href="javascript:null"
@@ -372,6 +372,7 @@ import prettyBytes from 'pretty-bytes';
 import MiddleTruncate from './MiddleTruncate.vue';
 
 import type { BrowserFile } from '@/types/browser';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 // @vue/component
 @Component({
@@ -461,7 +462,8 @@ export default class FileEntry extends Vue {
      * Open the modal for the current file.
      */
     public openModal(): void {
-        this.$store.commit('files/openModal', this.path + this.file.Key);
+        this.$store.commit('files/setObjectPathForModal', this.path + this.file.Key);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
         this.$store.dispatch('files/closeDropdown');
     }
 
@@ -472,13 +474,6 @@ export default class FileEntry extends Vue {
         return !!this.$store.state.files.filesToBeDeleted.find(
             (file) => file === this.file,
         );
-    }
-
-    /**
-     * Hide the folder creation input on navigation due to folder click.
-     */
-    public fileClick(): void {
-        this.$store.dispatch('files/updateCreateFolderInputShow', false);
     }
 
     /**
@@ -628,7 +623,7 @@ export default class FileEntry extends Vue {
     /**
      * Open the share modal for the current file.
      */
-    public async share(): Promise<void> {
+    public share(): void {
         this.$store.dispatch('files/closeDropdown');
 
         this.$store.commit(

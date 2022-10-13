@@ -135,6 +135,10 @@
                                 </a>
                             </div>
                         </div>
+                        <div class="account-area__dropdown__item" @click="navigateToBilling">
+                            <BillingIcon />
+                            <p class="account-area__dropdown__item__label">Billing</p>
+                        </div>
                         <div class="account-area__dropdown__item" @click="navigateToSettings">
                             <SettingsIcon />
                             <p class="account-area__dropdown__item__label">Account Settings</p>
@@ -170,6 +174,7 @@ import { User } from '@/types/users';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -249,7 +254,6 @@ export default class MobileNavigation extends Vue {
         RouteConfig.Buckets.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
-        RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
     ];
 
     /**
@@ -430,6 +434,21 @@ export default class MobileNavigation extends Vue {
         }
 
         this.isProjectDropdownShown = false;
+    }
+
+    /**
+     * Navigates user to billing page.
+     */
+    public navigateToBilling(): void {
+        this.isOpened = false;
+        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
+
+        let link = RouteConfig.Account.with(RouteConfig.Billing);
+        if (MetaUtils.getMetaContent('new-billing-screen') === 'true') {
+            link = link.with(RouteConfig.BillingOverview);
+        }
+        this.$router.push(link.path);
+        this.analytics.pageVisit(link.path);
     }
 
     /**

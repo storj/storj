@@ -17,6 +17,7 @@ import (
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/geoip"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -75,9 +76,9 @@ type DB interface {
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
-	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
-	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
@@ -288,9 +289,12 @@ func (node *SelectedNode) Clone() *SelectedNode {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log              *zap.Logger
+	db               DB
+	mail             *mailservice.Service
+	satelliteName    string
+	satelliteAddress string
+	config           Config
 
 	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
@@ -298,7 +302,7 @@ type Service struct {
 }
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -328,9 +332,12 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	}
 
 	return &Service{
-		log:    log,
-		db:     db,
-		config: config,
+		log:              log,
+		db:               db,
+		mail:             mailService,
+		satelliteAddress: satelliteAddr,
+		satelliteName:    satelliteName,
+		config:           config,
 
 		GeoIP: geoIP,
 
@@ -674,6 +681,12 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+}
+
+// SelectAllStorageNodesDownload returns a nodes that are ready for downloading.
+func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.

@@ -90,6 +90,7 @@ import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -186,12 +187,13 @@ export default class CreatePassphraseStep extends Vue {
         await this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.restrictedKey,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 

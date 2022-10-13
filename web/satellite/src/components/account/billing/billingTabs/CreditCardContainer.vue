@@ -139,6 +139,7 @@ export default class CardComponent extends Vue {
     margin: 0 7px 0 0;
     white-space: nowrap;
     color: #354049;
+    align-self: end;
 
     &:hover {
         background-color: #2683ff;
@@ -186,8 +187,8 @@ export default class CardComponent extends Vue {
     border-radius: 6px;
     display: grid;
     grid-template-columns: 4fr 2fr;
-    grid-template-rows: 1fr 0fr auto 0fr;
-    height: 126px;
+    grid-template-rows: 1fr 0fr 1fr 1fr;
+    height: 100%;
 
     &__function-buttons {
         grid-column: 1;
@@ -265,11 +266,10 @@ export default class CardComponent extends Vue {
         grid-column: 2;
         width: 58px;
         height: 24px;
-        left: 950px;
-        top: 250px;
         background: #e6edf7;
         border: 1px solid #d7e8ff;
         border-radius: 4px;
+        justify-self: end;
     }
 
     &__default-text {

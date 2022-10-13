@@ -14,7 +14,7 @@
                     class="dashboard__wrap__main-area__content-wrap"
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <div class="dashboard__wrap__main-area__content-wrap__container">
+                    <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <div class="bars">
                             <BetaSatBar v-if="isBetaSatellite" />
                             <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
@@ -36,6 +36,24 @@
             :on-logout="handleInactive"
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime/1000"
+        />
+        <v-banner
+            v-if="limitState.isShown && !isLoading"
+            :severity="limitState.severity"
+            :on-click="() => isLimitModalShown = true"
+            :dashboard-ref="$refs.dashboardContent"
+        >
+            <template #text>
+                <p class="medium">{{ limitState.label }}</p>
+                <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+            </template>
+        </v-banner>
+        <limit-warning-modal
+            v-if="isLimitModalShown && !isLoading"
+            :severity="limitState.severity"
+            :on-close="() => isLimitModalShown = false"
+            :title="limitState.modalTitle"
+            :on-upgrade="togglePMModal"
         />
         <AllModals />
     </div>
@@ -71,6 +89,8 @@ import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
 import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
 import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
+import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
+import VBanner from '@/components/common/VBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loader.svg';
 
@@ -92,6 +112,8 @@ const {
         ProjectInfoBar,
         BillingNotification,
         InactivityModal,
+        LimitWarningModal,
+        VBanner,
     },
 })
 export default class DashboardArea extends Vue {
@@ -107,6 +129,7 @@ export default class DashboardArea extends Vue {
     private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
     private isSessionActive = false;
     private isSessionRefreshing = false;
+    public isLimitModalShown = false;
 
     // Properties concerning the session timer popup used for debugging
     private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
@@ -117,6 +140,49 @@ export default class DashboardArea extends Vue {
     public recoveryCodeWarningThreshold = 4;
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    /**
+     * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+     */
+    public get limitState(): { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string } {
+        if (this.$store.state.usersModule.user.paidTier) return { isShown: false };
+
+        const EIGHTY_PERCENT = 80;
+        const HUNDRED_PERCENT = 100;
+
+        const result: { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string  } = { isShown: false, label: '' };
+        const { currentLimits } = this.$store.state.projectsModule;
+
+        const bandwidthUsedPercent = Math.round(currentLimits.bandwidthUsed * HUNDRED_PERCENT / currentLimits.bandwidthLimit);
+        const storageUsedPercent = Math.round(currentLimits.storageUsed * HUNDRED_PERCENT / currentLimits.storageLimit);
+
+        const isLimitHigh = bandwidthUsedPercent >= EIGHTY_PERCENT || storageUsedPercent >= EIGHTY_PERCENT;
+        const isLimitCritical = bandwidthUsedPercent === HUNDRED_PERCENT || storageUsedPercent === HUNDRED_PERCENT;
+
+        if (isLimitHigh) {
+            result.isShown = true;
+            result.severity = isLimitCritical ? 'critical' : 'warning';
+
+            if (bandwidthUsedPercent > storageUsedPercent) {
+                result.label = bandwidthUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the bandwidth limit for your project. Avoid any service interruptions.'
+                    : `You’ve used ${bandwidthUsedPercent}% of your bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${bandwidthUsedPercent}% of your free account bandwidth`;
+            } else if (bandwidthUsedPercent < storageUsedPercent) {
+                result.label = storageUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the storage limit for your project. Avoid any service interruptions.'
+                    : `You’ve used ${storageUsedPercent}% of your storage limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${storageUsedPercent}% of your free account storage`;
+            } else {
+                result.label = storageUsedPercent === HUNDRED_PERCENT && bandwidthUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the storage and bandwidth limits for your project. Avoid any service interruptions.'
+                    : `You’ve used ${storageUsedPercent}% of your storage and ${bandwidthUsedPercent}% of bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${storageUsedPercent}% storage and ${bandwidthUsedPercent}%  of your free account bandwidth`;
+            }
+        }
+
+        return result;
+    }
 
     /**
      * Lifecycle hook after initial render.
@@ -233,6 +299,7 @@ export default class DashboardArea extends Vue {
      * Opens add payment method modal.
      */
     public togglePMModal(): void {
+        this.isLimitModalShown = false;
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
@@ -339,7 +406,7 @@ export default class DashboardArea extends Vue {
      */
     private async refreshSession(): Promise<void> {
         this.isSessionRefreshing = true;
-        
+
         try {
             LocalData.setSessionExpirationDate(await this.auth.refreshSession());
         } catch (error) {

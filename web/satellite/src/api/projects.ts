@@ -234,6 +234,15 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         throw new Error('Can not get project daily usage');
     }
 
+    public async getSalt(projectId: string): Promise<string> {
+        const path = `${this.ROOT_PATH}/${projectId}/salt`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            return await response.json();
+        }
+        throw new Error('Can not get project salt');
+    }
+
     /**
      * Fetch owned projects.
      *

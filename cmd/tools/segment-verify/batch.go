@@ -4,13 +4,20 @@
 package main
 
 import (
+	"context"
 	"sort"
 
 	"storj.io/storj/satellite/metabase"
 )
 
 // CreateBatches creates load-balanced queues of segments to verify.
-func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
+func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) (_ []*Batch, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(segments) == 0 {
+		return nil, Error.New("no segments")
+	}
+
 	// Remove offline nodes and prioritize nodes.
 	for _, segment := range segments {
 		service.selectOnlinePieces(segment)
@@ -28,12 +35,12 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	}
 
 	// Distribute things randomly into batches.
-	// We assume that segment.Pieces is randomly ordered in terms of nodes.
+	// We assume that segment.AliasPieces is randomly ordered in terms of nodes.
 	for _, segment := range segments {
-		if len(segment.Pieces) < VerifyPieces {
+		if len(segment.AliasPieces) < int(segment.Status.Retry) {
 			panic("segment contains too few pieces")
 		}
-		for _, piece := range segment.Pieces[:segment.Status.Retry] {
+		for _, piece := range segment.AliasPieces[:segment.Status.Retry] {
 			enqueue(piece.Alias, segment)
 		}
 	}
@@ -50,9 +57,9 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	// try to redistribute segments in different slices
 	//   queue with length above 65% will be redistributed
 	//   to queues with length below 40%, but no more than 50%
-	highIndex := len(allQueues) - len(allQueues)*65/100
-	midIndex := len(allQueues) - len(allQueues)*50/100
-	lowIndex := len(allQueues) - len(allQueues)*40/100
+	highIndex := len(allQueues) * (100 - 65) / 100
+	midIndex := len(allQueues) * (100 - 50) / 100
+	lowIndex := len(allQueues) * (100 - 40) / 100
 
 	midLen := allQueues[midIndex].Len()
 	highLen := allQueues[highIndex].Len()
@@ -62,7 +69,7 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	// iterate over all queues
 	for _, large := range allQueues[:highIndex] {
 		// don't redistribute priority nodes
-		if service.PriorityNodes.Contains(large.Alias) {
+		if service.priorityNodes.Contains(large.Alias) {
 			continue
 		}
 
@@ -71,7 +78,7 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 	nextSegment:
 		for _, segment := range large.Items[highLen:] {
 			// try to find a piece that can be moved into a small batch.
-			for _, piece := range segment.Pieces[segment.Status.Retry:] {
+			for _, piece := range segment.AliasPieces[segment.Status.Retry:] {
 				if q, ok := smallBatches[piece.Alias]; ok {
 					// move to the other queue
 					q.Items = append(q.Items, segment)
@@ -98,19 +105,19 @@ func (service *Service) CreateBatches(segments []*Segment) ([]*Batch, error) {
 
 // selectOnlinePieces modifies slice such that it only contains online pieces.
 func (service *Service) selectOnlinePieces(segment *Segment) {
-	for i, x := range segment.Pieces {
-		if !service.OfflineNodes.Contains(x.Alias) {
+	for i, x := range segment.AliasPieces {
+		if service.onlineNodes.Contains(x.Alias) {
 			continue
 		}
 
 		// found an offline node, start removing
-		rs := segment.Pieces[:i]
-		for _, x := range segment.Pieces[i+1:] {
-			if !service.OfflineNodes.Contains(x.Alias) {
+		rs := segment.AliasPieces[:i]
+		for _, x := range segment.AliasPieces[i+1:] {
+			if service.onlineNodes.Contains(x.Alias) {
 				rs = append(rs, x)
 			}
 		}
-		segment.Pieces = rs
+		segment.AliasPieces = rs
 		return
 	}
 }
@@ -118,22 +125,22 @@ func (service *Service) selectOnlinePieces(segment *Segment) {
 // removePriorityPieces modifies slice such that it only contains non-priority pieces.
 func (service *Service) removePriorityPieces(segment *Segment) {
 	target := 0
-	for _, x := range segment.Pieces {
-		if service.PriorityNodes.Contains(x.Alias) {
+	for _, x := range segment.AliasPieces {
+		if service.priorityNodes.Contains(x.Alias) {
 			continue
 		}
-		segment.Pieces[target] = x
+		segment.AliasPieces[target] = x
 		target++
 	}
-	segment.Pieces = segment.Pieces[:target]
+	segment.AliasPieces = segment.AliasPieces[:target]
 }
 
 // sortPriorityToFirst moves priority node pieces at the front of the list.
 func (service *Service) sortPriorityToFirst(segment *Segment) {
-	xs := segment.Pieces
+	xs := segment.AliasPieces
 	target := 0
 	for i, x := range xs {
-		if service.PriorityNodes.Contains(x.Alias) {
+		if service.priorityNodes.Contains(x.Alias) {
 			xs[target], xs[i] = xs[i], xs[target]
 			target++
 		}

@@ -13,7 +13,7 @@
                             label="Add STORJ"
                             width="123px"
                             height="46px"
-                            is-blue-white="true"
+                            :is-blue-white="true"
                             :on-press="onAddSTORJ"
                         />
                     </div>

@@ -11,7 +11,7 @@
                     width="203px"
                     height="40px"
                     :on-press="onDeleteClick"
-                    is-deletion="true"
+                    :is-deletion="true"
                 />
                 <VButton
                     v-else
@@ -45,7 +45,7 @@
                             label="Learn More"
                             width="auto"
                             height="30px"
-                            is-transparent="true"
+                            :is-transparent="true"
                             font-size="13px"
                             class="access-grants__flows-area__learn-button"
                         />
@@ -78,7 +78,7 @@
                             label="Learn More"
                             width="auto"
                             height="30px"
-                            is-transparent="true"
+                            :is-transparent="true"
                             font-size="13px"
                             class="access-grants__flows-area__learn-button"
                         />
@@ -111,7 +111,7 @@
                             label="Learn More"
                             width="auto"
                             height="30px"
-                            is-transparent="true"
+                            :is-transparent="true"
                             font-size="13px"
                             class="access-grants__flows-area__learn-button"
                         />

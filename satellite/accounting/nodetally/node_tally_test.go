@@ -4,11 +4,13 @@
 package nodetally_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/encryption"
 	"storj.io/common/memory"
@@ -17,6 +19,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting/nodetally"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 func TestCalculateNodeAtRestData(t *testing.T) {
@@ -77,4 +80,46 @@ func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.Redundancy
 		TotalShares:    int16(rs.Total),
 		ShareSize:      rs.ErasureShareSize.Int32(),
 	}
+}
+
+func BenchmarkRemoteSegment(b *testing.B) {
+	testplanet.Bench(b, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		for i := 0; i < 10; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object"+strconv.Itoa(i), testrand.Bytes(10*memory.KiB))
+			require.NoError(b, err)
+		}
+
+		observer := nodetally.NewObserver(zaptest.NewLogger(b), time.Now())
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(b, err)
+
+		loopSegments := []*segmentloop.Segment{}
+
+		for _, segment := range segments {
+			loopSegments = append(loopSegments, &segmentloop.Segment{
+				StreamID:   segment.StreamID,
+				Position:   segment.Position,
+				CreatedAt:  segment.CreatedAt,
+				ExpiresAt:  segment.ExpiresAt,
+				Redundancy: segment.Redundancy,
+				Pieces:     segment.Pieces,
+			})
+		}
+
+		b.Run("multiple segments", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				for _, loopSegment := range loopSegments {
+					err := observer.RemoteSegment(ctx, loopSegment)
+					if err != nil {
+						b.FailNow()
+					}
+				}
+			}
+		})
+	})
+
 }

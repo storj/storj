@@ -19,6 +19,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/experiment"
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -101,7 +102,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
 	server.private = private{
 		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(privateTracingHandler, serverOptions),
+		drpc:     drpcserver.NewWithOptions(experiment.NewHandler(privateTracingHandler), serverOptions),
 		mux:      privateMux,
 	}
 
@@ -321,6 +322,7 @@ func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, erro
 
 	publicMux := drpcmux.New()
 	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
+
 	serverOptions := drpcserver.Options{
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
@@ -338,7 +340,7 @@ func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, erro
 		tcpListener:   wrapListener(publicTCPListener),
 		udpConn:       publicUDPConn,
 		addr:          netAddr,
-		drpc:          drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		drpc:          drpcserver.NewWithOptions(experiment.NewHandler(publicTracingHandler), serverOptions),
 		mux:           publicMux,
 		disableTCPTLS: disableTCPTLS,
 		disableQUIC:   disableQUIC,

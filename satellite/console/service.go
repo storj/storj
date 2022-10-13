@@ -1161,13 +1161,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequest := UpdateUserRequest{}
+	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
-		lockoutExpTime := time.Now().Add(lockoutDuration)
-		lockoutExpTimePtr := &lockoutExpTime
-
-		updateRequest.LoginLockoutExpiration = &lockoutExpTimePtr
+		failedLoginPenalty = &s.config.FailedLoginPenalty
 
 		address := s.satelliteAddress
 		if !strings.HasSuffix(address, "/") {
@@ -1184,10 +1181,8 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 			},
 		)
 	}
-	user.FailedLoginCount++
 
-	updateRequest.FailedLoginCount = &user.FailedLoginCount
-	return s.store.Users().Update(ctx, user.ID, updateRequest)
+	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
 }
 
 // GetUser returns User by id.
@@ -1404,6 +1399,21 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 	}
 
 	return
+}
+
+// GetSalt is a method for querying project salt by id.
+func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return s.store.Projects().GetSalt(ctx, projectID)
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -2801,7 +2811,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
-	Balance string             `json:"balance"`
+	Balance currency.Amount    `json:"balance"`
 }
 
 // PaymentInfo includes token payment information required by GUI.
@@ -2848,7 +2858,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 
@@ -2870,7 +2880,7 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	}
 	return WalletInfo{
 		Address: address,
-		Balance: balance.AsDecimal().String(),
+		Balance: balance,
 	}, nil
 }
 
@@ -2959,4 +2969,16 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 	}
 
 	return expiresAt, nil
+}
+
+// VerifyForgotPasswordCaptcha returns whether the given captcha response for the forgot password page is valid.
+// It will return true without error if the captcha handler has not been set.
+func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken, userIP string) (valid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if s.loginCaptchaHandler != nil {
+		valid, _, err = s.loginCaptchaHandler.Verify(ctx, responseToken, userIP)
+		return valid, ErrCaptcha.Wrap(err)
+	}
+	return true, nil
 }

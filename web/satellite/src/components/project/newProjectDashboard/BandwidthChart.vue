@@ -46,13 +46,13 @@ export default class BandwidthChart extends BaseChart {
 
         return new ChartData(
             xAxisDateLabels,
-            '#FFE0E7',
-            '#EE86AD',
-            '#FF458B',
+            'rgba(226, 220, 255, .3)', 
+            '#c5baff', 
+            '#c5baff',
             mainData,
-            '#FFF6F8',
-            '#FFC0CF',
-            '#FFC0CF',
+            'rgba(226, 220, 255, .7)',
+            '#a18eff',
+            '#a18eff',
             secondaryData,
         );
     }
@@ -162,26 +162,26 @@ export default class BandwidthChart extends BaseChart {
     }
 
     .settled-tooltip {
-        background-color: #ff458b;
+        background-color: #a18eff;
         padding: 4px 10px 8px;
 
         &__arrow {
             margin: -12px 0 4px;
             border-radius: 0 0 0 8px;
             transform: scale(1, 0.85) translate(0, 20%) rotate(-45deg);
-            background-color: #ff458b;
+            background-color: #a18eff;
         }
     }
 
     .allocated-tooltip {
-        background-color: #ee86ad;
+        background-color: #c5baff;
         padding: 8px 10px 0;
 
         &__arrow {
             margin-bottom: -4px;
             border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
-            background-color: #ee86ad;
+            background-color: #c5baff;
         }
     }
 </style>

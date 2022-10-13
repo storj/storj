@@ -9,7 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -102,7 +102,7 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", "", "", err
 	}

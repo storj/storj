@@ -72,7 +72,7 @@
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />

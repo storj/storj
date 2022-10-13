@@ -11,6 +11,7 @@ export class LocalData {
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
+    private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
     private static sessionExpirationDate = 'sessionExpirationDate';
 
@@ -87,6 +88,18 @@ export class LocalData {
 
     public static getServerSideEncryptionBannerHidden(): boolean {
         const value = localStorage.getItem(LocalData.serverSideEncryptionBannerHidden);
+        return value === 'true';
+    }
+
+    /**
+     * "Disable" showing the server-side encryption modal during S3 creation process.
+     */
+    public static setServerSideEncryptionModalHidden(value: boolean): void {
+        localStorage.setItem(LocalData.serverSideEncryptionModalHidden, String(value));
+    }
+
+    public static getServerSideEncryptionModalHidden(): boolean {
+        const value = localStorage.getItem(LocalData.serverSideEncryptionModalHidden);
         return value === 'true';
     }
 

@@ -11,8 +11,6 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
-var remoteSegmentFunc = mon.Task()
-
 var _ segmentloop.Observer = (*Collector)(nil)
 
 // Collector uses the segment loop to add segments to node reservoirs.
@@ -38,7 +36,7 @@ func (collector *Collector) LoopStarted(context.Context, segmentloop.LoopInfo) (
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
 func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	for _, piece := range segment.Pieces {
 		res, ok := collector.Reservoirs[piece.StorageNode]
@@ -46,7 +44,7 @@ func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentl
 			res = NewReservoir(collector.slotCount)
 			collector.Reservoirs[piece.StorageNode] = res
 		}
-		res.Sample(collector.rand, NewSegment(segment))
+		res.Sample(collector.rand, segment)
 	}
 	return nil
 }

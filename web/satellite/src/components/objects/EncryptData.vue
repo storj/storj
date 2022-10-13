@@ -66,6 +66,7 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -193,11 +194,13 @@ export default class EncryptData extends Vue {
         }
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
+
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': grantEvent.data.value,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 

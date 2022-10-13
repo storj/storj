@@ -15,7 +15,7 @@
                         width="64px"
                         height="28px"
                         :on-press="toggleNameEditing"
-                        is-white="true"
+                        :is-white="true"
                     />
                 </div>
                 <div v-if="isNameEditing" class="project-details__wrapper__container__name-editing">
@@ -43,7 +43,7 @@
                         width="64px"
                         height="28px"
                         :on-press="toggleDescriptionEditing"
-                        is-white="true"
+                        :is-white="true"
                     />
                 </div>
                 <div v-if="isDescriptionEditing" class="project-details__wrapper__container__description-editing">
@@ -72,7 +72,7 @@
                             width="64px"
                             height="28px"
                             :on-press="toggleStorageLimitEditing"
-                            is-white="true"
+                            :is-white="true"
                         />
                     </div>
                     <div v-if="isStorageLimitEditing" class="project-details__wrapper__container__limits__storagelimit-editing__section">
@@ -136,7 +136,7 @@
                             width="64px"
                             height="28px"
                             :on-press="toggleBandwidthLimitEditing"
-                            is-white="true"
+                            :is-white="true"
                         />
                     </div>
                     <div v-if="isBandwidthLimitEditing" class="project-details__wrapper__container__limits__bandwidthlimit-editing__section">

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
@@ -16,7 +16,7 @@ const store = new Vuex.Store({ modules: { appStateModule } });
 
 describe('OverviewStep.vue', (): void => {
     it('renders correctly', (): void => {
-        const wrapper = mount(OverviewStep, {
+        const wrapper = shallowMount(OverviewStep, {
             localVue,
             router,
             store,

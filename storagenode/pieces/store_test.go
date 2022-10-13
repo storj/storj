@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -493,7 +492,7 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.Store, sat
 	require.NoError(t, signing.VerifyUplinkPieceHashSignature(ctx, publicKey, pieceHash))
 
 	// Require piece data to match expected
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	require.NoError(t, err)
 	require.NoError(t, r.Close())
 	assert.True(t, bytes.Equal(buf, expected))
@@ -789,7 +788,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), reader.Size())
 			assert.Equal(t, filestore.FormatV0, reader.StorageFormatVersion())
-			gotData, err := ioutil.ReadAll(reader)
+			gotData, err := io.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v0Data, gotData)
 			require.NoError(t, reader.Close())
@@ -821,7 +820,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v1Data)), reader.Size())
 			assert.Equal(t, filestore.FormatV1, reader.StorageFormatVersion())
-			gotData, err := ioutil.ReadAll(reader)
+			gotData, err := io.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v1Data, gotData)
 			require.NoError(t, reader.Close())

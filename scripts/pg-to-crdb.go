@@ -17,7 +17,8 @@ import (
 // to a compatible plaintext sql backup that only has SQL statements compatible with CockroachDB.
 //
 // Usage:
-//     cat postgres_backup.sql | go run pg-to-crdb.go > cockroach_backup.sql
+//
+//	cat postgres_backup.sql | go run pg-to-crdb.go > cockroach_backup.sql
 func main() {
 	print := false
 	printOnce := false

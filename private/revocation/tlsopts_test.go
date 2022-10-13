@@ -5,7 +5,7 @@ package revocation_test
 
 import (
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -39,7 +39,7 @@ func TestNewOptions(t *testing.T) {
 	chainData, err := peertls.ChainBytes(fi.CA)
 	assert.NoError(t, err)
 
-	err = ioutil.WriteFile(whitelistPath, chainData, 0644)
+	err = os.WriteFile(whitelistPath, chainData, 0644)
 	assert.NoError(t, err)
 
 	cases := []struct {

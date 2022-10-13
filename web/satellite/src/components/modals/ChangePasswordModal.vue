@@ -13,7 +13,7 @@
                     class="full-input"
                     label="Old Password"
                     placeholder="Old Password"
-                    is-password="true"
+                    is-password
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -22,7 +22,7 @@
                         class="full-input"
                         label="New Password"
                         placeholder="New Password"
-                        is-password="true"
+                        is-password
                         :error="newPasswordError"
                         @setData="setNewPassword"
                         @showPasswordStrength="showPasswordStrength"
@@ -37,7 +37,7 @@
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
-                    is-password="true"
+                    is-password
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
                 />
@@ -47,7 +47,7 @@
                         width="100%"
                         height="48px"
                         :on-press="closeModal"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Update"

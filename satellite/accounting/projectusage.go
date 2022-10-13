@@ -128,9 +128,15 @@ func (usage *Service) ExceedsUploadLimits(
 
 	group.Go(func() error {
 		var err error
-		limit.SegmentsLimit, err = usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
-		return err
+		limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		limit.SegmentsLimit = *limits.Segments
+		limit.StorageLimit = memory.Size(*limits.Usage)
+		return nil
 	})
+
 	group.Go(func() error {
 		var err error
 		segmentUsage, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
@@ -141,11 +147,6 @@ func (usage *Service) ExceedsUploadLimits(
 		return err
 	})
 
-	group.Go(func() error {
-		var err error
-		limit.StorageLimit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
-		return err
-	})
 	group.Go(func() error {
 		var err error
 		storageUsage, err = usage.GetProjectStorageTotals(ctx, projectID)
@@ -228,19 +229,18 @@ func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UU
 // GetProjectStorageLimit returns current project storage limit.
 func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
+	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return 0, ErrProjectUsage.Wrap(err)
+	}
+
+	return memory.Size(*limits.Usage), nil
 }
 
 // GetProjectBandwidthLimit returns current project bandwidth limit.
 func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
-}
-
-// GetProjectSegmentLimit returns current project segment limit.
-func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
-	defer mon.Task()(&ctx, projectID)(&err)
-	return usage.projectLimitCache.GetProjectSegmentLimit(ctx, projectID)
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

@@ -6,7 +6,6 @@ package live
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -93,17 +92,17 @@ func (cache *redisLiveAccounting) InsertProjectBandwidthUsage(ctx context.Contex
 
 	// The following script will set the cache key to a specific value with an
 	// expiration time to live when it doesn't exist, otherwise it ignores it.
-	script := fmt.Sprintf(`local inserted
-	inserted = redis.call("setnx", KEYS[1], "%d")
+	script := redis.NewScript(`local inserted
+	inserted = redis.call("setnx", KEYS[1], ARGV[1])
 	if tonumber(inserted) == 1 then
-		redis.call("expire",KEYS[1], %d)
+		redis.call("expire",KEYS[1], ARGV[2])
 	end
 
 	return inserted
-	`, value, int(ttl.Seconds()))
+	`)
 
 	key := createBandwidthProjectIDKey(projectID, now)
-	rcmd := cache.client.Eval(ctx, script, []string{key})
+	rcmd := script.Run(ctx, cache.client, []string{key}, value, int(ttl.Seconds()))
 	if err != nil {
 		return false, accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
 	}
@@ -129,16 +128,16 @@ func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Contex
 	// To achieve this we compare the increment and key value,
 	// if they are equal its the first iteration.
 	// More details on rate limiter section: https://redis.io/commands/incr
-	script := fmt.Sprintf(`local current
-	current = redis.call("incrby", KEYS[1], "%d")
-	if tonumber(current) == %d then
-		redis.call("expire",KEYS[1], %d)
+	script := redis.NewScript(`local current
+	current = redis.call("incrby", KEYS[1], ARGV[1])
+	if tonumber(current) == tonumber(ARGV[1]) then
+		redis.call("expire", KEYS[1], ARGV[2])
 	end
 	return current
-	`, increment, increment, int(ttl.Seconds()))
+	`)
 
 	key := createBandwidthProjectIDKey(projectID, now)
-	err = cache.client.Eval(ctx, script, []string{key}).Err()
+	err = script.Run(ctx, cache.client, []string{key}, increment, int(ttl.Seconds())).Err()
 	if err != nil {
 		return accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
 	}

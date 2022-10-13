@@ -209,7 +209,7 @@ func CreateFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 type CreateTestObject struct {
 	BeginObjectExactVersion *metabase.BeginObjectExactVersion
 	CommitObject            *metabase.CommitObject
-	// TODO add BeginSegment, CommitSegment
+	CreateSegment           func(object metabase.Object, index int) metabase.Segment
 }
 
 // Run runs the test.
@@ -222,77 +222,79 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		boeOpts = *co.BeginObjectExactVersion
 	}
 
-	BeginObjectExactVersion{
-		Opts:    boeOpts,
-		Version: obj.Version,
-	}.Check(ctx, t, db)
+	object, err := db.BeginObjectExactVersion(ctx, boeOpts)
+	require.NoError(t, err)
 
 	createdSegments := []metabase.Segment{}
-
 	for i := byte(0); i < numberOfSegments; i++ {
-		BeginSegment{
-			Opts: metabase.BeginSegment{
+		if co.CreateSegment != nil {
+			segment := co.CreateSegment(object, int(i))
+			createdSegments = append(createdSegments, segment)
+		} else {
+			BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+					RootPieceID:  storj.PieceID{i + 1},
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
+				},
+			}.Check(ctx, t, db)
+
+			commitSegmentOpts := metabase.CommitSegment{
 				ObjectStream: obj,
+				ExpiresAt:    boeOpts.ExpiresAt,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i + 1},
-				Pieces: []metabase.Piece{{
-					Number:      1,
-					StorageNode: testrand.NodeID(),
-				}},
-			},
-		}.Check(ctx, t, db)
+				RootPieceID:  storj.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 
-		commitSegmentOpts := metabase.CommitSegment{
-			ObjectStream: obj,
-			ExpiresAt:    boeOpts.ExpiresAt,
-			Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-			RootPieceID:  storj.PieceID{1},
-			Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 
-			EncryptedKey:      []byte{3},
-			EncryptedKeyNonce: []byte{4},
-			EncryptedETag:     []byte{5},
+				EncryptedSize: 1060,
+				PlainSize:     512,
+				PlainOffset:   int64(i) * 512,
+				Redundancy:    DefaultRedundancy,
+			}
 
-			EncryptedSize: 1060,
-			PlainSize:     512,
-			PlainOffset:   int64(i) * 512,
-			Redundancy:    DefaultRedundancy,
+			CommitSegment{
+				Opts: commitSegmentOpts,
+			}.Check(ctx, t, db)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: commitSegmentOpts.StreamID,
+				Position: commitSegmentOpts.Position,
+			})
+			require.NoError(t, err)
+
+			createdSegments = append(createdSegments, metabase.Segment{
+				StreamID: obj.StreamID,
+				Position: commitSegmentOpts.Position,
+
+				CreatedAt:  segment.CreatedAt,
+				RepairedAt: nil,
+				ExpiresAt:  nil,
+
+				RootPieceID:       commitSegmentOpts.RootPieceID,
+				EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
+				EncryptedKey:      commitSegmentOpts.EncryptedKey,
+
+				EncryptedSize: commitSegmentOpts.EncryptedSize,
+				PlainSize:     commitSegmentOpts.PlainSize,
+				PlainOffset:   commitSegmentOpts.PlainOffset,
+				EncryptedETag: commitSegmentOpts.EncryptedETag,
+
+				Redundancy: commitSegmentOpts.Redundancy,
+
+				InlineData: nil,
+				Pieces:     commitSegmentOpts.Pieces,
+
+				Placement: segment.Placement,
+			})
 		}
-
-		CommitSegment{
-			Opts: commitSegmentOpts,
-		}.Check(ctx, t, db)
-
-		segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-			StreamID: commitSegmentOpts.StreamID,
-			Position: commitSegmentOpts.Position,
-		})
-		require.NoError(t, err)
-
-		createdSegments = append(createdSegments, metabase.Segment{
-			StreamID: obj.StreamID,
-			Position: commitSegmentOpts.Position,
-
-			CreatedAt:  segment.CreatedAt,
-			RepairedAt: nil,
-			ExpiresAt:  nil,
-
-			RootPieceID:       commitSegmentOpts.RootPieceID,
-			EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
-			EncryptedKey:      commitSegmentOpts.EncryptedKey,
-
-			EncryptedSize: commitSegmentOpts.EncryptedSize,
-			PlainSize:     commitSegmentOpts.PlainSize,
-			PlainOffset:   commitSegmentOpts.PlainOffset,
-			EncryptedETag: commitSegmentOpts.EncryptedETag,
-
-			Redundancy: commitSegmentOpts.Redundancy,
-
-			InlineData: nil,
-			Pieces:     commitSegmentOpts.Pieces,
-
-			Placement: segment.Placement,
-		})
 	}
 
 	coOpts := metabase.CommitObject{

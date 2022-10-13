@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 set -euxo pipefail
 
 npm install --prefer-offline --no-audit --logleve verbose
-touch ./node_modules/go.mod # prevent Go from scanning this dir
+echo "module stub" > ./node_modules/go.mod # prevent Go from scanning this dir
 npm run build
 
 npm run lint-ci

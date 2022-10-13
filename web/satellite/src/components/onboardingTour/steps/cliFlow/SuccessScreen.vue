@@ -17,7 +17,7 @@
             <VButton
                 label="Back"
                 height="48px"
-                is-white="true"
+                :is-white="true"
                 :on-press="onBackClick"
             />
             <VButton

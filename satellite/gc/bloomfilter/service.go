@@ -31,16 +31,16 @@ type Config struct {
 	Enabled bool `help:"set if garbage collection bloom filters is enabled or not" default:"true" testDefault:"false"`
 
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
 
 	AccessGrant  string        `help:"Access Grant which will be used to upload bloom filters to the bucket" default:""`
-	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:""` // TODO do we need full location?
+	Bucket       string        `help:"Bucket which will be used to upload bloom filters" default:"" testDefault:"gc-queue"` // TODO do we need full location?
 	ZipBatchSize int           `help:"how many bloom filters will be packed in a single zip" default:"500" testDefault:"2"`
 	ExpireIn     time.Duration `help:"how quickly uploaded bloom filters will be automatically deleted" default:"336h"`
 }
 
-// Service implements the garbage collection service.
+// Service implements service to collect bloom filters for the garbage collection.
 //
 // architecture: Chore
 type Service struct {
@@ -78,7 +78,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return errs.New("Bucket is not set")
 	}
 
-	return service.Loop.Run(ctx, service.segmentLoop.RunOnce)
+	return service.Loop.Run(ctx, service.RunOnce)
 }
 
 // RunOnce runs service only once.
@@ -94,7 +94,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		err = nil
 	}
 	if lastPieceCounts == nil {
-		lastPieceCounts = make(map[storj.NodeID]int)
+		lastPieceCounts = make(map[storj.NodeID]int64)
 	}
 
 	pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
@@ -106,7 +106,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		return nil
 	}
 
-	err = service.uploadBloomFilters(ctx, pieceTracker.RetainInfos)
+	err = service.uploadBloomFilters(ctx, pieceTracker.LatestCreationTime, pieceTracker.RetainInfos)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,8 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) uploadBloomFilters(ctx context.Context, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
+// uploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
+func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDate time.Time, retainInfos map[storj.NodeID]*RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(retainInfos) == 0 {
@@ -163,8 +164,10 @@ func (service *Service) uploadBloomFilters(ctx context.Context, retainInfos map[
 	batchNumber := 0
 	for nodeID, info := range retainInfos {
 		infos = append(infos, internalpb.RetainInfo{
-			Filter:        info.Filter.Bytes(),
-			CreationDate:  info.CreationDate,
+			Filter: info.Filter.Bytes(),
+			// because bloom filters should be created from immutable database
+			// snapshot we are using latest segment creation date
+			CreationDate:  latestCreationDate,
 			PieceCount:    int64(info.Count),
 			StorageNodeId: nodeID,
 		})
@@ -185,15 +188,7 @@ func (service *Service) uploadBloomFilters(ctx context.Context, retainInfos map[
 		return err
 	}
 
-	// upload empty object as a flag that bloom filters can be consumed.
-	upload, err := project.UploadObject(ctx, service.config.Bucket, "gc-done", &uplink.UploadOptions{
-		Expires: expirationTime,
-	})
-	if err != nil {
-		return err
-	}
-
-	return upload.Commit()
+	return nil
 }
 
 // uploadPack uploads single zip pack with multiple bloom filters.
@@ -249,7 +244,7 @@ func (service *Service) uploadPack(ctx context.Context, project *uplink.Project,
 func (service *Service) cleanup(ctx context.Context, project *uplink.Project) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	prefix := strconv.FormatInt(time.Now().Unix(), 10)
+	prefix := "upload-error-" + time.Now().Format(time.RFC3339)
 	iterator := project.ListObjects(ctx, service.config.Bucket, nil)
 
 	for iterator.Next() {

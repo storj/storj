@@ -38,6 +38,8 @@ class ViewsState {
         public isDisableMFAModalShown = false,
         public isAddTokenFundsModalShown = false,
         public isShareBucketModalShown = false,
+        public isNewFolderModalShown = false,
+        public isObjectDetailsModalShown = false,
         public isBillingNotificationShown = true,
 
         public onbAGStepBackRoute = '',
@@ -151,6 +153,12 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isShareBucketModalShown = !state.appState.isShareBucketModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN](state: State): void {
+            state.appState.isObjectDetailsModalShown = !state.appState.isObjectDetailsModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN](state: State): void {
+            state.appState.isNewFolderModalShown = !state.appState.isNewFolderModalShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;

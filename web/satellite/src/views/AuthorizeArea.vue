@@ -61,7 +61,7 @@
                                 role-description="passphrase"
                                 placeholder="Passphrase"
                                 :error="passphraseErr"
-                                is-password="true"
+                                is-password
                                 @setData="setPassphrase"
                             />
                         </div>

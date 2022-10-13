@@ -7,11 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/currency"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/payments"
 )
@@ -88,8 +86,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			cachedPayments = append(cachedPayments, CachedPayment{
 				From:        payment.From,
 				To:          payment.To,
-				TokenValue:  currency.AmountFromBaseUnits(payment.TokenValue.Int64(), currency.StorjToken),
-				USDValue:    currency.AmountFromDecimal(decimal.NewFromFloat(payment.USDValue), currency.USDollarsMicro),
+				TokenValue:  payment.TokenValue,
+				USDValue:    payment.USDValue,
 				Status:      status,
 				BlockHash:   payment.BlockHash,
 				BlockNumber: payment.BlockNumber,

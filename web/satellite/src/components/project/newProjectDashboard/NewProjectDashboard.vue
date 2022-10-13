@@ -74,9 +74,6 @@
                 <div class="project-dashboard__charts__container__header">
                     <h3 class="project-dashboard__charts__container__header__title">Storage</h3>
                 </div>
-                <p class="project-dashboard__charts__container__info">
-                    This is your total storage used per day
-                </p>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
                     <StorageChart
@@ -118,9 +115,6 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
-                    <p class="project-dashboard__charts__container__info">
-                        This is your bandwidth usage per day
-                    </p>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
@@ -207,7 +201,7 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
-// @vue/component
+//@vue/component
 @Component({
     components: {
         VLoader,
@@ -336,12 +330,20 @@ export default class NewProjectDashboard extends Vue {
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
         const since = new Date(dateRange[0]);
         const before = new Date(dateRange[1]);
+        before.setHours(23,59,59,999);
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
         } catch (error) {
             await this.$notify.error(error.message);
         }
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
     }
 
     /**
@@ -550,11 +552,11 @@ export default class NewProjectDashboard extends Vue {
                         }
 
                         &__allocated-color {
-                            background: #ffc0cf;
+                            background: #c5baff;
                         }
 
                         &__settled-color {
-                            background: #ff458b;
+                            background: #a18eff;
                         }
 
                         &__allocated-label,

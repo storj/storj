@@ -65,125 +65,136 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import PasswordHiddenIcon from '@/../static/images/common/passwordHidden.svg';
-import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
+import { computed, defineComponent, onBeforeMount, ref } from 'vue';
+
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
+import PasswordHiddenIcon from '@/../static/images/common/passwordHidden.svg';
 
-// @vue/component
-@Component({
+const textType = 'text';
+const passwordType = 'password';
+
+export default defineComponent({
+    name: 'VInput',
     components: {
-        ErrorIcon,
         PasswordHiddenIcon,
         PasswordShownIcon,
+        ErrorIcon,
     },
-})
-// TODO: merge these two components to have one single source of truth.
-export default class VInput extends Vue {
-    @Prop({ default: '' })
-    private readonly additionalLabel: string;
-    @Prop({ default: 0 })
-    private readonly currentLimit: number;
-    @Prop({ default: false })
-    private readonly isOptional: boolean;
-    @Prop({ default: false })
-    private readonly isLimitShown: boolean;
-    @Prop({ default: false })
-    private readonly isMultiline: boolean;
-    @Prop({ default: false })
-    private readonly isLoading: boolean;
-    @Prop({ default: '' })
-    protected readonly initValue: string;
-    @Prop({ default: '' })
-    protected readonly label: string;
-    @Prop({ default: 'default' })
-    protected readonly placeholder: string;
-    @Prop({ default: false })
-    protected readonly isPassword: boolean;
-    @Prop({ default: '48px' })
-    protected readonly height: string;
-    @Prop({ default: '100%' })
-    protected readonly width: string;
-    @Prop({ default: '' })
-    protected readonly error: string;
-    @Prop({ default: Number.MAX_SAFE_INTEGER })
-    protected readonly maxSymbols: number;
-    @Prop({ default: false })
-    private readonly isWhite: boolean;
-    @Prop({ default: false })
-    private readonly withIcon: boolean;
-    @Prop({ default: false })
-    private readonly disabled: boolean;
-    @Prop({ default: 'input-container' })
-    private readonly roleDescription: boolean;
+    props:  {
+        additionalLabel: {
+            type: String,
+            default: '',
+        },
+        currentLimit: {
+            type: Number,
+            default: 0,
+        },
+        isOptional: Boolean,
+        isLimitShown: Boolean,
+        isMultiline: Boolean,
+        isLoading: Boolean,
+        initValue: {
+            type: String,
+            default: '',
+        },
+        label: {
+            type: String,
+            default: '',
+        },
+        placeholder: {
+            type: String,
+            default: 'default',
+        },
+        isPassword: Boolean,
+        height: {
+            type: String,
+            default: '48px',
+        },
+        width: {
+            type: String,
+            default: '100%',
+        },
+        error: {
+            type: String,
+            default: '',
+        },
+        maxSymbols: {
+            type: Number,
+            default: Number.MAX_SAFE_INTEGER,
+        },
+        isWhite: Boolean,
+        withIcon: Boolean,
+        disabled: Boolean,
+        roleDescription: {
+            type: String,
+            default: 'input-container',
+        },
+    },
+    emits: ['showPasswordStrength', 'hidePasswordStrength', 'setData'],
+    setup(props, ctx) {
+        const value = ref('');
+        const isPasswordShown = ref(false);
+        const type = ref(textType);
 
-    private readonly textType: string = 'text';
-    private readonly passwordType: string = 'password';
-
-    private type: string = this.textType;
-    private isPasswordShown = false;
-
-    public value: string;
-
-    public created() {
-        this.type = this.isPassword ? this.passwordType : this.textType;
-        this.value = this.initValue;
-    }
-
-    public showPasswordStrength(): void {
-        this.$emit('showPasswordStrength');
-    }
-
-    public hidePasswordStrength(): void {
-        this.$emit('hidePasswordStrength');
-    }
-
-    /**
-     * triggers on input.
-     */
-    public onInput(event: Event): void {
-        const target = event.target as HTMLInputElement;
-        this.value = target.value;
-
-        this.$emit('setData', this.value);
-    }
-
-    /**
-     * Triggers input type between text and password to show/hide symbols.
-     */
-    public changeVision(): void {
-        this.isPasswordShown = !this.isPasswordShown;
-        this.type = this.isPasswordShown ? this.textType : this.passwordType;
-    }
-
-    public get isPasswordHiddenState(): boolean {
-        return this.isPassword && !this.isPasswordShown;
-    }
-
-    public get isPasswordShownState(): boolean {
-        return this.isPassword && this.isPasswordShown;
-    }
-
-    /**
-     * Returns style objects depends on props.
-     */
-    protected get style(): Record<string, unknown> {
+        onBeforeMount(() => {
+            type.value = props.isPassword ? passwordType : textType;
+            value.value = props.initValue;
+        });
         return {
-            inputStyle: {
-                width: this.width,
-                height: this.height,
-                padding: this.withIcon ? '0 30px 0 50px' : '',
+            isPasswordHiddenState: computed(() => {
+                return props.isPassword && !isPasswordShown.value;
+            }),
+            isPasswordShownState: computed(() => {
+                return props.isPassword && isPasswordShown.value;
+            }),
+            /**
+             * Returns style objects depends on props.
+             */
+            style: computed(() => {
+                return {
+                    inputStyle: {
+                        width: props.width,
+                        height: props.height,
+                        padding: props.withIcon ? '0 30px 0 50px' : '',
+                    },
+                    labelStyle: {
+                        color: props.isWhite ? 'white' : '#354049',
+                    },
+                    errorStyle: {
+                        color: props.isWhite ? 'white' : '#FF5560',
+                    },
+                };
+            }),
+            showPasswordStrength(): void {
+                ctx.emit('showPasswordStrength');
             },
-            labelStyle: {
-                color: this.isWhite ? 'white' : '#354049',
+            hidePasswordStrength(): void {
+                ctx.emit('hidePasswordStrength');
             },
-            errorStyle: {
-                color: this.isWhite ? 'white' : '#FF5560',
+            /**
+             * triggers on input.
+             */
+            onInput(event: Event): void {
+                const target = event.target as HTMLInputElement;
+                value.value = target.value;
+
+                ctx.emit('setData', value.value);
             },
+            /**
+             * Triggers input type between text and password to show/hide symbols.
+             */
+            changeVision(): void {
+                isPasswordShown.value = !isPasswordShown.value;
+                type.value = isPasswordShown.value ? textType : passwordType;
+            },
+            value,
+            isPasswordShown,
+            type,
         };
-    }
-}
+    },
+});
 </script>
 
 <style scoped lang="scss">

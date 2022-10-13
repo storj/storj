@@ -74,7 +74,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nil, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)

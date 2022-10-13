@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -168,8 +167,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	return nil
 }
 
-var remoteSegmentFunc = mon.Task()
-
 var _ segmentloop.Observer = (*checkerObserver)(nil)
 
 // checkerObserver implements the metainfo loop Observer interface.
@@ -186,6 +183,20 @@ type checkerObserver struct {
 	log              *zap.Logger
 
 	lastStreamID uuid.UUID
+}
+
+// NewCheckerObserver creates new checker observer instance.
+func NewCheckerObserver(checker *Checker) segmentloop.Observer {
+	return &checkerObserver{
+		repairQueue:      checker.createInsertBuffer(),
+		nodestate:        checker.nodestate,
+		statsCollector:   checker.statsCollector,
+		monStats:         aggregateStats{},
+		repairOverrides:  checker.repairOverrides,
+		nodeFailureRate:  checker.nodeFailureRate,
+		getNodesEstimate: checker.getNodesEstimate,
+		log:              checker.logger,
+	}
 }
 
 // checks for a stream id in slice.
@@ -218,7 +229,7 @@ func (obs *checkerObserver) LoopStarted(context.Context, segmentloop.LoopInfo) (
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer remoteSegmentFunc(&ctx)(&err)
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	// ignore segment if expired
 	if segment.Expired(time.Now()) {
@@ -247,23 +258,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 		return nil
 	}
 
-	pbPieces := make([]*pb.RemotePiece, len(pieces))
-	for i, piece := range pieces {
-		pbPieces[i] = &pb.RemotePiece{
-			PieceNum: int32(piece.Number),
-			NodeId:   piece.StorageNode,
-		}
-	}
-
 	totalNumNodes, err := obs.getNodesEstimate(ctx)
 	if err != nil {
 		return Error.New("could not get estimate of total number of nodes: %w", err)
 	}
 
-	repairedAt := time.Time{}
-	if segment.RepairedAt != nil {
-		repairedAt = *segment.RepairedAt
-	}
 	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreatedAt, segment.Pieces)
 	if err != nil {
 		obs.monStats.remoteSegmentsFailedToCheck++
@@ -320,6 +319,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 				stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, segment.StreamID)
 			}
 
+			repairedAt := time.Time{}
+			if segment.RepairedAt != nil {
+				repairedAt = *segment.RepairedAt
+			}
 			var segmentAge time.Duration
 			if segment.CreatedAt.Before(repairedAt) {
 				segmentAge = time.Since(repairedAt)

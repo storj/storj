@@ -26,6 +26,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -56,6 +57,7 @@ type Repairer struct {
 		Server   *debug.Server
 	}
 
+	Mail       *mailservice.Service
 	Overlay    *overlay.Service
 	Reputation *reputation.Service
 	Orders     struct {
@@ -71,10 +73,6 @@ type Repairer struct {
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
-
-	Buckets struct {
-		Service *buckets.Service
-	}
 }
 
 // NewRepairer creates a new repairer peer.
@@ -143,9 +141,22 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 	}
 
+	{ // setup mail
+		var err error
+		peer.Mail, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Close,
+		})
+	}
+
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, peer.Mail, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -177,10 +188,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		})
 	}
 
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(bucketsDB, metabaseDB)
-	}
-
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
@@ -198,7 +205,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {

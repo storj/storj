@@ -49,6 +49,10 @@ export default class InfoNotification extends Vue {
     &__icon {
         flex-shrink: 0;
         margin-right: 1.375rem;
+
+        :deep(path) {
+            fill: var(--c-info-icon);
+        }
     }
 
     &__text {

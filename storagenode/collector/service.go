@@ -97,7 +97,13 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
 				if errs.Is(err, os.ErrNotExist) {
-					service.log.Info("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+					service.log.Warn("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+					err := service.pieces.DeleteExpired(ctx, expired.SatelliteID, expired.PieceID)
+					if err != nil {
+						service.log.Error("unable to delete expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
+						continue
+					}
+					service.log.Info("deleted expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 					continue
 				}
 				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
@@ -107,7 +113,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 				service.log.Error("unable to delete piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
 				continue
 			}
-			service.log.Info("delete expired", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+			service.log.Info("deleted expired piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 
 			count++
 		}

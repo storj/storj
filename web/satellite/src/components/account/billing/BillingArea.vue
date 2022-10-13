@@ -95,6 +95,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
@@ -128,6 +129,8 @@ import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBala
 export default class BillingArea extends Vue {
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
     public isBalanceFetching = true;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Mounted lifecycle hook after initial render.
@@ -235,26 +238,34 @@ export default class BillingArea extends Vue {
      */
     public routeToOverview(): void {
         const overviewPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
-        if (this.$route.path !== overviewPath)
+        if (this.$route.path !== overviewPath) {
+            this.analytics.pageVisit(overviewPath);
             this.$router.push(overviewPath);
+        }
     }
 
     public routeToPaymentMethods(): void {
         const payMethodsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
-        if (this.$route.path !== payMethodsPath)
+        if (this.$route.path !== payMethodsPath) {
+            this.analytics.pageVisit(payMethodsPath);
             this.$router.push(payMethodsPath);
+        }
     }
 
     public routeToBillingHistory(): void {
         const billingPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
-        if (this.$route.path !== billingPath)
+        if (this.$route.path !== billingPath) {
+            this.analytics.pageVisit(billingPath);
             this.$router.push(billingPath);
+        }
     }
 
     public routeToCoupons(): void {
         const couponsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
-        if (this.$route.path !== couponsPath)
+        if (this.$route.path !== couponsPath) {
+            this.analytics.pageVisit(couponsPath);
             this.$router.push(couponsPath);
+        }
     }
 
     /**

@@ -42,7 +42,7 @@
                     </div>
                 </div>
             </div>
-            <AddCoupon2 
+            <AddCouponCode2
                 v-if="showCreateCode"
                 @toggleMethod="toggleCreateModal"
             />
@@ -53,23 +53,26 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
-import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
+import AddCouponCode2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-        AddCoupon2,
+        AddCouponCode2,
     },
 })
 export default class Coupons extends Vue {
     public isCouponFetching = true;
     public showCreateCode = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -88,14 +91,8 @@ export default class Coupons extends Vue {
     /**
      * Opens Add Coupon modal.
      */
-    public onCreateClick(): void {
-        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-    }
-
-    /**
-     * Opens Add Coupon modal.
-     */
     public toggleCreateModal(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
         this.showCreateCode = !this.showCreateCode;
     }
 

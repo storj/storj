@@ -46,6 +46,14 @@ export interface ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits>;
 
     /**
+     * Get project salt
+     * 
+     * @param projectID - project ID
+     * throws Error
+     */
+    getSalt(projectID: string): Promise<string>;
+    
+    /**
      * Get project limits.
      *
      * throws Error

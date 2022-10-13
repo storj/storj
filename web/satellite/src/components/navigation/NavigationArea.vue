@@ -307,6 +307,7 @@ export default class NavigationArea extends Vue {
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+        border-right: 1px solid #ebeef1;
 
         &__container {
             display: flex;

@@ -23,3 +23,10 @@ func (set NodeAliasSet) Add(v metabase.NodeAlias) {
 func (set NodeAliasSet) Remove(v metabase.NodeAlias) {
 	delete(set, v)
 }
+
+// RemoveAll xs from the set.
+func (set NodeAliasSet) RemoveAll(xs NodeAliasSet) {
+	for x := range xs {
+		delete(set, x)
+	}
+}

@@ -304,17 +304,27 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		return Error.Wrap(err)
 	}
 
-	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
-	// both of these calls should return no error if the requested record is not found.
+	// delete expired piece records
+	err = store.DeleteExpired(ctx, satellite, pieceID)
+	if err == nil {
+		store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
+			zap.String("Piece ID", pieceID.String()))
+	}
+
+	return Error.Wrap(err)
+}
+
+// DeleteExpired deletes records in both the piece_expirations and pieceinfo DBs, wherever we find it.
+// Should return no error if the requested record is not found in any of the DBs.
+func (store *Store) DeleteExpired(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if store.expirationInfo != nil {
 		_, err = store.expirationInfo.DeleteExpiration(ctx, satellite, pieceID)
 	}
 	if store.v0PieceInfo != nil {
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
-
-	store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
-		zap.String("Piece ID", pieceID.String()))
 
 	return Error.Wrap(err)
 }

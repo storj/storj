@@ -6,7 +6,6 @@ package satellite_test
 import (
 	"bufio"
 	"flag"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,9 +43,9 @@ func TestConfigLock(t *testing.T) {
 	lockPath := filepath.Join("..", "scripts", "testdata", "satellite-config.yaml.lock")
 	if *createLock { // update satellite-config.yaml.lock
 		// copy using ReadFile/WriteFile, since os.Rename() won't work across drives
-		input, err := ioutil.ReadFile(cleanedupConfig)
+		input, err := os.ReadFile(cleanedupConfig)
 		assert.NoErrorf(t, err, "Error reading file for move")
-		err = ioutil.WriteFile(lockPath, input, 0644)
+		err = os.WriteFile(lockPath, input, 0644)
 		assert.NoErrorf(t, err, "Error writing file for move")
 	} else { // compare to satellite-config.yaml.lock
 		configs1 := readLines(t, lockPath)
@@ -62,7 +61,7 @@ func TestConfigLock(t *testing.T) {
 
 // readLines takes a file path and returns the contents split by lines.
 func readLines(t *testing.T, filePath string) []string {
-	file, err := ioutil.ReadFile(filePath)
+	file, err := os.ReadFile(filePath)
 	assert.NoErrorf(t, err, "Error opening %s", filePath)
 	return strings.Split(strings.ReplaceAll(string(file), "\r\n", "\n"), "\n")
 }

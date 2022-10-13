@@ -4,8 +4,10 @@
 package consolewasm_test
 
 import (
-	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -26,7 +28,7 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		uplinkPeer := planet.Uplinks[0]
 		APIKey := uplinkPeer.APIKey[satellitePeer.ID()]
 		apiKeyString := APIKey.Serialize()
-		projectID := uplinkPeer.Projects[0].ID.String()
+		projectID := uplinkPeer.Projects[0].ID
 		require.Equal(t, 1, len(uplinkPeer.Projects))
 		passphrase := "supersecretpassphrase"
 
@@ -80,7 +82,18 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		}
 		restrictedKey, err := consolewasm.SetPermission(apiKeyString, buckets, readOnlyPermission)
 		require.NoError(t, err)
-		restrictedAccessGrant, err := consolewasm.GenAccessGrant(satelliteNodeURL, restrictedKey.Serialize(), passphrase, projectID)
+
+		client := newTestClient(t, ctx, planet)
+		user := client.defaultUser()
+		client.login(user.email, user.password)
+
+		resp, bodyString := client.request(http.MethodGet, fmt.Sprintf("/projects/%s/salt", projectID.String()), nil)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var b64Salt string
+		require.NoError(t, json.Unmarshal([]byte(bodyString), &b64Salt))
+
+		restrictedAccessGrant, err := consolewasm.GenAccessGrant(satelliteNodeURL, restrictedKey.Serialize(), passphrase, b64Salt)
 		require.NoError(t, err)
 		restrictedAccess, err := uplink.ParseAccess(restrictedAccessGrant)
 		require.NoError(t, err)
@@ -126,7 +139,17 @@ func TestSetPermission_Uplink(t *testing.T) {
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket2, testfilename1, testdata))
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket2, testfilename2, testdata))
 
-		withAccessKey(ctx, t, planet, passphrase, "only delete", []string{}, consolewasm.Permission{AllowDelete: true}, func(t *testing.T, project *uplink.Project) {
+		client := newTestClient(t, ctx, planet)
+		user := client.defaultUser()
+		client.login(user.email, user.password)
+
+		resp, bodyString := client.request(http.MethodGet, fmt.Sprintf("/projects/%s/salt", uplinkPeer.Projects[0].ID.String()), nil)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var b64Salt string
+		require.NoError(t, json.Unmarshal([]byte(bodyString), &b64Salt))
+
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "only delete", []string{}, consolewasm.Permission{AllowDelete: true}, func(t *testing.T, project *uplink.Project) {
 			// All operation except delete should be restricted
 			_, err = project.CreateBucket(ctx, testbucket2)
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
@@ -157,7 +180,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.Error(t, err)
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "only list", []string{testbucket1}, consolewasm.Permission{AllowList: true}, func(t *testing.T, project *uplink.Project) {
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "only list", []string{testbucket1}, consolewasm.Permission{AllowList: true}, func(t *testing.T, project *uplink.Project) {
 			// All operation except list inside testbucket1 should be restricted
 			_, err = project.CreateBucket(ctx, testbucket2)
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
@@ -186,7 +209,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "only upload", []string{testbucket1}, consolewasm.Permission{AllowUpload: true}, func(t *testing.T, project *uplink.Project) {
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "only upload", []string{testbucket1}, consolewasm.Permission{AllowUpload: true}, func(t *testing.T, project *uplink.Project) {
 			// All operation except upload to the testbucket1 should be restricted
 			_, err = project.CreateBucket(ctx, testbucket2)
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
@@ -215,7 +238,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "only download", []string{testbucket1}, consolewasm.Permission{AllowDownload: true}, func(t *testing.T, project *uplink.Project) {
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "only download", []string{testbucket1}, consolewasm.Permission{AllowDownload: true}, func(t *testing.T, project *uplink.Project) {
 			// All operation except download from testbucket1 should be restricted
 			_, err = project.CreateBucket(ctx, testbucket2)
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
@@ -244,7 +267,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "not after", []string{}, consolewasm.Permission{
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "not after", []string{}, consolewasm.Permission{
 			AllowDownload: true,
 			AllowUpload:   true,
 			AllowList:     true,
@@ -278,7 +301,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "not before", []string{}, consolewasm.Permission{
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "not before", []string{}, consolewasm.Permission{
 			AllowDownload: true,
 			AllowUpload:   true,
 			AllowList:     true,
@@ -312,7 +335,7 @@ func TestSetPermission_Uplink(t *testing.T) {
 			require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		})
 
-		withAccessKey(ctx, t, planet, passphrase, "all", []string{}, consolewasm.Permission{
+		withAccessKey(ctx, t, planet, passphrase, b64Salt, "all", []string{}, consolewasm.Permission{
 			AllowDownload: true,
 			AllowUpload:   true,
 			AllowList:     true,
@@ -368,7 +391,7 @@ func getAllBuckets(ctx *testcontext.Context, project *uplink.Project) []*uplink.
 	return buckets
 }
 
-func withAccessKey(ctx context.Context, t *testing.T, planet *testplanet.Planet, passphrase string, testname string, bucket []string, permissions consolewasm.Permission, fn func(t *testing.T, uplink *uplink.Project)) {
+func withAccessKey(ctx *testcontext.Context, t *testing.T, planet *testplanet.Planet, passphrase, salt, testname string, bucket []string, permissions consolewasm.Permission, fn func(t *testing.T, uplink *uplink.Project)) {
 	t.Run(testname, func(t *testing.T) {
 		upl := planet.Uplinks[0]
 		sat := planet.Satellites[0]
@@ -377,7 +400,7 @@ func withAccessKey(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		restrictedKey, err := consolewasm.SetPermission(apikey.Serialize(), bucket, permissions)
 		require.NoError(t, err)
 
-		restrictedGrant, err := consolewasm.GenAccessGrant(sat.NodeURL().String(), restrictedKey.Serialize(), passphrase, upl.Projects[0].ID.String())
+		restrictedGrant, err := consolewasm.GenAccessGrant(sat.NodeURL().String(), restrictedKey.Serialize(), passphrase, salt)
 		require.NoError(t, err)
 
 		access, err := uplink.ParseAccess(restrictedGrant)

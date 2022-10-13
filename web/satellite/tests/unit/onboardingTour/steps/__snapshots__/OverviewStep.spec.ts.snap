@@ -5,34 +5,11 @@ exports[`OverviewStep.vue renders correctly 1`] = `
   <h1 aria-roledescription="title" class="overview-area__title">Welcome to Storj </h1>
   <p class="overview-area__subtitle">Get started using the web browser, or the command line.</p>
   <div class="overview-area__routes">
-    <div class="overview-container"><svg alt="web" class="overview-container__img"></svg>
-      <p aria-roledescription="server-side-encryption-title" class="overview-container__enc">Server-side encrypted</p>
-      <h2 class="overview-container__title">Start with web browser</h2>
-      <p class="overview-container__info">Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world.</p>
-      <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;">
-        <!---->
-        <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Continue in web -&gt;</span>
-      </div>
-      <p class="overview-container__encryption-container">
-        By using the web browser you are opting in to
-        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-server-side-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="server-side-encryption-link" class="overview-container__encryption-container__link">server-side encryption</a>.
-      </p>
-    </div>
-    <div class="overview-container"><svg alt="cli" class="overview-container__img"></svg>
-      <p aria-roledescription="end-to-end-encryption-title" class="overview-container__enc">End-to-end encrypted</p>
-      <h2 class="overview-container__title">Start with Uplink CLI</h2>
-      <p class="overview-container__info">The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files.</p>
-      <div class="container" style="width: 240px; height: 48px; border-radius: 8px; font-size: 16px;">
-        <!---->
-        <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Continue in cli -&gt;</span>
-      </div>
-      <p class="overview-container__encryption-container">
-        The Uplink CLI uses
-        <a href="https://docs.storj.io/concepts/encryption-key/design-decision-end-to-end-encryption" target="_blank" rel="noopener noreferrer" aria-roledescription="end-to-end-encryption-link" class="overview-container__encryption-container__link">end-to-end encryption</a> for object data, metadata and path data.
-      </p>
-    </div>
-  </div> <a href="/project-dashboard" class="overview-area__skip-button">
+    <overviewcontainer-stub isweb="true" title="Start with web browser" info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world." buttonlabel="Continue in web ->" onclick="[Function]"></overviewcontainer-stub>
+    <overviewcontainer-stub title="Start with Uplink CLI" info="The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files." buttonlabel="Continue in cli ->" onclick="[Function]"></overviewcontainer-stub>
+  </div>
+  <router-link-stub to="/project-dashboard" tag="a" ariacurrentvalue="page" event="click" class="overview-area__skip-button">
     Skip and go directly to dashboard
-  </a>
+  </router-link-stub>
 </div>
 `;

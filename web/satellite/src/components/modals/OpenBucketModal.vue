@@ -15,14 +15,14 @@
                     label="Bucket Name"
                     :init-value="bucketName"
                     role-description="bucket"
-                    disabled="true"
+                    :disabled="true"
                 />
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -30,7 +30,7 @@
                     <VButton
                         label="Cancel"
                         height="48px"
-                        is-transparent="true"
+                        :is-transparent="true"
                         :on-press="closeModal"
                         :is-disabled="isLoading"
                     />
@@ -56,6 +56,7 @@ import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -147,12 +148,14 @@ export default class OpenBucketModal extends Vue {
             throw new Error(grantEvent.data.error);
         }
 
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': grantEvent.data.value,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
@@ -221,6 +224,10 @@ export default class OpenBucketModal extends Vue {
         padding: 62px 62px 54px;
         max-width: 500px;
 
+        @media screen and (max-width: 600px) {
+            padding: 62px 24px 54px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 26px;
@@ -246,6 +253,12 @@ export default class OpenBucketModal extends Vue {
             column-gap: 20px;
             margin-top: 31px;
             width: 100%;
+
+            @media screen and (max-width: 500px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 20px;
+            }
         }
     }
 </style>

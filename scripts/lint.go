@@ -40,6 +40,7 @@ type Checks struct {
 	Monitoring      bool
 	WASMSize        bool
 	Protolock       bool
+	CheckDowngrades bool
 	GolangCI        bool
 }
 
@@ -65,6 +66,7 @@ func main() {
 	flag.BoolVar(&checks.Monitoring, "monitoring", checks.Monitoring, "check monitoring")
 	flag.BoolVar(&checks.WASMSize, "wasm-size", checks.WASMSize, "check the wasm file size for optimal performance")
 	flag.BoolVar(&checks.Protolock, "protolock", checks.Protolock, "check the status of the protolock file")
+	flag.BoolVar(&checks.CheckDowngrades, "check-downgrades", checks.CheckDowngrades, "run the check-downgrades tool")
 	flag.BoolVar(&checks.GolangCI, "golangci", checks.GolangCI, "run the golangci-lint tool")
 
 	flag.Parse()
@@ -158,6 +160,10 @@ func main() {
 
 	if checks.Protolock {
 		commands[0] = append(commands[0], newCommand(ctx, workDir, "protolock", "status"))
+	}
+
+	if checks.CheckDowngrades {
+		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-downgrades", target...))
 	}
 
 	if checks.GolangCI {

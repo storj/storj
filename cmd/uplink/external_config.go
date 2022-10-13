@@ -65,7 +65,15 @@ func (ex *external) SaveConfig(values map[string]string) error {
 		}
 		return entries[i].Section < entries[j].Section
 	})
-	return ex.saveConfig(entries)
+	err := ex.saveConfig(entries)
+	if err != nil {
+		return err
+	}
+	ex.config.values = make(map[string][]string, len(values))
+	for k, v := range values {
+		ex.config.values[k] = []string{v}
+	}
+	return nil
 }
 
 // saveConfig writes out the config file using the provided values.

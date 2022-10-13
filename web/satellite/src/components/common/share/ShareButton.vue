@@ -71,7 +71,7 @@ export default class ShareButton extends Vue {
         border-radius: 5px;
         transition: 25ms ease-out;
         padding: 0.5em 0.75em;
-        font-size: 12px;
+        font-size: 14px;
         font-family: 'font_regular', sans-serif;
 
         svg {

@@ -42,8 +42,8 @@
                     label="Copy"
                     width="66px"
                     height="30px"
-                    is-blue-white="true"
-                    is-uppercase="true"
+                    :is-blue-white="true"
+                    :is-uppercase="true"
                     :on-press="onCopyClick"
                 />
             </div>
@@ -53,7 +53,7 @@
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -80,7 +80,7 @@
                 label="< Back"
                 height="64px"
                 border-radius="62px"
-                is-blue-white="true"
+                :is-blue-white="true"
                 :on-press="onBackClick"
                 :is-disabled="isLoading"
             />

@@ -6,7 +6,7 @@ package bloomfilter_test
 import (
 	"archive/zip"
 	"bytes"
-	"io/ioutil"
+	"io"
 	"sort"
 	"strconv"
 	"testing"
@@ -79,10 +79,6 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 			nodeIds := []string{}
 			packNames := []string{}
 			for iterator.Next() {
-				if iterator.Item().Key == "gc-done" {
-					continue
-				}
-
 				packNames = append(packNames, iterator.Item().Key)
 
 				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], tc.Bucket, iterator.Item().Key)
@@ -95,7 +91,7 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 					bfReader, err := file.Open()
 					require.NoError(t, err)
 
-					bloomfilter, err := ioutil.ReadAll(bfReader)
+					bloomfilter, err := io.ReadAll(bfReader)
 					require.NoError(t, err)
 
 					var pbRetainInfo internalpb.RetainInfo
@@ -130,9 +126,6 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 			sort.Strings(expectedNodeIds)
 			sort.Strings(nodeIds)
 			require.Equal(t, expectedNodeIds, nodeIds)
-
-			_, err = project.StatObject(ctx, tc.Bucket, "gc-done")
-			require.NoError(t, err)
 		}
 	})
 }

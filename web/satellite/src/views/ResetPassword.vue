@@ -42,7 +42,7 @@
                             label="Password"
                             placeholder="Enter Password"
                             :error="passwordError"
-                            is-password="true"
+                            is-password
                             @setData="setPassword"
                             @showPasswordStrength="showPasswordStrength"
                             @hidePasswordStrength="hidePasswordStrength"
@@ -57,7 +57,7 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            is-password="true"
+                            is-password
                             @setData="setRepeatedPassword"
                         />
                     </div>

@@ -37,12 +37,12 @@ func TestNodeAliasCache(t *testing.T) {
 
 		n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-		aliases, err := cache.Aliases(ctx, []storj.NodeID{n1, n2})
+		aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
 		require.NoError(t, err)
 		require.Equal(t, []metabase.NodeAlias{1, 2}, aliases)
 
 		nx1 := testrand.NodeID()
-		aliases, err = cache.Aliases(ctx, []storj.NodeID{nx1, n1, n2})
+		aliases, err = cache.EnsureAliases(ctx, []storj.NodeID{nx1, n1, n2})
 		require.NoError(t, err)
 		require.Equal(t, []metabase.NodeAlias{3, 1, 2}, aliases)
 
@@ -62,7 +62,7 @@ func TestNodeAliasCache(t *testing.T) {
 
 		n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-		aliases, err := cache.Aliases(ctx, []storj.NodeID{n1, n2})
+		aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
 		require.EqualError(t, err, "metabase: failed to update node alias db: io.EOF")
 		require.Empty(t, aliases)
 
@@ -71,7 +71,7 @@ func TestNodeAliasCache(t *testing.T) {
 		require.Empty(t, nodes)
 	})
 
-	t.Run("Aliases refresh once", func(t *testing.T) {
+	t.Run("EnsureAliases refresh once", func(t *testing.T) {
 		for repeat := 0; repeat < 3; repeat++ {
 			database := &NodeAliasDB{}
 			cache := metabase.NewNodeAliasCache(database)
@@ -88,7 +88,7 @@ func TestNodeAliasCache(t *testing.T) {
 					waiting.Done()
 					<-start
 
-					_, err := cache.Aliases(ctx, []storj.NodeID{n1, n2})
+					_, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
 					return err
 				})
 			}
@@ -156,7 +156,7 @@ func TestNodeAliasCache_DB(t *testing.T) {
 
 			n1, n2 := testrand.NodeID(), testrand.NodeID()
 
-			aliases, err := cache.Aliases(ctx, []storj.NodeID{n1, n2})
+			aliases, err := cache.EnsureAliases(ctx, []storj.NodeID{n1, n2})
 			require.NoError(t, err)
 			require.Equal(t, []metabase.NodeAlias{1, 2}, aliases)
 
@@ -302,7 +302,7 @@ func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
 	for i := range nodeIDs {
 		nodeIDs[i] = testrand.NodeID()
 	}
-	aliases, err := cache.Aliases(ctx, nodeIDs)
+	aliases, err := cache.EnsureAliases(ctx, nodeIDs)
 	if err != nil {
 		b.Fatal(err)
 	}
