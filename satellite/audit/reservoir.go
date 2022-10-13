@@ -16,7 +16,7 @@ const maxReservoirSize = 3
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	Segments [maxReservoirSize]Segment
+	Segments [maxReservoirSize]segmentloop.Segment
 	size     int8
 	index    int64
 	wSum     int64
@@ -41,9 +41,9 @@ func NewReservoir(size int) *Reservoir {
 // select uniformly a random segment reservoir.Segments[rand(0..i)] to replace with
 // segment. See https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Chao
 // for the algorithm used.
-func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
+func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
 	if reservoir.index < int64(reservoir.size) {
-		reservoir.Segments[reservoir.index] = segment
+		reservoir.Segments[reservoir.index] = *segment
 		reservoir.wSum += int64(segment.EncryptedSize)
 	} else {
 		reservoir.wSum += int64(segment.EncryptedSize)
@@ -51,7 +51,7 @@ func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
 		random := r.Float64()
 		if random < p {
 			index := r.Int31n(int32(reservoir.size))
-			reservoir.Segments[index] = segment
+			reservoir.Segments[index] = *segment
 		}
 	}
 	reservoir.index++
@@ -66,7 +66,7 @@ type Segment struct {
 }
 
 // NewSegment creates a new segment to audit from a metainfo loop segment.
-func NewSegment(loopSegment *segmentloop.Segment) Segment {
+func NewSegment(loopSegment segmentloop.Segment) Segment {
 	return Segment{
 		StreamID:      loopSegment.StreamID,
 		Position:      loopSegment.Position,

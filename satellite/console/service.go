@@ -5,9 +5,9 @@ package console
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math"
-	"math/big"
 	"net/http"
 	"net/mail"
 	"sort"
@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -34,7 +35,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -55,7 +56,8 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
-	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
+	passwordTooShortErrMsg               = "Your password needs to be at least %d characters long"
+	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
 	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
@@ -103,6 +105,9 @@ var (
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
 
+	// ErrAPIKeyRequest is returned when there is an error parsing a request for api keys.
+	ErrAPIKeyRequest = errs.Class("api key request")
+
 	// ErrRegToken describes registration token errors.
 	ErrRegToken = errs.Class("registration token")
 
@@ -126,6 +131,7 @@ type Service struct {
 	partners                   *rewards.PartnersService
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
+	billing                    billing.TransactionsDB
 	registrationCaptchaHandler CaptchaHandler
 	loginCaptchaHandler        CaptchaHandler
 	analytics                  *analytics.Service
@@ -195,7 +201,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -234,6 +240,7 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		partners:                   partners,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
+		billing:                    billing,
 		registrationCaptchaHandler: registrationCaptchaHandler,
 		loginCaptchaHandler:        loginCaptchaHandler,
 		analytics:                  analytics,
@@ -1154,13 +1161,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequest := UpdateUserRequest{}
+	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
-		lockoutExpTime := time.Now().Add(lockoutDuration)
-		lockoutExpTimePtr := &lockoutExpTime
-
-		updateRequest.LoginLockoutExpiration = &lockoutExpTimePtr
+		failedLoginPenalty = &s.config.FailedLoginPenalty
 
 		address := s.satelliteAddress
 		if !strings.HasSuffix(address, "/") {
@@ -1177,10 +1181,8 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 			},
 		)
 	}
-	user.FailedLoginCount++
 
-	updateRequest.FailedLoginCount = &user.FailedLoginCount
-	return s.store.Users().Update(ctx, user.ID, updateRequest)
+	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
 }
 
 // GetUser returns User by id.
@@ -1397,6 +1399,21 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 	}
 
 	return
+}
+
+// GetSalt is a method for querying project salt by id.
+func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return s.store.Projects().GetSalt(ctx, projectID)
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -2071,6 +2088,56 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 	}, api.HTTPError{}
 }
 
+// GenDeleteAPIKey deletes api key for generated api.
+func (s *Service) GenDeleteAPIKey(ctx context.Context, keyID uuid.UUID) (httpError api.HTTPError) {
+	err := s.DeleteAPIKeys(ctx, []uuid.UUID{keyID})
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return httpError
+		}
+
+		status := http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if ErrAPIKeyRequest.Has(err) {
+			status = http.StatusBadRequest
+		}
+
+		return api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return httpError
+}
+
+// GenGetAPIKeys returns api keys belonging to a project for generated api.
+func (s *Service) GenGetAPIKeys(ctx context.Context, projectID uuid.UUID, search string, limit, page uint, order APIKeyOrder, orderDirection OrderDirection) (*APIKeyPage, api.HTTPError) {
+	akp, err := s.GetAPIKeys(ctx, projectID, APIKeyCursor{
+		Search:         search,
+		Limit:          limit,
+		Page:           page,
+		Order:          order,
+		OrderDirection: orderDirection,
+	})
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		} else if ErrAPIKeyRequest.Has(err) {
+			status = http.StatusBadRequest
+		}
+
+		return nil, api.HTTPError{
+			Status: status,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	return akp, api.HTTPError{}
+}
+
 // GetAPIKeyInfoByName retrieves an api key by its name and project id.
 func (s *Service) GetAPIKeyInfoByName(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2202,7 +2269,7 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 
 	_, err = s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, ErrUnauthorized.Wrap(err)
 	}
 
 	if cursor.Limit > maxLimit {
@@ -2744,7 +2811,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 // WalletInfo contains all the information about a destination wallet assigned to a user.
 type WalletInfo struct {
 	Address blockchain.Address `json:"address"`
-	Balance *big.Int           `json:"balance"`
+	Balance currency.Amount    `json:"balance"`
 }
 
 // PaymentInfo includes token payment information required by GUI.
@@ -2752,8 +2819,8 @@ type PaymentInfo struct {
 	ID        string
 	Type      string
 	Wallet    string
-	Amount    monetary.Amount
-	Received  monetary.Amount
+	Amount    currency.Amount
+	Received  currency.Amount
 	Status    string
 	Link      string
 	Timestamp time.Time
@@ -2785,9 +2852,13 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
 	}
+	balance, err := payment.service.billing.GetBalance(ctx, user.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, // TODO: populate with call to billing table
+		Balance: balance,
 	}, nil
 }
 
@@ -2803,9 +2874,13 @@ func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error)
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
 	}
+	balance, err := payment.service.billing.GetBalance(ctx, user.ID)
+	if err != nil {
+		return WalletInfo{}, Error.Wrap(err)
+	}
 	return WalletInfo{
 		Address: address,
-		Balance: nil, // TODO: populate with call to billing table
+		Balance: balance,
 	}, nil
 }
 
@@ -2848,8 +2923,8 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 			ID:        txInfo.ID.String(),
 			Type:      "coinpayments",
 			Wallet:    txInfo.Address,
-			Amount:    monetary.AmountFromBaseUnits(txInfo.AmountCents, monetary.USDollars),
-			Received:  monetary.AmountFromBaseUnits(txInfo.ReceivedCents, monetary.USDollars),
+			Amount:    currency.AmountFromBaseUnits(txInfo.AmountCents, currency.USDollars),
+			Received:  currency.AmountFromBaseUnits(txInfo.ReceivedCents, currency.USDollars),
 			Status:    txInfo.Status.String(),
 			Link:      txInfo.Link,
 			Timestamp: txInfo.CreatedAt.UTC(),
@@ -2894,4 +2969,16 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 	}
 
 	return expiresAt, nil
+}
+
+// VerifyForgotPasswordCaptcha returns whether the given captcha response for the forgot password page is valid.
+// It will return true without error if the captcha handler has not been set.
+func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken, userIP string) (valid bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if s.loginCaptchaHandler != nil {
+		valid, _, err = s.loginCaptchaHandler.Verify(ctx, responseToken, userIP)
+		return valid, ErrCaptcha.Wrap(err)
+	}
+	return true, nil
 }

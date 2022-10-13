@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -63,7 +62,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	/* #nosec G306 */ // This is a test besides the file contains just test data.
-	err := ioutil.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
+	err := os.WriteFile(ctx.File("alpha.txt"), []byte("test"), 0644)
 	require.NoError(t, err)
 	m := migrate.Migration{
 		Table: dbName,
@@ -131,7 +130,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 	// file exists
 	_, err = os.Stat(ctx.File("beta.txt"))
 	assert.NoError(t, err)
-	data, err := ioutil.ReadFile(ctx.File("beta.txt"))
+	data, err := os.ReadFile(ctx.File("beta.txt"))
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("test"), data)
 }

@@ -12,10 +12,10 @@
         </div>
         <p class="password-strength-container__subtitle">Your password should contain:</p>
         <div class="password-strength-container__rule-area">
-            <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLongEnough }">
+            <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLengthAcceptable }">
                 <VectorIcon />
             </div>
-            <p class="password-strength-container__rule-area__rule">6 or more Latin characters</p>
+            <p class="password-strength-container__rule-area__rule">Between 6 and 128 Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
@@ -36,6 +36,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { Validator } from '@/utils/validation';
 
 import VectorIcon from '@/../static/images/register/StrengthVector.svg';
 
@@ -70,26 +72,28 @@ class StrengthLabelColor {
     },
 })
 export default class PasswordStrength extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly passwordString: string;
     /**
      * Indicates if component should be rendered.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isShown: boolean;
 
-    private MINIMAL_PASSWORD_LENGTH = 6;
-
-    public get isPasswordLongEnough(): boolean {
-        return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
+    public get isPasswordLengthAcceptable(): boolean {
+        return Validator.password(this.passwordString);
     }
 
     /**
      * Returns password strength label depends on score.
      */
     public get passwordStrength(): string {
-        if (this.passwordString.length < this.MINIMAL_PASSWORD_LENGTH) {
-            return `Use ${this.MINIMAL_PASSWORD_LENGTH} or more characters`;
+        if (this.passwordString.length < Validator.PASS_MIN_LENGTH) {
+            return `Use ${Validator.PASS_MIN_LENGTH} or more characters`;
+        }
+
+        if (this.passwordString.length > Validator.PASS_MAX_LENGTH) {
+            return `Use ${Validator.PASS_MAX_LENGTH} or fewer characters`;
         }
 
         const score = this.scorePassword();

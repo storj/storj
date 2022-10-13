@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectsApi = new ProjectsApiGql();
@@ -106,7 +106,7 @@ describe('mutations', () => {
 
         const project = state.projects.find((pr: Project) => pr.id === '11');
         expect(project).toBeDefined();
-        if(project) expect(project.name).toBe(newName);
+        if (project) expect(project.name).toBe(newName);
     });
 
     it('update project description', () => {
@@ -118,7 +118,7 @@ describe('mutations', () => {
 
         const project = state.projects.find((pr: Project) => pr.id === '11');
         expect(project).toBeDefined();
-        if(project) expect(project.description).toBe(newDescription);
+        if (project) expect(project.description).toBe(newDescription);
     });
 
     it('remove project', () => {
@@ -184,7 +184,7 @@ describe('actions', () => {
             Promise.resolve(project),
         );
 
-        await store.dispatch(CREATE, {name: '', description: ''});
+        await store.dispatch(CREATE, { name: '', description: '' });
         expect(state.projects.length).toBe(1);
         expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
@@ -249,7 +249,7 @@ describe('actions', () => {
 
         const project = state.projects.find((pr: Project) => pr.id === '1');
         expect(project).toBeDefined();
-        if(project) expect(project.name).toBe(newName);
+        if (project) expect(project.name).toBe(newName);
     });
 
     it('success update project description', async () => {
@@ -265,7 +265,7 @@ describe('actions', () => {
 
         const project = state.projects.find((pr: Project) => pr.id === '1');
         expect(project).toBeDefined();
-        if(project) expect(project.description).toBe(newDescription);
+        if (project) expect(project.description).toBe(newDescription);
     });
 
     it('update throws an error when api call fails', async () => {
@@ -281,7 +281,7 @@ describe('actions', () => {
         } catch (error) {
             const project = state.projects.find((pr: Project) => pr.id === '1');
             expect(project).toBeDefined();
-            if(project) expect(project.description).toBe('newDescription1');
+            if (project) expect(project.description).toBe('newDescription1');
         }
     });
 

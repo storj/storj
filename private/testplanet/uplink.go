@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"runtime/pprof"
 	"strconv"
 	"time"
@@ -269,7 +268,7 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
-	data, err := ioutil.ReadAll(download)
+	data, err := io.ReadAll(download)
 	if err != nil {
 		return []byte{}, err
 	}

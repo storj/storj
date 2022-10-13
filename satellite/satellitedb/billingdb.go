@@ -10,14 +10,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgutil/pgerrcode"
-	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -36,31 +34,36 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 	var dbxTX *dbx.BillingTransaction
 	var retryCount int
 	for {
-		balance, err := db.GetBalance(ctx, billingTX.UserID)
+		oldBalance, err := db.GetBalance(ctx, billingTX.UserID)
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
-		if balance+billingTX.Amount.BaseUnits() < 0 {
+		billingAmount := currency.AmountFromDecimal(billingTX.Amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro)
+		newBalance, err := currency.Add(oldBalance, billingAmount)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+		if newBalance.IsNegative() {
 			return 0, billing.ErrInsufficientFunds
 		}
 
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			updatedRow, err := tx.Update_BillingBalance_By_UserId_And_Balance(ctx,
 				dbx.BillingBalance_UserId(billingTX.UserID[:]),
-				dbx.BillingBalance_Balance(balance),
+				dbx.BillingBalance_Balance(oldBalance.BaseUnits()),
 				dbx.BillingBalance_Update_Fields{
-					Balance: dbx.BillingBalance_Balance(balance + billingTX.Amount.BaseUnits()),
+					Balance: dbx.BillingBalance_Balance(newBalance.BaseUnits()),
 				})
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			if updatedRow == nil {
 				// Try an insert here, in case the user never had a record in the table.
-				// If the user already had a record, and the balance was not as expected,
+				// If the user already had a record, and the oldBalance was not as expected,
 				// the insert will fail anyways.
 				err = tx.CreateNoReturn_BillingBalance(ctx,
 					dbx.BillingBalance_UserId(billingTX.UserID[:]),
-					dbx.BillingBalance_Balance(balance+billingTX.Amount.BaseUnits()))
+					dbx.BillingBalance_Balance(newBalance.BaseUnits()))
 				if err != nil {
 					return Error.Wrap(err)
 				}
@@ -68,8 +71,8 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 
 			dbxTX, err = tx.Create_BillingTransaction(ctx,
 				dbx.BillingTransaction_UserId(billingTX.UserID[:]),
-				dbx.BillingTransaction_Amount(billingTX.Amount.BaseUnits()),
-				dbx.BillingTransaction_Currency(monetary.USDollars.Symbol()),
+				dbx.BillingTransaction_Amount(billingAmount.BaseUnits()),
+				dbx.BillingTransaction_Currency(billingAmount.Currency().Symbol()),
 				dbx.BillingTransaction_Description(billingTX.Description),
 				dbx.BillingTransaction_Source(billingTX.Source),
 				dbx.BillingTransaction_Status(string(billingTX.Status)),
@@ -93,36 +96,6 @@ func (db billingDB) Insert(ctx context.Context, billingTX billing.Transaction) (
 		break
 	}
 	return dbxTX.Id, err
-}
-
-func (db billingDB) InsertBatchCreditTXs(ctx context.Context, billingTXs []billing.Transaction) (err error) {
-	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
-		var batch pgx.Batch
-		for _, billingTX := range billingTXs {
-			// only credits to the users balance are added in batch
-			if billingTX.Amount.BaseUnits() > 0 && billingTX.Type == billing.TransactionTypeCredit {
-				statement := db.db.Rebind(`INSERT INTO billing_transactions ( user_id, amount, currency, description, source, status, type, metadata, timestamp, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW() )`)
-				batch.Queue(statement, billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits(), monetary.USDollars.Symbol(), billingTX.Description, billingTX.Source,
-					billingTX.Status, billingTX.Type, handleMetaDataZeroValue(billingTX.Metadata), billingTX.Timestamp)
-				batch.Queue(`
-				INSERT INTO billing_balances ( user_id, balance, last_updated ) 
-				VALUES ( $1, $2, NOW() ) ON CONFLICT (user_id) 
-				DO UPDATE SET balance = billing_balances.balance + $2 
-				WHERE billing_balances.user_id = $1 AND billing_balances.balance + $2 >= 0`,
-					billingTX.UserID.Bytes(), billingTX.Amount.BaseUnits())
-			}
-		}
-		results := conn.SendBatch(ctx, &batch)
-		defer func() { err = errs.Combine(err, results.Close()) }()
-
-		var errGroup errs.Group
-		for i := 0; i < batch.Len(); i++ {
-			_, err := results.Exec()
-			errGroup.Add(err)
-		}
-		return errGroup.Err()
-	})
-	return err
 }
 
 func (db billingDB) UpdateStatus(ctx context.Context, txID int64, status billing.TransactionStatus) (err error) {
@@ -152,7 +125,7 @@ func (db billingDB) UpdateMetadata(ctx context.Context, txID int64, newMetadata 
 func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType billing.TransactionType) (_ time.Time, metadata []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastTransaction, err := db.db.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_Timestamp(
+	lastTransaction, err := db.db.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(
 		ctx,
 		dbx.BillingTransaction_Source(txSource),
 		dbx.BillingTransaction_Type(string(txType)))
@@ -162,7 +135,7 @@ func (db billingDB) LastTransaction(ctx context.Context, txSource string, txType
 	}
 
 	if lastTransaction == nil {
-		return time.Time{}, []byte{}, nil
+		return time.Time{}, nil, billing.ErrNoTransactions
 	}
 
 	return lastTransaction.Timestamp, lastTransaction.Metadata, nil
@@ -187,18 +160,18 @@ func (db billingDB) List(ctx context.Context, userID uuid.UUID) (txs []billing.T
 	return txs, nil
 }
 
-func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ int64, err error) {
+func (db billingDB) GetBalance(ctx context.Context, userID uuid.UUID) (_ currency.Amount, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBilling, err := db.db.Get_BillingBalance_Balance_By_UserId(ctx,
 		dbx.BillingBalance_UserId(userID[:]))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return 0, nil
+			return currency.USDollarsMicro.Zero(), nil
 		}
-		return 0, Error.Wrap(err)
+		return currency.USDollarsMicro.Zero(), Error.Wrap(err)
 	}
 
-	return dbxBilling.Balance, nil
+	return currency.AmountFromBaseUnits(dbxBilling.Balance, currency.USDollarsMicro), nil
 }
 
 // fromDBXBillingTransaction converts *dbx.BillingTransaction to *billing.Transaction.
@@ -210,7 +183,7 @@ func fromDBXBillingTransaction(dbxTX *dbx.BillingTransaction) (*billing.Transact
 	return &billing.Transaction{
 		ID:          dbxTX.Id,
 		UserID:      userID,
-		Amount:      monetary.AmountFromBaseUnits(dbxTX.Amount, monetary.USDollars),
+		Amount:      currency.AmountFromBaseUnits(dbxTX.Amount, currency.USDollarsMicro),
 		Description: dbxTX.Description,
 		Source:      dbxTX.Source,
 		Status:      billing.TransactionStatus(dbxTX.Status),

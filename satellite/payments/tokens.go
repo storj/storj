@@ -9,9 +9,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // StorjTokens defines all payments STORJ token related functionality.
@@ -68,7 +68,7 @@ func (id TransactionID) String() string {
 // accepts user funds on a specific wallet address.
 type Transaction struct {
 	ID        TransactionID
-	Amount    monetary.Amount
+	Amount    currency.Amount
 	Rate      decimal.Decimal
 	Address   string
 	Status    TransactionStatus
@@ -81,8 +81,8 @@ type Transaction struct {
 // such as links and expiration time.
 type TransactionInfo struct {
 	ID            TransactionID
-	Amount        monetary.Amount
-	Received      monetary.Amount
+	Amount        currency.Amount
+	Received      currency.Amount
 	AmountCents   int64
 	ReceivedCents int64
 	Address       string
@@ -114,8 +114,8 @@ const (
 type WalletPayment struct {
 	From        blockchain.Address `json:"from"`
 	To          blockchain.Address `json:"to"`
-	TokenValue  monetary.Amount    `json:"tokenValue"`
-	USDValue    monetary.Amount    `json:"usdValue"`
+	TokenValue  currency.Amount    `json:"tokenValue"`
+	USDValue    currency.Amount    `json:"usdValue"`
 	Status      PaymentStatus      `json:"status"`
 	BlockHash   blockchain.Hash    `json:"blockHash"`
 	BlockNumber int64              `json:"blockNumber"`

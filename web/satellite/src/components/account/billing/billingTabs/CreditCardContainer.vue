@@ -35,6 +35,9 @@
 import Vue, { VueConstructor } from 'vue';
 import { Component, Prop } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
@@ -45,9 +48,6 @@ import JCBIcon from '@/../static/images/payments/cardIcons/smalljcb.svg';
 import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercard.svg';
 import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
 
 const {
     TOGGLE_CARD_SELECTION,
@@ -68,7 +68,7 @@ const {
     },
 })
 export default class CardComponent extends Vue {
-    @Prop({default: () => new CreditCard()})
+    @Prop({ default: () => new CreditCard() })
     private readonly creditCard: CreditCard;
     public isEditPaymentMethodsModalOpen = false;
 
@@ -139,6 +139,7 @@ export default class CardComponent extends Vue {
     margin: 0 7px 0 0;
     white-space: nowrap;
     color: #354049;
+    align-self: end;
 
     &:hover {
         background-color: #2683ff;
@@ -186,8 +187,8 @@ export default class CardComponent extends Vue {
     border-radius: 6px;
     display: grid;
     grid-template-columns: 4fr 2fr;
-    grid-template-rows: 1fr 0fr auto 0fr;
-    height: 126px;
+    grid-template-rows: 1fr 0fr 1fr 1fr;
+    height: 100%;
 
     &__function-buttons {
         grid-column: 1;
@@ -265,11 +266,10 @@ export default class CardComponent extends Vue {
         grid-column: 2;
         width: 58px;
         height: 24px;
-        left: 950px;
-        top: 250px;
         background: #e6edf7;
         border: 1px solid #d7e8ff;
         border-radius: 4px;
+        justify-self: end;
     }
 
     &__default-text {

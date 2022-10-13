@@ -22,15 +22,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { Bucket } from "@/types/buckets";
-import { RouteConfig } from "@/router";
-import { MONTHS_NAMES } from "@/utils/constants/date";
+import { Bucket } from '@/types/buckets';
+import { RouteConfig } from '@/router';
+import { MONTHS_NAMES } from '@/utils/constants/date';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import BucketDetailsOverview from "@/components/objects/BucketDetailsOverview.vue";
-import ArrowRightIcon from '@/../static/images/common/arrowRight.svg'
+import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
+
+import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
 // @vue/component
 @Component({

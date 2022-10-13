@@ -13,11 +13,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class GuidesDropdown extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly yPosition: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly xPosition: number;
-    @Prop({default: () => () => {}})
+    @Prop({ default: () => () => {} })
     private readonly close: () => void;
 
     private dropdownMiddle = 0;
@@ -32,7 +32,7 @@ export default class GuidesDropdown extends Vue {
 
     public $refs!: {
         dropdown: HTMLDivElement;
-    }
+    };
 
     /**
      * Returns top and left position of dropdown.

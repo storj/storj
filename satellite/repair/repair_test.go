@@ -30,7 +30,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -1019,8 +1018,8 @@ func TestMissingPieceDataRepair(t *testing.T) {
 			nodesReputation[piece.StorageNode] = *info
 		}
 
-		var successful metabase.Pieces
-		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
+		var successful []repairer.PieceFetchResult
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces repairer.FetchResultReport) {
 			successful = pieces.Successful
 		}
 
@@ -1040,9 +1039,9 @@ func TestMissingPieceDataRepair(t *testing.T) {
 		}
 
 		// repair shouldn't update audit status
-		for _, piece := range successful {
-			successfulNodeReputation := nodesReputation[piece.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+		for _, result := range successful {
+			successfulNodeReputation := nodesReputation[result.Piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.Piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
@@ -1249,9 +1248,9 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 			nodesReputation[piece.StorageNode] = *info
 		}
 
-		var successful metabase.Pieces
-		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(pieces audit.Pieces) {
-			successful = pieces.Successful
+		var successful []repairer.PieceFetchResult
+		satellite.Repairer.SegmentRepairer.OnTestingPiecesReportHook = func(report repairer.FetchResultReport) {
+			successful = report.Successful
 		}
 
 		satellite.Repair.Checker.Loop.Restart()
@@ -1270,9 +1269,9 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 		}
 
 		// repair shouldn't update audit status
-		for _, piece := range successful {
-			successfulNodeReputation := nodesReputation[piece.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+		for _, result := range successful {
+			successfulNodeReputation := nodesReputation[result.Piece.StorageNode]
+			successfulNodeReputationAfter := nodesReputationAfter[result.Piece.StorageNode]
 			require.Equal(t, successfulNodeReputation.TotalAuditCount, successfulNodeReputationAfter.TotalAuditCount)
 			require.Equal(t, successfulNodeReputation.AuditSuccessCount, successfulNodeReputationAfter.AuditSuccessCount)
 			require.Equal(t, successfulNodeReputation.AuditReputationAlpha, successfulNodeReputationAfter.AuditReputationAlpha)
@@ -2338,7 +2337,8 @@ func TestRepairGracefullyExited(t *testing.T) {
 }
 
 // getRemoteSegment returns a remote pointer its path from satellite.
-// nolint:golint
+//
+//nolint:golint
 func getRemoteSegment(
 	ctx context.Context, t *testing.T, satellite *testplanet.Satellite, projectID uuid.UUID, bucketName string,
 ) (_ metabase.Segment, key metabase.SegmentKey) {
@@ -2548,7 +2548,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0].Piece)
 	})
 }
 
@@ -2617,7 +2617,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, missingPiece, piecesReport.Failed[0])
+		require.Equal(t, missingPiece, piecesReport.Failed[0].Piece)
 	})
 }
 
@@ -2683,7 +2683,7 @@ func TestECRepairerGetOffline(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 0, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, offlinePiece, piecesReport.Offline[0])
+		require.Equal(t, offlinePiece, piecesReport.Offline[0].Piece)
 	})
 }
 
@@ -2753,7 +2753,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 1, len(piecesReport.Unknown))
 		require.Equal(t, int(segment.Redundancy.RequiredShares), len(piecesReport.Successful))
-		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0].Piece)
 	})
 }
 
@@ -2838,10 +2838,10 @@ func TestECRepairerGetFailure(t *testing.T) {
 		require.Equal(t, 0, len(piecesReport.Contained))
 		require.Equal(t, 1, len(piecesReport.Unknown))
 		require.Equal(t, 1, len(piecesReport.Successful))
-		require.Equal(t, offlinePiece, piecesReport.Offline[0])
-		require.Equal(t, corruptedPiece, piecesReport.Failed[0])
-		require.Equal(t, unknownPiece, piecesReport.Unknown[0])
-		require.Equal(t, successfulPiece, piecesReport.Successful[0])
+		require.Equal(t, offlinePiece, piecesReport.Offline[0].Piece)
+		require.Equal(t, corruptedPiece, piecesReport.Failed[0].Piece)
+		require.Equal(t, unknownPiece, piecesReport.Unknown[0].Piece)
+		require.Equal(t, successfulPiece, piecesReport.Successful[0].Piece)
 	})
 }
 

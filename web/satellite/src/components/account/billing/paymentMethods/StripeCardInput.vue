@@ -32,7 +32,7 @@ interface StripeResponse {
 // @vue/component
 @Component
 export default class StripeCardInput extends Vue {
-    @Prop({default: () => () => console.error('onStripeResponse is not reinitialized')})
+    @Prop({ default: () => () => console.error('onStripeResponse is not reinitialized') })
     private readonly onStripeResponseCallback: (tokenId: unknown) => void;
 
     private isLoading = false;
@@ -93,11 +93,11 @@ export default class StripeCardInput extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!window['Stripe']){
-            const script = new LoadScript("https://js.stripe.com/v3/",
+            const script = new LoadScript('https://js.stripe.com/v3/',
                 () => { this.initStripe(); },
                 () => { this.$notify.error('Stripe library not loaded');
-                    script.remove(); }
-            )
+                    script.remove(); },
+            );
 
             return;
         }

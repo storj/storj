@@ -218,17 +218,17 @@ import { Fragment } from 'vue-fragment';
 // @vue/component
 @Component({
     components: {
-        Fragment
+        Fragment,
     },
 })
 export default class FileBrowserHeader extends Vue {
-    private hover = "";
+    private hover = '';
 
     /**
      * Check if a heading is sorted in descending order.
      */
     private isDesc(heading: string): boolean {
-        return this.headingSorted === heading && this.orderBy === "desc";
+        return this.headingSorted === heading && this.orderBy === 'desc';
     }
 
     /**
@@ -256,63 +256,63 @@ export default class FileBrowserHeader extends Vue {
      * Set the heading for files/folders to be sorted by in the store.
      */
     private sortBy(heading: string): void {
-        this.$store.commit("files/sort", heading);
+        this.$store.commit('files/sort', heading);
     }
 
     /**
      * Get the current heading being sorted from the store.
      */
     private get headingSorted(): string {
-        return this.fromFilesStore("headingSorted");
+        return this.fromFilesStore('headingSorted');
     }
 
     /**
      * Get the current order being sorted from the store.
      */
     private get orderBy(): string {
-        return this.fromFilesStore("orderBy");
+        return this.fromFilesStore('orderBy');
     }
 
     /**
      * Check if the name heading is being sorted in descending order.
      */
     public get nameDesc(): boolean {
-        return this.isDesc("name");
+        return this.isDesc('name');
     }
 
     /**
      * Check if the size heading is being sorted in descending order.
      */
     public get sizeDesc(): boolean {
-        return this.isDesc("size");
+        return this.isDesc('size');
     }
 
     /**
      * Check if the date heading is being sorted in descending order.
      */
     public get dateDesc(): boolean {
-        return this.isDesc("date");
+        return this.isDesc('date');
     }
 
     /**
      * Check if the name heading's arrow should be displayed.
      */
     public get showNameArrow(): boolean {
-        return this.showArrow("name");
+        return this.showArrow('name');
     }
 
     /**
      * Check if the size heading's arrow should be displayed.
      */
     public get showSizeArrow(): boolean {
-        return this.showArrow("size");
+        return this.showArrow('size');
     }
 
     /**
      * Check if the date heading's arrow should be displayed.
      */
     public get showDateArrow(): boolean {
-        return this.showArrow("date");
+        return this.showArrow('date');
     }
 
     /**
@@ -333,56 +333,56 @@ export default class FileBrowserHeader extends Vue {
      * Check if the files/folders deletion dropdown should be displayed.
      */
     public get displayDropdown(): boolean {
-        return this.$store.state.files.openedDropdown === "FileBrowser";
+        return this.$store.state.files.openedDropdown === 'FileBrowser';
     }
 
     /**
      * Sort files/folder based on their name.
      */
     public sortByName(): void {
-        this.sortBy("name");
+        this.sortBy('name');
     }
 
     /**
      * Sort files/folder based on their size.
      */
     public sortBySize(): void {
-        this.sortBy("size");
+        this.sortBy('size');
     }
 
     /**
      * Sort files/folder based on their date.
      */
     public sortByDate(): void {
-        this.sortBy("date");
+        this.sortBy('date');
     }
 
     /**
      * Change the hover property to the name heading on hover.
      */
     public mouseOverName(): void {
-        this.mouseOver("name");
+        this.mouseOver('name');
     }
 
     /**
      * Change the hover property to the size heading on hover.
      */
     public mouseOverSize(): void {
-        this.mouseOver("size");
+        this.mouseOver('size');
     }
 
     /**
      * Change the hover property to the date heading on hover.
      */
     public mouseOverDate(): void {
-        this.mouseOver("date");
+        this.mouseOver('date');
     }
 
     /**
      * Change the hover property to nothing on mouse leave.
      */
     public mouseLeave(): void {
-        this.hover = "";
+        this.hover = '';
     }
 
     /**
@@ -390,22 +390,22 @@ export default class FileBrowserHeader extends Vue {
      */
     public deleteSelectedDropdown(event: Event): void {
         event.stopPropagation();
-        this.$store.dispatch("files/openFileBrowserDropdown");
+        this.$store.dispatch('files/openFileBrowserDropdown');
     }
 
     /**
      * Delete the selected files/folders.
      */
     public confirmDeleteSelection(): void {
-        this.$store.dispatch("files/deleteSelected");
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/deleteSelected');
+        this.$store.dispatch('files/closeDropdown');
     }
 
     /**
      * Abort files/folder selected for deletion.
      */
     public cancelDeleteSelection(): void {
-        this.$store.dispatch("files/closeDropdown");
+        this.$store.dispatch('files/closeDropdown');
     }
 }
 </script>

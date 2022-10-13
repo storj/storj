@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"crypto/sha256"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -167,10 +166,13 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		return nil, err
 	}
 
-	salt := sha256.Sum256(keyInfo.ProjectID[:])
+	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: salt[:],
+		ProjectSalt: salt,
 	}, nil
 }
 
@@ -297,6 +299,8 @@ func (endpoint *Endpoint) convertMetabaseErr(err error) error {
 		return rpcstatus.Error(rpcstatus.AlreadyExists, err.Error())
 	case metabase.ErrPendingObjectMissing.Has(err):
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	case metabase.ErrPermissionDenied.Has(err):
+		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	default:
 		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())

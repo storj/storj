@@ -1,9 +1,9 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import VBar from '@/components/common/VBar.vue';
-
 import { mount } from '@vue/test-utils';
+
+import VBar from '@/components/common/VBar.vue';
 
 describe('VBar.vue', () => {
     it('renders correctly', () => {

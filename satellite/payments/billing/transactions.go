@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // TransactionStatus indicates transaction status.
@@ -18,6 +18,12 @@ type TransactionStatus string
 
 // ErrInsufficientFunds represents err when a user balance is too low for some transaction.
 var ErrInsufficientFunds = errs.New("Insufficient funds for this transaction")
+
+// ErrNoWallet represents err when there is no wallet in the DB.
+var ErrNoWallet = errs.New("no wallet in the database")
+
+// ErrNoTransactions represents err when there is no billing transactions in the DB.
+var ErrNoTransactions = errs.New("no transactions in the database")
 
 const (
 	// TransactionStatusPending indicates that status of this transaction is pending.
@@ -47,8 +53,6 @@ const (
 type TransactionsDB interface {
 	// Insert inserts the provided transaction.
 	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
-	// InsertBatchCreditTXs inserts the provided credit transactions into the billing table.
-	InsertBatchCreditTXs(ctx context.Context, billingTXs []Transaction) (err error)
 	// UpdateStatus updates the status of the transaction.
 	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
 	// UpdateMetadata updates the metadata of the transaction.
@@ -58,7 +62,7 @@ type TransactionsDB interface {
 	// List returns all transactions for the specified user.
 	List(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
 	// GetBalance returns the current usable balance for the specified user.
-	GetBalance(ctx context.Context, userID uuid.UUID) (int64, error)
+	GetBalance(ctx context.Context, userID uuid.UUID) (currency.Amount, error)
 }
 
 // PaymentType is an interface which defines functionality required for all billing payment types. Payment types can
@@ -78,7 +82,7 @@ type PaymentType interface {
 type Transaction struct {
 	ID          int64
 	UserID      uuid.UUID
-	Amount      monetary.Amount
+	Amount      currency.Amount
 	Description string
 	Source      string
 	Status      TransactionStatus

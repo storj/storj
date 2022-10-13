@@ -63,16 +63,15 @@ import pbkdf2 from 'pbkdf2';
 
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { LocalData } from "@/utils/localData";
-import { EdgeCredentials } from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { MetaUtils } from "@/utils/meta";
-
-import GeneratePassphrase from "@/components/common/GeneratePassphrase.vue";
-import FAQBullet from "@/components/objects/FAQBullet.vue";
-
+import { LocalData } from '@/utils/localData';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import GeneratePassphrase from '@/components/common/GeneratePassphrase.vue';
+import FAQBullet from '@/components/objects/FAQBullet.vue';
 
 // @vue/component
 @Component({
@@ -95,7 +94,7 @@ export default class EncryptData extends Vue {
     public navigateToCLIFlow(): void {
         this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, this.$route.path);
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-        this.$router.push({name: RouteConfig.AGName.name});
+        this.$router.push({ name: RouteConfig.AGName.name });
     }
 
     /**
@@ -105,7 +104,7 @@ export default class EncryptData extends Vue {
     public mounted(): void {
         if (!this.apiKey) {
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-            this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path)
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
         }
 
         this.setWorker();
@@ -209,7 +208,7 @@ export default class EncryptData extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     }
 

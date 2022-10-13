@@ -32,10 +32,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
-import VModal from "@/components/common/VModal.vue";
+import VModal from '@/components/common/VModal.vue';
 
 // @vue/component
 @Component({

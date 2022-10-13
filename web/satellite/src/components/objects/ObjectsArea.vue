@@ -13,7 +13,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
@@ -28,7 +27,7 @@ export default class ObjectsArea extends Vue {
      */
     public async mounted(): Promise<void> {
         const isFileBrowserFlowDisabled = MetaUtils.getMetaContent('file-browser-flow-disabled');
-        if (isFileBrowserFlowDisabled === "true") {
+        if (isFileBrowserFlowDisabled === 'true') {
             this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }

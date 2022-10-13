@@ -23,7 +23,7 @@
                             <p class="project-selection__selected__left__name" :title="selectedProject.name">{{ selectedProject.name }}</p>
                             <p class="project-selection__selected__left__placeholder">Projects</p>
                         </div>
-                        <ArrowImage class="project-selection__selected__arrow" />
+                        <ArrowIcon class="project-selection__selected__arrow" />
                     </div>
                     <div v-if="isProjectDropdownShown" class="project-selection__dropdown">
                         <div v-if="isLoading" class="project-selection__dropdown__loader-container">
@@ -115,7 +115,7 @@
                             <TierBadgePro v-if="user.paidTier" class="account-area__wrap__left__tier-badge" />
                             <TierBadgeFree v-else class="account-area__wrap__left__tier-badge" />
                         </div>
-                        <ArrowImage class="account-area__wrap__arrow" />
+                        <ArrowIcon class="account-area__wrap__arrow" />
                     </div>
                     <div v-if="isAccountDropdownShown" class="account-area__dropdown">
                         <div class="account-area__dropdown__header">
@@ -135,6 +135,10 @@
                                 </a>
                             </div>
                         </div>
+                        <div class="account-area__dropdown__item" @click="navigateToBilling">
+                            <BillingIcon />
+                            <p class="account-area__dropdown__item__label">Billing</p>
+                        </div>
                         <div class="account-area__dropdown__item" @click="navigateToSettings">
                             <SettingsIcon />
                             <p class="account-area__dropdown__item__label">Account Settings</p>
@@ -151,55 +155,55 @@
 </template>
 
 <script lang="ts">
+
 import { Component, Vue } from 'vue-property-decorator';
 
-import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
-import AccountArea from '@/components/navigation/AccountArea.vue';
-
+import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { NavigationLink } from '@/types/navigation';
+import { Project } from '@/types/projects';
+import { User } from '@/types/users';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 
+import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
+import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
+import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
+import AccountArea from '@/components/navigation/AccountArea.vue';
+import VLoader from '@/components/common/VLoader.vue';
+
+import CrossIcon from '@/../static/images/common/closeCross.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
-import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
-import BucketsIcon from '@/../static/images/navigation/buckets.svg';
-import UsersIcon from '@/../static/images/navigation/users.svg';
-import BillingIcon from '@/../static/images/navigation/billing.svg';
-import ResourcesIcon from '@/../static/images/navigation/resources.svg';
-import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
-import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
-import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
-import ResourcesLinks from "@/components/navigation/ResourcesLinks.vue";
-import ArrowImage from "@/../static/images/navigation/arrowExpandRight.svg";
-import CheckmarkIcon from "@/../static/images/navigation/checkmark.svg";
-import ProjectIcon from "@/../static/images/navigation/project.svg";
-import ManageIcon from "@/../static/images/navigation/manage.svg";
-import CreateProjectIcon from "@/../static/images/navigation/createProject.svg";
-import CrossIcon from "@/../static/images/common/closeCross.svg";
-import MenuIcon from "@/../static/images/navigation/menu.svg";
-import InfoIcon from '@/../static/images/navigation/info.svg';
-import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
-import SettingsIcon from '@/../static/images/navigation/settings.svg';
+import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
+import BillingIcon from '@/../static/images/navigation/billing.svg';
+import BucketsIcon from '@/../static/images/navigation/buckets.svg';
+import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
+import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
+import InfoIcon from '@/../static/images/navigation/info.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
+import ManageIcon from '@/../static/images/navigation/manage.svg';
+import MenuIcon from '@/../static/images/navigation/menu.svg';
+import ProjectIcon from '@/../static/images/navigation/project.svg';
+import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
+import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
+import ResourcesIcon from '@/../static/images/navigation/resources.svg';
+import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
+import SettingsIcon from '@/../static/images/navigation/settings.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
-import VLoader from "@/components/common/VLoader.vue";
-
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
-import { LocalData } from "@/utils/localData";
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from "@/utils/constants/actionNames";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { User } from "@/types/users";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { Project } from "@/types/projects";
-import { USER_ACTIONS } from "@/store/modules/users";
-import { AuthHttpApi } from "@/api/auth";
+import UsersIcon from '@/../static/images/navigation/users.svg';
 
 // @vue/component
 @Component({
@@ -217,7 +221,6 @@ import { AuthHttpApi } from "@/api/auth";
         ResourcesIcon,
         QuickStartIcon,
         ArrowIcon,
-        ArrowImage,
         CheckmarkIcon,
         ProjectIcon,
         ManageIcon,
@@ -251,7 +254,6 @@ export default class MobileNavigation extends Vue {
         RouteConfig.Buckets.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
-        RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
     ];
 
     /**
@@ -435,6 +437,21 @@ export default class MobileNavigation extends Vue {
     }
 
     /**
+     * Navigates user to billing page.
+     */
+    public navigateToBilling(): void {
+        this.isOpened = false;
+        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
+
+        let link = RouteConfig.Account.with(RouteConfig.Billing);
+        if (MetaUtils.getMetaContent('new-billing-screen') === 'true') {
+            link = link.with(RouteConfig.BillingOverview);
+        }
+        this.$router.push(link.path);
+        this.analytics.pageVisit(link.path);
+    }
+
+    /**
      * Navigates user to account settings page.
      */
     public navigateToSettings(): void {
@@ -603,12 +620,12 @@ export default class MobileNavigation extends Vue {
     color: #091c45;
     font-family: 'font_bold', sans-serif;
 
-    ::v-deep path {
+    :deep(path) {
         fill: #000;
     }
 }
 
-::v-deep .dropdown-item {
+:deep(.dropdown-item) {
     display: flex;
     align-items: center;
     font-family: 'font_regular', sans-serif;
@@ -616,39 +633,39 @@ export default class MobileNavigation extends Vue {
     cursor: pointer;
     border-bottom: 1px solid #ebeef1;
     background: #fafafb;
-
-    &__icon {
-        max-width: 40px;
-        min-width: 40px;
-    }
-
-    &__text {
-        margin-left: 10px;
-
-        &__title {
-            font-family: 'font_bold', sans-serif;
-            font-size: 14px;
-            line-height: 22px;
-            color: #091c45;
-        }
-
-        &__label {
-            font-size: 12px;
-            line-height: 21px;
-            color: #091c45;
-        }
-    }
-
-    &:first-of-type {
-        border-radius: 8px 8px 0 0;
-    }
-
-    &:last-of-type {
-        border-radius: 0 0 8px 8px;
-    }
 }
 
-::v-deep .project-selection__dropdown {
+:deep(.dropdown-item__icon) {
+    max-width: 40px;
+    min-width: 40px;
+}
+
+:deep(.dropdown-item__text) {
+    margin-left: 10px;
+}
+
+:deep(.dropdown-item__text__title) {
+    font-family: 'font_bold', sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    color: #091c45;
+}
+
+:deep(.dropdown-item__text__label) {
+    font-size: 12px;
+    line-height: 21px;
+    color: #091c45;
+}
+
+:deep(.dropdown-item:first-of-type) {
+    border-radius: 8px 8px 0 0;
+}
+
+:deep(.dropdown-item:last-of-type) {
+    border-radius: 0 0 8px 8px;
+}
+
+:deep(.project-selection__dropdown) {
     all: unset !important;
     position: relative !important;
     display: flex;

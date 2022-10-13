@@ -63,26 +63,26 @@ type APIKeyInfo struct {
 
 // APIKeyCursor holds info for api keys cursor pagination.
 type APIKeyCursor struct {
-	Search         string
-	Limit          uint
-	Page           uint
-	Order          APIKeyOrder
-	OrderDirection OrderDirection
+	Search         string         `json:"search"`
+	Limit          uint           `json:"limit"`
+	Page           uint           `json:"page"`
+	Order          APIKeyOrder    `json:"order"`
+	OrderDirection OrderDirection `json:"orderDirection"`
 }
 
 // APIKeyPage represent api key page result.
 type APIKeyPage struct {
-	APIKeys []APIKeyInfo
+	APIKeys []APIKeyInfo `json:"apiKeys"`
 
-	Search         string
-	Limit          uint
-	Order          APIKeyOrder
-	OrderDirection OrderDirection
-	Offset         uint64
+	Search         string         `json:"search"`
+	Limit          uint           `json:"limit"`
+	Order          APIKeyOrder    `json:"order"`
+	OrderDirection OrderDirection `json:"orderDirection"`
+	Offset         uint64         `json:"offset"`
 
-	PageCount   uint
-	CurrentPage uint
-	TotalCount  uint64
+	PageCount   uint   `json:"pageCount"`
+	CurrentPage uint   `json:"currentPage"`
+	TotalCount  uint64 `json:"totalCount"`
 }
 
 // APIKeyOrder is used for querying api keys in specified order.

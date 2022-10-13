@@ -88,26 +88,27 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if canDelete {
-		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-		})
-		if err != nil && !storj.ErrObjectNotFound.Has(err) {
-			return nil, err
-		}
-	} else {
-		_, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
-			ObjectLocation: metabase.ObjectLocation{
+	if !endpoint.config.MultipleVersions {
+		if canDelete {
+			_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-			},
-			Version: metabase.DefaultVersion,
-		})
-		if err == nil {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+			})
+			if err != nil && !storj.ErrObjectNotFound.Has(err) {
+				return nil, err
+			}
+		} else {
+			_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  keyInfo.ProjectID,
+					BucketName: string(req.Bucket),
+					ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				},
+			})
+			if err == nil {
+				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+			}
 		}
 	}
 
@@ -122,7 +123,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this will work only with newest uplink
-	// figue out what to do with this
+	// figure out what to do with this
 	encryptionParameters := storj.EncryptionParameters{
 		CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
@@ -140,32 +141,51 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
-	object, err := endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-		ObjectStream: metabase.ObjectStream{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-			StreamID:   streamID,
-			Version:    metabase.DefaultVersion,
-		},
-		ExpiresAt:  expiresAt,
-		Encryption: encryptionParameters,
+	var object metabase.Object
+	if endpoint.config.MultipleVersions {
+		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				StreamID:   streamID,
+				Version:    metabase.NextVersion,
+			},
+			ExpiresAt:  expiresAt,
+			Encryption: encryptionParameters,
 
-		EncryptedMetadata:             req.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-		EncryptedMetadataNonce:        nonce,
-	})
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonce,
+		})
+	} else {
+		object, err = endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			ObjectStream: metabase.ObjectStream{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				StreamID:   streamID,
+				Version:    metabase.DefaultVersion,
+			},
+			ExpiresAt:  expiresAt,
+			Encryption: encryptionParameters,
+
+			EncryptedMetadata:             req.EncryptedMetadata,
+			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+			EncryptedMetadataNonce:        nonce,
+		})
+	}
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:               req.Bucket,
-		EncryptedObjectKey:   req.EncryptedPath,
+		Bucket:               []byte(object.BucketName),
+		EncryptedObjectKey:   []byte(object.ObjectKey),
 		Version:              int64(object.Version),
 		CreationDate:         object.CreatedAt,
-		ExpirationDate:       req.ExpiresAt,
-		StreamId:             streamID[:],
+		ExpirationDate:       req.ExpiresAt, // TODO make ExpirationDate nullable
+		StreamId:             object.StreamID[:],
 		MultipartObject:      object.FixedSegmentSize <= 0,
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(placement),
@@ -198,12 +218,28 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionWrite,
-		Bucket:        streamID.Bucket,
-		EncryptedPath: streamID.EncryptedObjectKey,
-		Time:          time.Now(),
-	})
+	now := time.Now()
+	var allowDelete bool
+	keyInfo, err := endpoint.validateAuthN(ctx, req.Header,
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionWrite,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		verifyPermission{
+			action: macaroon.Action{
+				Op:            macaroon.ActionDelete,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+			actionPermitted: &allowDelete,
+			optional:        true,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +265,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 			BucketName: string(streamID.Bucket),
 			ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
 			StreamID:   id,
-			Version:    metabase.DefaultVersion,
+			Version:    metabase.Version(streamID.Version),
 		},
 		Encryption: encryption,
+
+		DisallowDelete: !allowDelete,
 	}
 	// uplink can send empty metadata with not empty key/nonce
 	// we need to fix it on uplink side but that part will be
@@ -284,13 +322,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	mbObject, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	mbObject, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -381,21 +418,18 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	// get the object information
-
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
 	// get the range segments
-
 	streamRange, err := calculateStreamRange(object, req.Range)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -754,38 +788,67 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	resp = &pb.ObjectListResponse{}
-	// TODO: Replace with IterateObjectsLatestVersion when ready
-	err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
-		metabase.IterateObjectsWithStatus{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(req.Bucket),
-			Prefix:     prefix,
-			Cursor: metabase.IterateCursor{
-				Key:     metabase.ObjectKey(cursor),
-				Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
-			},
-			Recursive:             req.Recursive,
-			BatchSize:             limit + 1,
-			Status:                status,
-			IncludeCustomMetadata: includeCustomMetadata,
-			IncludeSystemMetadata: includeSystemMetadata,
-		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-			entry := metabase.ObjectEntry{}
-			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
-				if err != nil {
-					return err
-				}
-				resp.Items = append(resp.Items, item)
-			}
-			resp.More = it.Next(ctx, &entry)
-			return nil
-		},
-	)
-	if err != nil {
-		return nil, endpoint.convertMetabaseErr(err)
-	}
+	if endpoint.config.TestListingQuery {
+		result, err := endpoint.metabase.ListObjects(ctx,
+			metabase.ListObjects{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.ListObjectsCursor{
+					Key:     metabase.ObjectKey(cursor),
+					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
+				},
+				Recursive:             req.Recursive,
+				Limit:                 limit,
+				Status:                status,
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			})
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
 
+		for _, entry := range result.Objects {
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+			if err != nil {
+				return nil, endpoint.convertMetabaseErr(err)
+			}
+			resp.Items = append(resp.Items, item)
+		}
+		resp.More = result.More
+	} else {
+		// TODO: Replace with IterateObjectsLatestVersion when ready
+		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
+			metabase.IterateObjectsWithStatus{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				Prefix:     prefix,
+				Cursor: metabase.IterateCursor{
+					Key:     metabase.ObjectKey(cursor),
+					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
+				},
+				Recursive:             req.Recursive,
+				BatchSize:             limit + 1,
+				Status:                status,
+				IncludeCustomMetadata: includeCustomMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
+			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+				entry := metabase.ObjectEntry{}
+				for len(resp.Items) < limit && it.Next(ctx, &entry) {
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+					if err != nil {
+						return err
+					}
+					resp.Items = append(resp.Items, item)
+				}
+				resp.More = it.Next(ctx, &entry)
+				return nil
+			},
+		)
+		if err != nil {
+			return nil, endpoint.convertMetabaseErr(err)
+		}
+	}
 	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
 	mon.Meter("req_list_object").Mark(1)
 
@@ -940,9 +1003,9 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 				deletedObjects, err = endpoint.DeletePendingObject(ctx,
 					metabase.ObjectStream{
 						ProjectID:  keyInfo.ProjectID,
-						BucketName: string(req.Bucket),
-						ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
-						Version:    metabase.Version(req.GetVersion()),
+						BucketName: string(pbStreamID.Bucket),
+						ObjectKey:  metabase.ObjectKey(pbStreamID.EncryptedObjectKey),
+						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
 					})
 			}
@@ -1005,13 +1068,12 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	}
 
 	// TODO we may need custom metabase request to avoid two DB calls
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
-		Version: metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -1306,9 +1368,8 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 
 	var result metabase.DeleteObjectResult
 	if endpoint.config.ServerSideCopy {
-		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
+		result, err = endpoint.metabase.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
 			ObjectLocation: req,
-			Version:        metabase.DefaultVersion,
 		})
 	} else {
 		result, err = endpoint.metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
@@ -1533,7 +1594,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int64(metabase.DefaultVersion),
+		Version:            int64(result.Version),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -1767,7 +1828,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
-		Version:            int64(metabase.DefaultVersion),
+		Version:            int64(result.Version),
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
@@ -1787,57 +1848,16 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 }
 
 func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.ObjectBeginCopyResponse, error) {
-	keys := make([]*pb.EncryptedKeyAndNonce, len(result.EncryptedKeysNonces))
-	for i, key := range result.EncryptedKeysNonces {
-		var nonce storj.Nonce
-		var err error
-		if len(key.EncryptedKeyNonce) != 0 {
-			nonce, err = storj.NonceFromBytes(key.EncryptedKeyNonce)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		keys[i] = &pb.EncryptedKeyAndNonce{
-			Position: &pb.SegmentPosition{
-				PartNumber: int32(key.Position.Part),
-				Index:      int32(key.Position.Index),
-			},
-			EncryptedKey:      key.EncryptedKey,
-			EncryptedKeyNonce: nonce,
-		}
-	}
-
-	// TODO we need this because of an uplink issue with how we are storing key and nonce
-	if result.EncryptedMetadataKey == nil {
-		streamMeta := &pb.StreamMeta{}
-		err := pb.Unmarshal(result.EncryptedMetadata, streamMeta)
-		if err != nil {
-			return nil, err
-		}
-		if streamMeta.LastSegmentMeta != nil {
-			result.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
-			result.EncryptedMetadataKeyNonce = streamMeta.LastSegmentMeta.KeyNonce
-		}
-	}
-
-	var metadataNonce storj.Nonce
-	var err error
-	if len(result.EncryptedMetadataKeyNonce) != 0 {
-		metadataNonce, err = storj.NonceFromBytes(result.EncryptedMetadataKeyNonce)
-		if err != nil {
-			return nil, err
-		}
+	beginMoveObjectResult, err := convertBeginMoveObjectResults(metabase.BeginMoveObjectResult(result))
+	if err != nil {
+		return nil, err
 	}
 
 	return &pb.ObjectBeginCopyResponse{
-		EncryptedMetadataKey:      result.EncryptedMetadataKey,
-		EncryptedMetadataKeyNonce: metadataNonce,
-		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
-			BlockSize:   int64(result.EncryptionParameters.BlockSize),
-		},
-		SegmentKeys: keys,
+		EncryptedMetadataKeyNonce: beginMoveObjectResult.EncryptedMetadataKeyNonce,
+		EncryptedMetadataKey:      beginMoveObjectResult.EncryptedMetadataKey,
+		SegmentKeys:               beginMoveObjectResult.SegmentKeys,
+		EncryptionParameters:      beginMoveObjectResult.EncryptionParameters,
 	}, nil
 }
 

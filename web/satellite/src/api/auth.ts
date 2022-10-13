@@ -105,11 +105,16 @@ export class AuthHttpApi implements UsersApi {
      * Used to restore password.
      *
      * @param email - email of the user
+     * @param captchaResponse - captcha response token
      * @throws Error
      */
-    public async forgotPassword(email: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.post(path, email);
+    public async forgotPassword(email: string, captchaResponse: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/forgot-password`;
+        const body = {
+            email,
+            captchaResponse,
+        };
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -400,7 +405,7 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == "mfa_required") {
+            if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
             if (result.error) {
@@ -440,6 +445,6 @@ export class AuthHttpApi implements UsersApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error("Unable to refresh session.")
+        throw new Error('Unable to refresh session.');
     }
 }

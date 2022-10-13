@@ -50,16 +50,20 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { User } from "@/types/users";
-import { RouteConfig } from "@/router";
-import { LocalData } from "@/utils/localData";
-import { AuthHttpApi } from "@/api/auth";
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from "@/utils/constants/actionNames";
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { USER_ACTIONS } from "@/store/modules/users";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
+import { User } from '@/types/users';
+import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
+import { AuthHttpApi } from '@/api/auth';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -70,11 +74,6 @@ import SettingsIcon from '@/../static/images/navigation/settings.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { MetaUtils } from '@/utils/meta';
 
 // @vue/component
 @Component({
@@ -88,7 +87,7 @@ import { MetaUtils } from '@/utils/meta';
         LogoutIcon,
         TierBadgeFree,
         TierBadgePro,
-    }
+    },
 })
 export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
@@ -99,7 +98,7 @@ export default class AccountArea extends Vue {
 
     public $refs!: {
         accountArea: HTMLDivElement,
-    }
+    };
 
     /**
      * Navigates user to billing page.
@@ -111,6 +110,10 @@ export default class AccountArea extends Vue {
         this.isNewBillingScreen ?
             this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path) :
             this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+
     }
 
     /**
@@ -179,7 +182,7 @@ export default class AccountArea extends Vue {
      */
     public get isNewBillingScreen(): boolean {
         const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === "true";
+        return isNewBillingScreen === 'true';
     }
 
     /**
@@ -255,8 +258,8 @@ export default class AccountArea extends Vue {
                     color: #0149ff;
                 }
 
-                .account-area__wrap__arrow ::v-deep path,
-                .account-area__wrap__left__icon ::v-deep path {
+                .account-area__wrap__arrow :deep(path),
+                .account-area__wrap__left__icon :deep(path) {
                     fill: #0149ff;
                 }
             }
@@ -335,7 +338,7 @@ export default class AccountArea extends Vue {
                         color: #0149ff;
                     }
 
-                    ::v-deep path {
+                    :deep(path) {
                         fill: #0149ff;
                     }
                 }
@@ -351,8 +354,8 @@ export default class AccountArea extends Vue {
             font-family: 'font_bold', sans-serif;
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
             fill: #000;
         }
     }
@@ -365,8 +368,8 @@ export default class AccountArea extends Vue {
             color: #0149ff;
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
             fill: #0149ff;
         }
     }

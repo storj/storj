@@ -2,16 +2,16 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, mount } from '@vue/test-utils';
 
-import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project, ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 
-import { ProjectsApiMock } from '../mock/api/projects';
-import {makeNotificationsModule} from "@/store/modules/notifications";
+import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -29,9 +29,9 @@ const store = new Vuex.Store({
         usersModule: {
             state: {
                 user: { paidTier: false },
-            }
-        }
-    }});
+            },
+        },
+    } });
 
 localVue.use(new NotificatorPlugin(store));
 

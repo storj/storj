@@ -20,9 +20,9 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class VTableCheckbox extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly value: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly disabled: boolean;
 
     /**

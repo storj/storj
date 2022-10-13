@@ -18,6 +18,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/repair/checker"
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
@@ -389,4 +391,36 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	require.NoError(t, err)
 
 	return obj.StreamID
+}
+
+func BenchmarkRemoteSegment(b *testing.B) {
+	testplanet.Bench(b, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(10*memory.KiB))
+		require.NoError(b, err)
+
+		observer := checker.NewCheckerObserver(planet.Satellites[0].Repair.Checker)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(b, err)
+
+		loopSegment := &segmentloop.Segment{
+			StreamID:   segments[0].StreamID,
+			Position:   segments[0].Position,
+			CreatedAt:  segments[0].CreatedAt,
+			ExpiresAt:  segments[0].ExpiresAt,
+			Redundancy: segments[0].Redundancy,
+			Pieces:     segments[0].Pieces,
+		}
+
+		b.Run("healthy segment", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := observer.RemoteSegment(ctx, loopSegment)
+				if err != nil {
+					b.FailNow()
+				}
+			}
+		})
+	})
+
 }

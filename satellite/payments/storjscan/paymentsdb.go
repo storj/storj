@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 // ErrNoPayments represents err when there is no payments in the DB.
@@ -39,8 +39,8 @@ type PaymentsDB interface {
 type CachedPayment struct {
 	From        blockchain.Address     `json:"from"`
 	To          blockchain.Address     `json:"to"`
-	TokenValue  monetary.Amount        `json:"tokenValue"`
-	USDValue    monetary.Amount        `json:"usdValue"`
+	TokenValue  currency.Amount        `json:"tokenValue"`
+	USDValue    currency.Amount        `json:"usdValue"`
 	Status      payments.PaymentStatus `json:"status"`
 	BlockHash   blockchain.Hash        `json:"blockHash"`
 	BlockNumber int64                  `json:"blockNumber"`

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,7 +36,7 @@ func main() {
 		panic("invalid version " + lastScriptFile)
 	}
 
-	scriptData, err := ioutil.ReadFile(lastScriptFile)
+	scriptData, err := os.ReadFile(lastScriptFile)
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +53,7 @@ func main() {
 		panic(err)
 	}
 
-	err = ioutil.WriteFile("migratez.go", formatted, 0755)
+	err = os.WriteFile("migratez.go", formatted, 0755)
 	if err != nil {
 		panic(err)
 	}

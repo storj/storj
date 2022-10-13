@@ -37,8 +37,9 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { OnboardingOS } from "@/types/common";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+
+import { OnboardingOS } from '@/types/common';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 // @vue/component
 @Component
@@ -56,20 +57,20 @@ export default class OSContainer extends Vue {
      */
     public mounted(): void {
         if (this.storedOsSelected) {
-            this.setTab(this.storedOsSelected)
+            this.setTab(this.storedOsSelected);
 
             return;
         }
 
         switch (true) {
-        case navigator.appVersion.indexOf("Mac") !== -1:
-            this.setTab(OnboardingOS.MAC)
+        case navigator.appVersion.indexOf('Mac') !== -1:
+            this.setTab(OnboardingOS.MAC);
             return;
-        case navigator.appVersion.indexOf("Linux") !== -1:
-            this.setTab(OnboardingOS.LINUX)
+        case navigator.appVersion.indexOf('Linux') !== -1:
+            this.setTab(OnboardingOS.LINUX);
             return;
         default:
-            this.setTab(OnboardingOS.WINDOWS)
+            this.setTab(OnboardingOS.WINDOWS);
         }
     }
 
@@ -78,7 +79,7 @@ export default class OSContainer extends Vue {
      */
     public setTab(os: OnboardingOS): void {
         this.osSelected = os;
-        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_OS, os)
+        this.$store.commit(APP_STATE_MUTATIONS.SET_ONB_OS, os);
     }
 
     /**

@@ -5,9 +5,12 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -35,6 +38,9 @@ func (walletsDB storjscanWalletsDB) GetWallet(ctx context.Context, userID uuid.U
 	defer mon.Task()(&ctx)(&err)
 	wallet, err := walletsDB.db.Get_StorjscanWallet_WalletAddress_By_UserId(ctx, dbx.StorjscanWallet_UserId(userID[:]))
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return blockchain.Address{}, billing.ErrNoWallet
+		}
 		return blockchain.Address{}, Error.Wrap(err)
 	}
 	address, err := blockchain.BytesToAddress(wallet.WalletAddress)

@@ -11,9 +11,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
-
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+
+import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 // @vue/component
 @Component({
@@ -22,7 +22,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class BucketNameBullet extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly name: string;
 
     /**

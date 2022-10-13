@@ -298,8 +298,6 @@ func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocat
 
 // Object is called for each object once.
 func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	if object.Expired(observer.Now) {
 		return nil
 	}

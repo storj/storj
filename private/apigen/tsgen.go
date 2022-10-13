@@ -105,7 +105,8 @@ func (f *tsGenFile) pf(format string, a ...interface{}) {
 }
 
 func (f *tsGenFile) write() error {
-	return os.WriteFile(f.path, []byte(f.result), 0644)
+	content := strings.ReplaceAll(f.result, "\t", "    ")
+	return os.WriteFile(f.path, []byte(content), 0644)
 }
 
 func (f *tsGenFile) getStructsFromType(t reflect.Type) {

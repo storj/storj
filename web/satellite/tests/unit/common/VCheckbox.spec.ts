@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Checkbox from '@/components/common/VCheckbox.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import Checkbox from '@/components/common/VCheckbox.vue';
 
 describe('Checkbox.vue', () => {
     it('renders correctly', () => {
@@ -33,7 +33,7 @@ describe('Checkbox.vue', () => {
 
     it('renders correctly with error', () => {
         const wrapper = shallowMount(Checkbox, {
-            propsData: {isCheckboxError: true},
+            propsData: { isCheckboxError: true },
         });
 
         expect(wrapper).toMatchSnapshot();

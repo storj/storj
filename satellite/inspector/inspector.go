@@ -72,10 +72,9 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *internalpb.Objec
 		BucketName: string(in.GetBucket()),
 		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
 	}
-	// TODO add version field to ObjectHealthRequest?
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: objectLocation,
-		Version:        metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -122,9 +121,8 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
 	}
 
-	object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 		ObjectLocation: objectLocation,
-		Version:        metabase.DefaultVersion,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)

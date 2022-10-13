@@ -58,13 +58,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VInput from '@/components/common/VInput.vue'
-
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 // @vue/component
 @Component({

@@ -244,6 +244,8 @@ CREATE TABLE projects (
 	description text NOT NULL,
 	usage_limit bigint,
 	bandwidth_limit bigint,
+	user_specified_usage_limit bigint,
+	user_specified_bandwidth_limit bigint,
 	segment_limit bigint DEFAULT 1000000,
 	rate_limit integer,
 	burst_limit integer,

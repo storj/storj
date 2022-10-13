@@ -513,15 +513,34 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
-		err = errs.New("email expected")
+	var forgotPassword struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&forgotPassword)
+	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	valid, err := a.service.VerifyForgotPasswordCaptcha(ctx, forgotPassword.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
 		satelliteAddress := a.ExternalAddress
 
@@ -534,10 +553,10 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 		a.mailService.SendRenderedAsync(
 			ctx,
-			[]post.Address{{Address: email, Name: ""}},
+			[]post.Address{{Address: forgotPassword.Email, Name: ""}},
 			&console.UnknownResetPasswordEmail{
 				Satellite:           a.SatelliteName,
-				Email:               email,
+				Email:               forgotPassword.Email,
 				DoubleCheckLink:     doubleCheckLink,
 				ResetPasswordLink:   resetPasswordLink,
 				CreateAnAccountLink: createAccountLink,

@@ -10,7 +10,7 @@ type Action<Context> =
 type Getter<State, Context> =
     Context extends {rootGetters: any} ? ( // eslint-disable-line @typescript-eslint/no-explicit-any
         ((state: State) => any) | // eslint-disable-line @typescript-eslint/no-explicit-any
-        ((state: State, rootGetters: Context["rootGetters"]) => any) // eslint-disable-line @typescript-eslint/no-explicit-any
+        ((state: State, rootGetters: Context['rootGetters']) => any) // eslint-disable-line @typescript-eslint/no-explicit-any
         ) : ((state: State) => any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface StoreModule<State, Context> { // eslint-disable-line @typescript-eslint/no-unused-vars

@@ -66,7 +66,7 @@ export default class BreadCrumbs extends Vue {
      * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
      */
     public get crumbs(): string[] {
-        let path: string[] = this.$store.state.files.path.split("/");
+        let path: string[] = this.$store.state.files.path.split('/');
         path =
             path.length > 1
                 ? [this.bucketName, ...path.slice(0, path.length - 1)]
@@ -79,8 +79,8 @@ export default class BreadCrumbs extends Vue {
      */
     public link(idx: number): string {
         const crumbs = this.crumbs;
-        let path = "";
-        if (idx > 0) path = crumbs.slice(1, idx + 1).join("/") + "/";
+        let path = '';
+        if (idx > 0) path = crumbs.slice(1, idx + 1).join('/') + '/';
         return this.$store.state.files.browserRoot + path;
     }
 

@@ -31,16 +31,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import SelectedIcon from '@/../static/images/account/billing/selected.svg';
 import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({

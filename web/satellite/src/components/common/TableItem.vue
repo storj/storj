@@ -21,11 +21,12 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import VTableCheckbox from "@/components/common/VTableCheckbox.vue";
+
+import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 
 // @vue/component
 @Component({
-    components: { VTableCheckbox }
+    components: { VTableCheckbox },
 })
 export default class TableItem extends Vue {
     @Prop({ default: false })

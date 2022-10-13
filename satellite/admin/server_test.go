@@ -4,7 +4,7 @@
 package admin_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -41,7 +41,7 @@ func TestBasic(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, response.StatusCode)
 
-			content, err := ioutil.ReadAll(response.Body)
+			content, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.Empty(t, content)
 			require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestBasic(t *testing.T) {
 			require.Equal(t, http.StatusForbidden, response.StatusCode)
 			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
-			body, err := ioutil.ReadAll(response.Body)
+			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
 			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
@@ -74,7 +74,7 @@ func TestBasic(t *testing.T) {
 			require.Equal(t, http.StatusForbidden, response.StatusCode)
 			require.Equal(t, "application/json", response.Header.Get("Content-Type"))
 
-			body, err := ioutil.ReadAll(response.Body)
+			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
 			require.Equal(t, `{"error":"Forbidden","detail":""}`, string(body))
@@ -92,7 +92,7 @@ func TestBasic(t *testing.T) {
 			require.Equal(t, http.StatusNotFound, response.StatusCode)
 			require.Equal(t, "text/plain; charset=utf-8", response.Header.Get("Content-Type"))
 
-			body, err := ioutil.ReadAll(response.Body)
+			body, err := io.ReadAll(response.Body)
 			require.NoError(t, response.Body.Close())
 			require.NoError(t, err)
 			require.Contains(t, string(body), "not found")

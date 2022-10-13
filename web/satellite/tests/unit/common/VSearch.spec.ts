@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import SearchComponent from '@/components/common/VSearch.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import SearchComponent from '@/components/common/VSearch.vue';
 
 describe('SearchComponent.vue', () => {
     it('renders correctly', () => {

@@ -6,7 +6,8 @@ package main
 //go:generate go run ./
 
 import (
-	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"storj.io/common/uuid"
@@ -91,6 +92,24 @@ func main() {
 				apigen.NewParam("before", time.Time{}),
 			},
 		})
+
+		g.Get("/apikeys/{projectID}", &apigen.Endpoint{
+			Name:        "Get Project's API Keys",
+			Description: "Gets API keys by project ID",
+			MethodName:  "GenGetAPIKeys",
+			RequestName: "getAPIKeys",
+			Response:    console.APIKeyPage{},
+			PathParams: []apigen.Param{
+				apigen.NewParam("projectID", uuid.UUID{}),
+			},
+			QueryParams: []apigen.Param{
+				apigen.NewParam("search", ""),
+				apigen.NewParam("limit", uint(0)),
+				apigen.NewParam("page", uint(0)),
+				apigen.NewParam("order", console.APIKeyOrder(0)),
+				apigen.NewParam("orderDirection", console.OrderDirection(0)),
+			},
+		})
 	}
 
 	{
@@ -103,6 +122,16 @@ func main() {
 			RequestName: "createAPIKey",
 			Response:    console.CreateAPIKeyResponse{},
 			Request:     console.CreateAPIKeyRequest{},
+		})
+
+		g.Delete("/delete/{id}", &apigen.Endpoint{
+			Name:        "Delete API Key",
+			Description: "Deletes macaroon API key by id",
+			MethodName:  "GenDeleteAPIKey",
+			RequestName: "deleteAPIKey",
+			PathParams: []apigen.Param{
+				apigen.NewParam("id", uuid.UUID{}),
+			},
 		})
 	}
 
@@ -118,6 +147,33 @@ func main() {
 		})
 	}
 
-	a.MustWriteGo("satellite/console/consoleweb/consoleapi/api.gen.go")
-	a.MustWriteTS(fmt.Sprintf("web/satellite/src/api/%s.gen.ts", a.Version))
+	modroot := findModuleRootDir()
+	a.MustWriteGo(filepath.Join(modroot, "satellite", "console", "consoleweb", "consoleapi", "api.gen.go"))
+	a.MustWriteTS(filepath.Join(modroot, "web", "satellite", "src", "api", a.Version+".gen.ts"))
+}
+
+func findModuleRootDir() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		panic("unable to find current working directory")
+	}
+	start := dir
+
+	for i := 0; i < 100; i++ {
+		if fileExists(filepath.Join(dir, "go.mod")) {
+			return dir
+		}
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+
+	panic("unable to find go.mod starting from " + start)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

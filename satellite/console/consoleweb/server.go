@@ -248,6 +248,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
+	projectsController := consoleapi.NewProjects(logger, service)
+	router.Handle(
+		"/api/v0/projects/{id}/salt",
+		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
+	).Methods(http.MethodGet)
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
@@ -281,7 +287,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/forgot-password/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost)
@@ -321,8 +327,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
-		oidc := oidc.NewEndpoint(server.config.ExternalAddress, logger, oidcService, service,
-			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry)
+		oidc := oidc.NewEndpoint(
+			server.nodeURL, server.config.ExternalAddress,
+			logger, oidcService, service,
+			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
+		)
 
 		router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
 		router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
@@ -455,6 +464,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		OptionalSignupSuccessURL        string
 		HomepageURL                     string
 		NativeTokenPaymentsEnabled      bool
+		PasswordMinimumLength           int
+		PasswordMaximumLength           int
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -498,6 +509,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
 	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
+	data.PasswordMinimumLength = console.PasswordMinimumLength
+	data.PasswordMaximumLength = console.PasswordMaximumLength
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

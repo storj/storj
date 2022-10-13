@@ -9,12 +9,12 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f
-	storj.io/common v0.0.0-20220822090045-1b57fc2bbda1
-	storj.io/private v0.0.0-20220818074142-c354e3e64dd3
-	storj.io/storj v1.59.1
-	storj.io/storjscan v0.0.0-20220722004446-7e3c50357dc2
-	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
+	storj.io/common v0.0.0-20220923163402-3816c1e17d27
+	storj.io/private v0.0.0-20220915132359-957cab776577
+	storj.io/storj v1.63.1
+	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
+	storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d
 )
 
 require (
@@ -78,8 +78,10 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/lucas-clemente/quic-go v0.28.1 // indirect
+	github.com/magefile/mage v1.13.0 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect

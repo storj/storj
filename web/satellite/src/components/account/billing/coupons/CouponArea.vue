@@ -53,17 +53,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { Coupon, CouponDuration } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import CouponAddIcon from '@/../static/images/account/billing/couponAdd.svg';
 import CouponIcon from '@/../static/images/account/billing/couponLarge.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { Coupon, CouponDuration } from '@/types/payments';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -96,7 +95,7 @@ export default class CouponArea extends Vue {
      */
     public onCreateClick(): void {
         this.analytics.pageVisit(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-        this.$router.push({ name: RouteConfig.AddCouponCode.name })
+        this.$router.push({ name: RouteConfig.AddCouponCode.name });
     }
 
     /**

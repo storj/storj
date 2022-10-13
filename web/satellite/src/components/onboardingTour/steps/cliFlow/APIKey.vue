@@ -23,15 +23,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { MetaUtils } from "@/utils/meta";
+import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import ValueWithCopy from "@/components/onboardingTour/steps/common/ValueWithCopy.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import ValueWithCopy from '@/components/onboardingTour/steps/common/ValueWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
-
-import { AnalyticsHttpApi } from "@/api/analytics";
 
 // @vue/component
 @Component({
@@ -39,7 +38,7 @@ import { AnalyticsHttpApi } from "@/api/analytics";
         Icon,
         CLIFlowContainer,
         ValueWithCopy,
-    }
+    },
 })
 export default class APIKey extends Vue {
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
@@ -53,7 +52,7 @@ export default class APIKey extends Vue {
     public mounted(): void {
         if (!this.storedAPIKey) {
             this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
-            this.$router.push({name: RouteConfig.AGName.name});
+            this.$router.push({ name: RouteConfig.AGName.name });
         }
     }
 
@@ -70,7 +69,7 @@ export default class APIKey extends Vue {
         }
 
         this.analytics.pageVisit(RouteConfig.OnboardingTour.path);
-        await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; })
+        await this.$router.push(RouteConfig.OnboardingTour.path).catch(() => {return; });
     }
 
     /**

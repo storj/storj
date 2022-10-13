@@ -75,9 +75,9 @@ type DB interface {
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
-	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
-	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
@@ -674,6 +674,12 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+}
+
+// SelectAllStorageNodesDownload returns a nodes that are ready for downloading.
+func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.

@@ -44,6 +44,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
+
 import WebIcon from '@/../static/images/onboardingTour/web.svg';
 import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
 
@@ -52,21 +53,21 @@ import CLIIcon from '@/../static/images/onboardingTour/cli.svg';
     components: {
         VButton,
         WebIcon,
-        CLIIcon
+        CLIIcon,
     },
 })
 export default class OverviewContainer extends Vue {
-    @Prop({ default: false})
+    @Prop({ default: false })
     public readonly isWeb: boolean;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly title: string;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly info: string;
-    @Prop({ default: false})
+    @Prop({ default: false })
     public readonly isDisabled: boolean;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly buttonLabel: string;
-    @Prop({ default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly onClick: () => void;
 }
 </script>

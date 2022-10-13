@@ -92,6 +92,7 @@ func TestGraphqlQuery(t *testing.T) {
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,
+			db.Billing(),
 			analyticsService,
 			consoleauth.NewService(consoleauth.Config{
 				TokenExpirationTime: 24 * time.Hour,

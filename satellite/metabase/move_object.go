@@ -18,17 +18,8 @@ import (
 	"storj.io/private/tagsql"
 )
 
-// BeginMoveObjectResult holds data needed to finish move object.
-type BeginMoveObjectResult struct {
-	StreamID uuid.UUID
-	Version  Version
-	// TODO we need metadata because of an uplink issue with how we are storing key and nonce
-	EncryptedMetadata         []byte
-	EncryptedMetadataKeyNonce []byte
-	EncryptedMetadataKey      []byte
-	EncryptedKeysNonces       []EncryptedKeyAndNonce
-	EncryptionParameters      storj.EncryptionParameters
-}
+// BeginMoveObjectResult holds data needed to begin move object.
+type BeginMoveObjectResult BeginMoveCopyResults
 
 // EncryptedKeyAndNonce holds single segment position, encrypted key and nonce.
 type EncryptedKeyAndNonce struct {
@@ -42,27 +33,55 @@ type BeginMoveObject struct {
 	ObjectLocation
 }
 
+// BeginMoveCopyResults holds all data needed to begin move and copy object methods.
+type BeginMoveCopyResults struct {
+	StreamID                  uuid.UUID
+	Version                   Version
+	EncryptedMetadata         []byte
+	EncryptedMetadataKeyNonce []byte
+	EncryptedMetadataKey      []byte
+	EncryptedKeysNonces       []EncryptedKeyAndNonce
+	EncryptionParameters      storj.EncryptionParameters
+}
+
 // BeginMoveObject collects all data needed to begin object move procedure.
-func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result BeginMoveObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.ObjectLocation.Verify(); err != nil {
-		return BeginMoveObjectResult{}, err
-	}
-
-	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
-		ObjectLocation: ObjectLocation{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			ObjectKey:  opts.ObjectKey,
-		},
-	})
+func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (_ BeginMoveObjectResult, err error) {
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, MoveSegmentLimit, nil)
 	if err != nil {
 		return BeginMoveObjectResult{}, err
 	}
 
-	if int64(object.SegmentCount) > MoveSegmentLimit {
-		return BeginMoveObjectResult{}, ErrInvalidRequest.New("object to move has too many segments (%d). Limit is %d.", object.SegmentCount, MoveSegmentLimit)
+	return BeginMoveObjectResult(result), nil
+}
+
+// beginMoveCopyObject collects all data needed to begin object move/copy procedure.
+func (db *DB) beginMoveCopyObject(ctx context.Context, location ObjectLocation, segmentLimit int64, verifyLimits func(encryptedObjectSize int64, nSegments int64) error) (result BeginMoveCopyResults, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := location.Verify(); err != nil {
+		return BeginMoveCopyResults{}, err
+	}
+
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
+		ObjectLocation: ObjectLocation{
+			ProjectID:  location.ProjectID,
+			BucketName: location.BucketName,
+			ObjectKey:  location.ObjectKey,
+		},
+	})
+	if err != nil {
+		return BeginMoveCopyResults{}, err
+	}
+
+	if int64(object.SegmentCount) > segmentLimit {
+		return BeginMoveCopyResults{}, ErrInvalidRequest.New("object has too many segments (%d). Limit is %d.", object.SegmentCount, CopySegmentLimit)
+	}
+
+	if verifyLimits != nil {
+		err = verifyLimits(object.TotalEncryptedSize, int64(object.SegmentCount))
+		if err != nil {
+			return BeginMoveCopyResults{}, err
+		}
 	}
 
 	err = withRows(db.db.QueryContext(ctx, `
@@ -86,7 +105,7 @@ func (db *DB) BeginMoveObject(ctx context.Context, opts BeginMoveObject) (result
 		return nil
 	})
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return BeginMoveObjectResult{}, Error.New("unable to fetch object segments: %w", err)
+		return BeginMoveCopyResults{}, Error.New("unable to fetch object segments: %w", err)
 	}
 
 	result.StreamID = object.StreamID

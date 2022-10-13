@@ -119,11 +119,11 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
-		if dbVersion > -1 {
-			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
-		}
 
 		testMigration := db.TestPostgresMigration()
+		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
+			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
+		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
@@ -2086,6 +2086,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE coinpayments_transactions DROP COLUMN amount_gob, DROP COLUMN received_gob;`,
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add user_specified_usage_limit and user_specified_bandwidth_limit columns",
+				Version:     212,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN user_specified_usage_limit bigint;`,
+					`ALTER TABLE projects ADD COLUMN user_specified_bandwidth_limit bigint;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -18,12 +18,11 @@
                     <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
                 </div>
             </div>
-            <div v-if="shouldShowGuide" class="bucket-item__functional__message">
+            <div v-if="shouldShowGuide" class="bucket-item__functional__message" @click.stop>
                 <p class="bucket-item__functional__message__title">Upload</p>
                 <p class="bucket-item__functional__message__content">To upload files, open an existing bucket or create a new one.</p>
                 <div class="bucket-item__functional__message__actions">
-                    <a class="bucket-item__functional__message__actions__secondary" @click.stop="hideGuidePermanently">I understand, don’t show this again.</a>
-                    <div class="bucket-item__functional__message__actions__primary" @click.stop="hideGuide">
+                    <div class="bucket-item__functional__message__actions__primary" @click.stop="hideGuidePermanently">
                         <p class="bucket-item__functional__message__actions__primary__label">OK</p>
                     </div>
                 </div>
@@ -35,15 +34,16 @@
 <script lang="ts">
 import { Component, Prop } from 'vue-property-decorator';
 
-import TableItem from "@/components/common/TableItem.vue";
-import Resizable from "@/components/common/Resizable.vue";
+import { RouteConfig } from '@/router';
+import { Bucket } from '@/types/buckets';
+import { LocalData } from '@/utils/localData';
+
+import TableItem from '@/components/common/TableItem.vue';
+import Resizable from '@/components/common/Resizable.vue';
+
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
-
-import { RouteConfig } from "@/router";
-import { Bucket } from "@/types/buckets";
-import { LocalData } from "@/utils/localData";
 
 // @vue/component
 @Component({
@@ -73,7 +73,7 @@ export default class BucketItem extends Resizable {
     public isGuideShown = true;
 
     public mounted(): void {
-        this.isGuideShown = !LocalData.getBucketGuideHidden()
+        this.isGuideShown = !LocalData.getBucketGuideHidden();
     }
 
     public get shouldShowGuide(): boolean {
@@ -91,10 +91,6 @@ export default class BucketItem extends Resizable {
         if (!this.isMobile) return { name: this.itemData.name, date: this.formattedDate };
 
         return { info: [ this.itemData.name, `Created ${this.formattedDate}` ] };
-    }
-
-    public hideGuide(): void {
-        this.isGuideShown = false;
     }
 
     /*
@@ -128,7 +124,7 @@ export default class BucketItem extends Resizable {
             name: RouteConfig.Buckets.with(RouteConfig.BucketsDetails).name,
             params: {
                 bucketName: this.itemData.name,
-                backRoute: this.$route.name || ''
+                backRoute: this.$route.name || '',
             },
         });
 
@@ -170,7 +166,7 @@ export default class BucketItem extends Resizable {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
 
-                        svg ::v-deep path {
+                        svg :deep(path) {
                             fill: #0068dc;
                             stroke: #0068dc;
                         }
@@ -180,10 +176,11 @@ export default class BucketItem extends Resizable {
 
             &__message {
                 position: absolute;
+                top: 80%;
+                width: 25rem;
                 display: flex;
                 flex-direction: column;
                 align-items: start;
-                top: 80%;
                 transform: translateX(-100%);
                 background-color: #0149ff;
                 text-align: center;
@@ -191,6 +188,14 @@ export default class BucketItem extends Resizable {
                 box-sizing: border-box;
                 padding: 20px;
                 z-index: 1001;
+
+                @media screen and (max-width: 320px) {
+                    transform: translateX(-80%);
+                }
+
+                @media screen and (max-width: 375px) and (min-width: 350px) {
+                    transform: translateX(-88%);
+                }
 
                 &:after {
                     content: '';
@@ -201,6 +206,10 @@ export default class BucketItem extends Resizable {
                     border-style: solid;
                     border-color: #0149ff transparent transparent;
                     transform: rotate(180deg);
+
+                    @media screen and (max-width: 550px) {
+                        left: 45%;
+                    }
                 }
 
                 &__title {
@@ -224,7 +233,7 @@ export default class BucketItem extends Resizable {
 
                 &__actions {
                     display: flex;
-                    justify-content: space-between;
+                    justify-content: end;
                     align-items: center;
                     width: 100%;
 
@@ -240,14 +249,6 @@ export default class BucketItem extends Resizable {
                             line-height: 20px;
                             color: #0149ff;
                         }
-                    }
-
-                    &__secondary {
-                        font-weight: 400;
-                        font-size: 12px;
-                        line-height: 18px;
-                        text-decoration: underline !important;
-                        color: white;
                     }
                 }
             }

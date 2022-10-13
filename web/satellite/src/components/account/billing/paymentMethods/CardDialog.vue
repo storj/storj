@@ -22,7 +22,7 @@ const {
 // @vue/component
 @Component
 export default class CardDialog extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly cardId: string;
 
     /**

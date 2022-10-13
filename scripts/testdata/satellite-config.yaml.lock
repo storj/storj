@@ -379,20 +379,47 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
-# the number of nodes to concurrently send garbage collection bloom filters to
-# garbage-collection.concurrent-sends: 1
+# Access Grant which will be used to upload bloom filters to the bucket
+# garbage-collection-bf.access-grant: ""
 
-# set if garbage collection is enabled or not
-# garbage-collection.enabled: true
+# Bucket which will be used to upload bloom filters
+# garbage-collection-bf.bucket: ""
+
+# set if garbage collection bloom filters is enabled or not
+# garbage-collection-bf.enabled: true
+
+# how quickly uploaded bloom filters will be automatically deleted
+# garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
-# garbage-collection.false-positive-rate: 0.1
+# garbage-collection-bf.false-positive-rate: 0.1
 
 # the initial number of pieces expected for a storage node to have, used for creating a filter
-# garbage-collection.initial-pieces: 400000
+# garbage-collection-bf.initial-pieces: 400000
 
-# the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 120h0m0s
+# the time between each garbage collection executions
+# garbage-collection-bf.interval: 120h0m0s
+
+# how many bloom filters will be packed in a single zip
+# garbage-collection-bf.zip-batch-size: 500
+
+# Access to download the bloom filters. Needs read and write permission.
+# garbage-collection.access-grant: ""
+
+# bucket where retain info is stored
+# garbage-collection.bucket: ""
+
+# the number of nodes to concurrently send garbage collection retain filters to
+# garbage-collection.concurrent-sends: 1
+
+# set if loop to send garbage collection retain filters is enabled
+# garbage-collection.enabled: false
+
+# Expiration of newly created objects. These objects store error messages.
+# garbage-collection.expire-in: 336h0m0s
+
+# the time between each attempt to download and send garbage collection retain filters to storage nodes
+# garbage-collection.interval: 48h0m0s
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
@@ -454,7 +481,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
 # log.encoding: ""
 
 # the minimum log level to log
@@ -523,6 +550,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# feature flag to enable using multple objects versions in the system internally
+# metainfo.multiple-versions: false
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -585,6 +615,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
+
+# test the new query for non-recursive listing
+# metainfo.test-listing-query: false
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
@@ -668,7 +701,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.billing-config.disable-loop: true
 
 # billing chore interval to query for new transactions from all payment types
-# payments.billing-config.interval: 1m0s
+# payments.billing-config.interval: 15s
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
@@ -704,7 +737,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.storjscan.auth.secret: ""
 
 # required number of following blocks in the chain to accept payment as confirmed
-# payments.storjscan.confirmations: 12
+# payments.storjscan.confirmations: 15
 
 # flag to disable querying new storjscan payments by storjscan chore
 # payments.storjscan.disable-loop: true

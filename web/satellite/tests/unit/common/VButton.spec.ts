@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Button from '@/components/common/VButton.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import Button from '@/components/common/VButton.vue';
 
 describe('Button.vue', () => {
     it('renders correctly', () => {

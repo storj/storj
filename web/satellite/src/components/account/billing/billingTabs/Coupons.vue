@@ -42,7 +42,7 @@
                     </div>
                 </div>
             </div>
-            <AddCoupon2 
+            <AddCouponCode2
                 v-if="showCreateCode"
                 @toggleMethod="toggleCreateModal"
             />
@@ -53,24 +53,26 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-
-import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue'
-
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import AddCouponCode2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-        AddCoupon2,
+        AddCouponCode2,
     },
 })
 export default class Coupons extends Vue {
     public isCouponFetching = true;
     public showCreateCode = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -89,15 +91,9 @@ export default class Coupons extends Vue {
     /**
      * Opens Add Coupon modal.
      */
-    public onCreateClick(): void {
-        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-    }
-
-    /**
-     * Opens Add Coupon modal.
-     */
     public toggleCreateModal(): void {
-        this.showCreateCode = !this.showCreateCode
+        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+        this.showCreateCode = !this.showCreateCode;
     }
 
     /**
@@ -130,7 +126,7 @@ export default class Coupons extends Vue {
             return '';
         }
 
-        const today = new Date()
+        const today = new Date();
         if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
             return 'active';
         } else {
@@ -147,9 +143,9 @@ export default class Coupons extends Vue {
         }
 
         switch (this.coupon.duration) {
-        case "once":
+        case 'once':
             return 'Expires after first use';
-        case "forever":
+        case 'forever':
             return 'No expiration';
         default:
             return this.expiration;

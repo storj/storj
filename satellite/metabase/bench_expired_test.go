@@ -95,7 +95,7 @@ func (s *expiredScenario) name() string {
 
 // run runs the specified scenario.
 //
-// nolint: scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
+//nolint:scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
 func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 	if s.redundancy.IsZero() {
 		s.redundancy = storj.RedundancyScheme{

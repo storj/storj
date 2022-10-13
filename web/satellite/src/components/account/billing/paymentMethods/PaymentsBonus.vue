@@ -41,7 +41,7 @@ export default class PaymentsBonus extends Vue {
     /**
      * Indicates if any credit card is attached to account.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly anyCreditCards: boolean;
 }
 </script>

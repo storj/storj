@@ -16,7 +16,7 @@
                     <h2 class="add-coupon__body-wrapper__title">Apply Coupon Code</h2>
                     <p class="add-coupon__body-wrapper__text">If you have a coupon active, it will automatically be replaced.</p>
                 </div>
-                <AddCouponCodeInput2 />
+                <AddCouponCodeInput2 @close="onCloseClick" />
             </div>
         </div>
     </div>
@@ -25,11 +25,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 import AddCouponCodeInput2 from '@/components/common/AddCouponCodeInput2.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
-
 
 // @vue/component
 @Component({
@@ -39,20 +41,22 @@ import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
         CouponIcon,
     },
 })
-export default class AddCouponCode extends Vue {
+export default class AddCouponCode2 extends Vue {
 
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly success: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly error: boolean;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
     * Closes add coupon modal.
     */
     public onCloseClick(): void {
-        this.$emit("toggleMethod")
+        this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
+        this.$emit('toggleMethod');
     }
-
 
 }
 </script>

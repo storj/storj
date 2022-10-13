@@ -1,10 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import gql from 'graphql-tag';
+import { gql } from 'graphql-tag';
+import { GraphQLError } from 'graphql';
 
 import { apollo } from '@/utils/apollo';
-import { GraphQLError } from "graphql";
 
 /**
  * BaseGql is a graphql utility which allows to perform queries and mutations.

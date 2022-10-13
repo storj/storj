@@ -438,10 +438,6 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 
 	rateLimiter := rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1)
 
-	if loop.config.RateLimit == 0 {
-		rateLimiter = rate.NewLimiter(rate.Inf, 1)
-	}
-
 	limit := loop.config.ListLimit
 	if limit <= 0 || limit > batchsizeLimit {
 		limit = batchsizeLimit
@@ -474,15 +470,17 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 				return err
 			}
 
-			timer := mon.Timer("iterateLoopSegmentsRateLimit").Start()
-			if err := rateLimiter.Wait(ctx); err != nil {
-				// We don't really execute concurrent batches so we should never
-				// exceed the burst size of 1 and this should never happen.
-				// We can also enter here if the context is cancelled.
+			if loop.config.RateLimit > 0 {
+				timer := mon.Timer("iterateLoopSegmentsRateLimit").Start()
+				if err := rateLimiter.Wait(ctx); err != nil {
+					// We don't really execute concurrent batches so we should never
+					// exceed the burst size of 1 and this should never happen.
+					// We can also enter here if the context is cancelled.
+					timer.Stop()
+					return err
+				}
 				timer.Stop()
-				return err
 			}
-			timer.Stop()
 
 			observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
 				segment := Segment(entry)
@@ -502,7 +500,6 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 }
 
 func withObservers(ctx context.Context, observers []*observerContext, handleObserver func(ctx context.Context, observer *observerContext) bool) []*observerContext {
-	defer mon.Task()(&ctx)(nil)
 	nextObservers := observers[:0]
 	for _, observer := range observers {
 		keepObserver := handleObserver(ctx, observer)
@@ -514,8 +511,6 @@ func withObservers(ctx context.Context, observers []*observerContext, handleObse
 }
 
 func handleSegment(ctx context.Context, observer *observerContext, segment *Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	if segment.Inline() {
 		if err := observer.InlineSegment(ctx, segment); err != nil {
 			return err

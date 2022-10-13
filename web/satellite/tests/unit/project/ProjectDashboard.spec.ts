@@ -2,8 +2,13 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import { AccessGrantsMock } from '../mock/api/accessGrants';
+import { BucketsMock } from '../mock/api/buckets';
+import { PaymentsMock } from '../mock/api/payments';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { appStateModule } from '@/store/modules/appState';
@@ -14,13 +19,8 @@ import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { AccessGrantsMock } from '../mock/api/accessGrants';
-import { BucketsMock } from '../mock/api/buckets';
-import { PaymentsMock } from '../mock/api/payments';
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
+import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -36,7 +36,7 @@ const membersModule = makeProjectMembersModule(membersApi);
 const grantsApi = new AccessGrantsMock();
 const grantsModule = makeAccessGrantsModule(grantsApi);
 
-const store = new Vuex.Store({ modules: { appStateModule, projectsModule, bucketsModule, paymentsModule, membersModule, grantsModule }});
+const store = new Vuex.Store({ modules: { appStateModule, projectsModule, bucketsModule, paymentsModule, membersModule, grantsModule } });
 
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 const membersPage = new ProjectMembersPage();

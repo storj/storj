@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -54,7 +54,7 @@ func TestTransactionsDBList(t *testing.T) {
 
 		createTX := billing.Transaction{
 			UserID:      userID,
-			Amount:      monetary.AmountFromBaseUnits(4, monetary.USDollars),
+			Amount:      currency.AmountFromBaseUnits(4, currency.USDollars),
 			Description: "credit from storjscan payment",
 			Source:      txSource,
 			Status:      txStatus,
@@ -89,12 +89,12 @@ func TestTransactionsDBList(t *testing.T) {
 }
 
 func TestTransactionsDBBalance(t *testing.T) {
-	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
-	twentyUSD := monetary.AmountFromBaseUnits(2000, monetary.USDollars)
-	thirtyUSD := monetary.AmountFromBaseUnits(3000, monetary.USDollars)
-	fortyUSD := monetary.AmountFromBaseUnits(4000, monetary.USDollars)
-	fiftyUSD := monetary.AmountFromBaseUnits(5000, monetary.USDollars)
-	negativeTwentyUSD := monetary.AmountFromBaseUnits(-2000, monetary.USDollars)
+	tenUSD := currency.AmountFromBaseUnits(1000, currency.USDollars)
+	tenMicroUSD := currency.AmountFromBaseUnits(10000000, currency.USDollarsMicro)
+	twentyMicroUSD := currency.AmountFromBaseUnits(20000000, currency.USDollarsMicro)
+	thirtyUSD := currency.AmountFromBaseUnits(3000, currency.USDollars)
+	fortyMicroUSD := currency.AmountFromBaseUnits(40000000, currency.USDollarsMicro)
+	negativeTwentyUSD := currency.AmountFromBaseUnits(-2000, currency.USDollars)
 
 	userID := testrand.UUID()
 
@@ -153,7 +153,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[0])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, tenUSD.BaseUnits(), balance)
+			require.Equal(t, tenMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 
@@ -170,7 +170,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[1])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, fortyUSD.BaseUnits(), balance)
+			require.Equal(t, fortyMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 
@@ -190,29 +190,13 @@ func TestTransactionsDBBalance(t *testing.T) {
 			compareTransactions(t, credit10TX, txs[2])
 			balance, err := db.Billing().GetBalance(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, twentyUSD.BaseUnits(), balance)
-		})
-	})
-
-	t.Run("insert batch", func(t *testing.T) {
-		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			err = db.Billing().InsertBatchCreditTXs(ctx, []billing.Transaction{credit10TX, credit30TX, credit10TX})
-			require.NoError(t, err)
-			txs, err := db.Billing().List(ctx, userID)
-			require.NoError(t, err)
-			require.Len(t, txs, 3)
-			compareTransactions(t, credit30TX, txs[0])
-			compareTransactions(t, credit10TX, txs[1])
-			compareTransactions(t, credit10TX, txs[2])
-			balance, err := db.Billing().GetBalance(ctx, userID)
-			require.NoError(t, err)
-			require.Equal(t, fiftyUSD.BaseUnits(), balance)
+			require.Equal(t, twentyMicroUSD.BaseUnits(), balance.BaseUnits())
 		})
 	})
 }
 
 func TestUpdateTransactions(t *testing.T) {
-	tenUSD := monetary.AmountFromBaseUnits(1000, monetary.USDollars)
+	tenUSD := currency.AmountFromBaseUnits(1000, currency.USDollars)
 	userID := testrand.UUID()
 	address, err := blockchain.BytesToAddress(testrand.Bytes(20))
 	require.NoError(t, err)
@@ -282,7 +266,7 @@ func TestUpdateMetadata(t *testing.T) {
 // ensures that is not empty.
 func compareTransactions(t *testing.T, exp, act billing.Transaction) {
 	assert.Equal(t, exp.UserID, act.UserID)
-	assert.Equal(t, exp.Amount, act.Amount)
+	assert.Equal(t, currency.AmountFromDecimal(exp.Amount.AsDecimal().Truncate(currency.USDollarsMicro.DecimalPlaces()), currency.USDollarsMicro), act.Amount)
 	assert.Equal(t, exp.Description, act.Description)
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Source, act.Source)

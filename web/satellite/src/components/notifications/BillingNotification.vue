@@ -19,11 +19,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import InfoIcon from '@/../static/images/notifications/info.svg';
-import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
-
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 // @vue/component
 @Component({

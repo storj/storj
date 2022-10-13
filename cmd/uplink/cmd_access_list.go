@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,7 +32,7 @@ func (c *cmdAccessList) Setup(params clingy.Parameters) {
 	).(bool)
 }
 
-func (c *cmdAccessList) Execute(ctx clingy.Context) error {
+func (c *cmdAccessList) Execute(ctx context.Context) error {
 	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
@@ -39,9 +40,9 @@ func (c *cmdAccessList) Execute(ctx clingy.Context) error {
 
 	var tw *tabbedWriter
 	if c.verbose {
-		tw = newTabbedWriter(ctx.Stdout(), "CURRENT", "NAME", "SATELLITE", "VALUE")
+		tw = newTabbedWriter(clingy.Stdout(ctx), "CURRENT", "NAME", "SATELLITE", "VALUE")
 	} else {
-		tw = newTabbedWriter(ctx.Stdout(), "CURRENT", "NAME", "SATELLITE")
+		tw = newTabbedWriter(clingy.Stdout(ctx), "CURRENT", "NAME", "SATELLITE")
 	}
 	defer tw.Done()
 

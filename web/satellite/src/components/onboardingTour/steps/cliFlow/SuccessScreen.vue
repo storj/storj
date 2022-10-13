@@ -32,20 +32,19 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import VButton from "@/components/common/VButton.vue";
+import VButton from '@/components/common/VButton.vue';
 
-import Icon from "@/../static/images/onboardingTour/successStep.svg";
-
-import { AnalyticsHttpApi } from "@/api/analytics";
+import Icon from '@/../static/images/onboardingTour/successStep.svg';
 
 // @vue/component
 @Component({
     components: {
         Icon,
         VButton,
-    }
+    },
 })
 export default class SuccessScreen extends Vue {
 

@@ -7,9 +7,9 @@ export enum SortDirection {
 }
 
 export enum OnboardingOS {
-    WINDOWS = "windows",
-    MAC = "macos",
-    LINUX = "linux",
+    WINDOWS = 'windows',
+    MAC = 'macos',
+    LINUX = 'linux',
 }
 
 export class PartneredSatellite {

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -311,7 +310,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 					"dir ./",
 				}
 				conf := strings.Join(arguments, "\n") + "\n"
-				err := ioutil.WriteFile(confpath, []byte(conf), 0755)
+				err := os.WriteFile(confpath, []byte(conf), 0755)
 				return err
 			}
 			process.Arguments = Arguments{

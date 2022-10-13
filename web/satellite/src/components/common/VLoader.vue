@@ -42,7 +42,7 @@ export default class VLoader extends Vue {
         justify-content: center;
     }
 
-    .white ::v-deep path {
+    .white :deep(path) {
         fill: #fff;
     }
 </style>

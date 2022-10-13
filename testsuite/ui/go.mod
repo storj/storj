@@ -5,15 +5,15 @@ go 1.17
 replace storj.io/storj => ../../
 
 require (
-	github.com/go-rod/rod v0.101.8
+	github.com/go-rod/rod v0.111.1-0.20221006053527-647d5da75067
 	github.com/spacemonkeygo/monkit/v3 v3.0.19
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20220822090045-1b57fc2bbda1
-	storj.io/gateway-mt v1.37.1
-	storj.io/private v0.0.0-20220823161836-79135887c9be
-	storj.io/storj v0.12.1-0.20220705102727-0f626a59c103
+	storj.io/common v0.0.0-20221011123614-a43277e3853e
+	storj.io/gateway-mt v1.39.0
+	storj.io/private v0.0.0-20221011183246-586e5f48357a
+	storj.io/storj v1.65.1
 )
 
 require (
@@ -95,7 +95,8 @@ require (
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
-	github.com/klauspost/compress v1.14.3 // indirect
+	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8 // indirect
+	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/klauspost/pgzip v1.2.5 // indirect
@@ -173,9 +174,9 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	github.com/ysmood/goob v0.3.0 // indirect
-	github.com/ysmood/gson v0.6.4 // indirect
-	github.com/ysmood/leakless v0.7.0 // indirect
+	github.com/ysmood/goob v0.4.0 // indirect
+	github.com/ysmood/gson v0.7.2 // indirect
+	github.com/ysmood/leakless v0.8.0 // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
@@ -194,7 +195,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect
@@ -203,7 +204,7 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/jcmturner/aescts.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
@@ -217,6 +218,6 @@ require (
 	storj.io/drpc v0.0.32 // indirect
 	storj.io/gateway v1.8.3-0.20220825161942-aeb1c5d7a749 // indirect
 	storj.io/minio v0.0.0-20220404203534-ae15cc41053b // indirect
-	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca // indirect
-	storj.io/uplink v1.9.1-0.20220811092921-37dccde06f31 // indirect
+	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
+	storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d // indirect
 )

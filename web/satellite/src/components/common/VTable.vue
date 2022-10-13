@@ -28,33 +28,31 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import TablePagination from "@/components/common/TablePagination.vue";
-import { OnPageClickCallback } from "@/types/pagination";
 
-export type SelectableItem<T> = T & {
-    isSelected: boolean;
-}
+import { OnPageClickCallback } from '@/types/pagination';
+
+import TablePagination from '@/components/common/TablePagination.vue';
 
 // @vue/component
 @Component({
     components: {
         TablePagination,
-    }
+    },
 })
 export default class VTable extends Vue {
     @Prop({ default: false })
     public readonly selectable: boolean;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: "items"})
+    @Prop({ default: 'items' })
     private readonly itemsLabel: string;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly limit: number;
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     private readonly items: object[];
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalItemsCount: number;
-    @Prop({default: () => () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 }
 </script>
@@ -152,10 +150,59 @@ export default class VTable extends Vue {
     }
 }
 
+@media screen and (max-width: 970px) {
+
+    tbody tr > .data p {
+        max-width: 25rem;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+@media screen and (max-width: 870px) {
+
+    tbody tr > .data p {
+        max-width: 20rem;
+    }
+}
+
 @media screen and (max-width: 768px) {
 
     .select {
         display: none;
+    }
+
+    tbody tr > .data p {
+        max-width: 25rem;
+    }
+}
+
+@media screen and (max-width: 660px) {
+
+    tbody tr > .data p {
+        max-width: 15rem;
+    }
+}
+
+@media screen and (max-width: 550px) {
+
+    tbody tr > .data p {
+        max-width: 15rem;
+    }
+}
+
+@media screen and (max-width: 440px) {
+
+    tbody tr > .data p {
+        max-width: 10rem;
+    }
+}
+
+@media screen and (max-width: 350px) {
+
+    tbody tr > .data p {
+        max-width: 8rem;
     }
 }
 </style>

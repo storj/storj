@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zeebo/clingy"
@@ -27,7 +28,7 @@ func (c *cmdAccessRevoke) Setup(params clingy.Parameters) {
 	c.revokee = params.Arg("revokee", "Access name or value revoke").(string)
 }
 
-func (c *cmdAccessRevoke) Execute(ctx clingy.Context) error {
+func (c *cmdAccessRevoke) Execute(ctx context.Context) error {
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
@@ -43,7 +44,7 @@ func (c *cmdAccessRevoke) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(ctx, "Revoked access %q\n", c.revokee)
+	fmt.Fprintf(clingy.Stdout(ctx), "Revoked access %q\n", c.revokee)
 
 	return nil
 }

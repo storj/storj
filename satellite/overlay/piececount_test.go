@@ -26,13 +26,13 @@ func TestDB_PieceCounts(t *testing.T) {
 
 		type TestNode struct {
 			ID         storj.NodeID
-			PieceCount int // TODO: fix to int64
+			PieceCount int64
 		}
 
 		nodes := make([]TestNode, 100)
 		for i := range nodes {
 			nodes[i].ID = testrand.NodeID()
-			nodes[i].PieceCount = int(math.Pow10(i + 1))
+			nodes[i].PieceCount = int64(math.Pow10(i + 1))
 		}
 
 		for i, node := range nodes {
@@ -57,7 +57,7 @@ func TestDB_PieceCounts(t *testing.T) {
 		// since it will keep the logic slightly clearer.
 
 		// update counts
-		counts := make(map[storj.NodeID]int)
+		counts := make(map[storj.NodeID]int64)
 		for _, node := range nodes {
 			counts[node.ID] = node.PieceCount
 		}
@@ -89,9 +89,9 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 
 		overlaydb := db.OverlayCache()
 
-		counts := make(map[storj.NodeID]int)
+		counts := make(map[storj.NodeID]int64)
 		for i := 0; i < NumberOfNodes; i++ {
-			counts[testrand.NodeID()] = testrand.Intn(100000)
+			counts[testrand.NodeID()] = testrand.Int63n(100000)
 		}
 
 		var i int

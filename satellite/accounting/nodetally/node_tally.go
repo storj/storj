@@ -115,8 +115,6 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return nil
 }
 
-var remoteSegmentFunc = mon.Task()
-
 var _ segmentloop.Observer = (*Observer)(nil)
 
 // Observer observes metainfo and adds up tallies for nodes and buckets.
@@ -144,7 +142,7 @@ func (observer *Observer) LoopStarted(context.Context, segmentloop.LoopInfo) (er
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
-	defer remoteSegmentFunc(&ctx)(nil) // method always returns nil
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	if segment.Expired(observer.now) {
 		return nil

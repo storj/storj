@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/zeebo/clingy"
@@ -36,7 +37,7 @@ func (c *cmdAccessRestrict) Setup(params clingy.Parameters) {
 	c.am.perms.Setup(params, true)
 }
 
-func (c *cmdAccessRestrict) Execute(ctx clingy.Context) error {
+func (c *cmdAccessRestrict) Execute(ctx context.Context) error {
 	access, err := c.ex.OpenAccess(c.access)
 	if err != nil {
 		return err
@@ -56,6 +57,6 @@ func (c *cmdAccessRestrict) Execute(ctx clingy.Context) error {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(ctx, serialized)
+	fmt.Fprintln(clingy.Stdout(ctx), serialized)
 	return nil
 }

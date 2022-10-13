@@ -81,41 +81,41 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 })
 // TODO: merge these two components to have one single source of truth.
 export default class VInput extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly additionalLabel: string;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly currentLimit: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isOptional: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isLimitShown: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isMultiline: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isLoading: boolean;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly initValue: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly label: string;
-    @Prop({default: 'default'})
+    @Prop({ default: 'default' })
     protected readonly placeholder: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly isPassword: boolean;
-    @Prop({default: '48px'})
+    @Prop({ default: '48px' })
     protected readonly height: string;
-    @Prop({default: '100%'})
+    @Prop({ default: '100%' })
     protected readonly width: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     protected readonly error: string;
-    @Prop({default: Number.MAX_SAFE_INTEGER})
+    @Prop({ default: Number.MAX_SAFE_INTEGER })
     protected readonly maxSymbols: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isWhite: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly withIcon: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly disabled: boolean;
-    @Prop({default: 'input-container'})
+    @Prop({ default: 'input-container' })
     private readonly roleDescription: boolean;
 
     private readonly textType: string = 'text';

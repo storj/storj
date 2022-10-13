@@ -32,7 +32,10 @@ func (h Hash) Bytes() []byte { return h[:] }
 
 // Hex gets the hex string representation of the underlying hash.
 func (h Hash) Hex() string {
-	return hex.EncodeToString(h.Bytes())
+	var buf [len(h)*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], h[:])
+	return string(buf[:])
 }
 
 // MarshalJSON implements json marshalling interface.
@@ -55,7 +58,10 @@ func (a Address) Bytes() []byte { return a[:] }
 
 // Hex gets string representation of the underlying address.
 func (a Address) Hex() string {
-	return hex.EncodeToString(a.Bytes())
+	var buf [len(a)*2 + 2]byte
+	copy(buf[:2], "0x")
+	hex.Encode(buf[2:], a[:])
+	return string(buf[:])
 }
 
 // MarshalJSON implements json marshalling interface.
@@ -66,6 +72,12 @@ func (a Address) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshal JSON into Address.
 func (a *Address) UnmarshalJSON(bytes []byte) error {
 	return unmarshalHexString(a[:], bytes, reflect.TypeOf(Address{}))
+}
+
+// BytesToHash create a new hash from raw bytes.
+func BytesToHash(bytes []byte) (h Hash, err error) {
+	copy(h[:], bytes)
+	return h, err
 }
 
 // unmarshalHexString decodes JSON string containing hex string into bytes.

@@ -5,42 +5,21 @@
     <div class="payments-area">
         <div class="payments-area__top-container">
             <h1 class="payments-area__title">
-                Payment Methods{{ showTransactions? ' > Storj Tokens':null }}
+                <span class="payments-area__title__back" @click="hideTransactionsTable">Payment Methods</span>{{ showTransactions? ' > Storj Tokens':null }}
             </h1>
-            <VButton
-                v-if="showTransactions"
-                label="Add Funds with CoinPayments"
-                font-size="13px"
-                height="40px"
-                width="220px"
-                :on-press="showAddFundsCard"
-            />
         </div>
         <div v-if="!showTransactions" class="payments-area__container">
-            <add-token-card-native v-if="nativeTokenPaymentsEnabled" />
-            <template v-else>
-                <v-loader
-                    v-if="!tokensAreLoaded"
-                />
-                <div v-else-if="!showAddFunds">
-                    <balance-token-card
-                        v-for="item in mostRecentTransaction"
-                        :key="item.id"
-                        :v-if="tokensAreLoaded"
-                        :billing-item="item"
-                        :show-add-funds="showAddFunds"
-                        @showTransactions="toggleTransactionsTable"
-                        @toggleShowAddFunds="toggleShowAddFunds"
-                    />
-                </div>
-                <div v-else>
-                    <add-token-card
-                        :total-count="transactionCount"
-                        @toggleShowAddFunds="toggleShowAddFunds"
-                        @fetchHistory="addTokenHelper"
-                    />
-                </div>
-            </template>
+            <v-loader
+                v-if="nativePayIsLoading"
+            />
+            <add-token-card-native
+                v-else-if="nativeTokenPaymentsEnabled && wallet.address"
+                @showTransactions="showTransactionsTable"
+            />
+            <add-token-card
+                v-else
+                :total-count="transactionCount"
+            />
             <div v-for="card in creditCards" :key="card.id" class="payments-area__container__cards">
                 <CreditCardContainer
                     :credit-card="card"
@@ -48,15 +27,14 @@
                 />
             </div>
             <div class="payments-area__container__new-payments">
-                <v-loader v-if="isLoading" class="payments-area__container__new-payments__payment-loading-image" />
-                <div v-else-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
-                    <span class="payments-area__container__new-payments__text-area__plus-icon">+&nbsp;</span>
+                <div v-if="!isAddingPayment" class="payments-area__container__new-payments__text-area">
+                    <span>+&nbsp;</span>
                     <span
                         class="payments-area__container__new-payments__text-area__text"
                         @click="addPaymentMethodHandler"
                     >Add New Payment Method</span>
                 </div>
-                <div v-else-if="isAddingPayment">
+                <div v-else class="payments-area__container__new-payments__add-card">
                     <div class="close-add-payment" @click="closeAddPayment">
                         <CloseCrossIcon />
                     </div>
@@ -67,17 +45,19 @@
                         class="add-card-area__stripe stripe_input"
                         :on-stripe-response-callback="addCard"
                     />
-                    <div
-                        v-if="!isAddCardClicked"
+                    <VButton
                         class="add-card-button"
-                        @click="onConfirmAddStripe"
-                    >
-                        <span class="add-card-button__text">Add Credit Card</span>
-                    </div>
+                        label="Add Credit Card"
+                        width="115px"
+                        height="30px"
+                        font-size="13px"
+                        :on-press="onConfirmAddStripe"
+                        :is-disabled="isLoading"
+                    />
                 </div>
             </div>
         </div>
-        
+
         <div v-if="isRemovePaymentMethodsModalOpen || isChangeDefaultPaymentModalOpen" class="edit_payment_method">
             <div v-if="isChangeDefaultPaymentModalOpen" class="change-default-modal-container">
                 <CreditCardImage class="card-icon-default" />
@@ -85,7 +65,7 @@
                     <CloseCrossIcon class="close-icon" />
                 </div>
                 <div class="edit_payment_method__header">Select Default Card</div>
-                <form v-for="card in creditCards" :key="card.id"> 
+                <form v-for="card in creditCards" :key="card.id">
                     <div class="change-default-input-container">
                         <AmericanExpressIcon v-if="card.brand === 'amex' " class="cardIcons" />
                         <DiscoverIcon v-if="card.brand === 'discover' " class="cardIcons" />
@@ -94,14 +74,14 @@
                         <UnionPayIcon v-if="card.brand === 'unionpay' " class="cardIcons union-icon" />
                         <VisaIcon v-if="card.brand === 'visa' " class="cardIcons" />
                         <DinersIcon v-if="card.brand === 'diners' " class="cardIcons diners-icon" />
-                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+                        <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
                         {{ card.last4 }}
-                        <input 
-                            :id="card.id" 
-                            v-model="defaultCreditCardSelection"  
-                            :value="card.id" 
-                            class="change-default-input" 
-                            type="radio" 
+                        <input
+                            :id="card.id"
+                            v-model="defaultCreditCardSelection"
+                            :value="card.id"
+                            class="change-default-input"
+                            type="radio"
                             name="defaultCreditCardSelection"
                         >
                     </div>
@@ -121,8 +101,8 @@
                 <div class="edit_payment_method__header-change-default" @click="changeDefault">
                     <a class="edit-card-text">Edit default card -></a>
                 </div>
-                <div 
-                    class="remove-card-button" 
+                <div
+                    class="remove-card-button"
                     @click="removePaymentMethod"
                     @mouseover="deleteHover = true"
                     @mouseleave="deleteHover = false"
@@ -134,50 +114,66 @@
             </div>
         </div>
         <div v-if="showTransactions">
-            <div class="payments-area__container__transactions">
-                <SortingHeader2
-                    @sortFunction="sortFunction"
-                />
-                <token-transaction-item
-                    v-for="item in displayedHistory"
-                    :key="item.id"
-                    :billing-item="item"
-                />
-                <div class="divider" />
-                <div class="pagination">
-                    <div class="pagination__total">
-                        <p>
-                            {{ transactionCount }} transactions found
+            <div class="payments-area__address-card">
+                <div class="payments-area__address-card__left">
+                    <canvas ref="canvas" class="payments-area__address-card__left__canvas" />
+                    <div class="payments-area__address-card__left__balance">
+                        <p class="payments-area__address-card__left__balance__label">
+                            Available Balance (USD)
+                        </p>
+                        <p class="payments-area__address-card__left__balance__value">
+                            {{ wallet.balance.value }}
                         </p>
                     </div>
-                    <div class="pagination__right-container">
-                        <div    
-                            v-if="transactionCount > 0"
-                            class="pagination__right-container__count"
-                        >
-                            <span v-if="transactionCount > 10 && paginationLocation.end !== transactionCount">
-                                {{ paginationLocation.start + 1 }} - {{ paginationLocation.end }} of {{ transactionCount }}
-                            </span>
-                            <span v-else>
-                                {{ paginationLocation.start + 1 }} - {{ transactionCount }} of {{ transactionCount }}
-                            </span>
-                        </div>
-                        <div 
-                            v-if="transactionCount > 10"
-                            class="pagination__right-container__buttons"
-                        >
-                            <ArrowIcon
-                                class="pagination__right-container__buttons__left"
-                                @click="paginationController(-10)"
-                            />
-                            <ArrowIcon
-                                v-if="paginationLocation.end < transactionCount - 1"    
-                                class="pagination__right-container__buttons__right"
-                                @click="paginationController(10)"
-                            />
-                        </div>
+                </div>
+
+                <div class="payments-area__address-card__right">
+                    <div class="payments-area__address-card__right__address">
+                        <p class="payments-area__address-card__right__address__label">
+                            Deposit Address
+                        </p>
+                        <p class="payments-area__address-card__right__address__value">
+                            {{ wallet.address }}
+                        </p>
+                    </div>
+                    <div class="payments-area__address-card__right__copy">
+                        <VButton
+                            class="modal__address__copy-button"
+                            label="Copy Address"
+                            width="8.6rem"
+                            height="2.5rem"
+                            font-size="0.9rem"
+                            icon="copy"
+                            :on-press="onCopyAddressClick"
+                        />
                     </div>
                 </div>
+            </div>
+
+            <div class="payments-area__transactions-area">
+                <h2 class="payments-area__transactions-area__title">Transactions</h2>
+                <v-table
+                    class="payments-area__transactions-area__table"
+                    items-label="transactions"
+                    :items="displayedHistory"
+                    :limit="pageSize"
+                    :total-page-count="pageCount"
+                    :total-items-count="transactionCount"
+                    :on-page-click-callback="paginationController"
+                >
+                    <template #head>
+                        <SortingHeader2
+                            @sortFunction="sortFunction"
+                        />
+                    </template>
+                    <template #body>
+                        <token-transaction-item
+                            v-for="item in displayedHistory"
+                            :key="item.id"
+                            :item="item"
+                        />
+                    </template>
+                </v-table>
             </div>
         </div>
     </div>
@@ -185,10 +181,30 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import QRCode from 'qrcode';
+
+import {
+    CreditCard,
+    Wallet,
+    NativePaymentHistoryItem,
+} from '@/types/payments';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import ArrowIcon from '@/../static/images/common/arrowRight.svg'
+import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
+import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
+import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
+import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
+import VTable from '@/components/common/VTable.vue';
+
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/smallamericanexpress.svg';
 import DinersIcon from '@/../static/images/payments/cardIcons/smalldinersclub.svg';
@@ -199,26 +215,12 @@ import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.sv
 import VisaIcon from '@/../static/images/payments/cardIcons/smallvisa.svg';
 import Trash from '@/../static/images/account/billing/trash.svg';
 import CreditCardImage from '@/../static/images/billing/credit-card.svg';
-import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
-import BalanceTokenCard from '@/components/account/billing/paymentMethods/BalanceTokenCard.vue'
-import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue'
-import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue'
-import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
-
-import { CreditCard } from '@/types/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
-import { RouteConfig } from '@/router';
-import { MetaUtils } from "@/utils/meta";
 
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
 interface CardEdited {
-    id?: number,
+    id?: string,
     isDefault?: boolean
 }
 const {
@@ -226,15 +228,13 @@ const {
     GET_CREDIT_CARDS,
     REMOVE_CARD,
     MAKE_CARD_DEFAULT,
-    GET_PAYMENTS_HISTORY,
+    GET_NATIVE_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
-
-const paginationStartNumber = 0;
-const paginationEndNumber = 10;
 
 // @vue/component
 @Component({
     components: {
+        VTable,
         AmericanExpressIcon,
         DiscoverIcon,
         JCBIcon,
@@ -244,14 +244,12 @@ const paginationEndNumber = 10;
         VButton,
         TokenTransactionItem,
         SortingHeader2,
-        ArrowIcon,
         CloseCrossIcon,
         CreditCardImage,
         StripeCardInput,
         DinersIcon,
         Trash,
         CreditCardContainer,
-        BalanceTokenCard,
         AddTokenCard,
         AddTokenCardNative,
         VLoader,
@@ -264,14 +262,10 @@ export default class PaymentMethods extends Vue {
      * controls token inputs and transaction table
      */
     public showTransactions = false;
-    public showAddFunds = false;
-    public mostRecentTransaction: Record<string, unknown>[] = [];
-    public paginationLocation: {start: number, end: number} = {start: paginationStartNumber, end: paginationEndNumber};
-    public tokenHistory: {amount: number, start: Date, status: string,}[] = [];
-    public displayedHistory: Record<string, unknown>[] = [];
+    public displayedHistory: NativePaymentHistoryItem[] = [];
     public transactionCount = 0;
-    public tokensAreLoaded = false;
-    public reloadKey = 0;
+    public nativePayIsLoading = true;
+    public pageSize = 10;
 
     /**
      * controls card inputs
@@ -281,65 +275,69 @@ export default class PaymentMethods extends Vue {
     public cardBeingEdited: CardEdited = {};
     public isAddingPayment = false;
     public isChangeDefaultPaymentModalOpen = false;
-    public defaultCreditCardSelection = "";
+    public defaultCreditCardSelection = '';
     public isRemovePaymentMethodsModalOpen = false;
-    public isAddCardClicked = false;
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
+        canvas: HTMLCanvasElement;
     };
 
-    public beforeMount() {
-        this.fetchHistory();
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    public mounted(): void {
+        this.claimWallet();
     }
 
-    public addTokenHelper(): void {
-        this.fetchHistory();
-        this.toggleShowAddFunds();
+    private get wallet(): Wallet {
+        return this.$store.state.paymentsModule.wallet;
+    }
+
+    public onCopyAddressClick(): void {
+        this.$copyText(this.wallet.address);
+        this.$notify.success('Address copied to your clipboard');
+    }
+
+    public async claimWallet(): Promise<void> {
+        try {
+            if (this.nativeTokenPaymentsEnabled && !this.wallet.address)
+                await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        } finally {
+            this.nativePayIsLoading = false;
+        }
     }
 
     public async fetchHistory(): Promise<void> {
-        this.tokensAreLoaded = false;
+        this.nativePayIsLoading = true;
         try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-            this.fetchHelper(this.depositHistoryItems);
-            this.reloadKey = this.reloadKey + 1;
+            await this.$store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
+            this.transactionCount = this.nativePaymentHistoryItems.length;
+            this.displayedHistory = this.nativePaymentHistoryItems.slice(0,this.pageSize);
+        } catch (error) {
+            await this.$notify.error(error.message);
+        } finally {
+            this.nativePayIsLoading = false;
+        }
+    }
+
+    public async hideTransactionsTable(): Promise<void> {
+        this.showTransactions = false;
+    }
+
+    public async showTransactionsTable(): Promise<void> {
+        await this.fetchHistory();
+        this.showTransactions = true;
+        await Vue.nextTick();
+        await this.prepQRCode();
+    }
+
+    public async prepQRCode() {
+        try {
+            await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
         } catch (error) {
             await this.$notify.error(error.message);
         }
-    }
-
-    public fetchHelper(tokenArray): void {
-        this.mostRecentTransaction = [tokenArray[0]];
-        this.tokenHistory = tokenArray;
-        this.transactionCount = tokenArray.length;
-        this.displayedHistory = tokenArray.slice(0,10);
-        this.tokensAreLoaded = true;
-        if(this.transactionCount > 0){
-            this.showAddFunds = false;
-        } else {
-            this.showAddFunds = true;
-        }
-    }
-
-    public toggleShowAddFunds(): void {
-        this.showAddFunds = !this.showAddFunds;
-    }
-
-    public showAddFundsCard(): void {
-        this.showTransactions = false;
-        this.showAddFunds = true;
-    }
-
-    public toggleTransactionsTable(): void {
-        this.showAddFunds = true;
-        this.showTransactions = !this.showTransactions;
-    }
-
-    /**
-     * Returns TokenTransactionItem item component.
-     */
-    public get itemComponent(): typeof TokenTransactionItem {
-        return TokenTransactionItem;
     }
 
     public async updatePaymentMethod(): Promise<void> {
@@ -356,15 +354,15 @@ export default class PaymentMethods extends Vue {
         if (!this.cardBeingEdited.isDefault) {
             try {
                 await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
+                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
                 await this.$notify.success('Credit card removed');
             } catch (error) {
                 await this.$notify.error(error.message);
             }
             this.isRemovePaymentMethodsModalOpen = false;
 
-        }
-        else {
-            this.$notify.error("You cannot delete the default payment method.");
+        } else {
+            this.$notify.error('You cannot delete the default payment method.');
         }
     }
 
@@ -420,16 +418,22 @@ export default class PaymentMethods extends Vue {
     }
 
     public async onConfirmAddStripe(): Promise<void> {
+        if (this.isLoading) return;
         this.isLoading = true;
-        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;})
+        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
+        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
     }
 
     public addPaymentMethodHandler() {
+        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
         this.isAddingPayment = true;
     }
 
-    public removePaymentMethodHandler(creditCard) {   
-        this.cardBeingEdited = creditCard;
+    public removePaymentMethodHandler(creditCard: CreditCard) {
+        this.cardBeingEdited = {
+            id: creditCard.id,
+            isDefault: creditCard.isDefault,
+        };
         this.isRemovePaymentMethodsModalOpen = true;
     }
 
@@ -452,73 +456,51 @@ export default class PaymentMethods extends Vue {
      * controls sorting the transaction table
      */
     public sortFunction(key) {
-        this.paginationLocation = {start: 0, end: 10}
-        this.displayedHistory = this.tokenHistory.slice(0,10)
         switch (key) {
         case 'date-ascending':
-            this.tokenHistory.sort((a,b) => {return a.start.getTime() - b.start.getTime()});
+            this.nativePaymentHistoryItems.sort((a,b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
             break;
         case 'date-descending':
-            this.tokenHistory.sort((a,b) => {return b.start.getTime() - a.start.getTime()});
+            this.nativePaymentHistoryItems.sort((a,b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
             break;
         case 'amount-ascending':
-            this.tokenHistory.sort((a,b) => {return a.amount - b.amount});
+            this.nativePaymentHistoryItems.sort((a,b) => {return a.amount.value - b.amount.value;});
             break;
         case 'amount-descending':
-            this.tokenHistory.sort((a,b) => {return b.amount - a.amount});
+            this.nativePaymentHistoryItems.sort((a,b) => {return b.amount.value - a.amount.value;});
             break;
         case 'status-ascending':
-            this.tokenHistory.sort((a, b) => {
+            this.nativePaymentHistoryItems.sort((a, b) => {
                 if (a.status < b.status) {return -1;}
                 if (a.status > b.status) {return 1;}
-                return 0});
+                return 0;});
             break;
         case 'status-descending':
-            this.tokenHistory.sort((a, b) => {
+            this.nativePaymentHistoryItems.sort((a, b) => {
                 if (b.status < a.status) {return -1;}
                 if (b.status > a.status) {return 1;}
-                return 0});
+                return 0;});
             break;
         }
+        this.displayedHistory = this.nativePaymentHistoryItems.slice(0,10);
     }
 
     /**
      * controls transaction table pagination
      */
     public paginationController(i): void {
-        let diff = this.transactionCount - this.paginationLocation.start
-        if (this.paginationLocation.start + i >= 0 && this.paginationLocation.end + i <= this.transactionCount && this.paginationLocation.end !== this.transactionCount){
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.paginationLocation.end + i
-            }
-        } else if (this.paginationLocation.start + i < 0 ) {
-            this.paginationLocation = {
-                start: 0,
-                end: 10
-            }
-        } else if(this.paginationLocation.end + i > this.transactionCount) {
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.transactionCount
-            }
-        }   else if(this.paginationLocation.end === this.transactionCount) {
-            this.paginationLocation = {
-                start: this.paginationLocation.start + i,
-                end: this.transactionCount - (diff)
-            }
-        }
+        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize,((i - 1) * this.pageSize) + this.pageSize);
+    }
 
-        this.displayedHistory = this.tokenHistory.slice(this.paginationLocation.start, this.paginationLocation.end)
+    public get pageCount(): number {
+        return Math.ceil(this.transactionCount / this.pageSize);
     }
 
     /**
      * Returns deposit history items.
      */
-    public get depositHistoryItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
-        });
+    public get nativePaymentHistoryItems(): NativePaymentHistoryItem[] {
+        return this.$store.state.paymentsModule.nativePaymentsHistory;
     }
 }
 </script>
@@ -527,9 +509,10 @@ export default class PaymentMethods extends Vue {
 $flex: flex;
 $align: center;
 
-::v-deep .loader {
-    width: auto;
-    padding: 63px 114px;
+:deep(.loader) {
+    width: 40px;
+    height: 40px;
+    padding: 81.5px 154px;
 }
 
 .divider {
@@ -566,7 +549,7 @@ $align: center;
 
 .red-trash {
 
-    ::v-deep path {
+    :deep(path) {
         fill: #ac1a00;
     }
 }
@@ -654,7 +637,9 @@ $align: center;
 
 .close-add-payment {
     position: absolute;
-    margin-left: 208px;
+    right: 0;
+    top: 0;
+    cursor: pointer;
 }
 
 .card-icon {
@@ -706,6 +691,7 @@ $align: center;
         text-align: $align;
         letter-spacing: -0.02em;
         color: #1b2533;
+        align-self: center;
     }
 
     &__header-subtext {
@@ -733,7 +719,7 @@ $align: center;
     &__container {
         display: grid;
         grid-template-columns: auto;
-        grid-template-rows: 1fr 30px 30px auto auto;
+        grid-template-rows: 1fr 60px 30px auto auto;
         width: 400px;
         background: #f5f6fa;
         border-radius: 6px;
@@ -770,37 +756,7 @@ $align: center;
 }
 
 .add-card-button {
-    grid-row: 4;
-    grid-column: 1;
-    width: 115px;
-    height: 30px;
     margin-top: 2px;
-    cursor: pointer;
-    border-radius: 6px;
-    background-color: #0149ff;
-    font-family: 'font_medium', sans-serif;
-    font-size: 16px;
-    line-height: 23px;
-    color: #fff;
-    user-select: none;
-    transition: top 0.5s ease-in-out;
-
-    &:hover {
-        background-color: #0059d0;
-    }
-
-    &__text {
-        margin-top: 4px;
-        margin-left: 9px;
-        font-family: 'font-medium', sans-serif;
-        font-style: normal;
-        font-weight: 700;
-        font-size: 13px;
-        line-height: 29px;
-        display: $flex;
-        align-items: $align;
-        letter-spacing: -0.02em;
-    }
 }
 
 .active-discount {
@@ -824,7 +780,7 @@ $align: center;
 .stripe_input {
     grid-row: 3;
     grid-column: 1;
-    width: 240px;
+    width: 100%;
 }
 
 .payments-area {
@@ -860,56 +816,63 @@ $align: center;
         font-family: sans-serif;
         font-size: 24px;
         margin: 20px 0;
+
+        &__back {
+            cursor: pointer;
+
+            &:hover {
+                color: #000000bd;
+            }
+        }
     }
 
     &__container {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        justify-content: space-between;
 
         &__cards {
-            width: 227px;
-            height: 126px;
-            padding: 20px;
+            width: 348px;
+            height: 203px;
+            padding: 24px;
+            box-sizing: border-box;
             background: #fff;
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;
-            margin: 0 10px 10px 0;
         }
 
         &__new-payments {
-            width: 227px;
-            height: 126px;
-            padding: 18px;
-            display: grid !important;
-            grid-template-columns: 6fr;
-            grid-template-rows: 1fr 1fr 1fr 1fr;
+            width: 348px;
+            height: 203px;
+            padding: 24px;
+            box-sizing: border-box;
             border: 2px dashed #929fb1;
             border-radius: 10px;
-            cursor: pointer;
-
-            &__payment-loading-image {
-                padding: 40px;
-            }
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
             &__text-area {
                 display: flex;
                 align-items: center;
-                justify-content: center;
-
-                &__plus-icon {
-                    color: #0149ff;
-                    font-family: sans-serif;
-                    font-size: 24px;
-                }
+                font-size: 16px;
+                font-family: 'font_regular', sans-serif;
+                color: #0149ff;
+                cursor: pointer;
 
                 &__text {
-                    color: #0149ff;
-                    font-family: sans-serif;
-                    font-size: 16px;
                     text-decoration: underline;
+                    text-underline-position: under;
                 }
+            }
+
+            &__add-card {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
             }
         }
 
@@ -952,6 +915,94 @@ $align: center;
                     cursor: pointer;
                 }
             }
+        }
+    }
+
+    &__address-card {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        background: #fff;
+        box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+        border-radius: 0.6rem;
+        padding: 1rem 1.5rem;
+        font-family: 'font_regular', sans-serif;
+
+        &__left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+
+            &__canvas {
+                height: 4rem !important;
+                width: 4rem !important;
+            }
+
+            &__balance {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.3rem;
+
+                &__label {
+                    font-size: 0.9rem;
+                    color: rgb(0 0 0 / 75%);
+                }
+
+                &__value {
+                    font-family: 'font_bold', sans-serif;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    overflow: hidden;
+
+                    @media screen and (max-width: 375px) {
+                        width: 16rem;
+                    }
+                }
+            }
+        }
+
+        &__right {
+            width: 60%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+
+            &__address {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                gap: 0.3rem;
+
+                &__label {
+                    font-size: 0.9rem;
+                    color: rgb(0 0 0 / 75%);
+                }
+
+                &__value {
+                    font-family: 'font_bold', sans-serif;
+                }
+            }
+        }
+    }
+
+    &__transactions-area {
+        margin-top: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        gap: 1.5rem;
+
+        &__title {
+            font-family: 'font_regular', sans-serif;
+            font-size: 1.5rem;
+            line-height: 1.8rem;
+        }
+
+        &__table {
+            width: 100%;
         }
     }
 }

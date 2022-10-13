@@ -41,5 +41,16 @@ export enum AnalyticsEvent {
     CREATE_ACCESS_GRANT_CLICKED = 'Create Access Grant Clicked',
     CREATE_S3_CREDENTIALS_CLICKED = 'Create S3 Credentials Clicked',
     CREATE_KEYS_FOR_CLI_CLICKED = 'Create Keys For CLI Clicked',
+    SEE_PAYMENTS_CLICKED = 'See Payments Clicked',
+    EDIT_PAYMENT_METHOD_CLICKED = 'Edit Payment Method Clicked',
+    USAGE_DETAILED_INFO_CLICKED = 'Usage Detailed Info Clicked',
+    ADD_NEW_PAYMENT_METHOD_CLICKED = 'Add New Payment Method Clicked',
+    APPLY_NEW_COUPON_CLICKED = 'Apply New Coupon Clicked',
+    CREDIT_CARD_REMOVED = 'Credit Card Removed',
+    COUPON_CODE_APPLIED = 'Coupon Code Applied',
+    INVOICE_DOWNLOADED = 'Invoice Downloaded',
+    CREDIT_CARD_ADDED_FROM_BILLING = 'Credit Card Added From Billing',
+    STORJ_TOKEN_ADDED_FROM_BILLING = 'Storj Token Added From Billing',
+    ADD_FUNDS_CLICKED = 'Add Funds Clicked',
 
 }

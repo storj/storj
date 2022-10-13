@@ -8,7 +8,6 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -100,7 +99,7 @@ func TestAutoUpdater(t *testing.T) {
 	// NB: updater currently uses `log.SetOutput` so all output after that call
 	// only goes to the log file.
 	out, err := exec.Command(updaterPath, args...).CombinedOutput()
-	logData, logErr := ioutil.ReadFile(logPath)
+	logData, logErr := os.ReadFile(logPath)
 	if assert.NoError(t, logErr) {
 		logStr := string(logData)
 		t.Log(logStr)
@@ -178,7 +177,7 @@ func testIdentityFiles(ctx *testcontext.Context, t *testing.T) identity.Config {
 		identConfig.CertPath,
 		identConfig.KeyPath,
 	)
-	err = ioutil.WriteFile(ctx.File("config.yaml"), []byte(configData), 0644)
+	err = os.WriteFile(ctx.File("config.yaml"), []byte(configData), 0644)
 	require.NoError(t, err)
 
 	return identConfig
@@ -191,7 +190,7 @@ func testVersionControlWithUpdates(ctx *testcontext.Context, t *testing.T, updat
 	for name, src := range updateBins {
 		dst := ctx.File("updates", name+".zip")
 		zipBin(ctx, t, dst, src)
-		zipData, err := ioutil.ReadFile(dst)
+		zipData, err := os.ReadFile(dst)
 		require.NoError(t, err)
 
 		mux.HandleFunc("/"+name, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,7 +280,7 @@ func zipBin(ctx *testcontext.Context, t *testing.T, dst, src string) {
 	contents, err := writer.Create(base)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadFile(src)
+	data, err := os.ReadFile(src)
 	require.NoError(t, err)
 
 	_, err = contents.Write(data)

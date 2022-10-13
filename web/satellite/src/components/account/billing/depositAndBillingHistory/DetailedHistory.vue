@@ -27,17 +27,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import BackImage from '@/../static/images/account/billing/back.svg';
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({

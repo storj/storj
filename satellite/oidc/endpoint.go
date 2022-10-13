@@ -18,6 +18,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
@@ -28,7 +29,7 @@ var (
 
 // NewEndpoint constructs an OpenID identity provider.
 func NewEndpoint(
-	externalAddress string, log *zap.Logger,
+	nodeURL storj.NodeURL, externalAddress string, log *zap.Logger,
 	oidcService *Service, service *console.Service,
 	codeExpiry, accessTokenExpiry, refreshTokenExpiry time.Duration,
 ) *Endpoint {
@@ -69,6 +70,7 @@ func NewEndpoint(
 		server:      svr,
 		log:         log,
 		config: ProviderConfig{
+			NodeURL:     nodeURL.String(),
 			Issuer:      externalAddress,
 			AuthURL:     externalAddress + "oauth/v2/authorize",
 			TokenURL:    externalAddress + "oauth/v2/tokens",
@@ -213,6 +215,7 @@ func (e *Endpoint) GetClient(w http.ResponseWriter, r *http.Request) {
 
 // ProviderConfig defines a subset of elements used by OIDC to auto-discover endpoints.
 type ProviderConfig struct {
+	NodeURL     string `json:"node_url"`
 	Issuer      string `json:"issuer"`
 	AuthURL     string `json:"authorization_endpoint"`
 	TokenURL    string `json:"token_endpoint"`

@@ -13,7 +13,7 @@
   "dependencies": {
     "chart.js": "2.9.4",
     "core-js": "3.22.4",
-    "vue": "2.6.14",
+    "vue": "2.7.10",
     "vue-chartjs": "3.5.1",
     "vue-class-component": "7.2.6",
     "vue-clipboard2": "0.3.3",
@@ -53,6 +53,6 @@
     "ts-jest": "27.1.4",
     "typescript": "4.6.4",
     "vue-svg-loader": "0.17.0-beta.2",
-    "vue-template-compiler": "2.6.14"
+    "vue-template-compiler": "2.7.10"
   }
 }

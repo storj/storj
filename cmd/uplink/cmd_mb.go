@@ -4,6 +4,8 @@
 package main
 
 import (
+	"context"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -36,7 +38,7 @@ func (c *cmdMb) Setup(params clingy.Parameters) {
 	).(string)
 }
 
-func (c *cmdMb) Execute(ctx clingy.Context) error {
+func (c *cmdMb) Execute(ctx context.Context) error {
 	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return errs.Wrap(err)

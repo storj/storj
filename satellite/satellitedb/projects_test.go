@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"crypto/sha256"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,5 +33,24 @@ func TestProjectsGetByPublicID(t *testing.T) {
 		prj, err = projects.GetByPublicID(ctx, pubID)
 		require.NoError(t, err)
 		require.Equal(t, pubID, prj.PublicID)
+	})
+}
+
+func TestProjectsGetSalt(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
+
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, prj)
+
+		salt, err := projects.GetSalt(ctx, prj.ID)
+		require.NoError(t, err)
+
+		hash := sha256.Sum256(prj.ID[:])
+		require.Equal(t, hash[:], salt)
 	})
 }

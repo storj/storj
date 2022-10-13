@@ -26,10 +26,10 @@
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { DurationPermission } from '@/types/accessGrants';
 
-import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
+import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 // @vue/component
 @Component({
@@ -38,7 +38,7 @@ import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
     },
 })
 export default class DurationPicker extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly containerStyle: string;
     /**
      * onCustomRangePick holds logic for choosing custom date range.

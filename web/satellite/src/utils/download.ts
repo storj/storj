@@ -6,7 +6,7 @@
  */
 export class Download {
     public static file(content: string, name: string): void {
-        const blob = new Blob([content], {type: 'text/plain'});
+        const blob = new Blob([content], { type: 'text/plain' });
         const elem = window.document.createElement('a');
         elem.href = window.URL.createObjectURL(blob);
         elem.download = name;

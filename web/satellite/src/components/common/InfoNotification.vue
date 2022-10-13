@@ -22,7 +22,7 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
     components: {
         CloseIcon,
         InfoIcon,
-    }
+    },
 })
 export default class InfoNotification extends Vue {
     public isShown = true;
@@ -49,6 +49,10 @@ export default class InfoNotification extends Vue {
     &__icon {
         flex-shrink: 0;
         margin-right: 1.375rem;
+
+        :deep(path) {
+            fill: var(--c-info-icon);
+        }
     }
 
     &__text {

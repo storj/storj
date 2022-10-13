@@ -2,17 +2,17 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import { BucketsMock } from '../../mock/api/buckets';
+import { ProjectsApiMock } from '../../mock/api/projects';
 
 import { BUCKET_MUTATIONS, makeBucketsModule } from '@/store/modules/buckets';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Bucket, BucketPage } from '@/types/buckets';
 import { Project } from '@/types/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { BucketsMock } from '../../mock/api/buckets';
-import { ProjectsApiMock } from '../../mock/api/projects';
+import BucketArea from '@/components/project/buckets/BucketArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -22,7 +22,7 @@ const bucketUsageModule = makeBucketsModule(bucketsApi);
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 
-const store = new Vuex.Store({ modules: { bucketUsageModule, projectsModule }});
+const store = new Vuex.Store({ modules: { bucketUsageModule, projectsModule } });
 const bucket = new Bucket('name', 1, 1, 1, 1, new Date(), new Date());
 
 describe('BucketArea.vue', () => {

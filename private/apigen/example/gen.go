@@ -1,7 +1,6 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:generate go run gen.go
 //go:build ignore
 // +build ignore
 
