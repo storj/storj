@@ -36,8 +36,6 @@ import (
 
 const (
 	satIDExpiration = 48 * time.Hour
-
-	deleteObjectPiecesSuccessThreshold = 0.75
 )
 
 var (

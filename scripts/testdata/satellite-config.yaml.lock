@@ -553,6 +553,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
+# Which fraction of nodes should be contacted successfully until the delete of a batch of pieces is considered completed
+# metainfo.piece-deletion.delete-success-threshold: 0.75
+
 # timeout for dialing nodes (0 means satellite default)
 # metainfo.piece-deletion.dial-timeout: 3s
 

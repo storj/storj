@@ -25,9 +25,10 @@ type Config struct {
 	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000" testDefault:"4000"`
 	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000" testDefault:"2000"`
 
-	DialTimeout    time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"3s" testDefault:"2s"`
-	FailThreshold  time.Duration `help:"threshold for retrying a failed node" releaseDefault:"10m" devDefault:"2s"`
-	RequestTimeout time.Duration `help:"timeout for a single delete request" releaseDefault:"15s" devDefault:"2s"`
+	DialTimeout            time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"3s" testDefault:"2s"`
+	FailThreshold          time.Duration `help:"threshold for retrying a failed node" releaseDefault:"10m" devDefault:"2s"`
+	RequestTimeout         time.Duration `help:"timeout for a single delete request" releaseDefault:"15s" devDefault:"2s"`
+	DeleteSuccessThreshold float64       `help:"Which fraction of nodes should be contacted successfully until the delete of a batch of pieces is considered completed" default:".75"`
 }
 
 const (
@@ -147,8 +148,9 @@ func (service *Service) Close() error {
 	return nil
 }
 
-// Delete deletes the pieces specified in the requests waiting until success threshold is reached.
-func (service *Service) Delete(ctx context.Context, requests []Request, successThreshold float64) (err error) {
+// DeleteWithCustomThreshold deletes the pieces specified in the requests,
+// returning when they have been deleted from the specified fraction of storage nodes.
+func (service *Service) DeleteWithCustomThreshold(ctx context.Context, requests []Request, successThreshold float64) (err error) {
 	defer mon.Task()(&ctx, len(requests), requestsPieceCount(requests), successThreshold)(&err)
 
 	if len(requests) == 0 {
@@ -224,6 +226,12 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 	threshold.Wait(ctx)
 
 	return nil
+}
+
+// Delete deletes the pieces specified in the requests,
+// returning when they have been deleted from the default fraction of storage nodes.
+func (service *Service) Delete(ctx context.Context, requests []Request) (err error) {
+	return service.DeleteWithCustomThreshold(ctx, requests, service.config.DeleteSuccessThreshold)
 }
 
 // Request defines a deletion requests for a node.

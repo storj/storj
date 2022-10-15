@@ -1953,6 +1953,7 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.MultipleVersions = true
+				config.Metainfo.PieceDeletion.DeleteSuccessThreshold = 1
 
 				testplanet.ReconfigureRS(2, 3, 4, 4)(log, index, config)
 			},

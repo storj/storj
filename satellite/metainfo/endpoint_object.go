@@ -1486,7 +1486,7 @@ func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []me
 
 	// Only return an error if we failed to delete the objects. If we failed
 	// to delete pieces, let garbage collector take care of it.
-	err = endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold)
+	err = endpoint.deletePieces.Delete(ctx, requests)
 	if err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
