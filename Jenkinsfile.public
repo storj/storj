@@ -4,11 +4,11 @@ pipeline {
             label 'main'
             image 'storjlabs/ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+               args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v /tmp/golangci-lint:/root/.cache/golangci-lint -v /tmp/gocache:/root/.cache/go-build -v "/tmp/npm":/npm'
         }
     }
     options {
-        timeout(time: 40, unit: 'MINUTES')
+        timeout(time: 4, unit: 'HOURS')
         skipDefaultCheckout(true)
     }
     environment {
@@ -37,69 +37,45 @@ pipeline {
                 sh 'check-large-files'
             }
         }
+        stage('db') {
+            steps {
+                sh 'service postgresql start'
+            }
+        }
         stage('Build Web') {
-            // The build code depends on the following assets being loaded.
-            parallel {
-                stage('web/satellite') {
-                    steps {
-                        dir('web/satellite') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
-                            sh './scripts/build-wasm.sh'
-                            sh 'npm run build'
+                    // The build code depends on the following assets being loaded.
+                    parallel {
+                        stage('web/satellite') {
+                            steps {
+                                sh './web/satellite/build.sh'
+                            }
                         }
-                    }
-                }
-                stage('web/storagenode') {
-                    steps {
-                        dir('web/storagenode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('web/multinode') {
-                    steps {
-                        dir('web/multinode') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir('satellite/admin/ui') {
-                            sh 'npm install --prefer-offline --no-audit --loglevel verbose'
-                            sh 'npm run build'
-                        }
-                    }
-                }
-            }
-        }
-        stage('Build') {
-            parallel {
-                stage('go -race gateway') {
-                    steps {
-                        // install gateway for storj-sim
-                        sh 'go install -race -v storj.io/gateway@latest'
-                    }
-                }
 
-                stage('db') {
-                    steps {
-                        sh 'service postgresql start'
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26261 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
+                        stage('wasm') {
+                            steps {
+                                sh './scripts/test-wasm.sh'
+                            }
+                        }
+
+                        stage('web/storagenode') {
+                            steps {
+                                sh './web/storagenode/build.sh'
+                            }
+                        }
+
+                        stage('web/multinode') {
+                            steps {
+                                sh './web/multinode/build.sh'
+                            }
+                        }
+
+                        stage('satellite/admin/ui') {
+                            steps {
+                                sh './satellite/admin/ui/build.sh'
+                            }
                         }
                     }
-                }
-            }
-        }
-
+         }
         stage('UI') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
@@ -110,9 +86,8 @@ pipeline {
             }
             steps {
                 sh 'psql -U postgres -c \'create database testui;\''
-                sh 'cd testsuite/ui && go test -parallel 1 -p 1 -short -vet=off -timeout 5m -json -race ./... 2>&1 | tee ../../.build/ui-tests.json | xunit -out ../../.build/ui-tests.xml'
-                }
-
+                sh 'testsuite/ui/run.sh'
+            }
             post {
                 always {
                     archiveArtifacts artifacts: '.build/ui-tests.json'
