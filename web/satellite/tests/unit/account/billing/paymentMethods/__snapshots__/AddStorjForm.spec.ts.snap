@@ -5,9 +5,3 @@ exports[`AddStorjForm renders correctly 1`] = `
   <p class="add-storj-area__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
 </div>
 `;
-
-exports[`AddStorjForm renders correctly after continue To Coin Payments click 1`] = `
-<div class="add-storj-area">
-  <p class="add-storj-area__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
-</div>
-`;

@@ -11,7 +11,6 @@ import {
     PaymentsHistoryItemStatus,
     PaymentsHistoryItemType,
     ProjectUsageAndCharges,
-    TokenDeposit,
     NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
@@ -49,7 +48,6 @@ export const PAYMENTS_ACTIONS = {
     REMOVE_CARD: 'removeCard',
     GET_PAYMENTS_HISTORY: 'getPaymentsHistory',
     GET_NATIVE_PAYMENTS_HISTORY: 'getNativePaymentsHistory',
-    MAKE_TOKEN_DEPOSIT: 'makeTokenDeposit',
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
@@ -87,7 +85,6 @@ const {
     REMOVE_CARD,
     GET_PAYMENTS_HISTORY,
     GET_NATIVE_PAYMENTS_HISTORY,
-    MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
     APPLY_COUPON_CODE,
@@ -278,9 +275,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 const paymentsHistory = await api.nativePaymentsHistory();
 
                 commit(SET_NATIVE_PAYMENTS_HISTORY, paymentsHistory);
-            },
-            [MAKE_TOKEN_DEPOSIT]: async function(_context: PaymentsContext, amount: number): Promise<TokenDeposit> {
-                return await api.makeTokenDeposit(amount);
             },
             [GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP]: async function({ commit, rootGetters }: PaymentsContext): Promise<void> {
                 const now = new Date();

@@ -71,14 +71,6 @@ export interface PaymentsApi {
     nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
 
     /**
-     * Creates token transaction in CoinPayments
-     *
-     * @param amount
-     * @throws Error
-     */
-    makeTokenDeposit(amount: number): Promise<TokenDeposit>;
-
-    /**
      * applyCouponCode applies a coupon code.
      *
      * @param couponCode
