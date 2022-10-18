@@ -222,7 +222,7 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 	truncErr := file.Truncate(position)
 
 	var syncErr error
-	if experiment.GetExperiment(ctx) != "nosync" {
+	if !experiment.Has(ctx, "nosync") {
 		syncErr = file.Sync()
 	}
 
