@@ -420,7 +420,7 @@ export default class CreateForm extends Vue {
 <style scoped lang="scss">
     @mixin tooltip-container {
         position: absolute;
-        background: #56606d;
+        background: var(--c-grey-6);
         border-radius: 6px;
         width: 253px;
         color: #fff;
@@ -439,7 +439,7 @@ export default class CreateForm extends Vue {
         width: 0;
         height: 0;
         border: 6px solid transparent;
-        border-top-color: #56606d;
+        border-top-color: var(--c-grey-6);
         border-bottom: 0;
         margin-left: -20px;
         margin-bottom: -20px;
@@ -536,7 +536,7 @@ export default class CreateForm extends Vue {
 
                 &__input {
                     background: #fff;
-                    border: 1px solid #c8d3de;
+                    border: 1px solid var(--c-grey-4);
                     box-sizing: border-box;
                     border-radius: 6px;
                     font-size: 14px;
@@ -567,7 +567,7 @@ export default class CreateForm extends Vue {
                 }
 
                 &__text {
-                    color: #929fb1;
+                    color: var(--c-grey-5);
                     text-decoration: underline;
                     cursor: pointer;
                     text-align: left;
@@ -601,7 +601,7 @@ export default class CreateForm extends Vue {
     :deep(.buckets-selection) {
         margin-left: 0;
         height: 40px;
-        border: 1px solid #c8d3de;
+        border: 1px solid var(--c-grey-4);
     }
 
     :deep(.buckets-selection__toggle-container) {
@@ -690,7 +690,7 @@ export default class CreateForm extends Vue {
 
     .checkmark-container input:checked ~ .checkmark {
         border: 2px solid #376fff;
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
     }
 
     .checkmark:after {

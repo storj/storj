@@ -96,7 +96,7 @@ export default class VTable extends Vue {
     tbody {
 
         tr:hover {
-            background: #e6edf7;
+            background: var(--c-blue-1);
         }
 
         th {

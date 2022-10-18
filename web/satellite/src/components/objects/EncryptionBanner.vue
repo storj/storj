@@ -40,7 +40,7 @@ export default class EncryptionBanner extends Vue {
 <style scoped lang="scss">
     .banner {
         background: #fff;
-        border: 1px solid #d8dee3;
+        border: 1px solid var(--c-grey-3);
         box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
         border-radius: 10px;
         display: flex;

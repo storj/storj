@@ -209,7 +209,7 @@ export default class ConfirmDeletePopup extends Vue {
                     &__item {
                         padding: 3px 7px;
                         max-width: fit-content;
-                        background: #d8dee3;
+                        background: var(--c-grey-3);
                         border-radius: 20px;
                         margin-bottom: 10px;
 

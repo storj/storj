@@ -628,7 +628,7 @@ export default class AccessGrants extends Vue {
                 &__text {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                 }
             }
         }

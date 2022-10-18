@@ -75,22 +75,22 @@ export default class LimitWarningModal extends Vue {
         &.critical {
 
             :deep(.icon-background) {
-                fill: #ffb0b0;
+                fill: var(--c-red-1);
             }
 
             :deep(.icon-chart) {
-                fill: #ff1313;
+                fill: var(--c-red-2);
             }
         }
 
         &.warning {
 
             :deep(.icon-background) {
-                fill: #ffa800;
+                fill: var(--c-yellow-4);
             }
 
             :deep(.icon-chart) {
-                fill: #ff8a00;
+                fill: var(--c-yellow-5);
             }
         }
     }

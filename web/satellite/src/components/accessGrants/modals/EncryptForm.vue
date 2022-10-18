@@ -241,7 +241,7 @@ export default class EncryptForm extends Vue {
 
         :deep(path),
         :deep(rect) {
-            stroke: #56606d;
+            stroke: var(--c-grey-6);
         }
     }
 }
@@ -267,7 +267,7 @@ export default class EncryptForm extends Vue {
     &__divider {
         width: 100%;
         height: 1px;
-        background: #ebeef1;
+        background: var(--c-grey-2);
         margin: 16px 0;
 
         &.in-middle {
@@ -294,11 +294,11 @@ export default class EncryptForm extends Vue {
                 &.selected {
 
                     :deep(circle) {
-                        fill: #e6edf7 !important;
+                        fill: var(--c-blue-1) !important;
                     }
 
                     :deep(path) {
-                        fill: #003dc1 !important;
+                        fill: var(--c-blue-4) !important;
                     }
                 }
             }
@@ -337,8 +337,8 @@ export default class EncryptForm extends Vue {
         margin-bottom: 20px;
         align-items: center;
         padding: 10px 16px;
-        background: #ebeef1;
-        border: 1px solid #c8d3de;
+        background: var(--c-grey-2);
+        border: 1px solid var(--c-grey-4);
         border-radius: 7px;
         text-align: left;
     }
@@ -347,7 +347,7 @@ export default class EncryptForm extends Vue {
         margin-top: 20px;
         width: 100%;
         background: #fff;
-        border: 1px solid #c8d3de;
+        border: 1px solid var(--c-grey-4);
         box-sizing: border-box;
         border-radius: 4px;
         font-size: 14px;
@@ -384,7 +384,7 @@ export default class EncryptForm extends Vue {
         }
 
         &__acknowledgement-container {
-            border: 1px solid #c8d3de;
+            border: 1px solid var(--c-grey-4);
             border-radius: 6px;
             display: grid;
             grid-template-columns: 1fr 6fr;

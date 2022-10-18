@@ -223,7 +223,7 @@ export default class BucketsView extends Vue {
         if (grantEvent.data.error) {
             throw new Error(grantEvent.data.error);
         }
-        
+
         const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
@@ -503,7 +503,7 @@ export default class BucketsView extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
         border-radius: 8px;
         cursor: pointer;
 

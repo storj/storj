@@ -193,10 +193,10 @@ export default class BillingArea extends Vue {
                 display: flex;
                 justify-content: space-between;
                 align-items: bottom;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-weight: 700;
                 font-family: sans-serif;
-                border: 1px solid #d8dee3;
+                border: 1px solid var(--c-grey-3);
                 border-radius: 5px;
                 background-color: #fff;
                 height: 15px;
@@ -261,7 +261,7 @@ export default class BillingArea extends Vue {
                 }
 
                 position: absolute;
-                background: #56606d;
+                background: var(--c-grey-6);
                 border-radius: 6px;
                 width: 253px;
                 color: #fff;
@@ -286,7 +286,7 @@ export default class BillingArea extends Vue {
                     width: 0;
                     height: 0;
                     border: 6px solid transparent;
-                    border-top-color: #56606d;
+                    border-top-color: var(--c-grey-6);
                     border-bottom: 0;
                     margin-left: -20px;
                     margin-bottom: -20px;

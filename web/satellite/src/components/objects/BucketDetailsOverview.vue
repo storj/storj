@@ -36,7 +36,7 @@ export default class BucketDetailsOverview extends Vue {
 
 <style lang="scss" scoped>
     .bucket-details-overview {
-        color: #56606d;
+        color: var(--c-grey-6);
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;

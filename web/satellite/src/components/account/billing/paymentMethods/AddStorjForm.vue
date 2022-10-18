@@ -56,7 +56,7 @@ export default class AddStorjForm extends Vue {
             color: #000;
 
             a {
-                color: #0149ff;
+                color: var(--c-blue-3);
             }
         }
     }

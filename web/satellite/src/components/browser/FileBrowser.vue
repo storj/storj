@@ -557,7 +557,7 @@ export default class FileBrowser extends Vue {
 
 .file-browser-table {
     padding: 0 12px 24px;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: none;
 }
 
@@ -569,7 +569,7 @@ export default class FileBrowser extends Vue {
     border: 2px dashed #bec4cd;
     border-radius: 10px;
     padding: 80px 20px;
-    background: #fafafb;
+    background: var(--c-grey-1);
     cursor: pointer;
 
     svg {
@@ -669,20 +669,20 @@ export default class FileBrowser extends Vue {
         padding: 0 18px;
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
-        color: #56606d;
+        color: var(--c-grey-6);
         background-clip: padding-box;
 
         &:hover {
-            background: #fafafb;
-            color: #0149ff;
+            background: var(--c-grey-1);
+            color: var(--c-blue-3);
 
             .btn-icon > path {
-                fill: #0149ff;
+                fill: var(--c-blue-3);
             }
         }
 
         &:not(:first-of-type) {
-            border-top: 1px solid #ebeef1;
+            border-top: 1px solid var(--c-grey-2);
         }
     }
 }
@@ -719,8 +719,8 @@ export default class FileBrowser extends Vue {
 
 .new-folder-button {
     background: white;
-    border: 1px solid #d8dee3;
-    color: #56606d;
+    border: 1px solid var(--c-grey-3);
+    color: var(--c-grey-6);
     border-radius: 8px;
 }
 
@@ -729,12 +729,12 @@ export default class FileBrowser extends Vue {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #0149ff;
+    background-color: var(--c-blue-3);
 
     &__divider {
         height: 100%;
         width: 1px;
-        background: #56606d;
+        background: var(--c-grey-6);
         margin: 0 7px;
     }
 }

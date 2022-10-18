@@ -244,8 +244,8 @@ export default class ShareBucketModal extends Vue {
         }
 
         &__input-group {
-            border: 1px solid #c8d3de;
-            background: #fafafb;
+            border: 1px solid var(--c-grey-4);
+            background: var(--c-grey-1);
             padding: 10px;
             display: flex;
             justify-content: space-between;
@@ -258,7 +258,7 @@ export default class ShareBucketModal extends Vue {
             background: none;
             border: none;
             font-size: 14px;
-            color: #56606d;
+            color: var(--c-grey-6);
             outline: none;
             max-width: 340px;
             width: 100%;

@@ -307,7 +307,7 @@ export default class NavigationArea extends Vue {
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
-        border-right: 1px solid #ebeef1;
+        border-right: 1px solid var(--c-grey-2);
 
         &__container {
             display: flex;
@@ -349,7 +349,7 @@ export default class NavigationArea extends Vue {
                     align-items: center;
                     justify-content: space-between;
                     border-left: 4px solid #fff;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     position: static;
                     cursor: pointer;
                     box-sizing: border-box;
@@ -366,12 +366,12 @@ export default class NavigationArea extends Vue {
                     }
 
                     &:hover {
-                        border-color: #fafafb;
-                        background-color: #fafafb;
-                        color: #0149ff;
+                        border-color: var(--c-grey-1);
+                        background-color: var(--c-grey-1);
+                        color: var(--c-blue-3);
 
                         :deep(path) {
-                            fill: #0149ff;
+                            fill: var(--c-blue-3);
                         }
                     }
                 }
@@ -380,7 +380,7 @@ export default class NavigationArea extends Vue {
                     margin: 8px 24px;
                     height: 1px;
                     width: calc(100% - 48px);
-                    background: #ebeef1;
+                    background: var(--c-grey-2);
                 }
             }
         }
@@ -389,7 +389,7 @@ export default class NavigationArea extends Vue {
     .router-link-active,
     .active {
         border-color: #000;
-        color: #091c45;
+        color: var(--c-blue-6);
         font-family: 'font_bold', sans-serif;
 
         :deep(path) {
@@ -397,11 +397,11 @@ export default class NavigationArea extends Vue {
         }
 
         &:hover {
-            color: #0149ff;
-            border-color: #0149ff;
+            color: var(--c-blue-3);
+            border-color: var(--c-blue-3);
 
             :deep(path) {
-                fill: #0149ff;
+                fill: var(--c-blue-3);
             }
         }
     }
@@ -412,8 +412,8 @@ export default class NavigationArea extends Vue {
         font-family: 'font_regular', sans-serif;
         padding: 10px 16px;
         cursor: pointer;
-        border-top: 1px solid #ebeef1;
-        border-bottom: 1px solid #ebeef1;
+        border-top: 1px solid var(--c-grey-2);
+        border-bottom: 1px solid var(--c-grey-2);
     }
 
     :deep(.dropdown-item__icon) {
@@ -429,13 +429,13 @@ export default class NavigationArea extends Vue {
         font-family: 'font_bold', sans-serif;
         font-size: 14px;
         line-height: 22px;
-        color: #091c45;
+        color: var(--c-blue-6);
     }
 
     :deep(.dropdown-item__text__label) {
         font-size: 12px;
         line-height: 21px;
-        color: #091c45;
+        color: var(--c-blue-6);
     }
 
     :deep(.dropdown-item:first-of-type) {
@@ -447,12 +447,12 @@ export default class NavigationArea extends Vue {
     }
 
     :deep(.dropdown-item:hover) {
-        background-color: #fafafb;
+        background-color: var(--c-grey-1);
     }
 
     :deep(.dropdown-item:hover h2),
     :deep(.dropdown-item:hover p) {
-        color: #0149ff;
+        color: var(--c-blue-3);
     }
 
     @media screen and (max-width: 1280px) {

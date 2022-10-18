@@ -5,7 +5,7 @@
 <g filter="url(#filter0_d_11080_68109)">
 <rect x="-34" y="-28" width="348" height="203" rx="10" fill="white"/>
 </g>
-<mask id="mask0_11080_68109" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="-34" y="-28" width="348" height="179">
+<mask id="mask0_11080_68109" style="mask-type: alpha;" maskUnits="userSpaceOnUse" x="-34" y="-28" width="348" height="179">
 <rect x="-34" y="-28" width="348" height="179" rx="10" fill="white"/>
 </mask>
 <g mask="url(#mask0_11080_68109)">

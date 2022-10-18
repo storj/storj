@@ -108,7 +108,7 @@ export default class BucketCreationProgress extends Vue {
             height: 1px;
             top: 16px;
             left: 100%;
-            background: #ebeef1;
+            background: var(--c-grey-2);
 
             @media screen and (max-width: 760px) {
                 display: none;
@@ -118,15 +118,15 @@ export default class BucketCreationProgress extends Vue {
         &.active {
 
             .bucket-creation-progress__item__outer-circle {
-                background: #d7e8ff;
+                background: var(--c-blue-2);
             }
 
             .bucket-creation-progress__item__inner-circle {
-                background: #0149ff;
+                background: var(--c-blue-3);
             }
 
             .bucket-creation-progress__item__label {
-                color: #0149ff;
+                color: var(--c-blue-3);
 
                 &.passed {
                     color: #14142a !important;

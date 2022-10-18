@@ -753,7 +753,7 @@ export default class RegisterArea extends Vue {
     }
 
     .logo-divider {
-        border-left: 1px solid #b3c5ff;
+        border-left: 1px solid var(--c-light-blue-2);
         height: 40px;
         margin: 0 10px;
     }
@@ -1011,7 +1011,7 @@ export default class RegisterArea extends Vue {
                     right: 12px;
                     transform: translateX(50%);
                     visibility: hidden;
-                    background-color: #56606d;
+                    background-color: var(--c-grey-6);
                     text-align: center;
                     border-radius: 4px;
                     font-family: 'font-medium', sans-serif;
@@ -1030,7 +1030,7 @@ export default class RegisterArea extends Vue {
                         left: 50%;
                         border-width: 5px;
                         border-style: solid;
-                        border-color: #56606d transparent transparent;
+                        border-color: var(--c-grey-6) transparent transparent;
                         transform: rotate(180deg);
                     }
                 }

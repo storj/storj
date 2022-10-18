@@ -478,7 +478,7 @@ export default class NewProjectDashboard extends Vue {
             &__value {
                 text-decoration: underline;
                 text-underline-position: under;
-                text-decoration-color: #00e366;
+                text-decoration-color: var(--c-green-3);
             }
         }
 
@@ -552,11 +552,11 @@ export default class NewProjectDashboard extends Vue {
                         }
 
                         &__allocated-color {
-                            background: #c5baff;
+                            background: var(--c-purple-2);
                         }
 
                         &__settled-color {
-                            background: #a18eff;
+                            background: var(--c-purple-3);
                         }
 
                         &__allocated-label,
@@ -666,7 +666,7 @@ export default class NewProjectDashboard extends Vue {
     }
 
     :deep(.info__box__message) {
-        background: #56606d;
+        background: var(--c-grey-6);
         border-radius: 4px;
         padding: 8px;
         position: relative;
@@ -674,7 +674,7 @@ export default class NewProjectDashboard extends Vue {
     }
 
     :deep(.info__box__arrow) {
-        background: #56606d;
+        background: var(--c-grey-6);
         width: 10px;
         height: 10px;
         margin: 0 0 -2px 40px;

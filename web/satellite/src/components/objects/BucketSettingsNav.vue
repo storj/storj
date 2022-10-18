@@ -100,7 +100,7 @@ export default class BucketSettingsNav extends Vue {
     color: #1b2533;
     cursor: pointer;
     background: white;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     border-radius: 8px;
 
     &__button {

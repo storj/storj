@@ -439,8 +439,8 @@ export default class GrantCreated extends Vue {
             margin-top: 10px;
             align-items: center;
             padding: 10px 16px;
-            background: #ebeef1;
-            border: 1px solid #c8d3de;
+            background: var(--c-grey-2);
+            border: 1px solid var(--c-grey-4);
             border-radius: 7px;
             display: flex;
             justify-content: space-between;

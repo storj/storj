@@ -151,7 +151,7 @@ export default class AddTokenCardNative extends Vue {
             position: relative;
             font-size: 14px;
             line-height: 20px;
-            color: #56606d;
+            color: var(--c-grey-6);
             margin-bottom: 23px;
             max-width: 232px;
             z-index: 1;
@@ -165,7 +165,7 @@ export default class AddTokenCardNative extends Vue {
             z-index: 1;
 
             &__small-icon {
-                background: #e6edf7;
+                background: var(--c-blue-1);
                 border-radius: 4px;
                 width: 32px;
                 height: 24px;
@@ -178,14 +178,14 @@ export default class AddTokenCardNative extends Vue {
                 display: flex;
                 align-items: center;
                 padding: 7px 8px;
-                background: #e6edf7;
+                background: var(--c-blue-1);
                 border: 1px solid #fff;
                 border-radius: 4px;
 
                 &__label {
                     font-family: 'font_bold', sans-serif;
                     font-size: 12px;
-                    color: #003dc1;
+                    color: var(--c-blue-4);
                     margin-right: 4px;
                 }
 
@@ -227,7 +227,7 @@ export default class AddTokenCardNative extends Vue {
                     font-family: 'font_medium', sans-serif;
                     font-size: 12px;
                     line-height: 18px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                 }
 
                 &__value {
@@ -257,7 +257,7 @@ export default class AddTokenCardNative extends Vue {
 
                 span {
                     font-size: 13px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     font-family: 'font_medium', sans-serif;
                     line-height: 23px;
                     margin: 0;
@@ -277,14 +277,14 @@ export default class AddTokenCardNative extends Vue {
     :deep(.info__box__message) {
         padding: 8px 8px 13px;
         width: 235px;
-        background: #56606d;
+        background: var(--c-grey-6);
         border-radius: 4px;
     }
 
     :deep(.info__box__arrow) {
         width: 10px;
         height: 10px;
-        background: #56606d;
+        background: var(--c-grey-6);
         margin-bottom: -3px;
     }
 </style>

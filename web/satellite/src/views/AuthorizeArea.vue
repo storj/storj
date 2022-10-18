@@ -439,8 +439,8 @@ function formatObjectPermissions(scope: string): string {
         }
 
         &__permissions-area {
-            background-color: #fafafb;
-            border: 1px solid #d8dee3;
+            background-color: var(--c-grey-1);
+            border: 1px solid var(--c-grey-3);
             padding: 10px 9px 10px 24px;
             border-radius: 8px;
 
@@ -451,7 +451,7 @@ function formatObjectPermissions(scope: string): string {
 
             &__container {
                 padding: 24px 0;
-                border-bottom: 1px solid #d8dee3;
+                border-bottom: 1px solid var(--c-grey-3);
 
                 p {
                     line-height: 24px;

@@ -182,7 +182,7 @@ export default class BucketItem extends Resizable {
                 flex-direction: column;
                 align-items: start;
                 transform: translateX(-100%);
-                background-color: #0149ff;
+                background-color: var(--c-blue-3);
                 text-align: center;
                 border-radius: 8px;
                 box-sizing: border-box;
@@ -204,7 +204,7 @@ export default class BucketItem extends Resizable {
                     left: 10%;
                     border-width: 5px;
                     border-style: solid;
-                    border-color: #0149ff transparent transparent;
+                    border-color: var(--c-blue-3) transparent transparent;
                     transform: rotate(180deg);
 
                     @media screen and (max-width: 550px) {
@@ -247,7 +247,7 @@ export default class BucketItem extends Resizable {
                             font-weight: 700;
                             font-size: 13px;
                             line-height: 20px;
-                            color: #0149ff;
+                            color: var(--c-blue-3);
                         }
                     }
                 }

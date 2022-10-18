@@ -182,7 +182,7 @@ export default class AddTokenFundsModal extends Vue {
             &__text {
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin-right: 9px;
                 font-family: 'font_medium', sans-serif;
             }
@@ -216,7 +216,7 @@ export default class AddTokenFundsModal extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border: 1px solid #c8d3de;
+            border: 1px solid var(--c-grey-4);
             border-radius: 8px;
             padding: 10px 15px;
             width: calc(100% - 64px);
@@ -267,14 +267,14 @@ export default class AddTokenFundsModal extends Vue {
     }
 
     :deep(.info__box__message) {
-        background: #56606d;
+        background: var(--c-grey-6);
         border-radius: 4px;
         padding: 10px 8px;
         transform: rotate(-180deg);
     }
 
     :deep(.info__box__arrow) {
-        background: #56606d;
+        background: var(--c-grey-6);
         width: 10px;
         height: 10px;
         margin-bottom: -3px;

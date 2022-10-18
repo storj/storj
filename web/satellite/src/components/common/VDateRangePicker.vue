@@ -54,11 +54,11 @@ export default class VDateRangePicker extends Vue {
     }
 
     .mx-table th {
-        color: #c8d3de;
+        color: var(--c-grey-4);
     }
 
     .mx-table-date .cell.not-current-month {
-        color: #929fb1;
+        color: var(--c-grey-5);
     }
 
     .mx-calendar-content .cell {
@@ -69,12 +69,12 @@ export default class VDateRangePicker extends Vue {
 
     .mx-calendar-content .cell.in-range {
         color: #000;
-        background-color: #e6edf7;
+        background-color: var(--c-blue-1);
         border-radius: 999px;
     }
 
     .mx-calendar-content .cell.active {
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
         border-radius: 999px;
     }
 

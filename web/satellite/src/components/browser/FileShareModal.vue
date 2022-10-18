@@ -35,7 +35,7 @@
                             </div>
 
                             <p id="copy-text" class="my-4 text-center">Or copy link:</p>
-                            
+
                             <VLoader v-if="isLoading" width="20px" height="20px" />
 
                             <div v-if="!isLoading" class="input-group">
@@ -205,7 +205,7 @@ export default class FileShareModal extends Vue {
     background: none;
     border: none;
     font-size: 14px;
-    color: #56606d;
+    color: var(--c-grey-6);
     max-width: 340px;
     width: 100%;
     flex-wrap: inherit !important;
@@ -219,8 +219,8 @@ export default class FileShareModal extends Vue {
 }
 
 .input-group {
-    border: 1px solid #c8d3de;
-    background: #fafafb;
+    border: 1px solid var(--c-grey-4);
+    background: var(--c-grey-1);
     padding: 10px;
     display: flex;
     justify-content: space-between;

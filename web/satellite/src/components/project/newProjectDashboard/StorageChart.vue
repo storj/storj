@@ -91,7 +91,7 @@ export default class StorageChart extends BaseChart {
         display: flex;
         flex-direction: column;
         align-items: center;
-        background-color: #003dc1;
+        background-color: var(--c-blue-4);
 
         &__value {
             font-size: 14px;
@@ -111,7 +111,7 @@ export default class StorageChart extends BaseChart {
             border-radius: 8px 0 0;
             transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
             margin-bottom: -4px;
-            background-color: #003dc1;
+            background-color: var(--c-blue-4);
         }
     }
 </style>

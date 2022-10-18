@@ -106,8 +106,8 @@ export default defineComponent({
     }
 
     .solid-red {
-        background-color: #ba0000 !important;
-        border: 1px solid #ba0000 !important;
+        background-color: var(--c-red-3) !important;
+        border: 1px solid var(--c-red-3) !important;
 
         .label {
             color: #fff !important;
@@ -121,7 +121,7 @@ export default defineComponent({
 
     .white {
         background-color: #fff !important;
-        border: 1px solid #d8dee3 !important;
+        border: 1px solid var(--c-grey-3) !important;
 
         .label {
             color: #354049 !important;
@@ -142,13 +142,13 @@ export default defineComponent({
         border: 1px solid #afb7c1 !important;
 
         .label {
-            color: #00ac26 !important;
+            color: var(--c-green-5) !important;
         }
     }
 
     .green-white {
-        background-color: #00ac26 !important;
-        border: 1px solid #00ac26 !important;
+        background-color: var(--c-green-5) !important;
+        border: 1px solid var(--c-green-5) !important;
     }
 
     .grey-blue {
@@ -156,7 +156,7 @@ export default defineComponent({
         border: 2px solid #d9dbe9 !important;
 
         .label {
-            color: #0149ff !important;
+            color: var(--c-blue-3) !important;
         }
     }
 
@@ -183,7 +183,7 @@ export default defineComponent({
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
         cursor: pointer;
 
         .trash-icon {
@@ -191,7 +191,7 @@ export default defineComponent({
         }
 
         .greenCheck {
-            color: #00ac26 !important;
+            color: var(--c-green-5) !important;
             margin-right: 5px;
         }
 

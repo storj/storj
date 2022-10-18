@@ -86,8 +86,8 @@ export default class VBanner extends Resizable {
     align-items: center;
     padding: 1.375rem;
     font-family: 'font_regular', sans-serif;
-    background-color: var(--c-info);
-    border: 1px solid var(--c-info-border);
+    background-color: var(--c-light-blue-1);
+    border: 1px solid var(--c-light-blue-2);
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
     box-sizing: border-box;
@@ -97,25 +97,25 @@ export default class VBanner extends Resizable {
         margin-right: 1.375rem;
 
         :deep(path) {
-            fill: var(--c-info-icon);
+            fill: var(--c-blue-4);
         }
     }
 
     &.warning {
-        background-color: var(--c-warning);
-        border: 1px solid var(--c-warning-border);
+        background-color: var(--c-yellow-1);
+        border: 1px solid var(--c-yellow-2);
 
         :deep(.icon-path) {
-            fill: var(--c-warning-icon) !important;
+            fill: var(--c-yellow-3) !important;
         }
     }
 
     &.critical {
-        background-color: var(--c-critical);
-        border: 1px solid var(--c-critical-border);
+        background-color: var(--c-pink-1);
+        border: 1px solid var(--c-pink-2);
 
         :deep(.icon-path) {
-            fill: var(--c-critical-icon);
+            fill: var(--c-pink-4);
         }
     }
 

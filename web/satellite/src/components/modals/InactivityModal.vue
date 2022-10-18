@@ -107,7 +107,7 @@ export default class InactivityModal extends Vue {
             margin-bottom: 8px;
 
             &__timer {
-                color: #ff458b;
+                color: var(--c-pink-4);
             }
         }
 

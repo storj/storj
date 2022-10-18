@@ -32,7 +32,7 @@
                         </span>
                     </div>
                 </div>
-                <div 
+                <div
                     class="coupon-area__container__new-coupon"
                     @click="toggleCreateModal"
                 >
@@ -157,8 +157,8 @@ export default class Coupons extends Vue {
 
 <style scoped lang="scss">
     .active-discount {
-        background: #dffff7;
-        color: #00ac26;
+        background: var(--c-green-1);
+        color: var(--c-green-5);
     }
 
     .inactive-discount {
@@ -167,7 +167,7 @@ export default class Coupons extends Vue {
     }
 
     .active-status {
-        background: #00ac26;
+        background: var(--c-green-5);
     }
 
     .inactive-status {
@@ -266,7 +266,7 @@ export default class Coupons extends Vue {
             }
 
             &__new-coupon {
-                border: 2px dashed #929fb1;
+                border: 2px dashed var(--c-grey-5);
                 border-radius: 10px;
                 max-width: 400px;
                 width: 18vw;
@@ -286,13 +286,13 @@ export default class Coupons extends Vue {
                     justify-content: center;
 
                     &__plus-icon {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                         font-family: sans-serif;
                         font-size: 24px;
                     }
 
                     &__text {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                         font-family: sans-serif;
                         font-size: 18px;
                         text-decoration: underline;

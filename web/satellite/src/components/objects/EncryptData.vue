@@ -253,7 +253,7 @@ export default class EncryptData extends Vue {
         &__msg-container {
             margin: -20px auto 40px;
             max-width: 620px;
-            background-color: #ffd78a;
+            background-color: var(--c-yellow-2);
             display: flex;
             flex-direction: column;
             align-items: center;

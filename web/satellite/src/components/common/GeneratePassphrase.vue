@@ -394,12 +394,12 @@ export default class GeneratePassphrase extends Vue {
     }
 
     .active {
-        color: #0149ff;
-        border-color: #0149ff;
+        color: var(--c-blue-3);
+        border-color: var(--c-blue-3);
     }
 
     .active svg rect {
-        fill: #0149ff;
+        fill: var(--c-blue-3);
     }
 
     :deep(.info__box__message) {

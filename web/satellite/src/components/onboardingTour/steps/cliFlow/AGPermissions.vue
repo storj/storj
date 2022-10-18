@@ -248,7 +248,7 @@ export default class AGPermissions extends Vue {
                 margin: 20px 0 8px;
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
             }
         }
 

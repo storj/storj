@@ -179,7 +179,7 @@ export default class UsageAndChargesItem2 extends Vue {
 
     .divider {
         margin-top: 15px;
-        background-color: #ebeef1;
+        background-color: var(--c-grey-2);
         width: calc(100% + 40px);
         height: 1px;
         align-self: center;
@@ -261,7 +261,7 @@ export default class UsageAndChargesItem2 extends Vue {
                 justify-content: space-between;
                 font-size: 12px;
                 line-height: 19px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-weight: 600;
                 height: 25px;
                 width: 100%;
@@ -312,7 +312,7 @@ export default class UsageAndChargesItem2 extends Vue {
                     padding-top: 10px;
 
                     &__method {
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         font-weight: 600;
                         font-size: 12px;
                     }

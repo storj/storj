@@ -606,7 +606,7 @@ export default class DashboardArea extends Vue {
             background-color: #fec;
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
-            border: 1px solid #ffd78a;
+            border: 1px solid var(--c-yellow-2);
             border-radius: 10px;
             box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 

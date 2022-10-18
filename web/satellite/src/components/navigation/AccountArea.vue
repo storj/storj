@@ -240,7 +240,7 @@ export default class AccountArea extends Vue {
                 &__label-small {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin: 0 6px 0 24px;
                 }
 
@@ -251,16 +251,16 @@ export default class AccountArea extends Vue {
             }
 
             &:hover {
-                background-color: #fafafb;
-                border-color: #fafafb;
+                background-color: var(--c-grey-1);
+                border-color: var(--c-grey-1);
 
                 p {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                 }
 
                 .account-area__wrap__arrow :deep(path),
                 .account-area__wrap__left__icon :deep(path) {
-                    fill: #0149ff;
+                    fill: var(--c-blue-3);
                 }
             }
         }
@@ -272,16 +272,16 @@ export default class AccountArea extends Vue {
             max-width: 240px;
             z-index: 1;
             cursor: default;
-            border: 1px solid #ebeef1;
+            border: 1px solid var(--c-grey-2);
             box-sizing: border-box;
             box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
 
             &__header {
-                background: #fafafb;
+                background: var(--c-grey-1);
                 padding: 16px;
                 width: calc(100% - 32px);
-                border: 1px solid #ebeef1;
+                border: 1px solid var(--c-grey-2);
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -295,14 +295,14 @@ export default class AccountArea extends Vue {
                     &__label {
                         font-size: 14px;
                         line-height: 20px;
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         margin-left: 16px;
                     }
 
                     &__sat {
                         font-size: 14px;
                         line-height: 20px;
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         margin-right: 16px;
                     }
 
@@ -315,7 +315,7 @@ export default class AccountArea extends Vue {
             &__item {
                 display: flex;
                 align-items: center;
-                border-top: 1px solid #ebeef1;
+                border-top: 1px solid var(--c-grey-2);
                 padding: 16px;
                 width: calc(100% - 32px);
                 cursor: pointer;
@@ -324,7 +324,7 @@ export default class AccountArea extends Vue {
                     margin-left: 16px;
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                 }
 
                 &:last-of-type {
@@ -335,11 +335,11 @@ export default class AccountArea extends Vue {
                     background-color: #f7f8fb;
 
                     p {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                     }
 
                     :deep(path) {
-                        fill: #0149ff;
+                        fill: var(--c-blue-3);
                     }
                 }
             }
@@ -350,7 +350,7 @@ export default class AccountArea extends Vue {
         border-color: #000;
 
         p {
-            color: #091c45;
+            color: var(--c-blue-6);
             font-family: 'font_bold', sans-serif;
         }
 
@@ -361,16 +361,16 @@ export default class AccountArea extends Vue {
     }
 
     .active:hover {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
         background-color: #f7f8fb;
 
         p {
-            color: #0149ff;
+            color: var(--c-blue-3);
         }
 
         .account-area__wrap__arrow :deep(path),
         .account-area__wrap__left__icon :deep(path) {
-            fill: #0149ff;
+            fill: var(--c-blue-3);
         }
     }
 

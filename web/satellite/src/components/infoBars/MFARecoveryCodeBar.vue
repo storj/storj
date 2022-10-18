@@ -41,7 +41,7 @@ export default class MFARecoveryCodeBar extends Vue {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #ffc600;
+        background: var(--c-yellow-3);
         font-size: 14px;
         line-height: 18px;
         color: #000;

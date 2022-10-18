@@ -40,7 +40,7 @@ export default class InfoNotification extends Vue {
     align-items: flex-start;
     padding: 1.375rem;
     font-family: 'font_regular', sans-serif;
-    background-color: #d7e8ff;
+    background-color: var(--c-blue-2);
     border: 1px solid #a5beff;
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
@@ -51,7 +51,7 @@ export default class InfoNotification extends Vue {
         margin-right: 1.375rem;
 
         :deep(path) {
-            fill: var(--c-info-icon);
+            fill: var(--c-blue-4);
         }
     }
 

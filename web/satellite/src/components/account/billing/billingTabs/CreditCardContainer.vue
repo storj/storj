@@ -12,16 +12,16 @@
         <div class="payment-methods-container__card-container__info-area__expiration-text">
             Exp. Date
         </div>
-        
+
         <div class="payment-methods-container__card-container__info-area__info-container">
-            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
             {{ creditCard.last4 }}
         </div>
         <div class="payment-methods-container__card-container__info-area__expire-container">
             {{ creditCard.expMonth }}/{{ creditCard.expYear }}
         </div>
         <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-area">
-            <div class="payment-methods-container__card-container__default-text">Default</div> 
+            <div class="payment-methods-container__card-container__default-text">Default</div>
         </div>
         <div class="payment-methods-container__card-container__function-buttons">
             <div class="remove-button" @click="remove">
@@ -129,7 +129,7 @@ export default class CardComponent extends Vue {
     align-items: center;
     gap: 8px;
     background: white;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
     width: 70px;
@@ -163,7 +163,7 @@ export default class CardComponent extends Vue {
     width: 70px;
     height: 30px;
     background: white;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
     font-family: 'font_medium', sans-serif;
@@ -215,7 +215,7 @@ export default class CardComponent extends Vue {
             font-weight: 700;
             font-size: 12px;
             line-height: 18px;
-            color: #56606d;
+            color: var(--c-grey-6);
         }
 
         &__expiration-text {
@@ -226,7 +226,7 @@ export default class CardComponent extends Vue {
             font-weight: 700;
             font-size: 12px;
             line-height: 18px;
-            color: #56606d;
+            color: var(--c-grey-6);
         }
 
         &__last-four {
@@ -266,8 +266,8 @@ export default class CardComponent extends Vue {
         grid-column: 2;
         width: 58px;
         height: 24px;
-        background: #e6edf7;
-        border: 1px solid #d7e8ff;
+        background: var(--c-blue-1);
+        border: 1px solid var(--c-blue-2);
         border-radius: 4px;
         justify-self: end;
     }
@@ -278,7 +278,7 @@ export default class CardComponent extends Vue {
         font-weight: 700;
         font-size: 12px;
         line-height: 20px;
-        color: #003dc1;
+        color: var(--c-blue-4);
         margin-left: 8px;
         margin-top: 3px;
     }

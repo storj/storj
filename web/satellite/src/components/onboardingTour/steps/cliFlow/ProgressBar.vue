@@ -79,12 +79,12 @@ export default class ProgressBar extends Vue {
         &__bar {
             width: 580px;
             height: 16px;
-            background: #d8dee3;
+            background: var(--c-grey-3);
             border-radius: 8px;
 
             &__fill {
                 height: 16px;
-                background: #00ac26;
+                background: var(--c-green-5);
                 border-radius: 8px;
                 transition: width 0.2s;
             }
