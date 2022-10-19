@@ -69,7 +69,7 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
 func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, _ error) {
-	client, err := piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
 	if err != nil {
 		return 0, ErrNodeOffline.Wrap(err)
 	}
@@ -97,7 +97,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 			}
 
 			// redial the client
-			client, err = piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
+			client, err = piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
 			if err != nil {
 				return i, errs.Combine(ErrNodeOffline.Wrap(err), firstError)
 			}

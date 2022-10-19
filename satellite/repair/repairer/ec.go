@@ -22,6 +22,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -61,7 +62,7 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	client, err := piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), ec.dialer, n, piecestore.DefaultConfig)
 	return client, ErrDialFailed.Wrap(err)
 }
 
