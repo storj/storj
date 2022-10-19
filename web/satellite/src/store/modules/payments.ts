@@ -205,13 +205,16 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
+                state.creditCards = [];
                 state.paymentsHistory = [];
                 state.nativePaymentsHistory = [];
                 state.usageAndCharges = [];
                 state.priceSummary = 0;
-                state.creditCards = [];
+                state.priceSummaryForSelectedProject = 0;
                 state.startDate = new Date();
                 state.endDate = new Date();
+                state.coupon = null;
+                state.wallet = new Wallet();
             },
         },
         actions: {

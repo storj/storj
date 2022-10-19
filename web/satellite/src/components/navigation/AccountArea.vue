@@ -64,6 +64,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -150,6 +151,7 @@ export default class AccountArea extends Vue {
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
 
         LocalData.removeUserId();
     }

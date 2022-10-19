@@ -485,6 +485,7 @@ export default class MobileNavigation extends Vue {
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
 
         LocalData.removeUserId();
     }
