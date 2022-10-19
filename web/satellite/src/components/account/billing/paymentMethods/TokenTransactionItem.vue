@@ -22,14 +22,14 @@
                     {{ item.formattedStatus }}
                 </p>
                 <p class="array-val">
-                    {{ item.timestamp.toLocaleDateString() }}
+                    {{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}
                 </p>
             </div>
         </th>
 
         <fragment>
             <th class="align-left data tablet-laptop">
-                <p>{{ item.timestamp.toLocaleDateString() }}</p>
+                <p>{{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}</p>
             </th>
             <th class="align-left data tablet-laptop">
                 <p>Deposit on {{ item.formattedType }}</p>

@@ -59,12 +59,12 @@ export default class DateRangeSelection extends Vue {
      */
     public get dateRangeLabel(): string {
         if (this.since.getTime() === this.before.getTime()) {
-            return this.since.toLocaleDateString('en-US');
+            return this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
         }
 
-        const sinceFormattedString = this.since.toLocaleDateString('en-US');
-        const beforeFormattedString = this.before.toLocaleDateString('en-US');
-        return `${sinceFormattedString}-${beforeFormattedString}`;
+        const sinceFormattedString = this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        const beforeFormattedString = this.before.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        return `${sinceFormattedString} - ${beforeFormattedString}`;
     }
 
     /**
