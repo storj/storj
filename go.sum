@@ -956,7 +956,6 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 sourcegraph.com/sourcegraph/go-diff v0.5.0/go.mod h1:kuch7UrkMzY0X+p9CRK03kfuPQ2zzQcaEFbx8wA8rck=
 sourcegraph.com/sqs/pbtypes v0.0.0-20180604144634-d3ebe8f20ae4/go.mod h1:ketZ/q3QxT9HOBeFhu6RdvsftgpsbFHBF5Cas6cDKZ0=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20220822090045-1b57fc2bbda1/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/common v0.0.0-20220915180246-7826900e2b06/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/common v0.0.0-20221018143517-9eb8213fe465 h1:2o6NDi2sBKkbf54Nz1op+d82yxsH9kUYQ2ETVbRTwn4=
 storj.io/common v0.0.0-20221018143517-9eb8213fe465/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
@@ -966,5 +965,5 @@ storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 h1:SVuEocEhZfFc13J1Aml
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41/go.mod h1:iK+dmHZZXQlW7ahKdNSOo+raMk5BDL2wbD62FIeXLWs=
 storj.io/private v0.0.0-20221011183246-586e5f48357a h1:zF1LgUhKQZgbdrnm86dclK6fl4ROkZdT9BupbiQYKKs=
 storj.io/private v0.0.0-20221011183246-586e5f48357a/go.mod h1:hc63X333SVJ3UrOxXpGN4VnwqnmbWgAHln3wYJ8AroI=
-storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d h1:+Sraogdw4S/XLX+svOm2qEskq/sAkyvDycs+JNxC0Bw=
-storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d/go.mod h1:d8WAJUC7yICV84yeal8W6Ae69NmdPgt1jstkxVngKbY=
+storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981 h1:4zgXrWodAnq3fjuBxn8FRT3EeblN4xkaSgEOkPJbJpU=
+storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981/go.mod h1:GFXg/hWi64mk1BG/oE8rPIlzk5iwbEg+TVyb37DxUtA=

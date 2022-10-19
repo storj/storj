@@ -1500,7 +1500,6 @@ storj.io/common v0.0.0-20210805073808-8e0feb09e92a/go.mod h1:mhZYWpTojKsACxWE66R
 storj.io/common v0.0.0-20210916151047-6aaeb34bb916/go.mod h1:objobGrIWQwhmTSpSm6Y7ykd40wZjB7CezNfic5YLKg=
 storj.io/common v0.0.0-20211102144601-401a79f0706a/go.mod h1:a2Kw7Uipu929OFANfWKLHRoD0JfhgssikEvimd6hbSQ=
 storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0/go.mod h1:mCYV6Ud5+cdbuaxdPD5Zht/HYaIn0sffnnws9ErkrMQ=
-storj.io/common v0.0.0-20220822090045-1b57fc2bbda1/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/common v0.0.0-20220915180246-7826900e2b06/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/common v0.0.0-20221018143517-9eb8213fe465/go.mod h1:+gF7jbVvpjVIVHhK+EJFhfPbudX395lnPq/dKkj/Qys=
 storj.io/common v0.0.0-20221018161414-10811877ffe1 h1:nIp0EH8kRDuA2eHNcsx6w3s8pmWLQEfOG2WF1yc6kmk=
@@ -1525,5 +1524,5 @@ storj.io/private v0.0.0-20221011183246-586e5f48357a h1:zF1LgUhKQZgbdrnm86dclK6fl
 storj.io/private v0.0.0-20221011183246-586e5f48357a/go.mod h1:hc63X333SVJ3UrOxXpGN4VnwqnmbWgAHln3wYJ8AroI=
 storj.io/uplink v1.7.0/go.mod h1:zqj/LFDxa6RMaSRSHOmukg3mMgesOry0iHSjNldDMGo=
 storj.io/uplink v1.7.1-0.20211103104100-a785482780d8/go.mod h1:pKqsMpNMIAz//2TXzUGOR6tpu3iyabvXV4VWINj4jaY=
-storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d h1:+Sraogdw4S/XLX+svOm2qEskq/sAkyvDycs+JNxC0Bw=
-storj.io/uplink v1.9.1-0.20221007005717-cc895a51b05d/go.mod h1:d8WAJUC7yICV84yeal8W6Ae69NmdPgt1jstkxVngKbY=
+storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981 h1:4zgXrWodAnq3fjuBxn8FRT3EeblN4xkaSgEOkPJbJpU=
+storj.io/uplink v1.9.1-0.20221019010609-a7cb5aecc981/go.mod h1:GFXg/hWi64mk1BG/oE8rPIlzk5iwbEg+TVyb37DxUtA=
