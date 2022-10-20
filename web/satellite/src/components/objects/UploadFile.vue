@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -41,7 +41,6 @@ import InfoNotification from '@/components/common/InfoNotification.vue';
     },
 })
 export default class UploadFile extends Vue {
-    private credentials: EdgeCredentials;
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -70,17 +69,30 @@ export default class UploadFile extends Vue {
 
         this.setWorker();
 
-        this.credentials = this.$store.state.objectsModule.gatewayCredentials;
-
         this.$store.commit('files/init', {
-            endpoint: this.credentials.endpoint,
-            accessKey: this.credentials.accessKeyId,
-            secretKey: this.credentials.secretKey,
+            endpoint: this.edgeCredentials.endpoint,
+            accessKey: this.edgeCredentials.accessKeyId,
+            secretKey: this.edgeCredentials.secretKey,
             bucket: this.bucket,
             browserRoot: RouteConfig.Buckets.with(RouteConfig.UploadFile).path,
             fetchPreviewAndMapUrl: this.generateObjectPreviewAndMapUrl,
             fetchSharedLink: this.generateShareLinkUrl,
         });
+    }
+
+    @Watch('edgeCredentials.secretKey')
+    public async reinit(): Promise<void> {
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            return;
+        }
+
+        await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
+        await this.$store.commit('files/reinit', {
+            endpoint: this.edgeCredentials.endpoint,
+            accessKey: this.edgeCredentials.accessKeyId,
+            secretKey: this.edgeCredentials.secretKey,
+        });
+        await this.$store.dispatch('files/list', '');
     }
 
     /**
@@ -215,6 +227,20 @@ export default class UploadFile extends Vue {
      */
     private get bucket(): string {
         return this.$store.state.objectsModule.fileComponentBucketName;
+    }
+
+    /**
+     * Returns edge credentials from store.
+     */
+    private get edgeCredentials(): EdgeCredentials {
+        return this.$store.state.objectsModule.gatewayCredentials;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

@@ -6,6 +6,7 @@
         <bucket-creation-progress class="bucket-creation__progress" :creation-step="creationStep" />
         <bucket-creation-name-step
             v-if="creationStep === BucketCreationSteps.Name"
+            :is-parent-loading="isLoading"
             @setName="setName"
         />
         <bucket-creation-generate-passphrase
@@ -22,7 +23,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -64,8 +65,22 @@ export default class BucketCreation extends Vue {
     /**
      * Sets bucket name from child component.
      */
-    public setName(name: string): void {
+    public async setName(name: string): Promise<void> {
         this.bucketName = name;
+
+        if (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase) {
+            this.isLoading = true;
+
+            try {
+                await this.createBucketAndNavigate();
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+
+            this.isLoading = false;
+            return;
+        }
+
         this.creationStep = BucketCreationSteps.Passphrase;
     }
 
@@ -98,12 +113,7 @@ export default class BucketCreation extends Vue {
         try {
             this.setWorker();
             await this.setAccess();
-            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.bucketName);
-            await this.fetchBuckets();
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucketName);
-            this.analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-            this.analytics.pageVisit(RouteConfig.UploadFile.path);
-            await this.$router.push(RouteConfig.UploadFile.path);
+            await this.createBucketAndNavigate();
         } catch (e) {
             await this.$notify.error(e.message);
         } finally {
@@ -153,6 +163,11 @@ export default class BucketCreation extends Vue {
         const now = new Date();
         const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
+        const bucketsCaveat: string[] = [];
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            bucketsCaveat.push(this.bucketName);
+        }
+
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
@@ -160,7 +175,7 @@ export default class BucketCreation extends Vue {
             'isList': true,
             'isDelete': true,
             'notAfter': inThreeDays.toISOString(),
-            'buckets': [this.bucketName],
+            'buckets': bucketsCaveat,
             'apiKey': this.apiKey,
         });
 
@@ -190,6 +205,22 @@ export default class BucketCreation extends Vue {
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+
+        if (this.isNewEncryptionPassphraseFlowEnabled) {
+            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        }
+    }
+
+    /**
+     * Creates bucket and navigates to file browser.
+     */
+    private async createBucketAndNavigate(): Promise<void> {
+        await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.bucketName);
+        await this.fetchBuckets();
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucketName);
+        this.analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+        this.analytics.pageVisit(RouteConfig.UploadFile.path);
+        await this.$router.push(RouteConfig.UploadFile.path);
     }
 
     /**
@@ -197,6 +228,20 @@ export default class BucketCreation extends Vue {
      */
     private get apiKey(): string {
         return this.$store.state.objectsModule.apiKey;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
+
+    /**
+     * Returns condition if user has to be prompt for passphrase from store.
+     */
+    private get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
     }
 }
 </script>

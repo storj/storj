@@ -22,6 +22,7 @@
                     role-description="name"
                     :init-value="name"
                     additional-label="Lowercase alphanumeric characters only (no spaces)"
+                    :disabled="isLoading || isParentLoading"
                     @setData="onChangeName"
                 />
             </div>
@@ -40,7 +41,7 @@
                     height="48px"
                     width="47%"
                     :on-press="onNextButtonClick"
-                    :is-disabled="!name || nameError !== ''"
+                    :is-disabled="!name || nameError !== '' || isParentLoading"
                 />
             </div>
         </template>
@@ -48,7 +49,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
@@ -72,6 +73,9 @@ import BucketIcon from '@/../static/images/objects/bucketCreation.svg';
     },
 })
 export default class BucketCreationNameStep extends Vue {
+    @Prop({ default: false })
+    public readonly isParentLoading: boolean;
+
     public name = '';
     public nameError = '';
     public isLoading = true;

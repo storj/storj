@@ -33,6 +33,7 @@ class ViewsState {
         public isCreateProjectModalShown = false,
         public isAddPMModalShown = false,
         public isOpenBucketModalShown = false,
+        public isSetEncryptionPassphraseModalShown = false,
         public isMFARecoveryModalShown = false,
         public isEnableMFAModalShown = false,
         public isDisableMFAModalShown = false,
@@ -65,6 +66,7 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
+        public isNewEncryptionPassphraseFlowEnabled = false,
     ){}
 }
 
@@ -142,6 +144,9 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
         },
+        [APP_STATE_MUTATIONS.TOGGLE_SET_ENCRYPTION_PASSPHRASE_MODAL_SHOWN](state: State): void {
+            state.appState.isSetEncryptionPassphraseModalShown = !state.appState.isSetEncryptionPassphraseModalShown;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
             state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;
         },
@@ -217,6 +222,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
             state.isNewProjectDashboard = isNewProjectDashboard;
+        },
+        [APP_STATE_MUTATIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS](state: State, isNewEncryptionPassphraseFlowEnabled: boolean): void {
+            state.isNewEncryptionPassphraseFlowEnabled = isNewEncryptionPassphraseFlowEnabled;
         },
         [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
             state.appState.onbAGStepBackRoute = backRoute;
@@ -380,6 +388,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
+        },
+        [APP_STATE_ACTIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS]: function ({ commit }: AppContext, isNewEncryptionPassphraseFlowEnabled: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS, isNewEncryptionPassphraseFlowEnabled);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

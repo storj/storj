@@ -125,8 +125,7 @@ export default class DeleteBucketModal extends Vue {
             const accessGrant = accessGrantEvent.data.value;
 
             const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+            await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_DELETE, gatewayCredentials);
             await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.name);
             this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
             await this.fetchBuckets();
@@ -167,7 +166,7 @@ export default class DeleteBucketModal extends Vue {
     public onChangeName(value: string): void {
         this.name = value;
     }
-    
+
     /**
      * Closes modal.
      */

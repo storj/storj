@@ -87,6 +87,13 @@ export default class BucketDetails extends Vue {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
 
         if (this.$route.params.backRoute === RouteConfig.BucketsManagement.name) {
+            if (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase) {
+                this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+                this.$router.push(RouteConfig.UploadFile.path);
+
+                return;
+            }
+
             this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
 
             return;
@@ -94,6 +101,20 @@ export default class BucketDetails extends Vue {
 
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+    }
+
+    /**
+     * Returns condition if user has to be prompt for passphrase from store.
+     */
+    private get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    private get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

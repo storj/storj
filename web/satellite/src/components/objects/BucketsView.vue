@@ -70,8 +70,8 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -161,6 +161,9 @@ export default class BucketsView extends Vue {
         }
     }
 
+    /**
+     * Starts bucket creation flow.
+     */
     public onNewBucketButtonClick(): void {
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
@@ -204,6 +207,13 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
+        if (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase) {
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            this.$router.push(RouteConfig.UploadFile.path);
+
+            return;
+        }
+
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
     }
 
@@ -219,6 +229,20 @@ export default class BucketsView extends Vue {
      */
     private get selectedProjectID(): string {
         return this.$store.getters.selectedProject.id;
+    }
+
+    /**
+     * Returns condition if user has to be prompt for passphrase from store.
+     */
+    private get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    private get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

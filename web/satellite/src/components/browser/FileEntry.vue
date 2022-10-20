@@ -356,7 +356,7 @@ const link = computed((): string => {
 /**
  * Return a flag signifying whether the current file/folder is selected.
  */
-const isFileSelected = computed((): boolean => {
+const isFileSelected: boolean = computed((): boolean => {
     return Boolean(
         store.state.files.selectedAnchorFile === props.file ||
         store.state.files.selectedFiles.find(
@@ -556,7 +556,7 @@ function setShiftSelectedFiles(): void {
  */
 function share(): void {
     store.dispatch('files/closeDropdown');
-    store.commit('files/setObjectPathForModal', this.path + this.file.Key);
+    store.commit('files/setObjectPathForModal', props.path + props.file.Key);
     store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
 }
 

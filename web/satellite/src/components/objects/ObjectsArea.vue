@@ -38,7 +38,10 @@ export default class ObjectsArea extends Vue {
      * Clears objects VUEX state.
      */
     public beforeDestroy(): void {
-        this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        // new encryption passphrase flow should not clear passphrase/api key when exiting object browser.
+        if (!this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled) {
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        }
     }
 }
 </script>

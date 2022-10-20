@@ -7,6 +7,7 @@
         <CreateProjectModal v-if="isCreateProjectModal" />
         <AddPaymentMethodModal v-if="isAddPMModal" />
         <OpenBucketModal v-if="isOpenBucketModal" />
+        <SetEncryptionPassphrase v-if="isSetEncryptionPassphraseModalShown" />
         <MFARecoveryCodesModal v-if="isMFARecoveryModal" />
         <EnableMFAModal v-if="isEnableMFAModal" />
         <DisableMFAModal v-if="isDisableMFAModal" />
@@ -31,6 +32,7 @@ import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptMod
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
 import AddPaymentMethodModal from '@/components/modals/AddPaymentMethodModal.vue';
 import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
+import SetEncryptionPassphrase from '@/components/modals/SetEncryptionPassphrase.vue';
 import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
 import EnableMFAModal from '@/components/modals/EnableMFAModal.vue';
 import DisableMFAModal from '@/components/modals/DisableMFAModal.vue';
@@ -67,6 +69,7 @@ import NewBillingAddCouponCodeModal from '@/components/modals/NewBillingAddCoupo
         NewFolderModal,
         AddCouponCodeModal,
         NewBillingAddCouponCodeModal,
+        SetEncryptionPassphrase,
     },
 })
 export default class AllModals extends Vue {
@@ -83,6 +86,13 @@ export default class AllModals extends Vue {
      */
     public get isCreateProjectModal(): boolean {
         return this.$store.state.appStateModule.appState.isCreateProjectModalShown;
+    }
+
+    /**
+     * Indicates if set encryption passphrase modal is shown.
+     */
+    public get isSetEncryptionPassphraseModalShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSetEncryptionPassphraseModalShown;
     }
 
     /**

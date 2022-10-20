@@ -6,17 +6,10 @@
         <template #content>
             <div class="modal">
                 <Icon />
-                <h1 class="modal__title">Open a Bucket</h1>
+                <h1 class="modal__title">Set/Update Project Encryption Passphrase</h1>
                 <p class="modal__info">
-                    To open a bucket and view your files, please enter the encryption passphrase you saved upon creating this bucket.
+                    TODO(moby)
                 </p>
-                <VInput
-                    class="modal__input"
-                    label="Bucket Name"
-                    :init-value="bucketName"
-                    role-description="bucket"
-                    :disabled="true"
-                />
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
@@ -50,12 +43,10 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import VModal from '@/components/common/VModal.vue';
@@ -76,7 +67,6 @@ import Icon from '@/../static/images/objects/openBucket.svg';
 export default class OpenBucketModal extends Vue {
     private worker: Worker;
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public enterError = '';
     public passphrase = '';
@@ -109,8 +99,7 @@ export default class OpenBucketModal extends Vue {
             this.isLoading = false;
 
             this.closeModal();
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.UploadFile.path);
+            await this.$notify.success('Successfully set project passphrase');
         } catch (e) {
             await this.$notify.error(e.message);
             this.isLoading = false;
@@ -130,11 +119,6 @@ export default class OpenBucketModal extends Vue {
         const now = new Date();
         const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
-        let bucketsCaveat: string[] = [];
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            bucketsCaveat = this.bucketName ? [this.bucketName] : [];
-        }
-
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
@@ -142,7 +126,7 @@ export default class OpenBucketModal extends Vue {
             'isList': true,
             'isDelete': true,
             'notAfter': inThreeDays.toISOString(),
-            'buckets': bucketsCaveat,
+            'buckets': [],
             'apiKey': this.apiKey,
         });
 
@@ -171,11 +155,8 @@ export default class OpenBucketModal extends Vue {
 
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-
-        if (this.isNewEncryptionPassphraseFlowEnabled) {
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-        }
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
     }
 
     /**
@@ -194,7 +175,7 @@ export default class OpenBucketModal extends Vue {
     public closeModal(): void {
         if (this.isLoading) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SET_ENCRYPTION_PASSPHRASE_MODAL_SHOWN);
     }
 
     /**
@@ -208,24 +189,10 @@ export default class OpenBucketModal extends Vue {
     }
 
     /**
-     * Returns chosen bucket name from store.
-     */
-    public get bucketName(): string {
-        return this.$store.state.objectsModule.fileComponentBucketName;
-    }
-
-    /**
      * Returns apiKey from store.
      */
     private get apiKey(): string {
         return this.$store.state.objectsModule.apiKey;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

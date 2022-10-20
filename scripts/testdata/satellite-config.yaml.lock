@@ -232,6 +232,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new billing screens should be used
 # console.new-billing-screen: true
 
+# indicates if new encryption passphrase flow is enabled
+# console.new-encryption-passphrase-flow-enabled: false
+
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: true
 

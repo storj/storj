@@ -182,6 +182,31 @@ export const makeFilesModule = (): FilesModule => ({
             state.fetchSharedLink = fetchSharedLink;
             state.fetchPreviewAndMapUrl = fetchPreviewAndMapUrl;
             state.path = '';
+            state.files = [];
+        },
+
+        reinit(state: FilesState, {
+            accessKey,
+            secretKey,
+            endpoint,
+        }: {
+            accessKey: string;
+            secretKey: string;
+            endpoint: string;
+        }) {
+            const s3Config = {
+                accessKeyId: accessKey,
+                secretAccessKey: secretKey,
+                endpoint,
+                s3ForcePathStyle: true,
+                signatureVersion: 'v4',
+                connectTimeout: 0,
+                httpOptions: { timeout: 0 },
+            };
+
+            state.files = [];
+            state.s3 = new S3(s3Config);
+            state.accessKey = accessKey;
         },
 
         updateFiles(state: FilesState, { path, files }) {
@@ -397,8 +422,8 @@ export const makeFilesModule = (): FilesModule => ({
 
                     for (const entry of entries) {
                         yield* traverse(
-              (entry as FileSystemEntry) as Item,
-              path + item.name + '/',
+                          (entry as FileSystemEntry) as Item,
+                          path + item.name + '/',
                         );
                     }
                 } else if ('length' in item && typeof item.length === 'number') {

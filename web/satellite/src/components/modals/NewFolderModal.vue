@@ -125,18 +125,22 @@ export default class NewFolderModal extends Vue {
     public async createFolder(): Promise<void> {
         if (this.isLoading) return;
 
-        this.isLoading = true;
-
         if (!this.createFolderEnabled) {
             this.createFolderError = 'Invalid name';
 
             return;
         }
 
-        await this.$store.dispatch(
-            'files/createFolder',
-            this.createFolderName.trim(),
-        );
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(
+                'files/createFolder',
+                this.createFolderName.trim(),
+            );
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
 
         this.createFolderName = '';
         this.isLoading = false;
