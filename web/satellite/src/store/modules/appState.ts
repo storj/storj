@@ -61,7 +61,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewObjectsFlow = false,
     ){}
 }
 
@@ -215,9 +214,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
             state.appState.onbCleanApiKey = apiKey;
         },
-        [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
-            state.isNewObjectsFlow = isNewObjectsFlow;
-        },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
             state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
         },
@@ -368,9 +364,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
-        },
-        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({ commit }: AppContext, isNewObjectsFlow: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

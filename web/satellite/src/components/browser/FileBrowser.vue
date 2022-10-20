@@ -358,13 +358,6 @@ export default class FileBrowser extends Vue {
     }
 
     /**
-     * Returns objects flow status from store.
-     */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
-    }
-
-    /**
      * Return a boolean signifying whether the upload display is allowed to be shown.
      */
     public get displayUpload(): boolean {
@@ -391,8 +384,7 @@ export default class FileBrowser extends Vue {
      */
     public async created(): Promise<void> {
         if (!this.bucket) {
-            const path = this.isNewObjectsFlow ? RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path :
-                RouteConfig.Buckets.with(RouteConfig.EncryptData).path;
+            const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
 
             this.analytics.pageVisit(path);
             await this.$router.push(path);

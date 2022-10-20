@@ -61,17 +61,6 @@
         </v-table>
         <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
         <ObjectsPopup
-            v-if="isCreatePopupVisible"
-            :on-click="onCreateBucketClick"
-            title="Create Bucket"
-            sub-title="Buckets are simply containers that store objects and their metadata within a project."
-            button-label="Create Bucket"
-            :error-message="errorMessage"
-            :is-loading="isRequestProcessing"
-            @setName="setCreateBucketName"
-            @close="hideCreateBucketPopup"
-        />
-        <ObjectsPopup
             v-if="isDeletePopupVisible"
             :on-click="onDeleteBucketClick"
             title="Are you sure?"
@@ -127,11 +116,9 @@ export default class BucketsView extends Vue {
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
     private worker: Worker;
     private grantWithPermissions = '';
-    private createBucketName = '';
     private deleteBucketName = '';
 
     public isLoading = true;
-    public isCreatePopupVisible = false;
     public isDeletePopupVisible = false;
     public isRequestProcessing = false;
     public errorMessage = '';
@@ -182,13 +169,8 @@ export default class BucketsView extends Vue {
             }
 
             if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
-                if (this.isNewObjectsFlow) {
-                    this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                    await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                    return;
-                }
-
-                await this.createDemoBucket();
+                this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
             }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
@@ -270,40 +252,7 @@ export default class BucketsView extends Vue {
 
     public onNewBucketButtonClick(): void {
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-        this.isNewObjectsFlow
-            ? this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path)
-            : this.showCreateBucketPopup();
-    }
-
-    /**
-     * Holds create bucket click logic.
-     */
-    public async onCreateBucketClick(): Promise<void> {
-        if (this.isRequestProcessing) return;
-
-        if (!this.isBucketNameValid(this.createBucketName)) return;
-
-        this.isRequestProcessing = true;
-
-        try {
-            if (!this.edgeCredentials.accessKeyId) {
-                await this.setAccess();
-            }
-            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
-            await this.fetchBuckets();
-            this.createBucketName = '';
-            this.hideCreateBucketPopup();
-        } catch (error) {
-            const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
-
-            if (error.name === BUCKET_ALREADY_EXISTS_ERROR) {
-                await this.$notify.error('Bucket with provided name already exists.');
-            } else {
-                await this.$notify.error(error.message);
-            }
-        } finally {
-            this.isRequestProcessing = false;
-        }
+        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
     }
 
     /**
@@ -405,30 +354,6 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Makes create bucket popup visible.
-     */
-    public showCreateBucketPopup(): void {
-        this.createBucketName = '';
-        this.isCreatePopupVisible = true;
-    }
-
-    /**
-     * Hides create bucket popup.
-     */
-    public hideCreateBucketPopup(): void {
-        this.errorMessage = '';
-        this.isCreatePopupVisible = false;
-    }
-
-    /**
-     * Set create bucket name form input.
-     */
-    public setCreateBucketName(name: string): void {
-        this.errorMessage = '';
-        this.createBucketName = name;
-    }
-
-    /**
      * Hides server-side encryption banner.
      */
     public hideBanner(): void {
@@ -441,10 +366,7 @@ export default class BucketsView extends Vue {
      */
     public openBucket(bucketName: string): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
-        this.isNewObjectsFlow
-            ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
-            : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
     }
 
     /**
@@ -452,13 +374,6 @@ export default class BucketsView extends Vue {
      */
     public get bucketsPage(): BucketPage {
         return this.$store.state.bucketUsageModule.page;
-    }
-
-    /**
-     * Returns objects flow status from store.
-     */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 
     /**

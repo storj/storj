@@ -92,7 +92,6 @@ type Config struct {
 	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
-	NewObjectsFlow                  bool               `help:"indicates if new objects flow should be used" default:"true"`
 	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
 	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
@@ -454,7 +453,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewProjectDashboard             bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
-		NewObjectsFlow                  bool
 		NewAccessGrantFlow              bool
 		NewBillingScreen                bool
 		InactivityTimerEnabled          bool
@@ -499,7 +497,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
 	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled

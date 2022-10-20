@@ -348,7 +348,7 @@ export default class MobileNavigation extends Vue {
     private get isBucketsView(): boolean {
         const currentRoute = this.$route.path;
 
-        return currentRoute.includes(RouteConfig.BucketsManagement.path) || currentRoute.includes(RouteConfig.EncryptData.path);
+        return currentRoute.includes(RouteConfig.BucketsManagement.path);
     }
 
     /**
