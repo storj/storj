@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -34,6 +35,8 @@ const encryptedKeySize = 48
 var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 )
+
+var ek = eventkit.Package()
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -128,11 +131,15 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
 
-	endpoint.top.Project(keyInfo.ProjectID.String())
-	endpoint.top.Partner(keyInfo.PartnerID.String())
+	userAgent := ""
 	if keyInfo.UserAgent != nil {
-		endpoint.top.UserAgent(string(keyInfo.UserAgent))
+		userAgent = string(keyInfo.UserAgent)
 	}
+	ek.Event("auth",
+		eventkit.String("user-agent", userAgent),
+		eventkit.String("project", keyInfo.ProjectID.String()),
+		eventkit.String("partner", keyInfo.PartnerID.String()),
+	)
 
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
