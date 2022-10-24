@@ -1764,14 +1764,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 				Time:          now,
 			},
 		},
-		verifyPermission{
-			action: macaroon.Action{
-				Op:            macaroon.ActionWrite,
-				Bucket:        req.NewBucket,
-				EncryptedPath: req.NewEncryptedObjectKey,
-				Time:          now,
-			},
-		},
 	)
 	if err != nil {
 		return nil, err
