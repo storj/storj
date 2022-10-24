@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/uplink"
+	"storj.io/uplink/private/access"
 )
 
 func (ex *external) loadAccesses() error {
@@ -155,8 +156,12 @@ func (ex *external) SaveAccessInfo(defaultName string, accesses map[string]strin
 	return nil
 }
 
-func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, passphrase string) (*uplink.Access, error) {
-	access, err := uplink.RequestAccessWithPassphrase(ctx, satelliteAddr, apiKey, passphrase)
+func (ex *external) RequestAccess(ctx context.Context, satelliteAddr, apiKey, passphrase string, unencryptedObjectKeys bool) (*uplink.Access, error) {
+	config := uplink.Config{}
+	if unencryptedObjectKeys {
+		access.DisableObjectKeyEncryption(&config)
+	}
+	access, err := config.RequestAccessWithPassphrase(ctx, satelliteAddr, apiKey, passphrase)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

@@ -6,13 +6,13 @@ replace storj.io/storj => ../../
 
 require (
 	github.com/go-rod/rod v0.101.8
-	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20221026154455-f053d3fae32c
+	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
 	go.uber.org/zap v1.23.0
-	storj.io/common v0.0.0-20230224050842-81c8060f089b
-	storj.io/gateway-mt v1.46.0
-	storj.io/private v0.0.0-20230123202745-d3e63b336444
+	storj.io/common v0.0.0-20230317175107-185b0d7f55ba
+	storj.io/gateway-mt v1.49.0
+	storj.io/private v0.0.0-20230217131736-be584dbddd08
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
 )
 
@@ -42,7 +42,7 @@ require (
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dchest/siphash v1.2.1 // indirect
+	github.com/dchest/siphash v1.2.3 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/djherbis/atime v1.0.0 // indirect
@@ -216,9 +216,9 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8 // indirect
-	storj.io/gateway v1.8.4-0.20230118210906-ad9333efd516 // indirect
+	storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0 // indirect
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
-	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4 // indirect
+	storj.io/uplink v1.10.1-0.20230314164611-f3794018352b // indirect
 )

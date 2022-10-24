@@ -25,6 +25,8 @@ type cmdAccessCreate struct {
 	apiKey          string
 	importAs        string
 	exportTo        string
+
+	unencryptedObjectKeys *bool
 }
 
 func newCmdAccessCreate(ex ulext.External) *cmdAccessCreate {
@@ -41,6 +43,10 @@ func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 	c.apiKey = params.Flag("api-key", "API key from satellite UI (prompted if unspecified)", "").(string)
 	c.importAs = params.Flag("import-as", "Import the access as this name", "").(string)
 	c.exportTo = params.Flag("export-to", "Export the access to this file path", "").(string)
+
+	c.unencryptedObjectKeys = params.Flag("unencrypted-object-keys", "If set, the created access grant won't encrypt object keys", nil,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean, clingy.Optional,
+	).(*bool)
 
 	params.Break()
 	c.am.Setup(params, c.ex)
@@ -67,6 +73,21 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		}
 	}
 
+	unencryptedObjectKeys := false
+	if c.unencryptedObjectKeys != nil {
+		unencryptedObjectKeys = *c.unencryptedObjectKeys
+	} else if !c.passphraseStdin {
+		answer, err := c.ex.PromptInput(ctx, "Would you like to disable encryption for object keys (allows lexicographical sorting of objects in listings)? (y/N):")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		answer = strings.ToLower(answer)
+		if answer == "y" || answer == "yes" {
+			unencryptedObjectKeys = true
+		}
+	}
+
 	var passphrase string
 	if c.passphraseStdin {
 		stdinData, err := io.ReadAll(clingy.Stdin(ctx))
@@ -84,7 +105,7 @@ func (c *cmdAccessCreate) Execute(ctx context.Context) (err error) {
 		return errs.New("Encryption passphrase must be non-empty")
 	}
 
-	access, err := c.ex.RequestAccess(ctx, c.satelliteAddr, c.apiKey, passphrase)
+	access, err := c.ex.RequestAccess(ctx, c.satelliteAddr, c.apiKey, passphrase, unencryptedObjectKeys)
 	if err != nil {
 		return errs.Wrap(err)
 	}

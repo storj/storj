@@ -78,7 +78,18 @@ func (c *cmdAccessSetup) Execute(ctx context.Context) (err error) {
 			return errs.New("Encryption passphrase cannot be empty.")
 		}
 
-		access, err = c.ex.RequestAccess(ctx, satelliteAddr, keyOrGrant, passphrase)
+		unencryptedObjectKeys := false
+		answer, err := c.ex.PromptInput(ctx, "Would you like to disable encryption for object keys (allows lexicographical sorting of objects in listings)? (y/N):")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+
+		answer = strings.ToLower(answer)
+		if answer == "y" || answer == "yes" {
+			unencryptedObjectKeys = true
+		}
+
+		access, err = c.ex.RequestAccess(ctx, satelliteAddr, keyOrGrant, passphrase, unencryptedObjectKeys)
 		if err != nil {
 			return errs.Wrap(err)
 		}
