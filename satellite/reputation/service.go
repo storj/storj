@@ -239,7 +239,7 @@ func statusChanged(s1, s2 *time.Time) bool {
 	if s1 == nil && s2 == nil {
 		return false
 	} else if s1 != nil && s2 != nil {
-		return !s1.Equal(*s1)
+		return !s1.Equal(*s2)
 	}
 	return true
 }
