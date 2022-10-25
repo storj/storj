@@ -1,31 +1,70 @@
-//--- metainfo buckets ---//
-
+// bucket_metainfo contains information about a bucket in a project.
 model bucket_metainfo (
 	key    id
 	unique project_id name
 
+	// id is an uuid for the bucket.
 	field id             blob
+	// project_id is the project the bucket belongs to.
 	field project_id     project.id restrict
+	// name is a unique name inside the project.
+	// it's a alphanumeric string similar to domain names.
 	field name           blob
+	// partner_id is an uuid that refers to rewards.PartnersStaticDB.
+	// deprecated: use user_agent instead.
+	// note: this field is duplicated in value_attribution.project_id.
 	field partner_id     blob   (nullable, updatable)
+	// user_agent is the first User-Agent that was used to upload data,
+	// unless the user signed up with a specific partner.
+	// note: this field is duplicated in value_attribution.user_agent.
 	field user_agent     blob   (nullable, updatable)
 
+	// path_cipher is denotes how the paths have been encoded.
+	// The corresponding type storj.CipherSuite contains the relevant values.
+	// deprecated: in favor of a storing it in an access grant.
 	field path_cipher    int
 
+	// created_at indicates when the bucket was created.
 	field created_at     timestamp ( autoinsert )
 
+	// default_segment_size contains the segment size to use for uploading.
+	// deprecated: in favor of global metainfo service settings.
 	field default_segment_size int (updatable)
 
+	// default_encryption_cipher_suite is the storj.CipherSuite used for the bucket objects.
+	// deprecated: in favor of global metainfo service settings.
 	field default_encryption_cipher_suite int (updatable)
+	// default_encryption_block_size is the block size argument for encryption.
+	// deprecated: in favor of global metainfo service settings.
 	field default_encryption_block_size   int (updatable)
 
+	// default_redundancy_algorithm is storj.RedundancyAlgorithm.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_algorithm       int (updatable)
+	// default_redundancy_share_size is share size parameter for Reed-Solomon encoding.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_share_size      int (updatable)
+	// default_redundancy_required_shares is required shares parameter for Reed-Solomon encoding.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_required_shares int (updatable)
+	// default_redundancy_repair_shares is repair threshold parameter for Reed-Solomon encoding.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_repair_shares   int (updatable)
+	// default_redundancy_optimal_shares is optional share count parameter for Reed-Solomon encoding.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_optimal_shares  int (updatable)
+	// default_redundancy_total_shares is total number of shares for Reed-Solomon encoding.
+	// deprecated: in favor of global metainfo service settings.
 	field default_redundancy_total_shares    int (updatable)
 
+	// placement indicates how the objects should be stored in this bucket.
+	// See storj.PlacementConstraint for the relevant information:
+	//    0 - every country
+	//    1 - EU
+	//    2 - EEA
+	//    3 - US
+	//    4 - DE
+	//    5 - Invalid, when there's no information about the placement.
 	field placement int (nullable, updatable)
 )
 
@@ -89,14 +128,29 @@ read count (
 	where bucket_metainfo.project_id = ?
 )
 
-//--- Value Attribution ---//
+// value_attribution table contains information about which user-agent
+// is used to create the project. It's being stored outside of the projects
+// table because this information can be still needed after deleting the
+// project.
 model value_attribution (
 	key project_id bucket_name
 
+	// project_id is an uuid that refers to project.id.
+	// note: this field is duplicated in bucket_metainfo.project_id.
 	field project_id	blob
+	// bucket_name refers to bucket_metainfo.name.
+	// This does not use the id, because we need the attribution to last
+	// beyond the lifetime of bucket_metainfo row.
 	field bucket_name	blob
+	// partner_id is an uuid that refers to rewards.PartnersStaticDB.
+	// deprecated: use user_agent instead.
+	// note: this field is duplicated in bucket_metainfo.project_id.
 	field partner_id	blob
+	// user_agent is the first User-Agent that was used to upload data.
+	// unless the user signed up with a specific partner.
+	// note: this field is duplicated in bucket_metainfo.user_agent.
 	field user_agent	blob       ( nullable )
+	// last_updated is updated whenever the row changes.
 	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
