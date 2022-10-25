@@ -95,17 +95,21 @@
                     <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
                             <li
-                                class="register-area__input-area__toggle__personal"
+                                class="register-area__input-area__toggle__personal account-tab"
                                 :class="{ 'active': !isProfessional }"
+                                tabindex="0"
                                 @click.prevent="toggleAccountType(false)"
+                                @keydown.space.prevent="toggleAccountType(false)"
                             >
                                 Personal
                             </li>
                             <li
-                                class="register-area__input-area__toggle__professional"
+                                class="register-area__input-area__toggle__professional account-tab"
                                 :class="{ 'active': isProfessional }"
                                 aria-roledescription="professional-label"
+                                tabindex="0"
                                 @click.prevent="toggleAccountType(true)"
+                                @keydown.space.prevent="toggleAccountType(true)"
                             >
                                 Business
                             </li>
@@ -188,8 +192,8 @@
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
                             <label class="checkmark-container">
-                                <input type="checkbox" @change="onBetaTermsAcceptedToggled">
-                                <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" />
+                                <input tabindex="-1" type="checkbox" @change="onBetaTermsAcceptedToggled">
+                                <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" @keydown.space.prevent="onBetaTermsAcceptedToggled" />
                             </label>
                             <h2 class="register-area__input-area__container__warning__header__label">
                                 This is a BETA satellite
@@ -205,8 +209,8 @@
                     </div>
                     <div v-if="isProfessional" class="register-area__input-area__container__checkbox-area">
                         <label class="checkmark-container">
-                            <input id="sales" v-model="haveSalesContact" type="checkbox">
-                            <span class="checkmark" />
+                            <input id="sales" v-model="haveSalesContact" tabindex="-1" type="checkbox">
+                            <span tabindex="0" class="checkmark" @keydown.space.prevent="toggleCheckbox" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="sales">
                             <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
@@ -215,9 +219,9 @@
                         </label>
                     </div>
                     <div class="register-area__input-area__container__checkbox-area">
-                        <label class="checkmark-container">
-                            <input id="terms" type="checkbox" @change="onTermsAcceptedToggled">
-                            <span class="checkmark" :class="{'error': isTermsAcceptedError}" />
+                        <label for="terms" class="checkmark-container">
+                            <input id="terms" tabindex="-1" type="checkbox" @change="onTermsAcceptedToggled">
+                            <span tabindex="0" class="checkmark" :class="{'error': isTermsAcceptedError}" @keydown.space.prevent="onTermsAcceptedToggled" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="terms">
                             <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
@@ -597,17 +601,50 @@ export default class RegisterArea extends Vue {
     /**
      * Executes when the Terms of Service checkbox has been toggled.
      */
-    public onTermsAcceptedToggled(event: Event): void {
-        this.isTermsAccepted = (event.target as HTMLInputElement).checked;
-        this.isTermsAcceptedError = false;
+    public onTermsAcceptedToggled(event: KeyboardEvent): void {
+        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+            const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
+
+            checkbox.checked = !checkbox.checked;
+            checkbox.setAttribute('checked', String(checkbox.checked));
+
+            this.isTermsAccepted = checkbox.checked;
+            this.isTermsAcceptedError = false;
+
+        } else {
+            this.isTermsAccepted = (event.target as HTMLInputElement).checked;
+            this.isTermsAcceptedError = false;
+        }
+
     }
 
     /**
      * Executes when the beta satellite terms checkbox has been toggled.
      */
-    public onBetaTermsAcceptedToggled(event: Event): void {
-        this.areBetaTermsAccepted = (event.target as HTMLInputElement).checked;
-        this.areBetaTermsAcceptedError = false;
+    public onBetaTermsAcceptedToggled(event: KeyboardEvent): void {
+        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+            const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
+
+            checkbox.checked = !checkbox.checked;
+            checkbox.setAttribute('checked', String(checkbox.checked));
+
+            this.areBetaTermsAccepted = checkbox.checked;
+            this.isTermsAcceptedError = false;
+
+        } else {
+            this.areBetaTermsAccepted = (event.target as HTMLInputElement).checked;
+            this.areBetaTermsAcceptedError = false;
+        }
+    }
+
+    /**
+     * Executes when the space bar is pressed on a focused checkbox.
+     */
+    public toggleCheckbox(event: Event): void {
+        const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
+
+        checkbox.checked = !checkbox.checked;
+        checkbox.setAttribute('checked', String(checkbox.checked));
     }
 
     /**
@@ -705,6 +742,13 @@ export default class RegisterArea extends Vue {
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
+
+        let activeElement = document.activeElement;
+
+        if (activeElement && activeElement.classList.contains('account-tab')) {
+            return;
+        }
+
         if (!this.validateFields()) {
             return;
         }
@@ -717,7 +761,7 @@ export default class RegisterArea extends Vue {
         this.isLoading = true;
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
-
+        
         try {
             await this.auth.register(this.user, this.secret, this.captchaResponseToken);
 
@@ -738,7 +782,7 @@ export default class RegisterArea extends Vue {
         this.$refs.captcha?.reset();
         this.captchaResponseToken = '';
         this.isLoading = false;
-    }
+    } 
 }
 </script>
 
@@ -1157,6 +1201,10 @@ export default class RegisterArea extends Vue {
                                 &:visited {
                                     color: inherit;
                                 }
+
+                                &:focus {
+                                    color: var(--c-blue-3);
+                                }
                             }
                         }
                     }
@@ -1205,6 +1253,10 @@ export default class RegisterArea extends Vue {
                     font-size: 14px;
                     color: #376fff;
                     margin-left: 5px;
+                }
+
+                &__link:focus {
+                    text-decoration: underline !important;
                 }
             }
         }

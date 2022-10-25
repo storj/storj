@@ -679,6 +679,10 @@ export default class Login extends Vue {
                 margin-top: 30px;
                 font-size: 14px;
             }
+
+            &__footer-item:focus {
+                text-decoration: underline !important;
+            }
         }
     }
 
@@ -696,6 +700,10 @@ export default class Login extends Vue {
     .link {
         color: #376fff;
         font-family: 'font_medium', sans-serif;
+    }
+
+    .link:focus {
+        text-decoration: underline !important;
     }
 
     .info-box {

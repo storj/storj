@@ -41,7 +41,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
       <h1 aria-roledescription="title" class="payment-methods-area__functional-area__title">Payment Method</h1>
       <div class="payment-methods-area__functional-area__button-area">
         <div class="payment-methods-area__functional-area__button-area__default-buttons">
-          <div class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
+          <div tabindex="0" class="add-storj-button container blue-white" style="width: 123px; height: 46px; border-radius: 6px; font-size: 16px;">
             <!---->
             <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Add STORJ</span>
           </div>

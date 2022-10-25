@@ -6,7 +6,9 @@
     <div
         :class="containerClassName"
         :style="style"
+        tabindex="0"
         @click="onPress"
+        @keyup.enter="onPress"
     >
         <slot name="icon" />
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
