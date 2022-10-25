@@ -95,17 +95,22 @@
                     <div class="register-area__input-area__toggle__container">
                         <ul class="register-area__input-area__toggle__wrapper">
                             <li
-                                class="register-area__input-area__toggle__personal"
+                                class="register-area__input-area__toggle__personal account-tab"
                                 :class="{ 'active': !isProfessional }"
                                 @click.prevent="toggleAccountType(false)"
+                                tabindex="0"
+                                @keypress.enter="toggleAccountType(false)"
+
                             >
                                 Personal
                             </li>
                             <li
-                                class="register-area__input-area__toggle__professional"
+                                class="register-area__input-area__toggle__professional account-tab"
                                 :class="{ 'active': isProfessional }"
                                 aria-roledescription="professional-label"
                                 @click.prevent="toggleAccountType(true)"
+                                tabindex="0"
+                                @keypress.enter="toggleAccountType(true)"
                             >
                                 Business
                             </li>
@@ -705,6 +710,12 @@ export default class RegisterArea extends Vue {
      * Creates user and toggles successful registration area visibility.
      */
     private async createUser(): Promise<void> {
+        let activeElement = document.activeElement;
+
+        if(activeElement && activeElement.classList.contains("account-tab")) {
+            return;
+        }
+
         if (!this.validateFields()) {
             return;
         }
