@@ -18,6 +18,7 @@
         <ShareObjectModal v-if="isShareObjectModal" />
         <ObjectDetailsModal v-if="isObjectDetailsModal" />
         <NewFolderModal v-if="isNewFolderModal" />
+        <DeleteBucketModal v-if="isDeleteBucketModal" />
     </div>
 </template>
 
@@ -39,10 +40,12 @@ import ShareBucketModal from '@/components/modals/ShareBucketModal.vue';
 import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
 import NewFolderModal from '@/components/modals/NewFolderModal.vue';
 import ShareObjectModal from '@/components/modals/ShareObjectModal.vue';
+import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
 
 // @vue/component
 @Component({
     components: {
+        DeleteBucketModal,
         CreateProjectPromptModal,
         CreateProjectModal,
         AddPaymentMethodModal,
@@ -151,6 +154,13 @@ export default class AllModals extends Vue {
      */
     public get isShareObjectModal(): boolean {
         return this.$store.state.appStateModule.appState.isShareObjectModalShown;
+    }
+
+    /**
+     * Indicates if delete bucket modal is shown.
+     */
+    public get isDeleteBucketModal(): boolean {
+        return this.$store.state.appStateModule.appState.isDeleteBucketModalShown;
     }
 
     /**

@@ -59,13 +59,13 @@ import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -146,14 +146,7 @@ export default class ProjectSelection extends Vue {
 
         if (this.isBucketsView) {
             await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            this.analytics.pageVisit(RouteConfig.Buckets.path);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-
-            try {
-                await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                await this.$notify.error(error.message);
-            }
 
             return;
         }
@@ -285,7 +278,7 @@ export default class ProjectSelection extends Vue {
     private get isBucketsView(): boolean {
         const currentRoute = this.$route.path;
 
-        return currentRoute.includes(RouteConfig.BucketsManagement.path);
+        return currentRoute.includes(RouteConfig.Buckets.path);
     }
 }
 </script>

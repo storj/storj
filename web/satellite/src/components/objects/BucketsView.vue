@@ -50,7 +50,6 @@
                     v-for="(bucket, key) in bucketsPage.buckets"
                     :key="key"
                     :item-data="bucket"
-                    :show-delete-bucket-popup="showDeleteBucketPopup"
                     :dropdown-key="key"
                     :open-dropdown="openDropdown"
                     :is-dropdown-open="activeDropdown === key"
@@ -60,17 +59,6 @@
             </template>
         </v-table>
         <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
-        <ObjectsPopup
-            v-if="isDeletePopupVisible"
-            :on-click="onDeleteBucketClick"
-            title="Are you sure?"
-            sub-title="Deleting this bucket will delete all metadata related to this bucket."
-            button-label="Confirm Delete Bucket"
-            :error-message="errorMessage"
-            :is-loading="isRequestProcessing"
-            @setName="setDeleteBucketName"
-            @close="hideDeleteBucketPopup"
-        />
     </div>
 </template>
 
@@ -80,20 +68,14 @@ import { Component, Vue, Watch } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MetaUtils } from '@/utils/meta';
-import { Validator } from '@/utils/validation';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
-import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 import VTable from '@/components/common/VTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 
@@ -106,7 +88,6 @@ import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
         VTable,
         WhitePlusIcon,
         EmptyBucketIcon,
-        ObjectsPopup,
         BucketItem,
         VLoader,
         EncryptionBanner,
@@ -114,14 +95,8 @@ import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
 })
 export default class BucketsView extends Vue {
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
-    private worker: Worker;
-    private grantWithPermissions = '';
-    private deleteBucketName = '';
 
     public isLoading = true;
-    public isDeletePopupVisible = false;
-    public isRequestProcessing = false;
-    public errorMessage = '';
     public activeDropdown = -1;
     public isServerSideEncryptionBannerHidden = true;
 
@@ -149,9 +124,6 @@ export default class BucketsView extends Vue {
      */
     public async setBucketsView(): Promise<void> {
         try {
-            await this.setWorker();
-            await this.removeTemporaryAccessGrant();
-            await this.setAccess();
             await this.fetchBuckets();
 
             const wasDemoBucketCreated = LocalData.getDemoBucketCreatedStatus();
@@ -180,56 +152,6 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Sets access to S3 client.
-     */
-    public async setAccess(): Promise<void> {
-        const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
-
-        const now = new Date();
-        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
-
-        await this.worker.postMessage({
-            'type': 'SetPermission',
-            'isDownload': true,
-            'isUpload': true,
-            'isList': true,
-            'isDelete': true,
-            'notAfter': inThreeDays.toISOString(),
-            'buckets': [],
-            'apiKey': cleanAPIKey.secret,
-        });
-
-        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        this.grantWithPermissions = grantEvent.data.value;
-        if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error);
-        }
-
-        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
-        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-
-        this.worker.postMessage({
-            'type': 'GenerateAccess',
-            'apiKey': this.grantWithPermissions,
-            'passphrase': '',
-            'salt': salt,
-            'satelliteNodeURL': satelliteNodeURL,
-        });
-
-        const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
-        if (accessGrantEvent.data.error) {
-            throw new Error(accessGrantEvent.data.error);
-        }
-
-        const accessGrant = accessGrantEvent.data.value;
-
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant, isPublic: false });
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-    }
-
-    /**
      * Fetches bucket using api.
      */
     public async fetchBuckets(page = 1): Promise<void> {
@@ -240,68 +162,9 @@ export default class BucketsView extends Vue {
         }
     }
 
-    /**
-     * Sets local worker with worker instantiated in store.
-     */
-    public setWorker(): void {
-        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
-        };
-    }
-
     public onNewBucketButtonClick(): void {
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    }
-
-    /**
-     * Creates first ever demo bucket for user.
-     */
-    public async createDemoBucket(): Promise<void> {
-        if (this.isRequestProcessing) return;
-
-        this.isRequestProcessing = true;
-
-        try {
-            await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_DEMO_BUCKET);
-            await this.fetchBuckets();
-
-            LocalData.setDemoBucketCreatedStatus();
-        } catch (error) {
-            await this.$notify.error(error.message);
-        } finally {
-            this.isRequestProcessing = false;
-        }
-    }
-
-    /**
-     * Holds delete bucket click logic.
-     */
-    public async onDeleteBucketClick(): Promise<void> {
-        if (this.isRequestProcessing) return;
-
-        if (!this.isBucketNameValid(this.deleteBucketName)) return;
-
-        this.isRequestProcessing = true;
-
-        try {
-            if (!this.edgeCredentials.accessKeyId) {
-                await this.setAccess();
-            }
-            await this.$store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, this.deleteBucketName);
-            await this.fetchBuckets();
-        } catch (error) {
-            await this.$notify.error(error.message);
-            return;
-        } finally {
-            this.isRequestProcessing = false;
-        }
-
-        this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
-
-        this.deleteBucketName = '';
-        this.hideDeleteBucketPopup();
     }
 
     /**
@@ -327,30 +190,6 @@ export default class BucketsView extends Vue {
         }
 
         this.activeDropdown = key;
-    }
-
-    /**
-     * Makes delete bucket popup visible.
-     */
-    public showDeleteBucketPopup(): void {
-        this.deleteBucketName = '';
-        this.isDeletePopupVisible = true;
-    }
-
-    /**
-     * Hides delete bucket popup.
-     */
-    public hideDeleteBucketPopup(): void {
-        this.errorMessage = '';
-        this.isDeletePopupVisible = false;
-    }
-
-    /**
-     * Set delete bucket name form input.
-     */
-    public setDeleteBucketName(name: string): void {
-        this.errorMessage = '';
-        this.deleteBucketName = name;
     }
 
     /**
@@ -381,32 +220,6 @@ export default class BucketsView extends Vue {
      */
     private get selectedProjectID(): string {
         return this.$store.getters.selectedProject.id;
-    }
-
-    /**
-     * Returns edge credentials from store.
-     */
-    private get edgeCredentials(): EdgeCredentials {
-        return this.$store.state.objectsModule.gatewayCredentials;
-    }
-
-    /**
-     * Returns validation status of a bucket name.
-     */
-    private isBucketNameValid(name: string): boolean {
-        switch (true) {
-        case name.length < 3 || name.length > 63:
-            this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
-
-            return false;
-        case !Validator.bucketName(name):
-            this.errorMessage = 'Name must contain only lowercase latin characters, numbers, a hyphen or a period';
-
-            return false;
-
-        default:
-            return true;
-        }
     }
 }
 </script>

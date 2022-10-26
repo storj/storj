@@ -39,6 +39,7 @@ class ViewsState {
         public isAddTokenFundsModalShown = false,
         public isShareBucketModalShown = false,
         public isShareObjectModalShown = false,
+        public isDeleteBucketModalShown = false,
         public isNewFolderModalShown = false,
         public isObjectDetailsModalShown = false,
         public isBillingNotificationShown = true,
@@ -156,6 +157,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN](state: State): void {
             state.appState.isShareObjectModalShown = !state.appState.isShareObjectModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_DELETE_BUCKET_MODAL_SHOWN](state: State): void {
+            state.appState.isDeleteBucketModalShown = !state.appState.isDeleteBucketModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN](state: State): void {
             state.appState.isObjectDetailsModalShown = !state.appState.isObjectDetailsModalShown;

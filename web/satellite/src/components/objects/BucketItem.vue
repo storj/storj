@@ -31,6 +31,7 @@ import { Component, Prop } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { Bucket } from '@/types/buckets';
 import { LocalData } from '@/utils/localData';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import TableItem from '@/components/common/TableItem.vue';
 import Resizable from '@/components/common/Resizable.vue';
@@ -51,8 +52,6 @@ import DotsIcon from '@/../static/images/objects/dots.svg';
 export default class BucketItem extends Resizable {
     @Prop({ default: null })
     public readonly itemData: Bucket;
-    @Prop({ default: () => () => {} })
-    public readonly showDeleteBucketPopup: () => void;
     @Prop({ default: () => () => {} })
     public readonly openDropdown;
     @Prop({ default: () => (_: string) => {} })
@@ -106,7 +105,7 @@ export default class BucketItem extends Resizable {
      * Holds on delete click logic.
      */
     public onDeleteClick(): void {
-        this.showDeleteBucketPopup();
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_BUCKET_MODAL_SHOWN);
         this.closeDropdown();
     }
 

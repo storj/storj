@@ -17,7 +17,6 @@ export const OBJECTS_ACTIONS = {
     SET_FILE_COMPONENT_BUCKET_NAME: 'setFileComponentBucketName',
     FETCH_BUCKETS: 'fetchBuckets',
     CREATE_BUCKET: 'createBucket',
-    CREATE_DEMO_BUCKET: 'createDemoBucket',
     DELETE_BUCKET: 'deleteBucket',
     CHECK_ONGOING_UPLOADS: 'checkOngoingUploads',
 };
@@ -143,11 +142,6 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
             createBucket: async function(ctx, name: string): Promise<void> {
                 await ctx.state.s3Client.createBucket({
                     Bucket: name,
-                }).promise();
-            },
-            createDemoBucket: async function(ctx): Promise<void> {
-                await ctx.state.s3Client.createBucket({
-                    Bucket: DEMO_BUCKET_NAME,
                 }).promise();
             },
             deleteBucket: async function(ctx, name: string): Promise<void> {

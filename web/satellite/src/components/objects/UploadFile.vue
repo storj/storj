@@ -220,20 +220,6 @@ export default class UploadFile extends Vue {
 </script>
 
 <style scoped>
-    .back {
-        font-family: 'font_medium', sans-serif;
-        color: #000;
-        font-size: 20px;
-        cursor: pointer;
-        margin: 0 0 30px 15px;
-        display: inline-block;
-    }
-
-    .back:hover {
-        color: #007bff;
-        text-decoration: underline;
-    }
-
     .file-browser {
         font-family: 'font_regular', sans-serif;
         padding-bottom: 200px;
