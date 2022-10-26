@@ -35,7 +35,6 @@
             class="buckets-view__list"
             :limit="bucketsPage.limit"
             :total-page-count="bucketsPage.pageCount"
-            :items="bucketsPage.buckets"
             items-label="buckets"
             :on-page-click-callback="fetchBuckets"
             :total-items-count="bucketsPage.totalCount"

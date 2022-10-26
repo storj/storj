@@ -11,7 +11,7 @@
                     @drop.prevent="upload"
                     @dragover.prevent
                 >
-                    <bread-crumbs @bucketClick="goToBuckets" />
+                    <bread-crumbs @onUpdate="onRouteChange" @bucketClick="goToBuckets" />
 
                     <div class="tile-action-bar">
                         <h2 class="tile-action-bar__title">{{ bucketName }}</h2>
@@ -150,7 +150,7 @@
                                 <td />
                             </tr>
 
-                            <tr v-if="filesUploadingLength">
+                            <tr v-if="filesUploading.length">
                                 <div class="files-uploading-count my-3">
                                     <div
                                         class="px-2"
@@ -164,14 +164,13 @@
 
                             <tr v-if="path.length > 0">
                                 <td class="px-3">
-                                    <router-link to="../">
+                                    <span @click="onBack">
                                         <a
                                             id="navigate-back"
                                             href="javascript:null"
                                             class="px-2 font-weight-bold"
-                                            @click="back"
                                         >..</a>
-                                    </router-link>
+                                    </span>
                                 </td>
                             </tr>
 
@@ -180,6 +179,7 @@
                                 :key="file.Key"
                                 :path="path"
                                 :file="file"
+                                @onUpdate="onRouteChange"
                             />
 
                             <file-entry
@@ -191,7 +191,7 @@
                         </template>
                     </v-table>
                     <div
-                        v-if="displayUpload"
+                        v-if="!fetchingFilesSpinner"
                         class="upload-help"
                         @click="buttonFileUpload"
                     >
@@ -201,7 +201,7 @@
                         </p>
                     </div>
                     <div
-                        v-if="fetchingFilesSpinner"
+                        v-else
                         class="d-flex justify-content-center"
                     >
                         <div class="spinner-border" />
@@ -212,8 +212,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
@@ -224,6 +224,7 @@ import { BrowserFile } from '@/types/browser';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useRouter, useStore } from '@/utils/hooks';
 import eventBus from '@/utils/eventBus';
 
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -233,290 +234,245 @@ import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
-// @vue/component
-@Component({
-    components: {
-        BucketSettingsNav,
-        FileEntry,
-        BreadCrumbs,
-        VTable,
-        FileBrowserHeader,
-        BlackArrowExpand,
-        BlackArrowHide,
-        UploadIcon,
-    },
-})
-export default class FileBrowser extends Vue {
-    public $refs!: {
-        folderInput: HTMLInputElement;
-        fileInput: HTMLInputElement;
+const store = useStore();
+const router = useRouter();
+
+const folderInput = ref<HTMLInputElement>(null);
+const fileInput = ref<HTMLInputElement>(null);
+
+const fetchingFilesSpinner = ref<boolean>(false);
+const isUploadDropDownShown = ref<boolean>(false);
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Check if the s3 client has been initialized in the store.
+ */
+const isInitialized = computed((): boolean => {
+    return store.getters['files/isInitialized'];
+});
+
+/**
+ * Retrieve the current path from the store.
+ */
+const path = computed((): string => {
+    return store.state.files.path;
+});
+
+/**
+ * Return files that are currently being uploaded from the store.
+ */
+const filesUploading = computed((): string => {
+    return store.state.files.uploading;
+});
+
+/**
+ * Return up to five files currently being uploaded for display purposes.
+ */
+const formattedFilesUploading = computed((): BrowserFile[] => {
+    if (filesUploading.value.length > 5) {
+        return filesUploading.value.slice(0, 5);
+    }
+
+    return filesUploading.value;
+});
+
+/**
+ * Return the text of how many files in total are being uploaded to be displayed to give users more context.
+ */
+const formattedFilesWaitingToBeUploaded = computed((): BrowserFile[] => {
+    let file = 'file';
+
+    if (filesUploading.value.length > 1) {
+        file = 'files';
+    }
+
+    return `${filesUploading.value.length} ${file}`;
+});
+
+const bucketName = computed((): string => {
+    return store.state.files.bucket;
+});
+
+const files = computed((): BrowserFile[] => {
+    return store.getters['files/sortedFiles'];
+});
+
+/**
+ * Return an array of BrowserFile type that are files and not folders.
+ */
+const singleFiles = computed((): BrowserFile[] => {
+    return files.value.filter((f) => f.type === 'file');
+});
+
+/**
+ * Return an array of BrowserFile type that are folders and not files.
+ */
+const folders = computed((): BrowserFile[] => {
+    return files.value.filter((f) => f.type === 'folder');
+});
+
+/**
+ * Retrieve the pathMatch from the current route.
+ */
+const routePath = ref(calculateRoutePath());
+
+/**
+ * Returns bucket name from store.
+ */
+const bucket = computed((): string => {
+    return store.state.objectsModule.fileComponentBucketName;
+});
+
+function calculateRoutePath(): string {
+    let pathMatch = router.history.current.params.pathMatch;
+    pathMatch = Array.isArray(pathMatch)
+        ? pathMatch.join('/') + '/'
+        : pathMatch;
+    return pathMatch;
+}
+
+async function onBack(): Promise<void> {
+    await router.push('../');
+    await onRouteChange();
+}
+
+async function onRouteChange(): Promise<void> {
+    routePath.value = calculateRoutePath();
+    await store.dispatch('files/closeDropdown');
+    await list(routePath.value);
+}
+
+/**
+ * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
+ */
+onBeforeMount(async () => {
+    if (!bucket.value) {
+        const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
+
+        await analytics.pageVisit(path);
+        await router.push(path);
+
+        return;
+    }
+
+    // display the spinner while files are being fetched
+    fetchingFilesSpinner.value = true;
+
+    if (!routePath.value) {
+        try {
+            await analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
+            await router.push({
+                path: `${store.state.files.browserRoot}${path.value}`,
+            });
+        } catch (err) {
+            await list('');
+        }
+    }
+
+    // remove the spinner after files have been fetched
+    fetchingFilesSpinner.value = false;
+});
+
+/**
+ * Close modal, file share modal, dropdown, and remove all selected files from the store.
+ */
+function closeModalDropdown(): void {
+    if (store.state.files.openedDropdown) {
+        store.dispatch('files/closeDropdown');
+    }
+
+    if (store.state.files.selectedFile) {
+        store.dispatch('files/clearAllSelectedFiles');
+    }
+}
+
+/**
+ * Toggle the folder creation modal in the store.
+ */
+function toggleFolderCreationModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
+}
+
+/**
+ * Return the file name of the passed in file argument formatted.
+ */
+function filename(file: BrowserFile): string {
+    return file.Key.length > 25
+        ? file.Key.slice(0, 25) + '...'
+        : file.Key;
+}
+
+/**
+ * Upload the current selected or dragged-and-dropped file.
+ */
+async function upload(e: Event): Promise<void> {
+    const callback = () => {
+        eventBus.$emit('upload_progress');
     };
-    public fetchingFilesSpinner = false;
-    public isUploadDropDownShown = false;
+    await store.dispatch('files/upload', { e, callback });
+    await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
+    const target = e.target as HTMLInputElement;
+    target.value = '';
+}
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Cancel the upload of the current file that's passed in as an argument.
+ */
+function cancelUpload(fileName: string): void {
+    store.dispatch('files/cancelUpload', fileName);
+}
 
-    /**
-     * Check if the s3 client has been initialized in the store.
-     */
-    public get isInitialized(): boolean {
-        return this.$store.getters['files/isInitialized'];
-    }
+/**
+ * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
+ */
+async function list(path: string): Promise<void> {
+    await store.dispatch('files/list', path, {
+        root: true,
+    });
+}
 
-    /**
-     * Retrieve the current path from the store.
-     */
-    private get path(): string {
-        return this.$store.state.files.path;
-    }
+/**
+ * Open the operating system's file system for file upload.
+ */
+async function buttonFileUpload(): Promise<void> {
+    await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
+    const fileInputElement = fileInput.value as HTMLInputElement;
+    fileInputElement.click();
+    closeUploadDropdown();
+}
 
-    /**
-     * Return files that are currently being uploaded from the store.
-     */
-    private get filesUploading(): BrowserFile[] {
-        return this.$store.state.files.uploading;
-    }
+/**
+ * Open the operating system's file system for folder upload.
+ */
+async function buttonFolderUpload(): Promise<void> {
+    await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
+    const folderInputElement = folderInput.value as HTMLInputElement;
+    folderInputElement.click();
+    closeUploadDropdown();
+}
 
-    /**
-     * Return the length of the array of files currently being uploaded.
-     */
-    public get filesUploadingLength(): number {
-        return this.filesUploading.length;
-    }
+/**
+ * Toggles upload options dropdown.
+ */
+function toggleUploadDropdown(): void {
+    isUploadDropDownShown.value = !isUploadDropDownShown.value;
+}
 
-    /**
-     * Return up to five files currently being uploaded for display purposes.
-     */
-    public get formattedFilesUploading(): BrowserFile[] {
-        if (this.filesUploadingLength > 5) {
-            return this.filesUploading.slice(0, 5);
-        }
+/**
+ * Closes upload options dropdown.
+ */
+function closeUploadDropdown(): void {
+    isUploadDropDownShown.value = false;
+}
 
-        return this.filesUploading;
-    }
-
-    /**
-     * Return the text of how many files in total are being uploaded to be displayed to give users more context.
-     */
-    public get formattedFilesWaitingToBeUploaded(): string {
-        let file = 'file';
-
-        if (this.filesUploadingLength > 1) {
-            file = 'files';
-        }
-
-        return `${this.filesUploadingLength} ${file}`;
-    }
-
-    /**
-     * Retrieve the current bucket from the store.
-     */
-    private get bucketName(): string {
-        return this.$store.state.files.bucket;
-    }
-
-    /**
-     * Retrieve all of the files sorted from the store.
-     */
-    private get files(): BrowserFile[] {
-        return this.$store.getters['files/sortedFiles'];
-    }
-
-    /**
-     * Return an array of BrowserFile type that are files and not folders.
-     */
-    public get singleFiles(): BrowserFile[] {
-        return this.files.filter((f) => f.type === 'file');
-    }
-
-    /**
-     * Return an array of BrowserFile type that are folders and not files.
-     */
-    public get folders(): BrowserFile[] {
-        return this.files.filter((f) => f.type === 'folder');
-    }
-
-    /**
-     * Retrieve the pathMatch from the current route.
-     */
-    private get routePath(): string {
-        let pathMatch = this.$route.params.pathMatch;
-        pathMatch = Array.isArray(pathMatch)
-            ? pathMatch.join('/') + '/'
-            : pathMatch;
-        return pathMatch;
-    }
-
-    /**
-     * Returns bucket name from store.
-     */
-    private get bucket(): string {
-        return this.$store.state.objectsModule.fileComponentBucketName;
-    }
-
-    /**
-     * Return a boolean signifying whether the upload display is allowed to be shown.
-     */
-    public get displayUpload(): boolean {
-        return !this.fetchingFilesSpinner;
-    }
-
-    /**
-     * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
-     */
-    @Watch('routePath')
-    private async handleRoutePathChange() {
-        await this.goToRoutePath();
-    }
-
-    /**
-     * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
-     */
-    public async created(): Promise<void> {
-        if (!this.bucket) {
-            const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
-
-            this.analytics.pageVisit(path);
-            await this.$router.push(path);
-
-            return;
-        }
-
-        // display the spinner while files are being fetched
-        this.fetchingFilesSpinner = true;
-
-        if (!this.routePath) {
-            try {
-                this.analytics.pageVisit(`${this.$store.state.files.browserRoot}${this.path}`);
-                await this.$router.push({
-                    path: `${this.$store.state.files.browserRoot}${this.path}`,
-                });
-            } catch (err) {
-                await this.list('');
-            }
-        }
-
-        // remove the spinner after files have been fetched
-        this.fetchingFilesSpinner = false;
-    }
-
-    /**
-     * Close modal, file share modal, dropdown, and remove all selected files from the store.
-     */
-    public closeModalDropdown(): void {
-        if (this.$store.state.files.openedDropdown) {
-            this.$store.dispatch('files/closeDropdown');
-        }
-
-        if (this.$store.state.files.selectedFile) {
-            this.$store.dispatch('files/clearAllSelectedFiles');
-        }
-    }
-
-    /**
-     * Toggle the folder creation modal in the store.
-     */
-    public toggleFolderCreationModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
-    }
-
-    /**
-     * Return the file name of the passed in file argument formatted.
-     */
-    public filename(file: BrowserFile): string {
-        return file.Key.length > 25
-            ? file.Key.slice(0, 25) + '...'
-            : file.Key;
-    }
-
-    /**
-     * Upload the current selected or dragged-and-dropped file.
-     */
-    public async upload(e: Event): Promise<void> {
-        const callback = () => {
-            eventBus.$emit('upload_progress');
-        };
-        await this.$store.dispatch('files/upload', { e, callback });
-        this.analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
-        const target = e.target as HTMLInputElement;
-        target.value = '';
-    }
-
-    /**
-     * Cancel the upload of the current file that's passed in as an argument.
-     */
-    public cancelUpload(fileName: string): void {
-        this.$store.dispatch('files/cancelUpload', fileName);
-    }
-
-    /**
-     * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
-     */
-    private async list(path: string): Promise<void> {
-        await this.$store.dispatch('files/list', path, {
-            root: true,
-        });
-    }
-
-    /**
-     * Remove the folder creation input and close any opened dropdowns when a user chooses to navigate back to the previous folder.
-     */
-    public async back(): Promise<void> {
-        await this.$store.dispatch('files/closeDropdown');
-    }
-
-    /**
-     * Navigate to the path under routePath.
-     */
-    private async goToRoutePath(): Promise<void> {
-        if (typeof this.routePath === 'string') {
-            await this.$store.dispatch('files/closeDropdown');
-            await this.list(this.routePath);
-        }
-    }
-
-    /**
-     * Open the operating system's file system for file upload.
-     */
-    public async buttonFileUpload(): Promise<void> {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
-        const fileInputElement = this.$refs.fileInput as HTMLInputElement;
-        fileInputElement.click();
-        this.closeUploadDropdown();
-    }
-
-    /**
-     * Open the operating system's file system for folder upload.
-     */
-    public async buttonFolderUpload(): Promise<void> {
-        this.analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
-        const folderInputElement = this.$refs.folderInput as HTMLInputElement;
-        folderInputElement.click();
-        this.closeUploadDropdown();
-    }
-
-    /**
-     * Toggles upload options dropdown.
-     */
-    public toggleUploadDropdown(): void {
-        this.isUploadDropDownShown = !this.isUploadDropDownShown;
-    }
-
-    /**
-     * Closes upload options dropdown.
-     */
-    public closeUploadDropdown(): void {
-        this.isUploadDropDownShown = false;
-    }
-
-    /**
-     * Redirects to buckets list view.
-     */
-    public goToBuckets(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-    }
-
+/**
+ * Redirects to buckets list view.
+ */
+async function goToBuckets(): Promise<void> {
+    await analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
+    await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(err => {});
+    await onRouteChange();
 }
 </script>
 

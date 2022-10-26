@@ -155,7 +155,6 @@
                 <v-table
                     class="payments-area__transactions-area__table"
                     items-label="transactions"
-                    :items="displayedHistory"
                     :limit="pageSize"
                     :total-page-count="pageCount"
                     :total-items-count="transactionCount"
