@@ -207,8 +207,6 @@
                         <div class="spinner-border" />
                     </div>
                 </div>
-
-                <file-share-modal v-if="showFileShareModal" />
             </div>
         </div>
     </div>
@@ -220,7 +218,6 @@ import { Component, Vue, Watch } from 'vue-property-decorator';
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
-import FileShareModal from './FileShareModal.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
@@ -244,7 +241,6 @@ import UploadIcon from '@/../static/images/browser/upload.svg';
         BreadCrumbs,
         VTable,
         FileBrowserHeader,
-        FileShareModal,
         BlackArrowExpand,
         BlackArrowHide,
         UploadIcon,
@@ -366,13 +362,6 @@ export default class FileBrowser extends Vue {
     }
 
     /**
-     * Return a boolean signifying whether the file share modal can be shown.
-     */
-    public get showFileShareModal(): null | string {
-        return this.$store.state.files.fileShareModal;
-    }
-
-    /**
      * Watch for changes in the path and call goToRoutePath, navigating away from the current page.
      */
     @Watch('routePath')
@@ -415,10 +404,6 @@ export default class FileBrowser extends Vue {
      * Close modal, file share modal, dropdown, and remove all selected files from the store.
      */
     public closeModalDropdown(): void {
-        if (this.$store.state.files.fileShareModal) {
-            this.$store.commit('files/closeFileShareModal');
-        }
-
         if (this.$store.state.files.openedDropdown) {
             this.$store.dispatch('files/closeDropdown');
         }

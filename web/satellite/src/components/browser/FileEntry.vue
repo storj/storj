@@ -625,11 +625,8 @@ export default class FileEntry extends Vue {
      */
     public share(): void {
         this.$store.dispatch('files/closeDropdown');
-
-        this.$store.commit(
-            'files/setFileShareModal',
-            this.path + this.file.Key,
-        );
+        this.$store.commit('files/setObjectPathForModal', this.path + this.file.Key);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
     }
 
     /**

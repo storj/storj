@@ -44,8 +44,7 @@ export type FilesState = {
     headingSorted: string;
     orderBy: 'asc' | 'desc';
     openModalOnFirstUpload: boolean;
-    fileShareModal: null | string;
-    objectPathForModal: null | string;
+    objectPathForModal: string;
 };
 
 type InitializedFilesState = FilesState & {
@@ -107,8 +106,7 @@ export const makeFilesModule = (): FilesModule => ({
         headingSorted: 'name',
         orderBy: 'asc',
         openModalOnFirstUpload: false,
-        fileShareModal: null,
-        objectPathForModal: null,
+        objectPathForModal: '',
     },
     getters: {
         sortedFiles: (state: FilesState) => {
@@ -254,14 +252,6 @@ export const makeFilesModule = (): FilesModule => ({
 
             state.orderBy = state.headingSorted === headingSorted ? flip(state.orderBy) : 'asc';
             state.headingSorted = headingSorted;
-        },
-
-        setFileShareModal(state: FilesState, path) {
-            state.fileShareModal = path;
-        },
-
-        closeFileShareModal(state: FilesState) {
-            state.fileShareModal = null;
         },
 
         setObjectPathForModal(state: FilesState, path) {
@@ -695,11 +685,7 @@ export const makeFilesModule = (): FilesModule => ({
             }
         },
 
-        closeAllInteractions({ commit, state, dispatch }) {
-            if (state.fileShareModal) {
-                commit('closeFileShareModal');
-            }
-
+        closeAllInteractions({ state, dispatch }) {
             if (state.openedDropdown) {
                 dispatch('closeDropdown');
             }
