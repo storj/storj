@@ -122,6 +122,11 @@ var (
 		Short: "Run the satellite process which collects nodes bloom filters for garbage collection",
 		RunE:  cmdGCBloomFilterRun,
 	}
+	runRangedLoopCmd = &cobra.Command{
+		Use:   "ranged-loop",
+		Short: "Run the satellite segments ranged loop",
+		RunE:  cmdRangedLoopRun,
+	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -341,6 +346,7 @@ func init() {
 	runCmd.AddCommand(runRepairerCmd)
 	runCmd.AddCommand(runGCCmd)
 	runCmd.AddCommand(runGCBloomFilterCmd)
+	runCmd.AddCommand(runRangedLoopCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
@@ -374,6 +380,7 @@ func init() {
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCBloomFilterCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runRangedLoopCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(registerLostSegments, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(fetchPiecesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

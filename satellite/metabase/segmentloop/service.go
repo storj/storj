@@ -153,7 +153,7 @@ type Config struct {
 type MetabaseDB interface {
 	// Now returns the time on the database.
 	Now(ctx context.Context) (time.Time, error)
-	// IterateLoopStreams iterates through all streams passed in as arguments.
+	// IterateLoopSegments iterates through all streams passed in as arguments.
 	IterateLoopSegments(ctx context.Context, opts metabase.IterateLoopSegments, fn func(context.Context, metabase.LoopSegmentsIterator) error) (err error)
 
 	// GetTableStats gathers statistics about the tables.

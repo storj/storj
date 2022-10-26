@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -161,6 +162,8 @@ type Config struct {
 
 	GarbageCollection   sender.Config
 	GarbageCollectionBF bloomfilter.Config
+
+	RangedLoop rangedloop.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config
