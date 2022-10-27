@@ -57,6 +57,7 @@ type GarbageCollectionBF struct {
 	}
 
 	GarbageCollection struct {
+		Config  bloomfilter.Config
 		Service *bloomfilter.Service
 	}
 }
@@ -127,18 +128,22 @@ func NewGarbageCollectionBF(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup garbage collection bloom filters
+		peer.GarbageCollection.Config = config.GarbageCollectionBF
 		peer.GarbageCollection.Service = bloomfilter.NewService(
 			peer.Log.Named("garbage-collection-bf"),
 			config.GarbageCollectionBF,
 			peer.Overlay.DB,
 			peer.Metainfo.SegmentLoop,
 		)
-		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection-bf",
-			Run:  peer.GarbageCollection.Service.Run,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
+
+		if !config.GarbageCollectionBF.RunOnce {
+			peer.Services.Add(lifecycle.Item{
+				Name: "garbage-collection-bf",
+				Run:  peer.GarbageCollection.Service.Run,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
+		}
 	}
 
 	return peer, nil
@@ -154,10 +159,15 @@ func (peer *GarbageCollectionBF) Run(ctx context.Context) (err error) {
 		peer.Servers.Run(ctx, group)
 		peer.Services.Run(ctx, group)
 
-		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
-			err = group.Wait()
-		})
+		if peer.GarbageCollection.Config.RunOnce {
+			err = peer.GarbageCollection.Service.RunOnce(ctx)
+		} else {
+			pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+				err = group.Wait()
+			})
+		}
 	})
+
 	return err
 }
 

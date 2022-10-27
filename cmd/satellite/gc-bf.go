@@ -84,6 +84,11 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	runError := peer.Run(ctx)
+
+	if err := process.Report(ctx); err != nil {
+		log.Warn("could not send telemetry", zap.Error(err))
+	}
+
 	closeError := peer.Close()
 	return errs.Combine(runError, closeError)
 }
