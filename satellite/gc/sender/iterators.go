@@ -23,14 +23,15 @@ func IterateZipObjectKeys(
 	ctx context.Context,
 	project uplink.Project,
 	bucket string,
+	prefix string,
 	fn func(objectKey string) error,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	objects := project.ListObjects(ctx, bucket, &uplink.ListObjectsOptions{
-		System: true,
-		// the previously read archives are stored under prefixes, we want to skip those
+		System:    true,
 		Recursive: false,
+		Prefix:    prefix,
 	})
 
 	for objects.Next() {

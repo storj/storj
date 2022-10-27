@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -69,9 +70,19 @@ func TestSendRetainFilters(t *testing.T) {
 		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[1])
 		require.NoError(t, err)
 
+		download, err := project.DownloadObject(ctx, gcsender.Config.Bucket, bloomfilter.LATEST, nil)
+		require.NoError(t, err)
+
+		prefix, err := io.ReadAll(download)
+		require.NoError(t, err)
+
+		err = download.Close()
+		require.NoError(t, err)
+
 		var keys []string
 		it := project.ListObjects(ctx, gcsender.Config.Bucket, &uplink.ListObjectsOptions{
 			Recursive: true,
+			Prefix:    "sent-" + string(prefix) + "/",
 		})
 		require.True(t, it.Next())
 		keys = append(keys, it.Item().Key)
@@ -103,8 +114,13 @@ func TestSendInvalidZip(t *testing.T) {
 		gcsender := planet.Satellites[0].GarbageCollection.Sender
 		gcsender.Config.AccessGrant = accessString
 
+		// update LATEST file
+		prefix := time.Now().Format(time.RFC3339)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[1], gcsender.Config.Bucket, bloomfilter.LATEST, []byte(prefix))
+		require.NoError(t, err)
+
 		// upload invalid zip file
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[1], gcsender.Config.Bucket, "wasd.zip", []byte("wasd"))
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[1], gcsender.Config.Bucket, prefix+"/wasd.zip", []byte("wasd"))
 		require.NoError(t, err)
 
 		// send to storagenode
@@ -118,6 +134,7 @@ func TestSendInvalidZip(t *testing.T) {
 		var keys []string
 		it := project.ListObjects(ctx, gcsender.Config.Bucket, &uplink.ListObjectsOptions{
 			Recursive: true,
+			Prefix:    "error-" + prefix + "/",
 		})
 		require.True(t, it.Next())
 		keys = append(keys, it.Item().Key)
