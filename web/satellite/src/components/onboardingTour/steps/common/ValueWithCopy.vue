@@ -9,7 +9,7 @@
             label="Copy"
             width="66px"
             height="30px"
-            is-blue-white="true"
+            :is-blue-white="true"
             :on-press="onCopyClick"
         />
     </div>

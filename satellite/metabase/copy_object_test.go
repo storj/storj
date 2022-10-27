@@ -43,6 +43,7 @@ func TestBeginCopyObject(t *testing.T) {
 			expectedRawSegments := []metabase.RawSegment{}
 
 			for _, expectedVersion := range []metabase.Version{1, 2, 3, 11} {
+				obj.ObjectKey = metabasetest.RandObjectKey()
 				obj.StreamID = testrand.UUID()
 				obj.Version = expectedVersion
 				expectedObject, expectedSegments := metabasetest.CreateTestObject{

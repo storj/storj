@@ -9,7 +9,6 @@ import (
 	"errors"
 	"hash"
 	"io"
-	"io/ioutil"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -23,6 +22,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -62,7 +62,7 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	client, err := piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), ec.dialer, n, piecestore.DefaultConfig)
 	return client, ErrDialFailed.Wrap(err)
 }
 
@@ -288,12 +288,12 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	var downloadedPieceSize int64
 
 	if ec.inmemory {
-		pieceBytes, err := ioutil.ReadAll(downloadReader)
+		pieceBytes, err := io.ReadAll(downloadReader)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		downloadedPieceSize = int64(len(pieceBytes))
-		pieceReadCloser = ioutil.NopCloser(bytes.NewReader(pieceBytes))
+		pieceReadCloser = io.NopCloser(bytes.NewReader(pieceBytes))
 	} else {
 		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
@@ -388,7 +388,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	readers, err := eestream.EncodeReader2(ctx, ioutil.NopCloser(data), rs)
+	readers, err := eestream.EncodeReader2(ctx, io.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -508,7 +508,7 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, limit *pb.AddressedO
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
-		_, _ = io.Copy(ioutil.Discard, data)
+		_, _ = io.Copy(io.Discard, data)
 		return nil, nil
 	}
 

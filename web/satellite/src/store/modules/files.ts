@@ -43,10 +43,9 @@ export type FilesState = {
     openedDropdown: null | string;
     headingSorted: string;
     orderBy: 'asc' | 'desc';
-    createFolderInputShow: boolean;
     openModalOnFirstUpload: boolean;
-    modalPath: null | string;
     fileShareModal: null | string;
+    objectPathForModal: null | string;
 };
 
 type InitializedFilesState = FilesState & {
@@ -107,11 +106,9 @@ export const makeFilesModule = (): FilesModule => ({
         openedDropdown: null,
         headingSorted: 'name',
         orderBy: 'asc',
-        createFolderInputShow: false,
         openModalOnFirstUpload: false,
-
-        modalPath: null,
         fileShareModal: null,
+        objectPathForModal: null,
     },
     getters: {
         sortedFiles: (state: FilesState) => {
@@ -158,15 +155,15 @@ export const makeFilesModule = (): FilesModule => ({
                 fetchSharedLink = () => 'javascript:null',
                 fetchPreviewAndMapUrl = () => 'javascript:null',
             }: {
-        accessKey: string;
-        secretKey: string;
-        bucket: string;
-        endpoint: string;
-        browserRoot: string;
-        openModalOnFirstUpload: boolean;
-        fetchSharedLink: (arg0: string) => Promisable<string>;
-        fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
-      },
+            accessKey: string;
+            secretKey: string;
+            bucket: string;
+            endpoint: string;
+            browserRoot: string;
+            openModalOnFirstUpload: boolean;
+            fetchSharedLink: (arg0: string) => Promisable<string>;
+            fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
+            },
         ) {
             const s3Config = {
                 accessKeyId: accessKey,
@@ -255,21 +252,8 @@ export const makeFilesModule = (): FilesModule => ({
         sort(state: FilesState, headingSorted) {
             const flip = (orderBy) => (orderBy === 'asc' ? 'desc' : 'asc');
 
-            state.orderBy =
-        state.headingSorted === headingSorted ? flip(state.orderBy) : 'asc';
+            state.orderBy = state.headingSorted === headingSorted ? flip(state.orderBy) : 'asc';
             state.headingSorted = headingSorted;
-        },
-
-        setCreateFolderInputShow(state: FilesState, value) {
-            state.createFolderInputShow = value;
-        },
-
-        openModal(state: FilesState, path) {
-            state.modalPath = path;
-        },
-
-        closeModal(state: FilesState) {
-            state.modalPath = null;
         },
 
         setFileShareModal(state: FilesState, path) {
@@ -280,12 +264,12 @@ export const makeFilesModule = (): FilesModule => ({
             state.fileShareModal = null;
         },
 
-        addUploadToChain(state: FilesState, fn) {
-            state.uploadChain = state.uploadChain.then(fn);
+        setObjectPathForModal(state: FilesState, path) {
+            state.objectPathForModal = path;
         },
 
-        closeNewFolderModal(state: FilesState) {
-            state.createFolderInputShow = false;
+        addUploadToChain(state: FilesState, fn) {
+            state.uploadChain = state.uploadChain.then(fn);
         },
     },
     actions: {
@@ -696,10 +680,6 @@ export const makeFilesModule = (): FilesModule => ({
             commit('setOpenedDropdown', 'FileBrowser');
         },
 
-        updateCreateFolderInputShow({ commit }, value) {
-            commit('setCreateFolderInputShow', value);
-        },
-
         cancelUpload({ commit, state }, key) {
             const file = state.uploading.find((file) => file.Key === key);
 
@@ -715,10 +695,6 @@ export const makeFilesModule = (): FilesModule => ({
         },
 
         closeAllInteractions({ commit, state, dispatch }) {
-            if (state.modalPath) {
-                commit('closeModal');
-            }
-
             if (state.fileShareModal) {
                 commit('closeFileShareModal');
             }
@@ -729,10 +705,6 @@ export const makeFilesModule = (): FilesModule => ({
 
             if (state.selectedAnchorFile) {
                 dispatch('clearAllSelectedFiles');
-            }
-
-            if (state.createFolderInputShow) {
-                commit('closeNewFolderModal');
             }
         },
     },

@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -77,7 +76,7 @@ func (ce *consoleEndpoints) graphqlDo(request *http.Request, jsonResponse interf
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

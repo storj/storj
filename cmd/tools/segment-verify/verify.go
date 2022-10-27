@@ -13,9 +13,11 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/uplink/private/piecestore"
 )
@@ -51,6 +53,12 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 		configuredDialer.DialTimeout = config.DialTimeout
 	}
 
+	configuredDialer.Pool = rpcpool.New(rpcpool.Options{
+		Capacity:       1000,
+		KeyCapacity:    5,
+		IdleExpiration: 10 * time.Minute,
+	})
+
 	return &NodeVerifier{
 		log:    log,
 		config: config,
@@ -60,32 +68,66 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 }
 
 // Verify a collection of segments by attempting to download a byte from each segment from the target node.
-func (service *NodeVerifier) Verify(ctx context.Context, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error {
-	client, err := piecestore.Dial(ctx, service.dialer, target, piecestore.DefaultConfig)
+func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, _ error) {
+	client, err := piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
 	if err != nil {
-		return ErrNodeOffline.Wrap(err)
+		return 0, ErrNodeOffline.Wrap(err)
 	}
-	defer func() { _ = client.Close() }()
+	defer func() {
+		if client != nil {
+			_ = client.Close()
+		}
+	}()
+
+	const maxRedials = 1
+	redialCount := 0
 
 	for i, segment := range segments {
 		downloadStart := time.Now()
-		err := service.verifySegment(ctx, client, target, segment)
+		err := service.verifySegment(ctx, client, alias, target, segment)
+
+		if redialCount < maxRedials && ErrNodeOffline.Has(err) {
+			redialCount++
+			firstError := err
+
+			_ = client.Close()
+			client = nil
+			if !sync2.Sleep(ctx, service.config.RequestThrottle) {
+				return i, Error.Wrap(ctx.Err())
+			}
+
+			// redial the client
+			client, err = piecestore.Dial(rpcpool.WithForceDial(ctx), service.dialer, target, piecestore.DefaultConfig)
+			if err != nil {
+				return i, errs.Combine(ErrNodeOffline.Wrap(err), firstError)
+			}
+
+			// and then retry verifying the segment
+			downloadStart = time.Now()
+			err = service.verifySegment(ctx, client, alias, target, segment)
+			if err != nil {
+				return i, errs.Combine(Error.Wrap(err), firstError)
+			}
+		}
+
 		if err != nil {
-			return Error.Wrap(err)
+			return i, Error.Wrap(err)
 		}
 		throttle := service.config.RequestThrottle - time.Since(downloadStart)
 		if !ignoreThrottle && throttle > 0 && i < len(segments)-1 {
 			if !sync2.Sleep(ctx, throttle) {
-				return Error.Wrap(ctx.Err())
+				return i, Error.Wrap(ctx.Err())
 			}
 		}
 	}
-	return nil
+	return len(segments), nil
 }
 
 // verifySegment tries to verify the segment by downloading a single byte from the specified segment.
-func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, target storj.NodeURL, segment *Segment) error {
-	limit, piecePrivateKey, _, err := service.orders.CreateAuditOrderLimit(ctx, target.ID, 0, segment.RootPieceID, 1)
+func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecestore.Client, alias metabase.NodeAlias, target storj.NodeURL, segment *Segment) error {
+	pieceNum := findPieceNum(segment, alias)
+
+	limit, piecePrivateKey, _, err := service.orders.CreateAuditOrderLimit(ctx, target.ID, pieceNum, segment.RootPieceID, segment.Redundancy.ShareSize)
 	if err != nil {
 		service.log.Error("failed to create order limit",
 			zap.Stringer("retrying in", service.config.OrderRetryThrottle),
@@ -97,7 +139,7 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 			return Error.Wrap(ctx.Err())
 		}
 
-		limit, piecePrivateKey, _, err = service.orders.CreateAuditOrderLimit(ctx, target.ID, 0, segment.RootPieceID, 1)
+		limit, piecePrivateKey, _, err = service.orders.CreateAuditOrderLimit(ctx, target.ID, pieceNum, segment.RootPieceID, segment.Redundancy.ShareSize)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -148,4 +190,13 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	segment.Status.MarkFound()
 
 	return nil
+}
+
+func findPieceNum(segment *Segment, alias metabase.NodeAlias) uint16 {
+	for _, p := range segment.AliasPieces {
+		if p.Alias == alias {
+			return p.Number
+		}
+	}
+	panic("piece number not found")
 }

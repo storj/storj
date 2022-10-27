@@ -315,7 +315,7 @@ export default class AddPaymentMethodModal extends Vue {
                         font-weight: 600;
                         font-size: 14px;
                         line-height: 18px;
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                         padding: 0 10px 5px;
                         cursor: pointer;
                         border-bottom: 3px solid #fff;
@@ -432,7 +432,7 @@ export default class AddPaymentMethodModal extends Vue {
                 color: #000;
 
                 a {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                 }
             }
         }
@@ -519,7 +519,7 @@ export default class AddPaymentMethodModal extends Vue {
                     &__price {
                         font-family: 'font_bold', sans-serif;
                         font-size: 42px;
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                     }
 
                     &__label {
@@ -622,6 +622,6 @@ export default class AddPaymentMethodModal extends Vue {
     }
 
     .active {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
     }
 </style>

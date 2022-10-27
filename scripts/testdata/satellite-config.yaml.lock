@@ -88,6 +88,21 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # expiration time for account recovery and activation tokens
 # console-auth.token-expiration-time: 24h0m0s
 
+# the Flagship API key
+# console.ab-testing.api-key: ""
+
+# whether or not AB testing is enabled
+# console.ab-testing.enabled: false
+
+# the Flagship environment ID
+# console.ab-testing.env-id: ""
+
+# the Flagship API URL
+# console.ab-testing.flagship-url: https://decision.flagship.io/v2
+
+# the Flagship environment ID
+# console.ab-testing.hit-tracking-url: https://ariane.abtasty.com
+
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 
@@ -207,9 +222,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if new billing screens should be used
 # console.new-billing-screen: false
-
-# indicates if new objects flow should be used
-# console.new-objects-flow: true
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: true
@@ -556,6 +568,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
+# Which fraction of nodes should be contacted successfully until the delete of a batch of pieces is considered completed
+# metainfo.piece-deletion.delete-success-threshold: 0.75
+
 # timeout for dialing nodes (0 means satellite default)
 # metainfo.piece-deletion.dial-timeout: 3s
 
@@ -628,6 +643,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
 
+# address(es) to send telemetry to (comma-separated)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
+
 # instance id prefix
 # metrics.instance-prefix: ""
 
@@ -693,6 +711,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # list of country codes to exclude nodes from target repair selection
 # overlay.repair-excluded-country-codes: []
+
+# whether to send emails to nodes
+# overlay.send-node-emails: false
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100

@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -309,7 +309,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
@@ -402,7 +402,7 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "ailed to read body",
 			err.Error(), http.StatusInternalServerError)

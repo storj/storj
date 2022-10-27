@@ -9,7 +9,6 @@ import (
 	"crypto"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -157,7 +156,7 @@ func saveIdentityTar(path string, key crypto.PrivateKey, id storj.NodeID) error 
 		return errs.Wrap(err)
 	}
 
-	if err = ioutil.WriteFile(path+".tar", tarData.Bytes(), 0600); err != nil {
+	if err = os.WriteFile(path+".tar", tarData.Bytes(), 0600); err != nil {
 		return errs.Wrap(err)
 	}
 	return nil

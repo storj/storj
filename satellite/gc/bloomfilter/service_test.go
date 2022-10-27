@@ -6,7 +6,7 @@ package bloomfilter_test
 import (
 	"archive/zip"
 	"bytes"
-	"io/ioutil"
+	"io"
 	"sort"
 	"strconv"
 	"testing"
@@ -91,7 +91,7 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 					bfReader, err := file.Open()
 					require.NoError(t, err)
 
-					bloomfilter, err := ioutil.ReadAll(bfReader)
+					bloomfilter, err := io.ReadAll(bfReader)
 					require.NoError(t, err)
 
 					var pbRetainInfo internalpb.RetainInfo

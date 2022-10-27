@@ -543,7 +543,7 @@ $align: center;
 }
 
 .edit-card-text {
-    color: #0149ff;
+    color: var(--c-blue-3);
     font-family: sans-serif;
 }
 
@@ -563,7 +563,7 @@ $align: center;
     gap: 10px;
     width: 300px;
     height: 10px;
-    border: 1px solid #c8d3de;
+    border: 1px solid var(--c-grey-4);
     border-radius: 8px;
     margin-top: 7px;
 }
@@ -571,7 +571,7 @@ $align: center;
 .change-default-input {
     margin-left: auto;
     background: #fff;
-    border: 1px solid #c8d3de;
+    border: 1px solid var(--c-grey-4);
     border-radius: 24px;
 }
 
@@ -587,7 +587,7 @@ $align: center;
     height: 24px;
     padding: 16px;
     gap: 8px;
-    background: #0149ff;
+    background: var(--c-blue-3);
     box-shadow: 0 0 1px rgb(9 28 69 / 80%);
     border-radius: 8px;
     font-family: sans-serif;
@@ -616,7 +616,7 @@ $align: center;
     padding: 16px;
     gap: 8px;
     background: #fff;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 8px;
     font-family: sans-serif;
@@ -627,7 +627,7 @@ $align: center;
     display: $flex;
     align-items: $align;
     letter-spacing: -0.02em;
-    color: #56606d;
+    color: var(--c-grey-6);
 
     &:hover {
         border: 1px solid #e30011 !important;
@@ -703,7 +703,7 @@ $align: center;
         font-size: 14px;
         line-height: 20px;
         text-align: $align;
-        color: #56606d;
+        color: var(--c-grey-6);
     }
 
     &__header-subtext-default {
@@ -713,7 +713,7 @@ $align: center;
         font-weight: 400;
         font-size: 14px;
         line-height: 20px;
-        color: #56606d;
+        color: var(--c-grey-6);
     }
 
     &__container {
@@ -760,8 +760,8 @@ $align: center;
 }
 
 .active-discount {
-    background: #dffff7;
-    color: #00ac26;
+    background: var(--c-green-1);
+    color: var(--c-green-5);
 }
 
 .inactive-discount {
@@ -770,7 +770,7 @@ $align: center;
 }
 
 .active-status {
-    background: #00ac26;
+    background: var(--c-green-5);
 }
 
 .inactive-status {
@@ -809,7 +809,7 @@ $align: center;
         font-weight: 400;
         font-size: 14px;
         line-height: 20px;
-        color: #56606d;
+        color: var(--c-grey-6);
     }
 
     &__title {
@@ -846,7 +846,7 @@ $align: center;
             height: 203px;
             padding: 24px;
             box-sizing: border-box;
-            border: 2px dashed #929fb1;
+            border: 2px dashed var(--c-grey-5);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -857,7 +857,7 @@ $align: center;
                 align-items: center;
                 font-size: 16px;
                 font-family: 'font_regular', sans-serif;
-                color: #0149ff;
+                color: var(--c-blue-3);
                 cursor: pointer;
 
                 &__text {

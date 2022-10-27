@@ -21,8 +21,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -74,7 +76,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nil, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -878,5 +880,51 @@ func TestKnownReliableInExcludedCountries(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, node.ID(), nodes[0])
+	})
+}
+
+type EmailVerifier struct {
+	Data    consoleapi.ContextChannel
+	Context context.Context
+}
+
+func (v *EmailVerifier) SendEmail(ctx context.Context, msg *post.Message) error {
+	go func() {
+		body := ""
+		for _, part := range msg.Parts {
+			body += part.Content
+		}
+		_ = v.Data.Send(v.Context, body)
+	}()
+	return nil
+}
+
+func (v *EmailVerifier) FromAddress() post.Address {
+	return post.Address{}
+}
+
+func TestUpdateCheckInOnlineEmails(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+
+		sender := &EmailVerifier{Context: ctx}
+		planet.Satellites[0].API.Mail.Service.Sender = sender
+
+		checkInInfo := getNodeInfo(node.ID())
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour)))
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+
+		body, err := sender.Data.Get(ctx)
+		require.NoError(t, err)
+		require.Contains(t, body, node.ID().String())
+		require.Contains(t, body, "online")
 	})
 }

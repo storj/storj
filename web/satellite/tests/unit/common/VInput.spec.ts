@@ -1,22 +1,23 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { mount, shallowMount } from '@vue/test-utils';
+import { shallowMount } from '@vue/test-utils';
 
 import VInput from '@/components/common/VInput.vue';
 
 describe('VInput.vue', () => {
     it('renders correctly with default props', () => {
 
-        const wrapper = shallowMount(VInput);
+        const wrapper = shallowMount(VInput as never);
 
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with isMultiline props', () => {
-
-        const wrapper = shallowMount(VInput, {
-            propsData: { isMultiline: true },
+        const wrapper = shallowMount(VInput as never, {
+            propsData: {
+                isMultiline: true,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();
@@ -30,8 +31,13 @@ describe('VInput.vue', () => {
         const width = '30px';
         const height = '20px';
 
-        const wrapper = shallowMount(VInput, {
-            propsData: { label, width, height, additionalLabel },
+        const wrapper = shallowMount(VInput as never, {
+            propsData : {
+                label,
+                additionalLabel,
+                width,
+                height,
+            },
         });
 
         const el = wrapper.find('input').element as HTMLElement;
@@ -43,8 +49,7 @@ describe('VInput.vue', () => {
     });
 
     it('renders correctly with isOptional props', () => {
-
-        const wrapper = shallowMount(VInput, {
+        const wrapper = shallowMount(VInput as never, {
             propsData: {
                 isOptional: true,
             },
@@ -56,7 +61,7 @@ describe('VInput.vue', () => {
     it('renders correctly with input error', () => {
         const error = 'testError';
 
-        const wrapper = shallowMount(VInput, {
+        const wrapper = shallowMount(VInput as never, {
             propsData: {
                 error,
             },
@@ -69,7 +74,7 @@ describe('VInput.vue', () => {
     it('emit setData on input correctly', async () => {
         const testData = 'testData';
 
-        const wrapper = mount(VInput);
+        const wrapper = shallowMount(VInput as never);
 
         await wrapper.find('input').trigger('input');
 

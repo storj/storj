@@ -400,7 +400,7 @@ export default class BillingArea extends Vue {
 
             &__tab {
                 font-family: sans-serif;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-size: 16px;
                 height: auto;
                 width: auto;

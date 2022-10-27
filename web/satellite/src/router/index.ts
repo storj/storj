@@ -29,7 +29,6 @@ import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue'
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import BucketsView from '@/components/objects/BucketsView.vue';
-import EncryptData from '@/components/objects/EncryptData.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
@@ -129,7 +128,6 @@ export abstract class RouteConfig {
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
 
     // objects child paths.
-    public static EncryptData = new NavigationLink('encrypt-data', 'Objects Encrypt Data');
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
@@ -439,11 +437,6 @@ export const router = new Router({
                     name: RouteConfig.Buckets.name,
                     component: ObjectsArea,
                     children: [
-                        {
-                            path: RouteConfig.EncryptData.path,
-                            name: RouteConfig.EncryptData.name,
-                            component: EncryptData,
-                        },
                         {
                             path: RouteConfig.BucketsManagement.path,
                             name: RouteConfig.BucketsManagement.name,

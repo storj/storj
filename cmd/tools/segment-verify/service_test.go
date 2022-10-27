@@ -6,7 +6,7 @@ package main_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -34,6 +34,7 @@ func TestService_EmptyRange(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath: ctx.File("not-found.csv"),
 		RetryPath:    ctx.File("retry.csv"),
+		MaxOffline:   2,
 	}
 
 	metabase := newMetabaseMock(map[metabase.NodeAlias]storj.NodeID{})
@@ -61,10 +62,11 @@ func TestService_Success(t *testing.T) {
 		Check:       3,
 		BatchSize:   100,
 		Concurrency: 3,
+		MaxOffline:  2,
 	}
 
 	// the node 1 is going to be priority
-	err := ioutil.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -116,11 +118,11 @@ func TestService_Success(t *testing.T) {
 		assert.Len(t, verifier.processed[nodes[4]], 1)
 	}()
 
-	retryCSV, err := ioutil.ReadFile(config.RetryPath)
+	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
 
-	notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
 }
@@ -137,10 +139,11 @@ func TestService_Failures(t *testing.T) {
 		Check:       2,
 		BatchSize:   100,
 		Concurrency: 3,
+		MaxOffline:  2,
 	}
 
 	// the node 1 is going to be priority
-	err := ioutil.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -185,14 +188,14 @@ func TestService_Failures(t *testing.T) {
 		}
 	}()
 
-	retryCSV, err := ioutil.ReadFile(config.RetryPath)
+	retryCSV, err := os.ReadFile(config.RetryPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
 		"stream id,position,found,not found,retry\n"+
 		"10100000-0000-0000-0000-000000000000,0,1,0,1\n",
 		string(retryCSV))
 
-	notFoundCSV, err := ioutil.ReadFile(config.NotFoundPath)
+	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
 	require.NoError(t, err)
 	require.Equal(t, ""+
 		"stream id,position,found,not found,retry\n"+
@@ -263,28 +266,15 @@ func (db *metabaseMock) SelectAllStorageNodesDownload(ctx context.Context, onlin
 	return xs, nil
 }
 
-func (db *metabaseMock) ConvertNodesToAliases(ctx context.Context, nodeIDs []storj.NodeID) ([]metabase.NodeAlias, error) {
-	xs := make([]metabase.NodeAlias, len(nodeIDs))
-	for i, id := range nodeIDs {
-		alias, ok := db.nodeIDToAlias[id]
-		if !ok {
-			return nil, errs.New("id %v not found", id)
-		}
-		xs[i] = alias
+func (db *metabaseMock) LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error) {
+	var entries []metabase.NodeAliasEntry
+	for id, alias := range db.nodeIDToAlias {
+		entries = append(entries, metabase.NodeAliasEntry{
+			ID:    id,
+			Alias: alias,
+		})
 	}
-	return xs, nil
-}
-
-func (db *metabaseMock) ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error) {
-	xs := make([]storj.NodeID, len(aliases))
-	for i, alias := range aliases {
-		id, ok := db.aliasToNodeID[alias]
-		if !ok {
-			return nil, errs.New("alias %v not found", alias)
-		}
-		xs[i] = id
-	}
-	return xs, nil
+	return metabase.NewNodeAliasMap(entries), nil
 }
 
 func (db *metabaseMock) DeleteSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) error {
@@ -350,7 +340,7 @@ type verifierMock struct {
 	processed map[storj.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) error {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
 		v.processed = map[storj.NodeID][]*segmentverify.Segment{}
@@ -360,18 +350,18 @@ func (v *verifierMock) Verify(ctx context.Context, target storj.NodeURL, segment
 
 	for _, n := range v.offline {
 		if n == target.ID {
-			return segmentverify.ErrNodeOffline.New("node did not respond %v", target)
+			return 0, segmentverify.ErrNodeOffline.New("node did not respond %v", target)
 		}
 	}
 	if v.fail != nil {
-		return errs.Wrap(v.fail)
+		return 0, errs.Wrap(v.fail)
 	}
 
 	if v.allSuccess {
 		for _, seg := range segments {
 			seg.Status.MarkFound()
 		}
-		return nil
+		return len(segments), nil
 	}
 
 	for _, seg := range v.success {
@@ -389,5 +379,5 @@ func (v *verifierMock) Verify(ctx context.Context, target storj.NodeURL, segment
 		}
 	}
 
-	return nil
+	return len(segments), nil
 }

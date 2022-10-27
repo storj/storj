@@ -162,7 +162,7 @@
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                is-password="true"
+                                is-password
                                 role-description="password"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
@@ -179,7 +179,7 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            is-password="true"
+                            is-password
                             role-description="retype-password"
                             @setData="setRepeatedPassword"
                         />
@@ -753,7 +753,7 @@ export default class RegisterArea extends Vue {
     }
 
     .logo-divider {
-        border-left: 1px solid #b3c5ff;
+        border-left: 1px solid var(--c-light-blue-2);
         height: 40px;
         margin: 0 10px;
     }
@@ -846,11 +846,15 @@ export default class RegisterArea extends Vue {
                         @extend %subtitle-text;
 
                         text-align: center;
-                    }
 
-                    :deep(p a) {
-                        text-decoration: underline !important;
-                        color: inherit !important;
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
                     }
 
                     :deep(ol) {
@@ -894,11 +898,15 @@ export default class RegisterArea extends Vue {
 
                     :deep(p) {
                         @extend %subtitle-text;
-                    }
 
-                    :deep(p a) {
-                        text-decoration: underline !important;
-                        color: inherit !important;
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
                     }
 
                     :deep(ol) {
@@ -1003,7 +1011,7 @@ export default class RegisterArea extends Vue {
                     right: 12px;
                     transform: translateX(50%);
                     visibility: hidden;
-                    background-color: #56606d;
+                    background-color: var(--c-grey-6);
                     text-align: center;
                     border-radius: 4px;
                     font-family: 'font-medium', sans-serif;
@@ -1022,7 +1030,7 @@ export default class RegisterArea extends Vue {
                         left: 50%;
                         border-width: 5px;
                         border-style: solid;
-                        border-color: #56606d transparent transparent;
+                        border-color: var(--c-grey-6) transparent transparent;
                         transform: rotate(180deg);
                     }
                 }

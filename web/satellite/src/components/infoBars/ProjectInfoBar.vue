@@ -6,10 +6,10 @@
         <div class="projects-info-bar__info">
             <p class="projects-info-bar__info__message">
                 You have used
-                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px" />
+                <VLoader v-if="isDataFetching" class="pr-info-loader" :is-white="true" width="15px" height="15px" />
                 <span v-else class="projects-info-bar__info__message__value">{{ projectsCount }}</span>
                 of your
-                <VLoader v-if="isDataFetching" class="pr-info-loader" is-white="true" width="15px" height="15px" />
+                <VLoader v-if="isDataFetching" class="pr-info-loader" :is-white="true" width="15px" height="15px" />
                 <span v-else class="projects-info-bar__info__message__value">{{ projectLimit }}</span>
                 available projects.
             </p>

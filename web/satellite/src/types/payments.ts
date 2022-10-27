@@ -71,14 +71,6 @@ export interface PaymentsApi {
     nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
 
     /**
-     * Creates token transaction in CoinPayments
-     *
-     * @param amount
-     * @throws Error
-     */
-    makeTokenDeposit(amount: number): Promise<TokenDeposit>;
-
-    /**
      * applyCouponCode applies a coupon code.
      *
      * @param couponCode
@@ -394,6 +386,13 @@ export class NativePaymentHistoryItem {
 
     public get formattedType(): string {
         return this.type.charAt(0).toUpperCase() + this.type.substring(1);
+    }
+
+    public get linkName(): string {
+        if (this.type === 'storjscan') {
+            return 'Etherscan';
+        }
+        return this.formattedType;
     }
 }
 

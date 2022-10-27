@@ -33,7 +33,7 @@
                 label="See transactions"
                 width="120px"
                 height="30px"
-                is-transparent="true"
+                :is-transparent="true"
                 font-size="13px"
                 class="token__base__transaction-button"
                 :on-press="toggleTransactionsTable"
@@ -56,7 +56,7 @@
                 label="Back"
                 width="100px"
                 height="30px"
-                is-transparent="true"
+                :is-transparent="true"
                 font-size="13px"
                 class="token__base__transaction-button"
                 :on-press="toggleShowAddFunds"
@@ -101,7 +101,7 @@ export default class BalanceTokenCard extends Vue {
 
 <style scoped lang="scss">
     .Confirmed {
-        color: #00ac26;
+        color: var(--c-green-5);
     }
 
     .Rejected {
@@ -109,7 +109,7 @@ export default class BalanceTokenCard extends Vue {
     }
 
     .Pending {
-        color: #ffa800;
+        color: var(--c-yellow-4);
     }
 
     .token {
@@ -156,7 +156,7 @@ export default class BalanceTokenCard extends Vue {
                 grid-row: 1;
                 height: 30px;
                 width: 40px;
-                background-color: #e6edf7;
+                background-color: var(--c-blue-1);
                 border-radius: 5px;
                 display: flex;
                 justify-content: center;
@@ -173,7 +173,7 @@ export default class BalanceTokenCard extends Vue {
                 &__label {
                     font-size: 12px;
                     font-weight: 700;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     grid-column: 1/ span 2;
                     grid-row: 1;
                     margin: auto 0 0;
@@ -203,7 +203,7 @@ export default class BalanceTokenCard extends Vue {
                 &__label {
                     font-size: 12px;
                     font-weight: 700;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     grid-row: 1;
                     margin: auto 0 0;
                 }
@@ -238,7 +238,7 @@ export default class BalanceTokenCard extends Vue {
             &__label {
                 font-size: 12px;
                 font-weight: 700;
-                color: #56606d;
+                color: var(--c-grey-6);
                 grid-column: 1/ span 2;
                 grid-row: 1;
                 margin: auto 0 0;
@@ -269,7 +269,7 @@ export default class BalanceTokenCard extends Vue {
             &__label {
                 font-size: 12px;
                 font-weight: 700;
-                color: #56606d;
+                color: var(--c-grey-6);
                 grid-row: 1;
                 margin: auto 0 0;
             }
@@ -312,7 +312,7 @@ export default class BalanceTokenCard extends Vue {
                 z-index: 1;
 
                 a {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                     text-decoration: underline !important;
                 }
             }

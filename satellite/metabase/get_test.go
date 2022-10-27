@@ -298,24 +298,28 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 		t.Run("Get object last committed version from multiple", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-			firstVersion := obj
 
-			metabasetest.CreateObject(ctx, t, db, firstVersion, 0)
-			secondVersion := metabase.ObjectStream{
-				ProjectID:  obj.ProjectID,
-				BucketName: obj.BucketName,
-				ObjectKey:  obj.ObjectKey,
-				Version:    2,
-				StreamID:   obj.StreamID,
-			}
+			firstObject := obj
+			firstObject.Version = metabase.Version(1)
+			metabasetest.CreateObject(ctx, t, db, firstObject, 0)
 
-			metabasetest.CreateObject(ctx, t, db, secondVersion, 0)
+			secondObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+				ObjectStream: metabase.ObjectStream{
+					ProjectID:  firstObject.ProjectID,
+					BucketName: firstObject.BucketName,
+					ObjectKey:  firstObject.ObjectKey,
+					Version:    metabase.NextVersion,
+					StreamID:   testrand.UUID(),
+				},
+			})
+			require.NoError(t, err)
+
 			metabasetest.GetObjectLastCommitted{
 				Opts: metabase.GetObjectLastCommitted{
 					ObjectLocation: location,
 				},
 				Result: metabase.Object{
-					ObjectStream: secondVersion,
+					ObjectStream: firstObject,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 					Encryption:   metabasetest.DefaultEncryption,
@@ -324,17 +328,12 @@ func TestGetObjectLastCommitted(t *testing.T) {
 
 			metabasetest.Verify{Objects: []metabase.RawObject{
 				{
-					ObjectStream: firstVersion,
+					ObjectStream: firstObject,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
-				{
-					ObjectStream: secondVersion,
-					CreatedAt:    now,
-					Status:       metabase.Committed,
-					Encryption:   metabasetest.DefaultEncryption,
-				},
+				metabase.RawObject(secondObject),
 			}}.Check(ctx, t, db)
 		})
 

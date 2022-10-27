@@ -29,6 +29,7 @@ export const PROJECTS_ACTIONS = {
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
     GET_TOTAL_LIMITS: 'getTotalLimits',
+    GET_SALT: 'getSalt',
 };
 
 export const PROJECTS_MUTATIONS = {
@@ -91,6 +92,7 @@ const {
     GET_LIMITS,
     GET_TOTAL_LIMITS,
     FETCH_OWNED,
+    GET_SALT,
 } = PROJECTS_ACTIONS;
 
 const {
@@ -330,6 +332,9 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 commit(SET_TOTAL_LIMITS, limits);
 
                 return limits;
+            },
+            [GET_SALT]: async function (_, projectID: string): Promise<string> {
+                return await api.getSalt(projectID);
             },
             [CLEAR]: function({ commit }: ProjectsContext): void {
                 commit(CLEAR_PROJECTS);

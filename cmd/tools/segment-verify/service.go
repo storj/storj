@@ -6,7 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -28,15 +28,14 @@ var Error = errs.Class("segment-verify")
 
 // Metabase defines implementation dependencies we need from metabase.
 type Metabase interface {
-	ConvertNodesToAliases(ctx context.Context, nodeID []storj.NodeID) ([]metabase.NodeAlias, error)
-	ConvertAliasesToNodes(ctx context.Context, aliases []metabase.NodeAlias) ([]storj.NodeID, error)
+	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
 }
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) error
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -57,10 +56,12 @@ type ServiceConfig struct {
 	NotFoundPath      string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
 	RetryPath         string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
 	PriorityNodesPath string `help:"list of priority node ID-s" default:""`
+	IgnoreNodesPath   string `help:"list of nodes to ignore" default:""`
 
 	Check       int `help:"how many storagenodes to query per segment" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
+	MaxOffline  int `help:"maximum number of offline in a sequence" default:"2"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
@@ -77,9 +78,11 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
+	aliasMap       *metabase.NodeAliasMap
 	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
 	priorityNodes  NodeAliasSet
 	onlineNodes    NodeAliasSet
+	offlineCount   map[metabase.NodeAlias]int
 }
 
 // NewService returns a new service for verifying segments.
@@ -108,6 +111,7 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
 		priorityNodes:  NodeAliasSet{},
 		onlineNodes:    NodeAliasSet{},
+		offlineCount:   map[metabase.NodeAlias]int{},
 	}, nil
 }
 
@@ -132,20 +136,21 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	nodeIDs := make([]storj.NodeID, len(nodes))
-	for i, node := range nodes {
-		nodeIDs[i] = node.ID
-	}
+	for _, node := range nodes {
+		alias, ok := service.aliasMap.Alias(node.ID)
+		if !ok {
+			// This means the node does not hold any data in metabase.
+			continue
+		}
 
-	aliases, err := service.metabase.ConvertNodesToAliases(ctx, nodeIDs)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+		addr := node.Address.Address
+		if node.LastIPPort != "" {
+			addr = node.LastIPPort
+		}
 
-	for i, alias := range aliases {
 		service.aliasToNodeURL[alias] = storj.NodeURL{
-			ID:      nodes[i].ID,
-			Address: nodes[i].Address.Address,
+			ID:      node.ID,
+			Address: addr,
 		}
 		service.onlineNodes.Add(alias)
 	}
@@ -159,9 +164,33 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 		return nil
 	}
 
-	data, err := ioutil.ReadFile(service.config.PriorityNodesPath)
+	service.priorityNodes, err = service.parseNodeFile(service.config.PriorityNodesPath)
+	return Error.Wrap(err)
+}
+
+// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority and online nodes.
+func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
+	if service.config.IgnoreNodesPath == "" {
+		return nil
+	}
+
+	ignoreNodes, err := service.parseNodeFile(service.config.IgnoreNodesPath)
 	if err != nil {
-		return Error.New("unable to read priority nodes: %w", err)
+		return Error.Wrap(err)
+	}
+
+	service.onlineNodes.RemoveAll(ignoreNodes)
+	service.priorityNodes.RemoveAll(ignoreNodes)
+
+	return nil
+}
+
+// parseNodeFile parses a file containing node ID-s.
+func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
+	set := NodeAliasSet{}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return set, Error.New("unable to read nodes file: %w", err)
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
@@ -172,24 +201,30 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 
 		nodeID, err := storj.NodeIDFromString(line)
 		if err != nil {
-			return Error.Wrap(err)
+			return set, Error.Wrap(err)
 		}
 
-		aliases, err := service.metabase.ConvertNodesToAliases(ctx, []storj.NodeID{nodeID})
-		if err != nil {
-			service.log.Info("priority node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
+		alias, ok := service.aliasMap.Alias(nodeID)
+		if !ok {
+			service.log.Info("node ID not used", zap.Stringer("node id", nodeID), zap.Error(err))
 			continue
 		}
 
-		service.priorityNodes.Add(aliases[0])
+		set.Add(alias)
 	}
 
-	return nil
+	return set, nil
 }
 
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
 func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	service.aliasMap = aliasMap
 
 	err = service.loadOnlineNodes(ctx)
 	if err != nil {
@@ -201,6 +236,11 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 		return Error.Wrap(err)
 	}
 
+	err = service.applyIgnoreNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	cursorStreamID := low
 	var cursorPosition metabase.SegmentPosition
 	if !low.IsZero() {
@@ -208,6 +248,7 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 		cursorPosition = metabase.SegmentPosition{Part: 0xFFFFFFFF, Index: 0xFFFFFFFF}
 	}
 
+	var progress int64
 	for {
 		result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
 			CursorStreamID: cursorStreamID,
@@ -243,6 +284,14 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 			segments[i] = &segmentsData[i]
 		}
 
+		service.log.Info("processing segments",
+			zap.Int64("progress", progress),
+			zap.Int("count", len(segments)),
+			zap.Stringer("first", segments[0].StreamID),
+			zap.Stringer("last", segments[len(segments)-1].StreamID),
+		)
+		progress += int64(len(segments))
+
 		// Process the data.
 		err = service.ProcessSegments(ctx, segments)
 		if err != nil {
@@ -254,12 +303,6 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 // ProcessSegments processes a collection of segments.
 func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	service.log.Info("processing segments",
-		zap.Int("count", len(segments)),
-		zap.Stringer("first", segments[0].StreamID),
-		zap.Stringer("last", segments[len(segments)-1].StreamID),
-	)
 
 	// Verify all the segments against storage nodes.
 	err = service.Verify(ctx, segments)

@@ -348,7 +348,7 @@ export default class MobileNavigation extends Vue {
     private get isBucketsView(): boolean {
         const currentRoute = this.$route.path;
 
-        return currentRoute.includes(RouteConfig.BucketsManagement.path) || currentRoute.includes(RouteConfig.EncryptData.path);
+        return currentRoute.includes(RouteConfig.BucketsManagement.path);
     }
 
     /**
@@ -485,6 +485,7 @@ export default class MobileNavigation extends Vue {
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
 
         LocalData.removeUserId();
     }
@@ -587,7 +588,7 @@ export default class MobileNavigation extends Vue {
                 align-items: center;
                 justify-content: space-between;
                 border-left: 4px solid #fff;
-                color: #56606d;
+                color: var(--c-grey-6);
                 position: static;
                 cursor: pointer;
                 height: 48px;
@@ -607,7 +608,7 @@ export default class MobileNavigation extends Vue {
 
             &__border {
                 margin: 0 32px 16px;
-                border: 0.5px solid #ebeef1;
+                border: 0.5px solid var(--c-grey-2);
                 width: calc(100% - 48px);
             }
         }
@@ -617,7 +618,7 @@ export default class MobileNavigation extends Vue {
 .router-link-active,
 .active {
     border-color: #000;
-    color: #091c45;
+    color: var(--c-blue-6);
     font-family: 'font_bold', sans-serif;
 
     :deep(path) {
@@ -631,8 +632,8 @@ export default class MobileNavigation extends Vue {
     font-family: 'font_regular', sans-serif;
     padding: 16px;
     cursor: pointer;
-    border-bottom: 1px solid #ebeef1;
-    background: #fafafb;
+    border-bottom: 1px solid var(--c-grey-2);
+    background: var(--c-grey-1);
 }
 
 :deep(.dropdown-item__icon) {
@@ -648,13 +649,13 @@ export default class MobileNavigation extends Vue {
     font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 22px;
-    color: #091c45;
+    color: var(--c-blue-6);
 }
 
 :deep(.dropdown-item__text__label) {
     font-size: 12px;
     line-height: 21px;
-    color: #091c45;
+    color: var(--c-blue-6);
 }
 
 :deep(.dropdown-item:first-of-type) {
@@ -673,8 +674,8 @@ export default class MobileNavigation extends Vue {
     font-family: 'font_regular', sans-serif;
     padding: 10px 16px;
     cursor: pointer;
-    border-top: 1px solid #ebeef1;
-    border-bottom: 1px solid #ebeef1;
+    border-top: 1px solid var(--c-grey-2);
+    border-bottom: 1px solid var(--c-grey-2);
 }
 
 .project-selection {
@@ -702,7 +703,7 @@ export default class MobileNavigation extends Vue {
                 max-width: calc(100% - 24px - 16px);
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin-left: 24px;
                 white-space: nowrap;
                 overflow: hidden;
@@ -775,12 +776,12 @@ export default class MobileNavigation extends Vue {
             display: flex;
             align-items: center;
             box-sizing: border-box;
-            border-bottom: 1px solid #ebeef1;
+            border-bottom: 1px solid var(--c-grey-2);
 
             &__label {
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin-left: 24px;
             }
 
@@ -814,7 +815,7 @@ export default class MobileNavigation extends Vue {
             &__label-small {
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin: 0 6px 0 24px;
             }
 
@@ -832,9 +833,9 @@ export default class MobileNavigation extends Vue {
         box-sizing: border-box;
 
         &__header {
-            background: #fafafb;
+            background: var(--c-grey-1);
             padding: 16px 32px;
-            border: 1px solid #ebeef1;
+            border: 1px solid var(--c-grey-2);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -847,14 +848,14 @@ export default class MobileNavigation extends Vue {
                 &__label {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-left: 16px;
                 }
 
                 &__sat {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-right: 16px;
                 }
 
@@ -868,13 +869,13 @@ export default class MobileNavigation extends Vue {
             display: flex;
             align-items: center;
             padding: 16px 32px;
-            background: #fafafb;
+            background: var(--c-grey-1);
 
             &__label {
                 margin-left: 16px;
                 font-size: 14px;
                 line-height: 20px;
-                color: #56606d;
+                color: var(--c-grey-6);
             }
 
             &:last-of-type {

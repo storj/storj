@@ -532,25 +532,6 @@ func (payment Payments) BillingHistory(ctx context.Context) (billingHistory []*B
 	return billingHistory, nil
 }
 
-// TokenDeposit creates new deposit transaction for adding STORJ tokens to account balance.
-func (payment Payments) TokenDeposit(ctx context.Context, amount int64) (_ *payments.Transaction, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := payment.service.getUserAndAuditLog(ctx, "token deposit")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	tx, err := payment.service.accounts.StorjTokens().Deposit(ctx, user.ID, amount)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	payment.service.analytics.TrackStorjTokenAdded(user.ID, user.Email)
-
-	return tx, nil
-}
-
 // checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
 func (payment Payments) checkOutstandingInvoice(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1161,13 +1142,10 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	updateRequest := UpdateUserRequest{}
+	var failedLoginPenalty *float64
 	if user.FailedLoginCount >= s.config.LoginAttemptsWithoutPenalty-1 {
 		lockoutDuration := time.Duration(math.Pow(s.config.FailedLoginPenalty, float64(user.FailedLoginCount-1))) * time.Minute
-		lockoutExpTime := time.Now().Add(lockoutDuration)
-		lockoutExpTimePtr := &lockoutExpTime
-
-		updateRequest.LoginLockoutExpiration = &lockoutExpTimePtr
+		failedLoginPenalty = &s.config.FailedLoginPenalty
 
 		address := s.satelliteAddress
 		if !strings.HasSuffix(address, "/") {
@@ -1184,10 +1162,8 @@ func (s *Service) UpdateUsersFailedLoginState(ctx context.Context, user *User) (
 			},
 		)
 	}
-	user.FailedLoginCount++
 
-	updateRequest.FailedLoginCount = &user.FailedLoginCount
-	return s.store.Users().Update(ctx, user.ID, updateRequest)
+	return s.store.Users().UpdateFailedLoginCountAndExpiration(ctx, failedLoginPenalty, user.ID)
 }
 
 // GetUser returns User by id.

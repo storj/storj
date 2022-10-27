@@ -110,9 +110,21 @@ export default class VChart extends Vue {
             },
             scales: {
                 yAxes: [{
-                    display: false,
+                    display: true,
                     ticks: {
-                        beginAtZero: true,
+                        callback: function(value, _, ticks) {
+                            const numDigits = ticks[ticks.length - 2].toString().length;
+
+                            const power = Math.floor((numDigits - 1) / 3);
+                            const result = value / Math.pow(1000, power);
+                            return result;
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 150,
+                        maxTicksLimit: 7,
+                    },
+                    gridLines: {
+                        display: false,
                     },
                 }],
                 xAxes: [{

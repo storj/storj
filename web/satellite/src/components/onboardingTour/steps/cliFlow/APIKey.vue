@@ -110,7 +110,7 @@ export default class APIKey extends Vue {
             font-family: 'font_bold', sans-serif;
             font-size: 14px;
             line-height: 20px;
-            color: #56606d;
+            color: var(--c-grey-6);
             margin: 20px 0 13px;
             width: 100%;
         }

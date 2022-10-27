@@ -359,7 +359,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, nil, "", "", overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,

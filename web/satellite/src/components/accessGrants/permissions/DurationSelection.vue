@@ -130,7 +130,7 @@ export default class DurationSelection extends Vue {
     .access-date-container {
         margin-left: 0;
         height: 40px;
-        border: 1px solid #c8d3de;
+        border: 1px solid var(--c-grey-4);
     }
 
     .access-date-text {

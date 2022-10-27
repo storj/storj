@@ -85,13 +85,13 @@ type Mutations struct {
 // the overlay cache when a node's status changes.
 type Service struct {
 	log     *zap.Logger
-	overlay overlay.DB
+	overlay *overlay.Service
 	db      DB
 	config  Config
 }
 
 // NewService creates a new reputation service.
-func NewService(log *zap.Logger, overlay overlay.DB, db DB, config Config) *Service {
+func NewService(log *zap.Logger, overlay *overlay.Service, db DB, config Config) *Service {
 	return &Service{
 		log:     log,
 		overlay: overlay,
@@ -170,7 +170,21 @@ func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID 
 		return err
 	}
 
-	return service.overlay.TestSuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
+	n, err := service.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	update := overlay.ReputationUpdate{
+		Disqualified:          n.Disqualified,
+		UnknownAuditSuspended: &suspendedAt,
+		OfflineSuspended:      n.OfflineSuspended,
+		VettedAt:              n.Reputation.Status.VettedAt,
+	}
+	if n.DisqualificationReason != nil {
+		update.DisqualificationReason = *n.DisqualificationReason
+	}
+	return service.overlay.UpdateReputation(ctx, nodeID, update)
 }
 
 // TestDisqualifyNode disqualifies a storage node.
@@ -182,7 +196,7 @@ func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.Nod
 		return err
 	}
 
-	return service.overlay.DisqualifyNode(ctx, nodeID, disqualifiedAt, reason)
+	return service.overlay.DisqualifyNode(ctx, nodeID, reason)
 }
 
 // TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
@@ -192,7 +206,21 @@ func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeI
 		return err
 	}
 
-	return service.overlay.TestUnsuspendNodeUnknownAudit(ctx, nodeID)
+	n, err := service.overlay.Get(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	update := overlay.ReputationUpdate{
+		Disqualified:          n.Disqualified,
+		UnknownAuditSuspended: nil,
+		OfflineSuspended:      n.OfflineSuspended,
+		VettedAt:              n.Reputation.Status.VettedAt,
+	}
+	if n.DisqualificationReason != nil {
+		update.DisqualificationReason = *n.DisqualificationReason
+	}
+	return service.overlay.UpdateReputation(ctx, nodeID, update)
 }
 
 // TestFlushAllNodeInfo flushes any and all cached information about all
@@ -239,7 +267,7 @@ func statusChanged(s1, s2 *time.Time) bool {
 	if s1 == nil && s2 == nil {
 		return false
 	} else if s1 != nil && s2 != nil {
-		return !s1.Equal(*s1)
+		return !s1.Equal(*s2)
 	}
 	return true
 }

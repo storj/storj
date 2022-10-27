@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="objects-popup">
+    <div class="objects-popup" @click.self="onCloseClick">
         <div class="objects-popup__container">
             <h1 class="objects-popup__container__title">{{ title }}</h1>
             <p class="objects-popup__container__sub-title">{{ subTitle }}</p>

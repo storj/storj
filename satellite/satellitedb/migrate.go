@@ -2088,6 +2088,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add user_specified_usage_limit and user_specified_bandwidth_limit columns",
+				Version:     212,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN user_specified_usage_limit bigint;`,
+					`ALTER TABLE projects ADD COLUMN user_specified_bandwidth_limit bigint;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

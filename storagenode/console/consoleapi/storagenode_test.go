@@ -6,7 +6,7 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -119,7 +119,7 @@ func TestStorageNodeApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.NotNil(t, body)
 

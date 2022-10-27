@@ -399,6 +399,9 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 	}
 
 	sort.Slice(step.Result, func(i, j int) bool {
+		if step.Result[i].StreamID == step.Result[j].StreamID {
+			return step.Result[i].Position.Less(step.Result[j].Position)
+		}
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
@@ -741,6 +744,26 @@ func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.
 	sortObjects(step.Result.Objects)
 	sortDeletedSegments(result.Segments)
 	sortDeletedSegments(step.Result.Segments)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
+// CollectBucketTallies is for testing metabase.CollectBucketTallies.
+type CollectBucketTallies struct {
+	Opts     metabase.CollectBucketTallies
+	Result   []metabase.BucketTally
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.CollectBucketTallies(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortBucketTallies(result)
+	sortBucketTallies(step.Result)
 
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)

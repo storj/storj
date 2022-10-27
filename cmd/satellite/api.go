@@ -46,7 +46,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.Migration, ",") {
+	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
 		switch migration {
 		case fullMigration:
 			err = db.MigrateToLatest(ctx)
@@ -54,7 +54,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 				return err
 			}
 		case snapshotMigration:
-			log.Info("Migration using latest snapshot. It's not for production", zap.String("db", "master"))
+			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
 			err = db.TestingMigrateToLatest(ctx)
 			if err != nil {
 				return err
@@ -84,7 +84,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	for _, migration := range strings.Split(runCfg.DatabaseOptions.Migration, ",") {
+	for _, migration := range strings.Split(runCfg.DatabaseOptions.MigrationUnsafe, ",") {
 		switch migration {
 		case fullMigration:
 			err = metabaseDB.MigrateToLatest(ctx)
@@ -92,7 +92,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 				return err
 			}
 		case snapshotMigration:
-			log.Info("Migration using latest snapshot. It's not for production", zap.String("db", "master"))
+			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
 			err = metabaseDB.TestMigrateToLatest(ctx)
 			if err != nil {
 				return err

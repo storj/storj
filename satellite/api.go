@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
@@ -176,6 +177,10 @@ type API struct {
 		Service *analytics.Service
 	}
 
+	ABTesting struct {
+		Service *abtesting.Service
+	}
+
 	Buckets struct {
 		Service *buckets.Service
 	}
@@ -271,10 +276,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup mailservice
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -295,7 +312,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			reputationDB = cachingDB
 		}
-		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.DB, reputationDB, config.Reputation)
+		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.Service, reputationDB, config.Reputation)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,
@@ -412,6 +429,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup AB test service
+		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "abtesting:service",
+		})
+	}
+
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
 
@@ -471,18 +496,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err := internalpb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-	}
-
-	{ // setup mailservice
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
 	}
 
 	{ // setup payments
@@ -603,6 +616,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service,
 			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
+			peer.ABTesting.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			pricing,

@@ -15,7 +15,7 @@
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
                     height="52px"
-                    :with-icon="true"
+                    with-icon
                     @setData="setCouponCode"
                 />
                 <CheckIcon
@@ -57,7 +57,7 @@
                     label="Back"
                     width="250px"
                     height="44px"
-                    is-blue-white="true"
+                    :is-blue-white="true"
                     :on-press="toggleConfirmMessage"
                 />
             </div>

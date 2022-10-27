@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -210,7 +209,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	require.Error(t, err, "opening deleted file should fail")
 
 	// read all content
-	result, err := ioutil.ReadAll(reader)
+	result, err := io.ReadAll(reader)
 	require.NoError(t, err, "read all content")
 
 	// finally close reader
@@ -819,7 +818,7 @@ func requireFileMatches(ctx context.Context, t *testing.T, store storage.Blobs, 
 	r, err := store.OpenWithStorageFormat(ctx, ref, formatVer)
 	require.NoError(t, err)
 
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	require.NoError(t, err)
 
 	require.Equal(t, buf, data)
@@ -863,7 +862,7 @@ func TestBlobMemoryBuffer(t *testing.T) {
 	reader, err := store.Open(ctx, ref)
 	require.NoError(t, err)
 
-	buf, err := ioutil.ReadAll(reader)
+	buf, err := io.ReadAll(reader)
 	require.NoError(t, err)
 
 	for i := range buf {

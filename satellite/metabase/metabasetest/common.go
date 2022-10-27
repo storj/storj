@@ -54,6 +54,15 @@ func sortObjects(objects []metabase.Object) {
 	})
 }
 
+func sortBucketTallies(tallies []metabase.BucketTally) {
+	sort.Slice(tallies, func(i, j int) bool {
+		if tallies[i].ProjectID == tallies[j].ProjectID {
+			return tallies[i].BucketName < tallies[j].BucketName
+		}
+		return tallies[i].ProjectID.Less(tallies[j].ProjectID)
+	})
+}
+
 func sortRawObjects(objects []metabase.RawObject) {
 	sort.Slice(objects, func(i, j int) bool {
 		return objects[i].StreamID.Less(objects[j].StreamID)

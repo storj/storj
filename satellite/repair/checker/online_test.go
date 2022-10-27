@@ -23,7 +23,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, nil, "", "", overlay.Config{
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},

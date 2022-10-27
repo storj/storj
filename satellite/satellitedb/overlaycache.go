@@ -309,7 +309,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port, vetted_at,
+		SELECT last_net, id, address, email, last_ip_port, vetted_at,
 			unknown_audit_suspended, offline_suspended
 		FROM nodes
 		WHERE id = any($1::bytea[])
@@ -328,7 +328,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
 		if err != nil {
 			return nil, err
 		}

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -68,7 +68,7 @@ func (client *Client) All(ctx context.Context) (ver version.AllowedVersions, err
 		return version.AllowedVersions{}, Error.Wrap(err)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return version.AllowedVersions{}, Error.Wrap(err)
 	}

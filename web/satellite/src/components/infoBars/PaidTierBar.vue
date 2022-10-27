@@ -29,7 +29,6 @@ export default class PaidTierBar extends Vue {
     public async openBanner(): Promise<void> {
         this.openAddPMModal();
         await this.analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
-
     }
 }
 </script>

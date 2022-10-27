@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -162,7 +162,7 @@ func TestForgotPasswordRecaptcha(t *testing.T) {
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
 
-			bodyBytes, err := ioutil.ReadAll(result.Body)
+			bodyBytes, err := io.ReadAll(result.Body)
 			require.NoError(t, err)
 			fmt.Println(string(bodyBytes))
 

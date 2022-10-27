@@ -40,7 +40,6 @@ export default class App extends Vue {
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
-        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -72,15 +71,13 @@ export default class App extends Vue {
         if (isNewProjectDashboard) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
         }
-
-        if (isNewObjectsFlow) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
-        }
     }
 }
 </script>
 
 <style lang="scss">
+    @import 'static/styles/variables';
+
     html {
         overflow: hidden;
         font-size: 14px;

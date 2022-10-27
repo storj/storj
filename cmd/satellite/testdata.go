@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"errors"
 
 	"github.com/zeebo/errs"
@@ -124,7 +126,10 @@ func GetTestApiKey(satelliteId string) (string, error) {
 		return "", errs.Wrap(err)
 	}
 
-	accessGrant, err := consolewasm.GenAccessGrant(satelliteId, key.Serialize(), password, projectID.String())
+	idHash := sha256.Sum256(projectID[:])
+	base64Salt := base64.StdEncoding.EncodeToString(idHash[:])
+
+	accessGrant, err := consolewasm.GenAccessGrant(satelliteId, key.Serialize(), password, base64Salt)
 	if err != nil {
 		return "", errs.Wrap(err)
 	}

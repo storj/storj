@@ -81,7 +81,7 @@ export default class BillingHistoryItem extends Resizable {
 
 <style scoped lang="scss">
     a {
-        color: #0149ff;
+        color: var(--c-blue-3);
         text-decoration: underline;
     }
 

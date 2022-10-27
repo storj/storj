@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="mask">
-        <div class="mask__wrapper">
+    <div ref="modal" class="mask" tabindex="0" @keydown.esc="onClose">
+        <div class="mask__wrapper" @click.self="onClose">
             <div class="mask__wrapper__container">
                 <slot name="content" />
                 <div class="mask__wrapper__container__close" @click="onClose">
@@ -28,6 +28,18 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 export default class VModal extends Vue {
     @Prop({ default: () => () => {} })
     public readonly onClose: () => void;
+
+    public $refs!: {
+        modal: HTMLDivElement,
+    };
+
+    /**
+     * Mounted hook after initial render.
+     * Focus on root div to make modal closable by ESCAPE click.
+     */
+    public mounted(): void {
+        this.$refs.modal.focus();
+    }
 }
 </script>
 
@@ -47,6 +59,7 @@ export default class VModal extends Vue {
             overflow-y: auto;
             text-align: center;
             padding: 20px 0;
+            overflow-x: hidden;
 
             &__container {
                 display: inline-block;

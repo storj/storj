@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/text/transform"
 
 	"storj.io/common/fpath"
+	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
@@ -90,10 +92,15 @@ func main() {
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "multinode")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "multinode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for multinode configuration")
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for multinode identity credentials")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", "", "main directory for multinode identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
+
+	// Ignoring errors since MarkDeprecated only errors if the flag
+	// doesn't exist or no deprecated message is provided.
+	// and MarkHidden only errors if the flag doesn't exist.
+	_ = rootCmd.PersistentFlags().MarkDeprecated("identity-dir", "multinode no longer requires an identity key")
+	_ = rootCmd.PersistentFlags().MarkHidden("identity-dir")
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(runCmd)
@@ -129,7 +136,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	runCfg.Debug.Address = *process.DebugAddrFlag
 
-	identity, err := runCfg.Identity.Load()
+	identity, err := getIdentity(ctx, &runCfg)
 	if err != nil {
 		log.Error("failed to load identity", zap.Error(err))
 		return errs.New("failed to load identity: %+v", err)
@@ -160,7 +167,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	identity, err := addCfg.Identity.Load()
+	identity, err := getIdentity(ctx, &addCfg.Config)
 	if err != nil {
 		return errs.New("failed to load identity: %+v", err)
 	}
@@ -281,4 +288,21 @@ func unmarshalJSONNodes(nodesJSONData []byte) ([]nodes.Node, error) {
 	}
 
 	return nodesInfo, nil
+}
+
+func getIdentity(ctx context.Context, cfg *Config) (*identity.FullIdentity, error) {
+	// for backwards compatibility reasons, check if an identity was provided.
+	if cfgstruct.FindIdentityDirParam() != "" {
+		ident, err := cfg.Identity.Load()
+		if err == nil {
+			return ident, nil
+		}
+		zap.L().Error("failed to load identity.", zap.Error(err))
+		zap.L().Info("generating new identity.")
+	}
+	// generate new identity
+	return identity.NewFullIdentity(ctx, identity.NewCAOptions{
+		Difficulty:  0,
+		Concurrency: 1,
+	})
 }

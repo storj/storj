@@ -6,7 +6,7 @@ package consoleauth
 import (
 	"bytes"
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -41,12 +41,12 @@ func FromBase64URLString(token string) (Token, error) {
 	payloadDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(payload)))
 	signatureDecoder := base64.NewDecoder(base64.URLEncoding, bytes.NewReader([]byte(signature)))
 
-	payloadBytes, err := ioutil.ReadAll(payloadDecoder)
+	payloadBytes, err := io.ReadAll(payloadDecoder)
 	if err != nil {
 		return Token{}, errs.New("decoding token's signature failed: %s", err)
 	}
 
-	signatureBytes, err := ioutil.ReadAll(signatureDecoder)
+	signatureBytes, err := io.ReadAll(signatureDecoder)
 	if err != nil {
 		return Token{}, errs.New("decoding token's body failed: %s", err)
 	}

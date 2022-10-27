@@ -6,7 +6,7 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"testing"
@@ -99,7 +99,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, result.StatusCode)
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		var output console.ProjectUsageLimits
@@ -213,7 +213,7 @@ func Test_DailyUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, result.StatusCode)
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		var output accounting.ProjectDailyUsage

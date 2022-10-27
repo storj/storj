@@ -60,7 +60,7 @@ type Satellite struct {
 			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`
 			Capacity   int           `help:"macaroon revocation cache capacity" default:"10000"`
 		}
-		Migration string `help:"coma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
+		MigrationUnsafe string `help:"comma separated migration types to run during every startup (none: no migration, snapshot: creating db from latest test snapshot (for testing only), testdata: create testuser in addition to a migration, full: do the normal migration (equals to 'satellite run migration'" default:"none" hidden:"true"`
 	}
 
 	satellite.Config
@@ -238,6 +238,7 @@ var (
 		Use:   "pay-invoices",
 		Short: "pay finalized invoices",
 		Long:  "attempts payment on all open finalized invoices according to subscriptions settings.",
+		Args:  cobra.ExactArgs(1),
 		RunE:  cmdPayCustomerInvoices,
 	}
 	stripeCustomerCmd = &cobra.Command{
@@ -734,52 +735,52 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	period, err := parseBillingPeriod(args[0])
+	periodStart, err := parseYearMonth(args[0])
 	if err != nil {
-		return errs.New("invalid period specified: %v", err)
+		return err
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		return payments.PrepareInvoiceProjectRecords(ctx, period)
+		return payments.PrepareInvoiceProjectRecords(ctx, periodStart)
 	})
 }
 
 func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	period, err := parseBillingPeriod(args[0])
+	periodStart, err := parseYearMonth(args[0])
 	if err != nil {
-		return errs.New("invalid period specified: %v", err)
+		return err
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		return payments.InvoiceApplyProjectRecords(ctx, period)
+		return payments.InvoiceApplyProjectRecords(ctx, periodStart)
 	})
 }
 
 func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	period, err := parseBillingPeriod(args[0])
+	periodStart, err := parseYearMonth(args[0])
 	if err != nil {
-		return errs.New("invalid period specified: %v", err)
+		return err
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		return payments.CreateInvoices(ctx, period)
+		return payments.CreateInvoices(ctx, periodStart)
 	})
 }
 
 func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	period, err := parseBillingPeriod(args[0])
+	periodStart, err := parseYearMonth(args[0])
 	if err != nil {
-		return errs.New("invalid period specified: %v", err)
+		return err
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		return payments.GenerateInvoices(ctx, period)
+		return payments.GenerateInvoices(ctx, periodStart)
 	})
 }
 
@@ -794,17 +795,17 @@ func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	t, err := time.Parse("02/01/2006", args[0])
+	periodStart, err := parseYearMonth(args[0])
 	if err != nil {
-		return errs.New("invalid date specified specified: %v", err)
+		return err
 	}
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
-		err := payments.InvoiceApplyTokenBalance(ctx, t)
+		err := payments.InvoiceApplyTokenBalance(ctx, periodStart)
 		if err != nil {
 			return errs.New("error applying native token payments: %v", err)
 		}
-		return payments.PayInvoices(ctx, t)
+		return payments.PayInvoices(ctx, periodStart)
 	})
 }
 

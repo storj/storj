@@ -75,7 +75,7 @@
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
-                            is-password="true"
+                            is-password
                             role-description="password"
                             @setData="setPassword"
                         />

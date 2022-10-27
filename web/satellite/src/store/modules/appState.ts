@@ -38,6 +38,8 @@ class ViewsState {
         public isDisableMFAModalShown = false,
         public isAddTokenFundsModalShown = false,
         public isShareBucketModalShown = false,
+        public isNewFolderModalShown = false,
+        public isObjectDetailsModalShown = false,
         public isBillingNotificationShown = true,
 
         public onbAGStepBackRoute = '',
@@ -59,7 +61,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewObjectsFlow = false,
     ){}
 }
 
@@ -152,6 +153,12 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isShareBucketModalShown = !state.appState.isShareBucketModalShown;
         },
+        [APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN](state: State): void {
+            state.appState.isObjectDetailsModalShown = !state.appState.isObjectDetailsModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN](state: State): void {
+            state.appState.isNewFolderModalShown = !state.appState.isNewFolderModalShown;
+        },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
         },
@@ -206,9 +213,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
             state.appState.onbCleanApiKey = apiKey;
-        },
-        [APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS](state: State, isNewObjectsFlow: boolean): void {
-            state.isNewObjectsFlow = isNewObjectsFlow;
         },
         [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
             state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
@@ -360,9 +364,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
-        },
-        [APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS]: function ({ commit }: AppContext, isNewObjectsFlow: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

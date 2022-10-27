@@ -19,7 +19,7 @@
                 width="50%"
                 height="48px"
                 :on-press="onCancelClick"
-                is-white="true"
+                :is-white="true"
                 :is-disabled="isLoading"
             />
             <VButton

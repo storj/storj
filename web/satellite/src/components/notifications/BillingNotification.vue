@@ -60,7 +60,7 @@ export default class BillingNotification extends Vue {
             padding: 20px;
             font-family: 'font_regular', sans-serif;
             font-size: 14px;
-            background-color: #d7e8ff;
+            background-color: var(--c-blue-2);
             border: 1px solid #a5beff;
             border-radius: 16px;
             box-shadow: 0 7px 20px rgba(0 0 0 / 15%);

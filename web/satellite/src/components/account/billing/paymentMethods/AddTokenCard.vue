@@ -86,7 +86,7 @@ export default class AddTokenCard extends Vue {
                 z-index: 1;
 
                 a {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                     text-decoration: underline !important;
                 }
             }

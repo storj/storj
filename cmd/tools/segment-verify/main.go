@@ -49,6 +49,13 @@ var (
 		RunE:  verifySegmentsRange,
 	}
 
+	summarizeCmd = &cobra.Command{
+		Use:   "summarize-log",
+		Short: "summarizes verification log",
+		Args:  cobra.ExactArgs(1),
+		RunE:  summarizeVerificationLog,
+	}
+
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
 
@@ -64,9 +71,11 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
 	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(summarizeCmd)
 	runCmd.AddCommand(rangeCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(rangeCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
@@ -144,7 +153,7 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	// setup dependencies for verification
-	overlay, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), satelliteCfg.Overlay)
+	overlay, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), nil, "", "", satelliteCfg.Overlay)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -175,7 +184,7 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	}
 
 	copy(low[:], lowBytes)
-	copy(low[:], highBytes)
+	copy(high[:], highBytes)
 
 	if high.IsZero() {
 		return Error.New("high argument not specified")

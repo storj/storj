@@ -74,9 +74,6 @@
                 <div class="project-dashboard__charts__container__header">
                     <h3 class="project-dashboard__charts__container__header__title">Storage</h3>
                 </div>
-                <p class="project-dashboard__charts__container__info">
-                    This is your total storage used per day
-                </p>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
                     <StorageChart
@@ -118,9 +115,6 @@
                 </div>
                 <VLoader v-if="isDataFetching" class="project-dashboard__charts__container__loader" height="40px" width="40px" />
                 <template v-else>
-                    <p class="project-dashboard__charts__container__info">
-                        This is your bandwidth usage per day
-                    </p>
                     <BandwidthChart
                         :width="chartWidth"
                         :height="170"
@@ -207,7 +201,7 @@ import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
-// @vue/component
+//@vue/component
 @Component({
     components: {
         VLoader,
@@ -346,6 +340,13 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
@@ -477,7 +478,7 @@ export default class NewProjectDashboard extends Vue {
             &__value {
                 text-decoration: underline;
                 text-underline-position: under;
-                text-decoration-color: #00e366;
+                text-decoration-color: var(--c-green-3);
             }
         }
 
@@ -551,11 +552,11 @@ export default class NewProjectDashboard extends Vue {
                         }
 
                         &__allocated-color {
-                            background: #ffc0cf;
+                            background: var(--c-purple-2);
                         }
 
                         &__settled-color {
-                            background: #ff458b;
+                            background: var(--c-purple-3);
                         }
 
                         &__allocated-label,
@@ -665,7 +666,7 @@ export default class NewProjectDashboard extends Vue {
     }
 
     :deep(.info__box__message) {
-        background: #56606d;
+        background: var(--c-grey-6);
         border-radius: 4px;
         padding: 8px;
         position: relative;
@@ -673,7 +674,7 @@ export default class NewProjectDashboard extends Vue {
     }
 
     :deep(.info__box__arrow) {
-        background: #56606d;
+        background: var(--c-grey-6);
         width: 10px;
         height: 10px;
         margin: 0 0 -2px 40px;

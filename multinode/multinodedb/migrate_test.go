@@ -6,7 +6,7 @@ package multinodedb_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -50,7 +50,7 @@ func TestMigrateSQLite3(t *testing.T) {
 		version := parseTestdataVersion(match, "sqlite3")
 		require.True(t, version >= 0, "invalid testdata file %q: %v", match, err)
 
-		scriptData, err := ioutil.ReadFile(match)
+		scriptData, err := os.ReadFile(match)
 		require.NoError(t, err, "could not read testdata file for version %d: %v", version, err)
 
 		// exec per snapshot??
@@ -131,7 +131,7 @@ func TestMigratePostgres(t *testing.T) {
 		version := parseTestdataVersion(match, "postgres")
 		require.True(t, version >= 0, "invalid testdata file %q: %v", match, err)
 
-		scriptData, err := ioutil.ReadFile(match)
+		scriptData, err := os.ReadFile(match)
 		require.NoError(t, err, "could not read testdata file for version %d: %v", version, err)
 
 		snapshot, err := loadSnapshotFromSQLPostgres(ctx, connStr, string(scriptData))

@@ -384,23 +384,25 @@ model project (
 		fields public_id
 	)
 
-    field id              blob
-	field public_id       blob ( nullable )
+	field id              					blob
+	field public_id       					blob      ( nullable )
 
-    field name            text      ( updatable )
-    field description     text      ( updatable )
-    field usage_limit     int64     ( nullable, updatable )
-    field bandwidth_limit int64     ( nullable, updatable )
-    field segment_limit   int64     ( nullable, updatable, default 1000000)
-    field rate_limit      int       ( nullable, updatable )
-    field burst_limit     int       ( nullable, updatable )
-    field max_buckets     int       ( nullable, updatable )
-    field partner_id      blob      ( nullable )
-    field user_agent      blob      ( nullable )
-    field owner_id        blob
-	field salt			  blob		( nullable )
+	field name            					text      ( updatable )
+	field description     					text      ( updatable )
+	field usage_limit     					int64     ( nullable, updatable )
+	field bandwidth_limit 					int64     ( nullable, updatable )
+	field user_specified_usage_limit     	int64     ( nullable, updatable )
+	field user_specified_bandwidth_limit 	int64     ( nullable, updatable )
+	field segment_limit   					int64     ( nullable, updatable, default 1000000)
+	field rate_limit      					int       ( nullable, updatable )
+	field burst_limit     					int       ( nullable, updatable )
+	field max_buckets     					int       ( nullable, updatable )
+	field partner_id      					blob      ( nullable )
+	field user_agent      					blob      ( nullable )
+	field owner_id        					blob
+	field salt			  					blob      ( nullable )
 
-    field created_at      timestamp ( autoinsert )
+	field created_at      					timestamp ( autoinsert )
 )
 
 create project ( )
@@ -425,6 +427,14 @@ read one (
 )
 read one (
     select project.bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_bandwidth_limit
     where  project.id = ?
 )
 read one (

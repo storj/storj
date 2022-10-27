@@ -39,7 +39,7 @@ const ANIMATION_COMPLETE_TIME = 600;
 
 describe('PaymentMethods', () => {
     it('renders correctly without card', async (): Promise<void> => {
-        const wrapper = mount(PaymentMethods, {
+        const wrapper = shallowMount(PaymentMethods, {
             store,
             localVue,
         });
@@ -99,7 +99,7 @@ describe('PaymentMethods', () => {
         const card = new CreditCard('cardId', 12, 2100, 'test', '0000', true);
         store.commit(PAYMENTS_MUTATIONS.SET_CREDIT_CARDS, [card]);
 
-        const wrapper = mount(PaymentMethods, {
+        const wrapper = shallowMount(PaymentMethods, {
             store,
             localVue,
         });

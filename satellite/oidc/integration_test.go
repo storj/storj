@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -73,7 +72,7 @@ func send(t *testing.T, body io.Reader, response interface{}, status int, parts 
 	require.Equal(t, status, resp.StatusCode)
 
 	if response != nil {
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 
 		err = json.Unmarshal(data, response)

@@ -45,7 +45,7 @@ export default class FAQBullet extends Vue {
 <style scoped lang="scss">
     .bullet {
         background: #fff;
-        border: 2px solid #d8dee3;
+        border: 2px solid var(--c-grey-3);
         border-radius: 16px;
         padding: 28px 32px;
         width: calc(100% - 64px);
@@ -62,7 +62,7 @@ export default class FAQBullet extends Vue {
                 font-size: 16px;
                 line-height: 32px;
                 letter-spacing: 0.75px;
-                color: #091c45;
+                color: var(--c-blue-6);
             }
         }
 
@@ -70,7 +70,7 @@ export default class FAQBullet extends Vue {
             margin-top: 12px;
             font-size: 16px;
             line-height: 32px;
-            color: #56606d;
+            color: var(--c-grey-6);
         }
     }
 </style>

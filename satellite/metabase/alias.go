@@ -74,16 +74,8 @@ func (db *DB) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err erro
 	return aliases, nil
 }
 
-// ConvertNodesToAliases converts nodeIDs to node aliases.
-// Returns an error when an alias is missing.
-func (db *DB) ConvertNodesToAliases(ctx context.Context, nodeIDs []storj.NodeID) (_ []NodeAlias, err error) {
+// LatestNodesAliasMap returns the latest mapping between storj.NodeID and NodeAlias.
+func (db *DB) LatestNodesAliasMap(ctx context.Context) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return db.aliasCache.Aliases(ctx, nodeIDs)
-}
-
-// ConvertAliasesToNodes converts aliases to node ID-s.
-// Returns an error when a node alias is missing.
-func (db *DB) ConvertAliasesToNodes(ctx context.Context, aliases []NodeAlias) (_ []storj.NodeID, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.aliasCache.Nodes(ctx, aliases)
+	return db.aliasCache.Latest(ctx)
 }

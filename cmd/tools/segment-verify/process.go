@@ -84,14 +84,27 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			err := service.verifier.Verify(ctx, nodeURL, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
-					service.onlineNodes.Remove(batch.Alias)
+					if verifiedCount == 0 {
+						service.onlineNodes.Remove(batch.Alias)
+					} else {
+						service.offlineCount[batch.Alias]++
+						if service.offlineCount[batch.Alias] >= service.config.MaxOffline {
+							service.onlineNodes.Remove(batch.Alias)
+						}
+					}
 					mu.Unlock()
 				}
 				service.log.Error("verifying a batch failed", zap.Error(err))
+			} else {
+				mu.Lock()
+				if service.offlineCount[batch.Alias] > 0 {
+					service.offlineCount[batch.Alias]--
+				}
+				mu.Unlock()
 			}
 		})
 	}
@@ -104,13 +117,21 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabase.NodeAlias) (_ storj.NodeURL, err error) {
 	nodeURL, ok := service.aliasToNodeURL[alias]
 	if !ok {
-		// not in cache, use the slow path
-		nodeIDs, err := service.metabase.ConvertAliasesToNodes(ctx, []metabase.NodeAlias{alias})
-		if err != nil {
-			return storj.NodeURL{}, Error.Wrap(err)
+		nodeID, ok := service.aliasMap.Node(alias)
+		if !ok {
+			latest, err := service.metabase.LatestNodesAliasMap(ctx)
+			if !ok {
+				return storj.NodeURL{}, Error.Wrap(err)
+			}
+			service.aliasMap = latest
+
+			nodeID, ok = service.aliasMap.Node(alias)
+			if !ok {
+				return storj.NodeURL{}, Error.Wrap(err)
+			}
 		}
 
-		info, err := service.overlay.Get(ctx, nodeIDs[0])
+		info, err := service.overlay.Get(ctx, nodeID)
 		if err != nil {
 			return storj.NodeURL{}, Error.Wrap(err)
 		}

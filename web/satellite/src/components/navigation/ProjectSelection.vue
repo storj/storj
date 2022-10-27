@@ -285,7 +285,7 @@ export default class ProjectSelection extends Vue {
     private get isBucketsView(): boolean {
         const currentRoute = this.$route.path;
 
-        return currentRoute.includes(RouteConfig.BucketsManagement.path) || currentRoute.includes(RouteConfig.EncryptData.path);
+        return currentRoute.includes(RouteConfig.BucketsManagement.path);
     }
 }
 </script>
@@ -316,7 +316,7 @@ export default class ProjectSelection extends Vue {
                     max-width: calc(100% - 24px - 16px);
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-left: 24px;
                     white-space: nowrap;
                     overflow: hidden;
@@ -329,15 +329,15 @@ export default class ProjectSelection extends Vue {
             }
 
             &:hover {
-                background-color: #fafafb;
-                border-color: #fafafb;
+                background-color: var(--c-grey-1);
+                border-color: var(--c-grey-1);
 
                 p {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                 }
 
                 :deep(path) {
-                    fill: #0149ff;
+                    fill: var(--c-blue-3);
                 }
             }
         }
@@ -347,7 +347,7 @@ export default class ProjectSelection extends Vue {
             min-width: 240px;
             max-width: 240px;
             background-color: #fff;
-            border: 1px solid #ebeef1;
+            border: 1px solid var(--c-grey-2);
             box-shadow: 0 2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
             z-index: 1;
@@ -397,7 +397,7 @@ export default class ProjectSelection extends Vue {
                         background-color: #f5f6fa;
 
                         p {
-                            color: #0149ff;
+                            color: var(--c-blue-3);
                         }
                     }
 
@@ -418,12 +418,12 @@ export default class ProjectSelection extends Vue {
                 cursor: pointer;
                 display: flex;
                 align-items: center;
-                border-top: 1px solid #ebeef1;
+                border-top: 1px solid var(--c-grey-2);
 
                 &__label {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-left: 24px;
                 }
 
@@ -435,11 +435,11 @@ export default class ProjectSelection extends Vue {
                     background-color: #f5f6fa;
 
                     p {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                     }
 
                     :deep(path) {
-                        fill: #0149ff;
+                        fill: var(--c-blue-3);
                     }
                 }
             }
@@ -450,7 +450,7 @@ export default class ProjectSelection extends Vue {
         border-color: #000;
 
         p {
-            color: #091c45;
+            color: var(--c-blue-6);
             font-family: 'font_bold', sans-serif;
         }
 
@@ -460,15 +460,15 @@ export default class ProjectSelection extends Vue {
     }
 
     .active:hover {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
         background-color: #f7f8fb;
 
         p {
-            color: #0149ff;
+            color: var(--c-blue-3);
         }
 
         :deep(path) {
-            fill: #0149ff;
+            fill: var(--c-blue-3);
         }
     }
 

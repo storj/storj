@@ -25,6 +25,26 @@ type users struct {
 	db *satelliteDB
 }
 
+// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
+func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) (err error) {
+	if failedLoginPenalty != nil {
+		// failed_login_count exceeded config.FailedLoginPenalty
+		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
+		UPDATE users
+		SET failed_login_count = COALESCE(failed_login_count, 0) + 1,
+		login_lockout_expiration = CURRENT_TIMESTAMP + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
+		WHERE id = ?
+	`), failedLoginPenalty, id.Bytes())
+	} else {
+		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
+		UPDATE users
+		SET failed_login_count = COALESCE(failed_login_count, 0) + 1
+		WHERE id = ?
+	`), id.Bytes())
+	}
+	return
+}
+
 // Get is a method for querying user from the database by id.
 func (users *users) Get(ctx context.Context, id uuid.UUID) (_ *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)

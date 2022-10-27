@@ -10,7 +10,7 @@
             <VInput
                 placeholder="Enter Coupon Code"
                 height="52px"
-                :with-icon="false"
+                with-icon
                 @setData="setCouponCode"
             />
         </div>
@@ -100,7 +100,7 @@ export default class AddCouponCodeInput2 extends Vue {
                 font-family: sans-serif;
                 font-weight: 700;
                 font-size: 14px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin-top: -15px;
             }
         }

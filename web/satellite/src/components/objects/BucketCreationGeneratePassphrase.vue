@@ -72,7 +72,7 @@
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -287,7 +287,7 @@ export default class GeneratePassphrase extends Vue {
             cursor: pointer;
 
             &__radio {
-                color: #0149ff;
+                color: var(--c-blue-3);
             }
 
             &__icon {
@@ -297,7 +297,7 @@ export default class GeneratePassphrase extends Vue {
                 width: 40px;
                 height: 40px;
                 border-radius: 50%;
-                background: #e6edf7;
+                background: var(--c-blue-1);
                 margin: 0 8px;
 
                 svg {
@@ -333,7 +333,7 @@ export default class GeneratePassphrase extends Vue {
             &__divider {
                 height: 1px;
                 width: 100%;
-                background: #c8d3de;
+                background: var(--c-grey-4);
             }
         }
 

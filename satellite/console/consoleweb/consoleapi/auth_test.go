@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -304,7 +303,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		return result.StatusCode, body

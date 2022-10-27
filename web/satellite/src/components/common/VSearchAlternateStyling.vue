@@ -58,7 +58,7 @@ export default class VSearch extends Vue {
         padding: 0 10px 0 50px;
         box-sizing: border-box;
         outline: none;
-        border: 1px solid #d8dee3;
+        border: 1px solid var(--c-grey-3);
         border-radius: 10px;
         height: 56px;
         width: 250px;

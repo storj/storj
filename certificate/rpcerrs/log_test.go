@@ -5,7 +5,7 @@ package rpcerrs_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -91,7 +91,7 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 				}
 
 				if s.log != nil {
-					logData, err := ioutil.ReadAll(logFile)
+					logData, err := io.ReadAll(logFile)
 					require.NoError(t, err)
 
 					logStr := string(logData)
@@ -116,7 +116,7 @@ func TestLoggingSanitizer_Error(t *testing.T) {
 			}
 
 			if s.log != nil {
-				logData, err := ioutil.ReadAll(logFile)
+				logData, err := io.ReadAll(logFile)
 				require.NoError(t, err)
 
 				logStr := string(logData)

@@ -7,7 +7,7 @@ exports[` should render correctly 1`] = `
     <p>testShortName</p>
   </th>
   <th class="align-left data">
-    <p>1/1/1970</p>
+    <p>Jan 1, 1970</p>
   </th>
   <th class="align-left data">
     <p>test@example.com</p>
@@ -22,7 +22,7 @@ exports[` should render correctly with item row highlighted 1`] = `
     <p>testShortName</p>
   </th>
   <th class="align-left data">
-    <p>1/1/1970</p>
+    <p>Jan 1, 1970</p>
   </th>
   <th class="align-left data">
     <p>test@example.com</p>

@@ -87,22 +87,13 @@ export default class BucketDetails extends Vue {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
 
         if (this.$route.params.backRoute === RouteConfig.BucketsManagement.name) {
-            this.isNewObjectsFlow
-                ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
-                : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
 
             return;
         }
 
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-    }
-
-    /**
-     * Returns objects flow status from store.
-     */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
     }
 }
 </script>

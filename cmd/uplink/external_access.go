@@ -175,7 +175,7 @@ func (ex *external) ExportAccess(ctx context.Context, access *uplink.Access, fil
 		return errs.Wrap(err)
 	}
 
-	// note: we don't use ioutil.WriteFile because we want to pass
+	// note: we don't use os.WriteFile because we want to pass
 	// the O_EXCL flag to ensure we don't overwrite existing files.
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {

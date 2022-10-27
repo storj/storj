@@ -23,6 +23,8 @@ var (
 	ErrObjectAlreadyExists = errs.Class("object already exists")
 	// ErrPendingObjectMissing is used to indicate a pending object is no longer accessible.
 	ErrPendingObjectMissing = errs.Class("pending object missing")
+	// ErrPermissionDenied general error for denying permission.
+	ErrPermissionDenied = errs.Class("permission denied")
 )
 
 // Common constants for segment keys.

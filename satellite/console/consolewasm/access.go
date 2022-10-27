@@ -4,23 +4,22 @@
 package consolewasm
 
 import (
-	"crypto/sha256"
+	"encoding/base64"
 
 	"storj.io/common/encryption"
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 )
 
 // GenAccessGrant creates a new access grant and returns it serialized form.
-func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID string) (string, error) {
+func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, base64EncodedSalt string) (string, error) {
 	parsedAPIKey, err := macaroon.ParseAPIKey(apiKey)
 	if err != nil {
 		return "", err
 	}
 
-	key, err := DeriveRootKey(encryptionPassphrase, projectID)
+	key, err := DeriveRootKey(encryptionPassphrase, base64EncodedSalt)
 	if err != nil {
 		return "", err
 	}
@@ -41,14 +40,11 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID st
 }
 
 // DeriveRootKey derives the root key portion of the access grant.
-func DeriveRootKey(encryptionPassphrase, projectID string) (*storj.Key, error) {
-	id, err := uuid.FromString(projectID)
+func DeriveRootKey(encryptionPassphrase, base64EncodedSalt string) (*storj.Key, error) {
+	const concurrency = 8
+	saltBytes, err := base64.StdEncoding.DecodeString(base64EncodedSalt)
 	if err != nil {
 		return nil, err
 	}
-
-	const concurrency = 8
-	salt := sha256.Sum256(id[:])
-
-	return encryption.DeriveRootKey([]byte(encryptionPassphrase), salt[:], "", concurrency)
+	return encryption.DeriveRootKey([]byte(encryptionPassphrase), saltBytes, "", concurrency)
 }

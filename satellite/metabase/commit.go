@@ -11,6 +11,7 @@ import (
 
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -191,14 +192,13 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			$9, $10, $11
 		)
 		RETURNING status, created_at
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	).
-		Scan(
-			&object.Status, &object.CreatedAt,
-		)
+	).Scan(
+		&object.Status, &object.CreatedAt,
+	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 			return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))
@@ -483,6 +483,12 @@ type CommitObject struct {
 	EncryptedMetadata             []byte // optional
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
+
+	DisallowDelete bool
+	// OnDelete will be triggered when/if existing object will be overwritten on commit.
+	// Wil be only executed after succesfull commit + delete DB operation.
+	// Error on this function won't revert back committed object.
+	OnDelete func(segments []DeletedSegmentInfo)
 }
 
 // Verify verifies reqest fields.
@@ -505,17 +511,16 @@ func (c *CommitObject) Verify() error {
 	return nil
 }
 
-// CommitObject adds a pending object to the database.
+// CommitObject adds a pending object to the database. If another committed object is under target location
+// it will be deleted.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if db.config.MultipleVersions {
-		return Object{}, Error.New("Unimplemented")
-	}
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
+
+	deletedSegments := []DeletedSegmentInfo{}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
@@ -578,6 +583,43 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			`
 		}
 
+		versionsToDelete := []Version{}
+		if db.config.MultipleVersions {
+			if err := withRows(tx.QueryContext(ctx, `
+				SELECT version
+				FROM objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					status       = `+committedStatus,
+				opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+				for rows.Next() {
+					var version Version
+					if err := rows.Scan(&version); err != nil {
+						return Error.New("failed to scan previous object: %w", err)
+					}
+
+					versionsToDelete = append(versionsToDelete, version)
+				}
+				return nil
+			}); err != nil {
+				return Error.New("failed to find previous objects: %w", err)
+			}
+
+			if len(versionsToDelete) > 1 {
+				db.log.Warn("object with multiple committed versions were found!",
+					zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+					zap.String("Object Key", string(opts.ObjectKey)))
+
+				mon.Meter("multiple_committed_versions").Mark(1)
+			}
+
+			if len(versionsToDelete) != 0 && opts.DisallowDelete {
+				return ErrPermissionDenied.New("no permissions to delete existing object")
+			}
+		}
+
 		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				status =`+committedStatus+`,
@@ -605,8 +647,8 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			RETURNING
 				created_at, expires_at,
 				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
-				encryption;
-		`, args...).Scan(
+				encryption
+			`, args...).Scan(
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 			encryptionParameters{&object.Encryption},
@@ -619,6 +661,22 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				return ErrInvalidRequest.New("Encryption is missing")
 			}
 			return Error.New("failed to update object: %w", err)
+		}
+
+		for _, version := range versionsToDelete {
+			deleteResult, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+				ObjectLocation: ObjectLocation{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  opts.ObjectKey,
+				},
+				Version: version,
+			}, tx)
+			if err != nil {
+				return Error.New("failed to delete existing object: %w", err)
+			}
+
+			deletedSegments = append(deletedSegments, deleteResult.Segments...)
 		}
 
 		object.StreamID = opts.StreamID
@@ -635,6 +693,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	})
 	if err != nil {
 		return Object{}, err
+	}
+
+	// we can execute this only when whole transaction is committed without any error
+	if len(deletedSegments) > 0 && opts.OnDelete != nil {
+		opts.OnDelete(deletedSegments)
 	}
 
 	mon.Meter("object_commit").Mark(1)

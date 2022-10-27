@@ -9,7 +9,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -104,7 +103,7 @@ func main() {
 }
 
 func process(file string) {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	check(err)
 
 	source := string(data)
@@ -113,7 +112,7 @@ func process(file string) {
 	// end up generating an `import _ "."`, the following replace removes it.
 	source = strings.Replace(source, `_ "."`, "", -1)
 
-	err = ioutil.WriteFile(file, []byte(source), 0644)
+	err = os.WriteFile(file, []byte(source), 0644)
 	check(err)
 }
 

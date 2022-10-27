@@ -22,14 +22,14 @@
                     {{ item.formattedStatus }}
                 </p>
                 <p class="array-val">
-                    {{ item.timestamp.toLocaleDateString() }}
+                    {{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}
                 </p>
             </div>
         </th>
 
         <fragment>
             <th class="align-left data tablet-laptop">
-                <p>{{ item.timestamp.toLocaleDateString() }}</p>
+                <p>{{ item.timestamp.toLocaleDateString('en-US', {day:'numeric', month:'short', year:'numeric'}) }}</p>
             </th>
             <th class="align-left data tablet-laptop">
                 <p>Deposit on {{ item.formattedType }}</p>
@@ -58,7 +58,7 @@
                 <a
                     v-if="item.link" class="download-link" target="_blank"
                     rel="noopener noreferrer" :href="item.link"
-                >View on {{ item.formattedType }}</a>
+                >View on {{ item.linkName }}</a>
             </th>
         </fragment>
     </tr>
@@ -89,19 +89,19 @@ export default class TokenTransactionItem extends Resizable {
 
 <style scoped lang="scss">
     .pending {
-        background: #ffa800;
+        background: var(--c-yellow-4);
     }
 
     .pending_txt {
-        color: #ffa800;
+        color: var(--c-yellow-4);
     }
 
     .confirmed {
-        background: #00ac26;
+        background: var(--c-green-5);
     }
 
     .confirmed_txt {
-        color: #00ac26;
+        color: var(--c-green-5);
     }
 
     .rejected {
