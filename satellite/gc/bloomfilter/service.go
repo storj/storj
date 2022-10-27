@@ -22,6 +22,9 @@ import (
 	"storj.io/uplink"
 )
 
+// LATEST is the name of the file that contains the most recently completed bloomfilter generation prefix.
+const LATEST = "LATEST"
+
 var mon = monkit.Package()
 
 // Config contains configurable values for garbage collection.
@@ -124,6 +127,8 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 		return nil
 	}
 
+	prefix := time.Now().Format(time.RFC3339)
+
 	expirationTime := time.Now().Add(service.config.ExpireIn)
 
 	accessGrant, err := uplink.ParseAccess(service.config.AccessGrant)
@@ -139,7 +144,7 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 		// do cleanup in case of any error while uploading bloom filters
 		if err != nil {
 			// TODO should we drop whole bucket if cleanup will fail
-			err = errs.Combine(err, service.cleanup(ctx, project))
+			err = errs.Combine(err, service.cleanup(ctx, project, prefix))
 		}
 		err = errs.Combine(err, project.Close())
 	}()
@@ -150,7 +155,10 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 	}
 
 	// TODO move it before segment loop is started
-	iterator := project.ListObjects(ctx, service.config.Bucket, nil)
+	o := uplink.ListObjectsOptions{
+		Prefix: prefix + "/",
+	}
+	iterator := project.ListObjects(ctx, service.config.Bucket, &o)
 	for iterator.Next() {
 		if iterator.Item().IsPrefix {
 			continue
@@ -173,7 +181,7 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 		})
 
 		if len(infos) == service.config.ZipBatchSize {
-			err = service.uploadPack(ctx, project, batchNumber, expirationTime, infos)
+			err = service.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos)
 			if err != nil {
 				return err
 			}
@@ -184,22 +192,32 @@ func (service *Service) uploadBloomFilters(ctx context.Context, latestCreationDa
 	}
 
 	// upload rest of infos if any
-	if err := service.uploadPack(ctx, project, batchNumber, expirationTime, infos); err != nil {
+	if err := service.uploadPack(ctx, project, prefix, batchNumber, expirationTime, infos); err != nil {
 		return err
 	}
 
-	return nil
+	// update LATEST file
+	upload, err := project.UploadObject(ctx, service.config.Bucket, LATEST, nil)
+	if err != nil {
+		return err
+	}
+	_, err = upload.Write([]byte(prefix))
+	if err != nil {
+		return err
+	}
+
+	return upload.Commit()
 }
 
 // uploadPack uploads single zip pack with multiple bloom filters.
-func (service *Service) uploadPack(ctx context.Context, project *uplink.Project, batchNumber int, expirationTime time.Time, infos []internalpb.RetainInfo) (err error) {
+func (service *Service) uploadPack(ctx context.Context, project *uplink.Project, prefix string, batchNumber int, expirationTime time.Time, infos []internalpb.RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(infos) == 0 {
 		return nil
 	}
 
-	upload, err := project.UploadObject(ctx, service.config.Bucket, "bloomfilters-"+strconv.Itoa(batchNumber)+".zip", &uplink.UploadOptions{
+	upload, err := project.UploadObject(ctx, service.config.Bucket, prefix+"/bloomfilters-"+strconv.Itoa(batchNumber)+".zip", &uplink.UploadOptions{
 		Expires: expirationTime,
 	})
 	if err != nil {
@@ -241,11 +259,14 @@ func (service *Service) uploadPack(ctx context.Context, project *uplink.Project,
 
 // cleanup moves all objects from root location to unique prefix. Objects will be deleted
 // automatically when expires.
-func (service *Service) cleanup(ctx context.Context, project *uplink.Project) (err error) {
+func (service *Service) cleanup(ctx context.Context, project *uplink.Project, prefix string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	prefix := "upload-error-" + time.Now().Format(time.RFC3339)
-	iterator := project.ListObjects(ctx, service.config.Bucket, nil)
+	errPrefix := "upload-error-" + time.Now().Format(time.RFC3339)
+	o := uplink.ListObjectsOptions{
+		Prefix: prefix + "/",
+	}
+	iterator := project.ListObjects(ctx, service.config.Bucket, &o)
 
 	for iterator.Next() {
 		item := iterator.Item()
@@ -253,7 +274,7 @@ func (service *Service) cleanup(ctx context.Context, project *uplink.Project) (e
 			continue
 		}
 
-		err := project.MoveObject(ctx, service.config.Bucket, item.Key, service.config.Bucket, prefix+"/"+item.Key, nil)
+		err := project.MoveObject(ctx, service.config.Bucket, item.Key, service.config.Bucket, prefix+"/"+errPrefix+"/"+item.Key, nil)
 		if err != nil {
 			return err
 		}
