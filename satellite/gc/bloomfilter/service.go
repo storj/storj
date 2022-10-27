@@ -30,6 +30,8 @@ type Config struct {
 	// TODO service is not enabled by default for testing until will be finished
 	Enabled bool `help:"set if garbage collection bloom filters is enabled or not" default:"true" testDefault:"false"`
 
+	RunOnce bool `help:"set if garbage collection bloom filter process should only run once then exit" default:"false"`
+
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`

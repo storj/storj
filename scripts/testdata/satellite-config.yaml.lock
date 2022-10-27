@@ -412,6 +412,9 @@ contact.external-address: ""
 # the time between each garbage collection executions
 # garbage-collection-bf.interval: 120h0m0s
 
+# set if garbage collection bloom filter process should only run once then exit
+# garbage-collection-bf.run-once: false
+
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
 
