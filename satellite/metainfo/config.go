@@ -12,6 +12,7 @@ import (
 	"github.com/vivint/infectious"
 
 	"storj.io/common/memory"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/uplink/private/eestream"
@@ -141,4 +142,15 @@ type Config struct {
 	MultipleVersions       bool `help:"feature flag to enable using multple objects versions in the system internally" default:"false"`
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+}
+
+// Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
+func (c Config) Metabase(applicationName string) metabase.Config {
+	return metabase.Config{
+		ApplicationName:  applicationName,
+		MinPartSize:      c.MinPartSize,
+		MaxNumberOfParts: c.MaxNumberOfParts,
+		ServerSideCopy:   c.ServerSideCopy,
+		MultipleVersions: c.MultipleVersions,
+	}
 }

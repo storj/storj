@@ -43,6 +43,9 @@ uplink cp "$SRC_DIR/multisegment-upload-testfile" "sj://$BUCKET/" --progress=fal
 uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/" --progress=false
 cat "$SRC_DIR/put-file" | uplink cp -             "sj://$BUCKET/put-file" --progress=false
 
+# check overwriting of existing object
+uplink cp "$SRC_DIR/big-upload-testfile"          "sj://$BUCKET/" --progress=false
+
 # test parallelism to upload single object
 # TODO change hardcoded part size from 64MiB to 6MiB
 uplink cp "$SRC_DIR/diff-size-segments"           "sj://$BUCKET/diff-size-segments_upl_p2" --progress=false --parallelism 2
@@ -56,6 +59,7 @@ then
     echo "listing returns $FILES files"
 else
     echo "listing returns $FILES files but want $EXPECTED_FILES"
+    cat "$TMPDIR/list"
     exit 1
 fi
 

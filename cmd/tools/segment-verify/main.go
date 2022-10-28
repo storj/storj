@@ -106,12 +106,8 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	}()
 
 	// open metabase
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), satelliteCfg.Metainfo.DatabaseURL, metabase.Config{
-		ApplicationName:  "satellite-core",
-		MinPartSize:      satelliteCfg.Config.Metainfo.MinPartSize,
-		MaxNumberOfParts: satelliteCfg.Config.Metainfo.MaxNumberOfParts,
-		ServerSideCopy:   satelliteCfg.Config.Metainfo.ServerSideCopy,
-	})
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), satelliteCfg.Metainfo.DatabaseURL,
+		satelliteCfg.Config.Metainfo.Metabase("satellite-core"))
 	if err != nil {
 		return Error.Wrap(err)
 	}

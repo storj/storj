@@ -427,12 +427,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
-		ApplicationName:  "satellite-core",
-		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
-		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
-		ServerSideCopy:   runCfg.Config.Metainfo.ServerSideCopy,
-	})
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL,
+		runCfg.Config.Metainfo.Metabase("satellite-core"))
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -516,12 +512,8 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
-		ApplicationName:  "satellite-migration",
-		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
-		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
-		ServerSideCopy:   runCfg.Config.Metainfo.ServerSideCopy,
-	})
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL,
+		runCfg.Config.Metainfo.Metabase("satellite-migration"))
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
