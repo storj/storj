@@ -2,7 +2,7 @@
 
 //-- Node Events --//
 model node_event (
-	key node_id
+	key id
 
 	index (
 		name node_events_email_event_created_at_index
@@ -10,6 +10,7 @@ model node_event (
 		where node_event.email_sent = null
 	)
 
+	field id blob
 	field email text
 	field node_id blob
 	field event int

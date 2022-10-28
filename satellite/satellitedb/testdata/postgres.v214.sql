@@ -177,12 +177,13 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_events (
+	id bytea NOT NULL,
 	email text NOT NULL,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	email_sent timestamp with time zone,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
@@ -772,4 +773,4 @@ INSERT INTO "reverification_audits" ("node_id", "stream_id", "position", "piece_
 
 -- NEW DATA --
 
-INSERT INTO "node_events" ("email", "node_id", "event", "created_at", "email_sent") VALUES ('test@storj.test', E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', 1, '2019-02-14 08:28:24.614594+00', '2019-02-14 08:28:24.614594+00');
+INSERT INTO "node_events" ("id", "email", "node_id", "event", "created_at", "email_sent") VALUES (E'\\362\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\017', 'test@storj.test', E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', 1, '2019-02-14 08:28:24.614594+00', '2019-02-14 08:28:24.614594+00');

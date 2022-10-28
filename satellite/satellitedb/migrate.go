@@ -2121,12 +2121,13 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     214,
 				Action: migrate.SQL{
 					`CREATE TABLE node_events (
+						id bytea NOT NULL,
 						node_id bytea NOT NULL,
 						email text NOT NULL,
 						event integer NOT NULL,
 						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 						email_sent timestamp with time zone,
-						PRIMARY KEY ( node_id )
+						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX IF NOT EXISTS node_events_email_event_created_at_index ON node_events ( email, event, created_at )
 						WHERE email_sent IS NULL;`,

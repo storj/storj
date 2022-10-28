@@ -504,12 +504,13 @@ CREATE TABLE node_api_versions (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_events (
+	id bytea NOT NULL,
 	email text NOT NULL,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	email_sent timestamp with time zone,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
@@ -1208,12 +1209,13 @@ CREATE TABLE node_api_versions (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_events (
+	id bytea NOT NULL,
 	email text NOT NULL,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	email_sent timestamp with time zone,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
@@ -4957,6 +4959,7 @@ func (f NodeApiVersion_UpdatedAt_Field) value() interface{} {
 func (NodeApiVersion_UpdatedAt_Field) _Column() string { return "updated_at" }
 
 type NodeEvent struct {
+	Id        []byte
 	Email     string
 	NodeId    []byte
 	Event     int
@@ -4974,6 +4977,25 @@ type NodeEvent_Create_Fields struct {
 type NodeEvent_Update_Fields struct {
 	EmailSent NodeEvent_EmailSent_Field
 }
+
+type NodeEvent_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeEvent_Id(v []byte) NodeEvent_Id_Field {
+	return NodeEvent_Id_Field{_set: true, _value: v}
+}
+
+func (f NodeEvent_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_Id_Field) _Column() string { return "id" }
 
 type NodeEvent_Email_Field struct {
 	_set   bool
@@ -12394,25 +12416,27 @@ type WalletAddress_Row struct {
 }
 
 func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
+	node_event_id NodeEvent_Id_Field,
 	node_event_email NodeEvent_Email_Field,
 	node_event_node_id NodeEvent_NodeId_Field,
 	node_event_event NodeEvent_Event_Field,
 	optional NodeEvent_Create_Fields) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
+	__id_val := node_event_id.value()
 	__email_val := node_event_email.value()
 	__node_id_val := node_event_node_id.value()
 	__event_val := node_event_event.value()
 	__email_sent_val := optional.EmailSent.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, node_id, event, email_sent")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, node_id, event, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
 
 	var __values []interface{}
-	__values = append(__values, __email_val, __node_id_val, __event_val, __email_sent_val)
+	__values = append(__values, __id_val, __email_val, __node_id_val, __event_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -12435,7 +12459,7 @@ func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -20042,25 +20066,27 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 }
 
 func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
+	node_event_id NodeEvent_Id_Field,
 	node_event_email NodeEvent_Email_Field,
 	node_event_node_id NodeEvent_NodeId_Field,
 	node_event_event NodeEvent_Event_Field,
 	optional NodeEvent_Create_Fields) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
+	__id_val := node_event_id.value()
 	__email_val := node_event_email.value()
 	__node_id_val := node_event_node_id.value()
 	__event_val := node_event_event.value()
 	__email_sent_val := optional.EmailSent.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, node_id, event, email_sent")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, node_id, event, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
 
 	var __values []interface{}
-	__values = append(__values, __email_val, __node_id_val, __event_val, __email_sent_val)
+	__values = append(__values, __id_val, __email_val, __node_id_val, __event_val, __email_sent_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -20083,7 +20109,7 @@ func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -28254,6 +28280,7 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 }
 
 func (rx *Rx) Create_NodeEvent(ctx context.Context,
+	node_event_id NodeEvent_Id_Field,
 	node_event_email NodeEvent_Email_Field,
 	node_event_node_id NodeEvent_NodeId_Field,
 	node_event_event NodeEvent_Event_Field,
@@ -28263,7 +28290,7 @@ func (rx *Rx) Create_NodeEvent(ctx context.Context,
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_NodeEvent(ctx, node_event_email, node_event_node_id, node_event_event, optional)
+	return tx.Create_NodeEvent(ctx, node_event_id, node_event_email, node_event_node_id, node_event_event, optional)
 
 }
 
@@ -29953,6 +29980,7 @@ type Methods interface {
 		coupon_usage *CouponUsage, err error)
 
 	Create_NodeEvent(ctx context.Context,
+		node_event_id NodeEvent_Id_Field,
 		node_event_email NodeEvent_Email_Field,
 		node_event_node_id NodeEvent_NodeId_Field,
 		node_event_event NodeEvent_Event_Field,

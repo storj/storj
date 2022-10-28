@@ -193,12 +193,13 @@ CREATE TABLE nodes (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_events (
+	id bytea NOT NULL,
 	email text NOT NULL,
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	email_sent timestamp with time zone,
-	PRIMARY KEY ( node_id )
+	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
