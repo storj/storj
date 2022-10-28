@@ -1,5 +1,24 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//-- Node Events --//
+model node_event (
+	key node_id
+
+	index (
+		name node_events_email_event_created_at_index
+		fields email event created_at
+		where node_event.email_sent = null
+	)
+
+	field email text
+	field node_id blob
+	field event int
+	field created_at timestamp ( default current_timestamp )
+	field email_sent timestamp ( nullable, updatable )
+)
+
+create node_event()
+
 //--- Value Attribution ---//
 model value_attribution (
 	key project_id bucket_name

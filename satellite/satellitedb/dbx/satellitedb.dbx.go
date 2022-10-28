@@ -503,6 +503,14 @@ CREATE TABLE node_api_versions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_events (
+	email text NOT NULL,
+	node_id bytea NOT NULL,
+	event integer NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	email_sent timestamp with time zone,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -898,6 +906,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -1198,6 +1207,14 @@ CREATE TABLE node_api_versions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE node_events (
+	email text NOT NULL,
+	node_id bytea NOT NULL,
+	event integer NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	email_sent timestamp with time zone,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE oauth_clients (
 	id bytea NOT NULL,
 	encrypted_secret bytea NOT NULL,
@@ -1593,6 +1610,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -4937,6 +4955,133 @@ func (f NodeApiVersion_UpdatedAt_Field) value() interface{} {
 }
 
 func (NodeApiVersion_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type NodeEvent struct {
+	Email     string
+	NodeId    []byte
+	Event     int
+	CreatedAt time.Time
+	EmailSent *time.Time
+}
+
+func (NodeEvent) _Table() string { return "node_events" }
+
+type NodeEvent_Create_Fields struct {
+	CreatedAt NodeEvent_CreatedAt_Field
+	EmailSent NodeEvent_EmailSent_Field
+}
+
+type NodeEvent_Update_Fields struct {
+	EmailSent NodeEvent_EmailSent_Field
+}
+
+type NodeEvent_Email_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func NodeEvent_Email(v string) NodeEvent_Email_Field {
+	return NodeEvent_Email_Field{_set: true, _value: v}
+}
+
+func (f NodeEvent_Email_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_Email_Field) _Column() string { return "email" }
+
+type NodeEvent_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func NodeEvent_NodeId(v []byte) NodeEvent_NodeId_Field {
+	return NodeEvent_NodeId_Field{_set: true, _value: v}
+}
+
+func (f NodeEvent_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_NodeId_Field) _Column() string { return "node_id" }
+
+type NodeEvent_Event_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func NodeEvent_Event(v int) NodeEvent_Event_Field {
+	return NodeEvent_Event_Field{_set: true, _value: v}
+}
+
+func (f NodeEvent_Event_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_Event_Field) _Column() string { return "event" }
+
+type NodeEvent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func NodeEvent_CreatedAt(v time.Time) NodeEvent_CreatedAt_Field {
+	return NodeEvent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f NodeEvent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_CreatedAt_Field) _Column() string { return "created_at" }
+
+type NodeEvent_EmailSent_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func NodeEvent_EmailSent(v time.Time) NodeEvent_EmailSent_Field {
+	return NodeEvent_EmailSent_Field{_set: true, _value: &v}
+}
+
+func NodeEvent_EmailSent_Raw(v *time.Time) NodeEvent_EmailSent_Field {
+	if v == nil {
+		return NodeEvent_EmailSent_Null()
+	}
+	return NodeEvent_EmailSent(*v)
+}
+
+func NodeEvent_EmailSent_Null() NodeEvent_EmailSent_Field {
+	return NodeEvent_EmailSent_Field{_set: true, _null: true}
+}
+
+func (f NodeEvent_EmailSent_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f NodeEvent_EmailSent_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (NodeEvent_EmailSent_Field) _Column() string { return "email_sent" }
 
 type OauthClient struct {
 	Id              []byte
@@ -12246,6 +12391,56 @@ type Value_Row struct {
 
 type WalletAddress_Row struct {
 	WalletAddress []byte
+}
+
+func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_node_id NodeEvent_NodeId_Field,
+	node_event_event NodeEvent_Event_Field,
+	optional NodeEvent_Create_Fields) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__email_val := node_event_email.value()
+	__node_id_val := node_event_node_id.value()
+	__event_val := node_event_event.value()
+	__email_sent_val := optional.EmailSent.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, node_id, event, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
+
+	var __values []interface{}
+	__values = append(__values, __email_val, __node_id_val, __event_val, __email_sent_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node_event, nil
+
 }
 
 func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
@@ -19681,6 +19876,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_api_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -19833,6 +20038,56 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	count += __count
 
 	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_NodeEvent(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_node_id NodeEvent_NodeId_Field,
+	node_event_event NodeEvent_Event_Field,
+	optional NodeEvent_Create_Fields) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__email_val := node_event_email.value()
+	__node_id_val := node_event_node_id.value()
+	__event_val := node_event_event.value()
+	__email_sent_val := optional.EmailSent.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("email, node_id, event, email_sent")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO node_events "), __clause, __sqlbundle_Literal(" RETURNING node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent")}}
+
+	var __values []interface{}
+	__values = append(__values, __email_val, __node_id_val, __event_val, __email_sent_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node_event, nil
 
 }
 
@@ -27269,6 +27524,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM node_api_versions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -27985,6 +28250,20 @@ func (rx *Rx) Create_CouponUsage(ctx context.Context,
 		return
 	}
 	return tx.Create_CouponUsage(ctx, coupon_usage_coupon_id, coupon_usage_amount, coupon_usage_status, coupon_usage_period)
+
+}
+
+func (rx *Rx) Create_NodeEvent(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_node_id NodeEvent_NodeId_Field,
+	node_event_event NodeEvent_Event_Field,
+	optional NodeEvent_Create_Fields) (
+	node_event *NodeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_NodeEvent(ctx, node_event_email, node_event_node_id, node_event_event, optional)
 
 }
 
@@ -29672,6 +29951,13 @@ type Methods interface {
 		coupon_usage_status CouponUsage_Status_Field,
 		coupon_usage_period CouponUsage_Period_Field) (
 		coupon_usage *CouponUsage, err error)
+
+	Create_NodeEvent(ctx context.Context,
+		node_event_email NodeEvent_Email_Field,
+		node_event_node_id NodeEvent_NodeId_Field,
+		node_event_event NodeEvent_Event_Field,
+		optional NodeEvent_Create_Fields) (
+		node_event *NodeEvent, err error)
 
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
