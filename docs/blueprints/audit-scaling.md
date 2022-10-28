@@ -63,10 +63,19 @@ Additionally, the node has a 'contained' flag that is set when it has pending au
 modified. We don't use this flag for anything other than a status on the node dashboard, but this is still an
 inconsistency that will need to be addressed.
 
+Finally, we don't have as much flexibility in scaling audits as we might like, since in the current system, all audits are
+performed in the core process (because the decisions about what to audit come by way of the metainfo loop). If we had some
+sort of interprocess queue for both initial audits and reverification audits, we could make break out both of those to
+separate processes, which would be scalable independent of each other and without reconfiguring+restarting the satellite
+core.
 
 ## Solution:
 All audits should be allowed to add a piece to pending audits, and a successful audit removes only the corresponding entry.
 The contained flag will remain set to true as long as there are pending audits for the node.
+
+New interprocess queues will be created which will communicate audit jobs (both verifications and reverifications) to audit
+workers, which will live outside of the satellite core. These queues can be implemented and managed similarly to the existing
+repair queue.
 
 A solution that we think will decouple the logic around regular audits and reverification audits is the following:
 - Rather than reverify nodes with pending audits and skipping them in the regular audit (see satellite/audit/worker.go:work),
@@ -80,11 +89,16 @@ A solution that we think will decouple the logic around regular audits and rever
 - Contained nodes will no longer be selected for new uploads
 
 ### Implementation details:
-**Part 1. Implement new pending audit system**
-- Create a new db table called reverification_audits based on segment_pending_audits
-  - switch primary key from nodeid to combination of (node_id, stream_id, position)
-  - we don't need stripe_index since we want to download the whole piece (client.Download with offset 0) 
-  - add last_attempt: timestamp (nullable)
+**Part 1. Implement new pending reverifications system**
+- Create a new db table called `verification_audits`
+  - primary key (`stream_id`, `position`)
+  - additional columns `expires_at`, `encrypted_size`, `inserted_at`, and `last_attempt`
+  - secondary index on `last_attempt`
+- Create a new db table called `reverification_audits` based on `segment_pending_audits`
+  - switch primary key from nodeid to combination of (`node_id`, `stream_id`, `position`)
+  - we don't need `stripe_index` since we want to download the whole piece (`client.Download` with offset 0)
+  - add `last_attempt: timestamp` (nullable)
+  - secondary index on `last_attempt`
   - similar delete and read queries but using new primary key
   - migration plan: keep segment_pending_audits and drop the latter once this project is completed
 - create audit/reverifier.go methods
@@ -128,11 +142,18 @@ func (reverifier *Reverifier) process(ctx context.Context, pendingaudit *Pending
 - remove call to reverify and related logic
   - in audit/worker.go:work() we attempt to reverify nodes for the segment that are in containment mode. 
   - Since we want verify and reverify to be in separate processes, we can remove all logic related to reverify here.
-- update audit.go/verifier
+- change the audit chore to put segments into the `verification_audits` queue from the sampling reservoir
+- change the audit worker to get segments from the `verification_audits` queue
+- update audit/verifier.go
   - remove reference to containment from verifier struct
   - delete existing reverify method
 - remove satellitedb/containment.go methods that are no longer needed and switch any out that are still needed with the new versions
-- satellite/core: audit setup, add Reverifier *audit.Reverifier
+- satellite/core.go: remove audit setup (except the Reporter, if it is still needed by existing code)
+- satellite/auditor.go:
+  - create this process (a `Peer` like `satellite.Repairer`)
+  - add `Reverifier *audit.Reverifier` to the audit setup.
+  - the number of verifier workers and the number of reverifier workers should both be configurable, with "0"
+    being an acceptable value for either.
 
 **Part 3. Keep node containment status updated**
 - Update nodes table
@@ -156,10 +177,13 @@ func (reverifier *Reverifier) process(ctx context.Context, pendingaudit *Pending
 - Test that the original cheater strategy is no longer viable
 
 **Deployment**
-- Configure the number of audit workers for verifier and reverifier
+- Configure the number of verifier audit workers and reverifier workers
+- Set up new audit process to be deployed and scaled as appropriate
+- During the transition time, the old system and the new system can safely coexist
 
 **Post-deployment**
 - monitor vetting times for new nodes and scale audit workers accordingly
+- the old `segment_pending_audits` queue/table and any remaining contents can be dropped
 
 ### Future Work
 Should we consider new nodes for audits at a different cadence from vetted nodes? This would require significant refactoring.

@@ -97,6 +97,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
+	// ReverifyQueue returns queue for pieces that need audit reverification
+	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
 	// OIDC returns the database for OIDC resources.

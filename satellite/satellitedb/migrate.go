@@ -2097,6 +2097,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE projects ADD COLUMN user_specified_bandwidth_limit bigint;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for pending reverification audits",
+				Version:     213,
+				Action: migrate.SQL{
+					`CREATE TABLE reverification_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						last_attempt timestamp with time zone,
+						reverify_count bigint NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position )
+    				);`,
+					`CREATE INDEX IF NOT EXISTS reverification_audits_inserted_at_index ON reverification_audits ( inserted_at );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
