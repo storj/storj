@@ -278,6 +278,12 @@ var (
 		Args:  cobra.ExactArgs(3),
 		RunE:  cmdFetchPieces,
 	}
+	repairSegmentCmd = &cobra.Command{
+		Use:   "repair-segment <stream-id> <position>",
+		Short: "Repair segment and verify all downloadable pieces",
+		Args:  cobra.ExactArgs(2),
+		RunE:  cmdRepairSegment,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -344,6 +350,7 @@ func init() {
 	rootCmd.AddCommand(restoreTrashCmd)
 	rootCmd.AddCommand(registerLostSegments)
 	rootCmd.AddCommand(fetchPiecesCmd)
+	rootCmd.AddCommand(repairSegmentCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
