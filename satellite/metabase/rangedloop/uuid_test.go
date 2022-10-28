@@ -92,3 +92,63 @@ func TestCreateUUIDBoundariesFor8191Ranges(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, lastUuid, boundaries[0x1ffd])
 }
+
+func TestCreateUUIDRanges(t *testing.T) {
+	u4, err := uuid.FromString("40000000-0000-0000-0000-000000000000")
+	require.NoError(t, err)
+	u8, err := uuid.FromString("80000000-0000-0000-0000-000000000000")
+	require.NoError(t, err)
+	u12, err := uuid.FromString("c0000000-0000-0000-0000-000000000000")
+	require.NoError(t, err)
+
+	inouts := []struct {
+		inNumRanges    uint32
+		expectedRanges []rangedloop.UUIDRange
+	}{
+		{
+			0,
+			[]rangedloop.UUIDRange{
+				{},
+			},
+		}, {
+			1,
+			[]rangedloop.UUIDRange{
+				{},
+			},
+		}, {
+			2,
+			[]rangedloop.UUIDRange{
+				{
+					Start: nil,
+					End:   &u8,
+				}, {
+					Start: &u8,
+					End:   nil,
+				},
+			},
+		}, {
+			4,
+			[]rangedloop.UUIDRange{
+				{
+					Start: nil,
+					End:   &u4,
+				}, {
+					Start: &u4,
+					End:   &u8,
+				}, {
+					Start: &u8,
+					End:   &u12,
+				}, {
+					Start: &u12,
+					End:   nil,
+				},
+			},
+		},
+	}
+
+	for _, inout := range inouts {
+		createdRanges, err := rangedloop.CreateUUIDRanges(inout.inNumRanges)
+		require.NoError(t, err)
+		require.Equal(t, inout.expectedRanges, createdRanges)
+	}
+}
