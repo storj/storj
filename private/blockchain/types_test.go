@@ -21,18 +21,12 @@ func TestBytesToAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestHex(t *testing.T) {
+func TestAddressHex(t *testing.T) {
 	addresses := []string{
-		"0xd15aaacddf4b72ba8fc5c41fc4b03f05aa73385c",
-		"0xbe8f1abb014ec9988b6185ab4d8870992e838231",
-		"0xd24400ae8bfebb18ca49be86258a3c749cf46853",
+		"0xDAFEA492D9c6733ae3d56b7Ed1ADB60692c98Bc5",
+		"0xd24400ae8BfEBb18cA49Be86258a3C749cf46853",
+		"0x4E58657CD8b3401B6f7Db9Cd0408f06582c458b5",
 	}
-	hashes := []string{
-		"0xdea1082dbea119c822dfe804264f5b880d4208ef51e8c5a8995eff10a5094de8",
-		"0xd1a78f16158b550945dd39182d188c3fb7285b431223c8b0fe38f4181e9ac197",
-		"0x47a5b3fae0bad45631a65324001f75dea311898e26ee10597a66953b57dfe332",
-	}
-
 	for _, address := range addresses {
 		decoded, err := hex.DecodeString(address[2:])
 		require.NoError(t, err)
@@ -41,6 +35,14 @@ func TestHex(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, address, a.Hex())
+	}
+}
+
+func TestHashHex(t *testing.T) {
+	hashes := []string{
+		"0xdea1082dbea119c822dfe804264f5b880d4208ef51e8c5a8995eff10a5094de8",
+		"0xd1a78f16158b550945dd39182d188c3fb7285b431223c8b0fe38f4181e9ac197",
+		"0x47a5b3fae0bad45631a65324001f75dea311898e26ee10597a66953b57dfe332",
 	}
 	for _, hash := range hashes {
 		decoded, err := hex.DecodeString(hash[2:])
