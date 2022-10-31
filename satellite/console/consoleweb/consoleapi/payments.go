@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 var (
@@ -278,6 +279,10 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 
 	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
+		if stripecoinpayments.ErrInvalidCoupon.Has(err) {
+			p.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}

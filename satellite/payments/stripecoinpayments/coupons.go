@@ -31,7 +31,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 		Code: stripe.String(couponCode),
 	})
 	if !promoCodeIter.Next() {
-		return nil, Error.New("Invalid coupon code")
+		return nil, ErrInvalidCoupon.New("Invalid coupon code")
 	}
 	promoCode := promoCodeIter.PromotionCode()
 
