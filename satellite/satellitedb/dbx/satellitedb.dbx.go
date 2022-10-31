@@ -13783,25 +13783,62 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_NodeEvent_By_Id(ctx context.Context,
-	node_event_id NodeEvent_Id_Field) (
+func (obj *pgxImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_event NodeEvent_Event_Field) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, node_event_id.value())
+	__values = append(__values, node_event_email.value(), node_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
-	if err != nil {
-		return (*NodeEvent)(nil), obj.makeErr(err)
+	for {
+		node_event, err = func() (node_event *NodeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			node_event = &NodeEvent{}
+			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return node_event, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return node_event, nil
 	}
-	return node_event, nil
 
 }
 
@@ -21455,25 +21492,62 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_NodeEvent_By_Id(ctx context.Context,
-	node_event_id NodeEvent_Id_Field) (
+func (obj *pgxcockroachImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_event NodeEvent_Event_Field) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, node_event_id.value())
+	__values = append(__values, node_event_email.value(), node_event_event.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	node_event = &NodeEvent{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
-	if err != nil {
-		return (*NodeEvent)(nil), obj.makeErr(err)
+	for {
+		node_event, err = func() (node_event *NodeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, sql.ErrNoRows
+			}
+
+			node_event = &NodeEvent{}
+			err = __rows.Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+			if err != nil {
+				return nil, err
+			}
+
+			if __rows.Next() {
+				return nil, errTooManyRows
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+
+			return node_event, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			if err == errTooManyRows {
+				return nil, tooManyRows("NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt")
+			}
+			return nil, obj.makeErr(err)
+		}
+		return node_event, nil
 	}
-	return node_event, nil
 
 }
 
@@ -28882,14 +28956,15 @@ func (rx *Rx) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Positio
 	return tx.Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
-func (rx *Rx) Get_NodeEvent_By_Id(ctx context.Context,
-	node_event_id NodeEvent_Id_Field) (
+func (rx *Rx) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_event NodeEvent_Event_Field) (
 	node_event *NodeEvent, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_NodeEvent_By_Id(ctx, node_event_id)
+	return tx.Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, node_event_email, node_event_event)
 }
 
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
@@ -30285,8 +30360,9 @@ type Methods interface {
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
 
-	Get_NodeEvent_By_Id(ctx context.Context,
-		node_event_id NodeEvent_Id_Field) (
+	Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+		node_event_email NodeEvent_Email_Field,
+		node_event_event NodeEvent_Event_Field) (
 		node_event *NodeEvent, err error)
 
 	Get_Node_By_Id(ctx context.Context,

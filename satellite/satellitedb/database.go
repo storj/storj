@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -193,6 +194,11 @@ func (dbc *satelliteDBCollection) Attribution() attribution.DB {
 // OverlayCache is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 	return &overlaycache{db: dbc.getByName("overlaycache")}
+}
+
+// NodeEvents is a getter for node events repository.
+func (dbc *satelliteDBCollection) NodeEvents() nodeevents.DB {
+	return &nodeEvents{db: dbc.getByName("nodeevents")}
 }
 
 // Reputation is a getter for overlay cache repository.

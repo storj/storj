@@ -22,7 +22,9 @@ create node_event()
 
 read one (
 	select node_event
-	where node_event.id = ?
+	where node_event.email = ?
+	where node_event.event = ?
+	orderby desc node_event.created_at
 )
 
 //--- Value Attribution ---//
