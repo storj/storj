@@ -24,7 +24,6 @@ import BillingPaymentMethods from '@/components/account/billing/billingTabs/Paym
 import BillingHistory2 from '@/components/account/billing/billingTabs/BillingHistory.vue';
 import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
-import AddCouponCode from '@/components/account/billing/coupons/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -92,7 +91,6 @@ export abstract class RouteConfig {
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
-    public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static BillingOverview = new NavigationLink('overview', 'Overview');
     public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
@@ -224,11 +222,6 @@ export const router = new Router({
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
                             children: [
-                                {
-                                    path: RouteConfig.AddCouponCode.path,
-                                    name: RouteConfig.AddCouponCode.name,
-                                    component: AddCouponCode,
-                                },
                                 {
                                     path: RouteConfig.BillingOverview.path,
                                     name: RouteConfig.BillingOverview.name,

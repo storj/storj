@@ -19,6 +19,7 @@
         <ObjectDetailsModal v-if="isObjectDetailsModal" />
         <NewFolderModal v-if="isNewFolderModal" />
         <DeleteBucketModal v-if="isDeleteBucketModal" />
+        <AddCouponCodeModal v-if="isAddCouponModal" />
     </div>
 </template>
 
@@ -41,6 +42,7 @@ import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
 import NewFolderModal from '@/components/modals/NewFolderModal.vue';
 import ShareObjectModal from '@/components/modals/ShareObjectModal.vue';
 import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
+import AddCouponCodeModal from '@/components/modals/AddCouponCodeModal.vue';
 
 // @vue/component
 @Component({
@@ -61,6 +63,7 @@ import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
         ShareObjectModal,
         ObjectDetailsModal,
         NewFolderModal,
+        AddCouponCodeModal,
     },
 })
 export default class AllModals extends Vue {
@@ -175,6 +178,13 @@ export default class AllModals extends Vue {
      */
     public get isNewFolderModal(): boolean {
         return this.$store.state.appStateModule.appState.isNewFolderModalShown;
+    }
+
+    /**
+     * Indicates if add coupon modal is shown.
+     */
+    public get isAddCouponModal(): boolean {
+        return this.$store.state.appStateModule.appState.isAddCouponModalShown;
     }
 }
 </script>

@@ -42,6 +42,7 @@ class ViewsState {
         public isDeleteBucketModalShown = false,
         public isNewFolderModalShown = false,
         public isObjectDetailsModalShown = false,
+        public isAddCouponModalShown = false,
         public isBillingNotificationShown = true,
 
         public onbAGStepBackRoute = '',
@@ -163,6 +164,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN](state: State): void {
             state.appState.isObjectDetailsModalShown = !state.appState.isObjectDetailsModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_COUPON_MODAL_SHOWN](state: State): void {
+            state.appState.isAddCouponModalShown = !state.appState.isAddCouponModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN](state: State): void {
             state.appState.isNewFolderModalShown = !state.appState.isNewFolderModalShown;

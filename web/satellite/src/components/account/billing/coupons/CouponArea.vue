@@ -53,10 +53,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -94,8 +95,8 @@ export default class CouponArea extends Vue {
      * Opens Add Coupon modal.
      */
     public onCreateClick(): void {
-        this.analytics.pageVisit(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-        this.$router.push({ name: RouteConfig.AddCouponCode.name });
+        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_COUPON_MODAL_SHOWN);
     }
 
     /**
