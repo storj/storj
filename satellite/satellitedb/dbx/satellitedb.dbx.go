@@ -13783,6 +13783,28 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_NodeEvent_By_Id(ctx context.Context,
+	node_event_id NodeEvent_Id_Field) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	if err != nil {
+		return (*NodeEvent)(nil), obj.makeErr(err)
+	}
+	return node_event, nil
+
+}
+
 func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -21433,6 +21455,28 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_NodeEvent_By_Id(ctx context.Context,
+	node_event_id NodeEvent_Id_Field) (
+	node_event *NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node_event = &NodeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node_event.Id, &node_event.Email, &node_event.NodeId, &node_event.Event, &node_event.CreatedAt, &node_event.EmailSent)
+	if err != nil {
+		return (*NodeEvent)(nil), obj.makeErr(err)
+	}
+	return node_event, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -28838,6 +28882,16 @@ func (rx *Rx) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Positio
 	return tx.Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
+func (rx *Rx) Get_NodeEvent_By_Id(ctx context.Context,
+	node_event_id NodeEvent_Id_Field) (
+	node_event *NodeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_NodeEvent_By_Id(ctx, node_event_id)
+}
+
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -30230,6 +30284,10 @@ type Methods interface {
 		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
+
+	Get_NodeEvent_By_Id(ctx context.Context,
+		node_event_id NodeEvent_Id_Field) (
+		node_event *NodeEvent, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (

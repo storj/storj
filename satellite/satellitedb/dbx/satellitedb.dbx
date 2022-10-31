@@ -20,6 +20,11 @@ model node_event (
 
 create node_event()
 
+read one (
+	select node_event
+	where node_event.id = ?
+)
+
 //--- Value Attribution ---//
 model value_attribution (
 	key project_id bucket_name
