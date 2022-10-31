@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -293,6 +294,7 @@ func (node *SelectedNode) Clone() *SelectedNode {
 type Service struct {
 	log              *zap.Logger
 	db               DB
+	nodeEvents       nodeevents.DB
 	mail             *mailservice.Service
 	satelliteName    string
 	satelliteAddress string
@@ -304,7 +306,7 @@ type Service struct {
 }
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -336,6 +338,7 @@ func NewService(log *zap.Logger, db DB, mailService *mailservice.Service, satell
 	return &Service{
 		log:              log,
 		db:               db,
+		nodeEvents:       nodeEvents,
 		mail:             mailService,
 		satelliteAddress: satelliteAddr,
 		satelliteName:    satelliteName,

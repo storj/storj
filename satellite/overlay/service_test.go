@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -34,7 +35,7 @@ func TestCache_Database(t *testing.T) {
 	t.Parallel()
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testCache(ctx, t, db.OverlayCache())
+		testCache(ctx, t, db.OverlayCache(), db.NodeEvents())
 	})
 }
 
@@ -57,7 +58,7 @@ func testAuditHistoryConfig() reputation.AuditHistoryConfig {
 	}
 }
 
-func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
+func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEvents nodeevents.DB) {
 	valid1ID := testrand.NodeID()
 	valid2ID := testrand.NodeID()
 	valid3ID := testrand.NodeID()
@@ -76,7 +77,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nil, "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nil, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)

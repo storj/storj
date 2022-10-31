@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
@@ -82,6 +83,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	repairQueue queue.RepairQueue,
 	bucketsDB buckets.DB,
 	overlayCache overlay.DB,
+	nodeEvents nodeevents.DB,
 	reputationdb reputation.DB,
 	containmentDB audit.Containment,
 	rollupsWriteCache *orders.RollupsWriteCache,
@@ -156,7 +158,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, peer.Mail, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, peer.Mail, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

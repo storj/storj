@@ -80,6 +80,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		db.RepairQueue(),
 		db.Buckets(),
 		db.OverlayCache(),
+		db.NodeEvents(),
 		db.Reputation(),
 		db.Containment(),
 		rollupsWriteCache,
