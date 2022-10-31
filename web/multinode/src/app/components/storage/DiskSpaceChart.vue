@@ -3,7 +3,7 @@
 
 <template>
     <div class="chart">
-        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
+        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="disk-space-chart"
             :key="chartKey"
@@ -86,7 +86,7 @@ export default class DiskSpaceChart extends BaseChart {
         const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
         return `<div class='tooltip-body'>
-                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
+                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
                     <p class='tooltip-body__footer'>${dataPoint.date}</p>
                 </div>`;
     }
