@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -158,7 +157,7 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 	}
 
 	var err error
-	planet.directory, err = ioutil.TempDir("", "planet")
+	planet.directory, err = os.MkdirTemp("", "planet")
 	if err != nil {
 		return nil, err
 	}

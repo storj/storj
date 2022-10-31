@@ -6,7 +6,6 @@ package boltdb
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -18,7 +17,7 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	tempdir, err := os.MkdirTemp("", "storj-bolt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +39,7 @@ func TestSuite(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	tempdir, err := os.MkdirTemp("", "storj-bolt")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -93,7 +92,7 @@ var _ testsuite.BulkImporter = &boltLongBenchmarkStore{}
 var _ testsuite.BulkCleaner = &boltLongBenchmarkStore{}
 
 func BenchmarkSuiteLong(b *testing.B) {
-	tempdir, err := ioutil.TempDir("", "storj-bolt")
+	tempdir, err := os.MkdirTemp("", "storj-bolt")
 	if err != nil {
 		b.Fatal(err)
 	}

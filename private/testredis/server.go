@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -71,7 +70,7 @@ func Start(ctx context.Context) (Server, error) {
 
 // Process starts a redis-server test process.
 func Process(ctx context.Context) (Server, error) {
-	tmpdir, err := ioutil.TempDir("", "storj-redis")
+	tmpdir, err := os.MkdirTemp("", "storj-redis")
 	if err != nil {
 		return nil, err
 	}

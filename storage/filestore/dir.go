@@ -9,7 +9,6 @@ import (
 	"encoding/base32"
 	"errors"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -138,7 +137,7 @@ func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.
 		prealloc = preallocLimit
 	}
 
-	file, err := ioutil.TempFile(dir.tempdir(), "blob-*.partial")
+	file, err := os.CreateTemp(dir.tempdir(), "blob-*.partial")
 	if err != nil {
 		return nil, err
 	}

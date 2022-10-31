@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
@@ -147,7 +146,7 @@ func (testClient *testClient) do(req *http.Request) (_ Response, body string) {
 	resp, err := testClient.client.Do(req)
 	require.NoError(testClient.t, err)
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	require.NoError(testClient.t, err)
 	require.NoError(testClient.t, resp.Body.Close())
 	return Response{resp}, string(data)

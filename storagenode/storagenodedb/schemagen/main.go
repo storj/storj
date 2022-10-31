@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,7 +55,7 @@ func printWithLines(w io.Writer, data []byte) {
 }
 
 func runSchemaGen(ctx context.Context, log *zap.Logger) (_ []byte, err error) {
-	storagePath, err := ioutil.TempDir("", "testdb")
+	storagePath, err := os.MkdirTemp("", "testdb")
 	if err != nil {
 		return nil, errs.New("Error getting test storage path: %+w", err)
 	}
