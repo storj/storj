@@ -16,7 +16,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
-	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
@@ -629,23 +628,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		oldInfo.CountryCode != node.CountryCode {
 		err = service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
-		if service.mail == nil || !service.config.SendNodeEmails {
-			return nil
-		}
-		if node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
-			err = service.mail.SendRendered(ctx, []post.Address{{Address: node.Operator.Email}}, &NodeOnlineEmail{
-				Origin:    service.satelliteAddress,
-				NodeID:    node.NodeID.String(),
-				Satellite: service.satelliteName,
-			})
-			if err != nil {
-				service.log.Error("could not send Node Online email", zap.Error(err))
-			} else {
-				mon.Counter("email_node_online").Inc(1)
-			}
+		if service.config.SendNodeEmails && node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
+			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.Online)
+			return Error.Wrap(err)
 		}
 		return nil
 	}
