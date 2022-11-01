@@ -20,6 +20,7 @@
         <NewFolderModal v-if="isNewFolderModal" />
         <DeleteBucketModal v-if="isDeleteBucketModal" />
         <AddCouponCodeModal v-if="isAddCouponModal" />
+        <NewBillingAddCouponCodeModal v-if="isNewBillingAddCouponModal" />
     </div>
 </template>
 
@@ -43,6 +44,7 @@ import NewFolderModal from '@/components/modals/NewFolderModal.vue';
 import ShareObjectModal from '@/components/modals/ShareObjectModal.vue';
 import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
 import AddCouponCodeModal from '@/components/modals/AddCouponCodeModal.vue';
+import NewBillingAddCouponCodeModal from '@/components/modals/NewBillingAddCouponCodeModal.vue';
 
 // @vue/component
 @Component({
@@ -64,6 +66,7 @@ import AddCouponCodeModal from '@/components/modals/AddCouponCodeModal.vue';
         ObjectDetailsModal,
         NewFolderModal,
         AddCouponCodeModal,
+        NewBillingAddCouponCodeModal,
     },
 })
 export default class AllModals extends Vue {
@@ -185,6 +188,13 @@ export default class AllModals extends Vue {
      */
     public get isAddCouponModal(): boolean {
         return this.$store.state.appStateModule.appState.isAddCouponModalShown;
+    }
+
+    /**
+     * Indicates if new add coupon modal is shown.
+     */
+    public get isNewBillingAddCouponModal(): boolean {
+        return this.$store.state.appStateModule.appState.isNewBillingAddCouponModalShown;
     }
 }
 </script>

@@ -4,13 +4,8 @@
 <template>
     <div class="add-coupon__input-container">
         <div class="add-coupon__input-wrapper">
-            <p class="add-coupon__input-wrapper__label">
-                Coupon Code:
-            </p>
             <VInput
                 placeholder="Enter Coupon Code"
-                height="52px"
-                with-icon
                 @setData="setCouponCode"
             />
         </div>
@@ -24,7 +19,7 @@
         <VButton
             class="add-coupon__apply-button"
             label="Apply Coupon Code"
-            width="150px"
+            width="100%"
             height="44px"
             font-size="14px"
             :on-press="applyCouponCode"
@@ -50,7 +45,7 @@ import VButton from '@/components/common/VButton.vue';
         ValidationMessage,
     },
 })
-export default class AddCouponCodeInput2 extends Vue {
+export default class NewBillingAddCouponCodeInput extends Vue {
     private showValidationMessage = false;
     private isCodeValid = false;
     private errorMessage = '';
@@ -86,6 +81,7 @@ export default class AddCouponCodeInput2 extends Vue {
 
 <style scoped lang="scss">
     .add-coupon {
+        font-family: 'font_regular', sans-serif;
 
         &__input-container {
             display: flex;
@@ -93,52 +89,11 @@ export default class AddCouponCodeInput2 extends Vue {
         }
 
         &__input-wrapper {
-            position: relative;
-            margin: 30px 0 10px;
-
-            &__label {
-                font-family: sans-serif;
-                font-weight: 700;
-                font-size: 14px;
-                color: var(--c-grey-6);
-                margin-top: -15px;
-            }
+            margin: 10px 0;
         }
 
         &__valid-message {
-            position: relative;
             margin-bottom: 10px;
         }
-
-        &__apply-button {
-            left: 0;
-            right: 0;
-            margin: 0 auto;
-            bottom: 20px;
-            background: #2683ff;
-
-            &:hover {
-                background: #0059d0;
-            }
-        }
-
-        &__check {
-            position: absolute;
-            right: 15px;
-            bottom: 15px;
-        }
-
-        &__confirm-message {
-            font-family: 'font_regular', sans-serif;
-            font-size: 18px;
-            margin-top: 35px;
-        }
-
-        &__button-wrapper {
-            display: flex;
-            justify-content: space-evenly;
-            margin-top: 30px;
-        }
     }
-
 </style>

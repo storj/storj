@@ -42,10 +42,6 @@
                     </div>
                 </div>
             </div>
-            <AddCouponCode2
-                v-if="showCreateCode"
-                @toggleMethod="toggleCreateModal"
-            />
         </div>
     </div>
 </template>
@@ -57,20 +53,18 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import AddCouponCode2 from '@/components/account/billing/coupons/AddCouponCode2.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-        AddCouponCode2,
     },
 })
 export default class Coupons extends Vue {
     public isCouponFetching = true;
-    public showCreateCode = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -93,7 +87,7 @@ export default class Coupons extends Vue {
      */
     public toggleCreateModal(): void {
         this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
-        this.showCreateCode = !this.showCreateCode;
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_BILLING_ADD_COUPON_MODAL_SHOWN);
     }
 
     /**
