@@ -507,6 +507,14 @@ CREATE TABLE value_attributions (
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
+CREATE TABLE verification_audits (
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	expires_at timestamp with time zone,
+	encrypted_size integer NOT NULL,
+	PRIMARY KEY ( inserted_at, stream_id, position )
+);
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,

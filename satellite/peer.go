@@ -100,6 +100,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
+	// VerifyQueue returns queue for segments chosen for verification
+	VerifyQueue() audit.VerifyQueue
 	// ReverifyQueue returns queue for pieces that need audit reverification
 	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console

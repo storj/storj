@@ -130,6 +130,16 @@ func (queues *Queues) WaitForSwap(ctx context.Context) error {
 	return ctx.Err()
 }
 
+// VerifyQueue controls manipulation of a database-based queue of segments to be
+// verified; that is, segments chosen at random from all segments on the
+// satellite, for which workers should perform audits. We will try to download a
+// stripe of data across all pieces in the segment and ensure that all pieces
+// conform to the same polynomial.
+type VerifyQueue interface {
+	Push(ctx context.Context, segments []Segment) (err error)
+	Next(ctx context.Context) (Segment, error)
+}
+
 // ReverifyQueue controls manipulation of a queue of pieces to be _re_verified;
 // that is, a node timed out when we requested an audit of the piece, and now
 // we need to follow up with that node until we get a proper answer to the

@@ -827,6 +827,14 @@ CREATE TABLE value_attributions (
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
 );
+CREATE TABLE verification_audits (
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	expires_at timestamp with time zone,
+	encrypted_size integer NOT NULL,
+	PRIMARY KEY ( inserted_at, stream_id, position )
+);
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
 	user_id bytea NOT NULL,
@@ -1531,6 +1539,14 @@ CREATE TABLE value_attributions (
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
+);
+CREATE TABLE verification_audits (
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	expires_at timestamp with time zone,
+	encrypted_size integer NOT NULL,
+	PRIMARY KEY ( inserted_at, stream_id, position )
 );
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
@@ -10752,6 +10768,134 @@ func (f ValueAttribution_LastUpdated_Field) value() interface{} {
 
 func (ValueAttribution_LastUpdated_Field) _Column() string { return "last_updated" }
 
+type VerificationAudits struct {
+	InsertedAt    time.Time
+	StreamId      []byte
+	Position      uint64
+	ExpiresAt     *time.Time
+	EncryptedSize int
+}
+
+func (VerificationAudits) _Table() string { return "verification_audits" }
+
+type VerificationAudits_Create_Fields struct {
+	InsertedAt VerificationAudits_InsertedAt_Field
+	ExpiresAt  VerificationAudits_ExpiresAt_Field
+}
+
+type VerificationAudits_Update_Fields struct {
+}
+
+type VerificationAudits_InsertedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func VerificationAudits_InsertedAt(v time.Time) VerificationAudits_InsertedAt_Field {
+	return VerificationAudits_InsertedAt_Field{_set: true, _value: v}
+}
+
+func (f VerificationAudits_InsertedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (VerificationAudits_InsertedAt_Field) _Column() string { return "inserted_at" }
+
+type VerificationAudits_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func VerificationAudits_StreamId(v []byte) VerificationAudits_StreamId_Field {
+	return VerificationAudits_StreamId_Field{_set: true, _value: v}
+}
+
+func (f VerificationAudits_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (VerificationAudits_StreamId_Field) _Column() string { return "stream_id" }
+
+type VerificationAudits_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func VerificationAudits_Position(v uint64) VerificationAudits_Position_Field {
+	return VerificationAudits_Position_Field{_set: true, _value: v}
+}
+
+func (f VerificationAudits_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (VerificationAudits_Position_Field) _Column() string { return "position" }
+
+type VerificationAudits_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func VerificationAudits_ExpiresAt(v time.Time) VerificationAudits_ExpiresAt_Field {
+	return VerificationAudits_ExpiresAt_Field{_set: true, _value: &v}
+}
+
+func VerificationAudits_ExpiresAt_Raw(v *time.Time) VerificationAudits_ExpiresAt_Field {
+	if v == nil {
+		return VerificationAudits_ExpiresAt_Null()
+	}
+	return VerificationAudits_ExpiresAt(*v)
+}
+
+func VerificationAudits_ExpiresAt_Null() VerificationAudits_ExpiresAt_Field {
+	return VerificationAudits_ExpiresAt_Field{_set: true, _null: true}
+}
+
+func (f VerificationAudits_ExpiresAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f VerificationAudits_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (VerificationAudits_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type VerificationAudits_EncryptedSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func VerificationAudits_EncryptedSize(v int) VerificationAudits_EncryptedSize_Field {
+	return VerificationAudits_EncryptedSize_Field{_set: true, _value: v}
+}
+
+func (f VerificationAudits_EncryptedSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (VerificationAudits_EncryptedSize_Field) _Column() string { return "encrypted_size" }
+
 type WebappSession struct {
 	Id        []byte
 	UserId    []byte
@@ -19706,6 +19850,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM verification_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -27433,6 +27587,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM webapp_sessions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM verification_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

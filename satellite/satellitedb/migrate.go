@@ -2133,6 +2133,21 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						WHERE email_sent IS NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for verification queue",
+				Version:     215,
+				Action: migrate.SQL{
+					`CREATE TABLE verification_audits (
+					    inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+					    stream_id bytea NOT NULL,
+					    position bigint NOT NULL,
+					    expires_at timestamp with time zone,
+					    encrypted_size integer NOT NULL,
+					    PRIMARY KEY ( inserted_at, stream_id, position )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

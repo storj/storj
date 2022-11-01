@@ -212,6 +212,11 @@ func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: dbc.getByName("repairqueue")}
 }
 
+// VerifyQueue is a getter for VerifyQueue database.
+func (dbc *satelliteDBCollection) VerifyQueue() audit.VerifyQueue {
+	return &verifyQueue{db: dbc.getByName("verifyqueue")}
+}
+
 // ReverifyQueue is a getter for ReverifyQueue database.
 func (dbc *satelliteDBCollection) ReverifyQueue() audit.ReverifyQueue {
 	return &reverifyQueue{db: dbc.getByName("reverifyqueue")}
