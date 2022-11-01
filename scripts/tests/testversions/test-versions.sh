@@ -34,7 +34,7 @@ setup(){
     random_bytes_file () {
         size=$1
         output=$2
-	    head -c $size </dev/urandom > $output
+        head -c $size </dev/urandom > $output
     }
     random_bytes_file "2KiB"  "$test_files_dir/small-upload-testfile"         # create 2kb file of random bytes (inline)
     random_bytes_file "5KiB"  "$test_files_dir/big-upload-testfile"           # create 5kb file of random bytes (remote)
