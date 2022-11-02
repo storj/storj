@@ -86,6 +86,7 @@ deploy-remote:
     ENV NOMAD_ADDR=$nomad
     ENV IP=$ip
     ENV IMAGE=$IMAGE
+    ENV TAG=$TAG
     RUN --push ./deploy-nightly.sh
 
 deploy-local:
