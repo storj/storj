@@ -310,12 +310,21 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          time.Now(),
-	})
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header,
+		macaroon.Action{
+			Op:            macaroon.ActionRead,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedPath,
+			Time:          now,
+		},
+		macaroon.Action{
+			Op:            macaroon.ActionList,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedPath,
+			Time:          now,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1055,12 +1064,21 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
-	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
-		Time:          time.Now(),
-	})
+	now := time.Now()
+	keyInfo, err := endpoint.validateAuthAny(ctx, req.Header,
+		macaroon.Action{
+			Op:            macaroon.ActionRead,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedPath,
+			Time:          now,
+		},
+		macaroon.Action{
+			Op:            macaroon.ActionList,
+			Bucket:        req.Bucket,
+			EncryptedPath: req.EncryptedPath,
+			Time:          now,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
