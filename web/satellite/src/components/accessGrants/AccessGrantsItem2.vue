@@ -84,14 +84,14 @@ export default class AccessGrantsItem extends Resizable {
 
             &__dropdown {
                 position: absolute;
-                top: 25px;
+                top: 55px;
                 right: 15px;
                 background: #fff;
                 box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
                 border-radius: 6px;
                 width: 255px;
-                padding: 10px 0;
                 z-index: 100;
+                overflow: hidden;
 
                 &__item {
                     display: flex;
@@ -106,10 +106,10 @@ export default class AccessGrantsItem extends Resizable {
                     &:hover {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
+                        color: var(--c-blue-3);
 
                         svg :deep(path) {
-                            fill: #0068dc;
-                            stroke: #0068dc;
+                            fill: var(--c-blue-3);
                         }
                     }
                 }
