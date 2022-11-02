@@ -6,14 +6,14 @@
         :item="itemToRender"
         :on-click="onClick"
     >
-        <th slot="options" v-click-outside="closeDropdown" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
+        <th slot="options" v-click-outside="closeDropdown" :class="{active: isDropdownOpen}" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
             <div v-if="isDropdownOpen" class="bucket-item__functional__dropdown">
                 <div class="bucket-item__functional__dropdown__item" @click.stop="onDetailsClick">
                     <details-icon />
                     <p class="bucket-item__functional__dropdown__item__label">View Bucket Details</p>
                 </div>
-                <div class="bucket-item__functional__dropdown__item" @click.stop="onDeleteClick">
+                <div class="bucket-item__functional__dropdown__item delete" @click.stop="onDeleteClick">
                     <delete-icon />
                     <p class="bucket-item__functional__dropdown__item__label">Delete Bucket</p>
                 </div>
@@ -149,14 +149,16 @@ export default class BucketItem extends Resizable {
                 box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
                 border-radius: 6px;
                 width: 255px;
-                padding: 10px 0;
                 z-index: 100;
+                overflow: hidden;
 
                 &__item {
                     display: flex;
                     align-items: center;
                     padding: 20px 25px;
                     width: calc(100% - 50px);
+                    transition-duration: .5s;
+
 
                     &__label {
                         margin: 0 0 0 10px;
@@ -165,13 +167,17 @@ export default class BucketItem extends Resizable {
                     &:hover {
                         background-color: #f4f5f7;
                         font-family: 'font_medium', sans-serif;
+                        color: var(--c-blue-3);
 
                         svg :deep(path) {
-                            fill: #0068dc;
-                            stroke: #0068dc;
+                            fill: var(--c-blue-3);
                         }
                     }
                 }
+
+                 &__item.delete {
+                    border-top: 1px solid #e5e7eb;
+                 }
             }
 
             &__message {
@@ -252,10 +258,6 @@ export default class BucketItem extends Resizable {
                     }
                 }
             }
-        }
-
-        &:hover {
-            background-color: #e6e9ef;
         }
     }
 </style>

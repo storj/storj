@@ -2,10 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="bucket-settings-nav" @click.stop.prevent="isDropdownOpen = !isDropdownOpen">
+    <div 
+        @click.stop.prevent="isDropdownOpen = !isDropdownOpen"
+        @mouseenter="isHoveredOver = true" 
+        @mouseleave="isHoveredOver = false" 
+        class="bucket-settings-nav"  
+    >
         <div class="bucket-settings-nav__button">
-            <GearIcon />
-            <arrow-down-icon />
+            <GearIcon class="bucket-settings-nav__button__icon" :class="{active: isHoveredOver || isDropdownOpen}"  />
+            <arrow-down-icon  class="bucket-settings-nav__arrow" :class="{active: isDropdownOpen, hovered: isHoveredOver}" />
         </div>
         <div v-show="isDropdownOpen" v-click-outside="closeDropdown" class="bucket-settings-nav__dropdown">
             <!-- TODO: add other options and place objects popup in common place and trigger from store -->
@@ -27,10 +32,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
+import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
+
 
 // @vue/component
 @Component({
@@ -46,6 +52,7 @@ export default class BucketSettingsNav extends Vue {
     public readonly bucketName: string;
 
     public isDropdownOpen = false;
+    public isHoveredOver = false;
 
     public closeDropdown(): void {
         if (!this.isDropdownOpen) return;
@@ -85,14 +92,16 @@ export default class BucketSettingsNav extends Vue {
 </script>
 
 <style scoped lang="scss">
+
 .bucket-settings-nav {
     position: relative;
     font-family: 'font_regular', sans-serif;
     font-style: normal;
     display: flex;
     align-items: center;
-    padding: 14px 16px;
+    padding: 14px 18px;
     height: 44px;
+    width: 78px;
     box-sizing: border-box;
     font-weight: normal;
     font-size: 14px;
@@ -103,6 +112,10 @@ export default class BucketSettingsNav extends Vue {
     border: 1px solid var(--c-grey-3);
     border-radius: 8px;
 
+    &:hover, &:active, &:focus {
+        border: 1px solid var(--c-blue-3);
+    }
+
     &__button {
         display: flex;
         align-items: center;
@@ -111,6 +124,17 @@ export default class BucketSettingsNav extends Vue {
 
         svg:first-of-type {
             margin-right: 10px;
+        }
+
+        &__icon {
+            transition-duration: .5s;
+        }
+
+        &__icon.active {
+            
+            :deep(path) {
+                fill: #0068dc;
+            }
         }
     }
 
@@ -121,12 +145,13 @@ export default class BucketSettingsNav extends Vue {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        padding: 10px 0;
         background: #fff;
         box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
         width: 255px;
         z-index: 100;
+        transition-duration: .5s;
+        overflow: hidden;
 
         &__item {
             box-sizing: border-box;
@@ -134,6 +159,7 @@ export default class BucketSettingsNav extends Vue {
             align-items: center;
             padding: 17px 21px;
             width: 100%;
+            transition-duration: .5s;
 
             &__label {
                 margin: 0 0 0 17px;
@@ -142,8 +168,27 @@ export default class BucketSettingsNav extends Vue {
             &:hover {
                 background-color: #f4f5f7;
                 font-family: 'font_medium', sans-serif;
-                fill: #0068dc;
+                color: var(--c-blue-3);
+
+                :deep(path) {
+                    fill: #0068dc;
+                }
             }
+        }
+    }
+
+    &__arrow {
+        transition-duration: .5s;
+    }
+
+    &__arrow.active {
+        transform: rotate(180deg) scaleX(-1);
+    }
+
+    &__arrow.hovered {
+
+       :deep(path) {
+            fill: #0068dc;
         }
     }
 }
