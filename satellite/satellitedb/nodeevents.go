@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/nodeevents"
@@ -30,6 +32,8 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, nodeID storj.Nod
 	if err != nil {
 		return nodeEvent, err
 	}
+
+	ne.db.log.Info("node event inserted", zap.Int("type", int(eventType)), zap.String("email", email), zap.String("node ID", nodeID.String()))
 
 	return fromDBX(entry)
 }
