@@ -129,7 +129,7 @@
                 <ChecksArea
                     label="Suspension Score"
                     :amount="audits.suspensionScore.label"
-                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 60% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
+                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 96% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
                 />
                 <ChecksArea
                     label="Audit Score"

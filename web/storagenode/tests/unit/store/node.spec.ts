@@ -102,15 +102,15 @@ describe('mutations', () => {
     it('selects all satellites', () => {
         const satelliteInfo = new Satellites();
         satelliteInfo.satellitesScores = [
-            new SatelliteScores('name1', 0.7, 0.9, 1),
-            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+            new SatelliteScores('name1', 0.97, 0.97, 1),
+            new SatelliteScores('name1', 0.98, 0.98, 0.98),
         ];
 
         store.commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, satelliteInfo);
 
         expect(state.node.selectedSatellite.id).toBe('');
         expect(state.node.satellitesScores.length).toBe(satelliteInfo.satellitesScores.length);
-        expect(state.node.satellitesScores[0].auditScore.label).toBe('70 %');
+        expect(state.node.satellitesScores[0].auditScore.label).toBe('97 %');
         expect(state.node.satellitesScores[0].iconClassName).toBe('warning');
     });
 
@@ -281,8 +281,8 @@ describe('actions', () => {
     it('success fetch all satellites info', async () => {
         const satellitesInfo = new Satellites();
         satellitesInfo.satellitesScores = [
-            new SatelliteScores('name1', 0.7, 0.9, 1),
-            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+            new SatelliteScores('name1', 0.97, 0.9, 1),
+            new SatelliteScores('name1', 0.98, 0.98, 0.98),
         ];
 
         jest.spyOn(nodeApi, 'satellites').mockReturnValue(
@@ -295,7 +295,7 @@ describe('actions', () => {
         expect(state.node.satellitesScores.length).toBe(satellitesInfo.satellitesScores.length);
         expect(state.node.satellitesScores[0].onlineScore.label).toBe('100 %');
         expect(state.node.satellitesScores[0].auditScore.statusClassName).toBe('warning');
-        expect(state.node.satellitesScores[1].auditScore.label).toBe('80 %');
+        expect(state.node.satellitesScores[1].auditScore.label).toBe('98 %');
     });
 });
 

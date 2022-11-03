@@ -330,9 +330,9 @@ export class Score {
     public label: string;
     public statusClassName: string;
 
-    private readonly WARNING_MINIMUM_SCORE: number = 0.95;
+    private readonly WARNING_MINIMUM_SCORE: number = 0.99;
     private readonly WARNING_CLASSNAME: string = 'warning';
-    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
+    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.96;
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(
