@@ -2148,6 +2148,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column contained to nodes table",
+				Version:     216,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN contained timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -174,6 +174,7 @@ CREATE TABLE nodes (
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL DEFAULT false,
+	contained timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
