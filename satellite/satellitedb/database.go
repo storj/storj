@@ -83,6 +83,7 @@ var safelyPartitionableDBs = map[string]bool{
 	// validated to be safely partitionable and that they do not do
 	// cross-db queries.
 	"repairqueue": true,
+	"nodeevents":  true,
 }
 
 // Open creates instance of satellite.DB.
