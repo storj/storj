@@ -45,7 +45,7 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, nodeID storj.Nod
 func (ne *nodeEvents) GetLatestByEmailAndEvent(ctx context.Context, email string, event nodeevents.Type) (nodeEvent nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxNE, err := ne.db.Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, dbx.NodeEvent_Email(email), dbx.NodeEvent_Event(int(event)))
+	dbxNE, err := ne.db.First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, dbx.NodeEvent_Email(email), dbx.NodeEvent_Event(int(event)))
 	if err != nil {
 		return nodeEvent, err
 	}

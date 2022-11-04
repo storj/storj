@@ -14040,13 +14040,13 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
 	node_event_email NodeEvent_Email_Field,
 	node_event_event NodeEvent_Event_Field) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, node_event_email.value(), node_event_event.value())
@@ -14066,7 +14066,7 @@ func (obj *pgxImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx 
 				if err := __rows.Err(); err != nil {
 					return nil, err
 				}
-				return nil, sql.ErrNoRows
+				return nil, nil
 			}
 
 			node_event = &NodeEvent{}
@@ -14075,22 +14075,11 @@ func (obj *pgxImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx 
 				return nil, err
 			}
 
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return node_event, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
-			}
-			if err == errTooManyRows {
-				return nil, tooManyRows("NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -21831,13 +21820,13 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
 	node_event_email NodeEvent_Email_Field,
 	node_event_event NodeEvent_Event_Field) (
 	node_event *NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT node_events.id, node_events.email, node_events.node_id, node_events.event, node_events.created_at, node_events.email_sent FROM node_events WHERE node_events.email = ? AND node_events.event = ? ORDER BY node_events.created_at DESC LIMIT 1 OFFSET 0")
 
 	var __values []interface{}
 	__values = append(__values, node_event_email.value(), node_event_event.value())
@@ -21857,7 +21846,7 @@ func (obj *pgxcockroachImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_Creat
 				if err := __rows.Err(); err != nil {
 					return nil, err
 				}
-				return nil, sql.ErrNoRows
+				return nil, nil
 			}
 
 			node_event = &NodeEvent{}
@@ -21866,22 +21855,11 @@ func (obj *pgxcockroachImpl) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_Creat
 				return nil, err
 			}
 
-			if __rows.Next() {
-				return nil, errTooManyRows
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-
 			return node_event, nil
 		}()
 		if err != nil {
 			if obj.shouldRetry(err) {
 				continue
-			}
-			if err == errTooManyRows {
-				return nil, tooManyRows("NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -29240,6 +29218,17 @@ func (rx *Rx) First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt
 	return tx.First_BillingTransaction_By_Source_And_Type_OrderBy_Desc_CreatedAt(ctx, billing_transaction_source, billing_transaction_type)
 }
 
+func (rx *Rx) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+	node_event_email NodeEvent_Email_Field,
+	node_event_event NodeEvent_Event_Field) (
+	node_event *NodeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, node_event_email, node_event_event)
+}
+
 func (rx *Rx) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_status StorjscanPayment_Status_Field) (
 	row *BlockNumber_Row, err error) {
@@ -29386,17 +29375,6 @@ func (rx *Rx) Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Positio
 		return
 	}
 	return tx.Get_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
-}
-
-func (rx *Rx) Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
-	node_event_email NodeEvent_Email_Field,
-	node_event_event NodeEvent_Event_Field) (
-	node_event *NodeEvent, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, node_event_email, node_event_event)
 }
 
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
@@ -30732,6 +30710,11 @@ type Methods interface {
 		billing_transaction_type BillingTransaction_Type_Field) (
 		billing_transaction *BillingTransaction, err error)
 
+	First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
+		node_event_email NodeEvent_Email_Field,
+		node_event_event NodeEvent_Event_Field) (
+		node_event *NodeEvent, err error)
+
 	First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		row *BlockNumber_Row, err error)
@@ -30795,11 +30778,6 @@ type Methods interface {
 		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		graceful_exit_segment_transfer *GracefulExitSegmentTransfer, err error)
-
-	Get_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx context.Context,
-		node_event_email NodeEvent_Email_Field,
-		node_event_event NodeEvent_Event_Field) (
-		node_event *NodeEvent, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (

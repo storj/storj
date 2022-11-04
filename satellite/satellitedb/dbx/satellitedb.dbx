@@ -20,7 +20,7 @@ model node_event (
 
 create node_event()
 
-read one (
+read first (
 	select node_event
 	where node_event.email = ?
 	where node_event.event = ?
