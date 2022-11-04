@@ -163,6 +163,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { Size } from '@/private/memory/size';
+import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
@@ -174,14 +179,9 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
 
-import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
-import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
-
-import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { Size } from '@/private/memory/size';
-import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
 // @vue/component
 @Component ({

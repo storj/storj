@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { newNotificationsModule, NOTIFICATIONS_ACTIONS, NOTIFICATIONS_MUTATIONS } from '@/app/store/modules/notifications';
 import { NotificationsState, UINotification } from '@/app/types/notifications';
@@ -13,7 +14,6 @@ import {
     NotificationTypes,
 } from '@/storagenode/notifications/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 

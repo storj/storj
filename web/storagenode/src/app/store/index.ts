@@ -4,6 +4,9 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 
+import { appStateModule } from './modules/appState';
+import { newNodeModule } from './modules/node';
+
 import { newNotificationsModule } from '@/app/store/modules/notifications';
 import { newPayoutModule } from '@/app/store/modules/payout';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
@@ -12,9 +15,6 @@ import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { NotificationsService } from '@/storagenode/notifications/service';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
-
-import { appStateModule } from './modules/appState';
-import { newNodeModule } from './modules/node';
 
 const notificationsApi = new NotificationsHttpApi();
 const notificationsService = new NotificationsService(notificationsApi);

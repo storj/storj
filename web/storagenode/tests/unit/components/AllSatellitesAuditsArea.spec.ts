@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Satellites, SatelliteScores } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -18,7 +18,7 @@ const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
 const nodeModule = newNodeModule(nodeService);
 
-const store = new Vuex.Store({ modules: { node: nodeModule }});
+const store = new Vuex.Store({ modules: { node: nodeModule } });
 
 describe('AllSatellitesAuditsArea', (): void => {
 

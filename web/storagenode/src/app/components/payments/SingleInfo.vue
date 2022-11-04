@@ -31,13 +31,13 @@ import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
     },
 })
 export default class SingleInfo extends Vue {
-    @Prop({default: '100%'})
+    @Prop({ default: '100%' })
     public readonly width: string;
-    @Prop({default: 'Label'})
+    @Prop({ default: 'Label' })
     public readonly label: string;
-    @Prop({default: 'value'})
+    @Prop({ default: 'value' })
     public readonly value: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly infoText: string;
 
     /**

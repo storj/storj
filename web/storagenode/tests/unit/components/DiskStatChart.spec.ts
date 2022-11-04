@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import DiskStatChart from '@/app/components/DiskStatChart.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
 import { Size } from '@/private/memory/size';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Dashboard, SatelliteInfo, Traffic } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import DiskStatChart from '@/app/components/DiskStatChart.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -23,7 +23,7 @@ const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
 const nodeModule = newNodeModule(nodeService);
 
-const store = new Vuex.Store({ modules: { node: nodeModule }});
+const store = new Vuex.Store({ modules: { node: nodeModule } });
 
 describe('DiskStatChart', (): void => {
     it('renders correctly', (): void => {

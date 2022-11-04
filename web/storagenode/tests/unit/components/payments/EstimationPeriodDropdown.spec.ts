@@ -3,8 +3,7 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
-
-import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { appStateModule } from '@/app/store/modules/appState';
 import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
@@ -17,7 +16,8 @@ import {
     Stamp,
     Traffic,
 } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
 const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
@@ -31,7 +31,7 @@ Vue.directive('click-outside', {
     unbind: (): void => { return; },
 });
 
-const store = new Vuex.Store({ modules: { appStateModule, node: nodeModule }});
+const store = new Vuex.Store({ modules: { appStateModule, node: nodeModule } });
 
 describe('EstimationPeriodDropdown', (): void => {
     it('renders correctly', (): void => {

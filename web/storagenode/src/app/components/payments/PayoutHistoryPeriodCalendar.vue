@@ -35,8 +35,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import {
@@ -44,6 +42,8 @@ import {
     monthNames,
     StoredMonthsByYear,
 } from '@/app/types/payout';
+
+import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
 // @vue/component
 @Component({

@@ -62,7 +62,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     nodeInfo.walletFeatures,
                     nodeInfo.isUpToDate,
                     nodeInfo.quicEnabled,
-                    nodeInfo.configuredPort
+                    nodeInfo.configuredPort,
                 );
 
                 state.utilization = new Utilization(
@@ -114,12 +114,12 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
             },
         },
         actions: {
-            [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: StorageNodeContext): Promise<void> {
+            [NODE_ACTIONS.GET_NODE_INFO]: async function ({ commit }: StorageNodeContext): Promise<void> {
                 const dashboard = await service.dashboard();
 
                 commit(NODE_MUTATIONS.POPULATE_STORE, dashboard);
             },
-            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}: StorageNodeContext, id?: string): Promise<void> {
+            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({ commit }: StorageNodeContext, id?: string): Promise<void> {
                 let response: Satellite | Satellites;
                 if (id) {
                     response = await service.satellite(id);

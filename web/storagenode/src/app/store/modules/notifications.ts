@@ -60,7 +60,7 @@ export function newNotificationsModule(service: NotificationsService): StoreModu
             },
         },
         actions: {
-            [NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS]: async function ({commit}: NotificationsContext, pageIndex: number): Promise<void> {
+            [NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS]: async function ({ commit }: NotificationsContext, pageIndex: number): Promise<void> {
                 const notificationsResponse = await service.notifications(pageIndex);
 
                 const notifications = notificationsResponse.page.notifications.map(notification => new UINotification(notification));
@@ -73,11 +73,11 @@ export function newNotificationsModule(service: NotificationsService): StoreModu
                     commit(NOTIFICATIONS_MUTATIONS.SET_LATEST, notificationState);
                 }
             },
-            [NOTIFICATIONS_ACTIONS.MARK_AS_READ]: async function ({commit}: NotificationsContext, id: string): Promise<void> {
+            [NOTIFICATIONS_ACTIONS.MARK_AS_READ]: async function ({ commit }: NotificationsContext, id: string): Promise<void> {
                 await service.readSingeNotification(id);
                 commit(NOTIFICATIONS_MUTATIONS.MARK_AS_READ, id);
             },
-            [NOTIFICATIONS_ACTIONS.READ_ALL]: async function ({commit}: NotificationsContext): Promise<void> {
+            [NOTIFICATIONS_ACTIONS.READ_ALL]: async function ({ commit }: NotificationsContext): Promise<void> {
                 await service.readAllNotifications();
 
                 commit(NOTIFICATIONS_MUTATIONS.READ_ALL);

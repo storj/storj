@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newPayoutModule } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -22,7 +22,7 @@ const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
 const payoutModule = newPayoutModule(payoutService);
 
-const store = new Vuex.Store({ modules: { payoutModule }});
+const store = new Vuex.Store({ modules: { payoutModule } });
 
 describe('PayoutHistoryTableItem', (): void => {
     it('renders correctly with actual values (eth)', async (): Promise<void> => {

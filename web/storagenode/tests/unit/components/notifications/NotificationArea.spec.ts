@@ -3,6 +3,7 @@
 
 import Router from 'vue-router';
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newNotificationsModule, NOTIFICATIONS_MUTATIONS } from '@/app/store/modules/notifications';
 import { NotificationsState, UINotification } from '@/app/types/notifications';
@@ -10,7 +11,6 @@ import NotificationsArea from '@/app/views/NotificationsArea.vue';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 import { Notification } from '@/storagenode/notifications/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -20,7 +20,7 @@ const notificationsApi = new NotificationsHttpApi();
 const notificationsService = new NotificationsService(notificationsApi);
 const notificationsModule = newNotificationsModule(notificationsService);
 
-const store = new Vuex.Store({ modules: { notificationsModule }});
+const store = new Vuex.Store({ modules: { notificationsModule } });
 
 describe('NotificationsArea', (): void => {
     it('renders correctly with no notifications', (): void => {

@@ -17,13 +17,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { monthNames } from '@/app/types/payout';
+
 import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { monthNames } from '@/app/types/payout';
 
 // @vue/component
 @Component({

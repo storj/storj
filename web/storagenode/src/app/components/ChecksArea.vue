@@ -31,11 +31,11 @@ import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
     },
 })
 export default class ChecksArea extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly label: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly amount: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly infoText: string;
 
     /**

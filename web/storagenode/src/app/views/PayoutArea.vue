@@ -49,6 +49,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
+
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
@@ -58,12 +64,6 @@ import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
 // @vue/component
 @Component ({

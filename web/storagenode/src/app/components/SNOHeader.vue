@@ -53,8 +53,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
+import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+
 import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
+import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
 
 import CopyIcon from '@/../static/images/Copy.svg';
 import StorjIconWithoutText from '@/../static/images/LogoWithoutText.svg';
@@ -62,12 +68,6 @@ import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
 import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
-
-import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 
 const {
     GET_NODE_INFO,
@@ -172,7 +172,7 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
         } catch (error) {
-            console.error("fetching satellite data", error);
+            console.error('fetching satellite data', error);
         }
 
         try {

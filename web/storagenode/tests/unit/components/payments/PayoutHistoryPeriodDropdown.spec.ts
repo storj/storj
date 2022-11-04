@@ -4,8 +4,7 @@
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 import Vuex from 'vuex';
-
-import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { appStateModule } from '@/app/store/modules/appState';
 import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
@@ -15,7 +14,8 @@ import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Satellites } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
 
 let clickOutsideEvent: EventListener;
 
@@ -48,7 +48,7 @@ const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
 const nodeModule = newNodeModule(nodeService);
 
-const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule, appStateModule }});
+const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule, appStateModule } });
 
 describe('PayoutHistoryPeriodDropdown', (): void => {
     it('renders correctly with actual values', async (): Promise<void> => {

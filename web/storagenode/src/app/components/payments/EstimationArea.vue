@@ -144,10 +144,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
-
-import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
@@ -161,6 +157,10 @@ import {
 } from '@/app/types/payout';
 import { Size } from '@/private/memory/size';
 import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
+
+import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
+
+import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 /**
  * Describes table row data item.

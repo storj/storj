@@ -1,9 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import WalletArea from '@/app/components/WalletArea.vue';
-
 import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import WalletArea from '@/app/components/WalletArea.vue';
 
 const localVue = createLocalVue();
 

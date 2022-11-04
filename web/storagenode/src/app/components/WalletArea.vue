@@ -59,11 +59,11 @@ import WalletIcon from '@/../static/images/wallet.svg';
     },
 })
 export default class WalletArea extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly label: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly walletAddress: string;
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     private readonly walletFeatures: string[];
 
     public get isZkSyncEnabled(): boolean {

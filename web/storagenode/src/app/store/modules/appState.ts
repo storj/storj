@@ -98,7 +98,7 @@ export const appStateModule = {
         },
     },
     actions: {
-        [APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION]: function ({commit, state}: AppContext): void {
+        [APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION]: function ({ commit, state }: AppContext): void {
             if (!state.isSatelliteSelectionShown) {
                 commit(APPSTATE_MUTATIONS.TOGGLE_SATELLITE_SELECTION);
 
@@ -107,10 +107,10 @@ export const appStateModule = {
 
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
         },
-        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR]: function ({commit}: AppContext, value: boolean): void {
+        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_CALENDAR]: function ({ commit }: AppContext, value: boolean): void {
             commit(APPSTATE_MUTATIONS.TOGGLE_PAYOUT_CALENDAR, value);
         },
-        [APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART]: function ({commit, state}: AppContext): void {
+        [APPSTATE_ACTIONS.TOGGLE_EGRESS_CHART]: function ({ commit, state }: AppContext): void {
             if (!state.isBandwidthChartShown) {
                 commit(APPSTATE_MUTATIONS.TOGGLE_EGRESS_CHART);
                 commit(APPSTATE_MUTATIONS.TOGGLE_INGRESS_CHART);
@@ -121,7 +121,7 @@ export const appStateModule = {
             commit(APPSTATE_MUTATIONS.TOGGLE_BANDWIDTH_CHART);
             commit(APPSTATE_MUTATIONS.TOGGLE_EGRESS_CHART);
         },
-        [APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART]: function ({commit, state}: AppContext): void {
+        [APPSTATE_ACTIONS.TOGGLE_INGRESS_CHART]: function ({ commit, state }: AppContext): void {
             if (!state.isBandwidthChartShown) {
                 commit(APPSTATE_MUTATIONS.TOGGLE_INGRESS_CHART);
                 commit(APPSTATE_MUTATIONS.TOGGLE_EGRESS_CHART);
@@ -132,23 +132,23 @@ export const appStateModule = {
             commit(APPSTATE_MUTATIONS.TOGGLE_BANDWIDTH_CHART);
             commit(APPSTATE_MUTATIONS.TOGGLE_INGRESS_CHART);
         },
-        [APPSTATE_ACTIONS.SET_DARK_MODE]: function ({commit}: AppContext, value: boolean): void {
+        [APPSTATE_ACTIONS.SET_DARK_MODE]: function ({ commit }: AppContext, value: boolean): void {
             commit(APPSTATE_MUTATIONS.SET_DARK, value);
         },
-        [APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA]: function ({commit}: AppContext, value: boolean): void {
+        [APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA]: function ({ commit }: AppContext, value: boolean): void {
             commit(APPSTATE_MUTATIONS.SET_NO_PAYOUT_INFO, value);
         },
-        [APPSTATE_ACTIONS.SET_LOADING]: function ({commit}: AppContext, value: boolean): void {
+        [APPSTATE_ACTIONS.SET_LOADING]: function ({ commit }: AppContext, value: boolean): void {
             value ? commit(APPSTATE_MUTATIONS.SET_LOADING_STATE, value) :
                 setTimeout(() => { commit(APPSTATE_MUTATIONS.SET_LOADING_STATE, value); }, 1000);
         },
-        [APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS]: function ({commit}: AppContext): void {
+        [APPSTATE_ACTIONS.CLOSE_ADDITIONAL_CHARTS]: function ({ commit }: AppContext): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ADDITIONAL_CHARTS);
         },
-        [APPSTATE_ACTIONS.CLOSE_ALL_POPUPS]: function ({commit}: AppContext): void {
+        [APPSTATE_ACTIONS.CLOSE_ALL_POPUPS]: function ({ commit }: AppContext): void {
             commit(APPSTATE_MUTATIONS.CLOSE_ALL_POPUPS);
         },
-        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR]: function ({commit}: AppContext, value: boolean): void {
+        [APPSTATE_ACTIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR]: function ({ commit }: AppContext, value: boolean): void {
             commit(APPSTATE_MUTATIONS.TOGGLE_PAYOUT_HISTORY_CALENDAR, value);
         },
     },

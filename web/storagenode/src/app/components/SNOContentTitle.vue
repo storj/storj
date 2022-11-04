@@ -81,12 +81,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { StatusOnline } from '@/app/store/modules/node';
+import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
+
 import VInfo from '@/app/components/VInfo.vue';
 
 import CopyIcon from '@/../static/images/Copy.svg';
-
-import { StatusOnline } from '@/app/store/modules/node';
-import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.
@@ -98,8 +98,8 @@ class NodeInfo {
     public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
-    public quicEnabled: boolean
-    public configuredPort: string
+    public quicEnabled: boolean;
+    public configuredPort: string;
 
     public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean, quicEnabled: boolean, port: string) {
         this.id = id;
@@ -108,8 +108,8 @@ class NodeInfo {
         this.allowedVersion = this.toVersionString(allowedVersion);
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
-        this.quicEnabled = quicEnabled
-        this.configuredPort = port
+        this.quicEnabled = quicEnabled;
+        this.configuredPort = port;
     }
 
     private toVersionString(version: string): string {

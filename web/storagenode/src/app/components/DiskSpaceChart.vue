@@ -18,13 +18,13 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/BaseChart.vue';
-import VChart from '@/app/components/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storagenode/sno/sno';
+
+import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores stamp data for disc space chart's tooltip
@@ -41,7 +41,7 @@ class StampTooltip {
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class DiskSpaceChart extends BaseChart {
     private get chartBackgroundColor(): string {

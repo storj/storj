@@ -4,12 +4,12 @@
 import Vue from 'vue';
 import Router from 'vue-router';
 
-import Page404 from '@/app/components/errors/Page404.vue';
-
 import { NavigationLink } from '@/app/types/navigation';
 import DashboardArea from '@/app/views/DashboardArea.vue';
 import NotificationsArea from '@/app/views/NotificationsArea.vue';
 import PayoutArea from '@/app/views/PayoutArea.vue';
+
+import Page404 from '@/app/components/errors/Page404.vue';
 
 Vue.use(Router);
 

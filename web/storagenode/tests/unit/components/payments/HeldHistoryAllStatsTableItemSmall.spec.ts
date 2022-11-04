@@ -1,10 +1,11 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
 
 const localVue = createLocalVue();
 

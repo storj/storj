@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { newNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
@@ -19,7 +20,6 @@ import {
     SatelliteScores,
     Stamp, Traffic,
 } from '@/storagenode/sno/sno';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 
