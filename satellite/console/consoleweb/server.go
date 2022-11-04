@@ -94,7 +94,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
 	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
-	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
+	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"true"`
 	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
