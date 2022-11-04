@@ -7,7 +7,7 @@ module.exports = {
     productionSourceMap: false,
     parallel: true,
     lintOnSave: process.env.NODE_ENV !== 'production', // disables eslint for builds
-    assetsDir: "static",
+    assetsDir: 'static',
     configureWebpack: {
         plugins: [],
     },
@@ -18,7 +18,7 @@ module.exports = {
         // Disable node_modules/.cache directory usage due to permissions.
         // This is enabled by default in https://cli.vuejs.org/core-plugins/babel.html#caching.
         config.module.rule('js').use('babel-loader')
-            .tap(options => Object.assign(options, {cacheDirectory: false}));
+            .tap(options => Object.assign(options, { cacheDirectory: false }));
 
         config
             .plugin('html')

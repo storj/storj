@@ -43,11 +43,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
-import VButton from '@/app/components/common/VButton.vue';
-
 import { Config as RouterConfig } from '@/app/router';
 import { CreateNodeFields } from '@/nodes';
+
+import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
+import VButton from '@/app/components/common/VButton.vue';
 
 // @vue/component
 @Component({

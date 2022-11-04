@@ -31,10 +31,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { Node } from '@/nodes';
+
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
-
-import { Node } from '@/nodes';
 
 // @vue/component
 @Component({

@@ -29,11 +29,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { UpdateNodeModel } from '@/nodes';
+
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
-
-import { UpdateNodeModel } from '@/nodes';
 
 // @vue/component
 @Component({

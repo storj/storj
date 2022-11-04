@@ -1,9 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import NodeOptions from '@/app/components/common/NodeOptions.vue';
-
 import { shallowMount } from '@vue/test-utils';
+
+import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
 describe('NodeOptions', (): void => {
     it('renders correctly', async(): Promise<void> => {

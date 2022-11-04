@@ -37,9 +37,9 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-import PagesBlock from '@/app/components/common/PagesBlock.vue';
-
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
+
+import PagesBlock from '@/app/components/common/PagesBlock.vue';
 
 // @vue/component
 @Component({

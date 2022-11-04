@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import { RootState } from '@/app/store';
-import { CreateNodeFields, Node, NodeURL } from '@/nodes';
 import { createLocalVue } from '@vue/test-utils';
 
 import store, { nodesService } from '../mock/store';
+
+import { RootState } from '@/app/store';
+import { CreateNodeFields, Node, NodeURL } from '@/nodes';
 
 const node = new Node();
 const nodes = [node];
@@ -39,7 +39,7 @@ describe('mutations', () => {
 
         const selectedSatellite = state.nodes.selectedSatellite;
         expect(selectedSatellite).toBeDefined();
-        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
+        if (selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
     });
 
     it('saves selected node', () => {
@@ -49,7 +49,7 @@ describe('mutations', () => {
 
         const selectedNode = state.nodes.selectedNode;
         expect(selectedNode).toBeDefined();
-        if(selectedNode) expect(selectedNode.id).toBe(node.id);
+        if (selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });
 
@@ -191,7 +191,7 @@ describe('actions', () => {
 
         const selectedSatellite = state.nodes.selectedSatellite;
         expect(selectedSatellite).toBeDefined();
-        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
+        if (selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
 
         expect(state.nodes.nodes.length).toBe(1);
     });
@@ -203,6 +203,6 @@ describe('actions', () => {
 
         const selectedNode = state.nodes.selectedNode;
         expect(selectedNode).toBeDefined();
-        if(selectedNode) expect(selectedNode.id).toBe(node.id);
+        if (selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });

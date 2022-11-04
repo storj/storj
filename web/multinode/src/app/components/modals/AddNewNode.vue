@@ -40,11 +40,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { CreateNodeFields } from '@/nodes';
+
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
-
-import { CreateNodeFields } from '@/nodes';
 
 // @vue/component
 @Component({

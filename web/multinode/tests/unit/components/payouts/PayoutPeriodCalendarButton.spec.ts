@@ -2,10 +2,9 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
-
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 

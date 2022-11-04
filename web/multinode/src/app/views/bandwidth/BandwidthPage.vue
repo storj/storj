@@ -70,6 +70,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+import { BandwidthTraffic } from '@/bandwidth';
+
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
 import IngressChart from '@/app/components/bandwidth/IngressChart.vue';
@@ -77,9 +80,6 @@ import NodeSelectionDropdown from '@/app/components/common/NodeSelectionDropdown
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
-
-import { UnauthorizedError } from '@/api';
-import { BandwidthTraffic } from '@/bandwidth';
 
 // @vue/component
 @Component({

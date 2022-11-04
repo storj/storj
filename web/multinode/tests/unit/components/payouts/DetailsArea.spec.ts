@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { Currency } from '@/app/utils/currency';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 
 const localVue = createLocalVue();
 

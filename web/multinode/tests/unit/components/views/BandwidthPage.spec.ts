@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import store from '../../mock/store';
 
 import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
 import { BandwidthTraffic } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
-
-import store from '../../mock/store';
 
 const localVue = createLocalVue();
 

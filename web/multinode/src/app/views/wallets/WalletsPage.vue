@@ -36,13 +36,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+import { OperatorsState } from '@/app/store/operators';
+
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import VLink from '@/app/components/common/VLink.vue';
 import VPagination from '@/app/components/common/VPagination.vue';
 import WalletsTable from '@/app/components/wallets/tables/walletsSummary/WalletsTable.vue';
-
-import { UnauthorizedError } from '@/api';
-import { OperatorsState } from '@/app/store/operators';
 
 // @vue/component
 @Component({

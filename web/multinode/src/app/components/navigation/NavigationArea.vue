@@ -21,7 +21,9 @@
 
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
-import Vue, {VueConstructor} from 'vue';
+import Vue, { VueConstructor } from 'vue';
+
+import { Config as RouterConfig } from '@/app/router';
 
 import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
 import NotificationIcon from '@/../static/images/icons/navigation/notifications.svg';
@@ -29,8 +31,6 @@ import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
 import ReputationIcon from '@/../static/images/icons/navigation/reputation.svg';
 import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 import StorjLogo from '@/../static/images/Logo.svg';
-
-import { Config as RouterConfig } from '@/app/router';
 
 export class NavigationLink {
     constructor(

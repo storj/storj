@@ -22,9 +22,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/app/components/common/VButton.vue';
-
 import { Config as RouterConfig } from '@/app/router';
+
+import VButton from '@/app/components/common/VButton.vue';
 
 // @vue/component
 @Component({

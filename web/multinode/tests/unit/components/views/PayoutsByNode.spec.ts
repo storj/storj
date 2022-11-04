@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import { Currency } from '@/app/utils/currency';
-import PayoutsByNode from '@/app/views/payouts/PayoutsByNode.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import store from '../../mock/store';
+
+import { Currency } from '@/app/utils/currency';
+import PayoutsByNode from '@/app/views/payouts/PayoutsByNode.vue';
 
 const localVue = createLocalVue();
 

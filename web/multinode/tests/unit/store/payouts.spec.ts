@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import { RootState } from '@/app/store';
-import { Expectation, HeldAmountSummary, PayoutsSummary, Paystub } from '@/payouts';
 import { createLocalVue } from '@vue/test-utils';
 
 import store, { payoutsService } from '../mock/store';
+
+import { RootState } from '@/app/store';
+import { Expectation, HeldAmountSummary, PayoutsSummary, Paystub } from '@/payouts';
 
 const state = store.state as RootState;
 

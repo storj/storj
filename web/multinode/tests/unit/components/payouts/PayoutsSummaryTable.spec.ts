@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { NodePayoutsSummary } from '@/payouts';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 const localVue = createLocalVue();
 
