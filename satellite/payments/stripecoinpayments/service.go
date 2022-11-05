@@ -878,9 +878,11 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 				return Error.Wrap(err)
 			}
 
-			if stripeInvoice.AutoAdvance {
+			switch {
+			case stripeInvoice == nil:
+			case stripeInvoice.AutoAdvance:
 				scheduled++
-			} else {
+			default:
 				draft++
 			}
 		}
@@ -895,8 +897,8 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 	return nil
 }
 
-// createInvoice creates invoice for stripe customer. Returns nil error if there are no
-// pending invoice line items for customer.
+// createInvoice creates invoice for stripe customer. Returns nil error and nil invoice
+// if there are no pending invoice line items for customer.
 func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (stripeInvoice *stripe.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
