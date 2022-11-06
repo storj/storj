@@ -1699,6 +1699,19 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
 			return nil, Error.New("cannot set bandwidth limit below current usage")
 		}
+		/*
+			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
+			or storage limit in the UI (to ensure their limits are not unintentionally modified by the satellite admin),
+			the BandwidthLimit and StorageLimit is still used for verifying limits during uploads and downloads.
+		*/
+		if project.StorageLimit != nil && updatedProject.StorageLimit != *project.StorageLimit {
+			project.UserSpecifiedStorageLimit = new(memory.Size)
+			*project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
+		}
+		if project.BandwidthLimit != nil && updatedProject.BandwidthLimit != *project.BandwidthLimit {
+			project.UserSpecifiedBandwidthLimit = new(memory.Size)
+			*project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
+		}
 
 		project.StorageLimit = new(memory.Size)
 		*project.StorageLimit = updatedProject.StorageLimit

@@ -119,6 +119,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
 				require.NotEqual(t, *up1Pro1.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Pro1.ID, console.ProjectInfo{
