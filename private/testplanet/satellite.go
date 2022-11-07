@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -92,6 +93,12 @@ type Satellite struct {
 		DB           overlay.DB
 		Service      *overlay.Service
 		DQStrayNodes *straynodes.Chore
+	}
+
+	NodeEvents struct {
+		DB       nodeevents.DB
+		Notifier nodeevents.Notifier
+		Chore    *nodeevents.Chore
 	}
 
 	Metainfo struct {
@@ -574,6 +581,10 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
+
+	system.NodeEvents.DB = peer.NodeEvents.DB
+	system.NodeEvents.Notifier = peer.NodeEvents.Notifier
+	system.NodeEvents.Chore = peer.NodeEvents.Chore
 
 	system.Reputation.Service = peer.Reputation.Service
 

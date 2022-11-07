@@ -145,6 +145,7 @@ type Config struct {
 
 	Contact    contact.Config
 	Overlay    overlay.Config
+	NodeEvents nodeevents.Config
 	StrayNodes straynodes.Config
 
 	Metainfo metainfo.Config

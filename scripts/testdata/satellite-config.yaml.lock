@@ -670,6 +670,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# how long to wait before checking the node events DB again if there is nothing to work on
+# node-events.interval: 5m0s
+
+# how long the earliest instance of an event for a particular email should exist in the DB before it is selected
+# node-events.selection-wait-period: 5m0s
+
 # encryption keys to encrypt info in orders
 # orders.encryption-keys: ""
 

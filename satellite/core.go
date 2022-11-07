@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
@@ -85,6 +86,12 @@ type Core struct {
 		DB           overlay.DB
 		Service      *overlay.Service
 		DQStrayNodes *straynodes.Chore
+	}
+
+	NodeEvents struct {
+		DB       nodeevents.DB
+		Notifier nodeevents.Notifier
+		Chore    *nodeevents.Chore
 	}
 
 	Metainfo struct {
@@ -271,6 +278,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Overlay DQ Stray Nodes", peer.Overlay.DQStrayNodes.Loop))
+		}
+	}
+
+	{ // setup node events
+		if config.Overlay.SendNodeEmails {
+			peer.NodeEvents.Notifier = nodeevents.NewMockNotifier(log.Named("node events:mock notifier"))
+			peer.NodeEvents.DB = peer.DB.NodeEvents()
+			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "node-events:chore",
+				Run:   peer.NodeEvents.Chore.Run,
+				Close: peer.NodeEvents.Chore.Close,
+			})
 		}
 	}
 
