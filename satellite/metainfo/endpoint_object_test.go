@@ -781,7 +781,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			response, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
 				StreamID: beginObjectResponse.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: 0,
 				},
 				MaxOrderLimit: memory.MiB.Int64(),
@@ -815,7 +815,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			}
 			err = metainfoClient.CommitSegment(ctx, metaclient.CommitSegmentParams{
 				SegmentID: response.SegmentID,
-				Encryption: storj.SegmentEncryption{
+				Encryption: metaclient.SegmentEncryption{
 					EncryptedKey: testrand.Bytes(256),
 				},
 				PlainSize:         5000,
@@ -1031,7 +1031,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 				StreamID: object.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: -1,
 				},
 			})
@@ -1049,7 +1049,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 				StreamID: object.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: -1,
 				},
 			})
@@ -1068,7 +1068,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.NoError(t, err)
 			_, err = metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 				StreamID: object.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: -1,
 				},
 			})
