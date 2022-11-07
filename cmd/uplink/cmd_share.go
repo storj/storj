@@ -200,6 +200,12 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 		return nil, errs.New("no auth service address provided")
 	}
 
+	var edgeConfig edge.Config
+
+	if strings.HasPrefix(authService, "insecure://") {
+		authService = strings.TrimPrefix(authService, "insecure://")
+		edgeConfig.InsecureSkipVerify = true
+	}
 	// preserve compatibility with previous https service
 	authService = strings.TrimPrefix(authService, "https://")
 	authService = strings.TrimSuffix(authService, "/")
@@ -215,10 +221,9 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 		}
 	}
 
-	edgeConfig := edge.Config{
-		AuthServiceAddress: authService,
-		CertificatePEM:     certificatePEM,
-	}
+	edgeConfig.AuthServiceAddress = authService
+	edgeConfig.CertificatePEM = certificatePEM
+
 	return edgeConfig.RegisterAccess(ctx, access, &edge.RegisterAccessOptions{Public: public})
 }
 
