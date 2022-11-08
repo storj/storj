@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/uplink"
 )
 
 func TestGarbageCollectionBloomFilters(t *testing.T) {
@@ -73,7 +74,19 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 			err = service.RunOnce(ctx)
 			require.NoError(t, err)
 
-			iterator := project.ListObjects(ctx, tc.Bucket, nil)
+			download, err := project.DownloadObject(ctx, tc.Bucket, bloomfilter.LATEST, nil)
+			require.NoError(t, err)
+
+			value, err := io.ReadAll(download)
+			require.NoError(t, err)
+
+			err = download.Close()
+			require.NoError(t, err)
+
+			prefix := string(value)
+			iterator := project.ListObjects(ctx, tc.Bucket, &uplink.ListObjectsOptions{
+				Prefix: prefix + "/",
+			})
 
 			count := 0
 			nodeIds := []string{}
@@ -113,7 +126,7 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 
 			expectedPackNames := []string{}
 			for i := 0; i < tc.ExpectedPacks; i++ {
-				expectedPackNames = append(expectedPackNames, "bloomfilters-"+strconv.Itoa(i)+".zip")
+				expectedPackNames = append(expectedPackNames, prefix+"/bloomfilters-"+strconv.Itoa(i)+".zip")
 			}
 			sort.Strings(expectedPackNames)
 			sort.Strings(packNames)
@@ -130,7 +143,7 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 	})
 }
 
-func TestGarbageCollectionBloomFilters_NotEmptyBucket(t *testing.T) {
+func TestGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -165,12 +178,16 @@ func TestGarbageCollectionBloomFilters_NotEmptyBucket(t *testing.T) {
 		err = service.RunOnce(ctx)
 		require.NoError(t, err)
 
+		// check that there are 2 objects and the names match
 		iterator := project.ListObjects(ctx, "bloomfilters", nil)
-
-		// no new uploads, bucket structure was not changed
-		require.True(t, iterator.Next())
-		require.Equal(t, "some object", iterator.Item().Key)
-		require.False(t, iterator.Next())
-		require.NoError(t, iterator.Err())
+		keys := []string{}
+		for iterator.Next() {
+			if !iterator.Item().IsPrefix {
+				keys = append(keys, iterator.Item().Key)
+			}
+		}
+		require.Len(t, keys, 2)
+		require.Contains(t, keys, "some object")
+		require.Contains(t, keys, bloomfilter.LATEST)
 	})
 }

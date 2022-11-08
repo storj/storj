@@ -6,6 +6,8 @@ package sender
 import (
 	"archive/zip"
 	"context"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -16,6 +18,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink"
@@ -107,7 +110,26 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 		err = errs.Combine(err, project.Close())
 	}()
 
-	return IterateZipObjectKeys(ctx, *project, service.Config.Bucket, func(objectKey string) error {
+	download, err := project.DownloadObject(ctx, service.Config.Bucket, bloomfilter.LATEST, nil)
+	if err != nil {
+		if errors.Is(err, uplink.ErrObjectNotFound) {
+			service.log.Info("LATEST file does not exist in bucket", zap.String("bucket", service.Config.Bucket))
+			return nil
+		}
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, download.Close())
+	}()
+
+	value, err := io.ReadAll(download)
+	if err != nil {
+		return err
+	}
+	prefix := string(value) + "/"
+
+	return IterateZipObjectKeys(ctx, *project, service.Config.Bucket, prefix, func(objectKey string) error {
 		limiter := sync2.NewLimiter(service.Config.ConcurrentSends)
 		err := IterateZipContent(ctx, *project, service.Config.Bucket, objectKey, func(zipEntry *zip.File) error {
 			retainInfo, err := UnpackZipEntry(zipEntry)
@@ -172,7 +194,7 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 func (service *Service) moveToErrorPrefix(
 	ctx context.Context, project *uplink.Project, objectKey string, previousErr error, timeStamp time.Time,
 ) error {
-	newObjectKey := "error-" + timeStamp.Format(time.RFC3339) + "/" + objectKey
+	newObjectKey := "error-" + objectKey
 
 	err := project.MoveObject(ctx, service.Config.Bucket, objectKey, service.Config.Bucket, newObjectKey, nil)
 	if err != nil {
@@ -211,7 +233,7 @@ func (service *Service) uploadError(
 func (service *Service) moveToSentPrefix(
 	ctx context.Context, project *uplink.Project, objectKey string, timeStamp time.Time,
 ) error {
-	newObjectKey := "sent-" + timeStamp.Format(time.RFC3339) + "/" + objectKey
+	newObjectKey := "sent-" + objectKey
 
 	return project.MoveObject(ctx, service.Config.Bucket, objectKey, service.Config.Bucket, newObjectKey, nil)
 }
