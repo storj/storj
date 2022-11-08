@@ -24,7 +24,6 @@
             class="projects-list-items"
             :limit="projectsPage.limit"
             :total-page-count="projectsPage.pageCount"
-            :items="projectsPage.projects"
             items-label="projects"
             :on-page-click-callback="onPageClick"
             :total-items-count="projectsPage.totalCount"

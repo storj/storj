@@ -24,7 +24,6 @@
             :selectable="true"
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
-            :items="projectMembers"
             :total-items-count="projectMembersTotalCount"
             :on-page-click-callback="onPageClick"
         >

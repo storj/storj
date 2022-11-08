@@ -27,6 +27,8 @@ read one (
 	orderby desc node_event.created_at
 )
 
+delete node_event ( where node_event.created_at < ? )
+
 //--- Value Attribution ---//
 model value_attribution (
 	key project_id bucket_name

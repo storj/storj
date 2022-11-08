@@ -32,13 +32,7 @@ module.exports = {
         'indent': ['warn', 4],
         'vue/html-indent': ['warn', 4],
 
-        '@typescript-eslint/no-unused-vars': [
-            'warn', {
-                'vars': 'all',
-                'args': 'all',
-                'argsIgnorePattern': '^_',
-            }],
-
+        '@typescript-eslint/no-unused-vars': 'off',
         '@typescript-eslint/no-empty-function': 'off',
         '@typescript-eslint/no-var-requires': 'off',
 
@@ -65,6 +59,8 @@ module.exports = {
             'newlines-between': 'always',
         }],
         'no-duplicate-imports': 'error',
+        'import/default': 'off',
+        'vue/script-setup-uses-vars': 'error',
         'object-curly-spacing': ['error', 'always'],
         'quotes': ['error', 'single', { 'allowTemplateLiterals': true }],
         'semi': ['error', 'always'],

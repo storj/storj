@@ -21,66 +21,62 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useRoute, useRouter, useStore } from '@/utils/hooks';
 
 import ArrowDownIcon from '@/../static/images/objects/arrowDown.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ArrowDownIcon,
-        GearIcon,
-        DetailsIcon,
-        ShareIcon,
-    },
-})
-export default class BucketSettingsNav extends Vue {
-    @Prop({ default: '' })
-    public readonly bucketName: string;
+const router = useRouter();
+const route = useRoute();
+const store = useStore();
 
-    public isDropdownOpen = false;
+const props = defineProps({
+    bucketName: { type: String, default: '' },
+});
 
-    public closeDropdown(): void {
-        if (!this.isDropdownOpen) return;
+const isDropdownOpen = ref(false);
 
-        this.isDropdownOpen = false;
-    }
+/**
+ * Returns files amount from store.
+ */
+const filesCount: number = computed((): number => {
+    return store.getters['files/sortedFiles'].length;
+});
 
-    /**
-     * Redirects to bucket details page.
-     */
-    public onDetailsClick(): void {
-        this.$router.push({
-            name: RouteConfig.BucketsDetails.name,
-            params: {
-                bucketName: this.bucketName,
-                backRoute: this.$route.name ? this.$route.name : '',
-            },
-        });
-        this.isDropdownOpen = false;
-    }
+function closeDropdown(): void {
+    if (!isDropdownOpen) return;
 
-    /**
-     * Toggles share bucket modal.
-     */
-    public onShareBucketClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN);
-        this.isDropdownOpen = false;
-    }
+    isDropdownOpen.value = false;
+}
 
-    /**
-     * Returns files amount from store.
-     */
-    public get filesCount(): number {
-        return this.$store.getters['files/sortedFiles'].length;
-    }
+/**
+ * Redirects to bucket details page.
+ */
+function onDetailsClick(): void {
+    router.push({
+        name: RouteConfig.BucketsDetails.name,
+        params: {
+            bucketName: props.bucketName,
+            backRoute: route.name || '',
+        },
+    });
+
+    isDropdownOpen.value = false;
+}
+
+/**
+ * Toggles share bucket modal.
+ */
+function onShareBucketClick(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN);
+    isDropdownOpen.value = false;
 }
 </script>
 

@@ -19112,6 +19112,33 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
+func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
+	node_event_created_at_less NodeEvent_CreatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -26821,6 +26848,33 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
+	node_event_created_at_less NodeEvent_CreatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM node_events WHERE node_events.created_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, node_event_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
 	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -28671,6 +28725,17 @@ func (rx *Rx) Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Posi
 	return tx.Delete_GracefulExitSegmentTransfer_By_NodeId_And_StreamId_And_Position_And_PieceNum(ctx, graceful_exit_segment_transfer_node_id, graceful_exit_segment_transfer_stream_id, graceful_exit_segment_transfer_position, graceful_exit_segment_transfer_piece_num)
 }
 
+func (rx *Rx) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
+	node_event_created_at_less NodeEvent_CreatedAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_NodeEvent_By_CreatedAt_Less(ctx, node_event_created_at_less)
+
+}
+
 func (rx *Rx) Delete_OauthClient_By_Id(ctx context.Context,
 	oauth_client_id OauthClient_Id_Field) (
 	deleted bool, err error) {
@@ -30239,6 +30304,10 @@ type Methods interface {
 		graceful_exit_segment_transfer_position GracefulExitSegmentTransfer_Position_Field,
 		graceful_exit_segment_transfer_piece_num GracefulExitSegmentTransfer_PieceNum_Field) (
 		deleted bool, err error)
+
+	Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
+		node_event_created_at_less NodeEvent_CreatedAt_Field) (
+		count int64, err error)
 
 	Delete_OauthClient_By_Id(ctx context.Context,
 		oauth_client_id OauthClient_Id_Field) (

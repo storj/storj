@@ -146,7 +146,6 @@
                     items-label="access grants"
                     :limit="accessGrantLimit"
                     :total-page-count="totalPageCount"
-                    :items="accessGrantsList"
                     :total-items-count="accessGrantsTotalCount"
                     :on-page-click-callback="onPageClick"
                 >
@@ -186,7 +185,6 @@
                     :selectable="true"
                     :limit="accessGrantLimit"
                     :total-page-count="totalPageCount"
-                    :items="accessGrantsList"
                     :total-items-count="accessGrantsTotalCount"
                     :on-page-click-callback="onPageClick"
                 >

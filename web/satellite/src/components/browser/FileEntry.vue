@@ -7,7 +7,7 @@
         :class="{ 'selected-row': isFileSelected }"
         @click.stop="selectFile"
     >
-        <td data-ls-disabled>
+        <td data-ls-disabled class="px-3">
             <span v-if="fileTypeIsFolder" class="folder-name">
                 <svg
                     class="ml-2 mr-1"
@@ -23,16 +23,14 @@
                     />
                 </svg>
 
-                <span>
-                    <router-link :to="link">
-                        <a
-                            href="javascript:null"
-                            class="file-name"
-                            aria-roledescription="folder"
-                        >
-                            {{ filename }}
-                        </a>
-                    </router-link>
+                <span @click="openBucket">
+                    <a
+                        href="javascript:null"
+                        class="file-name"
+                        aria-roledescription="folder"
+                    >
+                        {{ file.Key }}
+                    </a>
                 </span>
             </span>
 
@@ -55,13 +53,11 @@
                     />
                     <path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z" />
                 </svg>
-                <middle-truncate :text="filename" />
+                <middle-truncate :text="file.Key" />
             </span>
         </td>
         <td>
-            <span v-if="fileTypeIsFile" aria-roledescription="file-size">{{
-                size
-            }}</span>
+            <span v-if="fileTypeIsFile" aria-roledescription="file-size">{{ size }}</span>
         </td>
         <td>
             <span
@@ -365,337 +361,325 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
 import MiddleTruncate from './MiddleTruncate.vue';
 
 import type { BrowserFile } from '@/types/browser';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
-// @vue/component
-@Component({
-    components: {
-        MiddleTruncate,
-    },
-})
-export default class FileEntry extends Vue {
-    public deleteConfirmation = false;
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
 
-    @Prop({ default: '' })
-    private readonly path: string;
-    @Prop()
-    private readonly file: BrowserFile;
+const props = defineProps({
+    path: { type: String, default: '' },
+    file: { type: Object as BrowserFile, default: undefined },
+});
 
-    /**
-     * Return the name of file/folder formatted.
-     */
-    public get filename(): string {
-        return this.file.Key;
+const emit = defineEmits(['onUpdate']);
+
+const deleteConfirmation = ref(false);
+
+/**
+ * Return the size of the file formatted.
+ */
+const size: string = computed((): string => {
+    return prettyBytes(props.file.Size);
+});
+
+/**
+ * Return the upload date of the file formatted.
+ */
+const uploadDate: string = computed((): string => {
+    return props.file.LastModified.toLocaleString().split(',')[0];
+});
+
+/**
+ * Check with the store to see if the dropdown is open for the current file/folder.
+ */
+const dropdownOpen: string = computed((): string => {
+    return store.state.files.openedDropdown === props.file.Key;
+});
+
+/**
+ * Return a link to the current folder for navigation.
+ */
+const link: string = computed((): string => {
+    const browserRoot = store.state.files.browserRoot;
+    const pathAndKey = store.state.files.path + props.file.Key;
+    return pathAndKey.length > 0
+        ? browserRoot + pathAndKey + '/'
+        : browserRoot;
+});
+
+/**
+ * Return a flag signifying whether the current file/folder is selected.
+ */
+const isFileSelected: boolean = computed((): string => {
+    return Boolean(
+        store.state.files.selectedAnchorFile === props.file ||
+        store.state.files.selectedFiles.find(
+            (file) => file === props.file,
+        ) ||
+        store.state.files.shiftSelectedFiles.find(
+            (file) => file === props.file,
+        ),
+    );
+});
+
+/**
+ * Return a boolean signifying whether the current file/folder is a folder.
+ */
+const fileTypeIsFolder: boolean = computed((): string => {
+    return props.file.type === 'folder';
+});
+
+/**
+ * Return a boolean signifying whether the current file/folder is a file.
+ */
+const fileTypeIsFile: boolean = computed((): string => {
+    return props.file.type === 'file';
+});
+
+/**
+ * Open the modal for the current file.
+ */
+function openModal(): void {
+    store.commit('files/setObjectPathForModal', props.path + props.file.Key);
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
+    store.dispatch('files/closeDropdown');
+}
+
+/**
+ * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
+ */
+function loadingSpinner(): boolean {
+    return Boolean(store.state.files.filesToBeDeleted.find(
+        (file) => file === props.file,
+    ));
+}
+
+/**
+ * Select the current file/folder whether it be a click, click + shiftKey, click + metaKey or ctrlKey, or unselect the rest.
+ */
+function selectFile(event: KeyboardEvent): void {
+    if (store.state.files.openedDropdown) {
+        store.dispatch('files/closeDropdown');
     }
 
-    /**
-     * Return the size of the file formatted.
-     */
-    public get size(): string {
-        return prettyBytes(this.file.Size);
+    if (event.shiftKey) {
+        setShiftSelectedFiles();
+
+        return;
     }
 
-    /**
-     * Return the upload date of the file formatted.
-     */
-    public get uploadDate(): string {
-        return this.file.LastModified.toLocaleString().split(',')[0];
-    }
+    const isSelectedFile = Boolean(event.metaKey || event.ctrlKey);
 
-    /**
-     * Check with the store to see if the dropdown is open for the current file/folder.
-     */
-    public get dropdownOpen(): boolean {
-        return this.$store.state.files.openedDropdown === this.file.Key;
-    }
+    setSelectedFile(isSelectedFile);
+}
 
-    /**
-     * Return a link to the current folder for navigation.
-     */
-    public get link(): string {
-        const browserRoot = this.$store.state.files.browserRoot;
-        const pathAndKey = this.$store.state.files.path + this.file.Key;
-        const url =
-            pathAndKey.length > 0
-                ? browserRoot + pathAndKey + '/'
-                : browserRoot;
-        return url;
-    }
+async function openBucket(): Promise<void> {
+    await router.push(link.value);
+    emit('onUpdate');
+}
 
-    /**
-     * Return a boolean signifying whether the current file/folder is selected.
-     */
-    public get isFileSelected(): boolean {
-        return !!(
-            this.$store.state.files.selectedAnchorFile === this.file ||
-            this.$store.state.files.selectedFiles.find(
-                (file) => file === this.file,
-            ) ||
-            this.$store.state.files.shiftSelectedFiles.find(
-                (file) => file === this.file,
-            )
+/**
+ * Set the selected file/folder in the store.
+ */
+function setSelectedFile(command: boolean): void {
+    /* this function is responsible for selecting and unselecting a file on file click or [CMD + click] AKA command. */
+    const shiftSelectedFiles =
+        store.state.files.shiftSelectedFiles;
+    const selectedFiles = store.state.files.selectedFiles;
+
+    const files = [
+        ...selectedFiles,
+        ...shiftSelectedFiles,
+    ];
+
+    const selectedAnchorFile =
+        store.state.files.selectedAnchorFile;
+
+    if (command && props.file === selectedAnchorFile) {
+        /* if it's [CMD + click] and the file selected is the actual selectedAnchorFile, then unselect the file but store it under unselectedAnchorFile in case the user decides to do a [shift + click] right after this action. */
+
+        store.commit('files/setUnselectedAnchorFile', props.file);
+        store.commit('files/setSelectedAnchorFile', null);
+    } else if (command && files.includes(props.file)) {
+        /* if it's [CMD + click] and the file selected is a file that has already been selected in selectedFiles and shiftSelectedFiles, then unselect it by filtering it out. */
+
+        store.dispatch(
+            'files/updateSelectedFiles',
+            selectedFiles.filter(
+                (fileSelected) => fileSelected !== props.file,
+            ),
         );
-    }
 
-    /**
-     * Return a boolean signifying whether the current file/folder is a folder.
-     */
-    public get fileTypeIsFolder(): boolean {
-        return this.file.type === 'folder';
-    }
-
-    /**
-     * Return a boolean signifying whether the current file/folder is a folder.
-     */
-    public get fileTypeIsFile(): boolean {
-        return this.file.type === 'file';
-    }
-
-    /**
-     * Open the modal for the current file.
-     */
-    public openModal(): void {
-        this.$store.commit('files/setObjectPathForModal', this.path + this.file.Key);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
-        this.$store.dispatch('files/closeDropdown');
-    }
-
-    /**
-     * Return a boolean signifying whether the current file/folder is in the process of being deleted, therefore a spinner shoud be shown.
-     */
-    public loadingSpinner(): boolean {
-        return !!this.$store.state.files.filesToBeDeleted.find(
-            (file) => file === this.file,
-        );
-    }
-
-    /**
-     * Select the current file/folder whether it be a click, click + shiftKey, click + metaKey or ctrlKey, or unselect the rest.
-     */
-    public selectFile(event: KeyboardEvent): void {
-        if (this.$store.state.files.openedDropdown) {
-            this.$store.dispatch('files/closeDropdown');
-        }
-
-        if (event.shiftKey) {
-            this.setShiftSelectedFiles();
-        } else if (event.metaKey || event.ctrlKey) {
-            this.setSelectedFile(true);
-        } else {
-            this.setSelectedFile(false);
-        }
-    }
-
-    /**
-     * Set the selected file/folder in the store.
-     */
-    private setSelectedFile(command: boolean): void {
-        /* this function is responsible for selecting and unselecting a file on file click or [CMD + click] AKA command. */
-
-        const files = [
-            ...this.$store.state.files.selectedFiles,
-            ...this.$store.state.files.shiftSelectedFiles,
-        ];
-
-        const selectedAnchorFile =
-            this.$store.state.files.selectedAnchorFile;
-        const shiftSelectedFiles =
-            this.$store.state.files.shiftSelectedFiles;
-        const selectedFiles = this.$store.state.files.selectedFiles;
-
-        if (command && this.file === selectedAnchorFile) {
-            /* if it's [CMD + click] and the file selected is the actual selectedAnchorFile, then unselect the file but store it under unselectedAnchorFile in case the user decides to do a [shift + click] right after this action. */
-
-            this.$store.commit('files/setUnselectedAnchorFile', this.file);
-            this.$store.commit('files/setSelectedAnchorFile', null);
-        } else if (command && files.includes(this.file)) {
-            /* if it's [CMD + click] and the file selected is a file that has already been selected in selectedFiles and shiftSelectedFiles, then unselect it by filtering it out. */
-
-            this.$store.dispatch(
-                'files/updateSelectedFiles',
-                selectedFiles.filter(
-                    (fileSelected) => fileSelected !== this.file,
-                ),
-            );
-
-            this.$store.dispatch(
-                'files/updateShiftSelectedFiles',
-                shiftSelectedFiles.filter(
-                    (fileSelected) => fileSelected !== this.file,
-                ),
-            );
-        } else if (command && selectedAnchorFile) {
-            /* if it's [CMD + click] and there is already a selectedAnchorFile, then add the selectedAnchorFile and shiftSelectedFiles into the array of selectedFiles, set selectedAnchorFile to the file that was clicked, set unselectedAnchorFile to null, and set shiftSelectedFiles to an empty array. */
-
-            const filesSelected = [...selectedFiles];
-
-            if (!filesSelected.includes(selectedAnchorFile)) {
-                filesSelected.push(selectedAnchorFile);
-            }
-
-            this.$store.dispatch('files/updateSelectedFiles', [
-                ...filesSelected,
-                ...shiftSelectedFiles.filter(
-                    (file) => !filesSelected.includes(file),
-                ),
-            ]);
-
-            this.$store.commit('files/setSelectedAnchorFile', this.file);
-            this.$store.commit('files/setUnselectedAnchorFile', null);
-            this.$store.dispatch('files/updateShiftSelectedFiles', []);
-        } else if (command) {
-            /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
-
-            this.$store.commit('files/setSelectedAnchorFile', this.file);
-            this.$store.commit('files/setUnselectedAnchorFile', null);
-
-            this.$store.dispatch('files/updateSelectedFiles', [
-                ...selectedFiles,
-                ...shiftSelectedFiles,
-            ]);
-
-            this.$store.dispatch('files/updateShiftSelectedFiles', []);
-        } else {
-            /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
-
-            this.$store.commit('files/setSelectedAnchorFile', this.file);
-            this.$store.dispatch('files/updateShiftSelectedFiles', []);
-            this.$store.dispatch('files/updateSelectedFiles', []);
-        }
-    }
-
-    /**
-     * Set files/folders selected using shift key in the store.
-     */
-    private setShiftSelectedFiles(): void {
-        /* this function is responsible for selecting all files from selectedAnchorFile to the file that was selected with [shift + click] */
-
-        const files = this.$store.getters['files/sortedFiles'];
-        const unselectedAnchorFile =
-            this.$store.state.files.unselectedAnchorFile;
-
-        if (unselectedAnchorFile) {
-            /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
-
-            this.$store.commit(
-                'files/setSelectedAnchorFile',
-                unselectedAnchorFile,
-            );
-            this.$store.commit('files/setUnselectedAnchorFile', null);
-        }
-
-        const selectedAnchorFile =
-            this.$store.state.files.selectedAnchorFile;
-
-        if (!selectedAnchorFile) {
-            this.$store.commit('files/setSelectedAnchorFile', this.file);
-            return;
-        }
-
-        const anchorIdx = files.findIndex(
-            (file) => file === selectedAnchorFile,
-        );
-        const shiftIdx = files.findIndex((file) => file === this.file);
-
-        const start = Math.min(anchorIdx, shiftIdx);
-        const end = Math.max(anchorIdx, shiftIdx) + 1;
-
-        this.$store.dispatch(
+        store.dispatch(
             'files/updateShiftSelectedFiles',
-            files
-                .slice(start, end)
-                .filter(
-                    (file) =>
-                        !this.$store.state.files.selectedFiles.includes(
-                            file,
-                        ) && file !== selectedAnchorFile,
-                ),
+            shiftSelectedFiles.filter(
+                (fileSelected) => fileSelected !== props.file,
+            ),
         );
-    }
+    } else if (command && selectedAnchorFile) {
+        /* if it's [CMD + click] and there is already a selectedAnchorFile, then add the selectedAnchorFile and shiftSelectedFiles into the array of selectedFiles, set selectedAnchorFile to the file that was clicked, set unselectedAnchorFile to null, and set shiftSelectedFiles to an empty array. */
 
-    /**
-     * Open the share modal for the current file.
-     */
-    public share(): void {
-        this.$store.dispatch('files/closeDropdown');
-        this.$store.commit('files/setObjectPathForModal', this.path + this.file.Key);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
-    }
+        const filesSelected = [...selectedFiles];
 
-    /**
-     * Toggle the dropdown for the current file/folder.
-     */
-    public toggleDropdown(): void {
-        if (this.$store.state.files.openedDropdown === this.file.Key) {
-            this.$store.dispatch('files/closeDropdown');
-        } else {
-            this.$store.dispatch('files/openDropdown', this.file.Key);
+        if (!filesSelected.includes(selectedAnchorFile)) {
+            filesSelected.push(selectedAnchorFile);
         }
 
-        // remove the dropdown delete confirmation
-        this.deleteConfirmation = false;
+        store.dispatch('files/updateSelectedFiles', [
+            ...filesSelected,
+            ...shiftSelectedFiles.filter(
+                (file) => !filesSelected.includes(file),
+            ),
+        ]);
+
+        store.commit('files/setSelectedAnchorFile', props.file);
+        store.commit('files/setUnselectedAnchorFile', null);
+        store.dispatch('files/updateShiftSelectedFiles', []);
+    } else if (command) {
+        /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
+
+        store.commit('files/setSelectedAnchorFile', props.file);
+        store.commit('files/setUnselectedAnchorFile', null);
+
+        store.dispatch('files/updateSelectedFiles', [
+            ...selectedFiles,
+            ...shiftSelectedFiles,
+        ]);
+
+        store.dispatch('files/updateShiftSelectedFiles', []);
+    } else {
+        /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
+
+        store.commit('files/setSelectedAnchorFile', props.file);
+        store.dispatch('files/updateShiftSelectedFiles', []);
+        store.dispatch('files/updateSelectedFiles', []);
+    }
+}
+
+/**
+ * Set files/folders selected using shift key in the store.
+ */
+function setShiftSelectedFiles(): void {
+    /* this function is responsible for selecting all files from selectedAnchorFile to the file that was selected with [shift + click] */
+
+    const files = store.getters['files/sortedFiles'];
+    const unselectedAnchorFile =
+        store.state.files.unselectedAnchorFile;
+
+    if (unselectedAnchorFile) {
+        /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
+        store.commit(
+            'files/setSelectedAnchorFile',
+            unselectedAnchorFile,
+        );
+
+        store.commit('files/setUnselectedAnchorFile', null);
     }
 
-    /**
-     * Download the current file.
-     */
-    public download(): void {
-        try {
-            this.$store.dispatch('files/download', this.file);
-            this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
-        } catch (error) {
-            this.$notify.error('Can not download your file');
-        }
+    const selectedAnchorFile = store.state.files.selectedAnchorFile;
 
-        this.$store.dispatch('files/closeDropdown');
-        this.deleteConfirmation = false;
+    if (!selectedAnchorFile) {
+        store.commit('files/setSelectedAnchorFile', props.file);
+
+        return;
     }
 
-    /**
-     * Set the data property deleteConfirmation to true, signifying that this user does in fact want the current selected file/folder.
-     */
-    public confirmDeletion(): void {
-        this.deleteConfirmation = true;
+    const anchorIdx = files.findIndex(
+        (file) => file === selectedAnchorFile,
+    );
+    const shiftIdx = files.findIndex((file) => file === props.file);
+
+    const start = Math.min(anchorIdx, shiftIdx);
+    const end = Math.max(anchorIdx, shiftIdx) + 1;
+
+    store.dispatch(
+        'files/updateShiftSelectedFiles',
+        files
+            .slice(start, end)
+            .filter(
+                (file) =>
+                    !store.state.files.selectedFiles.includes(
+                        file,
+                    ) && file !== selectedAnchorFile,
+            ),
+    );
+}
+
+/**
+ * Open the share modal for the current file.
+ */
+function share(): void {
+    store.dispatch('files/closeDropdown');
+    store.commit('files/setObjectPathForModal', this.path + this.file.Key);
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
+}
+
+/**
+ * Toggle the dropdown for the current file/folder.
+ */
+function toggleDropdown(): void {
+    (store.state.files.openedDropdown === props.file.Key) ?
+        store.dispatch('files/closeDropdown')
+        : store.dispatch('files/openDropdown', props.file.Key);
+
+    // remove the dropdown delete confirmation
+    deleteConfirmation.value = false;
+}
+
+/**
+ * Download the current file.
+ */
+function download(): void {
+    try {
+        store.dispatch('files/download', props.file);
+        notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
+    } catch (error) {
+        notify.error('Can not download your file');
     }
 
-    /**
-     * Delete the selected file/folder.
-     */
-    public async finalDelete(): Promise<void> {
-        this.$store.dispatch('files/closeDropdown');
-        this.$store.dispatch('files/addFileToBeDeleted', this.file);
+    store.dispatch('files/closeDropdown');
+    deleteConfirmation.value = false;
+}
 
-        const params = {
-            path: this.path,
-            file: this.file,
-        };
+/**
+ * Set the data property deleteConfirmation to true, signifying that this user does in fact want the current selected file/folder.
+ */
+function confirmDeletion(): void {
+    deleteConfirmation.value = true;
+}
 
-        if (this.file.type === 'file') {
-            await this.$store.dispatch('files/delete', params);
-        } else {
-            this.$store.dispatch('files/deleteFolder', params);
-        }
+/**
+ * Delete the selected file/folder.
+ */
+async function finalDelete(): Promise<void> {
+    store.dispatch('files/closeDropdown');
+    store.dispatch('files/addFileToBeDeleted', props.file);
 
-        // refresh the files displayed
-        await this.$store.dispatch('files/list');
-        this.$store.dispatch('files/removeFileFromToBeDeleted', this.file);
-        this.deleteConfirmation = false;
-    }
+    const params = { ...props };
 
-    /**
-     * Abort the deletion of the current file/folder.
-     */
-    public cancelDeletion(): void {
-        this.$store.dispatch('files/closeDropdown');
-        this.deleteConfirmation = false;
-    }
+    (props.file.type === 'file') ? await store.dispatch('files/delete', params) : store.dispatch('files/deleteFolder', params);
+
+    // refresh the files displayed
+    await store.dispatch('files/list');
+    store.dispatch('files/removeFileFromToBeDeleted', props.file);
+    deleteConfirmation.value = false;
+}
+
+/**
+ * Abort the deletion of the current file/folder.
+ */
+function cancelDeletion(): void {
+    store.dispatch('files/closeDropdown');
+    deleteConfirmation.value = false;
 }
 </script>
 

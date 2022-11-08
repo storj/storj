@@ -26,35 +26,19 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { OnPageClickCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
 
-// @vue/component
-@Component({
-    components: {
-        TablePagination,
-    },
-})
-export default class VTable extends Vue {
-    @Prop({ default: false })
-    public readonly selectable: boolean;
-    @Prop({ default: 0 })
-    private readonly totalPageCount: number;
-    @Prop({ default: 'items' })
-    private readonly itemsLabel: string;
-    @Prop({ default: 0 })
-    private readonly limit: number;
-    @Prop({ default: () => [] })
-    private readonly items: object[];
-    @Prop({ default: 0 })
-    private readonly totalItemsCount: number;
-    @Prop({ default: () => () => new Promise(() => false) })
-    private readonly onPageClickCallback: OnPageClickCallback;
-}
+const props = defineProps({
+    selectable: { type: Boolean, default: false },
+    totalPageCount: { type: Number, default: 0 },
+    itemsLabel: { type: String, default: 'items' },
+    limit: { type: Number, default: 0 },
+    totalItemsCount: { type: Number, default: 0 },
+    onPageClickCallback: { type: Function as OnPageClickCallback, default: () => () => new Promise(() => false) },
+});
 </script>
 
 <style lang="scss">
