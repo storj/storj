@@ -3,9 +3,11 @@
 
 
 import argparse
+import collections
 import subprocess
 
 GENERAL = "General"
+MULTINODE = "Multinode"
 SATELLITE = "Satellite"
 STORAGENODE = "Storagenode"
 TEST = "Test"
@@ -23,12 +25,14 @@ def git_ref_field(from_ref, to_ref):
 
 def generate_changelog(commits):
     changelog = "# Changelog\n"
-    section = {SATELLITE: [], STORAGENODE: [], TEST: [], UPLINK: [], GENERAL: []}
+    section = {SATELLITE: [], MULTINODE: [], STORAGENODE: [], TEST: [], UPLINK: [], GENERAL: []}
 
     # Sorting and populating the dictionary d with commit hash and message
     for commit in commits.splitlines():
         if TEST.lower() in commit[42:].split(":")[0]:
             section[TEST].append(generate_line(commit))
+        elif MULTINODE.lower() in commit[42:].split(":")[0]:
+            section[MULTINODE].append(generate_line(commit))
         elif STORAGENODE.lower() in commit[42:].split(":")[0]:
             section[STORAGENODE].append(generate_line(commit))
         elif UPLINK.lower() in commit[42:].split(":")[0]:
@@ -38,7 +42,7 @@ def generate_changelog(commits):
         else:
             section[GENERAL].append(generate_line(commit))
 
-    for title in dict(sorted(section.items())):
+    for title in collections.OrderedDict(sorted(section.items())):
         if section[title]:
             changelog += ('### {}\n'.format(title))
             for line in section[title]:
