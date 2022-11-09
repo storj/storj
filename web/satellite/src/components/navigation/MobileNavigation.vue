@@ -175,6 +175,7 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -486,6 +487,7 @@ export default class MobileNavigation extends Vue {
         await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
         await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
+        await this.$store.dispatch(AB_TESTING_ACTIONS.RESET);
 
         LocalData.removeUserId();
     }
