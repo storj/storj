@@ -1829,6 +1829,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 }
 
 // AddProjectMembers adds users by email to given project.
+// Email addresses not belonging to a user are ignored.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "add project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
@@ -1840,21 +1841,15 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	var userErr errs.Group
-
 	// collect user querying errors
 	for _, email := range emails {
 		user, err := s.store.Users().GetByEmail(ctx, email)
-		if err != nil {
-			userErr.Add(err)
-			continue
+		if err == nil {
+			users = append(users, user)
+		} else if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
 		}
 
-		users = append(users, user)
-	}
-
-	if err = userErr.Err(); err != nil {
-		return nil, ErrValidation.New(teamMemberDoesNotExistErrMsg)
 	}
 
 	// add project members in transaction scope

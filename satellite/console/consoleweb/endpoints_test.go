@@ -548,7 +548,7 @@ func TestProjects(t *testing.T) {
 								__typename
 							}
 						}`}))
-			require.Contains(t, body, "There is no account on this Satellite for the user(s) you have entered")
+			require.Contains(t, body, "addProjectMembers")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 

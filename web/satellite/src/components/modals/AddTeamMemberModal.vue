@@ -188,7 +188,7 @@ export default class AddTeamMemberModal extends Vue {
             return;
         }
 
-        await this.$notify.success('Members successfully added to project!');
+        await this.$notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
