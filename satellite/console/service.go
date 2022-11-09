@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
@@ -127,7 +128,7 @@ type Service struct {
 	restKeys                   RESTKeys
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
-	buckets                    Buckets
+	buckets                    buckets.DB
 	partners                   *rewards.PartnersService
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
@@ -201,7 +202,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
