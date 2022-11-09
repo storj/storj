@@ -4,6 +4,7 @@
 import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/types/store';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 const listCache = new Map();
 
@@ -491,7 +492,8 @@ export const makeFilesModule = (): FilesModule => ({
 
                     if (uploadedFiles.length === 1) {
                         if (state.openModalOnFirstUpload === true) {
-                            commit('openModal', params.Key);
+                            commit('setObjectPathForModal', params.Key);
+                            commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN, null, { root: true });
                         }
                     }
 
