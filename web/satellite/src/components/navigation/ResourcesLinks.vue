@@ -94,3 +94,13 @@ export default class ResourcesLinks extends Vue {
     }
 }
 </script>
+
+<style scoped lang="scss">
+
+    .dropdown-item:focus {
+
+        background-color: #f5f6fa;
+        outline: auto;
+        outline-color: var(--c-blue-3);
+    }
+</style>
