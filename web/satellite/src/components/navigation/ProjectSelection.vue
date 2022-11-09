@@ -21,7 +21,7 @@
                 <VLoader width="30px" height="30px" />
             </div>
             <div v-else class="project-selection__dropdown__items">
-                <div class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
+                <div tabindex="0" class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
                     <div class="project-selection__dropdown__items__choice__mark-container">
                         <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
                     </div>
@@ -34,15 +34,16 @@
                     :key="project.id"
                     class="project-selection__dropdown__items__choice"
                     @click.prevent.stop="onProjectSelected(project.id)"
+                    @keyup.enter="onProjectSelected(project.id)"
                 >
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
                 <ManageIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
             </div>
-            <div class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
                 <p class="project-selection__dropdown__link-container__label">Create new</p>
             </div>
@@ -402,6 +403,10 @@ export default class ProjectSelection extends Vue {
                             object-fit: cover;
                         }
                     }
+
+                    &:focus {
+                        background-color: #f5f6fa;
+                    }
                 }
             }
 
@@ -434,6 +439,10 @@ export default class ProjectSelection extends Vue {
                     :deep(path) {
                         fill: var(--c-blue-3);
                     }
+                }
+
+                &:focus {
+                    background-color: #f5f6fa;
                 }
             }
         }

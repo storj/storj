@@ -31,15 +31,15 @@
                     </a>
                 </div>
             </div>
-            <div class="account-area__dropdown__item" @click="navigateToBilling">
+            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
                 <BillingIcon />
                 <p class="account-area__dropdown__item__label">Billing</p>
             </div>
-            <div class="account-area__dropdown__item" @click="navigateToSettings">
+            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToSettings" @keyup.enter="navigateToSettings">
                 <SettingsIcon />
                 <p class="account-area__dropdown__item__label">Account Settings</p>
             </div>
-            <div class="account-area__dropdown__item" @click="onLogout">
+            <div tabindex="0" class="account-area__dropdown__item" @click="onLogout" @keyup.enter="onLogout">
                 <LogoutIcon />
                 <p class="account-area__dropdown__item__label">Logout</p>
             </div>
@@ -313,6 +313,13 @@ export default class AccountArea extends Vue {
                     &__link {
                         max-height: 16px;
                     }
+
+                    &__link:focus {
+
+                        svg :deep(path) {
+                            fill: var(--c-blue-3);
+                        }
+                    }
                 }
             }
 
@@ -336,7 +343,7 @@ export default class AccountArea extends Vue {
                 }
 
                 &:hover {
-                    background-color: #f7f8fb;
+                    background-color: #f5f6fa;
 
                     p {
                         color: var(--c-blue-3);
@@ -345,6 +352,10 @@ export default class AccountArea extends Vue {
                     :deep(path) {
                         fill: var(--c-blue-3);
                     }
+                }
+
+                &:focus {
+                    background-color: #f5f6fa;
                 }
             }
         }

@@ -3,35 +3,35 @@
 
 <template>
     <div>
-        <div class="dropdown-item" aria-roledescription="create-project-route" @click.stop="navigateToNewProject">
+        <div tabindex="0" class="dropdown-item" aria-roledescription="create-project-route" @click.stop="navigateToNewProject" @keyup.enter="navigateToNewProject">
             <NewProjectIcon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
                 <h2 class="dropdown-item__text__title">New Project</h2>
                 <p class="dropdown-item__text__label">Create a new project.</p>
             </div>
         </div>
-        <div class="dropdown-item" aria-roledescription="create-ag-route" @click.stop="navigateToCreateAG">
+        <div tabindex="0" class="dropdown-item" aria-roledescription="create-ag-route" @click.stop="navigateToCreateAG" @keyup.enter="navigateToCreateAG">
             <CreateAGIcon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
                 <h2 class="dropdown-item__text__title">Create an Access Grant</h2>
                 <p class="dropdown-item__text__label">Start the wizard to create a new access grant.</p>
             </div>
         </div>
-        <div class="dropdown-item" aria-roledescription="create-s3-credentials-route" @click.stop="navigateToAccessGrantS3">
+        <div tabindex="0" class="dropdown-item" aria-roledescription="create-s3-credentials-route" @click.stop="navigateToAccessGrantS3" @keyup.enter="navigateToAccessGrantS3">
             <S3Icon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
                 <h2 class="dropdown-item__text__title">Create S3 Gateway Credentials</h2>
                 <p class="dropdown-item__text__label">Start the wizard to generate S3 credentials.</p>
             </div>
         </div>
-        <div class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets">
+        <div tabindex="0" class="dropdown-item" aria-roledescription="objects-route" @click.stop="navigateToBuckets" @keyup.enter="navigateToBuckets">
             <UploadInWebIcon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
                 <h2 class="dropdown-item__text__title">Upload in Web</h2>
                 <p class="dropdown-item__text__label">Start uploading files in the web browser.</p>
             </div>
         </div>
-        <div class="dropdown-item" aria-roledescription="cli-flow-route" @click.stop="navigateToCLIFlow">
+        <div tabindex="0" class="dropdown-item" aria-roledescription="cli-flow-route" @click.stop="navigateToCLIFlow" @keyup.enter="navigateToCLIFlow">
             <UploadInCLIIcon class="dropdown-item__icon" />
             <div class="dropdown-item__text">
                 <h2 class="dropdown-item__text__title">Upload using CLI</h2>
@@ -141,3 +141,9 @@ export default class QuickStartLinks extends Vue {
     }
 }
 </script>
+
+<style scoped lang="scss">
+    .dropdown-item:focus {
+        background-color: #f5f6fa;
+    }
+</style>
