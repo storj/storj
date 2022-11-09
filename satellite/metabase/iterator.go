@@ -98,6 +98,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		recursive:             true,
 		includeCustomMetadata: true,
 		includeSystemMetadata: true,
+		status:                Pending,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -285,7 +286,6 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 
 	if it.includeSystemMetadata {
 		querySelectFields += `
-			,status
 			,created_at
 			,expires_at
 			,segment_count
@@ -317,7 +317,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 
 	return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, encryption, status,
+				object_key, stream_id, version, encryption,
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
@@ -340,6 +340,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 // scanItem scans doNextQuery results into ObjectEntry.
 func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
+	item.Status = it.status
 
 	fields := []interface{}{
 		&item.ObjectKey,
@@ -350,7 +351,6 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 
 	if it.includeSystemMetadata {
 		fields = append(fields,
-			&item.Status,
 			&item.CreatedAt,
 			&item.ExpiresAt,
 			&item.SegmentCount,

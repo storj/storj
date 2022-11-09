@@ -602,8 +602,36 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 		})
 
-	})
+		t.Run("UploadID check", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
 
+			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			_, err = project.CreateBucket(ctx, bucketName)
+			require.NoError(t, err)
+
+			for _, options := range []uplink.ListUploadsOptions{
+				{System: false, Custom: false},
+				{System: true, Custom: false},
+				{System: true, Custom: true},
+				{System: false, Custom: true},
+			} {
+				t.Run(fmt.Sprintf("system:%v;custom:%v", options.System, options.Custom), func(t *testing.T) {
+					uploadInfo, err := project.BeginUpload(ctx, bucketName, "multipart-object", nil)
+					require.NoError(t, err)
+
+					iterator := project.ListUploads(ctx, bucketName, &options)
+					require.True(t, iterator.Next())
+					require.Equal(t, uploadInfo.UploadID, iterator.Item().UploadID)
+
+					err = project.AbortUpload(ctx, bucketName, "multipart-object", iterator.Item().UploadID)
+					require.NoError(t, err)
+				})
+			}
+		})
+	})
 }
 
 // TODO remove when listing query tests feature flag is removed.

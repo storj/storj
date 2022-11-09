@@ -802,11 +802,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.NotEmpty(t, entry.ObjectKey)
 				require.NotEmpty(t, entry.StreamID)
 				require.NotZero(t, entry.Version)
+				require.Equal(t, metabase.Committed, entry.Status)
 				require.False(t, entry.Encryption.IsZero())
 
 				require.True(t, entry.CreatedAt.IsZero())
 				require.Nil(t, entry.ExpiresAt)
-				require.Zero(t, entry.Status)
+
 				require.Zero(t, entry.SegmentCount)
 				require.Zero(t, entry.TotalPlainSize)
 				require.Zero(t, entry.TotalEncryptedSize)

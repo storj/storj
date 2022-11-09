@@ -814,14 +814,17 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Limit:                 limit,
 				Status:                status,
 				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: includeSystemMetadata,
+				// because multipart upload UploadID depends on some System metadata fields we need
+				// to force reading it for listing pending object when its not included in options.
+				// This is used by libuplink ListUploads method.
+				IncludeSystemMetadata: status == metabase.Pending || includeSystemMetadata,
 			})
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
 		}
 
 		for _, entry := range result.Objects {
-			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+			item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
 			if err != nil {
 				return nil, endpoint.convertMetabaseErr(err)
 			}
@@ -843,11 +846,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				BatchSize:             limit + 1,
 				Status:                status,
 				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: includeSystemMetadata,
+				IncludeSystemMetadata: status == metabase.Pending || includeSystemMetadata,
 			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 				entry := metabase.ObjectEntry{}
 				for len(resp.Items) < limit && it.Next(ctx, &entry) {
-					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeCustomMetadata, placement)
+					item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeSystemMetadata, includeCustomMetadata, placement)
 					if err != nil {
 						return err
 					}
@@ -930,7 +933,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, placement)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true, true, placement)
 				if err != nil {
 					return err
 				}
@@ -1288,20 +1291,23 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 
 func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte,
 	entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey,
-	includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
-
-	expires := time.Time{}
-	if entry.ExpiresAt != nil {
-		expires = *entry.ExpiresAt
-	}
+	includeSystem, includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
 
 	item = &pb.ObjectListItem{
 		EncryptedPath: []byte(entry.ObjectKey),
 		Version:       int32(entry.Version), // TODO incompatible types
 		Status:        pb.Object_Status(entry.Status),
-		ExpiresAt:     expires,
-		CreatedAt:     entry.CreatedAt,
-		PlainSize:     entry.TotalPlainSize,
+	}
+
+	expiresAt := time.Time{}
+	if entry.ExpiresAt != nil {
+		expiresAt = *entry.ExpiresAt
+	}
+
+	if includeSystem {
+		item.ExpiresAt = expiresAt
+		item.CreatedAt = entry.CreatedAt
+		item.PlainSize = entry.TotalPlainSize
 	}
 
 	if includeMetadata {
@@ -1350,10 +1356,10 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	if entry.Status == metabase.Pending {
 		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 			Bucket:             bucket,
-			EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
-			Version:            int64(item.Version),
-			CreationDate:       item.CreatedAt,
-			ExpirationDate:     item.ExpiresAt,
+			EncryptedObjectKey: append([]byte(prefixToPrependInSatStreamID), []byte(entry.ObjectKey)...),
+			Version:            int64(entry.Version),
+			CreationDate:       entry.CreatedAt,
+			ExpirationDate:     expiresAt,
 			StreamId:           entry.StreamID[:],
 			MultipartObject:    entry.FixedSegmentSize <= 0,
 			EncryptionParameters: &pb.EncryptionParameters{
