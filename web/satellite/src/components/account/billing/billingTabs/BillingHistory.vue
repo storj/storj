@@ -61,7 +61,7 @@ export default class BillingArea extends Vue {
 
     public get historyItems(): PaymentsHistoryItem[] {
         return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
+            return item.status !== 'draft' && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
         });
     }
 }
