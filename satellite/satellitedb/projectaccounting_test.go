@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/orders"
 )
 
 func Test_DailyUsage(t *testing.T) {
@@ -174,6 +175,78 @@ func Test_GetSingleBucketRollup(t *testing.T) {
 			require.Greater(t, usage1.MetadataSize, 0.0)
 			require.Greater(t, usage1.TotalSegments, 0.0)
 			require.Greater(t, usage1.TotalStoredData, 0.0)
+		},
+	)
+}
+
+func Test_GetProjectTotal(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			bucketName := testrand.BucketName()
+			projectID := testrand.UUID()
+
+			db := planet.Satellites[0].DB
+
+			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
+			var tallies []accounting.BucketStorageTally
+			for i := 0; i < 3; i++ {
+				tally := accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     time.Time{}.Add(time.Duration(i) * time.Hour),
+					TotalBytes:        int64(testrand.Intn(1000)),
+					ObjectCount:       int64(testrand.Intn(1000)),
+					TotalSegmentCount: int64(testrand.Intn(1000)),
+				}
+				tallies = append(tallies, tally)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
+			}
+
+			var rollups []orders.BucketBandwidthRollup
+			var expectedEgress int64
+			for i := 0; i < 2; i++ {
+				rollup := orders.BucketBandwidthRollup{
+					ProjectID:     projectID,
+					BucketName:    bucketName,
+					Action:        pb.PieceAction_GET,
+					IntervalStart: tallies[i].IntervalStart,
+					Inline:        int64(testrand.Intn(1000)),
+					Settled:       int64(testrand.Intn(1000)),
+				}
+				rollups = append(rollups, rollup)
+				expectedEgress += rollup.Inline + rollup.Settled
+			}
+			require.NoError(t, db.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+			usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart.Add(time.Minute))
+			require.NoError(t, err)
+
+			const epsilon = 1e-8
+			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()+tallies[1].Bytes()), epsilon)
+			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount+tallies[1].TotalSegmentCount), epsilon)
+			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount+tallies[1].ObjectCount), epsilon)
+			require.Equal(t, usage.Egress, expectedEgress)
+			require.Equal(t, usage.Since, tallies[0].IntervalStart)
+			require.Equal(t, usage.Before, tallies[2].IntervalStart.Add(time.Minute))
+
+			// Ensure that GetProjectTotal treats the 'before' arg as exclusive
+			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart)
+			require.NoError(t, err)
+			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()), epsilon)
+			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount), epsilon)
+			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount), epsilon)
+			require.Equal(t, usage.Egress, expectedEgress)
+			require.Equal(t, usage.Since, tallies[0].IntervalStart)
+			require.Equal(t, usage.Before, tallies[2].IntervalStart)
+
+			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, rollups[0].IntervalStart, rollups[1].IntervalStart)
+			require.NoError(t, err)
+			require.Zero(t, usage.Storage)
+			require.Zero(t, usage.SegmentCount)
+			require.Zero(t, usage.ObjectCount)
+			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
+			require.Equal(t, usage.Since, rollups[0].IntervalStart)
+			require.Equal(t, usage.Before, rollups[1].IntervalStart)
 		},
 	)
 }

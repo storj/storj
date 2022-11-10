@@ -525,7 +525,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies.project_id = ? AND
 			bucket_storage_tallies.bucket_name = ? AND
 			bucket_storage_tallies.interval_start >= ? AND
-			bucket_storage_tallies.interval_start <= ?
+			bucket_storage_tallies.interval_start < ?
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
@@ -598,7 +598,7 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 		WHERE
 			project_id = ? AND
 			interval_start >= ? AND
-			interval_start <= ? AND
+			interval_start < ? AND
 			action = ?;
 	`)
 
@@ -1014,7 +1014,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 		FROM bucket_storage_tallies
 		WHERE project_id = ?
 		AND interval_start >= ?
-		AND interval_start <= ?`)
+		AND interval_start < ?`)
 	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
 	if err != nil {
 		return nil, err
