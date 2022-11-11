@@ -4,6 +4,7 @@
 package audit_test
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
@@ -36,15 +37,14 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.EqualValues(t, 2, queue.Size(), "audit queue")
+		queue := audits.VerifyQueue
 
 		uniqueSegments := make(map[audit.Segment]struct{})
 		var err error
 		var segment audit.Segment
 		var segmentCount int
 		for {
-			segment, err = queue.Next()
+			segment, err = queue.Next(ctx)
 			if err != nil {
 				break
 			}
@@ -54,16 +54,22 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 
 			uniqueSegments[segment] = struct{}{}
 		}
-		require.True(t, audit.ErrEmptyQueue.Has(err))
+		require.True(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 		require.Equal(t, 2, segmentCount)
-		require.Equal(t, 0, queue.Size())
+		requireAuditQueueEmpty(ctx, t, audits.VerifyQueue)
 
 		// Repopulate the queue for the worker.
 		audits.Chore.Loop.TriggerWait()
 
 		// Make sure the worker processes the audit queue.
 		audits.Worker.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-		require.EqualValues(t, 0, queue.Size(), "audit queue")
+		requireAuditQueueEmpty(ctx, t, audits.VerifyQueue)
 	})
+}
+
+func requireAuditQueueEmpty(ctx context.Context, t *testing.T, verifyQueue audit.VerifyQueue) {
+	entry, err := verifyQueue.Next(ctx)
+	require.NotNilf(t, err, "expected empty audit queue, but got entry %+v", entry)
+	require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty audit queue error, but unexpectedly got error %v", err)
+	require.Empty(t, entry)
 }

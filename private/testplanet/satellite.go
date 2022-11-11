@@ -133,11 +133,11 @@ type Satellite struct {
 	}
 
 	Audit struct {
-		Queues   *audit.Queues
-		Worker   *audit.Worker
-		Chore    *audit.Chore
-		Verifier *audit.Verifier
-		Reporter audit.Reporter
+		VerifyQueue audit.VerifyQueue
+		Worker      *audit.Worker
+		Chore       *audit.Chore
+		Verifier    *audit.Verifier
+		Reporter    audit.Reporter
 	}
 
 	Reputation struct {
@@ -608,7 +608,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
 
-	system.Audit.Queues = peer.Audit.Queues
+	system.Audit.VerifyQueue = peer.Audit.VerifyQueue
 	system.Audit.Worker = peer.Audit.Worker
 	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = peer.Audit.Verifier

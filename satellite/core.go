@@ -116,11 +116,11 @@ type Core struct {
 	}
 
 	Audit struct {
-		Queues   *audit.Queues
-		Worker   *audit.Worker
-		Chore    *audit.Chore
-		Verifier *audit.Verifier
-		Reporter audit.Reporter
+		VerifyQueue audit.VerifyQueue
+		Worker      *audit.Worker
+		Chore       *audit.Chore
+		Verifier    *audit.Verifier
+		Reporter    audit.Reporter
 	}
 
 	ExpiredDeletion struct {
@@ -396,7 +396,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		config := config.Audit
 
-		peer.Audit.Queues = audit.NewQueues()
+		peer.Audit.VerifyQueue = db.VerifyQueue()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Metabase,
@@ -416,8 +416,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			int32(config.MaxReverifyCount),
 		)
 
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit:worker"),
-			peer.Audit.Queues,
+		peer.Audit.Worker = audit.NewWorker(peer.Log.Named("audit:worker"),
+			peer.Audit.VerifyQueue,
 			peer.Audit.Verifier,
 			peer.Audit.Reporter,
 			config,
@@ -435,7 +435,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-			peer.Audit.Queues,
+			peer.Audit.VerifyQueue,
 			peer.Metainfo.SegmentLoop,
 			config,
 		)

@@ -49,6 +49,12 @@
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
 
+# how long a single reverification job can take before it may be taken over by another worker
+# audit.reverification-retry-interval: 6h0m0s
+
+# number of workers to run reverify audits on pieces
+# audit.reverify-worker-concurrency: 2
+
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
