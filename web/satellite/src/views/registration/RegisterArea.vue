@@ -187,7 +187,7 @@
                     <AddCouponCodeInput v-if="couponCodeSignupUIEnabled" />
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
-                            <label class="container">
+                            <label class="checkmark-container">
                                 <input type="checkbox" @change="onBetaTermsAcceptedToggled">
                                 <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" />
                             </label>
