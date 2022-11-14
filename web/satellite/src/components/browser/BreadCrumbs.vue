@@ -57,7 +57,7 @@ import { useRouter, useStore } from '@/utils/hooks';
 const store = useStore();
 const router = useRouter();
 
-const emit = defineEmits(['onUpdate']);
+const emit = defineEmits(['onUpdate', 'bucketClick']);
 
 /**
  * Retrieves the current bucket name from the store.

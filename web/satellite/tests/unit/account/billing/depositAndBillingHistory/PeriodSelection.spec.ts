@@ -4,7 +4,7 @@
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 import Vuex from 'vuex';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../../mock/api/projects';
 import { PaymentsMock } from '../../../mock/api/payments';
@@ -65,7 +65,7 @@ describe('PeriodSelection', (): void => {
     });
 
     it('renders correctly with dropdown', async (): Promise<void> => {
-        const wrapper = mount(PeriodSelection, {
+        const wrapper = shallowMount(PeriodSelection, {
             localVue,
             store,
         });
@@ -80,7 +80,7 @@ describe('PeriodSelection', (): void => {
         const previousClickSpy = jest.fn();
         const historyClickSpy = jest.fn();
 
-        const wrapper = mount<PeriodSelection>(PeriodSelection, {
+        const wrapper = shallowMount<PeriodSelection>(PeriodSelection, {
             localVue,
             store,
         });

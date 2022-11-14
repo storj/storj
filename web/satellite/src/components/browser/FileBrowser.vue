@@ -269,7 +269,7 @@ const filesUploading = computed((): string => {
 /**
  * Return up to five files currently being uploaded for display purposes.
  */
-const formattedFilesUploading = computed((): BrowserFile[] => {
+const formattedFilesUploading = computed((): string => {
     if (filesUploading.value.length > 5) {
         return filesUploading.value.slice(0, 5);
     }
@@ -280,7 +280,7 @@ const formattedFilesUploading = computed((): BrowserFile[] => {
 /**
  * Return the text of how many files in total are being uploaded to be displayed to give users more context.
  */
-const formattedFilesWaitingToBeUploaded = computed((): BrowserFile[] => {
+const formattedFilesWaitingToBeUploaded = computed((): string => {
     let file = 'file';
 
     if (filesUploading.value.length > 1) {

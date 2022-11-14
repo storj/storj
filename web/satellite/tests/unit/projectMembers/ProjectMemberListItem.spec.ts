@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
@@ -28,7 +28,7 @@ describe('', () => {
     store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, 'testId');
 
     it('should render correctly', function () {
-        const wrapper = mount(ProjectMemberListItem, {
+        const wrapper = shallowMount(ProjectMemberListItem, {
             store,
             localVue,
             propsData: {
@@ -44,7 +44,7 @@ describe('', () => {
     it('should render correctly with item row highlighted', function () {
         member.isSelected = true;
 
-        const wrapper = mount(ProjectMemberListItem, {
+        const wrapper = shallowMount(ProjectMemberListItem, {
             store,
             localVue,
             propsData: {

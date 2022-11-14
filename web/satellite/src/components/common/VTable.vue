@@ -31,14 +31,14 @@ import { OnPageClickCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
 
-const props = defineProps({
-    selectable: { type: Boolean, default: false },
-    totalPageCount: { type: Number, default: 0 },
-    itemsLabel: { type: String, default: 'items' },
-    limit: { type: Number, default: 0 },
-    totalItemsCount: { type: Number, default: 0 },
-    onPageClickCallback: { type: Function as OnPageClickCallback, default: () => () => new Promise(() => false) },
-});
+const props = defineProps<{
+    selectable: boolean,
+    totalPageCount: number,
+    itemsLabel: string,
+    limit: number,
+    totalItemsCount: number,
+    onPageClickCallback: OnPageClickCallback,
+}>();
 </script>
 
 <style lang="scss">

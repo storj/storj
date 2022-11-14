@@ -42,9 +42,9 @@ const router = useRouter();
 const route = useRoute();
 const store = useStore();
 
-const props = defineProps({
-    bucketName: { type: String, default: '' },
-});
+const props = defineProps<{
+    bucketName: string,
+}>();
 
 const isDropdownOpen = ref(false);
 const isHoveredOver = ref(false);
@@ -52,7 +52,7 @@ const isHoveredOver = ref(false);
 /**
  * Returns files amount from store.
  */
-const filesCount: number = computed((): number => {
+const filesCount = computed((): number => {
     return store.getters['files/sortedFiles'].length;
 });
 
@@ -70,7 +70,7 @@ function onDetailsClick(): void {
         name: RouteConfig.BucketsDetails.name,
         params: {
             bucketName: props.bucketName,
-            backRoute: route.name || '',
+            backRoute: route?.name || '',
         },
     });
 

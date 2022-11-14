@@ -312,10 +312,10 @@ const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 
-const props = defineProps({
-    path: { type: String, default: '' },
-    file: { type: Object as BrowserFile, default: undefined },
-});
+const props = defineProps<{
+    path: string,
+    file: BrowserFile,
+}>();
 
 const emit = defineEmits(['onUpdate']);
 
@@ -324,28 +324,28 @@ const deleteConfirmation = ref(false);
 /**
  * Return the size of the file formatted.
  */
-const size: string = computed((): string => {
+const size = computed((): string => {
     return prettyBytes(props.file.Size);
 });
 
 /**
  * Return the upload date of the file formatted.
  */
-const uploadDate: string = computed((): string => {
+const uploadDate = computed((): string => {
     return props.file.LastModified.toLocaleString().split(',')[0];
 });
 
 /**
  * Check with the store to see if the dropdown is open for the current file/folder.
  */
-const dropdownOpen: string = computed((): string => {
+const dropdownOpen = computed((): boolean => {
     return store.state.files.openedDropdown === props.file.Key;
 });
 
 /**
  * Return a link to the current folder for navigation.
  */
-const link: string = computed((): string => {
+const link = computed((): string => {
     const browserRoot = store.state.files.browserRoot;
     const pathAndKey = store.state.files.path + props.file.Key;
     return pathAndKey.length > 0
@@ -356,7 +356,7 @@ const link: string = computed((): string => {
 /**
  * Return a flag signifying whether the current file/folder is selected.
  */
-const isFileSelected: boolean = computed((): string => {
+const isFileSelected = computed((): boolean => {
     return Boolean(
         store.state.files.selectedAnchorFile === props.file ||
         store.state.files.selectedFiles.find(
@@ -371,14 +371,14 @@ const isFileSelected: boolean = computed((): string => {
 /**
  * Return a boolean signifying whether the current file/folder is a folder.
  */
-const fileTypeIsFolder: boolean = computed((): string => {
+const fileTypeIsFolder = computed((): boolean => {
     return props.file.type === 'folder';
 });
 
 /**
  * Return a boolean signifying whether the current file/folder is a file.
  */
-const fileTypeIsFile: boolean = computed((): string => {
+const fileTypeIsFile = computed((): boolean => {
     return props.file.type === 'file';
 });
 

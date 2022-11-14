@@ -2,6 +2,10 @@
 // See LICENSE for copying information.
 
 import { getCurrentInstance } from 'vue';
+import VueRouter from 'vue-router';
+
+import { store } from '@/store';
+import { Notificator } from '@/utils/plugins/notificator';
 
 // TODO: remove after updating router and store deps.
 export function useRoute() {
@@ -9,13 +13,13 @@ export function useRoute() {
 }
 
 export function useRouter() {
-    return getCurrentInstance()?.proxy.$router;
+    return getCurrentInstance()?.proxy.$router || {} as VueRouter;
 }
 
 export function useStore() {
-    return getCurrentInstance()?.proxy.$store;
+    return getCurrentInstance()?.proxy.$store || {} as typeof store;
 }
 
 export function useNotify() {
-    return getCurrentInstance()?.proxy.$notify;
+    return getCurrentInstance()?.proxy.$notify || {} as Notificator;
 }

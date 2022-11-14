@@ -12,41 +12,28 @@
     >
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 
-// @vue/component
-@Component
-export default class VSearch extends Vue {
-    @Prop({ default: '' })
-    private readonly placeholder: string;
-    @Prop({ default: function(): searchCallback {
-        return async function(_: string) {};
-    } })
-    private readonly search: searchCallback;
-    private searchQuery = '';
+const props = defineProps<{
+    placeholder: string,
+    search: searchCallback,
+}>();
 
-    public $refs!: {
-        input: HTMLElement;
-    };
+const searchQuery = ref<string>('');
 
-    public get searchString(): string {
-        return this.searchQuery;
-    }
+/**
+ * Clears search query.
+ */
+function clearSearch(): void {
+    searchQuery.value = '';
+    processSearchQuery();
+}
 
-    /**
-     * Clears search query.
-     */
-    public clearSearch(): void {
-        this.searchQuery = '';
-        this.processSearchQuery();
-    }
-
-    public async processSearchQuery(): Promise<void> {
-        await this.search(this.searchQuery);
-    }
+async function processSearchQuery(): Promise<void> {
+    await props.search(searchQuery.value);
 }
 </script>
 
