@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"os"
 	"time"
@@ -357,7 +358,10 @@ func (store *Store) Trash(ctx context.Context, satellite storj.NodeID, pieceID s
 		// MaxFormatVersionSupported does not exist, migrate.
 		err = store.MigrateV0ToV1(ctx, satellite, pieceID)
 		if err != nil {
-			return Error.Wrap(err)
+			if !errs.Is(err, sql.ErrNoRows) {
+				return Error.Wrap(err)
+			}
+			store.log.Warn("failed to migrate v0 piece. Piece may not be recoverable")
 		}
 	}
 
@@ -404,6 +408,7 @@ func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) 
 // MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
 // format v1. If the piece is not stored as a v0 piece it will return an error.
 // The follow failures are possible:
+//   - sql.ErrNoRows if the v0pieceInfoDB was corrupted or recreated.
 //   - Fail to open or read v0 piece. In this case no artifacts remain.
 //   - Fail to Write or Commit v1 piece. In this case no artifacts remain.
 //   - Fail to Delete v0 piece. In this case v0 piece may remain,
