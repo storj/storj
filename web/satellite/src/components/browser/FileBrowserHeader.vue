@@ -4,205 +4,83 @@
 <template>
     <fragment>
         <th
-            class="w-50"
-            scope="col"
+            class="align-left"
             @mouseover="mouseOver('name')"
             @mouseleave="mouseLeave"
             @click="sortBy('name')"
         >
-            Name
-            <span v-if="showArrow('name')">
-                <a v-if="isDesc('name')" class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-down-short down-arrow"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"
-                        />
-                    </svg>
-                </a>
-                <a v-else class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-up-short"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"
-                        />
-                    </svg>
-                </a>
+            <span class="header__item">
+                <span>Name</span>
+                <span :class="{ invisible: nameSortData.isHidden }">
+                    <a v-if="nameSortData.isDesc" class="arrow">
+                        <desc-icon />
+                    </a>
+                    <a v-else class="arrow">
+                        <asc-icon />
+                    </a>
+                </span>
             </span>
         </th>
         <th
-            class="file-browser-heading w-25"
-            scope="col"
+            class="align-left"
             @mouseover="mouseOver('size')"
             @mouseleave="mouseLeave"
             @click="sortBy('size')"
         >
-            Size
-            <span v-if="showArrow('size')">
-                <a v-if="isDesc('size')" class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-down-short down-arrow"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"
-                        />
-                    </svg>
-                </a>
-                <a v-else class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-up-short"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"
-                        />
-                    </svg>
-                </a>
+            <span class="header__item">
+                <span>Size</span>
+                <span :class="{ invisible: sizeSortData.isHidden }">
+                    <a v-if="sizeSortData.isDesc" class="arrow">
+                        <desc-icon />
+                    </a>
+                    <a v-else class="arrow">
+                        <asc-icon />
+                    </a>
+                </span>
             </span>
         </th>
         <th
-            class="file-browser-heading"
-            scope="col"
+            class="align-left"
             @mouseover="mouseOver('date')"
             @mouseleave="mouseLeave"
             @click="sortBy('date')"
         >
-            Upload Date
-            <span v-if="showArrow('date')">
-                <a v-if="isDesc('date')" class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-down-short down-arrow"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"
-                        />
-                    </svg>
-                </a>
-                <a v-else class="arrow">
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20"
-                        height="20"
-                        fill="currentColor"
-                        class="bi bi-arrow-up-short"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            fill-rule="evenodd"
-                            d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5z"
-                        />
-                    </svg>
-                </a>
+            <span class="header__item">
+                <span>Upload Date</span>
+                <span :class="{ invisible: dateSortData.isHidden }">
+                    <a v-if="dateSortData.isDesc" class="arrow">
+                        <desc-icon />
+                    </a>
+                    <a v-else class="arrow">
+                        <asc-icon />
+                    </a>
+                </span>
             </span>
         </th>
-        <th scope="col" class="overflow-override">
-            <div class="dropleft">
-                <a
-                    v-if="filesToDelete"
-                    id="header-delete"
-                    class="d-flex justify-content-end"
-                    @click.stop="deleteSelectedDropdown"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24"
-                        height="24"
-                        fill="currentColor"
-                        class="bi bi-trash"
-                        viewBox="0 0 16 16"
-                    >
-                        <path
-                            d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-                        />
-                        <path
-                            fill-rule="evenodd"
-                            d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-                        />
-                    </svg>
-                </a>
-                <div
-                    v-if="isDropdownDisplayed"
-                    class="dropdown-menu shadow show"
-                >
-                    <div>
-                        <p class="deletion-confirmation px-5 pt-3">
+        <th class="header__functional overflow-visible" @click.stop="deleteSelectedDropdown">
+            <delete-icon v-if="filesToDelete" />
+            <div v-if="isDropdownDisplayed" class="header__functional__dropdown">
+                <div class="header__functional__dropdown__item">
+                    <div class="delete-confirmation">
+                        <p class="delete-confirmation__text">
                             Are you sure?
                         </p>
-                        <div class="d-flex">
-                            <button
-                                class="dropdown-item trash p-3 action"
-                                type="button"
-                                @click="confirmDeleteSelection"
+                        <div class="delete-confirmation__options">
+                            <span
+                                class="delete-confirmation__options__item yes"
+                                @click.stop="confirmDeleteSelection"
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    width="16"
-                                    height="16"
-                                    fill="red"
-                                    class="bi bi-trash"
-                                    viewBox="0 0 16 16"
-                                >
-                                    <path
-                                        d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-                                    />
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-                                    />
-                                </svg>
-                                Yes
-                            </button>
-                            <button
-                                class="dropdown-item p-3 action"
-                                type="button"
-                                @click="cancelDeleteSelection"
+                                <span><delete-icon /></span>
+                                <span>Yes</span>
+                            </span>
+
+                            <span
+                                class="delete-confirmation__options__item no"
+                                @click.stop="cancelDeleteSelection"
                             >
-                                <svg
-                                    width="2em"
-                                    height="2em"
-                                    viewBox="0 0 16 16"
-                                    class="bi bi-x mr-1"
-                                    fill="green"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                >
-                                    <path
-                                        fill-rule="evenodd"
-                                        d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"
-                                    />
-                                </svg>
-                                No
-                            </button>
+                                <span><close-icon /></span>
+                                <span>No</span>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -217,30 +95,56 @@ import { computed, ref } from 'vue';
 
 import { useStore } from '@/utils/hooks';
 
+import AscIcon from '@/../static/images/objects/asc.svg';
+import CloseIcon from '@/../static/images/common/closeCross.svg';
+import DescIcon from '@/../static/images/objects/desc.svg';
+import DeleteIcon from '@/../static/images/objects/delete.svg';
+
 const store = useStore();
 
 const hover = ref('');
 
-function fromFilesStore (prop: string): string {
+function fromFilesStore(prop: string): string {
     return store.state.files[prop];
 }
 
 /**
  * Check if the trashcan to delete selected files/folder should be displayed.
  */
-const filesToDelete = computed( (): string => {
+const filesToDelete = computed((): string => {
     return (!!store.state.files.selectedAnchorFile || (
         store.state.files.unselectedAnchorFile &&
-        (store.state.files.selectedFiles.length > 0 ||
-            store.state.files.shiftSelectedFiles.length > 0)
+      (store.state.files.selectedFiles.length > 0 ||
+          store.state.files.shiftSelectedFiles.length > 0)
     ));
 });
 
 /**
  * Check if the files/folders deletion dropdown should be displayed.
  */
-const isDropdownDisplayed = computed( (): boolean => {
+const isDropdownDisplayed = computed((): boolean => {
     return store.state.files.openedDropdown === 'FileBrowser';
+});
+
+const nameSortData = computed((): { isHidden: boolean, isDesc: boolean } => {
+    return {
+        isHidden: !showArrow('name'),
+        isDesc: isDesc('name'),
+    };
+});
+
+const sizeSortData = computed((): { isHidden: boolean, isDesc: boolean } => {
+    return {
+        isHidden: !showArrow('size'),
+        isDesc: isDesc('size'),
+    };
+});
+
+const dateSortData = computed((): { isHidden: boolean, isDesc: boolean } => {
+    return {
+        isHidden: !showArrow('date'),
+        isDesc: isDesc('date'),
+    };
 });
 
 /**
@@ -301,25 +205,84 @@ function cancelDeleteSelection(): void {
 }
 </script>
 
-<style scoped>
-th {
-    user-select: none;
+<style scoped lang="scss">
+.header {
+
+    &__item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+
+        & > .invisible {
+            visibility: hidden;
+        }
+    }
+
+    &__functional {
+        padding: 0 10px;
+        position: relative;
+        cursor: pointer;
+
+        &__dropdown {
+            position: absolute;
+            top: 25px;
+            right: 15px;
+            background: #fff;
+            box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
+            border-radius: 6px;
+            width: 255px;
+            z-index: 100;
+
+            &__item {
+                display: flex;
+                align-items: center;
+                padding: 20px 25px;
+                width: calc(100% - 50px);
+
+                &:hover {
+                    background-color: #f4f5f7;
+                }
+            }
+        }
+    }
 }
 
-.file-browser-heading {
-    padding: 16px 0;
+.delete-confirmation {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: start;
+    width: 100%;
+
+    &__options {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+
+        &__item {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+
+            &.yes:hover {
+                color: var(--c-red-2);
+
+                svg :deep(path) {
+                    fill: var(--c-red-2);
+                    stroke: var(--c-red-2);
+                }
+            }
+
+            &.no:hover {
+                color: var(--c-blue-3);
+
+                svg :deep(path) {
+                    fill: var(--c-blue-3);
+                    stroke: var(--c-blue-3);
+                }
+            }
+        }
+    }
 }
 
-.arrow {
-    cursor: pointer;
-    color: #768394;
-}
-
-th.overflow-override {
-    overflow: unset;
-}
-
-a {
-    cursor: pointer;
-}
 </style>

@@ -2,319 +2,132 @@
 // See LICENSE for copying information.
 
 <template>
-    <tr
-        scope="row"
-        :class="{ 'selected-row': isFileSelected }"
-        @click.stop="selectFile"
+    <table-item
+        v-if="fileTypeIsFile"
+        :selected="isFileSelected"
+        :on-click="selectFile"
+        :on-primary-click="openModal"
+        :item="{'name': file.Key, 'size': size, 'date': uploadDate}"
+        table-type="file"
     >
-        <td data-ls-disabled class="px-3">
-            <span v-if="fileTypeIsFolder" class="folder-name">
-                <svg
-                    class="ml-2 mr-1"
-                    width="21"
-                    height="18"
-                    viewBox="0 0 21 18"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <path
-                        d="M0 2.57143C0 1.15127 1.15127 0 2.57143 0H9C9.71008 0 10.2857 0.575634 10.2857 1.28571C10.2857 1.99579 10.8613 2.57143 11.5714 2.57143H18C19.4202 2.57143 20.5714 3.7227 20.5714 5.14286V15.4286C20.5714 16.8487 19.4202 18 18 18H2.57143C1.15127 18 0 16.8487 0 15.4286V2.57143Z"
-                        fill="#768394"
-                    />
-                </svg>
+        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
+            <div
+                v-if="loadingSpinner()"
+                class="spinner-border"
+                role="status"
+            />
+            <dots-icon v-else />
+            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
+                    <details-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Details</p>
+                </div>
 
-                <span @click.prevent="openBucket">
-                    <a
-                        href="javascript:null"
-                        class="file-name"
-                        aria-roledescription="folder"
-                    >
-                        {{ file.Key }}
-                    </a>
-                </span>
-            </span>
+                <div class="file-entry__functional__dropdown__item" @click.stop="download">
+                    <download-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Download</p>
+                </div>
 
-            <span
-                v-else
-                class="file-name"
-                aria-roledescription="file"
-                @click.stop="openModal"
-            >
-                <svg
-                    width="1.5em"
-                    height="1.5em"
-                    viewBox="0 0 16 16"
-                    class="bi bi-file-earmark mx-1 flex-shrink-0"
-                    fill="#768394"
-                    xmlns="http://www.w3.org/2000/svg"
-                >
-                    <path
-                        d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
-                    />
-                    <path d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z" />
-                </svg>
-                <middle-truncate :text="file.Key" />
-            </span>
-        </td>
-        <td>
-            <span v-if="fileTypeIsFile" aria-roledescription="file-size">{{ size }}</span>
-        </td>
-        <td>
-            <span
-                v-if="fileTypeIsFile"
-                aria-roledescription="file-upload-date"
-            >{{ uploadDate }}</span>
-        </td>
-        <td class="text-right">
-            <div v-if="fileTypeIsFile" class="d-inline-flex">
-                <div class="dropleft">
-                    <div
-                        v-if="loadingSpinner()"
-                        class="spinner-border"
-                        role="status"
-                    />
-                    <button
-                        v-else
-                        class="btn btn-white btn-actions"
-                        type="button"
-                        aria-haspopup="true"
-                        aria-expanded="false"
-                        aria-roledescription="dropdown"
-                        @click.stop="toggleDropdown"
-                    >
-                        <svg
-                            width="4"
-                            height="16"
-                            viewBox="0 0 4 16"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <path
-                                d="M3.2 1.6C3.2 2.48366 2.48366 3.2 1.6 3.2C0.716344 3.2 0 2.48366 0 1.6C0 0.716344 0.716344 0 1.6 0C2.48366 0 3.2 0.716344 3.2 1.6Z"
-                                fill="#7C8794"
-                            />
-                            <path
-                                d="M3.2 8C3.2 8.88366 2.48366 9.6 1.6 9.6C0.716344 9.6 0 8.88366 0 8C0 7.11634 0.716344 6.4 1.6 6.4C2.48366 6.4 3.2 7.11634 3.2 8Z"
-                                fill="#7C8794"
-                            />
-                            <path
-                                d="M1.6 16C2.48366 16 3.2 15.2837 3.2 14.4C3.2 13.5163 2.48366 12.8 1.6 12.8C0.716344 12.8 0 13.5163 0 14.4C0 15.2837 0.716344 16 1.6 16Z"
-                                fill="#7C8794"
-                            />
-                        </svg>
-                    </button>
-                    <div v-if="dropdownOpen" class="dropdown-menu shadow show">
-                        <button
-                            type="button"
-                            class="dropdown-item action p-3"
-                            @click.stop="openModal"
-                        >
-                            <DetailsIcon />
-                            Details
-                        </button>
-                        <button
-                            type="button"
-                            class="dropdown-item action p-3"
-                            @click.stop="download"
-                        >
-                            <DownloadIcon />
-                            Download
-                        </button>
-                        <button
-                            type="button"
-                            class="dropdown-item action p-3"
-                            @click.stop="share"
-                        >
-                            <ShareIcon />
-                            Share
-                        </button>
-                        <button
-                            v-if="!deleteConfirmation"
-                            type="button"
-                            class="dropdown-item action p-3 delete"
-                            @click.stop="confirmDeletion"
-                        >
-                            <DeleteIcon />
-                            Delete
-                        </button>
-                        <div v-else>
-                            <p class="deletion-confirmation mx-5 pt-3">
-                                Are you sure?
-                            </p>
-                            <div class="d-flex">
-                                <button
-                                    type="button"
-                                    class="dropdown-item trash p-3 action"
-                                    @click.stop="finalDelete"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="15"
-                                        height="15"
-                                        fill="red"
-                                        class="bi bi-trash"
-                                        viewBox="0 0 16 16"
-                                    >
-                                        <path
-                                            d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-                                        />
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-                                        />
-                                    </svg>
-                                    Yes
-                                </button>
-                                <button
-                                    type="button"
-                                    class="dropdown-item p-3 action"
-                                    @click.stop="cancelDeletion"
-                                >
-                                    <svg
-                                        width="1.5em"
-                                        height="1.5em"
-                                        viewBox="0 0 16 16"
-                                        class="bi bi-x mr-1"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"
-                                        />
-                                    </svg>
-                                    No
-                                </button>
-                            </div>
+                <div class="file-entry__functional__dropdown__item" @click.stop="share">
+                    <share-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Share</p>
+                </div>
+
+                <div v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item" @click.stop="confirmDeletion">
+                    <delete-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                </div>
+                <div v-else class="file-entry__functional__dropdown__item confirmation">
+                    <div class="delete-confirmation">
+                        <p class="delete-confirmation__text">
+                            Are you sure?
+                        </p>
+                        <div class="delete-confirmation__options">
+                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                <span><delete-icon /></span>
+                                <span>Yes</span>
+                            </span>
+
+                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                <span><close-icon /></span>
+                                <span>No</span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
+        </th>
+    </table-item>
+    <table-item
+        v-else-if="fileTypeIsFolder"
+        :item="{'name': file.Key, 'size': '', 'date': ''}"
+        :selected="isFileSelected"
+        :on-click="selectFile"
+        :on-primary-click="openBucket"
+        table-type="folder"
+    >
+        <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
+            <div
+                v-if="loadingSpinner()"
+                class="spinner-border"
+                role="status"
+            />
+            <dots-icon v-else />
+            <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
+                <div
+                    v-if="!deleteConfirmation" class="file-entry__functional__dropdown__item"
+                    @click.stop="confirmDeletion"
+                >
+                    <delete-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Delete</p>
+                </div>
+                <div v-else class="file-entry__functional__dropdown__item confirmation">
+                    <div class="delete-confirmation">
+                        <p class="delete-confirmation__text">
+                            Are you sure?
+                        </p>
+                        <div class="delete-confirmation__options">
+                            <span class="delete-confirmation__options__item yes" @click.stop="finalDelete">
+                                <span><delete-icon /></span>
+                                <span>Yes</span>
+                            </span>
 
-            <div v-else class="d-inline-flex">
-                <div class="dropleft">
-                    <div
-                        v-if="loadingSpinner()"
-                        class="spinner-border"
-                        role="status"
-                    />
-                    <button
-                        v-else
-                        class="btn btn-white btn-actions"
-                        type="button"
-                        aria-haspopup="true"
-                        aria-expanded="false"
-                        aria-roledescription="dropdown"
-                        @click.stop="toggleDropdown"
-                    >
-                        <svg
-                            width="4"
-                            height="16"
-                            viewBox="0 0 4 16"
-                            fill="none"
-                            xmlns="http://www.w3.org/2000/svg"
-                        >
-                            <path
-                                d="M3.2 1.6C3.2 2.48366 2.48366 3.2 1.6 3.2C0.716344 3.2 0 2.48366 0 1.6C0 0.716344 0.716344 0 1.6 0C2.48366 0 3.2 0.716344 3.2 1.6Z"
-                                fill="#7C8794"
-                            />
-                            <path
-                                d="M3.2 8C3.2 8.88366 2.48366 9.6 1.6 9.6C0.716344 9.6 0 8.88366 0 8C0 7.11634 0.716344 6.4 1.6 6.4C2.48366 6.4 3.2 7.11634 3.2 8Z"
-                                fill="#7C8794"
-                            />
-                            <path
-                                d="M1.6 16C2.48366 16 3.2 15.2837 3.2 14.4C3.2 13.5163 2.48366 12.8 1.6 12.8C0.716344 12.8 0 13.5163 0 14.4C0 15.2837 0.716344 16 1.6 16Z"
-                                fill="#7C8794"
-                            />
-                        </svg>
-                    </button>
-                    <div v-if="dropdownOpen" class="dropdown-menu shadow show">
-                        <button
-                            v-if="!deleteConfirmation"
-                            type="button"
-                            class="dropdown-item action p-3 "
-                            @click.stop="confirmDeletion"
-                        >
-                            <DeleteIcon />
-                            Delete
-                        </button>
-                        <div v-else>
-                            <p class="deletion-confirmation mx-5 pt-3">
-                                Are you sure?
-                            </p>
-                            <div class="d-flex">
-                                <button
-                                    type="button"
-                                    class="dropdown-item trash p-3 action"
-                                    @click.stop="finalDelete"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="15"
-                                        height="15"
-                                        fill="red"
-                                        class="bi bi-trash"
-                                        viewBox="0 0 16 16"
-                                    >
-                                        <path
-                                            d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"
-                                        />
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"
-                                        />
-                                    </svg>
-                                    Yes
-                                </button>
-                                <button
-                                    type="button"
-                                    class="dropdown-item p-3 action"
-                                    @click.stop="cancelDeletion"
-                                >
-                                    <svg
-                                        width="1.5em"
-                                        height="1.5em"
-                                        viewBox="0 0 16 16"
-                                        class="bi bi-x mr-1"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                    >
-                                        <path
-                                            fill-rule="evenodd"
-                                            d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"
-                                        />
-                                    </svg>
-                                    No
-                                </button>
-                            </div>
+                            <span class="delete-confirmation__options__item no" @click.stop="cancelDeletion">
+                                <span><close-icon /></span>
+                                <span>No</span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
-        </td>
-    </tr>
+        </th>
+    </table-item>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
-import MiddleTruncate from './MiddleTruncate.vue';
-
 import type { BrowserFile } from '@/types/browser';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+
+import TableItem from '@/components/common/TableItem.vue';
 
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DownloadIcon from '@/../static/images/objects/download.svg';
+import DotsIcon from '@/../static/images/objects/dots.svg';
+import CloseIcon from '@/../static/images/common/closeCross.svg';
 
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 
 const props = defineProps<{
-    path: string,
-    file: BrowserFile,
+  path: string,
+  file: BrowserFile,
 }>();
 
 const emit = defineEmits(['onUpdate']);
@@ -359,12 +172,12 @@ const link = computed((): string => {
 const isFileSelected = computed((): boolean => {
     return Boolean(
         store.state.files.selectedAnchorFile === props.file ||
-        store.state.files.selectedFiles.find(
-            (file) => file === props.file,
-        ) ||
-        store.state.files.shiftSelectedFiles.find(
-            (file) => file === props.file,
-        ),
+      store.state.files.selectedFiles.find(
+          (file) => file === props.file,
+      ) ||
+      store.state.files.shiftSelectedFiles.find(
+          (file) => file === props.file,
+      ),
     );
 });
 
@@ -430,7 +243,7 @@ async function openBucket(): Promise<void> {
 function setSelectedFile(command: boolean): void {
     /* this function is responsible for selecting and unselecting a file on file click or [CMD + click] AKA command. */
     const shiftSelectedFiles =
-        store.state.files.shiftSelectedFiles;
+      store.state.files.shiftSelectedFiles;
     const selectedFiles = store.state.files.selectedFiles;
 
     const files = [
@@ -439,15 +252,15 @@ function setSelectedFile(command: boolean): void {
     ];
 
     const selectedAnchorFile =
-        store.state.files.selectedAnchorFile;
+      store.state.files.selectedAnchorFile;
 
     if (command && props.file === selectedAnchorFile) {
-        /* if it's [CMD + click] and the file selected is the actual selectedAnchorFile, then unselect the file but store it under unselectedAnchorFile in case the user decides to do a [shift + click] right after this action. */
+    /* if it's [CMD + click] and the file selected is the actual selectedAnchorFile, then unselect the file but store it under unselectedAnchorFile in case the user decides to do a [shift + click] right after this action. */
 
         store.commit('files/setUnselectedAnchorFile', props.file);
         store.commit('files/setSelectedAnchorFile', null);
     } else if (command && files.includes(props.file)) {
-        /* if it's [CMD + click] and the file selected is a file that has already been selected in selectedFiles and shiftSelectedFiles, then unselect it by filtering it out. */
+    /* if it's [CMD + click] and the file selected is a file that has already been selected in selectedFiles and shiftSelectedFiles, then unselect it by filtering it out. */
 
         store.dispatch(
             'files/updateSelectedFiles',
@@ -463,7 +276,7 @@ function setSelectedFile(command: boolean): void {
             ),
         );
     } else if (command && selectedAnchorFile) {
-        /* if it's [CMD + click] and there is already a selectedAnchorFile, then add the selectedAnchorFile and shiftSelectedFiles into the array of selectedFiles, set selectedAnchorFile to the file that was clicked, set unselectedAnchorFile to null, and set shiftSelectedFiles to an empty array. */
+    /* if it's [CMD + click] and there is already a selectedAnchorFile, then add the selectedAnchorFile and shiftSelectedFiles into the array of selectedFiles, set selectedAnchorFile to the file that was clicked, set unselectedAnchorFile to null, and set shiftSelectedFiles to an empty array. */
 
         const filesSelected = [...selectedFiles];
 
@@ -482,7 +295,7 @@ function setSelectedFile(command: boolean): void {
         store.commit('files/setUnselectedAnchorFile', null);
         store.dispatch('files/updateShiftSelectedFiles', []);
     } else if (command) {
-        /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
+    /* if it's [CMD + click] and it has not met any of the above conditions, then set selectedAnchorFile to file and set unselectedAnchorfile to null, update the selectedFiles, and update the shiftSelectedFiles */
 
         store.commit('files/setSelectedAnchorFile', props.file);
         store.commit('files/setUnselectedAnchorFile', null);
@@ -494,7 +307,7 @@ function setSelectedFile(command: boolean): void {
 
         store.dispatch('files/updateShiftSelectedFiles', []);
     } else {
-        /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
+    /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
 
         store.commit('files/setSelectedAnchorFile', props.file);
         store.dispatch('files/updateShiftSelectedFiles', []);
@@ -510,10 +323,10 @@ function setShiftSelectedFiles(): void {
 
     const files = store.getters['files/sortedFiles'];
     const unselectedAnchorFile =
-        store.state.files.unselectedAnchorFile;
+      store.state.files.unselectedAnchorFile;
 
     if (unselectedAnchorFile) {
-        /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
+    /* if there is an unselectedAnchorFile, meaning that in the previous action the user unselected the anchor file but is now chosing to do a [shift + click] on another file, then reset the selectedAnchorFile, the achor file, to unselectedAnchorFile. */
         store.commit(
             'files/setSelectedAnchorFile',
             unselectedAnchorFile,
@@ -561,12 +374,20 @@ function share(): void {
 }
 
 /**
- * Toggle the dropdown for the current file/folder.
+ * Close the dropdown.
  */
-function toggleDropdown(): void {
-    (store.state.files.openedDropdown === props.file.Key) ?
-        store.dispatch('files/closeDropdown')
-        : store.dispatch('files/openDropdown', props.file.Key);
+function closeDropdown(): void {
+    store.dispatch('files/closeDropdown');
+
+    // remove the dropdown delete confirmation
+    deleteConfirmation.value = false;
+}
+
+/**
+ * Open the dropdown for the current file/folder.
+ */
+function openDropdown(): void {
+    store.dispatch('files/openDropdown', props.file.Key);
 
     // remove the dropdown delete confirmation
     deleteConfirmation.value = false;
@@ -620,118 +441,113 @@ function cancelDeletion(): void {
 }
 </script>
 
-<style>
-a {
-    text-decoration: none !important;
+<style scoped lang="scss">
+.file-entry {
+
+    &__functional {
+        padding: 0 10px;
+        position: relative;
+        cursor: pointer;
+
+        &__dropdown {
+            position: absolute;
+            top: 25px;
+            right: 15px;
+            background: #fff;
+            box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
+            border-radius: 6px;
+            width: 255px;
+            z-index: 100;
+
+            &__item {
+                display: flex;
+                align-items: center;
+                padding: 20px 25px;
+                width: calc(100% - 50px);
+
+                .dropdown-item.action.p-3.action {
+                    font-family: 'Inter', sans-serif;
+                }
+
+                &__label {
+                    margin: 0 0 0 10px;
+                }
+
+                &:not(.confirmation):hover {
+                    background-color: #f4f5f7;
+                    font-family: 'font_medium', sans-serif;
+                    color: var(--c-blue-3);
+
+                    svg :deep(path) {
+                        fill: var(--c-blue-3);
+                    }
+                }
+            }
+        }
+    }
 }
 
-* {
-    margin: 0;
-    padding: 0;
-}
-
-.table td,
-.table th {
-    padding: 16px 16px 16px 0 !important;
-    white-space: nowrap;
-    vertical-align: middle !important;
-}
-
-.table-hover tbody tr:hover {
-    background-color: #f9f9f9;
-}
-
-.selected-row {
-    background-color: #f4f5f7;
-}
-
-.btn-actions {
-    padding-top: 0;
-    padding-bottom: 0;
-}
-
-.dropdown-menu {
-    padding: 0;
-}
-
-.dropdown-item.action.p-3.action {
-    font-family: 'Inter', sans-serif;
-}
-
-.dropdown-item svg {
-    color: #768394;
-}
-
-.dropdown-item:focus svg,
-.dropdown-item:hover svg {
-    fill: #0149ff;
-}
-
-.dropdown-item.action.p-3.action:focus,
-.dropdown-item.action.p-3.action:hover {
-    background-color: #f4f5f7;
-    font-weight: bold;
-    color: #0149ff;
-}
-
-.deletion-confirmation {
-    font-size: 14px;
-    font-weight: bold;
-}
-
-.bi-trash {
-    cursor: pointer;
-}
-
-.file-name {
-    position: relative;
-    margin-left: 5px;
-    cursor: pointer;
-    color: #000;
+.delete-confirmation {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    gap: 5px;
+    align-items: start;
+    width: 100%;
+
+    &__options {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+
+        &__item {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+
+            &.yes:hover {
+                color: var(--c-red-2);
+
+                svg :deep(path) {
+                    fill: var(--c-red-2);
+                    stroke: var(--c-red-2);
+                }
+            }
+
+            &.no:hover {
+                color: var(--c-blue-3);
+
+                svg :deep(path) {
+                    fill: var(--c-blue-3);
+                    stroke: var(--c-blue-3);
+                }
+            }
+        }
+    }
 }
 
-.file-name:hover {
-    color: #0149ff;
+@media screen and (max-width: 550px) {
+    // hide size, upload date columns on mobile screens
+
+    :deep(.data:not(:first-of-type)) {
+        display: none;
+    }
 }
 
-.file-name:hover svg path {
-    fill: #0149ff;
+@keyframes spinner-border {
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
-.folder-name:hover {
-    color: #0149ff;
-}
-
-.folder-name:hover svg path {
-    fill: #0149ff;
-}
-
-.file-browser .dropleft .dropdown-menu {
-    top: 40px !important;
-    right: 10px !important;
-    border: none;
-    width: 255px;
-    box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
-    border-radius: 6px;
-    padding: 0;
-    overflow: hidden;
-}
-
-.file-browser .p-3.action {
-    padding: 17px 21px !important;
-}
-
-.file-browser .p-3.delete {
-    border-top: 1px solid #e5e7eb;
-}
-
-.file-browser .p-3 svg {
-    margin-right: 10px;
-}
-
-.file-browser .p-3:hover svg path {
-    fill: #0149ff;
+.spinner-border {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    vertical-align: text-bottom;
+    border: 0.25em solid currentcolor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: 0.75s linear infinite spinner-border;
 }
 </style>
