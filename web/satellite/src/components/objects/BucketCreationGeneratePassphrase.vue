@@ -7,11 +7,10 @@
         <div v-if="generationStep === GenerationSteps.TypeSelection" class="encrypt-container__functional">
             <div class="encrypt-container__functional__header">
                 <p class="encrypt-container__functional__header__title" aria-roledescription="title">
-                    Encrypt your bucket
+                    Encrypt your current session
                 </p>
                 <p class="encrypt-container__functional__header__info">
-                    We encourage you to generate the encryption passphrase.
-                    You can also enter your own passphrase for this bucket.
+                    Enter an encryption passphrase for this session.
                 </p>
             </div>
             <div class="encrypt-container__functional__variant" aria-roledescription="generate" @click="selectedType = GenerationSteps.Generation">
