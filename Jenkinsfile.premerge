@@ -125,13 +125,14 @@ pipeline {
             }
         }
 
-                stage('Cross Compile') {
-                    steps {
-                        // verify most of the commands, we cannot check everything since some of them
-                        // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'go run ./scripts/go-version-compatibility -parallel 4'
-                    }
-                }
+                // TODO disabled temporarily
+                // stage('Cross Compile') {
+                //     steps {
+                //         // verify most of the commands, we cannot check everything since some of them
+                //         // have a C dependency and we don't have cross-compilation in storj/ci image
+                //         sh 'go run ./scripts/go-version-compatibility -parallel 4'
+                //     }
+                // }
 
                 stage('Check Benchmark') {
                     environment {
