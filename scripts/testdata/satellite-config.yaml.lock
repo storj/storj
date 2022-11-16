@@ -290,7 +290,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.session.inactivity-timer-duration: 600
 
 # indicates if session can be timed out due inactivity
-# console.session.inactivity-timer-enabled: false
+# console.session.inactivity-timer-enabled: true
 
 # indicates whether remaining session time is shown for debugging
 # console.session.inactivity-timer-viewer-enabled: false
