@@ -2,68 +2,90 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-if="wallet.address" class="token">
+    <div class="token">
         <div class="token__icon">
             <div class="token__icon__wrapper">
                 <StorjLarge />
             </div>
         </div>
-        <div class="token__title-area">
-            <div class="token__title-area__small-icon">
-                <StorjSmall />
-            </div>
-            <div class="token__title-area__default-wrapper">
-                <p class="token__title-area__default-wrapper__label">Default</p>
-                <VInfo>
-                    <template #icon>
-                        <InfoIcon />
-                    </template>
-                    <template #message>
-                        <p class="token__title-area__default-wrapper__message">
-                            If the STORJ token balance runs out, the default credit card will be charged.
-                            <a
-                                class="token__title-area__default-wrapper__message__link"
-                                href=""
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Learn More
-                            </a>
-                        </p>
-                    </template>
-                </VInfo>
-            </div>
-        </div>
-        <div class="token__info-area">
-            <div class="token__info-area__option">
-                <h2 class="token__info-area__option__title">STORJ Token Deposit Address</h2>
-                <p class="token__info-area__option__value">{{ wallet.address }}</p>
-            </div>
-            <div class="token__info-area__option">
-                <h2 class="token__info-area__option__title">Total Balance</h2>
-                <p class="token__info-area__option__value">{{ wallet.balance.value }}</p>
-            </div>
-        </div>
-        <div class="token__action-area">
-            <VButton
-                class="token__action-area__history-btn"
-                label="See transactions"
-                :is-transparent="true"
-                height="32px"
-                font-size="13px"
-                border-radius="6px"
-                :on-press="() => $emit('showTransactions')"
-            />
 
-            <v-button
-                label="Add funds"
-                width="96px"
+        <div v-if="isLoading" class="token__loader-container">
+            <v-loader />
+        </div>
+
+        <div v-else-if="!wallet.address" class="token__add-funds">
+            <h3 class="token__add-funds__title">
+                STORJ Token
+            </h3>
+            <p class="token__add-funds__info">Deposit STORJ Token to your account and receive a 10% bonus, or $10 for every $100.</p>
+            <!-- Claim wallet button -->
+            <VButton
+                label="Add STORJ Tokens"
+                width="140px"
                 height="32px"
                 font-size="13px"
                 border-radius="6px"
-                :on-press="onAddTokensClick"
+                :on-press="claimWalletClick"
             />
         </div>
+        <template v-else>
+            <div class="token__title-area">
+                <div class="token__title-area__small-icon">
+                    <StorjSmall />
+                </div>
+                <div class="token__title-area__default-wrapper">
+                    <p class="token__title-area__default-wrapper__label">Default</p>
+                    <VInfo>
+                        <template #icon>
+                            <InfoIcon />
+                        </template>
+                        <template #message>
+                            <p class="token__title-area__default-wrapper__message">
+                                If the STORJ token balance runs out, the default credit card will be charged.
+                                <a
+                                    class="token__title-area__default-wrapper__message__link"
+                                    href=""
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Learn More
+                                </a>
+                            </p>
+                        </template>
+                    </VInfo>
+                </div>
+            </div>
+            <div class="token__info-area">
+                <div class="token__info-area__option">
+                    <h2 class="token__info-area__option__title">STORJ Token Deposit Address</h2>
+                    <p class="token__info-area__option__value">{{ wallet.address }}</p>
+                </div>
+                <div class="token__info-area__option">
+                    <h2 class="token__info-area__option__title">Total Balance</h2>
+                    <p class="token__info-area__option__value">{{ wallet.balance.value }}</p>
+                </div>
+            </div>
+            <div class="token__action-area">
+                <VButton
+                    class="token__action-area__history-btn"
+                    label="See transactions"
+                    :is-transparent="true"
+                    height="32px"
+                    font-size="13px"
+                    border-radius="6px"
+                    :on-press="() => $emit('showTransactions')"
+                />
+
+                <v-button
+                    label="Add funds"
+                    width="96px"
+                    height="32px"
+                    font-size="13px"
+                    border-radius="6px"
+                    :on-press="onAddTokensClick"
+                />
+            </div>
+        </template>
     </div>
 </template>
 
@@ -74,8 +96,10 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
@@ -89,11 +113,38 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
         StorjSmall,
         StorjLarge,
         VButton,
+        VLoader,
         VInfo,
     },
 })
 export default class AddTokenCardNative extends Vue {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    public isLoading = false;
+
+    public async claimWalletClick(): Promise<void> {
+        this.isLoading = true;
+        try {
+            await this.claimWallet();
+            // wallet claimed; open token modal
+            this.onAddTokensClick();
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+        this.isLoading = false;
+    }
+
+    mounted(): void {
+        if (!this.wallet.address) {
+            // try to get an existing wallet for this user. this will not claim a wallet.
+            this.$store.dispatch(PAYMENTS_ACTIONS.GET_WALLET);
+        }
+    }
+
+    public async claimWallet(): Promise<void> {
+        if (!this.wallet.address)
+            await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
+    }
 
     /**
      * Holds on add tokens button click logic.
@@ -136,6 +187,18 @@ export default class AddTokenCardNative extends Vue {
                 position: absolute;
                 top: -20px;
                 right: -20px;
+            }
+        }
+
+        &__loader-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+
+            :deep(.loader) {
+                padding: 0;
             }
         }
 
@@ -205,6 +268,30 @@ export default class AddTokenCardNative extends Vue {
 
                 svg {
                     cursor: pointer;
+                }
+            }
+        }
+
+        &__add-funds {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            width: 100%;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+            }
+
+            &__info {
+                font-size: 14px;
+                line-height: 20px;
+                color: #000;
+                z-index: 1;
+
+                a {
+                    color: var(--c-blue-3);
+                    text-decoration: underline !important;
                 }
             }
         }
