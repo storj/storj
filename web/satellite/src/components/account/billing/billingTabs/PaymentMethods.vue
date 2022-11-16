@@ -13,7 +13,7 @@
                 v-if="nativePayIsLoading"
             />
             <add-token-card-native
-                v-else-if="nativeTokenPaymentsEnabled && wallet.address"
+                v-else-if="nativeTokenPaymentsEnabled"
                 @showTransactions="showTransactionsTable"
             />
             <add-token-card
@@ -263,7 +263,7 @@ export default class PaymentMethods extends Vue {
     public showTransactions = false;
     public displayedHistory: NativePaymentHistoryItem[] = [];
     public transactionCount = 0;
-    public nativePayIsLoading = true;
+    public nativePayIsLoading = false;
     public pageSize = 10;
 
     /**
@@ -283,10 +283,6 @@ export default class PaymentMethods extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public mounted(): void {
-        this.claimWallet();
-    }
-
     private get wallet(): Wallet {
         return this.$store.state.paymentsModule.wallet;
     }
@@ -294,17 +290,6 @@ export default class PaymentMethods extends Vue {
     public onCopyAddressClick(): void {
         this.$copyText(this.wallet.address);
         this.$notify.success('Address copied to your clipboard');
-    }
-
-    public async claimWallet(): Promise<void> {
-        try {
-            if (this.nativeTokenPaymentsEnabled && !this.wallet.address)
-                await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        } finally {
-            this.nativePayIsLoading = false;
-        }
     }
 
     public async fetchHistory(): Promise<void> {
