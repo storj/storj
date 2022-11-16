@@ -296,7 +296,9 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 }
 
 // fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
-func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, startingTime time.Time) error {
+func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, startingTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var lastBucketLocation metabase.BucketLocation
 	var bucketLocationsSize int
 
