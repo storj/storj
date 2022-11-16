@@ -4,7 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';

@@ -10,4 +10,5 @@ module.exports = {
     transform: {
         '^.+\\.svg$': '<rootDir>/tests/unit/mock/svgTransform.js',
     },
+    modulePathIgnorePatterns: ['<rootDir>/tests/unit/ignore'],
 };

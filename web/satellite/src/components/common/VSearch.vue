@@ -16,70 +16,61 @@
     >
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
-declare type searchCallback = (search: string) => Promise<void>;
-declare interface SearchStyle {
+type searchCallback = (search: string) => Promise<void>;
+interface SearchStyle {
     width: string;
 }
 
-// @vue/component
-@Component
-export default class VSearch extends Vue {
-    @Prop({ default: '' })
-    private readonly placeholder: string;
-    @Prop({ default: function(): searchCallback {
-        return async function(_: string) {};
-    } })
-    private readonly search: searchCallback;
+const props = withDefaults(defineProps<{
+    search: searchCallback;
+    placeholder?: string;
+}>(), {
+    placeholder: '',
+});
 
-    private inputWidth = '56px';
-    private searchQuery = '';
+const inputWidth = ref<string>('56px');
+const searchQuery = ref<string>('');
+const input = ref<HTMLInputElement>();
 
-    public $refs!: {
-        input: HTMLElement;
-    };
+const style = computed((): SearchStyle => {
+    return { width: inputWidth.value };
+});
 
-    public get style(): SearchStyle {
-        return { width: this.inputWidth };
-    }
+/**
+ * Expands search input.
+ */
+function onMouseEnter(): void {
+    inputWidth.value = '540px';
+    input.value.focus();
+}
 
-    public get searchString(): string {
-        return this.searchQuery;
-    }
-
-    /**
-     * Expands search input.
-     */
-    public onMouseEnter(): void {
-        this.inputWidth = '540px';
-        this.$refs.input.focus();
-    }
-
-    /**
-     * Collapses search input if no search query.
-     */
-    public onMouseLeave(): void {
-        if (!this.searchQuery) {
-            this.inputWidth = '56px';
-            this.$refs.input.blur();
-        }
-    }
-
-    /**
-     * Clears search query and collapses input.
-     */
-    public clearSearch(): void {
-        this.searchQuery = '';
-        this.processSearchQuery();
-        this.inputWidth = '56px';
-    }
-
-    public async processSearchQuery(): Promise<void> {
-        await this.search(this.searchQuery);
+/**
+ * Collapses search input if no search query.
+ */
+function onMouseLeave(): void {
+    if (!searchQuery.value) {
+        inputWidth.value = '56px';
+        input.value.blur();
     }
 }
+
+/**
+ * Clears search query and collapses input.
+ */
+function clearSearch(): void {
+    searchQuery.value = '';
+    processSearchQuery();
+    inputWidth.value = '56px';
+}
+
+async function processSearchQuery(): Promise<void> {
+    await props.search(searchQuery.value);
+}
+
+defineExpose({ clearSearch });
 </script>
 
 <style scoped lang="scss">

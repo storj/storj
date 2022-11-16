@@ -30,8 +30,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue';
 
 import { OnPageClickCallback, Page } from '@/types/pagination';
 
@@ -40,227 +40,219 @@ import PagesBlock from '@/components/common/PagesBlock.vue';
 import PaginationLeftIcon from '@/../static/images/common/paginationLeft.svg';
 import PaginationRightIcon from '@/../static/images/common/paginationRight.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PagesBlock,
-        PaginationLeftIcon,
-        PaginationRightIcon,
-    },
-})
-export default class VPagination extends Vue {
-    private readonly MAX_PAGES_PER_BLOCK: number = 3;
-    private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
-    private currentPageNumber = 1;
-    public isLoading = false;
-    public pagesArray: Page[] = [];
-    public firstBlockPages: Page[] = [];
-    public middleBlockPages: Page[] = [];
-    public lastBlockPages: Page[] = [];
+const MAX_PAGES_PER_BLOCK = 3;
+const MAX_PAGES_OFF_BLOCKS = 6;
 
-    @Prop({ default: 0 })
-    private readonly totalPageCount: number;
-    @Prop({ default: () => () => new Promise(() => false) })
-    private readonly onPageClickCallback: OnPageClickCallback;
+const props = withDefaults(defineProps<{
+    onPageClickCallback: OnPageClickCallback;
+    totalPageCount?: number;
+}>(), {
+    totalPageCount: 0,
+});
 
-    /**
-     * Component initialization.
-     */
-    public mounted(): void {
-        this.populatePagesArray();
+const currentPageNumber = ref<number>(1);
+const isLoading = ref<boolean>(false);
+const pagesArray = ref<Page[]>([]);
+const firstBlockPages = ref<Page[]>([]);
+const middleBlockPages = ref<Page[]>([]);
+const lastBlockPages = ref<Page[]>([]);
+
+/**
+ * Indicates if current page is first.
+ */
+const isFirstPage = computed((): boolean => {
+    return currentPageNumber.value === 1;
+});
+
+/**
+ * Indicates if current page is last.
+ */
+const isLastPage = computed((): boolean => {
+    return currentPageNumber.value === props.totalPageCount;
+});
+
+/**
+ * Indicates if dots after first pages block should appear.
+ */
+const isFirstDotsShown = computed((): boolean => {
+    return middleBlockPages.value.length <= MAX_PAGES_PER_BLOCK
+        && pagesArray.value.length > MAX_PAGES_OFF_BLOCKS;
+});
+
+/**
+ * Indicates if dots after middle pages block should appear.
+ */
+const isSecondDotsShown = computed((): boolean => {
+    return !!middleBlockPages.value.length;
+});
+
+const isCurrentInFirstBlock = computed((): boolean => {
+    return currentPageNumber.value < MAX_PAGES_PER_BLOCK;
+});
+
+const isCurrentInLastBlock = computed((): boolean => {
+    return props.totalPageCount - currentPageNumber.value < MAX_PAGES_PER_BLOCK - 1;
+});
+
+const isPagesTotalOffBlocks = computed((): boolean => {
+    return props.totalPageCount <= MAX_PAGES_OFF_BLOCKS;
+});
+
+/**
+ * Indicates page is current and should appear in different styling.
+ */
+function isSelected(page: number): boolean {
+    return page === currentPageNumber.value;
+}
+
+/**
+ * Creates pages blocks and pages depends of total page count.
+ */
+function populatePagesArray(): void {
+    if (!props.totalPageCount) {
+        return;
     }
 
-    /**
-     * Indicates if current page is first.
-     */
-    public get isFirstPage(): boolean {
-        return this.currentPageNumber === 1;
+    for (let i = 1; i <= props.totalPageCount; i++) {
+        pagesArray.value.push(new Page(i, onPageClick));
     }
 
-    /**
-     * Indicates if current page is last.
-     */
-    public get isLastPage(): boolean {
-        return this.currentPageNumber === this.totalPageCount;
+    if (isPagesTotalOffBlocks) {
+        firstBlockPages.value = pagesArray.value.slice();
+        middleBlockPages.value = [];
+        lastBlockPages.value = [];
+
+        return;
     }
 
-    /**
-     * Indicates if dots after first pages block should appear.
-     */
-    public get isFirstDotsShown(): boolean {
-        return this.middleBlockPages.length <= this.MAX_PAGES_PER_BLOCK
-            && this.pagesArray.length > this.MAX_PAGES_OFF_BLOCKS;
+    reorganizePageBlocks();
+}
+
+/**
+ * Method after total page count change.
+ */
+const onPageCountChange = watch(() => props.totalPageCount, (): void => {
+    resetPageIndex();
+});
+
+function setBlocksIfCurrentInFirstBlock(): void {
+    firstBlockPages.value = pagesArray.value.slice(0, 3);
+    middleBlockPages.value = [];
+    lastBlockPages.value = pagesArray.value.slice(-1);
+}
+
+function setBlocksIfCurrentInMiddleBlock(): void {
+    firstBlockPages.value = pagesArray.value.slice(0, 1);
+    middleBlockPages.value = pagesArray.value.slice(currentPageNumber.value - 2, currentPageNumber.value + 1);
+    lastBlockPages.value = pagesArray.value.slice(-1);
+}
+
+function setBlocksIfCurrentInLastBlock(): void {
+    firstBlockPages.value = pagesArray.value.slice(0, 1);
+    middleBlockPages.value = [];
+    lastBlockPages.value = pagesArray.value.slice(-3);
+}
+
+function incrementCurrentPage(): void {
+    currentPageNumber.value++;
+}
+
+function decrementCurrentPage(): void {
+    currentPageNumber.value--;
+}
+
+function setCurrentPage(pageNumber: number): void {
+    currentPageNumber.value = pageNumber;
+}
+
+/**
+ * onPageClick fires after concrete page click.
+ */
+async function onPageClick(page: number): Promise<void> {
+    if (isLoading.value) {
+        return;
     }
 
-    /**
-     * Indicates if dots after middle pages block should appear.
-     */
-    public get isSecondDotsShown(): boolean {
-        return !!this.middleBlockPages.length;
+    isLoading.value = true;
+    await props.onPageClickCallback(page);
+    setCurrentPage(page);
+    reorganizePageBlocks();
+    isLoading.value = false;
+}
+
+/**
+ * nextPage fires after 'next' arrow click.
+ */
+async function nextPage(): Promise<void> {
+    if (isLastPage || isLoading.value) {
+        return;
     }
 
-    /**
-     * Indicates page is current and should appear in different styling.
-     */
-    public isSelected(page: number): boolean {
-        return page === this.currentPageNumber;
+    isLoading.value = true;
+    await props.onPageClickCallback(currentPageNumber.value + 1);
+    incrementCurrentPage();
+    reorganizePageBlocks();
+    isLoading.value = false;
+}
+
+/**
+ * prevPage fires after 'previous' arrow click.
+ */
+async function prevPage(): Promise<void> {
+    if (isFirstPage || isLoading.value) {
+        return;
     }
 
-    /**
-     * Method after total page count change.
-     */
-    @Watch('totalPageCount')
-    public onPageCountChange(_val: number, _oldVal: number): void {
-        this.resetPageIndex();
+    isLoading.value = true;
+    await props.onPageClickCallback(currentPageNumber.value - 1);
+    decrementCurrentPage();
+    reorganizePageBlocks();
+    isLoading.value = false;
+}
+
+/**
+ * resetPageIndex sets current selected page as first and rebuilds page blocks after.
+ */
+function resetPageIndex(): void {
+    pagesArray.value = [];
+    firstBlockPages.value = [];
+    setCurrentPage(1);
+
+    populatePagesArray();
+}
+
+/**
+ * reorganizePageBlocks changes pages blocks organization depends of
+ * current selected page index.
+ */
+function reorganizePageBlocks(): void {
+    if (isPagesTotalOffBlocks) {
+        return;
     }
 
-    /**
-     * onPageClick fires after concrete page click.
-     */
-    public async onPageClick(page: number): Promise<void> {
-        if (this.isLoading) {
-            return;
-        }
+    if (isCurrentInFirstBlock) {
+        setBlocksIfCurrentInFirstBlock();
 
-        this.isLoading = true;
-        await this.onPageClickCallback(page);
-        this.setCurrentPage(page);
-        this.reorganizePageBlocks();
-        this.isLoading = false;
+        return;
     }
 
-    /**
-     * nextPage fires after 'next' arrow click.
-     */
-    public async nextPage(): Promise<void> {
-        if (this.isLastPage || this.isLoading) {
-            return;
-        }
+    if (!isCurrentInFirstBlock && !isCurrentInLastBlock) {
+        setBlocksIfCurrentInMiddleBlock();
 
-        this.isLoading = true;
-        await this.onPageClickCallback(this.currentPageNumber + 1);
-        this.incrementCurrentPage();
-        this.reorganizePageBlocks();
-        this.isLoading = false;
+        return;
     }
 
-    /**
-     * prevPage fires after 'previous' arrow click.
-     */
-    public async prevPage(): Promise<void> {
-        if (this.isFirstPage || this.isLoading) {
-            return;
-        }
-
-        this.isLoading = true;
-        await this.onPageClickCallback(this.currentPageNumber - 1);
-        this.decrementCurrentPage();
-        this.reorganizePageBlocks();
-        this.isLoading = false;
-    }
-
-    /**
-     * resetPageIndex sets current selected page as first and rebuilds page blocks after.
-     */
-    public resetPageIndex(): void {
-        this.pagesArray = [];
-        this.firstBlockPages = [];
-        this.setCurrentPage(1);
-
-        this.populatePagesArray();
-    }
-
-    /**
-     * creates pages blocks and pages depends of total page count.
-     */
-    private populatePagesArray(): void {
-        if (!this.totalPageCount) {
-            return;
-        }
-
-        for (let i = 1; i <= this.totalPageCount; i++) {
-            this.pagesArray.push(new Page(i, this.onPageClick));
-        }
-
-        if (this.isPagesTotalOffBlocks()) {
-            this.firstBlockPages = this.pagesArray.slice();
-            this.middleBlockPages = [];
-            this.lastBlockPages = [];
-
-            return;
-        }
-
-        this.reorganizePageBlocks();
-    }
-
-    /**
-     * reorganizePageBlocks changes pages blocks organization depends of
-     * current selected page index.
-     */
-    private reorganizePageBlocks(): void {
-        if (this.isPagesTotalOffBlocks()) {
-            return;
-        }
-
-        if (this.isCurrentInFirstBlock()) {
-            this.setBlocksIfCurrentInFirstBlock();
-
-            return;
-        }
-
-        if (!this.isCurrentInFirstBlock() && !this.isCurrentInLastBlock()) {
-            this.setBlocksIfCurrentInMiddleBlock();
-
-            return;
-        }
-
-        if (this.isCurrentInLastBlock()) {
-            this.setBlocksIfCurrentInLastBlock();
-        }
-    }
-
-    private setBlocksIfCurrentInFirstBlock(): void {
-        this.firstBlockPages = this.pagesArray.slice(0, 3);
-        this.middleBlockPages = [];
-        this.lastBlockPages = this.pagesArray.slice(-1);
-    }
-
-    private setBlocksIfCurrentInMiddleBlock(): void {
-        this.firstBlockPages = this.pagesArray.slice(0, 1);
-        this.middleBlockPages = this.pagesArray.slice(this.currentPageNumber - 2, this.currentPageNumber + 1);
-        this.lastBlockPages = this.pagesArray.slice(-1);
-    }
-
-    private setBlocksIfCurrentInLastBlock(): void {
-        this.firstBlockPages = this.pagesArray.slice(0, 1);
-        this.middleBlockPages = [];
-        this.lastBlockPages = this.pagesArray.slice(-3);
-    }
-
-    private isCurrentInFirstBlock(): boolean {
-        return this.currentPageNumber < this.MAX_PAGES_PER_BLOCK;
-    }
-
-    private isCurrentInLastBlock(): boolean {
-        return this.totalPageCount - this.currentPageNumber < this.MAX_PAGES_PER_BLOCK - 1;
-    }
-
-    private isPagesTotalOffBlocks(): boolean {
-        return this.totalPageCount <= this.MAX_PAGES_OFF_BLOCKS;
-    }
-
-    private incrementCurrentPage(): void {
-        this.currentPageNumber++;
-    }
-
-    private decrementCurrentPage(): void {
-        this.currentPageNumber--;
-    }
-
-    private setCurrentPage(pageNumber: number): void {
-        this.currentPageNumber = pageNumber;
+    if (isCurrentInLastBlock) {
+        setBlocksIfCurrentInLastBlock();
     }
 }
+
+/**
+ * Component initialization.
+ */
+onMounted((): void => {
+    populatePagesArray();
+});
 </script>
 
 <style scoped lang="scss">

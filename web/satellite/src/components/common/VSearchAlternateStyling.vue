@@ -17,10 +17,10 @@ import { ref } from 'vue';
 
 declare type searchCallback = (search: string) => Promise<void>;
 
-const props = defineProps<{
-    placeholder: string,
+const props = withDefaults(defineProps<{
+    placeholder?: string,
     search: searchCallback,
-}>();
+}>(), { placeholder: '' });
 
 const searchQuery = ref<string>('');
 

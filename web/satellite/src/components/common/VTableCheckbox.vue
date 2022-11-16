@@ -13,10 +13,10 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-    value: boolean,
-    disabled: boolean,
-}>();
+const props = withDefaults(defineProps<{
+    value?: boolean,
+    disabled?: boolean,
+}>(), { value: false, disabled: false });
 
 const emit = defineEmits(['checkChange']);
 
