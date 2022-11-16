@@ -7,7 +7,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 )
 
@@ -34,34 +33,10 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
 
-	eventString, err := typeToString(events[0].Event)
+	name, err := events[0].Event.Name()
 	if err != nil {
 		return err
 	}
-	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", eventString), zap.String("node IDs", nodeIDs))
+	m.log.Info("node operator notified", zap.String("email", events[0].Email), zap.String("event", name), zap.String("node IDs", nodeIDs))
 	return nil
-}
-
-func typeToString(event Type) (desc string, err error) {
-	switch event {
-	case Online:
-		desc = "online"
-	case Offline:
-		desc = "offline"
-	case Disqualified:
-		desc = "disqualified"
-	case UnknownAuditSuspended:
-		desc = "unknown audit suspended"
-	case UnknownAuditUnsuspended:
-		desc = "unknown audit unsuspended"
-	case OfflineSuspended:
-		desc = "offline suspended"
-	case OfflineUnsuspended:
-		desc = "offline unsuspended"
-	case BelowMinVersion:
-		desc = "below minimum version"
-	default:
-		err = errs.New("event type has no description")
-	}
-	return desc, err
 }

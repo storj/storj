@@ -31,12 +31,16 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, nodeID storj.Nod
 	if err != nil {
 		return nodeEvent, err
 	}
+	name, err := eventType.Name()
+	if err != nil {
+		return nodeEvent, err
+	}
 	entry, err := ne.db.Create_NodeEvent(ctx, dbx.NodeEvent_Id(id.Bytes()), dbx.NodeEvent_Email(email), dbx.NodeEvent_NodeId(nodeID.Bytes()), dbx.NodeEvent_Event(int(eventType)), dbx.NodeEvent_Create_Fields{})
 	if err != nil {
 		return nodeEvent, err
 	}
 
-	ne.db.log.Info("node event inserted", zap.Int("type", int(eventType)), zap.String("email", email), zap.String("node ID", nodeID.String()))
+	ne.db.log.Info("node event inserted", zap.String("name", name), zap.String("email", email), zap.String("node ID", nodeID.String()))
 
 	return fromDBX(entry)
 }

@@ -3,6 +3,8 @@
 
 package nodeevents
 
+import "github.com/zeebo/errs"
+
 // Type is a type of node event.
 type Type int
 
@@ -23,4 +25,38 @@ const (
 	OfflineUnsuspended
 	// BelowMinVersion indicates that the node's software is below the minimum version.
 	BelowMinVersion
+
+	onlineName                  = "online"
+	offlineName                 = "offline"
+	disqualifiedName            = "disqualified"
+	unknownAuditSuspendedName   = "unknown audit suspended"
+	unknownAuditUnsuspendedName = "unknown audit unsuspended"
+	offlineSuspendedName        = "offline suspended"
+	offlineUnsuspendedName      = "offline unsuspended"
+	belowMinVersionName         = "below minimum version"
 )
+
+// Name returns the name of the node event Type.
+func (t Type) Name() (name string, err error) {
+	switch t {
+	case Online:
+		name = onlineName
+	case Offline:
+		name = offlineName
+	case Disqualified:
+		name = disqualifiedName
+	case UnknownAuditSuspended:
+		name = unknownAuditSuspendedName
+	case UnknownAuditUnsuspended:
+		name = unknownAuditUnsuspendedName
+	case OfflineSuspended:
+		name = offlineSuspendedName
+	case OfflineUnsuspended:
+		name = offlineUnsuspendedName
+	case BelowMinVersion:
+		name = belowMinVersionName
+	default:
+		err = errs.New("invalid Type")
+	}
+	return name, err
+}
