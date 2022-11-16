@@ -7,14 +7,13 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // Observer subscribes to the parallel segment loop.
 // It is intended that a naïve implementation is threadsafe.
 type Observer interface {
-	Start(context.Context, time.Time, metabase.NodeAliasMap) error
+	Start(context.Context, time.Time) error
 
 	// Fork creates a Partial to process a chunk of all the segments.
 	Fork(context.Context) (Partial, error)

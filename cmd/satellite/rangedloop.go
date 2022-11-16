@@ -41,7 +41,7 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 	defer func() {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
-
+	
 	peer, err := satellite.NewRangedLoop(log, identity, db, metabaseDB, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
