@@ -856,6 +856,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to cache the project limits.
 # project-limit.cache-expiration: 10m0s
 
+# as of system interval
+# ranged-loop.as-of-system-interval: -5m0s
+
+# how many items to query in a batch
+# ranged-loop.batch-size: 2500
+
+# how many chunks of segments to process in parallel
+# ranged-loop.parallelism: 2
+
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 

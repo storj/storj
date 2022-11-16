@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -74,7 +75,9 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 	}
 
 	{ // setup ranged loop
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, metabaseDB, nil)
+		// TODO: replace with real segment provider
+		segments := &rangedlooptest.RangeSplitterMock{}
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, nil)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",
