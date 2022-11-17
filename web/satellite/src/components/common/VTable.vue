@@ -17,6 +17,7 @@
         <div v-if="totalPageCount > 0" class="table-footer">
             <span class="table-footer__label">{{ totalItemsCount }} {{ itemsLabel }}</span>
             <table-pagination
+                v-if="totalPageCount > 1"
                 :total-page-count="totalPageCount"
                 :total-items-count="totalItemsCount"
                 :limit="limit"
@@ -31,14 +32,21 @@ import { OnPageClickCallback } from '@/types/pagination';
 
 import TablePagination from '@/components/common/TablePagination.vue';
 
-const props = defineProps<{
-    selectable: boolean,
-    totalPageCount: number,
-    itemsLabel: string,
-    limit: number,
-    totalItemsCount: number,
-    onPageClickCallback: OnPageClickCallback,
-}>();
+const props = withDefaults(defineProps<{
+    itemsLabel?: string,
+    limit?: number,
+    totalItemsCount?: number,
+    onPageClickCallback?: OnPageClickCallback,
+    totalPageCount?: number,
+    selectable?: boolean,
+}>(), {
+    selectable: false,
+    totalPageCount: 0,
+    itemsLabel: '',
+    limit: 0,
+    totalItemsCount: 0,
+    onPageClickCallback: () => () => Promise.resolve(),
+});
 </script>
 
 <style lang="scss">
