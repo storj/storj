@@ -346,7 +346,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}
 
 	var segmentRS *pb.RedundancyScheme
-	// TODO we may try to avoid additional request for inline objects
+	// TODO this code is triggered only by very old uplink library and we will remove it eventually.
 	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
 		segmentRS = endpoint.defaultRS
 		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -356,8 +356,19 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			},
 		})
 		if err != nil {
+			// add user agent to log entry to figure out tool that is using old uplink
+			userAgent := "unknown"
+			if req.Header != nil && len(req.Header.UserAgent) != 0 {
+				userAgent = string(req.Header.UserAgent)
+			}
+
 			// don't fail because its possible that its multipart object
-			endpoint.log.Error("internal", zap.Error(err))
+			endpoint.log.Warn("unable to get segment metadata to get object redundancy",
+				zap.Stringer("StreamID", mbObject.StreamID),
+				zap.Stringer("ProjectID", keyInfo.ProjectID),
+				zap.String("User Agent", userAgent),
+				zap.Error(err),
+			)
 		} else {
 			segmentRS = &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
