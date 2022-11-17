@@ -1004,7 +1004,7 @@ server.private-address: 127.0.0.1:7778
 # tally.save-rollup-batch-size: 1000
 
 # flag to switch between calculating bucket tallies using objects loop or custom query
-# tally.use-objects-loop: true
+# tally.use-objects-loop: false
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

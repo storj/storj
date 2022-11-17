@@ -433,6 +433,7 @@ type CollectBucketTallies struct {
 	To                 BucketLocation
 	AsOfSystemTime     time.Time
 	AsOfSystemInterval time.Duration
+	Now                time.Time
 }
 
 // Verify verifies CollectBucketTallies request fields.
@@ -454,15 +455,19 @@ func (db *DB) CollectBucketTallies(ctx context.Context, opts CollectBucketTallie
 		return []BucketTally{}, err
 	}
 
+	if opts.Now.IsZero() {
+		opts.Now = time.Now()
+	}
+
 	err = withRows(db.db.QueryContext(ctx, `
 			SELECT project_id, bucket_name, SUM(total_encrypted_size), SUM(segment_count), COALESCE(SUM(length(encrypted_metadata)), 0), count(*)
 			FROM objects
 			`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4) AND
-			(expires_at IS NULL OR expires_at > now())
+			(expires_at IS NULL OR expires_at > $5)
 			GROUP BY (project_id, bucket_name)
 			ORDER BY (project_id, bucket_name) ASC
-		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName))(func(rows tagsql.Rows) error {
+		`, opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var bucketTally BucketTally
 
