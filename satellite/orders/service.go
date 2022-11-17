@@ -32,7 +32,7 @@ var (
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
-	Expiration          time.Duration  `help:"how long until an order expires" default:"48h" testDefault:"168h"` // default is 2 days
+	Expiration          time.Duration  `help:"how long until an order expires" default:"24h" testDefault:"168h"` // default is 1 day
 	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000" testDefault:"10"`
 	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
 	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
