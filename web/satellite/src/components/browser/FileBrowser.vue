@@ -438,7 +438,7 @@ async function list(path: string): Promise<void> {
 async function buttonFileUpload(): Promise<void> {
     await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
     const fileInputElement = fileInput.value as HTMLInputElement;
-    fileInputElement.click();
+    fileInputElement.showPicker();
     closeUploadDropdown();
 }
 
@@ -448,7 +448,7 @@ async function buttonFileUpload(): Promise<void> {
 async function buttonFolderUpload(): Promise<void> {
     await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
     const folderInputElement = folderInput.value as HTMLInputElement;
-    folderInputElement.click();
+    folderInputElement.showPicker();
     closeUploadDropdown();
 }
 
