@@ -56,7 +56,6 @@ export default class AddTokenCard extends Vue {
             right: 0;
             height: 120px;
             width: 120px;
-            z-index: 1;
             border-radius: 10px;
             overflow: hidden;
         }
@@ -68,6 +67,7 @@ export default class AddTokenCard extends Vue {
         }
 
         &__add-funds {
+            position: relative;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -83,7 +83,6 @@ export default class AddTokenCard extends Vue {
                 font-size: 14px;
                 line-height: 20px;
                 color: #000;
-                z-index: 1;
 
                 a {
                     color: var(--c-blue-3);
