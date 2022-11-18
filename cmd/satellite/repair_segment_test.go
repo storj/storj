@@ -35,8 +35,7 @@ func TestRepairSegment(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
-		err = repairSegment(ctx, zaptest.NewLogger(t), satellite.Repairer, satellite.Metabase.DB, segments[0])
-		require.NoError(t, err)
+		repairSegment(ctx, zaptest.NewLogger(t), satellite.Repairer, satellite.Metabase.DB, segments[0])
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "bucket", "object")
 		require.NoError(t, err)
@@ -67,8 +66,7 @@ func TestRepairSegment(t *testing.T) {
 		// we cannot download segment so repair is not possible
 		observedZapCore, observedLogs := observer.New(zap.ErrorLevel)
 		observedLogger := zap.New(observedZapCore)
-		err = repairSegment(ctx, observedLogger, satellite.Repairer, satellite.Metabase.DB, segments[0])
-		require.NoError(t, err)
+		repairSegment(ctx, observedLogger, satellite.Repairer, satellite.Metabase.DB, segments[0])
 		require.Contains(t, "download failed", observedLogs.All()[observedLogs.Len()-1].Message)
 
 		// TODO add more detailed tests
