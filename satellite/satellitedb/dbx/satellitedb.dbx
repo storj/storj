@@ -15,10 +15,16 @@ model node_event (
 	field node_id blob
 	field event int
 	field created_at timestamp ( default current_timestamp )
+	field last_attempted timestamp ( nullable, updatable )
 	field email_sent timestamp ( nullable, updatable )
 )
 
 create node_event()
+
+read one (
+	select node_event
+	where node_event.id = ?
+)
 
 read first (
 	select node_event
