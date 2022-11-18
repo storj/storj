@@ -164,7 +164,7 @@
 
                             <tr v-if="path.length > 0">
                                 <td class="px-3">
-                                    <span @click="onBack">
+                                    <span @click.prevent="onBack">
                                         <a
                                             id="navigate-back"
                                             href="javascript:null"

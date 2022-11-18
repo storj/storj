@@ -24,7 +24,7 @@
         </div>
 
         <div v-for="(path, idx) in crumbs" :key="idx" class="d-inline">
-            <span @click="redirectToCrumb(idx)">
+            <span @click.prevent="redirectToCrumb(idx)">
                 <a class="path" href="javascript:null">{{ path }}</a>
             </span>
 

@@ -23,7 +23,7 @@
                     />
                 </svg>
 
-                <span @click="openBucket">
+                <span @click.prevent="openBucket">
                     <a
                         href="javascript:null"
                         class="file-name"

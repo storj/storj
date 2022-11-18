@@ -403,10 +403,14 @@ export const makeFilesModule = (): FilesModule => ({
                     const file = await new Promise(item.file.bind(item));
                     yield { path, file };
                 } else if (item instanceof File) {
-                    let relativePath = item.webkitRelativePath
-                        .split('/')
-                        .slice(0, -1)
-                        .join('/');
+                    let relativePath = '';
+                    // on Firefox mobile, item.webkitRelativePath might be `undefined`
+                    if (item.webkitRelativePath) {
+                        relativePath = item.webkitRelativePath
+                            .split('/')
+                            .slice(0, -1)
+                            .join('/');
+                    }
 
                     if (relativePath.length) {
                         relativePath += '/';
