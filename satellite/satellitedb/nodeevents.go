@@ -56,6 +56,17 @@ func (ne *nodeEvents) GetLatestByEmailAndEvent(ctx context.Context, email string
 	return fromDBX(dbxNE)
 }
 
+// GetByID get a node event by id.
+func (ne *nodeEvents) GetByID(ctx context.Context, id uuid.UUID) (nodeEvent nodeevents.NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxNE, err := ne.db.Get_NodeEvent_By_Id(ctx, dbx.NodeEvent_Id(id[:]))
+	if err != nil {
+		return nodeEvent, err
+	}
+	return fromDBX(dbxNE)
+}
+
 // GetNextBatch gets the next batch of events to combine into an email.
 // It selects one item that was inserted before 'firstSeenBefore', then selects
 // all entries with the same email and event so that they can be combined into a

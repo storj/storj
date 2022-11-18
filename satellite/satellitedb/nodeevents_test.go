@@ -81,6 +81,35 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 	})
 }
 
+func TestNodeEventsGetByID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testID1 := teststorj.NodeIDFromString("test1")
+		testID2 := teststorj.NodeIDFromString("test2")
+		testEmail1 := "test1@storj.test"
+		testEmail2 := "test2@storj.test"
+
+		eventType := nodeevents.Disqualified
+
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		require.NoError(t, err)
+
+		event2, err := db.NodeEvents().Insert(ctx, testEmail2, testID2, eventType)
+		require.NoError(t, err)
+
+		res, err := db.NodeEvents().GetByID(ctx, event1.ID)
+		require.NoError(t, err)
+		require.Equal(t, event1.Email, res.Email)
+		require.Equal(t, event1.CreatedAt, res.CreatedAt)
+		require.Equal(t, event1.Event, res.Event)
+
+		res, err = db.NodeEvents().GetByID(ctx, event2.ID)
+		require.NoError(t, err)
+		require.Equal(t, event2.Email, res.Email)
+		require.Equal(t, event2.CreatedAt, res.CreatedAt)
+		require.Equal(t, event2.Event, res.Event)
+	})
+}
+
 func TestNodeEventsGetNextBatch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testID1 := teststorj.NodeIDFromString("test1")

@@ -21,6 +21,8 @@ type DB interface {
 	GetLatestByEmailAndEvent(ctx context.Context, email string, event Type) (nodeEvent NodeEvent, err error)
 	// GetNextBatch gets the next batch of events to combine into an email.
 	GetNextBatch(ctx context.Context, firstSeenBefore time.Time) (events []NodeEvent, err error)
+	// GetByID get a node event by id.
+	GetByID(ctx context.Context, id uuid.UUID) (nodeEvent NodeEvent, err error)
 	// UpdateEmailSent updates email_sent for a group of rows.
 	UpdateEmailSent(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error)
 }
