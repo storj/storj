@@ -6,10 +6,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -39,17 +41,18 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
+type segment struct {
+	StreamID uuid.UUID
+	Position uint64
+}
+
 func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	streamID, err := uuid.FromString(args[0])
+	segments, err := collectInputSegments(args)
 	if err != nil {
-		return errs.New("invalid stream-id (should be in UUID form): %w", err)
-	}
-	streamPosition, err := strconv.ParseUint(args[1], 10, 64)
-	if err != nil {
-		return errs.New("stream position must be a number: %w", err)
+		return err
 	}
 
 	identity, err := runCfg.Identity.Load()
@@ -154,24 +157,74 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		}
 	}()
 
-	segment, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-		StreamID: streamID,
-		Position: metabase.SegmentPositionFromEncoded(streamPosition),
-	})
-	if err != nil {
-		if metabase.ErrSegmentNotFound.Has(err) {
-			printOutput(segment.StreamID, segment.Position.Encode(), "segment not found in metabase db", 0, 0)
+	for _, segment := range segments {
+		segment, err := metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: segment.StreamID,
+			Position: metabase.SegmentPositionFromEncoded(segment.Position),
+		})
+		if err != nil {
+			if metabase.ErrSegmentNotFound.Has(err) {
+				printOutput(segment.StreamID, segment.Position.Encode(), "segment not found in metabase db", 0, 0)
+				return nil
+			}
+			log.Error("unknown error when getting segment metadata",
+				zap.Stringer("stream-id", segment.StreamID),
+				zap.Uint64("position", segment.Position.Encode()),
+				zap.Error(err))
+			printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
 			return nil
 		}
-		log.Error("unknown error when getting segment metadata",
-			zap.Stringer("stream-id", streamID),
-			zap.Uint64("position", streamPosition),
-			zap.Error(err))
-		printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
-		return nil
+		repairSegment(ctx, log, peer, metabaseDB, segment)
+	}
+	return nil
+}
+
+func collectInputSegments(args []string) (segments []segment, err error) {
+	convert := func(streamIDString, positionString string) (segment, error) {
+		streamID, err := uuid.FromString(streamIDString)
+		if err != nil {
+			return segment{}, errs.New("invalid stream-id (should be in UUID form): %w", err)
+		}
+		streamPosition, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return segment{}, errs.New("stream position must be a number: %w", err)
+		}
+		return segment{
+			StreamID: streamID,
+			Position: streamPosition,
+		}, nil
 	}
 
-	return repairSegment(ctx, log, peer, metabaseDB, segment)
+	if len(args) == 1 {
+		csvFile, err := os.Open(args[0])
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			err = errs.Combine(err, csvFile.Close())
+		}()
+
+		csvReader := csv.NewReader(csvFile)
+		allEntries, err := csvReader.ReadAll()
+		if err != nil {
+			return nil, err
+		}
+		// ignore first line with headers
+		for _, entry := range allEntries[1:] {
+			segment, err := convert(entry[0], entry[1])
+			if err != nil {
+				return nil, err
+			}
+			segments = append(segments, segment)
+		}
+	} else {
+		segment, err := convert(args[0], args[1])
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, segment)
+	}
+	return segments, nil
 }
 
 // repairSegment will repair selected segment no matter if it's healthy or not.
@@ -180,25 +233,24 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 // * download whole segment into memory, use all available pieces
 // * reupload segment into new nodes
 // * replace segment.Pieces field with just new nodes.
-func repairSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) error {
+func repairSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment) {
 	log = log.With(zap.Stringer("stream-id", segment.StreamID), zap.Uint64("position", segment.Position.Encode()))
 	segmentData, failedDownloads, err := downloadSegment(ctx, log, peer, metabaseDB, segment)
 	if err != nil {
 		log.Error("download failed", zap.Error(err))
 
 		printOutput(segment.StreamID, segment.Position.Encode(), "download failed", len(segment.Pieces), failedDownloads)
-		return nil
+		return
 	}
 
 	if err := reuploadSegment(ctx, log, peer, metabaseDB, segment, segmentData); err != nil {
 		log.Error("upload failed", zap.Error(err))
 
 		printOutput(segment.StreamID, segment.Position.Encode(), "upload failed", len(segment.Pieces), failedDownloads)
-		return nil
+		return
 	}
 
 	printOutput(segment.StreamID, segment.Position.Encode(), "successful", len(segment.Pieces), failedDownloads)
-	return nil
 }
 
 func reuploadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repairer, metabaseDB *metabase.DB, segment metabase.Segment, segmentData []byte) error {
