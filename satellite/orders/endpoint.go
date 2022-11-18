@@ -99,13 +99,13 @@ func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
 	sort.SliceStable(rollups, func(i, j int) bool {
 		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
 		switch {
-		case uuidCompare == -1:
-			return true
-		case uuidCompare == 1:
-			return false
 		case rollups[i].BucketName < rollups[j].BucketName:
 			return true
 		case rollups[i].BucketName > rollups[j].BucketName:
+			return false
+		case uuidCompare == -1:
+			return true
+		case uuidCompare == 1:
 			return false
 		case rollups[i].Action < rollups[j].Action:
 			return true
