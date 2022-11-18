@@ -132,12 +132,13 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 		return event, err
 	}
 	return nodeevents.NodeEvent{
-		ID:        id,
-		Email:     dbxNE.Email,
-		NodeID:    nodeID,
-		Event:     nodeevents.Type(dbxNE.Event),
-		CreatedAt: dbxNE.CreatedAt,
-		EmailSent: dbxNE.EmailSent,
+		ID:            id,
+		Email:         dbxNE.Email,
+		NodeID:        nodeID,
+		Event:         nodeevents.Type(dbxNE.Event),
+		CreatedAt:     dbxNE.CreatedAt,
+		LastAttempted: dbxNE.LastAttempted,
+		EmailSent:     dbxNE.EmailSent,
 	}, nil
 }
 
@@ -147,6 +148,17 @@ func (ne *nodeEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUID, time
 
 	_, err = ne.db.ExecContext(ctx, `
 		UPDATE node_events SET email_sent = $1
+		WHERE id = ANY($2::bytea[])
+	`, timestamp, pgutil.UUIDArray(ids))
+	return err
+}
+
+// UpdateLastAttempted updates last_attempted for a group of rows.
+func (ne *nodeEvents) UpdateLastAttempted(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = ne.db.ExecContext(ctx, `
+		UPDATE node_events SET last_attempted = $1
 		WHERE id = ANY($2::bytea[])
 	`, timestamp, pgutil.UUIDArray(ids))
 	return err
