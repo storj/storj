@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var (
@@ -92,15 +93,24 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	if len(batch) == 0 {
+		return 0, nil
+	}
+
+	email := batch[0].Email
 
 	var rowIDs []uuid.UUID
 	for _, event := range batch {
 		rowIDs = append(rowIDs, event.ID)
 	}
 
-	if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
-		err = errs.Combine(err, chore.db.UpdateLastAttempted(ctx, rowIDs, chore.nowFn()))
-		return 0, err
+	if utils.ValidateEmail(email) {
+		if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
+			err = errs.Combine(err, chore.db.UpdateLastAttempted(ctx, rowIDs, chore.nowFn()))
+			return 0, err
+		}
+	} else {
+		chore.log.Error("invalid email", zap.String("email", email))
 	}
 
 	err = chore.db.UpdateEmailSent(ctx, rowIDs, chore.nowFn())
