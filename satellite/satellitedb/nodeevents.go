@@ -82,7 +82,7 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 			FROM node_events
 			WHERE created_at < $1
 				AND email_sent is NULL
-			ORDER BY created_at ASC
+			ORDER BY last_attempted ASC NULLS FIRST, created_at ASC
 			LIMIT 1
 		) as t
 		ON node_events.email = t.email

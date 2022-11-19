@@ -96,6 +96,7 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 	}
 
 	if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
+		err = errs.Combine(err, chore.db.UpdateLastAttempted(ctx, rowIDs, chore.nowFn()))
 		return 0, err
 	}
 
