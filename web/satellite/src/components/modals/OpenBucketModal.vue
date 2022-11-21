@@ -110,7 +110,7 @@ export default class OpenBucketModal extends Vue {
 
             this.closeModal();
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.UploadFile.path);
+            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         } catch (e) {
             await this.$notify.error(e.message);
             this.isLoading = false;

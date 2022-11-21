@@ -170,8 +170,7 @@
         <div class="project-dashboard__stats-header">
             <p class="project-dashboard__stats-header__title">Buckets</p>
         </div>
-        <VLoader v-if="areBucketsFetching" />
-        <BucketArea v-else class="project-dashboard__bucket-area" />
+        <BucketsTable :is-loading="areBucketsFetching" />
     </div>
 </template>
 
@@ -196,7 +195,7 @@ import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthCh
 import VButton from '@/components/common/VButton.vue';
 import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
 import VInfo from '@/components/common/VInfo.vue';
-import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import BucketsTable from '@/components/objects/BucketsTable.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -213,7 +212,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         VInfo,
         NewProjectIcon,
         InfoIcon,
-        BucketArea,
+        BucketsTable,
     },
 })
 export default class NewProjectDashboard extends Vue {
