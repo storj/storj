@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
 )
 
 // ErrEmptyQueue is used to indicate that the queue is empty.
@@ -145,9 +147,10 @@ type VerifyQueue interface {
 // we need to follow up with that node until we get a proper answer to the
 // audit. (Or until we try too many times, and disqualify the node.)
 type ReverifyQueue interface {
-	Insert(ctx context.Context, piece PieceLocator) (err error)
-	GetNextJob(ctx context.Context) (job ReverificationJob, err error)
-	Remove(ctx context.Context, piece PieceLocator) (wasDeleted bool, err error)
+	Insert(ctx context.Context, piece *PieceLocator) (err error)
+	GetNextJob(ctx context.Context) (job *ReverificationJob, err error)
+	Remove(ctx context.Context, piece *PieceLocator) (wasDeleted bool, err error)
+	GetByNodeID(ctx context.Context, nodeID storj.NodeID) (audit *ReverificationJob, err error)
 }
 
 // ByStreamIDAndPosition allows sorting of a slice of segments by stream ID and position.

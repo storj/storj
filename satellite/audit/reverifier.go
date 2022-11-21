@@ -41,6 +41,7 @@ type ReverificationJob struct {
 	Locator       PieceLocator
 	InsertedAt    time.Time
 	ReverifyCount int
+	LastAttempt   time.Time
 }
 
 // Outcome enumerates the possible results of a piecewise audit.

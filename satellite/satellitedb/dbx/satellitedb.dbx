@@ -69,6 +69,8 @@ read one (
 	where  segment_pending_audits.node_id = ?
 )
 
+//--- auditing ---//
+
 model verification_audits (
     key inserted_at stream_id position
 
@@ -91,6 +93,12 @@ model reverification_audits (
     field reverify_count int64     ( updatable, default 0 )
 
     index ( fields inserted_at )
+)
+
+read first (
+    select reverification_audits
+    where reverification_audits.node_id = ?
+    orderby ( asc reverification_audits.stream_id, asc reverification_audits.position )
 )
 
 create reverification_audits ()

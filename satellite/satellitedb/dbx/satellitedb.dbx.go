@@ -14133,6 +14133,53 @@ func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reverification_audits, err = func() (reverification_audits *ReverificationAudits, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			reverification_audits = &ReverificationAudits{}
+			err = __rows.Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+			if err != nil {
+				return nil, err
+			}
+
+			return reverification_audits, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reverification_audits, nil
+	}
+
+}
+
 func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -21913,6 +21960,53 @@ func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Cont
 
 }
 
+func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
+	reverification_audits *ReverificationAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reverification_audits.node_id, reverification_audits.stream_id, reverification_audits.position, reverification_audits.piece_num, reverification_audits.inserted_at, reverification_audits.last_attempt, reverification_audits.reverify_count FROM reverification_audits WHERE reverification_audits.node_id = ? ORDER BY reverification_audits.stream_id, reverification_audits.position LIMIT 1 OFFSET 0")
+
+	var __values []interface{}
+	__values = append(__values, reverification_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		reverification_audits, err = func() (reverification_audits *ReverificationAudits, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			if !__rows.Next() {
+				if err := __rows.Err(); err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
+
+			reverification_audits = &ReverificationAudits{}
+			err = __rows.Scan(&reverification_audits.NodeId, &reverification_audits.StreamId, &reverification_audits.Position, &reverification_audits.PieceNum, &reverification_audits.InsertedAt, &reverification_audits.LastAttempt, &reverification_audits.ReverifyCount)
+			if err != nil {
+				return nil, err
+			}
+
+			return reverification_audits, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return reverification_audits, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -29229,6 +29323,16 @@ func (rx *Rx) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx cont
 	return tx.First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ctx, node_event_email, node_event_event)
 }
 
+func (rx *Rx) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
+	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
+	reverification_audits *ReverificationAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx, reverification_audits_node_id)
+}
+
 func (rx *Rx) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 	storjscan_payment_status StorjscanPayment_Status_Field) (
 	row *BlockNumber_Row, err error) {
@@ -30714,6 +30818,10 @@ type Methods interface {
 		node_event_email NodeEvent_Email_Field,
 		node_event_event NodeEvent_Event_Field) (
 		node_event *NodeEvent, err error)
+
+	First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
+		reverification_audits_node_id ReverificationAudits_NodeId_Field) (
+		reverification_audits *ReverificationAudits, err error)
 
 	First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
