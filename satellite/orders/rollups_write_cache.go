@@ -147,7 +147,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 		err := cache.DB.UpdateBandwidthBatch(ctx, rollups)
 		if err != nil {
 			mon.Event("rollups_write_cache_flush_lost")
-			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed", zap.Error(err))
 		}
 	}
 
@@ -181,7 +181,7 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 	data, ok := cache.pendingRollups[key]
 	if !ok && len(cache.pendingRollups) >= cache.batchSize {
 		mon.Event("rollups_write_cache_update_lost")
-		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand.")
+		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand")
 	} else {
 
 		data.Allocated += allocated
