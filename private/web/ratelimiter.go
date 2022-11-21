@@ -11,7 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
+)
+
+const (
+	internalServerErrMsg = "An internal server error has occurred."
+	rateLimitErrMsg      = "You've exceeded your request limit. Please try again later."
 )
 
 // RateLimiterConfig configures a RateLimiter.
@@ -24,6 +31,7 @@ type RateLimiterConfig struct {
 // RateLimiter imposes a rate limit per key.
 type RateLimiter struct {
 	config  RateLimiterConfig
+	log     *zap.Logger
 	mu      sync.Mutex
 	limits  map[string]*userLimit
 	keyFunc func(*http.Request) (string, error)
@@ -36,12 +44,12 @@ type userLimit struct {
 }
 
 // NewIPRateLimiter constructs a RateLimiter that limits based on IP address.
-func NewIPRateLimiter(config RateLimiterConfig) *RateLimiter {
-	return NewRateLimiter(config, GetRequestIP)
+func NewIPRateLimiter(config RateLimiterConfig, log *zap.Logger) *RateLimiter {
+	return NewRateLimiter(config, log, GetRequestIP)
 }
 
 // NewRateLimiter constructs a RateLimiter.
-func NewRateLimiter(config RateLimiterConfig, keyFunc func(*http.Request) (string, error)) *RateLimiter {
+func NewRateLimiter(config RateLimiterConfig, log *zap.Logger, keyFunc func(*http.Request) (string, error)) *RateLimiter {
 	return &RateLimiter{
 		config:  config,
 		limits:  make(map[string]*userLimit),
@@ -79,12 +87,12 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key, err := rl.keyFunc(r)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			ServeCustomJSONError(rl.log, w, http.StatusInternalServerError, err, internalServerErrMsg)
 			return
 		}
 		limit := rl.getUserLimit(key)
 		if !limit.Allow() {
-			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+			ServeJSONError(rl.log, w, http.StatusTooManyRequests, errs.New(rateLimitErrMsg))
 			return
 		}
 		next.ServeHTTP(w, r)

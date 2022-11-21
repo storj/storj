@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 )
 
@@ -71,5 +72,5 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 // serveJSONError writes JSON error to response output stream.
 func (keys *APIKeys) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(keys.log, w, status, err)
+	web.ServeJSONError(keys.log, w, status, err)
 }

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 )
 
@@ -65,5 +66,5 @@ func (p *Projects) GetSalt(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Projects) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(p.log, w, status, err)
+	web.ServeJSONError(p.log, w, status, err)
 }

@@ -103,7 +103,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+			web.ServeCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -838,7 +838,7 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
+	web.ServeCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.

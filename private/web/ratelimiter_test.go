@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/private/cfgstruct"
@@ -23,7 +24,7 @@ func TestNewIPRateLimiter(t *testing.T) {
 	config := web.RateLimiterConfig{}
 	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
 	config.NumLimits = 2
-	rateLimiter := web.NewIPRateLimiter(config)
+	rateLimiter := web.NewIPRateLimiter(config, zaptest.NewLogger(t))
 
 	// run ratelimiter cleanup until end of test
 	ctx := testcontext.New(t)

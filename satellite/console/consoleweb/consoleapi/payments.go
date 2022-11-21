@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -390,5 +391,5 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(p.log, w, status, err)
+	web.ServeJSONError(p.log, w, status, err)
 }
