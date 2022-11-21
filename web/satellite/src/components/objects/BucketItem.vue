@@ -133,6 +133,7 @@ export default class BucketItem extends Resizable {
             padding: 0 10px;
             cursor: pointer;
             pointer-events: auto;
+            position: relative;
 
             &__dropdown {
                 position: absolute;

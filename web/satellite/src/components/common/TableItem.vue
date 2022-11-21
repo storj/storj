@@ -10,7 +10,10 @@
         <th v-if="selectable" class="icon select">
             <v-table-checkbox :disabled="selectDisabled" :value="selected" @checkChange="onChange" />
         </th>
-        <th v-for="(val, key, index) in item" :key="index" class="align-left data">
+        <th
+            v-for="(val, key, index) in item" :key="index" class="align-left data"
+            :class="{'guide-container': showBucketGuide(index)}"
+        >
             <BucketGuide v-if="showBucketGuide(index)" :hide-guide="hideGuide" />
             <div v-if="Array.isArray(val)" class="few-items">
                 <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
@@ -35,7 +38,7 @@ import BucketIcon from '@/../static/images/objects/bucketIcon.svg';
 
 // @vue/component
 @Component({
-    components: { 
+    components: {
         VTableCheckbox,
         BucketGuide,
         BucketIcon,
@@ -165,5 +168,10 @@ export default class TableItem extends Vue {
 
     .item-icon {
         margin-right: 12px;
+    }
+
+    .guide-container {
+        position: relative;
+        overflow: visible;
     }
 </style>
