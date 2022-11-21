@@ -185,7 +185,7 @@ func collectInputSegments(args []string) (segments []segment, err error) {
 		if err != nil {
 			return segment{}, errs.New("invalid stream-id (should be in UUID form): %w", err)
 		}
-		streamPosition, err := strconv.ParseUint(args[1], 10, 64)
+		streamPosition, err := strconv.ParseUint(positionString, 10, 64)
 		if err != nil {
 			return segment{}, errs.New("stream position must be a number: %w", err)
 		}
@@ -209,13 +209,15 @@ func collectInputSegments(args []string) (segments []segment, err error) {
 		if err != nil {
 			return nil, err
 		}
-		// ignore first line with headers
-		for _, entry := range allEntries[1:] {
-			segment, err := convert(entry[0], entry[1])
-			if err != nil {
-				return nil, err
+		if len(allEntries) > 1 {
+			// ignore first line with headers
+			for _, entry := range allEntries[1:] {
+				segment, err := convert(entry[0], entry[1])
+				if err != nil {
+					return nil, err
+				}
+				segments = append(segments, segment)
 			}
-			segments = append(segments, segment)
 		}
 	} else {
 		segment, err := convert(args[0], args[1])
