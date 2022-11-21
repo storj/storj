@@ -279,9 +279,9 @@ var (
 		RunE:  cmdFetchPieces,
 	}
 	repairSegmentCmd = &cobra.Command{
-		Use:   "repair-segment <stream-id> <position>",
+		Use:   "repair-segment <csv-file> or <stream-id> <position>",
 		Short: "Repair segment and verify all downloadable pieces",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.RangeArgs(1, 2),
 		RunE:  cmdRepairSegment,
 	}
 
