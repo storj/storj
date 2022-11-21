@@ -165,14 +165,14 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			if metabase.ErrSegmentNotFound.Has(err) {
 				printOutput(segment.StreamID, segment.Position.Encode(), "segment not found in metabase db", 0, 0)
-				return nil
+			} else {
+				log.Error("unknown error when getting segment metadata",
+					zap.Stringer("stream-id", segment.StreamID),
+					zap.Uint64("position", segment.Position.Encode()),
+					zap.Error(err))
+				printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
 			}
-			log.Error("unknown error when getting segment metadata",
-				zap.Stringer("stream-id", segment.StreamID),
-				zap.Uint64("position", segment.Position.Encode()),
-				zap.Error(err))
-			printOutput(segment.StreamID, segment.Position.Encode(), "internal", 0, 0)
-			return nil
+			continue
 		}
 		repairSegment(ctx, log, peer, metabaseDB, segment)
 	}
