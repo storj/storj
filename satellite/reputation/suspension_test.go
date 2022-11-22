@@ -186,8 +186,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		auditService.Reporter.RecordAudits(ctx, report)
 
 		// success and offline nodes should not be disqualified
 		// fail and unknown nodes should be disqualified
@@ -253,8 +252,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		auditService.Reporter.RecordAudits(ctx, report)
 
 		// successful node should not be suspended or disqualified
 		n, err := oc.Get(ctx, successNodeID)

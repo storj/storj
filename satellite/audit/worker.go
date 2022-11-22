@@ -121,11 +121,7 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		errlist.Add(err)
 	}
 
-	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
-	if err != nil {
-		errlist.Add(err)
-	}
+	worker.reporter.RecordAudits(ctx, report)
 
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
@@ -161,11 +157,7 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		errlist.Add(err)
 	}
 
-	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
-	if err != nil {
-		errlist.Add(err)
-	}
+	worker.reporter.RecordAudits(ctx, report)
 
 	return errlist.Err()
 }

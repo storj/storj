@@ -427,6 +427,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
 			peer.Reputation.Service,
+			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.DB.NewContainment(),
 			config.MaxRetriesStatDB,
