@@ -38,24 +38,26 @@ type Config struct {
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log         *zap.Logger
-	queue       VerifyQueue
-	verifier    *Verifier
-	reporter    Reporter
-	Loop        *sync2.Cycle
-	concurrency int
+	log           *zap.Logger
+	queue         VerifyQueue
+	verifier      *Verifier
+	reverifyQueue ReverifyQueue
+	reporter      Reporter
+	Loop          *sync2.Cycle
+	concurrency   int
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queue VerifyQueue, verifier *Verifier, reporter Reporter, config Config) *Worker {
+func NewWorker(log *zap.Logger, queue VerifyQueue, verifier *Verifier, reverifyQueue ReverifyQueue, reporter Reporter, config Config) *Worker {
 	return &Worker{
 		log: log,
 
-		queue:       queue,
-		verifier:    verifier,
-		reporter:    reporter,
-		Loop:        sync2.NewCycle(config.QueueInterval),
-		concurrency: config.WorkerConcurrency,
+		queue:         queue,
+		verifier:      verifier,
+		reverifyQueue: reverifyQueue,
+		reporter:      reporter,
+		Loop:          sync2.NewCycle(config.QueueInterval),
+		concurrency:   config.WorkerConcurrency,
 	}
 }
 
