@@ -1109,3 +1109,50 @@ func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Plan
 	err = writer.Commit(ctx)
 	require.NoError(t, err)
 }
+
+func TestIdentifyContainedNodes(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
+		require.NoError(t, err)
+
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		// mark a node as contained
+		containedNode := segment.Pieces[0].StorageNode
+		containment := satellite.DB.NewContainment()
+		err = containment.Insert(ctx, &audit.PieceLocator{
+			StreamID: testrand.UUID(),
+			NodeID:   containedNode,
+		})
+		require.NoError(t, err)
+
+		gotContainedNodes, err := audits.Verifier.IdentifyContainedNodes(ctx, audit.Segment{
+			StreamID: segment.StreamID,
+			Position: segment.Position,
+		})
+		require.NoError(t, err)
+		require.Len(t, gotContainedNodes, 1)
+		_, ok := gotContainedNodes[containedNode]
+		require.True(t, ok, "expected node to be indicated as contained, but it was not")
+	})
+}
