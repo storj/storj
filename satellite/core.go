@@ -116,11 +116,13 @@ type Core struct {
 	}
 
 	Audit struct {
-		VerifyQueue audit.VerifyQueue
-		Worker      *audit.Worker
-		Chore       *audit.Chore
-		Verifier    *audit.Verifier
-		Reporter    audit.Reporter
+		VerifyQueue   audit.VerifyQueue
+		ReverifyQueue audit.ReverifyQueue
+		Worker        *audit.Worker
+		Chore         *audit.Chore
+		Verifier      *audit.Verifier
+		Reverifier    *audit.Reverifier
+		Reporter      audit.Reporter
 	}
 
 	ExpiredDeletion struct {
@@ -417,6 +419,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.MinBytesPerSecond,
 			config.MinDownloadTimeout,
 		)
+		peer.Audit.Reverifier = audit.NewReverifier(log.Named("audit:reverifier"),
+			peer.Audit.Verifier,
+			peer.Audit.ReverifyQueue,
+			config)
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
 			peer.Reputation.Service,

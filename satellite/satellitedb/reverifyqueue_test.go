@@ -5,7 +5,6 @@ package satellitedb_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -32,6 +30,10 @@ func randomLocator() *audit.PieceLocator {
 		PieceNum: testrand.Intn(1 << 10),
 	}
 }
+
+const (
+	retryInterval = 30 * time.Minute
+)
 
 func TestReverifyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
@@ -50,34 +52,34 @@ func TestReverifyQueue(t *testing.T) {
 		err = reverifyQueue.Insert(ctx, locator2)
 		require.NoError(t, err)
 
-		job1, err := reverifyQueue.GetNextJob(ctx)
+		job1, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
 		require.Equal(t, *locator1, job1.Locator)
-		require.Equal(t, 1, job1.ReverifyCount)
+		require.EqualValues(t, 1, job1.ReverifyCount)
 
-		job2, err := reverifyQueue.GetNextJob(ctx)
+		job2, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
 		require.Equal(t, *locator2, job2.Locator)
-		require.Equal(t, 1, job2.ReverifyCount)
+		require.EqualValues(t, 1, job2.ReverifyCount)
 
 		require.Truef(t, job1.InsertedAt.Before(job2.InsertedAt), "job1 [%s] should have an earlier insertion time than job2 [%s]", job1.InsertedAt, job2.InsertedAt)
 
-		_, err = reverifyQueue.GetNextJob(ctx)
-		require.Error(t, sql.ErrNoRows, err)
+		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 
 		// pretend that ReverifyRetryInterval has elapsed
 		reverifyQueueTest := reverifyQueue.(interface {
 			TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error
 		})
-		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-satellitedb.ReverifyRetryInterval))
+		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-retryInterval))
 		require.NoError(t, err)
 
 		// job 1 should be eligible for a new worker to take over now (whatever
 		// worker acquired job 1 before is presumed to have died or timed out).
-		job3, err := reverifyQueue.GetNextJob(ctx)
+		job3, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
 		require.Equal(t, *locator1, job3.Locator)
-		require.Equal(t, 2, job3.ReverifyCount)
+		require.EqualValues(t, 2, job3.ReverifyCount)
 
 		wasDeleted, err := reverifyQueue.Remove(ctx, locator1)
 		require.NoError(t, err)
@@ -89,8 +91,8 @@ func TestReverifyQueue(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, wasDeleted)
 
-		_, err = reverifyQueue.GetNextJob(ctx)
-		require.Error(t, sql.ErrNoRows, err)
+		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 	})
 }
 

@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -30,7 +31,7 @@ type VerifyQueue interface {
 // audit. (Or until we try too many times, and disqualify the node.)
 type ReverifyQueue interface {
 	Insert(ctx context.Context, piece *PieceLocator) (err error)
-	GetNextJob(ctx context.Context) (job *ReverificationJob, err error)
+	GetNextJob(ctx context.Context, retryInterval time.Duration) (job *ReverificationJob, err error)
 	Remove(ctx context.Context, piece *PieceLocator) (wasDeleted bool, err error)
 	GetByNodeID(ctx context.Context, nodeID storj.NodeID) (audit *ReverificationJob, err error)
 }

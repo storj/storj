@@ -16,13 +16,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-const (
-	// ReverifyRetryInterval defines a limit on how frequently we retry
-	// reverification audits. At least this long should elapse between
-	// attempts.
-	ReverifyRetryInterval = 4 * time.Hour
-)
-
 // reverifyQueue implements storj.io/storj/satellite/audit.ReverifyQueue.
 type reverifyQueue struct {
 	db *satelliteDB
@@ -48,9 +41,12 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) 
 // GetNextJob retrieves a job from the queue. The job will be the
 // job which has been in the queue the longest, except those which
 // have already been claimed by another worker within the last
-// ReverifyRetryInterval. If there are no such jobs, sql.ErrNoRows
-// will be returned.
-func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job *audit.ReverificationJob, err error) {
+// retryInterval. If there are no such jobs, an error wrapped by
+// audit.ErrEmptyQueue will be returned.
+//
+// retryInterval is expected to be held to the same value for every
+// call to GetNextJob() within a given satellite cluster.
+func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Duration) (job *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	job = &audit.ReverificationJob{}
@@ -70,7 +66,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job *audit.Reverificat
 			AND ra.stream_id = next_entry.stream_id
 			AND ra.position = next_entry.position
 		RETURNING ra.node_id, ra.stream_id, ra.position, ra.piece_num, ra.inserted_at, ra.reverify_count
-	`, ReverifyRetryInterval.Microseconds()).Scan(
+	`, retryInterval.Microseconds()).Scan(
 		&job.Locator.NodeID,
 		&job.Locator.StreamID,
 		&job.Locator.Position,
@@ -78,6 +74,9 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job *audit.Reverificat
 		&job.InsertedAt,
 		&job.ReverifyCount,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, audit.ErrEmptyQueue.Wrap(err)
+	}
 	return job, err
 }
 
