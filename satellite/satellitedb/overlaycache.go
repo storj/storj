@@ -1137,6 +1137,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	if info.CountryCode != nil {
 		node.CountryCode = location.ToCountryCode(*info.CountryCode)
 	}
+	if info.Contained != nil {
+		node.Contained = true
+	}
 
 	return node, nil
 }
@@ -1424,6 +1427,31 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	}
 
 	return nil
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+	if contained {
+		// only update the timestamp if it's not already set
+		query = `
+			UPDATE nodes SET contained = current_timestamp
+			WHERE id = $1 AND contained IS NULL
+		`
+	} else {
+		query = `
+			UPDATE nodes SET contained = NULL
+			WHERE id = $1
+		`
+	}
+	_, err = cache.db.DB.ExecContext(ctx, query, nodeID[:])
+	return Error.Wrap(err)
 }
 
 var (
