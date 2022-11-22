@@ -877,8 +877,8 @@ func TestVerifierSlowDownload(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
-		require.Len(t, report.PendingAudits, 1)
-		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode.ID())
+		require.Len(t, report.PieceAudits, 1)
+		assert.Equal(t, report.PieceAudits[0].Locator.NodeID, slowNode.ID())
 	})
 }
 

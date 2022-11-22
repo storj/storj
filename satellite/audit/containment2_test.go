@@ -39,10 +39,7 @@ func TestNewContainInsertAndGet(t *testing.T) {
 		output, err := containment.Get(ctx, input.NodeID)
 		require.NoError(t, err)
 
-		assert.Equal(t, input.NodeID, output.Locator.NodeID)
-		assert.Equal(t, input.StreamID, output.Locator.StreamID)
-		assert.Equal(t, input.Position, output.Locator.Position)
-		assert.Equal(t, input.PieceNum, output.Locator.PieceNum)
+		assert.Equal(t, *input, output.Locator)
 		assert.EqualValues(t, 0, output.ReverifyCount)
 
 		nodeID1 := planet.StorageNodes[1].ID()
@@ -116,6 +113,7 @@ func TestNewContainDelete(t *testing.T) {
 		if got.Locator != *info1 {
 			require.Equal(t, *info2, got.Locator)
 		}
+		require.EqualValues(t, 0, got.ReverifyCount)
 
 		// delete one of the pending reverifications
 		wasDeleted, stillInContainment, err := containment.Delete(ctx, info2)

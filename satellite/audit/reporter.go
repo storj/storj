@@ -116,8 +116,6 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 		reportFailures(tries, "unknown", err, unknowns, nil, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
 		reportFailures(tries, "offline", err, offlines, nil, nil)
-		pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits, nodesReputation)
-		reportFailures(tries, "pending", err, nil, pendingAudits, nil)
 		pieceAudits, err = reporter.recordPendingPieceAudits(ctx, pieceAudits, nodesReputation)
 		reportFailures(tries, "pending", err, nil, nil, pieceAudits)
 	}
@@ -188,49 +186,6 @@ func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingA
 	}
 
 	if len(failed) > 0 {
-		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
-	}
-	return nil, nil
-}
-
-// recordPendingAudits updates the containment status of nodes with pending audits.
-func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*PendingAudit, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
-
-	for _, pendingAudit := range pendingAudits {
-		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
-			err := reporter.containment.IncrementPending(ctx, pendingAudit)
-			if err != nil {
-				failed = append(failed, pendingAudit)
-				errlist.Add(err)
-			}
-			reporter.log.Info("Audit pending",
-				zap.Stringer("Piece ID", pendingAudit.PieceID),
-				zap.Stringer("Node ID", pendingAudit.NodeID))
-		} else {
-			// record failure -- max reverify count reached
-			reporter.log.Info("max reverify count reached (audit failed)", zap.Stringer("Node ID", pendingAudit.NodeID))
-			err = reporter.reputations.ApplyAudit(ctx, pendingAudit.NodeID, nodesReputation[pendingAudit.NodeID], reputation.AuditFailure)
-			if err != nil {
-				errlist.Add(err)
-				failed = append(failed, pendingAudit)
-			} else {
-				_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
-				if err != nil && !ErrContainedNotFound.Has(err) {
-					errlist.Add(err)
-				}
-			}
-		}
-	}
-
-	if len(failed) > 0 {
-		for _, v := range failed {
-			reporter.log.Debug("failed to record Pending Nodes ",
-				zap.Stringer("NodeID", v.NodeID),
-				zap.String("Segment StreamID", v.StreamID.String()),
-				zap.Uint64("Segment Position", v.Position.Encode()))
-		}
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
