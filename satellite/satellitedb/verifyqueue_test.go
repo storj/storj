@@ -34,17 +34,17 @@ func TestVerifyQueueBasicUsage(t *testing.T) {
 		segmentsToVerify[1].ExpiresAt = &expireTime
 
 		// add these segments to the queue, 3 at a time
-		err := verifyQueue.Push(ctx, segmentsToVerify[0:3])
+		err := verifyQueue.Push(ctx, segmentsToVerify[0:3], 3)
 		require.NoError(t, err)
-		err = verifyQueue.Push(ctx, segmentsToVerify[3:6])
+		err = verifyQueue.Push(ctx, segmentsToVerify[3:6], 3)
 		require.NoError(t, err)
 
 		// sort both sets of 3. segments inserted in the same call to Push
 		// can't be differentiated by insertion time, so they are ordered in the
 		// queue by (stream_id, position). We will sort our list here so that it
 		// matches the order we expect to receive them from the queue.
-		sort.Sort(byStreamIDAndPosition(segmentsToVerify[0:3]))
-		sort.Sort(byStreamIDAndPosition(segmentsToVerify[3:6]))
+		sort.Sort(audit.ByStreamIDAndPosition(segmentsToVerify[0:3]))
+		sort.Sort(audit.ByStreamIDAndPosition(segmentsToVerify[3:6]))
 
 		// Pop all segments from the queue and check for a match with the input.
 		for _, expected := range segmentsToVerify {
@@ -67,33 +67,12 @@ func TestVerifyQueueBasicUsage(t *testing.T) {
 	})
 }
 
-type byStreamIDAndPosition []audit.Segment
-
-func (b byStreamIDAndPosition) Len() int {
-	return len(b)
-}
-
-func (b byStreamIDAndPosition) Less(i, j int) bool {
-	comparison := b[i].StreamID.Compare(b[j].StreamID)
-	if comparison < 0 {
-		return true
-	}
-	if comparison > 0 {
-		return false
-	}
-	return b[i].Position.Less(b[j].Position)
-}
-
-func (b byStreamIDAndPosition) Swap(i, j int) {
-	b[i], b[j] = b[j], b[i]
-}
-
 func TestVerifyQueueEmpty(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		verifyQueue := db.VerifyQueue()
 
 		// insert empty list
-		err := verifyQueue.Push(ctx, []audit.Segment{})
+		err := verifyQueue.Push(ctx, []audit.Segment{}, 1000)
 		require.NoError(t, err)
 
 		// read from empty queue
@@ -101,5 +80,37 @@ func TestVerifyQueueEmpty(t *testing.T) {
 		require.Error(t, err)
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 		require.Equal(t, audit.Segment{}, popped)
+	})
+}
+
+func TestMultipleBatches(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		verifyQueue := db.VerifyQueue()
+
+		// make a list of segments, and push them in batches
+		const (
+			numSegments = 20
+			batchSize   = 5
+		)
+		segments := make([]audit.Segment, numSegments)
+		for i := range segments {
+			segments[i] = audit.Segment{
+				StreamID:      testrand.UUID(),
+				Position:      metabase.SegmentPositionFromEncoded(rand.Uint64()),
+				EncryptedSize: rand.Int31(),
+			}
+		}
+
+		err := verifyQueue.Push(ctx, segments, batchSize)
+		require.NoError(t, err)
+
+		// verify that all segments made it to the db
+		sort.Sort(audit.ByStreamIDAndPosition(segments))
+
+		for i := range segments {
+			gotSegment, err := verifyQueue.Next(ctx)
+			require.NoError(t, err)
+			require.Equal(t, segments[i], gotSegment)
+		}
 	})
 }

@@ -58,6 +58,9 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
+# number of audit jobs to push at once to the verification queue
+# audit.verification-push-batch-size: 4096
+
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
