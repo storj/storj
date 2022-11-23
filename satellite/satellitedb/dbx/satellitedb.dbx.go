@@ -14363,28 +14363,6 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 
 }
 
-func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	segment_pending_audits *SegmentPendingAudits, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, segment_pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	segment_pending_audits = &SegmentPendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
-	if err != nil {
-		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
-	}
-	return segment_pending_audits, nil
-
-}
-
 func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
 	reverification_audits *ReverificationAudits, err error) {
@@ -19798,33 +19776,6 @@ func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, segment_pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -22360,28 +22311,6 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
 	return value_attribution, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	segment_pending_audits *SegmentPendingAudits, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, segment_pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	segment_pending_audits = &SegmentPendingAudits{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
-	if err != nil {
-		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
-	}
-	return segment_pending_audits, nil
 
 }
 
@@ -27798,33 +27727,6 @@ func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Cont
 
 }
 
-func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, segment_pending_audits_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -29767,16 +29669,6 @@ func (rx *Rx) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ct
 	return tx.Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx, reverification_audits_node_id, reverification_audits_stream_id, reverification_audits_position)
 }
 
-func (rx *Rx) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
-}
-
 func (rx *Rx) Delete_StorjscanPayment_By_Status(ctx context.Context,
 	storjscan_payment_status StorjscanPayment_Status_Field) (
 	count int64, err error) {
@@ -30239,16 +30131,6 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
-}
-
-func (rx *Rx) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
-	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-	segment_pending_audits *SegmentPendingAudits, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
 }
 
 func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
@@ -31356,10 +31238,6 @@ type Methods interface {
 		reverification_audits_position ReverificationAudits_Position_Field) (
 		deleted bool, err error)
 
-	Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
-		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-		deleted bool, err error)
-
 	Delete_StorjscanPayment_By_Status(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		count int64, err error)
@@ -31551,10 +31429,6 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
-
-	Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
-		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
-		segment_pending_audits *SegmentPendingAudits, err error)
 
 	Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,

@@ -91,7 +91,6 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		db.OverlayCache(),
 		db.NodeEvents(),
 		db.Reputation(),
-		db.Containment(),
 		db.NewContainment(),
 		rollupsWriteCache,
 		version.Build,

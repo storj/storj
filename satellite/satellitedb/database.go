@@ -276,12 +276,7 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 	return &ordersDB{db: db}
 }
 
-// Containment returns database for storing pending audit info.
-func (dbc *satelliteDBCollection) Containment() audit.Containment {
-	return &containment{db: dbc.getByName("containment")}
-}
-
-// NewContainment is temporary and will replace Containment later in the commit chain.
+// NewContainment will be renamed to Containment later in the commit chain.
 func (dbc *satelliteDBCollection) NewContainment() audit.NewContainment {
 	return &newContainment{reverifyQueue: dbc.ReverifyQueue()}
 }

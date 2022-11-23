@@ -53,13 +53,13 @@ type Share struct {
 //
 // architecture: Worker
 type Verifier struct {
-	log                *zap.Logger
-	metabase           *metabase.DB
-	orders             *orders.Service
-	auditor            *identity.PeerIdentity
-	dialer             rpc.Dialer
-	overlay            *overlay.Service
-	containment        Containment
+	log      *zap.Logger
+	metabase *metabase.DB
+	orders   *orders.Service
+	auditor  *identity.PeerIdentity
+	dialer   rpc.Dialer
+	overlay  *overlay.Service
+	// newContainment will be renamed to containment.
 	newContainment     NewContainment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
@@ -69,7 +69,7 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier.
-func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, newContainment NewContainment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, newContainment NewContainment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metabase:           metabase,
@@ -77,7 +77,6 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 		auditor:            id.PeerIdentity(),
 		dialer:             dialer,
 		overlay:            overlay,
-		containment:        containment,
 		newContainment:     newContainment,
 		minBytesPerSecond:  minBytesPerSecond,
 		minDownloadTimeout: minDownloadTimeout,
@@ -614,7 +613,7 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 	numOffline := len(report.Offlines)
 	numSuccessful := len(report.Successes)
 	numFailed := len(report.Fails)
-	numContained := len(report.PendingAudits)
+	numContained := len(report.PieceAudits)
 	numUnknown := len(report.Unknown)
 
 	totalAudited := numSuccessful + numFailed + numOffline + numContained

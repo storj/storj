@@ -273,7 +273,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			satellite.Metabase.DB,
 			dialer,
 			satellite.Overlay.Service,
-			satellite.DB.Containment(),
 			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,

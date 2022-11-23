@@ -9,9 +9,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
 )
 
 var (
@@ -25,34 +22,15 @@ var (
 	ErrContainDelete = errs.Class("unable to delete pending audit")
 )
 
-// PendingAudit contains info needed for retrying an audit for a contained node.
-type PendingAudit struct {
-	NodeID            storj.NodeID
-	PieceID           storj.PieceID
-	StripeIndex       int32
-	ShareSize         int32
-	ExpectedShareHash []byte
-	ReverifyCount     int32
-	StreamID          uuid.UUID
-	Position          metabase.SegmentPosition
-}
-
-// Containment holds information about pending audits for contained nodes.
-//
-// architecture: Database
-type Containment interface {
-	Get(ctx context.Context, nodeID pb.NodeID) (*PendingAudit, error)
-	IncrementPending(ctx context.Context, pendingAudit *PendingAudit) error
-	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
-}
-
 // NewContainment holds information about pending audits for contained nodes.
 //
 // It will exist side by side with Containment for a few commits in this
 // commit chain, to allow the change in reverifications to be made over
 // several smaller commits.
 //
-// Later in the commit chain, NewContainment will replace Containment.
+// Later in the commit chain, NewContainment will be renamed to Containment.
+//
+// architecture: Database
 type NewContainment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error)
 	Insert(ctx context.Context, job *PieceLocator) error

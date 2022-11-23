@@ -257,7 +257,6 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			satellite.Metabase.DB,
 			dialer,
 			satellite.Overlay.Service,
-			satellite.DB.Containment(),
 			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
@@ -333,7 +332,6 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			satellite.Metabase.DB,
 			satellite.Dialer,
 			satellite.Overlay.Service,
-			satellite.DB.Containment(),
 			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
@@ -392,7 +390,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		assert.Len(t, report.Successes, len(segment.Pieces))
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -429,7 +427,7 @@ func TestVerifierExpired(t *testing.T) {
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -472,7 +470,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		assert.Len(t, report.Successes, len(segment.Pieces)-1)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 1)
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -517,7 +515,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		assert.Len(t, report.Successes, origNumPieces-1)
 		assert.Len(t, report.Fails, 1)
 		assert.Len(t, report.Offlines, 0)
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -635,7 +633,6 @@ func TestVerifierDialTimeout(t *testing.T) {
 			satellite.Metabase.DB,
 			dialer,
 			satellite.Overlay.Service,
-			satellite.DB.Containment(),
 			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
@@ -648,7 +645,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, len(segment.Pieces))
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -683,7 +680,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		assert.Zero(t, report.Successes)
 		assert.Zero(t, report.Fails)
 		assert.Zero(t, report.Offlines)
-		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.PieceAudits)
 		assert.Zero(t, report.Unknown)
 	})
 }
@@ -734,7 +731,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		assert.Zero(t, report.Successes)
 		assert.Zero(t, report.Fails)
 		assert.Zero(t, report.Offlines)
-		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.PieceAudits)
 		assert.Zero(t, report.Unknown)
 	})
 }
@@ -772,7 +769,7 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		assert.Zero(t, report.Successes)
 		assert.Zero(t, report.Fails)
 		assert.Zero(t, report.Offlines)
-		assert.Zero(t, report.PendingAudits)
+		assert.Zero(t, report.PieceAudits)
 		assert.Zero(t, report.Unknown)
 	})
 }
@@ -819,7 +816,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.Len(t, report.Fails, 1)
 		assert.Equal(t, report.Fails[0], piece.StorageNode)
 		assert.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 0)
+		require.Len(t, report.PieceAudits, 0)
 	})
 }
 
@@ -928,7 +925,7 @@ func TestVerifierUnknownError(t *testing.T) {
 		assert.Len(t, report.Successes, 3)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
-		assert.Len(t, report.PendingAudits, 0)
+		assert.Len(t, report.PieceAudits, 0)
 		require.Len(t, report.Unknown, 1)
 		assert.Equal(t, report.Unknown[0], badNode.ID())
 	})

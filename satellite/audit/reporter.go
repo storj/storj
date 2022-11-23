@@ -22,8 +22,7 @@ type reporter struct {
 	log         *zap.Logger
 	reputations *reputation.Service
 	overlay     *overlay.Service
-	containment Containment
-	// newContainment is temporary, and will replace containment
+	// newContainment will be renamed to containment.
 	newContainment   NewContainment
 	maxRetries       int
 	maxReverifyCount int32
@@ -42,23 +41,21 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
-	Successes     storj.NodeIDList
-	Fails         storj.NodeIDList
-	Offlines      storj.NodeIDList
-	PendingAudits []*PendingAudit
-	// PieceAudits is temporary and will replace PendingAudits.
+	Successes storj.NodeIDList
+	Fails     storj.NodeIDList
+	Offlines  storj.NodeIDList
+	// PieceAudits will be renamed to PendingAudits.
 	PieceAudits     []*ReverificationJob
 	Unknown         storj.NodeIDList
 	NodesReputation map[storj.NodeID]overlay.ReputationStatus
 }
 
 // NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, containment Containment, newContainment NewContainment, maxRetries int, maxReverifyCount int32) Reporter {
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, newContainment NewContainment, maxRetries int, maxReverifyCount int32) Reporter {
 	return &reporter{
 		log:              log,
 		reputations:      reputations,
 		overlay:          overlay,
-		containment:      containment,
 		newContainment:   newContainment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount,
@@ -75,8 +72,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	fails := req.Fails
 	unknowns := req.Unknown
 	offlines := req.Offlines
-	pendingAudits := req.PendingAudits
-	pieceAudits := req.PieceAudits
+	pendingAudits := req.PieceAudits
 
 	reporter.log.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
@@ -84,12 +80,11 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 		zap.Int("unknowns", len(unknowns)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
-		zap.Int("piece-pending", len(pieceAudits)),
 	)
 
 	nodesReputation := req.NodesReputation
 
-	reportFailures := func(tries int, resultType string, err error, nodes storj.NodeIDList, pending []*PendingAudit, pieces []*ReverificationJob) {
+	reportFailures := func(tries int, resultType string, err error, nodes storj.NodeIDList, pending []*ReverificationJob) {
 		if err == nil || tries < reporter.maxRetries {
 			// don't need to report anything until the last time through
 			return
@@ -98,26 +93,25 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 			zap.String("result type", resultType),
 			zap.Error(err),
 			zap.String("node IDs", strings.Join(nodes.Strings(), ", ")),
-			zap.Any("pending segment audits", pending),
-			zap.Any("pending piece audits", pieces))
+			zap.Any("pending segment audits", pending))
 	}
 
 	var err error
 	for tries := 0; tries <= reporter.maxRetries; tries++ {
-		if len(successes) == 0 && len(fails) == 0 && len(unknowns) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 && len(pieceAudits) == 0 {
+		if len(successes) == 0 && len(fails) == 0 && len(unknowns) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return
 		}
 
 		successes, err = reporter.recordAuditStatus(ctx, successes, nodesReputation, reputation.AuditSuccess)
-		reportFailures(tries, "successful", err, successes, nil, nil)
+		reportFailures(tries, "successful", err, successes, nil)
 		fails, err = reporter.recordAuditStatus(ctx, fails, nodesReputation, reputation.AuditFailure)
-		reportFailures(tries, "failed", err, fails, nil, nil)
+		reportFailures(tries, "failed", err, fails, nil)
 		unknowns, err = reporter.recordAuditStatus(ctx, unknowns, nodesReputation, reputation.AuditUnknown)
-		reportFailures(tries, "unknown", err, unknowns, nil, nil)
+		reportFailures(tries, "unknown", err, unknowns, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
-		reportFailures(tries, "offline", err, offlines, nil, nil)
-		pieceAudits, err = reporter.recordPendingPieceAudits(ctx, pieceAudits, nodesReputation)
-		reportFailures(tries, "pending", err, nil, nil, pieceAudits)
+		reportFailures(tries, "offline", err, offlines, nil)
+		pendingAudits, err = reporter.recordPendingPieceAudits(ctx, pendingAudits, nodesReputation)
+		reportFailures(tries, "pending", err, nil, pendingAudits)
 	}
 }
 
@@ -139,7 +133,7 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 }
 
 // recordPendingPieceAudits updates the containment status of nodes with pending piece audits.
-// This function is temporary and will replace recordPendingAudits later in this commit chain.
+// This function is temporary and will be renamed to recordPendingAudits later in this commit chain.
 func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
