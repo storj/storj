@@ -1865,6 +1865,8 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
+	s.analytics.TrackProjectMemberAddition(user.ID, user.Email)
+
 	return users, nil
 }
 
@@ -1916,6 +1918,9 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		}
 		return nil
 	})
+
+	s.analytics.TrackProjectMemberDeletion(user.ID, user.Email)
+
 	return Error.Wrap(err)
 }
 

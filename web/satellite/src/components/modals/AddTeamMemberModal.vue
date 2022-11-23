@@ -96,6 +96,9 @@ import AddFieldIcon from '@/../static/images/team/addField.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
 // @vue/component
 @Component({
     components: {
@@ -116,6 +119,8 @@ export default class AddTeamMemberModal extends Vue {
     private isLoading = false;
 
     private FIRST_PAGE = 1;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Tries to add users related to entered emails list to current project.
@@ -188,6 +193,7 @@ export default class AddTeamMemberModal extends Vue {
             return;
         }
 
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
         await this.$notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
