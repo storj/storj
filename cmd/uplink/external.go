@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"storj.io/common/experiment"
 	"storj.io/common/rpc/rpctracing"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
@@ -214,6 +215,11 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		if err := saveInitialConfig(ctx, ex); err != nil {
 			return err
 		}
+	}
+
+	exp := os.Getenv("STORJ_EXPERIMENTAL")
+	if exp != "" {
+		ctx = experiment.With(ctx, exp)
 	}
 
 	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is
