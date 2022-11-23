@@ -71,7 +71,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		db.OverlayCache(),
 		db.NodeEvents(),
 		db.Reputation(),
-		db.NewContainment(),
+		db.Containment(),
 		rollupsWriteCache,
 		version.Build,
 		&runCfg.Config,

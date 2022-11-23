@@ -61,7 +61,7 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 		sat.Metabase.DB,
 		newDialer,
 		sat.Overlay.Service,
-		sat.DB.NewContainment(),
+		sat.DB.Containment(),
 		sat.Orders.Service,
 		sat.Identity,
 		sat.Config.Audit.MinBytesPerSecond,

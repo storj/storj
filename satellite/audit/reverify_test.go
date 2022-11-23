@@ -62,7 +62,7 @@ func TestReverifySuccess(t *testing.T) {
 		pieceIndex := testrand.Intn(len(segment.Pieces))
 		piece := segment.Pieces[pieceIndex]
 
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		pending := &audit.PieceLocator{
 			NodeID:   piece.StorageNode,
@@ -120,7 +120,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		pieceIndex := testrand.Intn(len(segment.Pieces))
 		piece := segment.Pieces[pieceIndex]
@@ -212,7 +212,7 @@ func TestReverifyOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		// make sure that pending audit is not removed
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.NoError(t, err)
 	})
@@ -273,7 +273,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			satellite.Metabase.DB,
 			dialer,
 			satellite.Overlay.Service,
-			satellite.DB.NewContainment(),
+			satellite.DB.Containment(),
 			satellite.Orders.Service,
 			satellite.Identity,
 			minBytesPerSecond,
@@ -304,7 +304,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		// make sure that pending audit is not removed
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.NoError(t, err)
 	})
@@ -371,7 +371,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been deleted
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, piece.StorageNode)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
@@ -433,7 +433,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			PieceNum: int(piece.Number),
 		}
 
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		err = audits.Reporter.ReportReverificationNeeded(ctx, pending)
 		require.NoError(t, err)
@@ -508,7 +508,7 @@ func TestReverifyReplacedSegment(t *testing.T) {
 			PieceNum: int(piece.Number),
 		}
 
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		err = audits.Reporter.ReportReverificationNeeded(ctx, pending)
 		require.NoError(t, err)
@@ -582,7 +582,7 @@ func TestReverifyExpired(t *testing.T) {
 
 		// expect that the node was removed from containment since the segment it was
 		// contained for has expired
-		_, err = satellite.DB.NewContainment().Get(ctx, piece.StorageNode)
+		_, err = satellite.DB.Containment().Get(ctx, piece.StorageNode)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
@@ -631,7 +631,7 @@ func TestReverifySlowDownload(t *testing.T) {
 
 		slowPiece := segment.Pieces[0]
 		slowNode := slowPiece.StorageNode
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		pending := &audit.PieceLocator{
 			NodeID:   slowNode,
@@ -696,7 +696,7 @@ func TestReverifyUnknownError(t *testing.T) {
 
 		badPiece := segment.Pieces[0]
 		badNode := badPiece.StorageNode
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		pending := &audit.PieceLocator{
 			NodeID:   badNode,
@@ -768,7 +768,7 @@ func TestMaxReverifyCount(t *testing.T) {
 
 		slowPiece := segment.Pieces[0]
 		slowNode := slowPiece.StorageNode
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 
 		pending := &audit.PieceLocator{
 			NodeID:   slowNode,

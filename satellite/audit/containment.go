@@ -22,16 +22,10 @@ var (
 	ErrContainDelete = errs.Class("unable to delete pending audit")
 )
 
-// NewContainment holds information about pending audits for contained nodes.
-//
-// It will exist side by side with Containment for a few commits in this
-// commit chain, to allow the change in reverifications to be made over
-// several smaller commits.
-//
-// Later in the commit chain, NewContainment will be renamed to Containment.
+// Containment holds information about pending audits for contained nodes.
 //
 // architecture: Database
-type NewContainment interface {
+type Containment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error)
 	Insert(ctx context.Context, job *PieceLocator) error
 	Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error)

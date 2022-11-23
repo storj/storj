@@ -20,11 +20,11 @@ import (
 	"storj.io/storj/satellite/reputation"
 )
 
-func TestNewContainInsertAndGet(t *testing.T) {
+func TestContainInsertAndGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		containment := planet.Satellites[0].DB.NewContainment()
+		containment := planet.Satellites[0].DB.Containment()
 
 		input := &audit.PieceLocator{
 			StreamID: testrand.UUID(),
@@ -49,11 +49,11 @@ func TestNewContainInsertAndGet(t *testing.T) {
 	})
 }
 
-func TestNewContainIncrementPendingEntryExists(t *testing.T) {
+func TestContainIncrementPendingEntryExists(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		containment := planet.Satellites[0].DB.NewContainment()
+		containment := planet.Satellites[0].DB.Containment()
 
 		info1 := &audit.PieceLocator{
 			NodeID: planet.StorageNodes[0].ID(),
@@ -86,11 +86,11 @@ func TestNewContainIncrementPendingEntryExists(t *testing.T) {
 	})
 }
 
-func TestNewContainDelete(t *testing.T) {
+func TestContainDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		containment := planet.Satellites[0].DB.NewContainment()
+		containment := planet.Satellites[0].DB.Containment()
 
 		// add two reverification jobs for the same node
 		info1 := &audit.PieceLocator{
@@ -147,11 +147,11 @@ func TestNewContainDelete(t *testing.T) {
 
 // UpdateStats used to remove nodes from containment. It doesn't anymore.
 // This is a sanity check.
-func TestNewContainUpdateStats(t *testing.T) {
+func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		containment := planet.Satellites[0].DB.NewContainment()
+		containment := planet.Satellites[0].DB.Containment()
 		cache := planet.Satellites[0].DB.OverlayCache()
 
 		info1 := &audit.PieceLocator{

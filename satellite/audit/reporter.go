@@ -19,11 +19,10 @@ import (
 //
 // architecture: Service
 type reporter struct {
-	log         *zap.Logger
-	reputations *reputation.Service
-	overlay     *overlay.Service
-	// newContainment will be renamed to containment.
-	newContainment   NewContainment
+	log              *zap.Logger
+	reputations      *reputation.Service
+	overlay          *overlay.Service
+	containment      Containment
 	maxRetries       int
 	maxReverifyCount int32
 }
@@ -41,22 +40,21 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
-	Successes storj.NodeIDList
-	Fails     storj.NodeIDList
-	Offlines  storj.NodeIDList
-	// PieceAudits will be renamed to PendingAudits.
-	PieceAudits     []*ReverificationJob
+	Successes       storj.NodeIDList
+	Fails           storj.NodeIDList
+	Offlines        storj.NodeIDList
+	PendingAudits   []*ReverificationJob
 	Unknown         storj.NodeIDList
 	NodesReputation map[storj.NodeID]overlay.ReputationStatus
 }
 
 // NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, newContainment NewContainment, maxRetries int, maxReverifyCount int32) Reporter {
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
 	return &reporter{
 		log:              log,
 		reputations:      reputations,
 		overlay:          overlay,
-		newContainment:   newContainment,
+		containment:      containment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount,
 	}
@@ -72,7 +70,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 	fails := req.Fails
 	unknowns := req.Unknown
 	offlines := req.Offlines
-	pendingAudits := req.PieceAudits
+	pendingAudits := req.PendingAudits
 
 	reporter.log.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
@@ -110,7 +108,7 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
 		reportFailures(tries, "unknown", err, unknowns, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
 		reportFailures(tries, "offline", err, offlines, nil)
-		pendingAudits, err = reporter.recordPendingPieceAudits(ctx, pendingAudits, nodesReputation)
+		pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits, nodesReputation)
 		reportFailures(tries, "pending", err, nil, pendingAudits)
 	}
 }
@@ -132,9 +130,8 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 	return failed, errors.Err()
 }
 
-// recordPendingPieceAudits updates the containment status of nodes with pending piece audits.
-// This function is temporary and will be renamed to recordPendingAudits later in this commit chain.
-func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+// recordPendingAudits updates the containment status of nodes with pending piece audits.
+func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 
@@ -164,7 +161,7 @@ func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingA
 			failed = append(failed, pendingAudit)
 			continue
 		}
-		_, stillContained, err := reporter.newContainment.Delete(ctx, &pendingAudit.Locator)
+		_, stillContained, err := reporter.containment.Delete(ctx, &pendingAudit.Locator)
 		if err != nil {
 			if !ErrContainedNotFound.Has(err) {
 				errlist.Add(err)
@@ -188,7 +185,7 @@ func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingA
 func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = reporter.newContainment.Insert(ctx, piece)
+	err = reporter.containment.Insert(ctx, piece)
 	if err != nil {
 		return Error.New("failed to queue reverification audit for node: %w", err)
 	}
@@ -223,7 +220,7 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 		// This will get re-added to the reverification queue, but that is idempotent
 		// and fine. We do need to add it to PendingAudits in order to get the
 		// maxReverifyCount check.
-		report.PieceAudits = append(report.PieceAudits, pendingJob)
+		report.PendingAudits = append(report.PendingAudits, pendingJob)
 	case OutcomeUnknownError:
 		report.Unknown = append(report.Unknown, pendingJob.Locator.NodeID)
 		keepInQueue = false
@@ -237,7 +234,7 @@ func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendin
 
 	// remove from reverifications queue if appropriate
 	if !keepInQueue {
-		_, stillContained, err := reporter.newContainment.Delete(ctx, &pendingJob.Locator)
+		_, stillContained, err := reporter.containment.Delete(ctx, &pendingJob.Locator)
 		if err != nil {
 			if !ErrContainedNotFound.Has(err) {
 				errList.Add(err)

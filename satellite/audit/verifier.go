@@ -53,14 +53,13 @@ type Share struct {
 //
 // architecture: Worker
 type Verifier struct {
-	log      *zap.Logger
-	metabase *metabase.DB
-	orders   *orders.Service
-	auditor  *identity.PeerIdentity
-	dialer   rpc.Dialer
-	overlay  *overlay.Service
-	// newContainment will be renamed to containment.
-	newContainment     NewContainment
+	log                *zap.Logger
+	metabase           *metabase.DB
+	orders             *orders.Service
+	auditor            *identity.PeerIdentity
+	dialer             rpc.Dialer
+	overlay            *overlay.Service
+	containment        Containment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
 
@@ -69,7 +68,7 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier.
-func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, newContainment NewContainment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metabase:           metabase,
@@ -77,7 +76,7 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 		auditor:            id.PeerIdentity(),
 		dialer:             dialer,
 		overlay:            overlay,
-		newContainment:     newContainment,
+		containment:        containment,
 		minBytesPerSecond:  minBytesPerSecond,
 		minDownloadTimeout: minDownloadTimeout,
 		nowFn:              time.Now,
@@ -288,11 +287,11 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	}
 
 	return Report{
-		Successes:   successNodes,
-		Fails:       failedNodes,
-		Offlines:    offlineNodes,
-		PieceAudits: pendingAudits,
-		Unknown:     unknownNodes,
+		Successes:     successNodes,
+		Fails:         failedNodes,
+		Offlines:      offlineNodes,
+		PendingAudits: pendingAudits,
+		Unknown:       unknownNodes,
 	}, nil
 }
 
@@ -359,7 +358,7 @@ func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Se
 
 	skipList = make(map[storj.NodeID]bool)
 	for _, piece := range segmentInfo.Pieces {
-		_, err := verifier.newContainment.Get(ctx, piece.StorageNode)
+		_, err := verifier.containment.Get(ctx, piece.StorageNode)
 		if err != nil {
 			if ErrContainedNotFound.Has(err) {
 				continue
@@ -613,7 +612,7 @@ func recordStats(report Report, totalPieces int, verifyErr error) {
 	numOffline := len(report.Offlines)
 	numSuccessful := len(report.Successes)
 	numFailed := len(report.Fails)
-	numContained := len(report.PieceAudits)
+	numContained := len(report.PendingAudits)
 	numUnknown := len(report.Unknown)
 
 	totalAudited := numSuccessful + numFailed + numOffline + numContained

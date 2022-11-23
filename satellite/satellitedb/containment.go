@@ -10,18 +10,17 @@ import (
 	"storj.io/storj/satellite/audit"
 )
 
-// newContainment will be renamed to containment.
-type newContainment struct {
+type containment struct {
 	reverifyQueue audit.ReverifyQueue
 }
 
-var _ audit.NewContainment = &newContainment{}
+var _ audit.Containment = &containment{}
 
 // Get gets a pending reverification audit by node id. If there are
 // multiple pending reverification audits, an arbitrary one is returned.
 // If there are none, an error wrapped by audit.ErrContainedNotFound is
 // returned.
-func (containment *newContainment) Get(ctx context.Context, id pb.NodeID) (_ *audit.ReverificationJob, err error) {
+func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
 		return nil, audit.ContainError.New("node ID empty")
@@ -31,7 +30,7 @@ func (containment *newContainment) Get(ctx context.Context, id pb.NodeID) (_ *au
 }
 
 // Insert creates a new pending audit entry.
-func (containment *newContainment) Insert(ctx context.Context, pendingJob *audit.PieceLocator) (err error) {
+func (containment *containment) Insert(ctx context.Context, pendingJob *audit.PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return containment.reverifyQueue.Insert(ctx, pendingJob)
@@ -41,7 +40,7 @@ func (containment *newContainment) Insert(ctx context.Context, pendingJob *audit
 // was successful or because the job is no longer necessary. The wasDeleted
 // return value indicates whether the indicated job was actually deleted (if
 // not, there was no such job in the queue).
-func (containment *newContainment) Delete(ctx context.Context, pendingJob *audit.PieceLocator) (isDeleted, nodeStillContained bool, err error) {
+func (containment *containment) Delete(ctx context.Context, pendingJob *audit.PieceLocator) (isDeleted, nodeStillContained bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	isDeleted, err = containment.reverifyQueue.Remove(ctx, pendingJob)

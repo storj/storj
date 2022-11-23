@@ -276,9 +276,10 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 	return &ordersDB{db: db}
 }
 
-// NewContainment will be renamed to Containment later in the commit chain.
-func (dbc *satelliteDBCollection) NewContainment() audit.NewContainment {
-	return &newContainment{reverifyQueue: dbc.ReverifyQueue()}
+// Containment returns database for storing pending audit info.
+// It does all of its work by way of the ReverifyQueue.
+func (dbc *satelliteDBCollection) Containment() audit.Containment {
+	return &containment{reverifyQueue: dbc.ReverifyQueue()}
 }
 
 // GracefulExit returns database for graceful exit.

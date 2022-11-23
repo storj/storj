@@ -85,7 +85,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	overlayCache overlay.DB,
 	nodeEvents nodeevents.DB,
 	reputationdb reputation.DB,
-	newContainmentDB audit.NewContainment,
+	containmentDB audit.Containment,
 	rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel,
 ) (*Repairer, error) {
@@ -219,7 +219,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			log.Named("reporter"),
 			peer.Reputation,
 			peer.Overlay,
-			newContainmentDB,
+			containmentDB,
 			config.Audit.MaxRetriesStatDB,
 			int32(config.Audit.MaxReverifyCount))
 	}

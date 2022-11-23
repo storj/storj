@@ -35,8 +35,8 @@ func TestReportPendingAudits(t *testing.T) {
 			},
 		}
 
-		report := audit.Report{PieceAudits: []*audit.ReverificationJob{&pending}}
-		containment := satellite.DB.NewContainment()
+		report := audit.Report{PendingAudits: []*audit.ReverificationJob{&pending}}
+		containment := satellite.DB.Containment()
 
 		audits.Reporter.RecordAudits(ctx, report)
 
@@ -94,7 +94,7 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 			Successes: []storj.NodeID{goodNode},
 			Fails:     []storj.NodeID{dqNode},
 			Unknown:   []storj.NodeID{suspendedNode},
-			PieceAudits: []*audit.ReverificationJob{
+			PendingAudits: []*audit.ReverificationJob{
 				{
 					Locator:       audit.PieceLocator{NodeID: pendingNode},
 					ReverifyCount: 0,
@@ -206,11 +206,11 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			},
 		}
 		report = audit.Report{
-			Successes:   storj.NodeIDList{successNode.ID()},
-			Fails:       storj.NodeIDList{failedNode.ID()},
-			Offlines:    storj.NodeIDList{offlineNode.ID()},
-			PieceAudits: []*audit.ReverificationJob{&pending},
-			Unknown:     storj.NodeIDList{unknownNode.ID()},
+			Successes:     storj.NodeIDList{successNode.ID()},
+			Fails:         storj.NodeIDList{failedNode.ID()},
+			Offlines:      storj.NodeIDList{offlineNode.ID()},
+			PendingAudits: []*audit.ReverificationJob{&pending},
+			Unknown:       storj.NodeIDList{unknownNode.ID()},
 		}
 		audits.Reporter.RecordAudits(ctx, report)
 

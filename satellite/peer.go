@@ -112,9 +112,8 @@ type DB interface {
 	OIDC() oidc.DB
 	// Orders returns database for orders
 	Orders() orders.DB
-	// NewContainment is temporary and will be renamed to Containment later in the commit chain.
 	// Containment returns database for containment
-	NewContainment() audit.NewContainment
+	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
 	// GracefulExit returns database for graceful exit
