@@ -371,6 +371,7 @@ func TestMinRequiredDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -480,6 +481,7 @@ func TestFailedDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -600,6 +602,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -722,6 +725,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -843,6 +847,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -959,6 +964,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
@@ -1076,6 +1082,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
@@ -1190,6 +1197,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
