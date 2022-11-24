@@ -868,6 +868,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
 
+# whether the audit score of nodes should be updated as a part of repair
+# repairer.reputation-update-enabled: false
+
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
