@@ -16,7 +16,7 @@ func sendObserverDurations(observerDurations []ObserverDuration) {
 }
 
 // completedObserverStatsInstance is initialized once
-// so that hopefully there is never more than once objec instance per satellite process
+// so that hopefully there is never more than once object instance per satellite process
 // and statistics of different object instances don't clobber each other.
 var completedObserverStatsInstance *completedObserverStats
 
