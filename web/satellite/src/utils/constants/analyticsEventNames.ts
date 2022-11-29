@@ -52,5 +52,6 @@ export enum AnalyticsEvent {
     CREDIT_CARD_ADDED_FROM_BILLING = 'Credit Card Added From Billing',
     STORJ_TOKEN_ADDED_FROM_BILLING = 'Storj Token Added From Billing',
     ADD_FUNDS_CLICKED = 'Add Funds Clicked',
+    PROJECT_MEMBERS_INVITE_SENT = 'Project Members Invite Sent',
 
 }
