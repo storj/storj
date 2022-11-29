@@ -58,6 +58,9 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
+# number of audit jobs to push at once to the verification queue
+# audit.verification-push-batch-size: 4096
+
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
@@ -584,7 +587,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.min-remote-segment-size: 1.2 KiB
 
 # feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: false
+# metainfo.multiple-versions: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -867,6 +870,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
+
+# whether the audit score of nodes should be updated as a part of repair
+# repairer.reputation-update-enabled: false
 
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s

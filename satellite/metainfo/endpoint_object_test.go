@@ -147,7 +147,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected := []storj.Object{
+			expected := []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/album/söng3.mp3"},
 				{Path: "müsic/söng1.mp3"},
@@ -176,7 +176,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected = []storj.Object{
+			expected = []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/", IsPrefix: true},
 				{Path: "sample.😶"},
@@ -268,8 +268,8 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
-				Bucket:        []byte("testbucket"),
-				EncryptedPath: []byte(objects[0].ObjectKey),
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 			})
 			require.NoError(t, err)
 
@@ -283,7 +283,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				Bucket:                        getResp.Object.Bucket,
-				EncryptedObjectKey:            getResp.Object.EncryptedPath,
+				EncryptedObjectKey:            getResp.Object.EncryptedObjectKey,
 				Version:                       getResp.Object.Version,
 				StreamId:                      getResp.Object.StreamId,
 				EncryptedMetadataNonce:        testEncryptedMetadataNonce,
@@ -527,14 +527,14 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
 			getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				Bucket:        []byte("testbucket"),
-				EncryptedPath: []byte(committedObject.ObjectKey),
-				Version:       int32(committedObject.Version),
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+				Version:            int32(committedObject.Version),
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, getObjectResponse.Object.Bucket)
-			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedObjectKey)
 			require.EqualValues(t, committedObject.Version, getObjectResponse.Object.Version)
 		})
 
@@ -568,7 +568,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
-			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
 			require.EqualValues(t, committedObject.Version, downloadObjectResponse.Object.Version)
 		})
 
@@ -694,7 +694,7 @@ func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected := []storj.Object{
+			expected := []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/album/söng3.mp3"},
 				{Path: "müsic/söng1.mp3"},
@@ -723,7 +723,7 @@ func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected = []storj.Object{
+			expected = []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/", IsPrefix: true},
 				{Path: "sample.😶"},
@@ -1582,8 +1582,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte(objects[0].ObjectKey),
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
 
@@ -1594,7 +1594,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 				ApiKey: apiKey.SerializeRaw(),
 			},
 			Bucket:                getResp.Object.Bucket,
-			EncryptedObjectKey:    getResp.Object.EncryptedPath,
+			EncryptedObjectKey:    getResp.Object.EncryptedObjectKey,
 			NewBucket:             []byte("testbucket"),
 			NewEncryptedObjectKey: []byte("newencryptedkey"),
 		})
@@ -1662,8 +1662,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte("newobjectkey"),
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte("newobjectkey"),
 		})
 		require.NoError(t, err, objectsAfterCopy[1])
 		require.NotEqual(t, getResp.Object.StreamId, getCopyResp.Object.StreamId)
@@ -1925,10 +1925,10 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		validKey := randomEncryptedKey
 
 		getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-			Header:        &pb.RequestHeader{ApiKey: apiKey},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte(objects[0].ObjectKey),
-			Version:       int32(objects[0].Version),
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
 		})
 		require.NoError(t, err)
 

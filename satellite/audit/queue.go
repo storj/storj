@@ -136,7 +136,7 @@ func (queues *Queues) WaitForSwap(ctx context.Context) error {
 // stripe of data across all pieces in the segment and ensure that all pieces
 // conform to the same polynomial.
 type VerifyQueue interface {
-	Push(ctx context.Context, segments []Segment) (err error)
+	Push(ctx context.Context, segments []Segment, maxBatchSize int) (err error)
 	Next(ctx context.Context) (Segment, error)
 }
 
@@ -148,4 +148,26 @@ type ReverifyQueue interface {
 	Insert(ctx context.Context, piece PieceLocator) (err error)
 	GetNextJob(ctx context.Context) (job ReverificationJob, err error)
 	Remove(ctx context.Context, piece PieceLocator) (wasDeleted bool, err error)
+}
+
+// ByStreamIDAndPosition allows sorting of a slice of segments by stream ID and position.
+type ByStreamIDAndPosition []Segment
+
+func (b ByStreamIDAndPosition) Len() int {
+	return len(b)
+}
+
+func (b ByStreamIDAndPosition) Less(i, j int) bool {
+	comparison := b[i].StreamID.Compare(b[j].StreamID)
+	if comparison < 0 {
+		return true
+	}
+	if comparison > 0 {
+		return false
+	}
+	return b[i].Position.Less(b[j].Position)
+}
+
+func (b ByStreamIDAndPosition) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }

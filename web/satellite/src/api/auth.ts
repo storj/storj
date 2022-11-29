@@ -15,7 +15,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
@@ -30,11 +29,14 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status == 429) {
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send email';
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-
-        throw new Error('Failed to send email');
     }
 
     /**
@@ -75,7 +77,7 @@ export class AuthHttpApi implements UsersApi {
         case 401:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -125,7 +127,7 @@ export class AuthHttpApi implements UsersApi {
         case 404:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -279,7 +281,7 @@ export class AuthHttpApi implements UsersApi {
             case 401:
                 throw new ErrorUnauthorized(errMsg);
             case 429:
-                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+                throw new ErrorTooManyRequests(errMsg);
             default:
                 throw new Error(errMsg);
             }

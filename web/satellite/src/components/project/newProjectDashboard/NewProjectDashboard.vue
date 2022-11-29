@@ -171,6 +171,7 @@
             <p class="project-dashboard__stats-header__title">Buckets</p>
         </div>
         <BucketsTable :is-loading="areBucketsFetching" />
+        <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
     </div>
 </template>
 
@@ -187,6 +188,7 @@ import { DataStamp, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { LocalData } from '@/utils/localData';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
@@ -196,6 +198,7 @@ import VButton from '@/components/common/VButton.vue';
 import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
 import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
+import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -213,12 +216,14 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         NewProjectIcon,
         InfoIcon,
         BucketsTable,
+        EncryptionBanner,
     },
 })
 export default class NewProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
     public isDataFetching = true;
     public areBucketsFetching = true;
+    public isServerSideEncryptionBannerHidden = true;
 
     public chartWidth = 0;
 
@@ -233,6 +238,8 @@ export default class NewProjectDashboard extends Vue {
      * Fetches project limits.
      */
     public async mounted(): Promise<void> {
+        this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
+
         if (!this.$store.getters.selectedProject.id) {
             this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
@@ -275,6 +282,14 @@ export default class NewProjectDashboard extends Vue {
      */
     public beforeDestroy(): void {
         window.removeEventListener('resize', this.recalculateChartWidth);
+    }
+
+    /**
+     * Hides server-side encryption banner.
+     */
+    public hideBanner(): void {
+        this.isServerSideEncryptionBannerHidden = true;
+        LocalData.setServerSideEncryptionBannerHidden(true);
     }
 
     /**
