@@ -1003,9 +1003,9 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Timeout:   0,
 			}
 
-			createdAt, err := sat.DB.StripeCoinPayments().Transactions().Insert(ctx, tx)
+			createdAt, err := sat.DB.StripeCoinPayments().Transactions().TestInsert(ctx, tx)
 			require.NoError(t, err)
-			err = sat.DB.StripeCoinPayments().Transactions().LockRate(ctx, tx.ID, decimal.NewFromInt(1))
+			err = sat.DB.StripeCoinPayments().Transactions().TestLockRate(ctx, tx.ID, decimal.NewFromInt(1))
 			require.NoError(t, err)
 
 			tx.CreatedAt = createdAt.UTC()

@@ -146,7 +146,6 @@ type Core struct {
 	Payments struct {
 		Accounts         payments.Accounts
 		BillingChore     *billing.Chore
-		Chore            *stripecoinpayments.Chore
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
@@ -564,21 +563,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Payments.Accounts = service.Accounts()
-
-		peer.Payments.Chore = stripecoinpayments.NewChore(
-			peer.Log.Named("payments.stripe:clearing"),
-			service,
-			pc.StripeCoinPayments.TransactionUpdateInterval,
-			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name: "payments.stripe:service",
-			Run:  peer.Payments.Chore.Run,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
-		)
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,
