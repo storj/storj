@@ -86,7 +86,7 @@ export default class DeleteBucketModal extends Vue {
             }
 
             const now = new Date();
-            const inOneDay = new Date(now.setDate(now.getDate() + 1));
+            const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
             await this.worker.postMessage({
                 'type': 'SetPermission',
@@ -94,8 +94,8 @@ export default class DeleteBucketModal extends Vue {
                 'isUpload': false,
                 'isList': true,
                 'isDelete': true,
-                'notAfter': inOneDay.toISOString(),
-                'buckets': [],
+                'notAfter': inOneHour.toISOString(),
+                'buckets': [this.name],
                 'apiKey': this.apiKey,
             });
 
