@@ -185,6 +185,7 @@ export default defineComponent({
         justify-content: center;
         background-color: var(--c-blue-3);
         cursor: pointer;
+        box-sizing: border-box;
 
         .trash-icon {
             margin-right: 5px;

@@ -252,7 +252,7 @@ export default class NavigationArea extends Vue {
      * Toggles switch passphrase modal.
      */
     public toggleEncryptionPassphraseShown(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SET_ENCRYPTION_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
     }
 
     public debugShowAccess(): void {
