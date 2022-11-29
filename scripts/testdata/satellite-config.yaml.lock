@@ -104,7 +104,7 @@ compensation.rates.put-tb: "0"
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # expiration time for account recovery and activation tokens
-# console-auth.token-expiration-time: 24h0m0s
+# console-auth.token-expiration-time: 30m0s
 
 # the Flagship API key
 # console.ab-testing.api-key: ""

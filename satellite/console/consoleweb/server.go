@@ -702,7 +702,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, http.StatusNotFound)
+			http.Redirect(w, r, server.config.ExternalAddress+"activate?expired=true", http.StatusTemporaryRedirect)
 			return
 		}
 
