@@ -83,6 +83,8 @@ type Config struct {
 	Driver    string // if unset, uses sqlite3
 	Pieces    string
 	Filestore filestore.Config
+
+	TestingDisableWAL bool
 }
 
 // DB contains access to different database tables.
@@ -319,7 +321,12 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	wal := "&_journal=WAL"
+	if db.config.TestingDisableWAL {
+		wal = "&_journal=MEMORY"
+	}
+
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal)
 	if err != nil {
 		return ErrDatabase.New("%s opening file %q failed: %w", dbName, path, err)
 	}

@@ -50,6 +50,8 @@ func run(ctx context.Context, outFile string) error {
 		Info:    filepath.Join(tempDir, "piecestore.db"),
 		Info2:   filepath.Join(tempDir, "info.db"),
 		Pieces:  tempDir,
+
+		TestingDisableWAL: true,
 	}
 
 	db, err := storagenodedb.OpenNew(ctx, log, cfg)

@@ -41,6 +41,8 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db stor
 			Info2:   filepath.Join(storageDir, "info.db"),
 			Driver:  "sqlite3+utccheck",
 			Pieces:  storageDir,
+
+			TestingDisableWAL: true,
 		}
 
 		db, err := OpenNew(ctx, log, cfg)
