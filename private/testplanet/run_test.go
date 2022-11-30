@@ -25,6 +25,10 @@ func TestRun(t *testing.T) {
 	})
 }
 
+func BenchmarkRun_Satellite(b *testing.B) {
+	benchmarkRunConfig(b, testplanet.Config{SatelliteCount: 1})
+}
+
 func BenchmarkRun_StorageNode(b *testing.B) {
 	benchmarkRunConfig(b, testplanet.Config{StorageNodeCount: 4})
 }
