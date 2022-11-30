@@ -35,13 +35,13 @@
                 </div>
                 <div class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">{{ balance.coins | centsToDollars }}</p>
-                    <p class="total-cost__card__label-text">Available Balance</p>
+                    <p class="total-cost__card__money-text">${{ balance.coins }}</p>
+                    <p class="total-cost__card__label-text">STORJ Token Balance</p>
                     <p
                         class="total-cost__card__link-text"
-                        @click="routeToPaymentMethods"
+                        @click="balanceClicked"
                     >
-                        View Payment Methods →
+                        {{ hasZeroCoins ? "Add Funds" : "See Balance" }} →
                     </p>
                 </div>
             </div>
@@ -112,7 +112,6 @@ import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
     },
 })
 export default class BillingArea extends Vue {
-    public availableBalance = 0;
     public showChargesTooltip = false;
     public isDataFetching = true;
     public currentDate = '';
@@ -153,6 +152,13 @@ export default class BillingArea extends Vue {
     }
 
     /**
+     * Returns whether the user's STORJ balance is empty.
+     */
+    public get hasZeroCoins(): boolean {
+        return this.balance.coins === 0;
+    }
+
+    /**
      * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
      */
     public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
@@ -174,6 +180,13 @@ export default class BillingArea extends Vue {
     public routeToPaymentMethods(): void {
         this.analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+    }
+
+    public balanceClicked(): void {
+        this.$router.push({
+            name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
+            params: { action: this.hasZeroCoins ? 'add tokens' : 'token history' },
+        });
     }
 
 }
