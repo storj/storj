@@ -94,9 +94,6 @@ var (
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
 
-	// ErrLoginPassword occurs when provided invalid login password.
-	ErrLoginPassword = errs.Class("login password")
-
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
 
@@ -1050,7 +1047,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 		mon.Counter("login_invalid_password").Inc(1) //mon:locked
 		s.auditLog(ctx, "login: failed password invalid", &user.ID, user.Email)
-		return nil, ErrLoginPassword.New(credentialsErrMsg)
+		return nil, ErrLoginCredentials.New(credentialsErrMsg)
 	}
 
 	if user.MFAEnabled {

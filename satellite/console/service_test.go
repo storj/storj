@@ -844,7 +844,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			require.True(t, console.ErrLoginPassword.Has(err))
+			require.True(t, console.ErrLoginCredentials.Has(err))
 		}
 
 		lockedUser, err := service.GetUser(userCtx, user.ID)
