@@ -7,32 +7,24 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import LoaderImage from '@/../static/images/common/loader.svg';
 
-// @vue/component
-@Component({
-    components: {
-        LoaderImage,
-    },
-})
-export default class VLoader extends Vue {
-    @Prop({ default: 'unset' })
-    private readonly width: string;
-    @Prop({ default: 'unset' })
-    private readonly height: string;
-    @Prop({ default: false })
-    private readonly isWhite: boolean;
+const props = withDefaults(defineProps<{
+    width?: string;
+    height?: string;
+    isWhite?: boolean;
+}>(), {
+    width: 'unset',
+    height: 'unset',
+    isWhite: () => false,
+});
 
-    /**
-     * Returns loader's width and height from props.
-     */
-    public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height };
-    }
-}
+const style = computed((): Record<string, unknown> => {
+    return { width: props.width, height: props.height };
+});
 </script>
 
 <style scoped lang="scss">

@@ -14,33 +14,20 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CloseCrossIcon,
-    },
-})
-export default class VModal extends Vue {
-    @Prop({ default: () => () => {} })
-    public readonly onClose: () => void;
+const props = withDefaults(defineProps<{
+    onClose?: () => void;
+}>(), { onClose: () => () => {} });
 
-    public $refs!: {
-        modal: HTMLDivElement,
-    };
+const modal = ref<HTMLElement>();
 
-    /**
-     * Mounted hook after initial render.
-     * Focus on root div to make modal closable by ESCAPE click.
-     */
-    public mounted(): void {
-        this.$refs.modal.focus();
-    }
-}
+onMounted((): void => {
+    modal.value?.focus();
+});
 </script>
 
 <style scoped lang="scss">
