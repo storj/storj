@@ -563,6 +563,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
 
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		service, err := stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -572,9 +582,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
 			pc.BonusRate)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

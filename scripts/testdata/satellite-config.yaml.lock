@@ -790,9 +790,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
-# price user should pay for each TB of egress
-# payments.egress-tb-price: "7"
-
 # price node receive for storing TB of audit in cents
 # payments.node-audit-bandwidth-price: 1000
 
@@ -807,12 +804,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # payments provider to use
 # payments.provider: ""
-
-# price user should pay for each segment stored in network per month
-# payments.segment-price: "0.0000088"
-
-# price user should pay for storing TB per month
-# payments.storage-tb-price: "4"
 
 # basic auth identifier
 # payments.storjscan.auth.identifier: ""
@@ -843,6 +834,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
+
+# semicolon-separated usage price overrides in the format partner:storage,egress,segment
+# payments.usage-price-overrides: ""
+
+# price user should pay for egress in dollars/TB
+# payments.usage-price.egress-tb: "7"
+
+# price user should pay for segments stored on network per month in dollars/segment
+# payments.usage-price.segment: "0.0000088"
+
+# price user should pay for storage per month in dollars/TB
+# payments.usage-price.storage-tb: "4"
 
 # how often to remove unused project bandwidth rollups
 # project-bw-cleanup.interval: 168h0m0s
