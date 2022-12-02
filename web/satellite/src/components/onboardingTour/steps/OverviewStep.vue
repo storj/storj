@@ -22,12 +22,9 @@
                 :is-disabled="isLoading"
             />
         </div>
-        <router-link
-            class="overview-area__skip-button"
-            :to="projectDashboardPath"
-        >
+        <p class="overview-area__skip-button" @click="onSkip">
             Skip and go directly to dashboard
-        </router-link>
+        </p>
     </div>
 </template>
 
@@ -39,6 +36,7 @@ import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
@@ -76,6 +74,14 @@ export default class OverviewStep extends Vue {
         }
 
         this.titleLabel = 'OSP';
+    }
+
+    /**
+     * Skips onboarding flow.
+     */
+    public onSkip(): void {
+        this.$router.push(this.projectDashboardPath);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
     }
 
     /**
@@ -153,7 +159,7 @@ export default class OverviewStep extends Vue {
         margin-top: 58px;
         color: #b7c1ca;
         cursor: pointer;
-        text-decoration: underline !important;
+        text-decoration: underline;
 
         &:hover {
             text-decoration: underline;

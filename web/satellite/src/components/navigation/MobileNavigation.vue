@@ -47,6 +47,10 @@
                                 <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                             </div>
                         </div>
+                        <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+                            <PassphraseIcon />
+                            <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
+                        </div>
                         <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
                             <ManageIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
@@ -195,6 +199,7 @@ import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
+import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
@@ -225,6 +230,7 @@ import UsersIcon from '@/../static/images/navigation/users.svg';
         CheckmarkIcon,
         ProjectIcon,
         ManageIcon,
+        PassphraseIcon,
         CreateProjectIcon,
         VLoader,
         CrossIcon,
@@ -337,10 +343,21 @@ export default class MobileNavigation extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
+     * Toggles manage passphrase modal shown.
      */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    public onManagePassphraseClick(): void {
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            return;
+        }
+
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**

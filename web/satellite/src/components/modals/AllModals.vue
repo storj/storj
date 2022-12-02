@@ -22,6 +22,7 @@
         <AddCouponCodeModal v-if="isAddCouponModal" />
         <NewBillingAddCouponCodeModal v-if="isNewBillingAddCouponModal" />
         <CreateProjectPassphraseModal v-if="isCreateProjectPassphraseModal" />
+        <ManageProjectPassphraseModal v-if="isManageProjectPassphraseModal" />
     </div>
 </template>
 
@@ -47,10 +48,12 @@ import DeleteBucketModal from '@/components/modals/DeleteBucketModal.vue';
 import AddCouponCodeModal from '@/components/modals/AddCouponCodeModal.vue';
 import NewBillingAddCouponCodeModal from '@/components/modals/NewBillingAddCouponCodeModal.vue';
 import CreateProjectPassphraseModal from '@/components/modals/createProjectPassphrase/CreateProjectPassphraseModal.vue';
+import ManageProjectPassphraseModal from '@/components/modals/manageProjectPassphrase/ManageProjectPassphraseModal.vue';
 
 // @vue/component
 @Component({
     components: {
+        ManageProjectPassphraseModal,
         CreateProjectPassphraseModal,
         DeleteBucketModal,
         CreateProjectPromptModal,
@@ -205,6 +208,13 @@ export default class AllModals extends Vue {
      */
     public get isCreateProjectPassphraseModal(): boolean {
         return this.$store.state.appStateModule.appState.isCreateProjectPassphraseModalShown;
+    }
+
+    /**
+     * Indicates if manage project passphrase modal is shown.
+     */
+    public get isManageProjectPassphraseModal(): boolean {
+        return this.$store.state.appStateModule.appState.isManageProjectPassphraseModalShown;
     }
 }
 </script>

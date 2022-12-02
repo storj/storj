@@ -42,6 +42,7 @@ class ViewsState {
         public isDeleteBucketModalShown = false,
         public isNewFolderModalShown = false,
         public isCreateProjectPassphraseModalShown = false,
+        public isManageProjectPassphraseModalShown = false,
         public isObjectDetailsModalShown = false,
         public isAddCouponModalShown = false,
         public isNewBillingAddCouponModalShown = false,
@@ -146,6 +147,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
             state.appState.isCreateProjectPassphraseModalShown = !state.appState.isCreateProjectPassphraseModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
+            state.appState.isManageProjectPassphraseModalShown = !state.appState.isManageProjectPassphraseModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
             state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;

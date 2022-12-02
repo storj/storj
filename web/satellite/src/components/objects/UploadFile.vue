@@ -86,6 +86,11 @@ export default class UploadFile extends Vue {
             return;
         }
 
+        if (!this.edgeCredentials.secretKey) {
+            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
+            return;
+        }
+
         await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
         await this.$store.commit('files/reinit', {
             endpoint: this.edgeCredentials.endpoint,
