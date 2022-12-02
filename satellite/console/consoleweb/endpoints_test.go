@@ -4,9 +4,10 @@
 package consoleweb_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 )
@@ -362,6 +364,23 @@ func TestProjects(t *testing.T) {
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
+		{ // Get_Salt
+			projectID := test.defaultProjectID()
+			id, err := uuid.FromString(projectID)
+			require.NoError(t, err)
+
+			// get salt from endpoint
+			var b64Salt string
+			resp, body := test.request(http.MethodGet, fmt.Sprintf("/projects/%s/salt", test.defaultProjectID()), nil)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.NoError(t, json.Unmarshal([]byte(body), &b64Salt))
+
+			// get salt from db and base64 encode it
+			salt, err := planet.Satellites[0].DB.Console().Projects().GetSalt(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, b64Salt, base64.StdEncoding.EncodeToString(salt))
+		}
+
 		{ // Get_ProjectInfo
 			resp, body := test.request(http.MethodPost, "/graphql",
 				test.toJSON(map[string]interface{}{
@@ -529,7 +548,7 @@ func TestProjects(t *testing.T) {
 								__typename
 							}
 						}`}))
-			require.Contains(t, body, "There is no account on this Satellite for the user(s) you have entered")
+			require.Contains(t, body, "addProjectMembers")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 
@@ -831,7 +850,7 @@ func (test *test) do(req *http.Request) (_ Response, body string) {
 	resp, err := test.client.Do(req)
 	require.NoError(test.t, err)
 
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	require.NoError(test.t, err)
 	require.NoError(test.t, resp.Body.Close())
 
@@ -868,10 +887,12 @@ func (test *test) login(email, password string) Response {
 	cookie := findCookie(resp, "_tokenKey")
 	require.NotNil(test.t, cookie)
 
-	var rawToken string
-	require.NoError(test.t, json.Unmarshal([]byte(body), &rawToken))
+	var tokenInfo struct {
+		Token string `json:"token"`
+	}
+	require.NoError(test.t, json.Unmarshal([]byte(body), &tokenInfo))
 	require.Equal(test.t, http.StatusOK, resp.StatusCode)
-	require.Equal(test.t, rawToken, cookie.Value)
+	require.Equal(test.t, tokenInfo.Token, cookie.Value)
 
 	return resp
 }

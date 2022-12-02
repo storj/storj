@@ -23,6 +23,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -32,7 +33,7 @@ func TestCache_Database(t *testing.T) {
 	t.Parallel()
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		testCache(ctx, t, db.OverlayCache())
+		testCache(ctx, t, db.OverlayCache(), db.NodeEvents())
 	})
 }
 
@@ -55,7 +56,7 @@ func testAuditHistoryConfig() reputation.AuditHistoryConfig {
 	}
 }
 
-func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
+func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEvents nodeevents.DB) {
 	valid1ID := testrand.NodeID()
 	valid2ID := testrand.NodeID()
 	valid3ID := testrand.NodeID()
@@ -74,7 +75,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB) {
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nil, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -453,7 +454,7 @@ func TestKnownReliable(t *testing.T) {
 		oc := satellite.DB.OverlayCache()
 
 		// Disqualify storage node #0
-		err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
+		_, err := oc.DisqualifyNode(ctx, planet.StorageNodes[0].ID(), time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		// Stop storage node #1
@@ -644,6 +645,26 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, updated2Node.Reputation.LastContactSuccess.Equal(updatedNode.Reputation.LastContactSuccess))
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
+
+		// check that UpdateCheckIn updates last_offline_email
+		require.NoError(t, db.OverlayCache().UpdateLastOfflineEmail(ctx, []storj.NodeID{updated2Node.Id}, time.Now()))
+		nodeInfo, err := db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.NotNil(t, nodeInfo.LastOfflineEmail)
+		lastEmail := nodeInfo.LastOfflineEmail
+
+		// first that it is not updated if node is offline
+		require.NoError(t, db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{}))
+		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.Equal(t, lastEmail, nodeInfo.LastOfflineEmail)
+
+		// then that it is nullified if node is online
+		updatedInfo2.IsUp = true
+		require.NoError(t, db.OverlayCache().UpdateCheckIn(ctx, updatedInfo2, time.Now(), overlay.NodeSelectionConfig{}))
+		nodeInfo, err = db.OverlayCache().Get(ctx, updated2Node.Id)
+		require.NoError(t, err)
+		require.Nil(t, nodeInfo.LastOfflineEmail)
 	})
 }
 
@@ -739,30 +760,31 @@ func TestUpdateReputation(t *testing.T) {
 		t2 := t0.Add(2 * time.Hour)
 		t3 := t0.Add(3 * time.Hour)
 
-		reputationChange := overlay.ReputationUpdate{
+		reputationUpdate := overlay.ReputationUpdate{
 			Disqualified:          nil,
 			UnknownAuditSuspended: &t1,
 			OfflineSuspended:      &t2,
 			VettedAt:              &t3,
 		}
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		repChange := []nodeevents.Type{nodeevents.UnknownAuditSuspended, nodeevents.OfflineSuspended}
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
-		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
-		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
-		require.Equal(t, reputationChange.VettedAt, info.Reputation.Status.VettedAt)
+		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
+		require.Equal(t, reputationUpdate.UnknownAuditSuspended, info.UnknownAuditSuspended)
+		require.Equal(t, reputationUpdate.OfflineSuspended, info.OfflineSuspended)
+		require.Equal(t, reputationUpdate.VettedAt, info.Reputation.Status.VettedAt)
 
-		reputationChange.Disqualified = &t0
-
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		reputationUpdate.Disqualified = &t0
+		repChange = []nodeevents.Type{nodeevents.Disqualified}
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		info, err = service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+		require.Equal(t, reputationUpdate.Disqualified, info.Disqualified)
 
 		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              node.ID(),
@@ -776,8 +798,8 @@ func TestUpdateReputation(t *testing.T) {
 
 		// make sure Disqualified field is not updated if a node has finished
 		// graceful exit
-		reputationChange.Disqualified = &t0
-		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		reputationUpdate.Disqualified = &t0
+		err = service.UpdateReputation(ctx, node.ID(), "", reputationUpdate, repChange)
 		require.NoError(t, err)
 
 		exitedNodeInfo, err := service.Get(ctx, node.ID())
@@ -798,7 +820,7 @@ func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
 			Wallet: "0x123",
 		},
 		Version: &pb.NodeVersion{
-			Version:    "v0.0.0",
+			Version:    "v3.0.0",
 			CommitHash: "",
 			Timestamp:  time.Time{},
 			Release:    false,
@@ -878,5 +900,152 @@ func TestKnownReliableInExcludedCountries(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, nodes, 1)
 		require.Equal(t, node.ID(), nodes[0])
+	})
+}
+
+func TestUpdateReputationNodeEvents(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		email := "test@storj.test"
+		neDB := planet.Satellites[0].DB.NodeEvents()
+
+		now := time.Now()
+		repUpdate := overlay.ReputationUpdate{
+			UnknownAuditSuspended: &now,
+		}
+
+		repChanges := []nodeevents.Type{nodeevents.UnknownAuditSuspended}
+
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), email, repUpdate, repChanges))
+
+		ne, err := neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.UnknownAuditSuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.UnknownAuditSuspended, ne.Event)
+
+		repUpdate.UnknownAuditSuspended = nil
+		repChanges = []nodeevents.Type{nodeevents.UnknownAuditUnsuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.UnknownAuditUnsuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.UnknownAuditUnsuspended, ne.Event)
+
+		repUpdate.OfflineSuspended = &now
+		repChanges = []nodeevents.Type{nodeevents.OfflineSuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineSuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.OfflineSuspended, ne.Event)
+
+		repUpdate.OfflineSuspended = nil
+		repChanges = []nodeevents.Type{nodeevents.OfflineUnsuspended}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.OfflineUnsuspended)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.OfflineUnsuspended, ne.Event)
+
+		repUpdate.Disqualified = &now
+		repChanges = []nodeevents.Type{nodeevents.Disqualified}
+		require.NoError(t, service.UpdateReputation(ctx, node.ID(), "test@storj.test", repUpdate, repChanges))
+
+		ne, err = neDB.GetLatestByEmailAndEvent(ctx, email, nodeevents.Disqualified)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, nodeevents.Disqualified, ne.Event)
+	})
+}
+
+func TestDisqualifyNodeEmails(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		require.NoError(t, service.DisqualifyNode(ctx, node.ID(), overlay.DisqualificationReasonUnknown))
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, node.Config.Operator.Email, nodeevents.Disqualified)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), ne.NodeID)
+	})
+}
+
+func TestUpdateCheckInNodeEventOnline(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.Overlay.Node.OnlineWindow = 4 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		checkInInfo := getNodeInfo(node.ID())
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour)))
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.Online)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), ne.NodeID)
+	})
+}
+
+func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.Overlay.Node.MinimumVersion = "v2.0.0"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		// Set version to above minimum because we have no control over initial testplanet check in and it
+		// fails the test due to wait period between version update emails
+		checkInInfo := getNodeInfo(node.ID())
+		checkInInfo.Version = &pb.NodeVersion{Version: "v2.0.0"}
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+		checkInInfo.Version = &pb.NodeVersion{Version: "v1.0.0"}
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+
+		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.BelowMinVersion)
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), ne.NodeID)
+		require.Equal(t, checkInInfo.Operator.Email, ne.Email)
+		require.Equal(t, nodeevents.BelowMinVersion, ne.Event)
 	})
 }

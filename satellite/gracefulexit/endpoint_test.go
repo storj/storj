@@ -407,7 +407,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
 
-		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
+		_, err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
@@ -450,7 +450,7 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 			}
 
 			if !isDisqualified {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
+				_, err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 				require.NoError(t, err)
 			}
 

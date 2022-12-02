@@ -206,7 +206,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			updates.UnknownResults,
 			cachedInfo.UnknownAuditReputationBeta,
 			cachedInfo.UnknownAuditReputationAlpha,
-			config.AuditLambda,
+			config.UnknownAuditLambda,
 			config.AuditWeight,
 		)
 
@@ -222,7 +222,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 			updates.PositiveResults,
 			cachedInfo.UnknownAuditReputationAlpha,
 			cachedInfo.UnknownAuditReputationBeta,
-			config.AuditLambda,
+			config.UnknownAuditLambda,
 			config.AuditWeight,
 		)
 
@@ -258,7 +258,7 @@ func (cdb *CachingDB) ApplyUpdates(ctx context.Context, nodeID storj.NodeID, upd
 
 		// check unknown-audits score
 		unknownAuditRep := cachedInfo.UnknownAuditReputationAlpha / (cachedInfo.UnknownAuditReputationAlpha + cachedInfo.UnknownAuditReputationBeta)
-		if unknownAuditRep <= config.AuditDQ {
+		if unknownAuditRep <= config.UnknownAuditDQ {
 			if cachedInfo.UnknownAuditSuspended == nil {
 				logger.Info("Suspended", zap.String("category", "unknown-result audits"))
 				cachedInfo.UnknownAuditSuspended = &now

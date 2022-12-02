@@ -34,6 +34,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -69,38 +70,36 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL                  string             `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string             `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
-	LetUsKnowURL                    string             `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string             `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string             `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string             `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string             `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
-	AccountActivationRedirectURL    string             `help:"url link for account activation redirect" default:""`
-	PartneredSatellites             console.Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
-	GeneralRequestURL               string             `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string             `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string             `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:""`
-	IsBetaSatellite                 bool               `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string             `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string             `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string             `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled      bool               `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
-	CouponCodeSignupUIEnabled       bool               `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool               `help:"indicates if file browser flow is disabled" default:"false"`
-	CSPEnabled                      bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:""`
-	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
-	NewObjectsFlow                  bool               `help:"indicates if new objects flow should be used" default:"true"`
-	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"true"`
-	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"false"`
-	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
-	InactivityTimerEnabled          bool               `help:"indicates if session can be timed out due inactivity" default:"false"`
-	InactivityTimerDelay            int                `help:"inactivity timer delay in seconds" default:"600"`
-	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
-	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
-	NativeTokenPaymentsEnabled      bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
+	ContactInfoURL                     string             `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                     string             `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	LetUsKnowURL                       string             `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                                string             `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                      string             `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator                  string             `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL              string             `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	AccountActivationRedirectURL       string             `help:"url link for account activation redirect" default:""`
+	PartneredSatellites                console.Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL                  string             `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL    string             `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL       string             `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
+	IsBetaSatellite                    bool               `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL           string             `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL            string             `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                   string             `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeBillingUIEnabled         bool               `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled          bool               `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
+	FileBrowserFlowDisabled            bool               `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                         bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                     string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	PathwayOverviewEnabled             bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewProjectDashboard                bool               `help:"indicates if new project dashboard should be used" default:"true"`
+	NewAccessGrantFlow                 bool               `help:"indicates if new access grant flow should be used" default:"true"`
+	NewBillingScreen                   bool               `help:"indicates if new billing screens should be used" default:"true"`
+	GeneratedAPIEnabled                bool               `help:"indicates if generated console api should be used" default:"false"`
+	OptionalSignupSuccessURL           string             `help:"optional url to external registration success page" default:""`
+	HomepageURL                        string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled         bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
+	NewEncryptionPassphraseFlowEnabled bool               `help:"indicates if new encryption passphrase flow is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -108,6 +107,8 @@ type Config struct {
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
+
+	ABTesting abtesting.Config
 
 	console.Config
 }
@@ -123,6 +124,7 @@ type Server struct {
 	mailService *mailservice.Service
 	partners    *rewards.PartnersService
 	analytics   *analytics.Service
+	abTesting   *abtesting.Service
 
 	listener          net.Listener
 	server            http.Server
@@ -179,12 +181,12 @@ func (a *apiAuth) IsAuthenticated(ctx context.Context, r *http.Request, isCookie
 
 // cookieAuth returns an authenticated context by session cookie.
 func (a *apiAuth) cookieAuth(ctx context.Context, r *http.Request) (context.Context, error) {
-	token, err := a.server.cookieAuth.GetToken(r)
+	tokenInfo, err := a.server.cookieAuth.GetToken(r)
 	if err != nil {
 		return nil, err
 	}
 
-	return a.server.service.TokenAuth(ctx, token, time.Now())
+	return a.server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 }
 
 // cookieAuth returns an authenticated context by api key.
@@ -204,7 +206,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -213,9 +215,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		mailService:       mailService,
 		partners:          partners,
 		analytics:         analytics,
+		abTesting:         abTesting,
 		stripePublicKey:   stripePublicKey,
-		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit),
-		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit),
+		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
+		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:           nodeURL,
 		pricing:           pricing,
 	}
@@ -250,6 +253,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
+	projectsController := consoleapi.NewProjects(logger, service)
+	router.Handle(
+		"/api/v0/projects/{id}/salt",
+		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
+	).Methods(http.MethodGet)
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
@@ -280,12 +289,20 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
-	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
+	authRouter.Handle("/logout", server.withAuth(http.HandlerFunc(authController.Logout))).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.ipRateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost, http.MethodOptions)
-	authRouter.Handle("/forgot-password/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/forgot-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ForgotPassword))).Methods(http.MethodPost)
 	authRouter.Handle("/resend-email/{email}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResendEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/reset-password", server.ipRateLimiter.Limit(http.HandlerFunc(authController.ResetPassword))).Methods(http.MethodPost)
+	authRouter.Handle("/refresh-session", server.withAuth(http.HandlerFunc(authController.RefreshSession))).Methods(http.MethodPost)
+
+	if config.ABTesting.Enabled {
+		abController := consoleapi.NewABTesting(logger, abTesting)
+		abRouter := router.PathPrefix("/api/v0/ab").Subrouter()
+		abRouter.Handle("/values", server.withAuth(http.HandlerFunc(abController.GetABValues))).Methods(http.MethodGet)
+		abRouter.Handle("/hit/{action}", server.withAuth(http.HandlerFunc(abController.SendHit))).Methods(http.MethodPost)
+	}
 
 	paymentController := consoleapi.NewPayments(logger, service)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
@@ -301,7 +318,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/wallet", paymentController.ClaimWallet).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/wallet/payments", paymentController.WalletPayments).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
-	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
 
@@ -322,8 +338,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	analyticsRouter.HandleFunc("/page", analyticsController.PageEventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
-		oidc := oidc.NewEndpoint(server.config.ExternalAddress, logger, oidcService, service,
-			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry)
+		oidc := oidc.NewEndpoint(
+			server.nodeURL, server.config.ExternalAddress,
+			logger, oidcService, service,
+			server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
+		)
 
 		router.HandleFunc("/.well-known/openid-configuration", oidc.WellKnownConfiguration)
 		router.Handle("/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
@@ -415,46 +434,50 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		ExternalAddress                 string
-		SatelliteName                   string
-		SatelliteNodeURL                string
-		StripePublicKey                 string
-		PartneredSatellites             string
-		DefaultProjectLimit             int
-		GeneralRequestURL               string
-		ProjectLimitsIncreaseRequestURL string
-		GatewayCredentialsRequestURL    string
-		IsBetaSatellite                 bool
-		BetaSatelliteFeedbackURL        string
-		BetaSatelliteSupportURL         string
-		DocumentationURL                string
-		CouponCodeBillingUIEnabled      bool
-		CouponCodeSignupUIEnabled       bool
-		FileBrowserFlowDisabled         bool
-		LinksharingURL                  string
-		PathwayOverviewEnabled          bool
-		StorageTBPrice                  string
-		EgressTBPrice                   string
-		SegmentPrice                    string
-		RegistrationRecaptchaEnabled    bool
-		RegistrationRecaptchaSiteKey    string
-		RegistrationHcaptchaEnabled     bool
-		RegistrationHcaptchaSiteKey     string
-		LoginRecaptchaEnabled           bool
-		LoginRecaptchaSiteKey           string
-		LoginHcaptchaEnabled            bool
-		LoginHcaptchaSiteKey            string
-		NewProjectDashboard             bool
-		DefaultPaidStorageLimit         memory.Size
-		DefaultPaidBandwidthLimit       memory.Size
-		NewObjectsFlow                  bool
-		NewAccessGrantFlow              bool
-		NewBillingScreen                bool
-		InactivityTimerEnabled          bool
-		InactivityTimerDelay            int
-		OptionalSignupSuccessURL        string
-		HomepageURL                     string
-		NativeTokenPaymentsEnabled      bool
+		ExternalAddress                    string
+		SatelliteName                      string
+		SatelliteNodeURL                   string
+		StripePublicKey                    string
+		PartneredSatellites                string
+		DefaultProjectLimit                int
+		GeneralRequestURL                  string
+		ProjectLimitsIncreaseRequestURL    string
+		GatewayCredentialsRequestURL       string
+		IsBetaSatellite                    bool
+		BetaSatelliteFeedbackURL           string
+		BetaSatelliteSupportURL            string
+		DocumentationURL                   string
+		CouponCodeBillingUIEnabled         bool
+		CouponCodeSignupUIEnabled          bool
+		FileBrowserFlowDisabled            bool
+		LinksharingURL                     string
+		PathwayOverviewEnabled             bool
+		StorageTBPrice                     string
+		EgressTBPrice                      string
+		SegmentPrice                       string
+		RegistrationRecaptchaEnabled       bool
+		RegistrationRecaptchaSiteKey       string
+		RegistrationHcaptchaEnabled        bool
+		RegistrationHcaptchaSiteKey        string
+		LoginRecaptchaEnabled              bool
+		LoginRecaptchaSiteKey              string
+		LoginHcaptchaEnabled               bool
+		LoginHcaptchaSiteKey               string
+		NewProjectDashboard                bool
+		DefaultPaidStorageLimit            memory.Size
+		DefaultPaidBandwidthLimit          memory.Size
+		NewAccessGrantFlow                 bool
+		NewBillingScreen                   bool
+		InactivityTimerEnabled             bool
+		InactivityTimerDuration            int
+		InactivityTimerViewerEnabled       bool
+		OptionalSignupSuccessURL           string
+		HomepageURL                        string
+		NativeTokenPaymentsEnabled         bool
+		NewEncryptionPassphraseFlowEnabled bool
+		PasswordMinimumLength              int
+		PasswordMaximumLength              int
+		ABTestingEnabled                   bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -489,14 +512,18 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
 	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.NewObjectsFlow = server.config.NewObjectsFlow
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.NewBillingScreen = server.config.NewBillingScreen
-	data.InactivityTimerEnabled = server.config.InactivityTimerEnabled
-	data.InactivityTimerDelay = server.config.InactivityTimerDelay
+	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
+	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration
+	data.InactivityTimerViewerEnabled = server.config.Session.InactivityTimerViewerEnabled
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
 	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
+	data.NewEncryptionPassphraseFlowEnabled = server.config.NewEncryptionPassphraseFlowEnabled
+	data.PasswordMinimumLength = console.PasswordMinimumLength
+	data.PasswordMaximumLength = console.PasswordMaximumLength
+	data.ABTestingEnabled = server.config.ABTesting.Enabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
@@ -521,17 +548,17 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 
 		defer func() {
 			if err != nil {
-				consoleapi.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				web.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
 				server.cookieAuth.RemoveTokenCookie(w)
 			}
 		}()
 
-		token, err := server.cookieAuth.GetToken(r)
+		tokenInfo, err := server.cookieAuth.GetToken(r)
 		if err != nil {
 			return
 		}
 
-		newCtx, err := server.service.TokenAuth(ctx, token, time.Now())
+		newCtx, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		if err != nil {
 			return
 		}
@@ -554,13 +581,13 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := server.cookieAuth.GetToken(r)
+	tokenInfo, err := server.cookieAuth.GetToken(r)
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
 	}
 
-	ctx, err = server.service.TokenAuth(ctx, token, time.Now())
+	ctx, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
@@ -675,7 +702,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, http.StatusNotFound)
+			http.Redirect(w, r, server.config.ExternalAddress+"activate?expired=true", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -708,13 +735,13 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	token, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
+	tokenInfo, err := server.service.GenerateSessionToken(ctx, user.ID, user.Email, ip, r.UserAgent())
 	if err != nil {
 		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
-	server.cookieAuth.SetTokenCookie(w, token)
+	server.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	http.Redirect(w, r, server.config.ExternalAddress, http.StatusTemporaryRedirect)
 }
@@ -964,8 +991,8 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
-func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
-	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
+func NewUserIDRateLimiter(config web.RateLimiterConfig, log *zap.Logger) *web.RateLimiter {
+	return web.NewRateLimiter(config, log, func(r *http.Request) (string, error) {
 		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", err
@@ -1046,7 +1073,7 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 				boundMethod = "INVALID"
 			}
 
-			stop := mon.TaskNamed(pathTpl, monkit.NewSeriesTag("method", boundMethod))(&ctx)
+			stop := mon.TaskNamed("visit_task", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))(&ctx)
 			r = r.WithContext(ctx)
 
 			defer func() {
@@ -1057,14 +1084,15 @@ func newTraceRequestMiddleware(log *zap.Logger, root *mux.Router) mux.Middleware
 
 				stop(&err)
 				// Count the status codes returned by each endpoint.
-				mon.Event(pathTpl,
+				mon.Event("visit_event_by_code",
+					monkit.NewSeriesTag("path", pathTpl),
 					monkit.NewSeriesTag("method", boundMethod),
 					monkit.NewSeriesTag("code", strconv.Itoa(respWCode.code)),
 				)
 			}()
 
 			// Count the requests to each endpoint.
-			mon.Event(pathTpl, monkit.NewSeriesTag("method", boundMethod))
+			mon.Event("visit_event", monkit.NewSeriesTag("path", pathTpl), monkit.NewSeriesTag("method", boundMethod))
 
 			next.ServeHTTP(&respWCode, r)
 		})

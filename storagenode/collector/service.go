@@ -6,11 +6,11 @@ package collector
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
@@ -96,8 +96,14 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		for _, expired := range infos {
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
-				if os.IsNotExist(errors.Unwrap(err)) {
-					service.log.Info("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+				if errs.Is(err, os.ErrNotExist) {
+					service.log.Warn("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+					err := service.pieces.DeleteExpired(ctx, expired.SatelliteID, expired.PieceID)
+					if err != nil {
+						service.log.Error("unable to delete expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
+						continue
+					}
+					service.log.Info("deleted expired piece info from DB", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 					continue
 				}
 				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
@@ -107,7 +113,7 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 				service.log.Error("unable to delete piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
 				continue
 			}
-			service.log.Info("delete expired", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+			service.log.Info("deleted expired piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 
 			count++
 		}

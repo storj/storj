@@ -19,18 +19,29 @@
             </div>
             <div class="title-area-divider" />
 
-            <div
-                v-if="info.quicEnabled"
+            <VInfo
+                v-if="info.quicStatus === quicStatusRefreshing"
+                text="Testing connection to node via QUIC"
             >
                 <div class="title-area__info-container__info-item">
                     <p class="title-area__info-container__info-item__title">QUIC</p>
-                    <p class="title-area__info-container__info-item__content online-status">OK</p>
+                    <p class="title-area__info-container__info-item__content">{{ quicStatusRefreshing }}</p>
                 </div>
-            </div>
+            </VInfo>
             <VInfo
-                v-if="!info.quicEnabled"
+                v-if="info.quicStatus === quicStatusOk"
+                :text="'QUIC is configured to use UDP port ' + info.configuredPort"
+                :bold-text="'Last pinged ' + lastQuicPingedAt + ' ago'"
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content online-status">{{ quicStatusOk }}</p>
+                </div>
+            </VInfo>
+            <VInfo
+                v-if="info.quicStatus === quicStatusMisconfigured"
                 :text="'QUIC is misconfigured. You must forward port ' + info.configuredPort + ' for both TCP and UDP to enable QUIC.'"
-                bold-text="See https://docs.storj.io/node/dependencies/port-forwarding on how to do this."
+                bold-text="See https://docs.storj.io/node/dependencies/port-forwarding on how to do this"
             >
                 <div class="title-area__info-container__info-item">
                     <p class="title-area__info-container__info-item__title">QUIC</p>
@@ -81,12 +92,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { StatusOnline, QUIC_STATUS } from '@/app/store/modules/node';
+import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
+
 import VInfo from '@/app/components/VInfo.vue';
 
 import CopyIcon from '@/../static/images/Copy.svg';
-
-import { StatusOnline } from '@/app/store/modules/node';
-import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.
@@ -98,18 +109,18 @@ class NodeInfo {
     public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
-    public quicEnabled: boolean
-    public configuredPort: string
+    public quicStatus: string;
+    public configuredPort: string;
 
-    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean, quicEnabled: boolean, port: string) {
+    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean, quicStatus: string, port: string) {
         this.id = id;
         this.status = status;
         this.version = this.toVersionString(version);
         this.allowedVersion = this.toVersionString(allowedVersion);
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
-        this.quicEnabled = quicEnabled
-        this.configuredPort = port
+        this.quicStatus = quicStatus;
+        this.configuredPort = port;
     }
 
     private toVersionString(version: string): string {
@@ -141,11 +152,23 @@ export default class SNOContentTitle extends Vue {
         const nodeInfo = this.$store.state.node.info;
 
         return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
-            nodeInfo.isLastVersion, nodeInfo.quicEnabled, nodeInfo.configuredPort);
+            nodeInfo.isLastVersion, nodeInfo.quicStatus, nodeInfo.configuredPort);
     }
 
     public get online(): boolean {
         return this.$store.state.node.info.status === StatusOnline;
+    }
+
+    public get quicStatusOk(): string {
+        return QUIC_STATUS.StatusOk;
+    }
+
+    public get quicStatusRefreshing(): string {
+        return QUIC_STATUS.StatusRefreshing;
+    }
+
+    public get quicStatusMisconfigured(): string {
+        return QUIC_STATUS.StatusMisconfigured;
     }
 
     public get uptime(): string {
@@ -154,6 +177,10 @@ export default class SNOContentTitle extends Vue {
 
     public get lastPinged(): string {
         return this.timePassed(this.$store.state.node.info.lastPinged);
+    }
+
+    public get lastQuicPingedAt(): string {
+        return this.timePassed(this.$store.state.node.info.lastQuicPingedAt);
     }
 
     public get currentMonth(): string {

@@ -3,28 +3,29 @@
 
 import Vue from 'vue';
 import Vuex from 'vuex';
+import { RouteRecord } from 'vue-router';
 
-import {AccessGrantsApiGql} from '@/api/accessGrants';
-import {AuthHttpApi} from '@/api/auth';
-import {BucketsApiGql} from '@/api/buckets';
-import {PaymentsHttpApi} from '@/api/payments';
-import {ProjectMembersApiGql} from '@/api/projectMembers';
-import {ProjectsApiGql} from '@/api/projects';
-import {notProjectRelatedRoutes, RouteConfig, router} from '@/router';
-import {AccessGrantsState, makeAccessGrantsModule} from '@/store/modules/accessGrants';
-import {appStateModule} from '@/store/modules/appState';
-import {makeBucketsModule} from '@/store/modules/buckets';
-import {makeNotificationsModule, NotificationsState} from '@/store/modules/notifications';
-import {makeObjectsModule, OBJECTS_ACTIONS, ObjectsState} from '@/store/modules/objects';
-import {makePaymentsModule, PaymentsState} from '@/store/modules/payments';
-import {makeProjectMembersModule, ProjectMembersState} from '@/store/modules/projectMembers';
-import {makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState} from '@/store/modules/projects';
-import {makeUsersModule} from '@/store/modules/users';
-import {User} from '@/types/users';
-
-import {FilesState, makeFilesModule} from '@/store/modules/files';
-import {RouteRecord} from "vue-router";
-import {NavigationLink} from "@/types/navigation";
+import { AccessGrantsApiGql } from '@/api/accessGrants';
+import { AuthHttpApi } from '@/api/auth';
+import { BucketsApiGql } from '@/api/buckets';
+import { PaymentsHttpApi } from '@/api/payments';
+import { ProjectMembersApiGql } from '@/api/projectMembers';
+import { ProjectsApiGql } from '@/api/projects';
+import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
+import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
+import { appStateModule } from '@/store/modules/appState';
+import { makeBucketsModule } from '@/store/modules/buckets';
+import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
+import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
+import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
+import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeUsersModule } from '@/store/modules/users';
+import { User } from '@/types/users';
+import { FilesState, makeFilesModule } from '@/store/modules/files';
+import { NavigationLink } from '@/types/navigation';
+import { ABTestingState, makeABTestingModule } from '@/store/modules/abTesting';
+import { ABHttpApi } from '@/api/abtesting';
 
 Vue.use(Vuex);
 
@@ -35,14 +36,15 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
+const abTestingAPI = new ABHttpApi();
 
 // We need to use a WebWorker facotory because jest testing does not support
 // WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
 const webWorkerFactory = {
     create(): Worker {
         return new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
-    }
-}
+    },
+};
 
 export interface ModulesState {
     notificationsModule: NotificationsState;
@@ -54,6 +56,7 @@ export interface ModulesState {
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     files: FilesState;
+    abTestingModule: ABTestingState;
 }
 
 // Satellite store (vuex)
@@ -69,6 +72,7 @@ export const store = new Vuex.Store<ModulesState>({
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),
         files: makeFilesModule(),
+        abTestingModule: makeABTestingModule(abTestingAPI),
     },
 });
 

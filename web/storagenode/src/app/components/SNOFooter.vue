@@ -34,9 +34,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import StorjIcon from '@/../static/images/storjIcon.svg';
-
 import { RouteConfig } from '@/app/router';
+
+import StorjIcon from '@/../static/images/storjIcon.svg';
 
 // @vue/component
 @Component({

@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/drpc/drpcctx"
 	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
 )
@@ -114,6 +116,8 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Version:    req.Version,
 	}
 
+	endpoint.emitEvenkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
+
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
 		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
@@ -126,6 +130,32 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
 		PingErrorMessage:    pingErrorMessage,
 	}, nil
+}
+
+func (endpoint *Endpoint) emitEvenkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
+	var sourceAddr string
+	transport, found := drpcctx.Transport(ctx)
+	if found {
+		if conn, ok := transport.(net.Conn); ok {
+			a := conn.RemoteAddr()
+			if a != nil {
+				sourceAddr = a.String()
+			}
+		}
+	}
+
+	ek.Event("checkin",
+		eventkit.String("id", nodeInfo.NodeID.String()),
+		eventkit.String("addr", req.Address),
+		eventkit.String("resolved-addr", nodeInfo.LastIPPort),
+		eventkit.String("source-addr", sourceAddr),
+		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp),
+		eventkit.String("version", nodeInfo.Version.Version),
+		eventkit.String("country", nodeInfo.CountryCode.String()),
+		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk),
+		eventkit.Bool("ping-tpc-success", pingNodeTCPSuccess),
+		eventkit.Bool("ping-quic-success", pingNodeQUICSuccess),
+	)
 }
 
 // GetTime returns current timestamp.

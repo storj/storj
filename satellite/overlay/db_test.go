@@ -63,7 +63,7 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		// check that limit works, set limit = 1
 		// run twice to DQ nodes 1 and 2
 		for i := 0; i < 2; i++ {
-			n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 1)
+			_, n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 1)
 			require.NoError(t, err)
 			require.Equal(t, n, 1)
 		}
@@ -81,7 +81,7 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		// there should be no more nodes for DQ
 		// use higher limit to double check that DQ times
 		// for nodes 1 and 2 have not changed
-		n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
+		_, n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
 		require.NoError(t, err)
 		require.Equal(t, n, 0)
 
@@ -226,7 +226,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 				err := overlayDB.UpdateCheckIn(ctx, checkIn, now, overlay.NodeSelectionConfig{})
 				require.NoError(t, err)
 
-				err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
+				_, err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
 				require.NoError(t, err)
 
 				info, err := overlayDB.Get(ctx, testcase.NodeID)

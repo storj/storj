@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 // Users exposes methods to manage User table in database.
@@ -24,6 +25,8 @@ type Users interface {
 	GetUnverifiedNeedingReminder(ctx context.Context, firstReminder, secondReminder, cutoff time.Time) ([]*User, error)
 	// UpdateVerificationReminders increments verification_reminders.
 	UpdateVerificationReminders(ctx context.Context, id uuid.UUID) error
+	// UpdateFailedLoginCountAndExpiration increments failed_login_count and sets login_lockout_expiration appropriately.
+	UpdateFailedLoginCountAndExpiration(ctx context.Context, failedLoginPenalty *float64, id uuid.UUID) error
 	// GetByEmailWithUnverified is a method for querying users by email from the database.
 	GetByEmailWithUnverified(ctx context.Context, email string) (*User, []User, error)
 	// GetByEmail is a method for querying user by verified email from the database.
@@ -122,6 +125,12 @@ type AuthUser struct {
 	UserAgent       string `json:"-"`
 }
 
+// TokenInfo holds info for user authentication token responses.
+type TokenInfo struct {
+	consoleauth.Token `json:"token"`
+	ExpiresAt         time.Time `json:"expiresAt"`
+}
+
 // UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
@@ -176,6 +185,7 @@ type User struct {
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
+	SignupCaptcha          *float64  `json:"-"`
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

@@ -13,7 +13,7 @@
                     class="full-input"
                     label="Old Password"
                     placeholder="Old Password"
-                    is-password="true"
+                    is-password
                     :error="oldPasswordError"
                     @setData="setOldPassword"
                 />
@@ -22,7 +22,7 @@
                         class="full-input"
                         label="New Password"
                         placeholder="New Password"
-                        is-password="true"
+                        is-password
                         :error="newPasswordError"
                         @setData="setNewPassword"
                         @showPasswordStrength="showPasswordStrength"
@@ -37,7 +37,7 @@
                     class="full-input"
                     label="Confirm Password"
                     placeholder="Confirm Password"
-                    is-password="true"
+                    is-password
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation"
                 />
@@ -47,7 +47,7 @@
                         width="100%"
                         height="48px"
                         :on-press="closeModal"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Update"
@@ -66,10 +66,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AuthHttpApi } from '@/api/auth';
 import { Validator } from '@/utils/validation';
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -214,9 +214,20 @@ export default class ChangePasswordModal extends Vue {
         display: flex;
         flex-direction: column;
         padding: 48px;
+        box-sizing: border-box;
+        min-width: 550px;
 
         @media screen and (max-width: 600px) {
+            min-width: 475px;
             padding: 48px 24px;
+        }
+
+        @media screen and (max-width: 530px) {
+            min-width: 420px;
+        }
+
+        @media screen and (max-width: 470px) {
+            min-width: unset;
         }
 
         &__row {
@@ -273,18 +284,18 @@ export default class ChangePasswordModal extends Vue {
 
     @media screen and (max-width: 600px) {
 
-        ::v-deep .password-strength-container {
+        :deep(.password-strength-container) {
             width: unset;
             height: unset;
+        }
 
-            &__header {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+        :deep(.password-strength-container__header) {
+            flex-direction: column;
+            align-items: flex-start;
+        }
 
-            &__rule-area__rule {
-                text-align: left;
-            }
+        :deep(.password-strength-container__rule-area__rule) {
+            text-align: left;
         }
     }
 </style>

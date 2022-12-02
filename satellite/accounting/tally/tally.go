@@ -14,6 +14,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -28,6 +29,7 @@ type Config struct {
 	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
+	UseObjectsLoop      bool          `help:"flag to switch between calculating bucket tallies using objects loop or custom query" default:"false"`
 
 	ListLimit          int           `help:"how many objects to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
@@ -42,6 +44,7 @@ type Service struct {
 	Loop   *sync2.Cycle
 
 	metabase                *metabase.DB
+	bucketsDB               buckets.DB
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -49,13 +52,14 @@ type Service struct {
 }
 
 // New creates a new tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, config Config) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, bucketsDB buckets.DB, config Config) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		Loop:   sync2.NewCycle(config.Interval),
 
 		metabase:                metabase,
+		bucketsDB:               bucketsDB,
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -189,7 +193,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all buckets
-	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.config)
+	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.config)
 	err = collector.Run(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -235,26 +239,30 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return errAtRest
 }
 
+var objectFunc = mon.Task()
+
 // BucketTallyCollector collects and adds up tallies for buckets.
 type BucketTallyCollector struct {
 	Now    time.Time
 	Log    *zap.Logger
 	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 
-	metabase *metabase.DB
-	config   Config
+	metabase  *metabase.DB
+	bucketsDB buckets.DB
+	config    Config
 }
 
-// NewBucketTallyCollector returns an collector that adds up totals for buckets.
+// NewBucketTallyCollector returns a collector that adds up totals for buckets.
 // The now argument controls when the collector considers objects to be expired.
-func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, config Config) *BucketTallyCollector {
+func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, config Config) *BucketTallyCollector {
 	return &BucketTallyCollector{
 		Now:    now,
 		Log:    log,
 		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 
-		metabase: db,
-		config:   config,
+		metabase:  db,
+		bucketsDB: bucketsDB,
+		config:    config,
 	}
 }
 
@@ -265,6 +273,10 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	startingTime, err := observer.metabase.Now(ctx)
 	if err != nil {
 		return err
+	}
+
+	if !observer.config.UseObjectsLoop {
+		return observer.fillBucketTallies(ctx, startingTime)
 	}
 
 	return observer.metabase.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
@@ -283,6 +295,58 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	})
 }
 
+// fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
+func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, startingTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var lastBucketLocation metabase.BucketLocation
+	var bucketLocationsSize int
+
+	for {
+		err := observer.bucketsDB.IterateBucketLocations(ctx, lastBucketLocation.ProjectID, lastBucketLocation.BucketName, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+			if len(bucketLocations) < 1 {
+				return nil
+			}
+
+			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From:               bucketLocations[0],
+				To:                 bucketLocations[len(bucketLocations)-1],
+				AsOfSystemTime:     startingTime,
+				AsOfSystemInterval: observer.config.AsOfSystemInterval,
+				Now:                observer.Now,
+			})
+			if err != nil {
+				return err
+			}
+
+			for _, tally := range tallies {
+				bucket := observer.ensureBucket(metabase.ObjectLocation{
+					ProjectID:  tally.ProjectID,
+					BucketName: tally.BucketName,
+				})
+				bucket.TotalSegments = tally.TotalSegments
+				bucket.TotalBytes = tally.TotalBytes
+				bucket.MetadataSize = tally.MetadataSize
+				bucket.ObjectCount = tally.ObjectCount
+			}
+
+			bucketLocationsSize = len(bucketLocations)
+
+			lastBucketLocation = bucketLocations[len(bucketLocations)-1]
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+
+		if bucketLocationsSize < observer.config.ListLimit {
+			break
+		}
+	}
+
+	return nil
+}
+
 // ensureBucket returns bucket corresponding to the passed in path.
 func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
@@ -297,8 +361,8 @@ func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocat
 }
 
 // Object is called for each object once.
-func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) error {
+	defer objectFunc(&ctx)(nil)
 
 	if object.Expired(observer.Now) {
 		return nil

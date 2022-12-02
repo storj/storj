@@ -121,10 +121,10 @@ func TestUserIDRateLimiter(t *testing.T) {
 				require.NoError(t, err)
 
 				// sat.AddUser sets password to full name.
-				token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+				tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 				require.NoError(t, err)
 
-				tokenStr := token.String()
+				tokenStr := tokenInfo.Token.String()
 
 				if userNum == 1 {
 					firstToken = tokenStr

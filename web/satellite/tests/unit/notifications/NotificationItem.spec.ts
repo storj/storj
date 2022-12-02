@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import NotificationItem from '@/components/notifications/NotificationItem.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 const localVue = createLocalVue();
 
@@ -113,7 +113,7 @@ describe('NotificationItem', () => {
             },
         });
 
-        await wrapper.setData({ requestUrl: 'https://requestUrl.com' })
+        await wrapper.setData({ requestUrl: 'https://requestUrl.com' });
 
         expect(wrapper).toMatchSnapshot();
         expect(wrapper.find('.notification-wrap__content-area__message').text()).toMatch(testMessage);

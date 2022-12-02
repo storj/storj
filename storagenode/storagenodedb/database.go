@@ -559,6 +559,11 @@ func (db *DB) RawDatabases() map[string]DBContainer {
 	return db.SQLDBs
 }
 
+// DBDirectory returns the database directory for testing purposes.
+func (db *DB) DBDirectory() string {
+	return db.dbDirectory
+}
+
 // migrateToDB is a helper method that performs the migration from the
 // deprecatedInfoDB to the specified new db. It first closes and deletes any
 // existing database to guarantee idempotence. After migration it also closes

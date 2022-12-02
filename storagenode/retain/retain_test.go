@@ -71,7 +71,7 @@ func TestRetainPieces(t *testing.T) {
 			// Write file for all satellites
 			for _, satelliteID := range []storj.NodeID{satellite0.ID, satellite1.ID} {
 				now := time.Now()
-				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer)
+				w, err := testStore.WriterForFormatVersion(ctx, satelliteID, id, formatVer, pb.PieceHashAlgorithm_SHA256)
 				require.NoError(t, err)
 
 				_, err = w.Write(testrand.Bytes(size))

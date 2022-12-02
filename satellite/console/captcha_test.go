@@ -4,7 +4,11 @@
 package console_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,8 +24,9 @@ const validResponseToken = "myResponseToken"
 
 type mockRecaptcha struct{}
 
-func (r mockRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (bool, error) {
-	return responseToken == validResponseToken, nil
+func (r mockRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (bool, *float64, error) {
+	score := 1.0
+	return responseToken == validResponseToken, &score, nil
 }
 
 // TestRegistrationRecaptcha ensures that registration reCAPTCHA service is working properly.
@@ -52,6 +57,8 @@ func TestRegistrationRecaptcha(t *testing.T) {
 
 		require.NotNil(t, user)
 		require.NoError(t, err)
+		require.NotNil(t, user.SignupCaptcha)
+		require.Equal(t, 1.0, *user.SignupCaptcha)
 
 		regToken2, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
@@ -123,5 +130,50 @@ func TestLoginRecaptcha(t *testing.T) {
 
 		require.Empty(t, token)
 		require.True(t, console.ErrCaptcha.Has(err))
+	})
+}
+
+// TestForgotPasswordRecaptcha ensures that the forgot password reCAPTCHA service is working properly.
+func TestForgotPasswordRecaptcha(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Captcha.Login.Recaptcha.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		service.TestSwapCaptchaHandler(mockRecaptcha{})
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "user@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		sendEmail := func(captchaResponse string) int {
+			url := sat.ConsoleURL() + "/api/v0/auth/forgot-password"
+			jsonBody := []byte(fmt.Sprintf(`{"email":"%s","captchaResponse":"%s"}`, user.Email, captchaResponse))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+			require.NoError(t, err)
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			bodyBytes, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+			fmt.Println(string(bodyBytes))
+
+			require.NoError(t, result.Body.Close())
+
+			return result.StatusCode
+		}
+
+		require.Equal(t, http.StatusBadRequest, sendEmail("wrong"))
+		require.Equal(t, http.StatusOK, sendEmail(validResponseToken))
+		service.TestSwapCaptchaHandler(nil)
+		require.Equal(t, http.StatusOK, sendEmail("wrong"))
 	})
 }

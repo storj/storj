@@ -100,7 +100,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		// Populate transfer queue for nodes that have not completed the exit loop yet
-		pathCollector := NewPathCollector(chore.db, exitingNodesLoopIncomplete, chore.log, chore.config.ChoreBatchSize)
+		pathCollector := NewPathCollector(chore.log, chore.db, exitingNodesLoopIncomplete, chore.config.ChoreBatchSize)
 		err = chore.segmentLoop.Join(ctx, pathCollector)
 		if err != nil {
 			chore.log.Error("error joining segment loop.", zap.Error(err))

@@ -119,11 +119,11 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
-		if dbVersion > -1 {
-			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
-		}
 
 		testMigration := db.TestPostgresMigration()
+		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
+			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
+		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
@@ -2060,6 +2060,117 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				SeparateTx:  true,
 				Action: migrate.SQL{
 					`CREATE INDEX IF NOT EXISTS billing_transactions_timestamp_index ON billing_transactions ( timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "reset all non-DQ'd node audit reputations for new system",
+				Version:     209,
+				Action: migrate.SQL{
+					`UPDATE reputations SET audit_reputation_alpha = 1000, audit_reputation_beta = 0
+						WHERE disqualified IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add signup_captcha column to users table",
+				Version:     210,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_captcha double precision;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Drop now-unused gob-encoded columns",
+				Version:     211,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions DROP COLUMN amount_gob, DROP COLUMN received_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add user_specified_usage_limit and user_specified_bandwidth_limit columns",
+				Version:     212,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN user_specified_usage_limit bigint;`,
+					`ALTER TABLE projects ADD COLUMN user_specified_bandwidth_limit bigint;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for pending reverification audits",
+				Version:     213,
+				Action: migrate.SQL{
+					`CREATE TABLE reverification_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						last_attempt timestamp with time zone,
+						reverify_count bigint NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position )
+    				);`,
+					`CREATE INDEX IF NOT EXISTS reverification_audits_inserted_at_index ON reverification_audits ( inserted_at );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for node events",
+				Version:     214,
+				Action: migrate.SQL{
+					`CREATE TABLE node_events (
+						id bytea NOT NULL,
+						node_id bytea NOT NULL,
+						email text NOT NULL,
+						event integer NOT NULL,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						email_sent timestamp with time zone,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX IF NOT EXISTS node_events_email_event_created_at_index ON node_events ( email, event, created_at )
+						WHERE email_sent IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for verification queue",
+				Version:     215,
+				Action: migrate.SQL{
+					`CREATE TABLE verification_audits (
+					    inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+					    stream_id bytea NOT NULL,
+					    position bigint NOT NULL,
+					    expires_at timestamp with time zone,
+					    encrypted_size integer NOT NULL,
+					    PRIMARY KEY ( inserted_at, stream_id, position )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column contained to nodes table",
+				Version:     216,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN contained timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add columns last_offline_email and last_software_update_email",
+				Version:     217,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN last_offline_email timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN last_software_update_email timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column last_attempted to node_events",
+				Version:     218,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_attempted timestamp with time zone;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

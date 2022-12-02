@@ -1,9 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import HeaderComponent from '@/components/common/VHeader.vue';
-
 import { mount, shallowMount } from '@vue/test-utils';
+
+import HeaderComponent from '@/components/common/VHeader.vue';
 
 describe('HeaderComponent.vue', () => {
     it('renders correctly', () => {
@@ -23,7 +23,7 @@ describe('HeaderComponent.vue', () => {
         const wrapper = mount<HeaderComponent>(HeaderComponent, {
             propsData: {
                 search: search,
-            }
+            },
         });
         wrapper.vm.clearSearch();
         expect(search).toHaveBeenCalledTimes(1);

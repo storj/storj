@@ -6,7 +6,7 @@ package versioncontrol_test
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"reflect"
@@ -205,7 +205,7 @@ func TestPeerEndpoint(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 
-				b, err := ioutil.ReadAll(resp.Body)
+				b, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
 				require.NotNil(t, b)
 				require.NoError(t, resp.Body.Close())

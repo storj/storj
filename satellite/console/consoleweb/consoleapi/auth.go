@@ -100,10 +100,10 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest)
+	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+			web.ServeCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -111,10 +111,13 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetTokenCookie(w, token)
+	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(token.String())
+	err = json.NewEncoder(w).Encode(struct {
+		console.TokenInfo
+		Token string `json:"token"`
+	}{*tokenInfo, tokenInfo.Token.String()})
 	if err != nil {
 		a.log.Error("token handler could not encode token response", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
@@ -128,13 +131,19 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	token, err := a.cookieAuth.GetToken(r)
+	tokenInfo, err := a.cookieAuth.GetToken(r)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	err = a.service.DeleteSessionByToken(ctx, token)
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteSession(ctx, id)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -504,15 +513,34 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	params := mux.Vars(r)
-	email, ok := params["email"]
-	if !ok {
-		err = errs.New("email expected")
+	var forgotPassword struct {
+		Email           string `json:"email"`
+		CaptchaResponse string `json:"captchaResponse"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&forgotPassword)
+	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, email)
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	valid, err := a.service.VerifyForgotPasswordCaptcha(ctx, forgotPassword.CaptchaResponse, ip)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+	if !valid {
+		a.serveJSONError(w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+		return
+	}
+
+	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
 		satelliteAddress := a.ExternalAddress
 
@@ -525,10 +553,10 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 		a.mailService.SendRenderedAsync(
 			ctx,
-			[]post.Address{{Address: email, Name: ""}},
+			[]post.Address{{Address: forgotPassword.Email, Name: ""}},
 			&console.UnknownResetPasswordEmail{
 				Satellite:           a.SatelliteName,
-				Email:               email,
+				Email:               forgotPassword.Email,
 				DoubleCheckLink:     doubleCheckLink,
 				ResetPasswordLink:   resetPasswordLink,
 				CreateAnAccountLink: createAccountLink,
@@ -767,6 +795,22 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if console.ErrTokenExpiration.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "token_expired",
+		})
+
+		if err != nil {
+			a.log.Error("password-reset-token expired: failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	} else {
@@ -774,10 +818,43 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RefreshSession refreshes the user's session.
+func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	a.cookieAuth.SetTokenCookie(w, tokenInfo)
+
+	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
+	if err != nil {
+		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
+	web.ServeCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
@@ -785,7 +862,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -822,8 +899,6 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
-	case console.ErrLoginPassword.Has(err):
-		return "Your login credentials are incorrect. You have just used up one of your login attempts"
 	case console.ErrValidation.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):

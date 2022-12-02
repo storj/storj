@@ -15,14 +15,14 @@
                     label="Bucket Name"
                     :init-value="bucketName"
                     role-description="bucket"
-                    disabled="true"
+                    :disabled="true"
                 />
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -30,7 +30,7 @@
                     <VButton
                         label="Cancel"
                         height="48px"
-                        is-transparent="true"
+                        :is-transparent="true"
                         :on-press="closeModal"
                         :is-disabled="isLoading"
                     />
@@ -49,19 +49,20 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { RouteConfig } from "@/router";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { MetaUtils } from "@/utils/meta";
-import { AccessGrant, EdgeCredentials } from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { AnalyticsHttpApi } from "@/api/analytics";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { RouteConfig } from '@/router';
+import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import { MetaUtils } from '@/utils/meta';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
-import VModal from "@/components/common/VModal.vue";
-import VInput from "@/components/common/VInput.vue";
-import VButton from "@/components/common/VButton.vue";
+import VModal from '@/components/common/VModal.vue';
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
-import Icon from "@/../static/images/objects/openBucket.svg";
+import Icon from '@/../static/images/objects/openBucket.svg';
 
 // @vue/component
 @Component({
@@ -95,17 +96,21 @@ export default class OpenBucketModal extends Vue {
     public async onContinue(): Promise<void> {
         if (this.isLoading) return;
 
+        if (!this.passphrase) {
+            this.enterError = 'Passphrase can\'t be empty';
+
+            return;
+        }
+
         this.isLoading = true;
 
         try {
             await this.setAccess();
             this.isLoading = false;
 
-            if (this.enterError) return;
-
             this.closeModal();
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.UploadFile.path);
+            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         } catch (e) {
             await this.$notify.error(e.message);
             this.isLoading = false;
@@ -116,12 +121,6 @@ export default class OpenBucketModal extends Vue {
      * Sets access to S3 client.
      */
     public async setAccess(): Promise<void> {
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-
-            return;
-        }
-
         if (!this.apiKey) {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
             const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
@@ -131,6 +130,11 @@ export default class OpenBucketModal extends Vue {
         const now = new Date();
         const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
+        let bucketsCaveat: string[] = [];
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            bucketsCaveat = this.bucketName ? [this.bucketName] : [];
+        }
+
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
@@ -138,7 +142,7 @@ export default class OpenBucketModal extends Vue {
             'isList': true,
             'isDelete': true,
             'notAfter': inThreeDays.toISOString(),
-            'buckets': this.bucketName ? [this.bucketName] : [],
+            'buckets': bucketsCaveat,
             'apiKey': this.apiKey,
         });
 
@@ -147,12 +151,14 @@ export default class OpenBucketModal extends Vue {
             throw new Error(grantEvent.data.error);
         }
 
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': grantEvent.data.value,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
@@ -163,8 +169,13 @@ export default class OpenBucketModal extends Vue {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant});
+        const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
+
+        if (this.isNewEncryptionPassphraseFlowEnabled) {
+            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        }
     }
 
     /**
@@ -209,6 +220,13 @@ export default class OpenBucketModal extends Vue {
     private get apiKey(): string {
         return this.$store.state.objectsModule.apiKey;
     }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
 }
 </script>
 
@@ -220,6 +238,10 @@ export default class OpenBucketModal extends Vue {
         align-items: center;
         padding: 62px 62px 54px;
         max-width: 500px;
+
+        @media screen and (max-width: 600px) {
+            padding: 62px 24px 54px;
+        }
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -246,6 +268,12 @@ export default class OpenBucketModal extends Vue {
             column-gap: 20px;
             margin-top: 31px;
             width: 100%;
+
+            @media screen and (max-width: 500px) {
+                flex-direction: column-reverse;
+                column-gap: unset;
+                row-gap: 20px;
+            }
         }
     }
 </style>

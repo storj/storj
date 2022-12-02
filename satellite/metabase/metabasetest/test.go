@@ -32,7 +32,28 @@ type BeginObjectNextVersion struct {
 func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Version, got)
+
+	if step.ErrClass == nil {
+		require.Equal(t, step.Version, got.Version)
+		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
+
+		require.Equal(t, step.Opts.ObjectStream.ProjectID, got.ObjectStream.ProjectID)
+		require.Equal(t, step.Opts.ObjectStream.BucketName, got.ObjectStream.BucketName)
+		require.Equal(t, step.Opts.ObjectStream.ObjectKey, got.ObjectStream.ObjectKey)
+		require.Equal(t, step.Opts.ObjectStream.StreamID, got.ObjectStream.StreamID)
+		require.Equal(t, metabase.Pending, got.Status)
+
+		require.Equal(t, step.Opts.ExpiresAt, got.ExpiresAt)
+
+		gotDeadline := got.ZombieDeletionDeadline
+		optsDeadline := step.Opts.ZombieDeletionDeadline
+		if optsDeadline == nil {
+			require.WithinDuration(t, time.Now().Add(24*time.Hour), *gotDeadline, 5*time.Second)
+		} else {
+			require.WithinDuration(t, *optsDeadline, *gotDeadline, 5*time.Second)
+		}
+		require.Equal(t, step.Opts.Encryption, got.Encryption)
+	}
 }
 
 // BeginObjectExactVersion is for testing metabase.BeginObjectExactVersion.
@@ -284,6 +305,40 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
+// ListVerifySegments is for testing metabase.ListVerifySegments.
+type ListVerifySegments struct {
+	Opts     metabase.ListVerifySegments
+	Result   metabase.ListVerifySegmentsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step ListVerifySegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListVerifySegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
+// ListObjects is for testing metabase.ListObjects.
+type ListObjects struct {
+	Opts     metabase.ListObjects
+	Result   metabase.ListObjectsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step ListObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
 // ListStreamPositions is for testing metabase.ListStreamPositions.
 type ListStreamPositions struct {
 	Opts     metabase.ListStreamPositions
@@ -344,6 +399,9 @@ func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db
 	}
 
 	sort.Slice(step.Result, func(i, j int) bool {
+		if step.Result[i].StreamID == step.Result[j].StreamID {
+			return step.Result[i].Position.Less(step.Result[j].Position)
+		}
 		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
 	})
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
@@ -667,4 +725,46 @@ func (step FinishCopyObject) Check(ctx *testcontext.Context, t testing.TB, db *m
 	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
 	require.Zero(t, diff)
 	return result
+}
+
+// DeleteObjectLastCommitted is for testing metabase.DeleteObjectLastCommitted.
+type DeleteObjectLastCommitted struct {
+	Opts     metabase.DeleteObjectLastCommitted
+	Result   metabase.DeleteObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteObjectLastCommitted) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.DeleteObjectLastCommitted(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
+}
+
+// CollectBucketTallies is for testing metabase.CollectBucketTallies.
+type CollectBucketTallies struct {
+	Opts     metabase.CollectBucketTallies
+	Result   []metabase.BucketTally
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step CollectBucketTallies) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.CollectBucketTallies(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortBucketTallies(result)
+	sortBucketTallies(step.Result)
+
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
+	require.Zero(t, diff)
 }

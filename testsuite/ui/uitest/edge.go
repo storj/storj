@@ -13,7 +13,6 @@ import (
 	"encoding/binary"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
@@ -146,12 +145,12 @@ func Edge(t *testing.T, test EdgeTest) {
 func createSelfSignedCertificateFile(t *testing.T, hostname string) (certFile *os.File, keyFile *os.File, certificatePEM []byte, privateKeyPEM []byte) {
 	certificatePEM, privateKeyPEM = createSelfSignedCertificate(t, hostname)
 
-	certFile, err := ioutil.TempFile(os.TempDir(), "*-cert.pem")
+	certFile, err := os.CreateTemp(os.TempDir(), "*-cert.pem")
 	require.NoError(t, err)
 	_, err = certFile.Write(certificatePEM)
 	require.NoError(t, err)
 
-	keyFile, err = ioutil.TempFile(os.TempDir(), "*-key.pem")
+	keyFile, err = os.CreateTemp(os.TempDir(), "*-key.pem")
 	require.NoError(t, err)
 	_, err = keyFile.Write(privateKeyPEM)
 	require.NoError(t, err)

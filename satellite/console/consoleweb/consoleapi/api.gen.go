@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -27,20 +28,22 @@ var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
-	GenCreateProject(context.Context, console.ProjectInfo) (*console.Project, api.HTTPError)
-	GenUpdateProject(context.Context, uuid.UUID, console.ProjectInfo) (*console.Project, api.HTTPError)
-	GenDeleteProject(context.Context, uuid.UUID) api.HTTPError
-	GenGetUsersProjects(context.Context) ([]console.Project, api.HTTPError)
-	GenGetSingleBucketUsageRollup(context.Context, uuid.UUID, string, time.Time, time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
-	GenGetBucketUsageRollups(context.Context, uuid.UUID, time.Time, time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
+	GenCreateProject(ctx context.Context, request console.ProjectInfo) (*console.Project, api.HTTPError)
+	GenUpdateProject(ctx context.Context, id uuid.UUID, request console.ProjectInfo) (*console.Project, api.HTTPError)
+	GenDeleteProject(ctx context.Context, id uuid.UUID) api.HTTPError
+	GenGetUsersProjects(ctx context.Context) ([]console.Project, api.HTTPError)
+	GenGetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*accounting.BucketUsageRollup, api.HTTPError)
+	GenGetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]accounting.BucketUsageRollup, api.HTTPError)
+	GenGetAPIKeys(ctx context.Context, projectID uuid.UUID, search string, limit, page uint, order console.APIKeyOrder, orderDirection console.OrderDirection) (*console.APIKeyPage, api.HTTPError)
 }
 
 type APIKeyManagementService interface {
-	GenCreateAPIKey(context.Context, console.CreateAPIKeyRequest) (*console.CreateAPIKeyResponse, api.HTTPError)
+	GenCreateAPIKey(ctx context.Context, request console.CreateAPIKeyRequest) (*console.CreateAPIKeyResponse, api.HTTPError)
+	GenDeleteAPIKey(ctx context.Context, id uuid.UUID) api.HTTPError
 }
 
 type UserManagementService interface {
-	GenGetUser(context.Context) (*console.ResponseUser, api.HTTPError)
+	GenGetUser(ctx context.Context) (*console.ResponseUser, api.HTTPError)
 }
 
 // ProjectManagementHandler is an api handler that exposes all projects related functionality.
@@ -82,6 +85,7 @@ func NewProjectManagement(log *zap.Logger, mon *monkit.Scope, service ProjectMan
 	projectsRouter.HandleFunc("/", handler.handleGenGetUsersProjects).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollup", handler.handleGenGetSingleBucketUsageRollup).Methods("GET")
 	projectsRouter.HandleFunc("/bucket-rollups", handler.handleGenGetBucketUsageRollups).Methods("GET")
+	projectsRouter.HandleFunc("/apikeys/{projectID}", handler.handleGenGetAPIKeys).Methods("GET")
 
 	return handler
 }
@@ -96,6 +100,7 @@ func NewAPIKeyManagement(log *zap.Logger, mon *monkit.Scope, service APIKeyManag
 
 	apikeysRouter := router.PathPrefix("/api/v0/apikeys").Subrouter()
 	apikeysRouter.HandleFunc("/create", handler.handleGenCreateAPIKey).Methods("POST")
+	apikeysRouter.HandleFunc("/delete/{id}", handler.handleGenDeleteAPIKey).Methods("DELETE")
 
 	return handler
 }
@@ -378,6 +383,102 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 	}
 }
 
+func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	search := r.URL.Query().Get("search")
+	if search == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'search' can't be empty"))
+		return
+	}
+
+	limitParam := r.URL.Query().Get("limit")
+	if limitParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'limit' can't be empty"))
+		return
+	}
+
+	limitParamU64, err := strconv.ParseUint(limitParam, 10, 32)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+	limit := uint(limitParamU64)
+
+	pageParam := r.URL.Query().Get("page")
+	if pageParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'page' can't be empty"))
+		return
+	}
+
+	pageParamU64, err := strconv.ParseUint(pageParam, 10, 32)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+	page := uint(pageParamU64)
+
+	orderParam := r.URL.Query().Get("order")
+	if orderParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'order' can't be empty"))
+		return
+	}
+
+	orderParamU64, err := strconv.ParseUint(orderParam, 10, 8)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+	order := console.APIKeyOrder(orderParamU64)
+
+	orderDirectionParam := r.URL.Query().Get("orderDirection")
+	if orderDirectionParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'orderDirection' can't be empty"))
+		return
+	}
+
+	orderDirectionParamU64, err := strconv.ParseUint(orderDirectionParam, 10, 8)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+	orderDirection := console.OrderDirection(orderDirectionParamU64)
+
+	projectIDParam, ok := mux.Vars(r)["projectID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing projectID route param"))
+		return
+	}
+
+	projectID, err := uuid.FromString(projectIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenGetAPIKeys(ctx, projectID, search, limit, page, order, orderDirection)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenGetAPIKeys response", zap.Error(ErrProjectsAPI.Wrap(err)))
+	}
+}
+
 func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -407,6 +508,38 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenCreateAPIKey response", zap.Error(ErrApikeysAPI.Wrap(err)))
+	}
+}
+
+func (h *APIKeyManagementHandler) handleGenDeleteAPIKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	httpErr := h.service.GenDeleteAPIKey(ctx, id)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 

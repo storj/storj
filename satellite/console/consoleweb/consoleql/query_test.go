@@ -92,6 +92,7 @@ func TestGraphqlQuery(t *testing.T) {
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,
+			db.Billing(),
 			analyticsService,
 			consoleauth.NewService(consoleauth.Config{
 				TokenExpirationTime: 24 * time.Hour,
@@ -101,7 +102,9 @@ func TestGraphqlQuery(t *testing.T) {
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				SessionDuration:     time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -160,10 +163,10 @@ func TestGraphqlQuery(t *testing.T) {
 			rootUser.Email = "mtest@mail.test"
 		})
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		userCtx, err := service.TokenAuth(ctx, token, time.Now())
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
 		testQuery := func(t *testing.T, query string) interface{} {

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -156,7 +158,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		t.Run("older committed version exists", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			now1 := time.Now()
 			objectStream.Version = metabase.NextVersion
 
 			metabasetest.BeginObjectNextVersion{
@@ -188,6 +189,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				Version: 2,
 			}.Check(ctx, t, db)
 
+			// CommitObject will also delete old object with version 1
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: metabase.ObjectStream{
@@ -202,19 +204,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    1,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now1,
-						Status:    metabase.Committed,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
 					{
 						ObjectStream: metabase.ObjectStream{
 							ProjectID:  obj.ProjectID,
@@ -247,7 +236,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			now2 := time.Now()
 			metabasetest.BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
 					ObjectStream: objectStream,
@@ -268,6 +256,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			// CommitObject will also delete old object with version 2
 			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: metabase.ObjectStream{
@@ -291,19 +280,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 							StreamID:   obj.StreamID,
 						},
 						CreatedAt: now1,
-						Status:    metabase.Committed,
-
-						Encryption: metabasetest.DefaultEncryption,
-					},
-					{
-						ObjectStream: metabase.ObjectStream{
-							ProjectID:  obj.ProjectID,
-							BucketName: obj.BucketName,
-							ObjectKey:  obj.ObjectKey,
-							Version:    2,
-							StreamID:   obj.StreamID,
-						},
-						CreatedAt: now2,
 						Status:    metabase.Committed,
 
 						Encryption: metabasetest.DefaultEncryption,
@@ -363,7 +339,12 @@ func TestBeginObjectNextVersion(t *testing.T) {
 }
 
 func TestBeginObjectExactVersion(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	// BeginObjectExactVersion will be removed when MultipleVersions feature will be enabled in prod
+	// but for now lets keep this test but just disable MultipleVersions
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
+		MultipleVersions: false,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
@@ -2780,6 +2761,55 @@ func TestCommitObject(t *testing.T) {
 					},
 				},
 			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestCommitObject_MultipleVersions(t *testing.T) {
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName:  "satellite-test",
+		MinPartSize:      5 * memory.MiB,
+		MaxNumberOfParts: 1000,
+		MultipleVersions: true,
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("OnDelete", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// check deleted segments
+			obj := metabasetest.RandObjectStream()
+
+			_, expectedSegments := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 3)
+
+			expectedDeletedSegments := []metabase.DeletedSegmentInfo{}
+			for _, segment := range expectedSegments {
+				expectedDeletedSegments = append(expectedDeletedSegments, metabase.DeletedSegmentInfo{
+					RootPieceID: segment.RootPieceID,
+					Pieces:      segment.Pieces,
+				})
+			}
+
+			obj.Version++
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			deletedSegments := []metabase.DeletedSegmentInfo{}
+			metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					OnDelete: func(segments []metabase.DeletedSegmentInfo) {
+						deletedSegments = append(deletedSegments, segments...)
+					},
+				},
+			}.Check(ctx, t, db)
+
+			require.Equal(t, expectedDeletedSegments, deletedSegments)
 		})
 	})
 }

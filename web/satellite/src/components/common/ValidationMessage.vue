@@ -23,13 +23,13 @@ import ErrorIcon from '@/../static/images/common/errorNotice.svg';
     },
 })
 export default class ValidationMessage extends Vue {
-    @Prop({default: 'Valid!'})
+    @Prop({ default: 'Valid!' })
     protected readonly successMessage: string;
-    @Prop({default: 'Invalid. Please Try again'})
+    @Prop({ default: 'Invalid. Please Try again' })
     protected readonly errorMessage: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly isValid: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     protected readonly showMessage: boolean;
 }
 </script>

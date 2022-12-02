@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { appStateModule } from '@/app/store/modules/appState';
 import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
@@ -14,7 +13,8 @@ import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Satellites } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -30,7 +30,7 @@ const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
 const payoutModule = newPayoutModule(payoutService);
 
-const store = new Vuex.Store({ modules: { payoutModule, appStateModule, node: nodeModule }});
+const store = new Vuex.Store({ modules: { payoutModule, appStateModule, node: nodeModule } });
 const _Date: DateConstructor = Date;
 let wrapper;
 

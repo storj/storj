@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { Currency } from '@/app/utils/currency';
 import { HeldAmountSummary } from '@/payouts';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
 
 const localVue = createLocalVue();
 

@@ -255,6 +255,7 @@ export class Admin {
 					['Bandwidth (in bytes)', new InputText('number', false)],
 					['Rate (requests per second)', new InputText('number', false)],
 					['Buckets (maximum number)', new InputText('number', false)],
+					['Burst (max concurrent requests)', new InputText('number', false)],
 					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (

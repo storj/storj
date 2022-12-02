@@ -16,7 +16,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 )
 
 const (
@@ -27,11 +26,6 @@ const (
 	// StripeDepositBonusTransactionDescription is the description for Stripe
 	// balance transactions representing bonuses received for STORJ deposits.
 	StripeDepositBonusTransactionDescription = "STORJ deposit bonus"
-
-	// StripeMigratedDepositBonusTransactionDescription is the description for
-	// Stripe balance transactions representing bonuses migrated from the
-	// 'credits' table of the satellite DB.
-	StripeMigratedDepositBonusTransactionDescription = "Migrated STORJ deposit bonus"
 )
 
 // ensure that storjTokens implements payments.StorjTokens.
@@ -42,79 +36,6 @@ var _ payments.StorjTokens = (*storjTokens)(nil)
 // architecture: Service
 type storjTokens struct {
 	service *Service
-}
-
-// Deposit creates new deposit transaction with the given amount returning
-// ETH wallet address where funds should be sent. There is one
-// hour limit to complete the transaction. Transaction is saved to DB with
-// reference to the user who made the deposit.
-func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount int64) (_ *payments.Transaction, err error) {
-	defer mon.Task()(&ctx, userID, amount)(&err)
-
-	customerID, err := tokens.service.db.Customers().GetCustomerID(ctx, userID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	c, err := tokens.service.stripeClient.Customers().Get(customerID, nil)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	rate, err := tokens.service.GetRate(ctx, monetary.StorjToken, monetary.USDollars)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	tokenAmount := convertFromCents(rate, amount)
-
-	tx, err := tokens.service.coinPayments.Transactions().Create(ctx,
-		&coinpayments.CreateTX{
-			Amount:      tokenAmount.AsDecimal(),
-			CurrencyIn:  monetary.StorjToken,
-			CurrencyOut: monetary.StorjToken,
-			BuyerEmail:  c.Email,
-		},
-	)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	key, err := coinpayments.GetTransactionKeyFromURL(tx.CheckoutURL)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	if err = tokens.service.db.Transactions().LockRate(ctx, tx.ID, rate); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	createTime, err := tokens.service.db.Transactions().Insert(ctx,
-		Transaction{
-			ID:        tx.ID,
-			AccountID: userID,
-			Address:   tx.Address,
-			Amount:    tx.Amount,
-			Received:  monetary.AmountFromBaseUnits(0, tx.Amount.Currency()),
-			Status:    coinpayments.StatusPending,
-			Key:       key,
-			Timeout:   tx.Timeout,
-		},
-	)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return &payments.Transaction{
-		ID:        payments.TransactionID(tx.ID),
-		Amount:    tx.Amount,
-		Rate:      rate,
-		Address:   tx.Address,
-		Status:    payments.TransactionStatusPending,
-		Timeout:   tx.Timeout,
-		Link:      tx.CheckoutURL,
-		CreatedAt: createTime,
-	}, nil
 }
 
 // ListTransactionInfos fetches all transactions from the database for specified user, reconstructing checkout link.

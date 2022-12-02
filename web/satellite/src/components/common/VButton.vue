@@ -22,7 +22,8 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { computed, defineComponent } from 'vue';
 
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
@@ -30,81 +31,63 @@ import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 
-/**
- * Custom button component with label.
- */
-// @vue/component
-@Component({
+export default defineComponent({
+    name: 'VButton',
     components: {
         CopyIcon,
+        TrashIcon,
         LockIcon,
         CreditCardIcon,
         DocumentIcon,
-        TrashIcon
     },
-})
-export default class VButton extends Vue {
-    @Prop({default: 'Default'})
-    private readonly label: string;
-    @Prop({default: 'inherit'})
-    private readonly width: string;
-    @Prop({default: 'inherit'})
-    private readonly height: string;
-    @Prop({default: '16px'})
-    private readonly fontSize: string;
-    @Prop({default: '6px'})
-    private readonly borderRadius: string;
-    @Prop({ default: 'none' })
-    private readonly icon: string;
-    @Prop({default: false})
-    private readonly isWhite: boolean;
-    @Prop({default: false})
-    private readonly isSolidDelete: boolean;
-    @Prop({default: false})
-    private readonly isTransparent: boolean;
-    @Prop({default: false})
-    private readonly isDeletion: boolean;
-    @Prop({default: false})
-    private readonly isGreyBlue: boolean;
-    @Prop({default: false})
-    private readonly isBlueWhite: boolean;
-    @Prop({default: false})
-    private readonly isWhiteGreen: boolean;
-    @Prop({default: false})
-    private readonly isGreenWhite: boolean;
-    @Prop({default: false})
-    private isDisabled: boolean;
-    @Prop({default: false})
-    private readonly isUppercase: boolean;
-    @Prop({default: () => () => {}})
-    private readonly onPress: () => void;
+    props:  {
+        label: { type: String, default: 'Default' },
+        width: { type: String, default: 'inherit' },
+        height: { type: String, default: 'inherit' },
+        fontSize: { type: String, default: '16px' },
+        borderRadius: { type: String, default: '6px' },
+        icon: { type: String, default: 'none' },
+        isWhite: Boolean,
+        isSolidDelete: Boolean,
+        isTransparent: Boolean,
+        isDeletion: Boolean,
+        isGreyBlue: Boolean,
+        isBlueWhite: Boolean,
+        isWhiteGreen: Boolean,
+        isGreenWhite: Boolean,
+        isDisabled: Boolean,
+        isUppercase: Boolean,
+        onPress: { type: Function as () => void, default: () => {} },
+    },
+    setup(props) {
+        return {
+            containerClassName: computed(() => {
+                if (props.isDisabled) return 'container disabled';
 
-    public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
-    }
+                if (props.isWhite) return 'container white';
 
-    public get containerClassName(): string {
-        if (this.isDisabled) return 'container disabled';
+                if (props.isSolidDelete) return 'container solid-red';
 
-        if (this.isWhite) return 'container white';
+                if (props.isTransparent) return 'container transparent';
 
-        if (this.isSolidDelete) return 'container solid-red';
+                if (props.isDeletion) return 'container red';
 
-        if (this.isTransparent) return 'container transparent';
+                if (props.isGreyBlue) return 'container grey-blue';
 
-        if (this.isDeletion) return 'container red';
+                if (props.isBlueWhite) return 'container blue-white';
 
-        if (this.isGreyBlue) return 'container grey-blue';
+                if (props.isWhiteGreen) return 'container white-green';
 
-        if (this.isBlueWhite) return 'container blue-white';
+                if (props.isGreenWhite) return 'container green-white';
 
-        if (this.isWhiteGreen) return 'container white-green';
-
-        if (this.isGreenWhite) return 'container green-white';
-
-        return 'container';
-    }
-}
+                return 'container';
+            }),
+            style: computed(() => {
+                return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
+            }),
+        };
+    },
+});
 </script>
 
 <style scoped lang="scss">
@@ -123,8 +106,8 @@ export default class VButton extends Vue {
     }
 
     .solid-red {
-        background-color: #ba0000 !important;
-        border: 1px solid #ba0000 !important;
+        background-color: var(--c-red-3) !important;
+        border: 1px solid var(--c-red-3) !important;
 
         .label {
             color: #fff !important;
@@ -138,7 +121,7 @@ export default class VButton extends Vue {
 
     .white {
         background-color: #fff !important;
-        border: 1px solid #d8dee3 !important;
+        border: 1px solid var(--c-grey-3) !important;
 
         .label {
             color: #354049 !important;
@@ -159,13 +142,13 @@ export default class VButton extends Vue {
         border: 1px solid #afb7c1 !important;
 
         .label {
-            color: #00ac26 !important;
+            color: var(--c-green-5) !important;
         }
     }
 
     .green-white {
-        background-color: #00ac26 !important;
-        border: 1px solid #00ac26 !important;
+        background-color: var(--c-green-5) !important;
+        border: 1px solid var(--c-green-5) !important;
     }
 
     .grey-blue {
@@ -173,7 +156,7 @@ export default class VButton extends Vue {
         border: 2px solid #d9dbe9 !important;
 
         .label {
-            color: #0149ff !important;
+            color: var(--c-blue-3) !important;
         }
     }
 
@@ -200,15 +183,16 @@ export default class VButton extends Vue {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
         cursor: pointer;
+        box-sizing: border-box;
 
         .trash-icon {
             margin-right: 5px;
         }
 
         .greenCheck {
-            color: #00ac26 !important;
+            color: var(--c-green-5) !important;
             margin-right: 5px;
         }
 
@@ -235,8 +219,8 @@ export default class VButton extends Vue {
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
 
-                ::v-deep path,
-                ::v-deep rect {
+                :deep(path),
+                :deep(rect) {
                     stroke: white;
                 }
 

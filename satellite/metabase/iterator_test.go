@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"context"
+	"math/rand"
 	"sort"
 	"strconv"
 	"testing"
@@ -610,7 +611,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			queries := []metabase.ObjectKey{""}
 			for a := 0; a <= 0xFF; a++ {
-				if 4 < a && a < 251 {
+				if 3 < a && a < 252 {
 					continue
 				}
 				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
@@ -624,9 +625,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 
 			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries[1:])
 
+			var collector metabasetest.IterateCollector
 			for _, cursor := range queries {
 				for _, prefix := range queries {
-					var collector metabasetest.IterateCollector
+					collector = collector[:0]
 					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: bucketName,
@@ -637,10 +639,10 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						Prefix:                prefix,
 						Status:                metabase.Committed,
 						IncludeCustomMetadata: true,
-						IncludeSystemMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
 
+					collector = collector[:0]
 					err = db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: bucketName,
@@ -652,7 +654,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 						Recursive:             true,
 						Status:                metabase.Committed,
 						IncludeCustomMetadata: true,
-						IncludeSystemMetadata: true,
 					}, collector.Add)
 					require.NoError(t, err)
 				}
@@ -801,11 +802,12 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				require.NotEmpty(t, entry.ObjectKey)
 				require.NotEmpty(t, entry.StreamID)
 				require.NotZero(t, entry.Version)
+				require.Equal(t, metabase.Committed, entry.Status)
 				require.False(t, entry.Encryption.IsZero())
 
 				require.True(t, entry.CreatedAt.IsZero())
 				require.Nil(t, entry.ExpiresAt)
-				require.Zero(t, entry.Status)
+
 				require.Zero(t, entry.SegmentCount)
 				require.Zero(t, entry.TotalPlainSize)
 				require.Zero(t, entry.TotalEncryptedSize)
@@ -909,6 +911,80 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 					}
 				})
 			}
+		})
+
+		t.Run("prefix longer than key", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"aaaa/a",
+				"aaaa/b",
+				"aaaa/c",
+			})
+
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             false,
+					Prefix:                "aaaa/",
+					Status:                metabase.Committed,
+					BatchSize:             2,
+					IncludeSystemMetadata: true,
+				},
+				Result: withoutPrefix("aaaa/",
+					objects["aaaa/a"],
+					objects["aaaa/b"],
+					objects["aaaa/c"],
+				),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("version greater than one", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			projectID, bucketName := uuid.UUID{2}, "bucky"
+
+			id1 := metabasetest.RandObjectStream()
+			id1.ProjectID = projectID
+			id1.BucketName = bucketName
+			id1.Version = metabase.Version(rand.Int31())
+
+			id2 := metabasetest.RandObjectStream()
+			id2.ProjectID = projectID
+			id2.BucketName = bucketName
+			id2.ObjectKey = id1.ObjectKey + "Z" // for deterministic ordering
+			id2.Version = 1
+
+			var objs []metabase.Object
+			for _, id := range []metabase.ObjectStream{id1, id2} {
+				obj, _ := metabasetest.CreateTestObject{
+					BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+						ObjectStream: id,
+					},
+					CommitObject: &metabase.CommitObject{
+						ObjectStream: id,
+						Encryption:   metabasetest.DefaultEncryption,
+					},
+				}.Run(ctx, t, db, id, 1)
+				objs = append(objs, obj)
+			}
+
+			metabasetest.IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
+					ProjectID:             projectID,
+					BucketName:            bucketName,
+					Recursive:             true,
+					Status:                metabase.Committed,
+					BatchSize:             3,
+					IncludeSystemMetadata: true,
+				},
+				Result: []metabase.ObjectEntry{
+					objectEntryFromRaw(metabase.RawObject(objs[0])),
+					objectEntryFromRaw(metabase.RawObject(objs[1])),
+				},
+			}.Check(ctx, t, db)
 		})
 	})
 }
@@ -1336,6 +1412,62 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
+
+		t.Run("same key different versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.RandObjectStream()
+			obj2 := obj1
+			obj2.StreamID = testrand.UUID()
+			obj2.Version = 2
+
+			pending := []metabase.ObjectStream{obj1, obj2}
+
+			location := pending[0].Location()
+			objects := make([]metabase.RawObject, 2)
+			expected := make([]metabase.ObjectEntry, 2)
+
+			for i, obj := range pending {
+				obj.ProjectID = location.ProjectID
+				obj.BucketName = location.BucketName
+				obj.ObjectKey = location.ObjectKey
+				obj.Version = metabase.Version(i + 1)
+
+				metabasetest.CreatePendingObject(ctx, t, db, obj, 0)
+
+				objects[i] = metabase.RawObject{
+					ObjectStream: obj,
+					CreatedAt:    now,
+					Status:       metabase.Pending,
+
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieDeadline,
+				}
+				expected[i] = objectEntryFromRaw(objects[i])
+			}
+
+			sort.Slice(expected, func(i, j int) bool {
+				return expected[i].StreamID.Less(expected[j].StreamID)
+			})
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      1,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: location,
+					BatchSize:      3,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1422,6 +1554,7 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		EncryptedMetadata:             m.EncryptedMetadata,
 		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
 		TotalEncryptedSize:            m.TotalEncryptedSize,
+		TotalPlainSize:                m.TotalPlainSize,
 		FixedSegmentSize:              m.FixedSegmentSize,
 		Encryption:                    m.Encryption,
 	}
@@ -1439,6 +1572,11 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
 
 			baseObj.ObjectKey = metabase.ObjectKey("foo/prefixB/" + strconv.Itoa(i))
+			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
+		}
+
+		for i := 0; i < 50; i++ {
+			baseObj.ObjectKey = metabase.ObjectKey("boo/foo" + strconv.Itoa(i) + "/object")
 			metabasetest.CreateObject(ctx, b, db, baseObj, 0)
 		}
 
@@ -1465,6 +1603,24 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 					ProjectID:  baseObj.ProjectID,
 					BucketName: baseObj.BucketName,
 					Prefix:     "foo/",
+					BatchSize:  5,
+					Status:     metabase.Committed,
+				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {
+					entry := metabase.ObjectEntry{}
+					for oi.Next(ctx, &entry) {
+					}
+					return nil
+				})
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("listing only prefix", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+					ProjectID:  baseObj.ProjectID,
+					BucketName: baseObj.BucketName,
+					Prefix:     "boo/",
 					BatchSize:  5,
 					Status:     metabase.Committed,
 				}, func(ctx context.Context, oi metabase.ObjectsIterator) error {

@@ -17,7 +17,7 @@
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
                 class="full-input"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="projectName.length"
                 :max-symbols="20"
                 :error="nameError"
@@ -28,9 +28,9 @@
                 placeholder="Enter Project Description"
                 additional-label="Optional"
                 class="full-input"
-                is-multiline="true"
+                is-multiline
                 height="100px"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="description.length"
                 :max-symbols="100"
                 @setData="setProjectDescription"
@@ -42,7 +42,7 @@
                     width="210px"
                     height="48px"
                     :on-press="onCancelClick"
-                    is-transparent="true"
+                    :is-transparent="true"
                 />
                 <VButton
                     label="Create Project +"
@@ -62,16 +62,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VLoader from "@/components/common/VLoader.vue";
-
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({

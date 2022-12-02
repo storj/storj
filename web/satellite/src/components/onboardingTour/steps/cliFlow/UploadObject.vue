@@ -37,15 +37,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
+import { RouteConfig } from '@/router';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import OSContainer from "@/components/onboardingTour/steps/common/OSContainer.vue";
-import TabWithCopy from "@/components/onboardingTour/steps/common/TabWithCopy.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import OSContainer from '@/components/onboardingTour/steps/common/OSContainer.vue';
+import TabWithCopy from '@/components/onboardingTour/steps/common/TabWithCopy.vue';
 
-import Icon from "@/../static/images/onboardingTour/uploadStep.svg";
-
-import { AnalyticsHttpApi } from "@/api/analytics";
+import Icon from '@/../static/images/onboardingTour/uploadStep.svg';
 
 // @vue/component
 @Component({
@@ -54,7 +53,7 @@ import { AnalyticsHttpApi } from "@/api/analytics";
         OSContainer,
         TabWithCopy,
         Icon,
-    }
+    },
 })
 export default class UploadObject extends Vue {
 

@@ -6,7 +6,7 @@ package metainfo_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strconv"
 	"testing"
 	"time"
@@ -196,7 +196,7 @@ func TestQueryAttribution(t *testing.T) {
 			download, err := project.DownloadObject(ctx, bucketName, objectKey, nil)
 			require.NoError(t, err)
 
-			_, err = ioutil.ReadAll(download)
+			_, err = io.ReadAll(download)
 			require.NoError(t, err)
 
 			err = download.Close()

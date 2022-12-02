@@ -5,7 +5,6 @@ package trust_test
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -46,7 +45,7 @@ func TestCacheLoadFailure(t *testing.T) {
 	assert.Error(t, err)
 
 	// Load malformed JSON
-	require.NoError(t, ioutil.WriteFile(cachePath, []byte("BAD"), 0644))
+	require.NoError(t, os.WriteFile(cachePath, []byte("BAD"), 0644))
 	_, err = trust.LoadCache(cachePath)
 	assert.EqualError(t, err, "trust: malformed cache: invalid character 'B' looking for beginning of value")
 }

@@ -47,8 +47,7 @@ func TestAuditOrderLimit(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queueSegment, err := audits.VerifyQueue.Next(ctx)
 		require.NoError(t, err)
 		require.False(t, queueSegment.StreamID.IsZero())
 
@@ -110,12 +109,11 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.Equal(t, 2, queue.Size())
+		queue := audits.VerifyQueue
 
 		auditSegments := make([]audit.Segment, 0, 2)
 		for range originalSegments {
-			auditSegment, err := queue.Next()
+			auditSegment, err := queue.Next(ctx)
 			require.NoError(t, err)
 			auditSegments = append(auditSegments, auditSegment)
 		}
@@ -137,11 +135,10 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
+		queue = audits.VerifyQueue
 
 		// verify that the copy is being audited
-		require.Equal(t, 1, queue.Size())
-		remainingSegment, err := queue.Next()
+		remainingSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		for _, originalSegment := range originalSegments {
@@ -177,8 +174,9 @@ func TestAuditSkipsInlineCopies(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.Zero(t, queue.Size())
+		queue := audits.VerifyQueue
+		_, err = queue.Next(ctx)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 
 		// delete originals, keep 1 copy
 		err = uplink.DeleteObject(ctx, satellite, "testbucket", "testobj1")
@@ -187,8 +185,8 @@ func TestAuditSkipsInlineCopies(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-
-		require.Zero(t, queue.Size())
+		queue = audits.VerifyQueue
+		_, err = queue.Next(ctx)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 	})
 }

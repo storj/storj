@@ -50,16 +50,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-
-import BackIcon from '@/../static/images/accessGrants/back.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
-import { Download } from "@/utils/download";
-
+import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VButton from '@/components/common/VButton.vue';
+
+import WarningIcon from '@/../static/images/accessGrants/warning.svg';
+import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 // @vue/component
 @Component({

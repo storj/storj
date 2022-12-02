@@ -41,6 +41,9 @@
 import Vue, { VueConstructor } from 'vue';
 import { Component, Prop } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
@@ -51,9 +54,6 @@ import JCBIcon from '@/../static/images/payments/cardIcons/jcb.svg';
 import MastercardIcon from '@/../static/images/payments/cardIcons/mastercard.svg';
 import UnionPayIcon from '@/../static/images/payments/cardIcons/unionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
 
 const {
     TOGGLE_CARD_SELECTION,
@@ -74,7 +74,7 @@ const {
     },
 })
 export default class CardComponent extends Vue {
-    @Prop({default: () => new CreditCard()})
+    @Prop({ default: () => new CreditCard() })
     private readonly creditCard: CreditCard;
 
     // TODO: move to CreditCard

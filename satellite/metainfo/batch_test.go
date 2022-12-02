@@ -98,7 +98,7 @@ func TestBatch(t *testing.T) {
 			requests = append(requests, &metaclient.CommitObjectParams{
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
@@ -176,7 +176,7 @@ func TestBatch(t *testing.T) {
 				StreamID:                      beginObjectResp.StreamID,
 				EncryptedMetadata:             metadata,
 				EncryptedMetadataNonce:        testrand.Nonce(),
-				EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				EncryptedMetadataEncryptedKey: testrand.Bytes(48),
 			})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)

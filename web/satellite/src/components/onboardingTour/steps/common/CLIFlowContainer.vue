@@ -10,7 +10,7 @@
             <VButton
                 label="Back"
                 height="48px"
-                is-white="true"
+                :is-white="true"
                 :on-press="onBackClick"
                 :is-disabled="isLoading"
             />
@@ -27,7 +27,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VButton from "@/components/common/VButton.vue";
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
@@ -36,13 +36,13 @@ import VButton from "@/components/common/VButton.vue";
     },
 })
 export default class CLIFlowContainer extends Vue {
-    @Prop({ default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly onNextClick: () => unknown;
-    @Prop({ default: () => () => {}})
+    @Prop({ default: () => () => {} })
     public readonly onBackClick: () => unknown;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly title: string;
-    @Prop({ default: false})
+    @Prop({ default: false })
     public readonly isLoading: boolean;
 }
 </script>

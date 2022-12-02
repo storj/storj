@@ -25,15 +25,19 @@ var (
 type Config struct {
 	AuditRepairWeight     float64       `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
 	AuditUplinkWeight     float64       `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
-	AuditLambda           float64       `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
+	AuditLambda           float64       `help:"the forgetting factor used to update storage node reputation due to audits" default:"0.999"`
 	AuditWeight           float64       `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
-	AuditDQ               float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
+	AuditDQ               float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.96"`
+	UnknownAuditLambda    float64       `help:"the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'" default:"0.95"`
+	UnknownAuditDQ        float64       `help:"the reputation cut-off for disqualifying SNs based on returning 'unknown' errors during audit" default:"0.6"`
 	SuspensionGracePeriod time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
 	SuspensionDQEnabled   bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
 	AuditCount            int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	AuditHistory          AuditHistoryConfig
 	FlushInterval         time.Duration `help:"the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)" releaseDefault:"2h" devDefault:"2m"`
 	ErrorRetryInterval    time.Duration `help:"the amount of time that should elapse before the cache retries failed database operations" releaseDefault:"1m" devDefault:"5s"`
+	InitialAlpha          float64       `help:"the value to which an alpha reputation value should be initialized" default:"1000"`
+	InitialBeta           float64       `help:"the value to which a beta reputation value should be initialized" default:"0"`
 }
 
 // UpdateRequest is used to update a node's reputation status.

@@ -5,7 +5,7 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestPrefixWriter(t *testing.T) {
-	root := NewPrefixWriter("", storjSimMaxLineLen, ioutil.Discard)
+	root := NewPrefixWriter("", storjSimMaxLineLen, io.Discard)
 	alpha := root.Prefixed("alpha")
 	defer func() { _ = alpha.Flush() }()
 	beta := root.Prefixed("beta")

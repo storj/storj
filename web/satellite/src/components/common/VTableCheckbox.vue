@@ -12,25 +12,19 @@
     </label>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+const props = defineProps<{
+    value: boolean,
+    disabled: boolean,
+}>();
 
-// Custom checkbox alternative to VCheckbox.vue for use in TableItem.vue
-// this has no label and allows for external toggles
-// @vue/component
-@Component
-export default class VTableCheckbox extends Vue {
-    @Prop({default: false})
-    private readonly value: boolean;
-    @Prop({default: false})
-    private readonly disabled: boolean;
+const emit = defineEmits(['checkChange']);
 
-    /**
-     * Emits value to parent component.
-     */
-    public onChange(event: { target: {checked: boolean} }): void {
-        this.$emit('checkChange', event.target.checked);
-    }
+/**
+ * Emits value to parent component.
+ */
+function onChange(event: { target: { checked: boolean } }): void {
+    emit('checkChange', event.target.checked);
 }
 </script>
 

@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
@@ -134,7 +135,6 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		Conversion    *stripecoinpayments.ConversionService
 		StripeService *stripecoinpayments.Service
 		StripeClient  stripecoinpayments.StripeClient
 	}
@@ -174,6 +174,10 @@ type API struct {
 
 	Analytics struct {
 		Service *analytics.Service
+	}
+
+	ABTesting struct {
+		Service *abtesting.Service
 	}
 
 	Buckets struct {
@@ -271,10 +275,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup mailservice
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -295,7 +311,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			reputationDB = cachingDB
 		}
-		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.DB, reputationDB, config.Reputation)
+		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.Service, reputationDB, config.Reputation)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,
@@ -374,7 +390,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -410,6 +425,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "analytics:service",
 			Run:   peer.Analytics.Service.Run,
 			Close: peer.Analytics.Service.Close,
+		})
+	}
+
+	{ // setup AB test service
+		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "abtesting:service",
 		})
 	}
 
@@ -474,18 +497,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup mailservice
-		peer.Mail.Service, err = setupMailService(peer.Log, *config)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
-	}
-
 	{ // setup payments
 		pc := config.Payments
 
@@ -521,16 +532,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.StripeClient = stripeClient
 		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
-		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
-			peer.Log.Named("payments.stripe:version"),
-			peer.Payments.StripeService,
-			pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Conversion.Run,
-			Close: peer.Payments.Conversion.Close,
-		})
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,
@@ -579,6 +580,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Payments.DepositWallets,
+			peer.DB.Billing(),
 			peer.Analytics.Service,
 			peer.Console.AuthTokens,
 			peer.Mail.Service,
@@ -603,6 +605,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Mail.Service,
 			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
+			peer.ABTesting.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			pricing,

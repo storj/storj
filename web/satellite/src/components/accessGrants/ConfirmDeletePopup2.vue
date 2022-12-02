@@ -35,7 +35,7 @@
                     width="70px"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
@@ -44,7 +44,7 @@
                     height="44px"
                     :on-press="onDeleteClick"
                     :is-disabled="isLoading || confirmedInput !== selectedAccessGrants[0].name"
-                    is-solid-delete="true"
+                    :is-solid-delete="true"
                     has-trash-icon="true"
                 />
             </div>
@@ -58,13 +58,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VInput from '@/components/common/VInput.vue'
-
-import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 // @vue/component
 @Component({
@@ -209,7 +209,7 @@ export default class ConfirmDeletePopup extends Vue {
                     &__item {
                         padding: 3px 7px;
                         max-width: fit-content;
-                        background: #d8dee3;
+                        background: var(--c-grey-3);
                         border-radius: 20px;
                         margin-bottom: 10px;
 

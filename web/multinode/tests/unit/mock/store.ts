@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { BandwidthClient } from '@/api/bandwidth';
 import { NodesClient } from '@/api/nodes';
@@ -18,7 +19,6 @@ import { Nodes } from '@/nodes/service';
 import { Operators } from '@/operators';
 import { Payouts } from '@/payouts/service';
 import { StorageService } from '@/storage/service';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 

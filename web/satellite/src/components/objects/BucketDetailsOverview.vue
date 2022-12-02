@@ -12,7 +12,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { Bucket } from "@/types/buckets";
+
+import { Bucket } from '@/types/buckets';
 
 type TableData = { label: string, value: string }[];
 
@@ -28,14 +29,14 @@ export default class BucketDetailsOverview extends Vue {
             { label: 'Date Created', value: this.bucket.since.toUTCString() },
             { label: 'Last Updated', value: this.bucket.before.toUTCString() },
             { label: 'Object Count', value: `${this.bucket.objectCount}` },
-        ]
+        ];
     }
 }
 </script>
 
 <style lang="scss" scoped>
     .bucket-details-overview {
-        color: #56606d;
+        color: var(--c-grey-6);
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;

@@ -4,17 +4,17 @@
 import { VNode } from 'vue';
 import { DirectiveBinding } from 'vue/types/options';
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
+import { ProjectsApiMock } from '../../../mock/api/projects';
+import { PaymentsMock } from '../../../mock/api/payments';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+import { makePaymentsModule } from '@/store/modules/payments';
 
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { PaymentsMock } from '../../../mock/api/payments';
-import { makePaymentsModule } from "@/store/modules/payments";
+import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 
 const localVue = createLocalVue();
 const projectsApi = new ProjectsApiMock();
@@ -49,8 +49,8 @@ localVue.use(Vuex);
 const store = new Vuex.Store({ modules: {
     projectsModule,
     appStateModule,
-    paymentsModule
-}});
+    paymentsModule,
+} });
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
@@ -65,7 +65,7 @@ describe('PeriodSelection', (): void => {
     });
 
     it('renders correctly with dropdown', async (): Promise<void> => {
-        const wrapper = mount(PeriodSelection, {
+        const wrapper = shallowMount(PeriodSelection, {
             localVue,
             store,
         });
@@ -80,7 +80,7 @@ describe('PeriodSelection', (): void => {
         const previousClickSpy = jest.fn();
         const historyClickSpy = jest.fn();
 
-        const wrapper = mount<PeriodSelection>(PeriodSelection, {
+        const wrapper = shallowMount<PeriodSelection>(PeriodSelection, {
             localVue,
             store,
         });

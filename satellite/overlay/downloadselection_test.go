@@ -131,7 +131,7 @@ func TestDownloadSelectionCache_GetNodes(t *testing.T) {
 		require.Len(t, nodes, nodeCount)
 
 		// disqualify one node
-		err = db.OverlayCache().DisqualifyNode(ctx, ids[0], time.Now(), overlay.DisqualificationReasonAuditFailure)
+		_, err = db.OverlayCache().DisqualifyNode(ctx, ids[0], time.Now(), overlay.DisqualificationReasonAuditFailure)
 		require.NoError(t, err)
 		// suspend the other node
 		err = db.OverlayCache().TestSuspendNodeUnknownAudit(ctx, ids[1], time.Now())

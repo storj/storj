@@ -6,7 +6,7 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -70,7 +70,7 @@ func TestNotificationsApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, "{\"page\":{\"notifications\":"+string(expected)+",\"offset\":0,\"limit\":3,\"currentPage\":1,\"pageCount\":1},\"unreadCount\":2,\"totalCount\":2}"+"\n", string(body))

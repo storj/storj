@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"sort"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -70,6 +69,18 @@ func TestService(t *testing.T) {
 				project, err = service.GetProject(userCtx1, up2Pro1.ID)
 				require.Error(t, err)
 				require.Nil(t, project)
+			})
+
+			t.Run("GetSalt", func(t *testing.T) {
+				// Getting project salt as a member should work
+				salt, err := service.GetSalt(userCtx1, up1Pro1.ID)
+				require.NoError(t, err)
+				require.NotNil(t, salt)
+
+				// Getting project salt as a non-member should not work
+				salt, err = service.GetSalt(userCtx1, up2Pro1.ID)
+				require.Error(t, err)
+				require.Nil(t, salt)
 			})
 
 			t.Run("UpdateProject", func(t *testing.T) {
@@ -833,7 +844,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			require.True(t, console.ErrLoginPassword.Has(err))
+			require.True(t, console.ErrLoginCredentials.Has(err))
 		}
 
 		lockedUser, err := service.GetUser(userCtx, user.ID)
@@ -911,13 +922,13 @@ func TestLockAccount(t *testing.T) {
 func TestWalletJsonMarshall(t *testing.T) {
 	wi := console.WalletInfo{
 		Address: blockchain.Address{1, 2, 3},
-		Balance: big.NewInt(100),
+		Balance: currency.AmountFromBaseUnits(10000, currency.USDollars),
 	}
 
 	out, err := json.Marshal(wi)
 	require.NoError(t, err)
-	require.Contains(t, string(out), "\"address\":\"0102030000000000000000000000000000000000\"")
-	require.Contains(t, string(out), "\"balance\":100")
+	require.Contains(t, string(out), "\"address\":\"0x0102030000000000000000000000000000000000\"")
+	require.Contains(t, string(out), "\"balance\":{\"value\":\"100\",\"currency\":\"USD\"}")
 
 }
 
@@ -926,7 +937,7 @@ func TestSessionExpiration(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.SessionDuration = time.Hour
+				config.Console.Session.Duration = time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -940,20 +951,20 @@ func TestSessionExpiration(t *testing.T) {
 		require.NoError(t, err)
 
 		// Session should be added to DB after token request
-		token, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
-		_, err = service.TokenAuth(ctx, token, time.Now())
+		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
 
-		sessionID, err := uuid.FromBytes(token.Payload)
+		sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
 		require.NoError(t, err)
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
 		require.NoError(t, err)
 
 		// Session should be removed from DB after it has expired
-		_, err = service.TokenAuth(ctx, token, time.Now().Add(2*time.Hour))
+		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now().Add(2*time.Hour))
 		require.True(t, console.ErrTokenExpiration.Has(err))
 
 		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
@@ -985,16 +996,16 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
 				AccountID: user.ID,
 				Address:   blockchaintest.NewAddress().Hex(),
-				Amount:    monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
-				Received:  monetary.AmountFromBaseUnits(1000000000, monetary.StorjToken),
+				Amount:    currency.AmountFromBaseUnits(1000000000, currency.StorjToken),
+				Received:  currency.AmountFromBaseUnits(1000000000, currency.StorjToken),
 				Status:    coinpayments.StatusCompleted,
 				Key:       "key",
 				Timeout:   0,
 			}
 
-			createdAt, err := sat.DB.StripeCoinPayments().Transactions().Insert(ctx, tx)
+			createdAt, err := sat.DB.StripeCoinPayments().Transactions().TestInsert(ctx, tx)
 			require.NoError(t, err)
-			err = sat.DB.StripeCoinPayments().Transactions().LockRate(ctx, tx.ID, decimal.NewFromInt(1))
+			err = sat.DB.StripeCoinPayments().Transactions().TestLockRate(ctx, tx.ID, decimal.NewFromInt(1))
 			require.NoError(t, err)
 
 			tx.CreatedAt = createdAt.UTC()
@@ -1006,8 +1017,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 			cachedPayments = append(cachedPayments, storjscan.CachedPayment{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet,
-				TokenValue:  monetary.AmountFromBaseUnits(1000, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(1000, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(1000, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: int64(i),
@@ -1045,8 +1056,8 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				ID:        tx.ID.String(),
 				Type:      "coinpayments",
 				Wallet:    tx.Address,
-				Amount:    monetary.AmountFromBaseUnits(1000, monetary.USDollars),
-				Received:  monetary.AmountFromBaseUnits(1000, monetary.USDollars),
+				Amount:    currency.AmountFromBaseUnits(1000, currency.USDollars),
+				Received:  currency.AmountFromBaseUnits(1000, currency.USDollars),
 				Status:    tx.Status.String(),
 				Link:      coinpayments.GetCheckoutURL(tx.Key, tx.ID),
 				Timestamp: tx.CreatedAt,

@@ -44,8 +44,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { ACCESS_GRANTS_MUTATIONS } from "@/store/modules/accessGrants";
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -76,28 +76,28 @@ export default class PermissionsSelect extends Vue {
      * Sets is download permission.
      */
     public toggleIsDownload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION);
     }
 
     /**
      * Sets is upload permission.
      */
     public toggleIsUpload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION);
     }
 
     /**
      * Sets is list permission.
      */
     public toggleIsList(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION);
     }
 
     /**
      * Sets is delete permission.
      */
     public toggleIsDelete(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION)
+        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION);
     }
 
     /**

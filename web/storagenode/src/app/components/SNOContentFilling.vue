@@ -114,7 +114,7 @@
                 <div class="chart-container__title-area disk-space-title">
                     <p class="chart-container__title-area__title">Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*h</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*d</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
                     <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
@@ -129,7 +129,7 @@
                 <ChecksArea
                     label="Suspension Score"
                     :amount="audits.suspensionScore.label"
-                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 60% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
+                    info-text="This score shows how close your node is to getting suspended on a satellite. A score of 96% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
                 />
                 <ChecksArea
                     label="Audit Score"
@@ -163,6 +163,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { Size } from '@/private/memory/size';
+import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
@@ -174,14 +179,9 @@ import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
 
-import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
-import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
 import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
-
-import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { Size } from '@/private/memory/size';
-import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
 // @vue/component
 @Component ({

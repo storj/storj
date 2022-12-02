@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"time"
 
@@ -84,6 +85,24 @@ func (projects *projects) Get(ctx context.Context, id uuid.UUID) (_ *console.Pro
 	return projectFromDBX(ctx, project)
 }
 
+// GetSalt returns the project's salt.
+func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res, err := projects.db.Get_Project_Salt_By_Id(ctx, dbx.Project_Id(id[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	salt = res.Salt
+	if len(salt) == 0 {
+		idHash := sha256.Sum256(id[:])
+		salt = idHash[:]
+	}
+
+	return salt, nil
+}
+
 // GetByPublicID is a method for querying project from the database by public_id.
 func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -100,11 +119,19 @@ func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID)
 func (projects *projects) Insert(ctx context.Context, project *console.Project) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projectID, err := uuid.New()
+	projectID := project.ID
+	if projectID.IsZero() {
+		projectID, err = uuid.New()
+		if err != nil {
+			return nil, err
+		}
+	}
+	publicID, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
-	publicID, err := uuid.New()
+
+	salt, err := uuid.New()
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +155,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
+	createFields.Salt = dbx.Project_Salt(salt[:])
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),

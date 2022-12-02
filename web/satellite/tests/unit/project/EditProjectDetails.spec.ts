@@ -2,16 +2,16 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project, ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { createLocalVue, mount } from '@vue/test-utils';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 
-import { ProjectsApiMock } from '../mock/api/projects';
-import {makeNotificationsModule} from "@/store/modules/notifications";
+import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -29,9 +29,9 @@ const store = new Vuex.Store({
         usersModule: {
             state: {
                 user: { paidTier: false },
-            }
-        }
-    }});
+            },
+        },
+    } });
 
 localVue.use(new NotificatorPlugin(store));
 
@@ -43,7 +43,7 @@ describe('EditProjectDetails.vue', () => {
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
         store.commit(PROJECTS_MUTATIONS.SET_LIMITS, projectLimits);
 
-        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
+        const wrapper = shallowMount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });
@@ -52,7 +52,7 @@ describe('EditProjectDetails.vue', () => {
     });
 
     it('editing name works correctly', async (): Promise<void> => {
-        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
+        const wrapper = shallowMount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });
@@ -71,7 +71,7 @@ describe('EditProjectDetails.vue', () => {
     });
 
     it('editing description works correctly', async (): Promise<void> => {
-        const wrapper = mount<EditProjectDetails>(EditProjectDetails, {
+        const wrapper = shallowMount<EditProjectDetails>(EditProjectDetails, {
             store,
             localVue,
         });

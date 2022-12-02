@@ -6,7 +6,6 @@ package consoleapi
 import (
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -16,7 +15,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 var (
@@ -133,7 +134,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	bodyBytes, err := ioutil.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
@@ -189,7 +190,7 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	cardID, err := ioutil.ReadAll(r.Body)
+	cardID, err := io.ReadAll(r.Body)
 	if err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
 		return
@@ -263,68 +264,6 @@ func (p *Payments) BillingHistory(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TokenDeposit creates new deposit transaction and info about address and amount of newly created tx.
-func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Set("Content-Type", "application/json")
-
-	var requestData struct {
-		Amount int64 `json:"amount"`
-	}
-
-	if err = json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		p.serveJSONError(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if requestData.Amount < 0 {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount can not be negative"))
-		return
-	}
-	if requestData.Amount == 0 {
-		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount should be greater than zero"))
-		return
-	}
-
-	tx, err := p.service.Payments().TokenDeposit(ctx, requestData.Amount)
-	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
-			return
-		}
-
-		p.serveJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	var responseData struct {
-		Address     string    `json:"address"`
-		Amount      float64   `json:"amount"`
-		TokenAmount string    `json:"tokenAmount"`
-		Rate        string    `json:"rate"`
-		Status      string    `json:"status"`
-		Link        string    `json:"link"`
-		ExpiresAt   time.Time `json:"expires"`
-	}
-
-	responseData.Address = tx.Address
-	responseData.Amount = float64(requestData.Amount) / 100
-	responseData.TokenAmount = tx.Amount.AsDecimal().String()
-	responseData.Rate = tx.Rate.StringFixed(8)
-	responseData.Status = tx.Status.String()
-	responseData.Link = tx.Link
-	responseData.ExpiresAt = tx.CreatedAt.Add(tx.Timeout)
-
-	err = json.NewEncoder(w).Encode(responseData)
-	if err != nil {
-		p.log.Error("failed to write json token deposit response", zap.Error(ErrPaymentsAPI.Wrap(err)))
-	}
-}
-
 // ApplyCouponCode applies a coupon code to the user's account.
 func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -332,7 +271,7 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	// limit the size of the body to prevent excessive memory usage
-	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
@@ -341,6 +280,10 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 
 	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
+		if stripecoinpayments.ErrInvalidCoupon.Has(err) {
+			p.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -448,5 +391,5 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(p.log, w, status, err)
+	web.ServeJSONError(p.log, w, status, err)
 }

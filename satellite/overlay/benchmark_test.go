@@ -267,7 +267,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 						err := overlaydb.TestSuspendNodeUnknownAudit(ctx, nodeID, now)
 						require.NoError(b, err)
 					case 1:
-						err := overlaydb.DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
+						_, err := overlaydb.DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 						require.NoError(b, err)
 					case 2:
 						err := overlaydb.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
@@ -359,7 +359,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), nil, "", "", overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,

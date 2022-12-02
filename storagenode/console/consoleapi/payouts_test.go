@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -84,7 +83,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body))
@@ -100,7 +99,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res2.Body.Close()
 					require.NoError(t, err)
 				}()
-				body2, err := ioutil.ReadAll(res2.Body)
+				body2, err := io.ReadAll(res2.Body)
 				require.NoError(t, err)
 
 				expected = []byte("null\n")
@@ -162,7 +161,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body))
@@ -178,7 +177,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res2.Body.Close()
 					require.NoError(t, err)
 				}()
-				body2, err := ioutil.ReadAll(res2.Body)
+				body2, err := io.ReadAll(res2.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, "null\n", string(body2))
@@ -228,7 +227,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body))
@@ -246,7 +245,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res2.Body.Close()
 					require.NoError(t, err)
 				}()
-				body2, err := ioutil.ReadAll(res2.Body)
+				body2, err := io.ReadAll(res2.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body2))
@@ -264,7 +263,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res3.Body.Close()
 					require.NoError(t, err)
 				}()
-				body3, err := ioutil.ReadAll(res3.Body)
+				body3, err := io.ReadAll(res3.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body3))
@@ -293,7 +292,7 @@ func TestHeldAmountApi(t *testing.T) {
 					require.NoError(t, err)
 				}()
 
-				body5, err := ioutil.ReadAll(res5.Body)
+				body5, err := io.ReadAll(res5.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
@@ -314,7 +313,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body))
@@ -332,7 +331,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res2.Body.Close()
 					require.NoError(t, err)
 				}()
-				body2, err := ioutil.ReadAll(res2.Body)
+				body2, err := io.ReadAll(res2.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body2))
@@ -349,7 +348,7 @@ func TestHeldAmountApi(t *testing.T) {
 					require.NoError(t, err)
 				}()
 
-				body5, err := ioutil.ReadAll(res5.Body)
+				body5, err := io.ReadAll(res5.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
@@ -394,7 +393,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 				require.Equal(t, string(expected)+"\n", string(body))
 			})
@@ -416,7 +415,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected)+"\n", string(body))
@@ -438,7 +437,7 @@ func TestHeldAmountApi(t *testing.T) {
 					err = res2.Body.Close()
 					require.NoError(t, err)
 				}()
-				body2, err := ioutil.ReadAll(res2.Body)
+				body2, err := io.ReadAll(res2.Body)
 				require.NoError(t, err)
 
 				require.Equal(t, string(expected2)+"\n", string(body2))

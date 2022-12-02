@@ -291,11 +291,11 @@ export class SatellitePayoutForPeriod {
 
     public get transactionLink(): string {
         const prefixed = function (hash: string): string {
-            if (hash.indexOf("0x") != 0) {
-                return "0x" + hash;
+            if (hash.indexOf('0x') != 0) {
+                return '0x' + hash;
             }
             return hash;
-        }
+        };
         if (!this.receipt) {
             return '';
         }
@@ -305,7 +305,7 @@ export class SatellitePayoutForPeriod {
         }
 
         {
-            const zkScanUrl = 'https://zkscan.io/explorer/transactions'
+            const zkScanUrl = 'https://zkscan.io/explorer/transactions';
 
             if (this.receipt.indexOf('zksync') !== -1) {
                 return `${zkScanUrl}/${prefixed(this.receipt.slice(7))}`;

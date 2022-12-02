@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="my-3">
+    <div class="mb-3">
         <div class="d-inline">
-            <p class="d-inline path-buckets">Buckets</p>
+            <a class="d-inline path-buckets" @click="bucketClick">Buckets</a>
             <svg
                 class="mx-3"
                 width="6"
@@ -24,9 +24,9 @@
         </div>
 
         <div v-for="(path, idx) in crumbs" :key="idx" class="d-inline">
-            <router-link :to="link(idx)">
+            <span @click.prevent="redirectToCrumb(idx)">
                 <a class="path" href="javascript:null">{{ path }}</a>
-            </router-link>
+            </span>
 
             <svg
                 v-if="displayDivider(idx)"
@@ -49,55 +49,73 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-// @vue/component
-@Component
-export default class BreadCrumbs extends Vue {
-    /**
-     * Retrieves the current bucket name from the store.
-     */
-    private get bucketName(): string {
-        return this.$store.state.files.bucket;
-    }
+import { useRouter, useStore } from '@/utils/hooks';
 
-    /**
-     * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
-     */
-    public get crumbs(): string[] {
-        let path: string[] = this.$store.state.files.path.split("/");
-        path =
-            path.length > 1
-                ? [this.bucketName, ...path.slice(0, path.length - 1)]
-                : [this.bucketName];
-        return path;
-    }
+const store = useStore();
+const router = useRouter();
 
-    /**
-     * Returns a link to the folder at the current breadcrumb index.
-     */
-    public link(idx: number): string {
-        const crumbs = this.crumbs;
-        let path = "";
-        if (idx > 0) path = crumbs.slice(1, idx + 1).join("/") + "/";
-        return this.$store.state.files.browserRoot + path;
-    }
+const emit = defineEmits(['onUpdate', 'bucketClick']);
 
-    /**
-     * Returns a boolean denoting if a divider needs to be displayed at current breadcrumb index.
-     */
-    public displayDivider(idx: number): boolean {
-        const length = this.crumbs.length;
-        return (idx !== 0 || length > 1) && idx !== length - 1;
-    }
+/**
+ * Retrieves the current bucket name from the store.
+ */
+const bucketName = computed((): string => {
+    return store.state.files.bucket;
+});
+
+/**
+ * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
+ */
+const crumbs = computed((): string[] => {
+    let path: string[] = store.state.files.path.split('/');
+    path =
+        path.length > 1
+            ? [bucketName.value, ...path.slice(0, path.length - 1)]
+            : [bucketName.value];
+    return path;
+});
+
+function bucketClick() {
+    emit('bucketClick');
+}
+
+/**
+ * Redirects to partial upload to bucket buckets path.
+ */
+async function redirectToCrumb(idx: number): Promise<void> {
+    await router.push(link(idx)).catch(err => {});
+    emit('onUpdate');
+}
+
+/**
+ * Returns a link to the folder at the current breadcrumb index.
+ */
+function link(idx: number): string {
+    let path = '';
+
+    if (idx > 0) path = crumbs.value.slice(1, idx + 1).join('/') + '/';
+
+    return store.state.files.browserRoot + path;
+}
+
+/**
+ * Returns a boolean denoting if a divider needs to be displayed at current breadcrumb index.
+ */
+function displayDivider(idx: number): boolean {
+    const length = crumbs.value.length;
+
+    return (idx !== 0 || length > 1) && idx !== length - 1;
 }
 </script>
 
 <style scoped lang="css">
 .path {
-    font-size: 18px;
-    color: #232b34;
+    font-family: 'font_bold', sans-serif;
+    font-size: 14px;
+    color: #1b2533;
     font-weight: bold;
     cursor: pointer;
 }
@@ -107,7 +125,12 @@ export default class BreadCrumbs extends Vue {
 }
 
 .path-buckets {
-    font-size: 18px;
-    color: #232b34;
+    font-size: 14px;
+    color: #232a34;
+    cursor: pointer;
+}
+
+.path-buckets:hover {
+    color: #376fff;
 }
 </style>

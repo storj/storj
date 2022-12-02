@@ -55,14 +55,24 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	// the at_rest_total is in bytes*hours, so to find the total number
 	// of hours used to get the at_rest_total, we find the hour difference,
 	// between the interval_end_time of a row and that of the previous row
-	// and divide the at_rest_total by the hour interval and multiply by 24 hours
-	// 24 hours to estimate the value for a 24hour time window.
-	// i.e. 24 * (at_rest_total/hour_difference), where the
+	// and divide the at_rest_total by the hour interval
+	// i.e. (at_rest_total/hour_difference), where the
 	// hour_difference = current row interval_end_time - previous row interval_end_time
 	// Rows with 0-hour difference are assumed to be 24 hours.
 	query := `SELECT satellite_id,
-					 24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)),
-					 timestamp
+					(
+						at_rest_total
+						/
+						COALESCE(
+							(
+								CAST(strftime('%s', interval_end_time) AS NUMERIC)
+								-
+								CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)
+							) / 3600,
+							24
+						)
+					) AS at_rest_total,
+					timestamp
 				FROM storage_usage
 				WHERE satellite_id = ?
 				AND ? <= timestamp AND timestamp <= ?
@@ -103,15 +113,25 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	// the at_rest_total is in bytes*hours, so to find the total number
 	// of hours used to get the at_rest_total, we find the hour difference,
 	// between the interval_end_time of a row and that of the previous row
-	// and divide the at_rest_total by the hour interval and multiply by 24 hours
-	// 24 hours to estimate the value for a 24hour time window.
-	// i.e. 24 * (at_rest_total/hour_difference), where the
+	// and divide the at_rest_total by the hour interval
+	// i.e. (at_rest_total/hour_difference), where the
 	// hour_difference = current row interval_end_time - previous row interval_end_time
 	// Rows with 0-hour difference are assumed to be 24 hours.
 	query := `SELECT SUM(usages.at_rest_total), usages.timestamp
 				FROM (
 					SELECT timestamp,
-						   24 * (at_rest_total / COALESCE((CAST(strftime('%s', interval_end_time) AS NUMERIC) - CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)) / 3600, 24)) AS at_rest_total
+						   (
+								at_rest_total
+								/
+								COALESCE(
+									(
+										CAST(strftime('%s', interval_end_time) AS NUMERIC)
+										-
+										CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)
+									) / 3600,
+									24
+								)
+						   ) AS at_rest_total
 					FROM storage_usage
 					WHERE ? <= timestamp AND timestamp <= ?
 				) as usages
@@ -150,9 +170,24 @@ func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 	defer mon.Task()(&ctx, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total)
-				FROM storage_usage
-				WHERE ? <= timestamp AND timestamp <= ?`
+	query := `SELECT SUM(usages.at_rest_total)
+				FROM (
+					SELECT
+					(
+						at_rest_total
+						/
+						COALESCE(
+							(
+								CAST(strftime('%s', interval_end_time) AS NUMERIC)
+								-
+								CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)
+							) / 3600,
+							24
+						)
+					) AS at_rest_total
+					FROM storage_usage
+					WHERE ? <= timestamp AND timestamp <= ?
+				) as usages`
 
 	err = db.QueryRowContext(ctx, query, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, err
@@ -163,10 +198,25 @@ func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total)
-				FROM storage_usage
-				WHERE satellite_id = ?
-				AND ? <= timestamp AND timestamp <= ?`
+	query := `SELECT SUM(usages.at_rest_total)
+				FROM (
+					SELECT
+					(
+						at_rest_total
+						/
+						COALESCE(
+							(
+								CAST(strftime('%s', interval_end_time) AS NUMERIC)
+								-
+								CAST(strftime('%s', LAG(interval_end_time) OVER (PARTITION BY satellite_id ORDER BY interval_end_time)) AS NUMERIC)
+							) / 3600,
+							24
+						)
+					) AS at_rest_total
+					FROM storage_usage
+					WHERE satellite_id = ?
+					AND ? <= timestamp AND timestamp <= ?
+				) as usages`
 
 	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, err

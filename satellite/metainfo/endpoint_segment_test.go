@@ -133,12 +133,12 @@ func TestInlineSegment(t *testing.T) {
 			segmentsData[i] = testrand.Bytes(memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{
 				StreamID: beginObjectResp.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: segment,
 				},
 				PlainSize:           1024,
 				EncryptedInlineData: segmentsData[i],
-				Encryption: storj.SegmentEncryption{
+				Encryption: metaclient.SegmentEncryption{
 					EncryptedKey: testrand.Bytes(256),
 				},
 			})
@@ -153,7 +153,7 @@ func TestInlineSegment(t *testing.T) {
 			StreamID:                      beginObjectResp.StreamID,
 			EncryptedMetadata:             metadata,
 			EncryptedMetadataNonce:        testrand.Nonce(),
-			EncryptedMetadataEncryptedKey: testrand.Bytes(32),
+			EncryptedMetadataEncryptedKey: randomEncryptedKey,
 		})
 		require.NoError(t, err)
 
@@ -188,11 +188,11 @@ func TestInlineSegment(t *testing.T) {
 			data := testrand.Bytes(10 * memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metaclient.MakeInlineSegmentParams{
 				StreamID: beginObjectResp.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: 0,
 				},
 				EncryptedInlineData: data,
-				Encryption: storj.SegmentEncryption{
+				Encryption: metaclient.SegmentEncryption{
 					EncryptedKey: testrand.Bytes(256),
 				},
 			})
@@ -205,7 +205,7 @@ func TestInlineSegment(t *testing.T) {
 			for i, index := range existingSegments {
 				response, err := metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 					StreamID: object.StreamID,
-					Position: storj.SegmentPosition{
+					Position: metaclient.SegmentPosition{
 						Index: index,
 					},
 				})
@@ -264,7 +264,7 @@ func TestRemoteSegment(t *testing.T) {
 
 			response, err := metainfoClient.DownloadSegmentWithRS(ctx, metaclient.DownloadSegmentParams{
 				StreamID: object.StreamID,
-				Position: storj.SegmentPosition{
+				Position: metaclient.SegmentPosition{
 					Index: -1,
 				},
 			})
@@ -430,7 +430,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 
 		response, err := client.BeginSegment(ctx, metaclient.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
-			Position: storj.SegmentPosition{
+			Position: metaclient.SegmentPosition{
 				Index: 0,
 			},
 			MaxOrderLimit: memory.MiB.Int64(),

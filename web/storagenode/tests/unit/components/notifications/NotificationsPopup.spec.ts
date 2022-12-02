@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import {
     newNotificationsModule,
@@ -13,7 +12,8 @@ import { NotificationsState, UINotification } from '@/app/types/notifications';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 import { Notification } from '@/storagenode/notifications/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -22,7 +22,7 @@ const notificationsApi = new NotificationsHttpApi();
 const notificationsService = new NotificationsService(notificationsApi);
 const notificationsModule = newNotificationsModule(notificationsService);
 
-const store = new Vuex.Store({ modules: { notificationsModule }});
+const store = new Vuex.Store({ modules: { notificationsModule } });
 
 describe('NotificationsPopup', (): void => {
     it('renders correctly with no notifications', (): void => {

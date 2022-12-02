@@ -5,7 +5,7 @@ package consoleapi_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -64,7 +64,7 @@ func Test_AllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}
@@ -76,7 +76,7 @@ func Test_AllBucketNames(t *testing.T) {
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token.String(),
+			Value:   tokenInfo.Token.String(),
 			Expires: expire,
 		}
 
@@ -86,7 +86,7 @@ func Test_AllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, result.StatusCode)
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		var output []string

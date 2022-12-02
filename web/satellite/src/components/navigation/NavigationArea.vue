@@ -46,6 +46,27 @@
                         <ResourcesLinks />
                     </GuidesDropdown>
                 </div>
+                <div v-if="isNewEncryptionPassphraseFlowEnabled" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        :class="{ active: isSwitchEncryptionPassphraseShown }"
+                        @click.stop="toggleEncryptionPassphraseShown"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <p class="navigation-area__container__wrap__item-container__left__label">switch passphrase</p>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="isNewEncryptionPassphraseFlowEnabled" class="container-wrapper">
+                    <div
+                        class="navigation-area__container__wrap__item-container"
+                        @click.stop="debugShowAccess"
+                    >
+                        <div class="navigation-area__container__wrap__item-container__left">
+                            <p class="navigation-area__container__wrap__item-container__left__label">debug show access</p>
+                        </div>
+                    </div>
+                </div>
                 <div ref="quickStartContainer" class="container-wrapper">
                     <div
                         class="navigation-area__container__wrap__item-container"
@@ -75,16 +96,19 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { RouteConfig } from '@/router';
+import { NavigationLink } from '@/types/navigation';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
 import AccountArea from '@/components/navigation/AccountArea.vue';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { RouteConfig } from '@/router';
-import { NavigationLink } from '@/types/navigation';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
+import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import SmallLogoIcon from '@/../static/images/smallLogo.svg';
@@ -92,12 +116,9 @@ import AccessGrantsIcon from '@/../static/images/navigation/accessGrants.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
 import BucketsIcon from '@/../static/images/navigation/buckets.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
-import BillingIcon from '@/../static/images/navigation/billing.svg';
 import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
-import ResourcesLinks from "@/components/navigation/ResourcesLinks.vue";
-import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
 
 // @vue/component
 @Component({
@@ -112,7 +133,6 @@ import QuickStartLinks from "@/components/navigation/QuickStartLinks.vue";
         DashboardIcon,
         AccessGrantsIcon,
         UsersIcon,
-        BillingIcon,
         BucketsIcon,
         ResourcesIcon,
         QuickStartIcon,
@@ -132,7 +152,6 @@ export default class NavigationArea extends Vue {
         RouteConfig.Buckets.withIcon(BucketsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(UsersIcon),
-        RouteConfig.Account.with(RouteConfig.Billing).withIcon(BillingIcon),
     ];
 
     public $refs!: {
@@ -148,8 +167,8 @@ export default class NavigationArea extends Vue {
      * Adds scroll event listener to close dropdowns.
      */
     public mounted(): void {
-        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns)
-        window.addEventListener('resize', this.onResize)
+        this.$refs.navigationContainer.addEventListener('scroll', this.closeDropdowns);
+        window.addEventListener('resize', this.onResize);
     }
 
     /**
@@ -157,8 +176,8 @@ export default class NavigationArea extends Vue {
      * Removes scroll event listener.
      */
     public beforeDestroy(): void {
-        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns)
-        window.removeEventListener('resize', this.onResize)
+        this.$refs.navigationContainer.removeEventListener('scroll', this.closeDropdowns);
+        window.removeEventListener('resize', this.onResize);
     }
 
     /**
@@ -224,17 +243,36 @@ export default class NavigationArea extends Vue {
      * Toggles resources dropdown visibility.
      */
     public toggleResourcesDropdown(): void {
-        this.setResourcesDropdownYPos()
-        this.setResourcesDropdownXPos()
+        this.setResourcesDropdownYPos();
+        this.setResourcesDropdownXPos();
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN);
+    }
+
+    /**
+     * Toggles switch passphrase modal.
+     */
+    public toggleEncryptionPassphraseShown(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    }
+
+    public debugShowAccess(): void {
+        const passphrase = this.$store.state.objectsModule.passphrase;
+        const apiKey= this.$store.state.objectsModule.apiKey;
+        const gwCreds = this.$store.state.objectsModule.gatewayCredentials;
+
+        console.log('passphrase', passphrase);
+        console.log('api key', apiKey);
+        console.log('gw creds', gwCreds);
+
+        this.$notify.success('passphrase: ' +  passphrase);
     }
 
     /**
      * Toggles quick start dropdown visibility.
      */
     public toggleQuickStartDropdown(): void {
-        this.setQuickStartDropdownYPos()
-        this.setQuickStartDropdownXPos()
+        this.setQuickStartDropdownYPos();
+        this.setQuickStartDropdownXPos();
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN);
     }
 
@@ -250,6 +288,20 @@ export default class NavigationArea extends Vue {
      */
     public get isResourcesDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isResourcesDropdownShown;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
+
+    /**
+     * Indicates if set passphrase modal shown.
+     */
+    public get isSwitchEncryptionPassphraseShown(): boolean {
+        return this.$store.state.appStateModule.appState.isSetEncryptionPassphraseModalShown;
     }
 
     /**
@@ -271,7 +323,7 @@ export default class NavigationArea extends Vue {
      */
     public trackClickEvent(path: string): void {
         if (this.isNewBillingScreen && path === '/account/billing') {
-            this.routeToOverview()
+            this.routeToOverview();
         } else {
             this.analytics.pageVisit(path);
         }
@@ -289,7 +341,7 @@ export default class NavigationArea extends Vue {
      */
     public get isNewBillingScreen(): boolean {
         const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === "true";
+        return isNewBillingScreen === 'true';
     }
 
 }
@@ -310,6 +362,7 @@ export default class NavigationArea extends Vue {
         background-color: #fff;
         font-family: 'font_regular', sans-serif;
         box-shadow: 0 0 32px rgb(0 0 0 / 4%);
+        border-right: 1px solid var(--c-grey-2);
 
         &__container {
             display: flex;
@@ -351,7 +404,7 @@ export default class NavigationArea extends Vue {
                     align-items: center;
                     justify-content: space-between;
                     border-left: 4px solid #fff;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     position: static;
                     cursor: pointer;
                     box-sizing: border-box;
@@ -368,12 +421,12 @@ export default class NavigationArea extends Vue {
                     }
 
                     &:hover {
-                        border-color: #fafafb;
-                        background-color: #fafafb;
-                        color: #0149ff;
+                        border-color: var(--c-grey-1);
+                        background-color: var(--c-grey-1);
+                        color: var(--c-blue-3);
 
-                        ::v-deep path {
-                            fill: #0149ff;
+                        :deep(path) {
+                            fill: var(--c-blue-3);
                         }
                     }
                 }
@@ -382,7 +435,7 @@ export default class NavigationArea extends Vue {
                     margin: 8px 24px;
                     height: 1px;
                     width: calc(100% - 48px);
-                    background: #ebeef1;
+                    background: var(--c-grey-2);
                 }
             }
         }
@@ -391,70 +444,70 @@ export default class NavigationArea extends Vue {
     .router-link-active,
     .active {
         border-color: #000;
-        color: #091c45;
+        color: var(--c-blue-6);
         font-family: 'font_bold', sans-serif;
 
-        ::v-deep path {
+        :deep(path) {
             fill: #000;
         }
 
         &:hover {
-            color: #0149ff;
-            border-color: #0149ff;
+            color: var(--c-blue-3);
+            border-color: var(--c-blue-3);
 
-            ::v-deep path {
-                fill: #0149ff;
+            :deep(path) {
+                fill: var(--c-blue-3);
             }
         }
     }
 
-    ::v-deep .dropdown-item {
+    :deep(.dropdown-item) {
         display: flex;
         align-items: center;
         font-family: 'font_regular', sans-serif;
         padding: 10px 16px;
         cursor: pointer;
-        border-top: 1px solid #ebeef1;
-        border-bottom: 1px solid #ebeef1;
+        border-top: 1px solid var(--c-grey-2);
+        border-bottom: 1px solid var(--c-grey-2);
+    }
 
-        &__icon {
-            max-width: 40px;
-            min-width: 40px;
-        }
+    :deep(.dropdown-item__icon) {
+        max-width: 40px;
+        min-width: 40px;
+    }
 
-        &__text {
-            margin-left: 10px;
+    :deep(.dropdown-item__text) {
+        margin-left: 10px;
+    }
 
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 14px;
-                line-height: 22px;
-                color: #091c45;
-            }
+    :deep(.dropdown-item__text__title) {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+        line-height: 22px;
+        color: var(--c-blue-6);
+    }
 
-            &__label {
-                font-size: 12px;
-                line-height: 21px;
-                color: #091c45;
-            }
-        }
+    :deep(.dropdown-item__text__label) {
+        font-size: 12px;
+        line-height: 21px;
+        color: var(--c-blue-6);
+    }
 
-        &:first-of-type {
-            border-radius: 8px 8px 0 0;
-        }
+    :deep(.dropdown-item:first-of-type) {
+        border-radius: 8px 8px 0 0;
+    }
 
-        &:last-of-type {
-            border-radius: 0 0 8px 8px;
-        }
+    :deep(.dropdown-item:last-of-type) {
+        border-radius: 0 0 8px 8px;
+    }
 
-        &:hover {
-            background-color: #fafafb;
+    :deep(.dropdown-item:hover) {
+        background-color: var(--c-grey-1);
+    }
 
-            h2,
-            p {
-                color: #0149ff;
-            }
-        }
+    :deep(.dropdown-item:hover h2),
+    :deep(.dropdown-item:hover p) {
+        color: var(--c-blue-3);
     }
 
     @media screen and (max-width: 1280px) {

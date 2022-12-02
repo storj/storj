@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -82,6 +83,8 @@ var safelyPartitionableDBs = map[string]bool{
 	// validated to be safely partitionable and that they do not do
 	// cross-db queries.
 	"repairqueue": true,
+	"nodeevents":  true,
+	"verifyqueue": true,
 }
 
 // Open creates instance of satellite.DB.
@@ -195,6 +198,11 @@ func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 	return &overlaycache{db: dbc.getByName("overlaycache")}
 }
 
+// NodeEvents is a getter for node events repository.
+func (dbc *satelliteDBCollection) NodeEvents() nodeevents.DB {
+	return &nodeEvents{db: dbc.getByName("nodeevents")}
+}
+
 // Reputation is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 	return &reputations{db: dbc.getByName("reputations")}
@@ -203,6 +211,16 @@ func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 // RepairQueue is a getter for RepairQueue repository.
 func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: dbc.getByName("repairqueue")}
+}
+
+// VerifyQueue is a getter for VerifyQueue database.
+func (dbc *satelliteDBCollection) VerifyQueue() audit.VerifyQueue {
+	return &verifyQueue{db: dbc.getByName("verifyqueue")}
+}
+
+// ReverifyQueue is a getter for ReverifyQueue database.
+func (dbc *satelliteDBCollection) ReverifyQueue() audit.ReverifyQueue {
+	return &reverifyQueue{db: dbc.getByName("reverifyqueue")}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage.

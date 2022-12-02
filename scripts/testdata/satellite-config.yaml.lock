@@ -7,17 +7,26 @@
 # enable analytics reporting
 # analytics.enabled: false
 
-# hubspot api key
-# analytics.hub-spot.api-key: ""
-
 # the number of events that can be in the queue before dropping
 # analytics.hub-spot.channel-size: 1000
+
+# hubspot client ID
+# analytics.hub-spot.client-id: ""
+
+# hubspot client secret
+# analytics.hub-spot.client-secret: ""
 
 # the number of concurrent api requests that can be made
 # analytics.hub-spot.concurrent-sends: 4
 
 # the default timeout for the hubspot http client
 # analytics.hub-spot.default-timeout: 10s
+
+# hubspot refresh token
+# analytics.hub-spot.refresh-token: ""
+
+# hubspot token refresh API
+# analytics.hub-spot.token-api: https://api.hubapi.com/oauth/v1/token
 
 # segment write key
 # analytics.segment-write-key: ""
@@ -40,8 +49,17 @@
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
 
+# how long a single reverification job can take before it may be taken over by another worker
+# audit.reverification-retry-interval: 6h0m0s
+
+# number of workers to run reverify audits on pieces
+# audit.reverify-worker-concurrency: 2
+
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
+
+# number of audit jobs to push at once to the verification queue
+# audit.verification-push-batch-size: 4096
 
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
@@ -86,7 +104,22 @@ compensation.rates.put-tb: "0"
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # expiration time for account recovery and activation tokens
-# console-auth.token-expiration-time: 24h0m0s
+# console-auth.token-expiration-time: 30m0s
+
+# the Flagship API key
+# console.ab-testing.api-key: ""
+
+# whether or not AB testing is enabled
+# console.ab-testing.enabled: false
+
+# the Flagship environment ID
+# console.ab-testing.env-id: ""
+
+# the Flagship API URL
+# console.ab-testing.flagship-url: https://decision.flagship.io/v2
+
+# the Flagship environment ID
+# console.ab-testing.hit-tracking-url: https://ariane.abtasty.com
 
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
@@ -187,12 +220,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to storj.io homepage
 # console.homepage-url: https://www.storj.io
 
-# inactivity timer delay in seconds
-# console.inactivity-timer-delay: 600
-
-# indicates if session can be timed out due inactivity
-# console.inactivity-timer-enabled: false
-
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
@@ -212,10 +239,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.new-access-grant-flow: true
 
 # indicates if new billing screens should be used
-# console.new-billing-screen: false
+# console.new-billing-screen: true
 
-# indicates if new objects flow should be used
-# console.new-objects-flow: true
+# indicates if new encryption passphrase flow is enabled
+# console.new-encryption-passphrase-flow-enabled: false
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: true
@@ -265,8 +292,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
-# duration a session is valid for
-# console.session-duration: 168h0m0s
+# duration a session is valid for (superseded by inactivity timer delay if inactivity timer is enabled)
+# console.session.duration: 168h0m0s
+
+# inactivity timer delay in seconds
+# console.session.inactivity-timer-duration: 600
+
+# indicates if session can be timed out due inactivity
+# console.session.inactivity-timer-enabled: true
+
+# indicates whether remaining session time is shown for debugging
+# console.session.inactivity-timer-viewer-enabled: false
 
 # path to static resources
 # console.static-dir: ""
@@ -376,20 +412,50 @@ contact.external-address: ""
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
 
-# the number of nodes to concurrently send garbage collection bloom filters to
-# garbage-collection.concurrent-sends: 1
+# Access Grant which will be used to upload bloom filters to the bucket
+# garbage-collection-bf.access-grant: ""
 
-# set if garbage collection is enabled or not
-# garbage-collection.enabled: true
+# Bucket which will be used to upload bloom filters
+# garbage-collection-bf.bucket: ""
+
+# set if garbage collection bloom filters is enabled or not
+# garbage-collection-bf.enabled: true
+
+# how quickly uploaded bloom filters will be automatically deleted
+# garbage-collection-bf.expire-in: 336h0m0s
 
 # the false positive rate used for creating a garbage collection bloom filter
-# garbage-collection.false-positive-rate: 0.1
+# garbage-collection-bf.false-positive-rate: 0.1
 
 # the initial number of pieces expected for a storage node to have, used for creating a filter
-# garbage-collection.initial-pieces: 400000
+# garbage-collection-bf.initial-pieces: 400000
 
-# the time between each send of garbage collection filters to storage nodes
-# garbage-collection.interval: 120h0m0s
+# the time between each garbage collection executions
+# garbage-collection-bf.interval: 120h0m0s
+
+# set if garbage collection bloom filter process should only run once then exit
+# garbage-collection-bf.run-once: false
+
+# how many bloom filters will be packed in a single zip
+# garbage-collection-bf.zip-batch-size: 500
+
+# Access to download the bloom filters. Needs read and write permission.
+# garbage-collection.access-grant: ""
+
+# bucket where retain info is stored
+# garbage-collection.bucket: ""
+
+# the number of nodes to concurrently send garbage collection retain filters to
+# garbage-collection.concurrent-sends: 1
+
+# set if loop to send garbage collection retain filters is enabled
+# garbage-collection.enabled: false
+
+# Expiration of newly created objects. These objects store error messages.
+# garbage-collection.expire-in: 336h0m0s
+
+# the time between each attempt to download and send garbage collection retain filters to storage nodes
+# garbage-collection.interval: 48h0m0s
 
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
@@ -451,7 +517,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'.
 # log.encoding: ""
 
 # the minimum log level to log
@@ -520,8 +586,14 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
+# feature flag to enable using multple objects versions in the system internally
+# metainfo.multiple-versions: true
+
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
+
+# Which fraction of nodes should be contacted successfully until the delete of a batch of pieces is considered completed
+# metainfo.piece-deletion.delete-success-threshold: 0.75
 
 # timeout for dialing nodes (0 means satellite default)
 # metainfo.piece-deletion.dial-timeout: 3s
@@ -583,6 +655,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy
 # metainfo.server-side-copy-disabled: false
 
+# test the new query for non-recursive listing
+# metainfo.test-listing-query: false
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -591,6 +666,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # application suffix. Ignored for certain applications.
 # metrics.app-suffix: -release
+
+# address(es) to send telemetry to (comma-separated)
+# metrics.event-addr: eventkitd.datasci.storj.io:9002
 
 # instance id prefix
 # metrics.instance-prefix: ""
@@ -601,11 +679,29 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# how long to wait before checking the node events DB again if there is nothing to work on
+# node-events.interval: 5m0s
+
+# how long the earliest instance of an event for a particular email should exist in the DB before it is selected
+# node-events.selection-wait-period: 5m0s
+
+# how long to wait between sending Node Offline emails
+# offline-nodes.cooldown: 24h0m0s
+
+# how often to check for offline nodes and send them emails
+# offline-nodes.interval: 1h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# offline-nodes.limit: 1000
+
+# max number of offline emails to send a node operator until the node comes back online
+# offline-nodes.max-emails: 3
+
 # encryption keys to encrypt info in orders
 # orders.encryption-keys: ""
 
 # how long until an order expires
-# orders.expiration: 48h0m0s
+# orders.expiration: 24h0m0s
 
 # how many items in the rollups write cache before they are flushed to the database
 # orders.flush-batch-size: 1000
@@ -630,6 +726,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how stale the node selection cache can be
 # overlay.node-selection-cache.staleness: 3m0s
+
+# the amount of time to wait between sending Node Software Update emails
+# overlay.node-software-update-email-cooldown: 168h0m0s
 
 # default duration for AS OF SYSTEM TIME
 # overlay.node.as-of-system-time.default-interval: -10s
@@ -658,6 +757,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of country codes to exclude nodes from target repair selection
 # overlay.repair-excluded-country-codes: []
 
+# whether to send emails to nodes
+# overlay.send-node-emails: false
+
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
@@ -665,7 +767,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.billing-config.disable-loop: true
 
 # billing chore interval to query for new transactions from all payment types
-# payments.billing-config.interval: 1m0s
+# payments.billing-config.interval: 15s
 
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
@@ -701,7 +803,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.storjscan.auth.secret: ""
 
 # required number of following blocks in the chain to accept payment as confirmed
-# payments.storjscan.confirmations: 12
+# payments.storjscan.confirmations: 15
 
 # flag to disable querying new storjscan payments by storjscan chore
 # payments.storjscan.disable-loop: true
@@ -712,20 +814,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # storjscan chore interval to query new payments for all satellite deposit wallets
 # payments.storjscan.interval: 1m0s
 
-# amount of time we wait before running next account balance update loop
-# payments.stripe-coin-payments.account-balance-update-interval: 2m0s
-
 # toogle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
-
-# coinpayments API private key key
-# payments.stripe-coin-payments.coinpayments-private-key: ""
-
-# coinpayments API public key
-# payments.stripe-coin-payments.coinpayments-public-key: ""
-
-# amount of time we wait before running next conversion rates update loop
-# payments.stripe-coin-payments.conversion-rates-cycle-interval: 10m0s
 
 # stripe free tier coupon ID
 # payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
@@ -735,9 +825,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
-
-# amount of time we wait before running next transaction update loop
-# payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
 # how often to remove unused project bandwidth rollups
 # project-bw-cleanup.interval: 168h0m0s
@@ -769,6 +856,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
 
+# whether the audit score of nodes should be updated as a part of repair
+# repairer.reputation-update-enabled: false
+
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s
 
@@ -779,7 +869,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # reputation.audit-count: 100
 
 # the reputation cut-off for disqualifying SNs based on audit history
-# reputation.audit-dq: 0.6
+# reputation.audit-dq: 0.96
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # reputation.audit-history.grace-period: 168h0m0s
@@ -799,8 +889,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # The length of time spanning a single audit window
 # reputation.audit-history.window-size: 12h0m0s
 
-# the forgetting factor used to calculate the audit SNs reputation
-# reputation.audit-lambda: 0.95
+# the forgetting factor used to update storage node reputation due to audits
+# reputation.audit-lambda: 0.999
 
 # weight to apply to audit reputation for total repair reputation calculation
 # reputation.audit-repair-weight: 1
@@ -817,11 +907,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the maximum amount of time that should elapse before cached reputation writes are flushed to the database (if 0, no reputation cache is used)
 # reputation.flush-interval: 2h0m0s
 
+# the value to which an alpha reputation value should be initialized
+# reputation.initial-alpha: 1000
+
+# the value to which a beta reputation value should be initialized
+# reputation.initial-beta: 0
+
 # whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
 # reputation.suspension-dq-enabled: false
 
 # the time period that must pass before suspended nodes will be disqualified
 # reputation.suspension-grace-period: 168h0m0s
+
+# the reputation cut-off for disqualifying SNs based on returning 'unknown' errors during audit
+# reputation.unknown-audit-dq: 0.6
+
+# the forgetting factor used to update storage node reputation due to returning 'unknown' errors during audit'
+# reputation.unknown-audit-lambda: 0.95
 
 # expiration to use if user does not specify an rest key expiration
 # rest-keys.default-expiration: 720h0m0s
@@ -897,6 +999,9 @@ server.private-address: 127.0.0.1:7778
 
 # how large of batches SaveRollup should process at a time
 # tally.save-rollup-batch-size: 1000
+
+# flag to switch between calculating bucket tallies using objects loop or custom query
+# tally.use-objects-loop: false
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

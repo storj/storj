@@ -24,9 +24,9 @@ class BarFillStyle {
 // @vue/component
 @Component
 export default class VBar extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly current: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly max: string;
 
     public get barFillStyle(): BarFillStyle {

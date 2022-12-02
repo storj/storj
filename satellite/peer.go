@@ -37,18 +37,22 @@ import (
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -86,6 +90,8 @@ type DB interface {
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// NodeEvents returns a database for node event information
+	NodeEvents() nodeevents.DB
 	// Reputation returns database for audit reputation information
 	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
@@ -96,6 +102,10 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
+	// VerifyQueue returns queue for segments chosen for verification
+	VerifyQueue() audit.VerifyQueue
+	// ReverifyQueue returns queue for pieces that need audit reverification
+	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
 	// OIDC returns the database for OIDC resources.
@@ -135,9 +145,11 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact    contact.Config
-	Overlay    overlay.Config
-	StrayNodes straynodes.Config
+	Contact      contact.Config
+	Overlay      overlay.Config
+	OfflineNodes offlinenodes.Config
+	NodeEvents   nodeevents.Config
+	StrayNodes   straynodes.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
@@ -148,7 +160,10 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	GarbageCollection gc.Config
+	GarbageCollection   sender.Config
+	GarbageCollectionBF bloomfilter.Config
+
+	RangedLoop rangedloop.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config

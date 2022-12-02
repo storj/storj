@@ -58,8 +58,12 @@ func TestHeavyLockContention(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		config := reputation.Config{
-			AuditLambda: 1,
-			AuditWeight: 1,
+			AuditLambda:        1,
+			AuditWeight:        1,
+			InitialAlpha:       1000,
+			InitialBeta:        0,
+			UnknownAuditDQ:     0.6,
+			UnknownAuditLambda: 0.95,
 			AuditHistory: reputation.AuditHistoryConfig{
 				WindowSize:     windowSize,
 				TrackingPeriod: 1 * time.Hour,
@@ -137,8 +141,12 @@ func TestFetchingInfoWhileEntryIsSyncing(t *testing.T) {
 
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		config := reputation.Config{
-			AuditLambda: 1,
-			AuditWeight: 1,
+			AuditLambda:        1,
+			AuditWeight:        1,
+			InitialAlpha:       1000,
+			InitialBeta:        0,
+			UnknownAuditDQ:     0.6,
+			UnknownAuditLambda: 0.95,
 			AuditHistory: reputation.AuditHistoryConfig{
 				WindowSize:     windowSize,
 				TrackingPeriod: 1 * time.Hour,

@@ -3,35 +3,35 @@
 
 <template>
     <div class="account-billing-area">
-        <div v-if="isNewBillingScreen">
+        <div v-if="isNewBillingScreen" class="account-billing-area__header__div">
             <div class="account-billing-area__title">
                 <h1 class="account-billing-area__title__text">Billing</h1>
             </div>
             <div class="account-billing-area__header">
-                <div 
-                    :class="`account-billing-area__header__tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
-                    @click="routeToOverview"    
+                <div
+                    :class="`account-billing-area__header__tab first-header-tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                    @click="routeToOverview"
                 >
                     <p>Overview</p>
                 </div>
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
                     @click="routeToPaymentMethods"
                 >
                     <p>Payment Methods</p>
                 </div>
-                <div 
+                <div
                     :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
                     @click="routeToBillingHistory"
                 >
                     <p>Billing History</p>
                 </div>
-                <div 
-                    :class="`account-billing-area__header__tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                <div
+                    :class="`account-billing-area__header__tab last-header-tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
                     @click="routeToCoupons"
                 >
                     <p>Coupons</p>
-                </div>      
+                </div>
             </div>
             <div class="account-billing-area__divider" />
         </div>
@@ -89,7 +89,14 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AccountBalance } from '@/types/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
@@ -102,13 +109,6 @@ import ExpandIcon from '@/../static/images/account/billing/expand.svg';
 import HideIcon from '@/../static/images/account/billing/hide.svg';
 import LowBalanceIcon from '@/../static/images/account/billing/lowBalance.svg';
 import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBalance.svg';
-
-
-
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AccountBalance } from '@/types/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 // @vue/component
 @Component({
@@ -129,6 +129,8 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 export default class BillingArea extends Vue {
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
     public isBalanceFetching = true;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Mounted lifecycle hook after initial render.
@@ -235,19 +237,35 @@ export default class BillingArea extends Vue {
      * Routes for new billing screens.
      */
     public routeToOverview(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+        const overviewPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+        if (this.$route.path !== overviewPath) {
+            this.analytics.pageVisit(overviewPath);
+            this.$router.push(overviewPath);
+        }
     }
 
     public routeToPaymentMethods(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+        const payMethodsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+        if (this.$route.path !== payMethodsPath) {
+            this.analytics.pageVisit(payMethodsPath);
+            this.$router.push(payMethodsPath);
+        }
     }
 
     public routeToBillingHistory(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+        const billingPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
+        if (this.$route.path !== billingPath) {
+            this.analytics.pageVisit(billingPath);
+            this.$router.push(billingPath);
+        }
     }
 
     public routeToCoupons(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path);
+        const couponsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+        if (this.$route.path !== couponsPath) {
+            this.analytics.pageVisit(couponsPath);
+            this.$router.push(couponsPath);
+        }
     }
 
     /**
@@ -255,7 +273,7 @@ export default class BillingArea extends Vue {
      */
     public get isNewBillingScreen(): boolean {
         const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === "true";
+        return isNewBillingScreen === 'true';
     }
 
 }
@@ -368,14 +386,27 @@ export default class BillingArea extends Vue {
             align-content: center;
             justify-content: space-between;
             padding-top: 25px;
+            overflow-y: auto;
+
+            /* Hide scrollbar for IE, Edge and Firefox */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+
+            /* Hide scrollbar for Chrome, Safari and Opera */
+
+            &::-webkit-scrollbar {
+                display: none;
+            }
 
             &__tab {
                 font-family: sans-serif;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-size: 16px;
                 height: auto;
                 width: auto;
                 transition-duration: 50ms;
+                white-space: nowrap;
+                padding: 0 8px;
             }
 
             &__tab:hover {
@@ -466,5 +497,25 @@ export default class BillingArea extends Vue {
     .icon {
         min-width: 14px;
         margin-left: 10px;
+    }
+
+    @media only screen and (max-width: 625px) {
+
+        .account-billing-area__header__div {
+            margin-right: -24px;
+            margin-left: -24px;
+        }
+
+        .account-billing-area__title {
+            margin-left: 24px;
+        }
+
+        .first-header-tab {
+            margin-left: 24px;
+        }
+
+        .last-header-tab {
+            margin-right: 24px;
+        }
     }
 </style>

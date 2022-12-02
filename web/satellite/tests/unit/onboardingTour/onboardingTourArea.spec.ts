@@ -2,16 +2,16 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../mock/api/projects';
+import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -21,7 +21,7 @@ const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsHttpApi();
 const paymentsModule = makePaymentsModule(paymentsApi);
 
-const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, paymentsModule } });
 
 describe('OnboardingTourArea.vue', () => {
     it('renders correctly', (): void => {

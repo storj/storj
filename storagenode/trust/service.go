@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -49,7 +50,7 @@ func Dialer(dialer rpc.Dialer) IdentityResolver {
 	return IdentityResolverFunc(func(ctx context.Context, url storj.NodeURL) (_ *identity.PeerIdentity, err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		conn, err := dialer.DialNodeURL(ctx, url)
+		conn, err := dialer.DialNodeURL(rpcpool.WithForceDial(ctx), url)
 		if err != nil {
 			return nil, err
 		}

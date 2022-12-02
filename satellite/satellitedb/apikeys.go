@@ -34,8 +34,12 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		cursor.Limit = 50
 	}
 
+	if cursor.Limit == 0 {
+		return nil, console.ErrAPIKeyRequest.New("limit cannot be 0")
+	}
+
 	if cursor.Page == 0 {
-		return nil, errs.New("page cannot be 0")
+		return nil, console.ErrAPIKeyRequest.New("page cannot be 0")
 	}
 
 	page := &console.APIKeyPage{
@@ -66,7 +70,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		return page, nil
 	}
 	if page.Offset > page.TotalCount-1 {
-		return nil, errs.New("page is out of range")
+		return nil, console.ErrAPIKeyRequest.New("page is out of range")
 	}
 
 	repoundQuery := keys.db.Rebind(`

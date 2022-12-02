@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -23,6 +24,7 @@ func TestDQStrayNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.StrayNodes.MaxDurationWithoutContact = 24 * time.Hour
+				config.Overlay.SendNodeEmails = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -33,7 +35,7 @@ func TestDQStrayNodes(t *testing.T) {
 		sat.Overlay.DQStrayNodes.Loop.Pause()
 
 		cache := planet.Satellites[0].Overlay.DB
-
+		email := "test@storj.test"
 		strayInfo, err := cache.Get(ctx, strayNode.ID())
 		require.NoError(t, err)
 		require.Nil(t, strayInfo.Disqualified)
@@ -50,12 +52,20 @@ func TestDQStrayNodes(t *testing.T) {
 				Timestamp:  time.Time{},
 				Release:    false,
 			},
+			Operator: &pb.NodeOperator{
+				Email: email,
+			},
 		}
 
 		// set strayNode last_contact_success to 48 hours ago
 		require.NoError(t, sat.Overlay.DB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-48*time.Hour), sat.Config.Overlay.Node))
 
 		sat.Overlay.DQStrayNodes.Loop.TriggerWait()
+
+		ne, err := sat.DB.NodeEvents().GetLatestByEmailAndEvent(ctx, email, nodeevents.Disqualified)
+		require.NoError(t, err)
+		require.Equal(t, email, ne.Email)
+		require.Equal(t, strayNode.ID(), ne.NodeID)
 
 		strayInfo, err = cache.Get(ctx, strayNode.ID())
 		require.NoError(t, err)

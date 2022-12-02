@@ -23,6 +23,8 @@ var (
 	ErrObjectAlreadyExists = errs.Class("object already exists")
 	// ErrPendingObjectMissing is used to indicate a pending object is no longer accessible.
 	ErrPendingObjectMissing = errs.Class("pending object missing")
+	// ErrPermissionDenied general error for denying permission.
+	ErrPermissionDenied = errs.Class("permission denied")
 )
 
 // Common constants for segment keys.
@@ -464,4 +466,15 @@ func (p Pieces) Update(piecesToAdd, piecesToRemove Pieces) (Pieces, error) {
 	sort.Sort(newPieces)
 
 	return newPieces, nil
+}
+
+// FindByNum finds a piece among the Pieces with the given piece number.
+// If no such piece is found, `found` will be returned false.
+func (p Pieces) FindByNum(pieceNum int) (_ Piece, found bool) {
+	for _, piece := range p {
+		if int(piece.Number) == pieceNum {
+			return piece, true
+		}
+	}
+	return Piece{}, false
 }

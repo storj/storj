@@ -2,8 +2,9 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
-import { newNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
+import { newNodeModule, NODE_ACTIONS, NODE_MUTATIONS, QUIC_STATUS, StatusOnline } from '@/app/store/modules/node';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import {
@@ -19,7 +20,6 @@ import {
     SatelliteScores,
     Stamp, Traffic,
 } from '@/storagenode/sno/sno';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 
@@ -53,8 +53,9 @@ describe('mutations', () => {
             '0.1.1',
             '0.2.2',
             false,
-            true,
+            QUIC_STATUS.StatusOk,
             '13000',
+            new Date(2022, 11, 8),
         );
 
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);
@@ -102,15 +103,15 @@ describe('mutations', () => {
     it('selects all satellites', () => {
         const satelliteInfo = new Satellites();
         satelliteInfo.satellitesScores = [
-            new SatelliteScores('name1', 0.7, 0.9, 1),
-            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+            new SatelliteScores('name1', 0.97, 0.97, 1),
+            new SatelliteScores('name1', 0.98, 0.98, 0.98),
         ];
 
         store.commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, satelliteInfo);
 
         expect(state.node.selectedSatellite.id).toBe('');
         expect(state.node.satellitesScores.length).toBe(satelliteInfo.satellitesScores.length);
-        expect(state.node.satellitesScores[0].auditScore.label).toBe('70 %');
+        expect(state.node.satellitesScores[0].auditScore.label).toBe('97 %');
         expect(state.node.satellitesScores[0].iconClassName).toBe('warning');
     });
 
@@ -193,8 +194,9 @@ describe('actions', () => {
                     '0.1.1',
                     '0.2.2',
                     false,
-                    true,
+                    QUIC_STATUS.StatusOk,
                     '13000',
+                    new Date(2022, 11, 8),
                 ),
             ),
         );
@@ -281,8 +283,8 @@ describe('actions', () => {
     it('success fetch all satellites info', async () => {
         const satellitesInfo = new Satellites();
         satellitesInfo.satellitesScores = [
-            new SatelliteScores('name1', 0.7, 0.9, 1),
-            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+            new SatelliteScores('name1', 0.97, 0.9, 1),
+            new SatelliteScores('name1', 0.98, 0.98, 0.98),
         ];
 
         jest.spyOn(nodeApi, 'satellites').mockReturnValue(
@@ -295,7 +297,7 @@ describe('actions', () => {
         expect(state.node.satellitesScores.length).toBe(satellitesInfo.satellitesScores.length);
         expect(state.node.satellitesScores[0].onlineScore.label).toBe('100 %');
         expect(state.node.satellitesScores[0].auditScore.statusClassName).toBe('warning');
-        expect(state.node.satellitesScores[1].auditScore.label).toBe('80 %');
+        expect(state.node.satellitesScores[1].auditScore.label).toBe('98 %');
     });
 });
 
@@ -339,8 +341,9 @@ describe('getters', () => {
             '0.1.1',
             '0.2.2',
             false,
-            true,
+            QUIC_STATUS.StatusOk,
             '13000',
+            new Date(2022, 11, 8),
         );
 
         store.commit(NODE_MUTATIONS.POPULATE_STORE, dashboardInfo);

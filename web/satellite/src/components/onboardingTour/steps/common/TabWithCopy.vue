@@ -20,9 +20,9 @@ import CopyIcon from '@/../static/images/common/copy.svg';
     },
 })
 export default class TabWithCopy extends Vue {
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly value: string;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly ariaRoleDescription: string;
 
     /**

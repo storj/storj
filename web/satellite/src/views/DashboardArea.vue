@@ -14,31 +14,60 @@
                     class="dashboard__wrap__main-area__content-wrap"
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <div class="bars">
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                        <ProjectInfoBar v-if="isProjectListPage" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                    <UpgradeNotification
+                        v-if="isPaidTierBannerShown && abTestValues.hasNewUpgradeBanner"
+                        :open-add-p-m-modal="togglePMModal"
+                    />
+                    <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
+                        <div class="bars">
+                            <BetaSatBar v-if="isBetaSatellite" />
+                            <PaidTierBar
+                                v-if="isPaidTierBannerShown && !abTestValues.hasNewUpgradeBanner"
+                                :open-add-p-m-modal="togglePMModal"
+                            />
+                            <ProjectInfoBar v-if="isProjectListPage" />
+                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                        </div>
+                        <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                     </div>
-                    <router-view class="dashboard__wrap__main-area__content-wrap__content" />
+                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
             </div>
         </div>
+        <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
+            <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
+        </div>
+        <InactivityModal
+            v-if="inactivityModalShown"
+            :on-continue="refreshSession"
+            :on-logout="handleInactive"
+            :on-close="closeInactivityModal"
+            :initial-seconds="inactivityModalTime / 1000"
+        />
+        <v-banner
+            v-if="limitState.isShown && !isLoading"
+            :severity="limitState.severity"
+            :on-click="() => isLimitModalShown = true"
+            :dashboard-ref="$refs.dashboardContent"
+        >
+            <template #text>
+                <p class="medium">{{ limitState.label }}</p>
+                <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+            </template>
+        </v-banner>
+        <limit-warning-modal
+            v-if="isLimitModalShown && !isLoading"
+            :severity="limitState.severity"
+            :on-close="() => isLimitModalShown = false"
+            :title="limitState.modalTitle"
+            :on-upgrade="togglePMModal"
+        />
         <AllModals />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
-import AllModals from "@/components/modals/AllModals.vue";
-import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
-import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
-import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
-
-import LoaderImage from '@/../static/images/common/loader.svg';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -50,15 +79,31 @@ import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { User } from "@/types/users";
-import { AuthHttpApi } from "@/api/auth";
-import { MetaUtils } from "@/utils/meta";
-
+import { User } from '@/types/users';
+import { AuthHttpApi } from '@/api/auth';
+import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import MobileNavigation from "@/components/navigation/MobileNavigation.vue";
+import eventBus from '@/utils/eventBus';
+import { ABTestValues } from '@/types/abtesting';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+
+import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
+import BillingNotification from '@/components/notifications/BillingNotification.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import InactivityModal from '@/components/modals/InactivityModal.vue';
+import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
+import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
+import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
+import AllModals from '@/components/modals/AllModals.vue';
+import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
+import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
+import VBanner from '@/components/common/VBanner.vue';
+import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
+
+import LoaderImage from '@/../static/images/common/loader.svg';
 
 const {
     SETUP_ACCOUNT,
@@ -76,27 +121,124 @@ const {
         MFARecoveryCodeBar,
         BetaSatBar,
         ProjectInfoBar,
+        BillingNotification,
+        UpgradeNotification,
+        InactivityModal,
+        LimitWarningModal,
+        VBanner,
     },
 })
 export default class DashboardArea extends Vue {
-    // List of DOM events that resets inactivity timer.
-    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
     private readonly auth: AuthHttpApi = new AuthHttpApi();
-    private inactivityTimerId: ReturnType<typeof setTimeout>;
+
+    // Properties concerning session refreshing, inactivity notification, and automatic logout
+    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+    private readonly sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
+    private inactivityTimerId: ReturnType<typeof setTimeout> | null;
+    private inactivityModalShown = false;
+    private inactivityModalTime = 60000;
+    private ACTIVITY_REFRESH_TIME_LIMIT = 180000;
+    private sessionRefreshInterval: number = this.sessionDuration/2;
+    private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
+    private isSessionActive = false;
+    private isSessionRefreshing = false;
+    public isLimitModalShown = false;
+
+    // Properties concerning the session timer popup used for debugging
+    private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
+    private debugTimerText = '';
+    private debugTimerId: ReturnType<typeof setTimeout> | null;
+
     // Minimum number of recovery codes before the recovery code warning bar is shown.
     public recoveryCodeWarningThreshold = 4;
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
+     * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+     */
+    public get limitState(): { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string } {
+        if (this.$store.state.usersModule.user.paidTier) return { isShown: false };
+
+        const EIGHTY_PERCENT = 80;
+        const HUNDRED_PERCENT = 100;
+
+        const result: { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string  } = { isShown: false, label: '' };
+        const { currentLimits } = this.$store.state.projectsModule;
+
+        const bandwidthUsedPercent = Math.round(currentLimits.bandwidthUsed * HUNDRED_PERCENT / currentLimits.bandwidthLimit);
+        const storageUsedPercent = Math.round(currentLimits.storageUsed * HUNDRED_PERCENT / currentLimits.storageLimit);
+
+        const isLimitHigh = bandwidthUsedPercent >= EIGHTY_PERCENT || storageUsedPercent >= EIGHTY_PERCENT;
+        const isLimitCritical = bandwidthUsedPercent === HUNDRED_PERCENT || storageUsedPercent === HUNDRED_PERCENT;
+
+        if (isLimitHigh) {
+            result.isShown = true;
+            result.severity = isLimitCritical ? 'critical' : 'warning';
+
+            if (bandwidthUsedPercent > storageUsedPercent) {
+                result.label = bandwidthUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the bandwidth limit for your project. Avoid any service interruptions.'
+                    : `You’ve used ${bandwidthUsedPercent}% of your bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${bandwidthUsedPercent}% of your free account bandwidth`;
+            } else if (bandwidthUsedPercent < storageUsedPercent) {
+                result.label = storageUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the storage limit for your project. Avoid any service interruptions.'
+                    : `You’ve used ${storageUsedPercent}% of your storage limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${storageUsedPercent}% of your free account storage`;
+            } else {
+                result.label = storageUsedPercent === HUNDRED_PERCENT && bandwidthUsedPercent === HUNDRED_PERCENT ?
+                    'URGENT: You’ve reached the storage and bandwidth limits for your project. Avoid any service interruptions.'
+                    : `You’ve used ${storageUsedPercent}% of your storage and ${bandwidthUsedPercent}% of bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+                result.modalTitle = `You’ve used ${storageUsedPercent}% storage and ${bandwidthUsedPercent}%  of your free account bandwidth`;
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Subscribes to activity events to refresh session timers.
+     */
+    public created(): void {
+        eventBus.$on('upload_progress', () => {
+            this.resetSessionOnLogicRelatedActivity();
+        });
+    }
+
+    public beforeDestroy(): void {
+        eventBus.$off('upload_progress');
+    }
+
+    /**
      * Lifecycle hook after initial render.
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        this.setupInactivityTimers();
+        this.$store.subscribeAction((action) => {
+            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
+        });
+
+        if (LocalData.getBillingNotificationAcknowledged()) {
+            this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+        } else {
+            const unsub = this.$store.subscribe((action) => {
+                if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+                    LocalData.setBillingNotificationAcknowledged();
+                    unsub();
+                }
+            });
+        }
+
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
+            await this.$store.dispatch(AB_TESTING_ACTIONS.FETCH);
+            this.setupSessionTimers();
         } catch (error) {
+            this.$store.subscribeAction((action) => {
+                if (action.type == USER_ACTIONS.LOGIN) this.setupSessionTimers();
+            });
+
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 await this.$notify.error(error.message);
@@ -162,6 +304,28 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Used to trigger session timer update while doing not UI-related work for a long time.
+     */
+    public async resetSessionOnLogicRelatedActivity(): Promise<void> {
+        const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+        if (!isInactivityTimerEnabled) {
+            return;
+        }
+
+        const expiresAt = LocalData.getSessionExpirationDate();
+
+        if (expiresAt) {
+            const ms = Math.max(0, expiresAt.getTime() - Date.now());
+
+            // Isn't triggered when decent amount of session time is left.
+            if (ms < this.ACTIVITY_REFRESH_TIME_LIMIT) {
+                await this.refreshSession();
+            }
+        }
+    }
+
+    /**
      * Generates new MFA recovery codes and toggles popup visibility.
      */
     public async generateNewMFARecoveryCodes(): Promise<void> {
@@ -184,7 +348,15 @@ export default class DashboardArea extends Vue {
      * Opens add payment method modal.
      */
     public togglePMModal(): void {
+        this.isLimitModalShown = false;
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Disables session inactivity modal visibility.
+     */
+    public closeInactivityModal(): void {
+        this.inactivityModalShown = false;
     }
 
     /**
@@ -212,6 +384,15 @@ export default class DashboardArea extends Vue {
     private storeProject(projectID: string): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
+    }
+
+    public get abTestValues(): ABTestValues {
+        return this.$store.state.abTestingModule.abTestValues;
+    }
+
+    /* whether the paid tier banner should be shown */
+    public get isPaidTierBannerShown(): boolean {
+        return !this.$store.state.usersModule.user.paidTier && !this.isOnboardingTour;
     }
 
     /**
@@ -265,6 +446,13 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates whether the billing relocation notification should be shown.
+     */
+    public get isBillingNotificationShown(): boolean {
+        return this.$store.state.appStateModule.appState.isBillingNotificationShown;
+    }
+
+    /**
      * Indicates if current route is create project page.
      */
     private get isCreateProjectPage(): boolean {
@@ -272,52 +460,130 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Sets up timer id with given delay.
+     * Refreshes session and resets session timers.
      */
-    private startInactivityTimer(): void {
-        const inactivityTimerDelayInSeconds = MetaUtils.getMetaContent('inactivity-timer-delay');
+    private async refreshSession(): Promise<void> {
+        this.isSessionRefreshing = true;
 
-        this.inactivityTimerId = setTimeout(this.handleInactive, parseInt(inactivityTimerDelayInSeconds) * 1000);
+        try {
+            LocalData.setSessionExpirationDate(await this.auth.refreshSession());
+        } catch (error) {
+            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message);
+            await this.handleInactive();
+            this.isSessionRefreshing = false;
+            return;
+        }
+
+        this.clearSessionTimers();
+        this.restartSessionTimers();
+        this.inactivityModalShown = false;
+        this.isSessionActive = false;
+        this.isSessionRefreshing = false;
     }
 
     /**
-     * Performs logout and cleans event listeners.
+     * Performs logout and cleans event listeners and session timers.
      */
     private async handleInactive(): Promise<void> {
+        this.analytics.pageVisit(RouteConfig.Login.path);
+        await this.$router.push(RouteConfig.Login.path);
+
+        this.resetActivityEvents.forEach((eventName: string) => {
+            document.removeEventListener(eventName, this.onSessionActivity);
+        });
+        this.clearSessionTimers();
+        this.inactivityModalShown = false;
+
         try {
             await this.auth.logout();
-            this.resetActivityEvents.forEach((eventName: string) => {
-                document.removeEventListener(eventName, this.resetInactivityTimer);
-            });
-            this.analytics.pageVisit(RouteConfig.Login.path);
-            await this.$router.push(RouteConfig.Login.path);
-            await this.$notify.notify('Your session was timed out.');
         } catch (error) {
+            if (error instanceof ErrorUnauthorized) return;
+
             await this.$notify.error(error.message);
         }
     }
 
     /**
-     * Resets inactivity timer.
+     * Resets inactivity timer and refreshes session if necessary.
      */
-    private resetInactivityTimer(): void {
-        clearTimeout(this.inactivityTimerId);
-        this.startInactivityTimer();
+    private async onSessionActivity(): Promise<void> {
+        if (this.inactivityModalShown || this.isSessionActive) return;
+
+        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
+            await this.refreshSession();
+        }
+        this.isSessionActive = true;
     }
 
     /**
-     * Adds DOM event listeners and starts timer.
+     * Adds DOM event listeners and starts session timers.
      */
-    private setupInactivityTimers(): void {
+    private setupSessionTimers(): void {
         const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
 
         if (isInactivityTimerEnabled === 'false') return;
 
-        this.resetActivityEvents.forEach((eventName: string) => {
-            document.addEventListener(eventName, this.resetInactivityTimer, false);
-        });
+        const expiresAt = LocalData.getSessionExpirationDate();
 
-        this.startInactivityTimer();
+        if (expiresAt) {
+            this.resetActivityEvents.forEach((eventName: string) => {
+                document.addEventListener(eventName, this.onSessionActivity, false);
+            });
+
+            if (expiresAt.getTime() - this.sessionDuration + this.sessionRefreshInterval < Date.now()) {
+                this.refreshSession();
+            }
+
+            this.restartSessionTimers();
+        }
+    }
+
+    /**
+     * Restarts timers associated with session refreshing and inactivity.
+     */
+    private restartSessionTimers(): void {
+        this.sessionRefreshTimerId = setTimeout(async () => {
+            this.sessionRefreshTimerId = null;
+            if (this.isSessionActive) {
+                await this.refreshSession();
+            }
+        }, this.sessionRefreshInterval);
+
+        this.inactivityTimerId = setTimeout(() => {
+            if (this.isSessionActive) return;
+            this.inactivityModalShown = true;
+            this.inactivityTimerId = setTimeout(async () => {
+                this.handleInactive();
+                await this.$notify.notify('Your session was timed out.');
+            }, this.inactivityModalTime);
+        }, this.sessionDuration - this.inactivityModalTime);
+
+        if (!this.debugTimerShown) return;
+
+        const debugTimer = () => {
+            const expiresAt = LocalData.getSessionExpirationDate();
+
+            if (expiresAt) {
+                const ms = Math.max(0, expiresAt.getTime() - Date.now());
+                const secs = Math.floor(ms/1000)%60;
+
+                this.debugTimerText = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
+
+                if (ms > 1000) {
+                    this.debugTimerId = setTimeout(debugTimer, 1000);
+                }
+            }
+        };
+        debugTimer();
+    }
+
+    /**
+     * Clears timers associated with session refreshing and inactivity.
+     */
+    private clearSessionTimers(): void {
+        [this.inactivityTimerId, this.sessionRefreshTimerId, this.debugTimerId].forEach(id => {
+            if (id != null) clearTimeout(id);
+        });
     }
 }
 </script>
@@ -370,17 +636,40 @@ export default class DashboardArea extends Vue {
 
                 &__content-wrap {
                     width: 100%;
-                    height: 95vh;
-                    box-sizing: border-box;
-                    overflow-y: auto;
-                    padding-bottom: 60px;
+                    height: 100%;
+                    min-width: 0;
 
-                    &__content {
-                        max-width: 1200px;
-                        margin: 0 auto;
-                        padding: 48px 48px 60px;
+                    &__container {
+                        height: 100%;
+                        overflow-y: auto;
+
+                        &__content {
+                            max-width: 1200px;
+                            margin: 0 auto;
+                            padding: 48px 48px 60px;
+                        }
                     }
                 }
+            }
+        }
+
+        &__debug-timer {
+            display: flex;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px;
+            z-index: 10000;
+            background-color: #fec;
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            border: 1px solid var(--c-yellow-2);
+            border-radius: 10px;
+            box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
+
+            &__bold {
+                font-family: 'font_medium', sans-serif;
             }
         }
     }
@@ -410,7 +699,7 @@ export default class DashboardArea extends Vue {
 
     @media screen and (max-width: 800px) {
 
-        .dashboard__wrap__main-area__content-wrap__content {
+        .dashboard__wrap__main-area__content-wrap__container__content {
             padding: 32px 24px 50px;
         }
     }
@@ -421,8 +710,12 @@ export default class DashboardArea extends Vue {
             flex-direction: column;
 
             &__content-wrap {
-                box-sizing: border-box;
-                width: 100%;
+                height: calc(100% - 4rem);
+
+                &__container {
+                    height: 100%;
+                    margin-bottom: 0;
+                }
             }
 
             &__navigation {

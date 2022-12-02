@@ -35,16 +35,16 @@ export default class PaymentsHistoryItemDate extends Vue {
     /**
      * expiration date.
      */
-    @Prop({default: () => new Date()})
+    @Prop({ default: () => new Date() })
     private readonly expiration: Date;
     /**
      * creation date.
      */
-    @Prop({default: () => new Date()})
+    @Prop({ default: () => new Date() })
     private readonly start: Date;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly type: PaymentsHistoryItemType;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly status: PaymentsHistoryItemStatus;
 
     private expirationTimeInSeconds: number;

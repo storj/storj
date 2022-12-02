@@ -32,7 +32,7 @@
                         </span>
                     </div>
                 </div>
-                <div 
+                <div
                     class="coupon-area__container__new-coupon"
                     @click="toggleCreateModal"
                 >
@@ -42,10 +42,6 @@
                     </div>
                 </div>
             </div>
-            <AddCoupon2 
-                v-if="showCreateCode"
-                @toggleMethod="toggleCreateModal"
-            />
         </div>
     </div>
 </template>
@@ -53,24 +49,24 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from '@/components/common/VLoader.vue';
-
-import AddCoupon2 from '@/components/account/billing/coupons/AddCouponCode2.vue'
-
-import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 // @vue/component
 @Component({
     components: {
         VLoader,
-        AddCoupon2,
     },
 })
 export default class Coupons extends Vue {
     public isCouponFetching = true;
-    public showCreateCode = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -89,15 +85,9 @@ export default class Coupons extends Vue {
     /**
      * Opens Add Coupon modal.
      */
-    public onCreateClick(): void {
-        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
-    }
-
-    /**
-     * Opens Add Coupon modal.
-     */
     public toggleCreateModal(): void {
-        this.showCreateCode = !this.showCreateCode
+        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_BILLING_ADD_COUPON_MODAL_SHOWN);
     }
 
     /**
@@ -130,7 +120,7 @@ export default class Coupons extends Vue {
             return '';
         }
 
-        const today = new Date()
+        const today = new Date();
         if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
             return 'active';
         } else {
@@ -147,9 +137,9 @@ export default class Coupons extends Vue {
         }
 
         switch (this.coupon.duration) {
-        case "once":
+        case 'once':
             return 'Expires after first use';
-        case "forever":
+        case 'forever':
             return 'No expiration';
         default:
             return this.expiration;
@@ -161,8 +151,8 @@ export default class Coupons extends Vue {
 
 <style scoped lang="scss">
     .active-discount {
-        background: #dffff7;
-        color: #00ac26;
+        background: var(--c-green-1);
+        color: var(--c-green-5);
     }
 
     .inactive-discount {
@@ -171,7 +161,7 @@ export default class Coupons extends Vue {
     }
 
     .active-status {
-        background: #00ac26;
+        background: var(--c-green-5);
     }
 
     .inactive-status {
@@ -188,7 +178,7 @@ export default class Coupons extends Vue {
 
         &__container {
             display: flex;
-            flex-wrap: wrap;
+            gap: 10px;
 
             &__existing-coupons {
                 border-radius: 10px;
@@ -201,7 +191,6 @@ export default class Coupons extends Vue {
                 display: grid;
                 grid-template-columns: 4fr 1fr;
                 grid-template-rows: 2fr 1fr 1fr;
-                margin: 0 10px 10px 0;
                 padding: 20px;
                 box-shadow: 0 0 20px rgb(0 0 0 / 4%);
                 background: #fff;
@@ -271,7 +260,7 @@ export default class Coupons extends Vue {
             }
 
             &__new-coupon {
-                border: 2px dashed #929fb1;
+                border: 2px dashed var(--c-grey-5);
                 border-radius: 10px;
                 max-width: 400px;
                 width: 18vw;
@@ -291,18 +280,39 @@ export default class Coupons extends Vue {
                     justify-content: center;
 
                     &__plus-icon {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                         font-family: sans-serif;
                         font-size: 24px;
                     }
 
                     &__text {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                         font-family: sans-serif;
                         font-size: 18px;
                         text-decoration: underline;
                     }
                 }
+            }
+        }
+    }
+
+    @media only screen and (max-width: 768px) {
+
+        .coupon-area__container {
+            flex-direction: column;
+
+            &__existing-coupons {
+                max-width: unset;
+                width: 90%;
+
+                &__discount-black-container {
+                    margin-top: 24px;
+                }
+            }
+
+            &__new-coupon {
+                max-width: 100%;
+                width: 90%;
             }
         }
     }

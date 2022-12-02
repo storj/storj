@@ -28,9 +28,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SingleInfo from '@/app/components/payments/SingleInfo.vue';
-
 import { TotalPayments } from '@/storagenode/payouts/payouts';
+
+import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
 // @vue/component
 @Component({

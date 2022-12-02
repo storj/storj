@@ -3,7 +3,7 @@
 
 <template>
     <div class="encrypt-container">
-        <bucket-icon />
+        <bucket-icon class="bucket-icon" />
         <div v-if="generationStep === GenerationSteps.TypeSelection" class="encrypt-container__functional">
             <div class="encrypt-container__functional__header">
                 <p class="encrypt-container__functional__header__title" aria-roledescription="title">
@@ -72,7 +72,7 @@
                     placeholder="Enter a passphrase here..."
                     :error="enterError"
                     role-description="passphrase"
-                    is-password="true"
+                    is-password
                     :disabled="isLoading"
                     @setData="setPassphrase"
                 />
@@ -86,7 +86,7 @@
         </div>
         <div class="encrypt-container__buttons">
             <v-button
-                class="encrypt-container__buttons__back"
+                class="encrypt-container__buttons__back button"
                 label="Back"
                 height="48px"
                 width="45%"
@@ -96,6 +96,7 @@
             />
             <v-button
                 v-if="generationStep === GenerationSteps.TypeSelection"
+                class="button"
                 height="48px"
                 width="45%"
                 label="Continue"
@@ -103,6 +104,7 @@
             />
             <v-button
                 v-else
+                class="button"
                 label="Continue"
                 height="48px"
                 width="45%"
@@ -115,17 +117,17 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
-import { Download } from "@/utils/download";
+import { Download } from '@/utils/download';
 
 import VButton from '@/components/common/VButton.vue';
-import VInput from "@/components/common/VInput.vue";
-import VCheckbox from "@/components/common/VCheckbox.vue";
+import VInput from '@/components/common/VInput.vue';
+import VCheckbox from '@/components/common/VCheckbox.vue';
 
-import BucketIcon from "@/../static/images/objects/bucketCreation.svg";
-import KeyIcon from "@/../static/images/objects/key.svg";
-import FingerprintIcon from "@/../static/images/objects/fingerprint.svg";
+import BucketIcon from '@/../static/images/objects/bucketCreation.svg';
+import KeyIcon from '@/../static/images/objects/key.svg';
+import FingerprintIcon from '@/../static/images/objects/fingerprint.svg';
 
 enum GenerationSteps {
     TypeSelection,
@@ -237,7 +239,7 @@ export default class GeneratePassphrase extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 .encrypt-container {
     font-family: 'font_regular', sans-serif;
     padding: 60px 60px 50px;
@@ -251,7 +253,7 @@ export default class GeneratePassphrase extends Vue {
     align-items: center;
 
     &__functional {
-        padding: 20px 0;
+        margin-top: 20px;
 
         &__header {
             display: flex;
@@ -282,9 +284,10 @@ export default class GeneratePassphrase extends Vue {
             align-items: center;
             justify-content: flex-start;
             padding: 20px 0;
+            cursor: pointer;
 
             &__radio {
-                color: #0149ff;
+                color: var(--c-blue-3);
             }
 
             &__icon {
@@ -294,7 +297,7 @@ export default class GeneratePassphrase extends Vue {
                 width: 40px;
                 height: 40px;
                 border-radius: 50%;
-                background: #e6edf7;
+                background: var(--c-blue-1);
                 margin: 0 8px;
 
                 svg {
@@ -330,7 +333,7 @@ export default class GeneratePassphrase extends Vue {
             &__divider {
                 height: 1px;
                 width: 100%;
-                background: #c8d3de;
+                background: var(--c-grey-4);
             }
         }
 
@@ -400,7 +403,46 @@ export default class GeneratePassphrase extends Vue {
 @media screen and (max-width: 760px) {
 
     .encrypt-container {
-        width: 200px;
+        padding: 40px 32px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+
+    .encrypt-container {
+
+        &__functional__header {
+
+            &__title {
+                font-size: 1.715rem;
+                line-height: 2.215rem;
+            }
+
+            &__info {
+                font-size: 0.875rem;
+                line-height: 1.285rem;
+            }
+        }
+
+        &__buttons {
+            flex-direction: column-reverse;
+            margin-top: 25px;
+
+            .button {
+                width: 100% !important;
+
+                &:first-of-type {
+                    margin: 25px 0 0;
+                }
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 385px) {
+
+    .encrypt-container {
+        padding: 20px;
     }
 }
 </style>

@@ -3,42 +3,62 @@
 
 <template>
     <div>
-        <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
         <div class="file-browser">
             <FileBrowser />
         </div>
+        <info-notification v-if="isMultiplePassphraseNotificationShown">
+            <template #text>
+                <p class="medium">Do you know a bucket can have multiple passphrases?</p>
+                <p>If you don’t see the objects you’re looking for, <router-link class="link" :to="bucketsManagementPath">try opening the bucket again</router-link> with a different passphrase.</p>
+            </template>
+        </info-notification>
         <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { SignatureV4 } from "@aws-sdk/signature-v4";
-import { Sha256 } from "@aws-crypto/sha256-browser";
-import { HttpRequest, Credentials } from "@aws-sdk/types";
-
-import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
-import FileBrowser from '@/components/browser/FileBrowser.vue';
+import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
+import { Bucket } from '@/types/buckets';
+
+import FileBrowser from '@/components/browser/FileBrowser.vue';
+import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
+import InfoNotification from '@/components/common/InfoNotification.vue';
 
 // @vue/component
 @Component({
     components: {
+        InfoNotification,
         FileBrowser,
         UploadCancelPopup,
     },
 })
 export default class UploadFile extends Vue {
-    private credentials: EdgeCredentials;
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+    public readonly bucketsManagementPath: string = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
+
+    /**
+     * Indicates if we have objects in this bucket but not for inputted passphrase.
+     */
+    public get isMultiplePassphraseNotificationShown(): boolean {
+        const name: string = this.$store.state.files.bucket;
+        const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+
+        const objectCount: number = data?.objectCount || 0;
+        const ownObjects = this.$store.getters['files/sortedFiles'];
+
+        return objectCount > 0 && !ownObjects.length;
+    }
 
     /**
      * Lifecycle hook after vue instance was created.
@@ -49,51 +69,48 @@ export default class UploadFile extends Vue {
 
         this.setWorker();
 
-        this.credentials = this.$store.state.objectsModule.gatewayCredentials;
-
         this.$store.commit('files/init', {
-            endpoint: this.credentials.endpoint,
-            accessKey: this.credentials.accessKeyId,
-            secretKey: this.credentials.secretKey,
+            endpoint: this.edgeCredentials.endpoint,
+            accessKey: this.edgeCredentials.accessKeyId,
+            secretKey: this.edgeCredentials.secretKey,
             bucket: this.bucket,
             browserRoot: RouteConfig.Buckets.with(RouteConfig.UploadFile).path,
-            fetchObjectMap: this.fetchObjectMap,
-            fetchObjectPreview: this.fetchObjectPreview,
+            fetchPreviewAndMapUrl: this.generateObjectPreviewAndMapUrl,
             fetchSharedLink: this.generateShareLinkUrl,
         });
     }
 
-    /**
-     * Redirects to buckets list view.
-     */
-    public goToBuckets(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
-    }
-
-    /**
-     * Generates a URL for an object map.
-     */
-    public async fetchObjectMap(path: string): Promise<Blob | null> {
-        try {
-            return await this.getObjectViewOrMapBySignedRequest(path, true)
-        } catch (error) {
-            await this.$notify.error('Failed to fetch object map. Bandwidth limit may be exceeded');
-
-            return null
+    @Watch('edgeCredentials.secretKey')
+    public async reinit(): Promise<void> {
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            return;
         }
+
+        await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
+        await this.$store.commit('files/reinit', {
+            endpoint: this.edgeCredentials.endpoint,
+            accessKey: this.edgeCredentials.accessKeyId,
+            secretKey: this.edgeCredentials.secretKey,
+        });
+        await this.$store.dispatch('files/list', '');
     }
 
     /**
      * Generates a URL for an object map.
      */
-    public async fetchObjectPreview(path: string): Promise<Blob | null> {
-        try {
-            return await this.getObjectViewOrMapBySignedRequest(path, false)
-        } catch (error) {
-            await this.$notify.error('Failed to fetch object view. Bandwidth limit may be exceeded');
+    public async generateObjectPreviewAndMapUrl(path: string): Promise<string> {
+        path = `${this.bucket}/${path}`;
 
-            return null
+        try {
+            const creds: EdgeCredentials = await this.generateCredentials(this.apiKey, path, false);
+
+            path = encodeURIComponent(path.trim());
+
+            return `${this.linksharingURL}/s/${creds.accessKeyId}/${path}`;
+        } catch (error) {
+            await this.$notify.error(error.message);
+
+            return '';
         }
     }
 
@@ -132,80 +149,17 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Returns a URL for an object or a map.
+     * Generates share gateway credentials.
      */
-    private async getObjectViewOrMapBySignedRequest(path: string, isMap: boolean): Promise<Blob | null> {
-        path = `${this.bucket}/${path}`;
-        path = encodeURIComponent(path.trim());
-
-        const url = new URL(`${this.linksharingURL}/s/${this.credentials.accessKeyId}/${path}`)
-
-        let request: HttpRequest = {
-            method: 'GET',
-            protocol: url.protocol,
-            hostname: url.hostname,
-            port: parseFloat(url.port),
-            path: url.pathname,
-            headers: {
-                'host': url.host,
-            }
-        }
-
-        if (isMap) {
-            request = Object.assign(request, {query: { 'map': '1' }});
-        } else {
-            request = Object.assign(request, {query: { 'view': '1' }});
-        }
-
-        const signerCredentials: Credentials = {
-            accessKeyId: this.credentials.accessKeyId,
-            secretAccessKey: this.credentials.secretKey,
-        };
-
-        const signer = new SignatureV4({
-            applyChecksum: true,
-            uriEscapePath: false,
-            credentials: signerCredentials,
-            region: "eu1",
-            service: "linksharing",
-            sha256: Sha256,
-        });
-
-        let signedRequest: HttpRequest;
-        try {
-            signedRequest = await signer.sign(request);
-        } catch (error) {
-            await this.$notify.error(error.message);
-
-            return null;
-        }
-
-        let requestURL = `${this.linksharingURL}${signedRequest.path}`;
-        if (isMap) {
-            requestURL = `${requestURL}?map=1`;
-        } else {
-            requestURL = `${requestURL}?view=1`;
-        }
-
-        const response = await fetch(requestURL, signedRequest);
-        if (response.ok) {
-            return await response.blob();
-        }
-
-        return null;
-    }
-
-    /**
-     * Generates gateway credentials.
-     */
-    private async generateCredentials(cleanApiKey: string, path: string, isPublic: boolean): Promise<EdgeCredentials> {
+    private async generateCredentials(cleanApiKey: string, path: string, areEndless: boolean): Promise<EdgeCredentials> {
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': cleanApiKey,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
@@ -217,15 +171,24 @@ export default class UploadFile extends Vue {
             return new EdgeCredentials();
         }
 
-        this.worker.postMessage({
+        let permissionsMsg = {
             'type': 'RestrictGrant',
             'isDownload': true,
-            'isUpload': true,
+            'isUpload': false,
             'isList': true,
-            'isDelete': true,
+            'isDelete': false,
             'paths': [path],
             'grant': grantData.value,
-        });
+        };
+
+        if (!areEndless) {
+            const now = new Date();
+            const inOneDay = new Date(now.setDate(now.getDate() + 1));
+
+            permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': inOneDay.toISOString() });
+        }
+
+        this.worker.postMessage(permissionsMsg);
 
         const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         const data = event.data;
@@ -235,7 +198,7 @@ export default class UploadFile extends Vue {
             return new EdgeCredentials();
         }
 
-        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: data.value, isPublic});
+        return await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
     }
 
     /**
@@ -253,29 +216,36 @@ export default class UploadFile extends Vue {
     }
 
     /**
+     * Returns apiKey from store.
+     */
+    private get apiKey(): string {
+        return this.$store.state.objectsModule.apiKey;
+    }
+
+    /**
      * Returns bucket name from store.
      */
     private get bucket(): string {
         return this.$store.state.objectsModule.fileComponentBucketName;
     }
+
+    /**
+     * Returns edge credentials from store.
+     */
+    private get edgeCredentials(): EdgeCredentials {
+        return this.$store.state.objectsModule.gatewayCredentials;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
 }
 </script>
 
 <style scoped>
-    .back {
-        font-family: 'font_medium', sans-serif;
-        color: #000;
-        font-size: 20px;
-        cursor: pointer;
-        margin: 0 0 30px 15px;
-        display: inline-block;
-    }
-
-    .back:hover {
-        color: #007bff;
-        text-decoration: underline;
-    }
-
     .file-browser {
         font-family: 'font_regular', sans-serif;
         padding-bottom: 200px;

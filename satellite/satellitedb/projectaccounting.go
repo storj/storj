@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
@@ -18,6 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
 	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
@@ -266,6 +268,12 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 		storageRows, err := results.Query()
 		if err != nil {
+			if pgerrcode.FromError(err) == pgxerrcode.InvalidCatalogName {
+				// this error may happen if database is created in the last 5 minutes (`as of systemtime` points to a time before Genesis).
+				// in this case we can ignore the database not found error and return with no usage.
+				// if the database is really missing --> we have more serious problems than getting 0s from here.
+				return nil
+			}
 			return err
 		}
 
@@ -517,7 +525,7 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies.project_id = ? AND
 			bucket_storage_tallies.bucket_name = ? AND
 			bucket_storage_tallies.interval_start >= ? AND
-			bucket_storage_tallies.interval_start <= ?
+			bucket_storage_tallies.interval_start < ?
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
@@ -590,7 +598,7 @@ func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.
 		WHERE
 			project_id = ? AND
 			interval_start >= ? AND
-			interval_start <= ? AND
+			interval_start < ? AND
 			action = ?;
 	`)
 
@@ -1006,7 +1014,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 		FROM bucket_storage_tallies
 		WHERE project_id = ?
 		AND interval_start >= ?
-		AND interval_start <= ?`)
+		AND interval_start < ?`)
 	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
 	if err != nil {
 		return nil, err

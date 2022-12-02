@@ -31,7 +31,7 @@
                     width="50%"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
@@ -73,14 +73,14 @@
                     width="50%"
                     height="44px"
                     :on-press="onCancelClick"
-                    is-white="true"
+                    :is-white="true"
                     :is-disabled="isLoading"
                 />
                 <VButton
                     label="Delete Access"
                     width="50%"
                     height="44px"
-                    is-solid-delete="true"
+                    :is-solid-delete="true"
                     :on-press="onDeleteClick"
                     :is-disabled="isLoading"
                 />
@@ -95,22 +95,22 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { MetaUtils } from '@/utils/meta';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AccessGrant } from '@/types/accessGrants';
 
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AccessGrant } from '@/types/accessGrants';
-
 // @vue/component
 @Component({
     components: {
         VButton,
         CloseCrossIcon,
-        TrashIcon
+        TrashIcon,
     },
 })
 export default class ConfirmDeletePopup extends Vue {
@@ -152,10 +152,10 @@ export default class ConfirmDeletePopup extends Vue {
     }
     /**
      * Checks for new access grant flag
-     */ 
+     */
     public get isNewAccessGrantFlow(): boolean {
         const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
-        return isNewAccessGrantFlow === "true";
+        return isNewAccessGrantFlow === 'true';
     }
     /**
      * Returns list of selected access grants from store.

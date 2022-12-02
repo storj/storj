@@ -7,6 +7,17 @@
             <LogoIcon class="forgot-area__logo-wrapper__logo" @click="onLogoClick" />
         </div>
         <div class="forgot-area__content-area">
+            <div v-if="isMessageShowing && isPasswordResetExpired" class="forgot-area__content-area__message-banner">
+                <div class="forgot-area__content-area__message-banner__content">
+                    <div class="forgot-area__content-area__message-banner__content__left">
+                        <InfoIcon class="forgot-area__content-area__message-banner__content__left__icon" />
+                        <span class="forgot-area__content-area__message-banner__content__left__message">
+                            The password reset link you clicked on has expired. Request a new link.
+                        </span>
+                    </div>
+                    <CloseIcon class="forgot-area__content-area__message-banner__content__right" @click="closeMessage" />
+                </div>
+            </div>
             <div class="forgot-area__content-area__container">
                 <div class="forgot-area__content-area__container__title-area">
                     <h1 class="forgot-area__content-area__container__title-area__title">Reset Password</h1>
@@ -33,12 +44,40 @@
                         @setData="setEmail"
                     />
                 </div>
-                <p class="forgot-area__content-area__container__button" @click.prevent="onSendConfigurations">Reset Password</p>
-            </div>
-            <div class="forgot-area__content-area__login-container">
-                <router-link :to="loginPath" class="forgot-area__content-area__login-container__link">
-                    Back to Login
-                </router-link>
+                <VueRecaptcha
+                    v-if="recaptchaEnabled"
+                    ref="captcha"
+                    :sitekey="recaptchaSiteKey"
+                    :load-recaptcha-script="true"
+                    size="invisible"
+                    @verify="onCaptchaVerified"
+                    @error="onCaptchaError"
+                />
+                <VueHcaptcha
+                    v-else-if="hcaptchaEnabled"
+                    ref="captcha"
+                    :sitekey="hcaptchaSiteKey"
+                    :re-captcha-compat="false"
+                    size="invisible"
+                    @verify="onCaptchaVerified"
+                    @error="onCaptchaError"
+                />
+                <v-button
+                    class="forgot-area__content-area__container__button"
+                    width="100%"
+                    height="48px"
+                    label="Reset Password"
+                    border-radius="8px"
+                    :is-disabled="isLoading"
+                    :on-press="onSendConfigurations"
+                >
+                    Reset Password
+                </v-button>
+                <div class="forgot-area__content-area__container__login-container">
+                    <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
+                        Back to Login
+                    </router-link>
+                </div>
             </div>
         </div>
     </div>
@@ -46,33 +85,51 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-
-import VInput from '@/components/common/VInput.vue';
-
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
+import VueRecaptcha from 'vue-recaptcha';
+import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
 // @vue/component
 @Component({
     components: {
         VInput,
+        VButton,
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
+        InfoIcon,
+        CloseIcon,
+        VueRecaptcha,
+        VueHcaptcha,
     },
 })
 export default class ForgotPassword extends Vue {
     private email = '';
     private emailError = '';
+    private captchaResponseToken = '';
+    private isLoading = false;
+    private isPasswordResetExpired = false;
+    private isMessageShowing = true;
+
+    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
+    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
+    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
+    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -82,6 +139,21 @@ export default class ForgotPassword extends Vue {
     public isDropdownShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
+
+    public $refs!: {
+        captcha: VueRecaptcha | VueHcaptcha;
+    };
+
+    public mounted(): void {
+        this.isPasswordResetExpired = this.$route.query.expired === 'true';
+    }
+
+    /**
+     * Close the expiry message banner.
+     */
+    public closeMessage() {
+        this.isMessageShowing = false;
+    }
 
     /**
      * Sets the email field to the given value.
@@ -120,22 +192,46 @@ export default class ForgotPassword extends Vue {
     }
 
     /**
+     * Handles captcha verification response.
+     */
+    public onCaptchaVerified(response: string): void {
+        this.captchaResponseToken = response;
+        this.onSendConfigurations();
+    }
+
+    /**
+     * Handles captcha error.
+     */
+    public onCaptchaError(): void {
+        this.captchaResponseToken = '';
+        this.$notify.error('The captcha encountered an error. Please try again.');
+    }
+
+    /**
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
-        if (!this.validateFields()) {
+        if (this.isLoading || !this.validateFields()) {
             return;
         }
+
+        if (this.$refs.captcha && !this.captchaResponseToken) {
+            this.$refs.captcha.execute();
+            return;
+        }
+
+        this.isLoading = true;
 
         try {
-            await this.auth.forgotPassword(this.email);
+            await this.auth.forgotPassword(this.email, this.captchaResponseToken);
+            await this.$notify.success('Please look for instructions in your email');
         } catch (error) {
             await this.$notify.error(error.message);
-
-            return;
         }
 
-        await this.$notify.success('Please look for instructions at your email');
+        this.$refs.captcha?.reset();
+        this.captchaResponseToken = '';
+        this.isLoading = false;
     }
 
     /**
@@ -285,39 +381,55 @@ export default class ForgotPassword extends Vue {
                 }
 
                 &__button {
-                    font-family: 'font_regular', sans-serif;
-                    font-weight: 700;
                     margin-top: 40px;
+                }
+
+                &__login-container {
                     display: flex;
                     justify-content: center;
-                    align-items: center;
-                    background-color: #376fff;
-                    border-radius: 50px;
-                    color: #fff;
-                    cursor: pointer;
-                    width: 100%;
-                    height: 48px;
+                    margin-top: 1.5rem;
 
-                    &:hover {
-                        background-color: #0059d0;
+                    &__link {
+                        font-family: 'font_medium', sans-serif;
+                        text-decoration: none;
+                        font-size: 14px;
+                        line-height: 18px;
+                        color: #0149ff;
                     }
                 }
             }
 
-            &__login-container {
-                width: 100%;
-                align-items: center;
-                justify-content: center;
-                margin-top: 50px;
-                display: block;
-                text-align: center;
+            &__message-banner {
+                padding: 1.5rem;
+                border-radius: 0.6rem;
+                width: 570px;
+                margin-bottom: 2.5rem;
+                background-color: #ffe0e7;
+                border: 1px solid #ffc0cf;
+                box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
+                color: #000;
 
-                &__link {
-                    font-family: 'font_medium', sans-serif;
-                    text-decoration: none;
-                    font-size: 14px;
-                    line-height: 18px;
-                    color: #376fff;
+                &__content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+
+                    &__left {
+                        display: flex;
+                        align-items: center;
+                        justify-content: start;
+                        gap: 1.5rem;
+
+                        &__message {
+                            font-size: 0.95rem;
+                            line-height: 1.4px;
+                            margin: 0;
+                        }
+
+                        &__icon {
+                            fill: #ff458b;
+                        }
+                    }
                 }
             }
         }

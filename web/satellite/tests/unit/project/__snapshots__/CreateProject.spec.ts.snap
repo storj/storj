@@ -5,47 +5,11 @@ exports[`CreateProject.vue renders correctly 1`] = `
   <div class="create-project__container">
     <div class="create-project__container__image-container"><img src="@/../static/images/project/createProject.png" alt="create project" class="create-project__container__image-container__img"></div>
     <h2 aria-roledescription="title" class="create-project__container__title">Create a Project</h2>
-    <div aria-roledescription="input-container" class="input-container full-input">
-      <div class="label-container">
-        <div class="label-container__main">
-          <!---->
-          <h3 class="label-container__main__label">Project Name</h3>
-          <h3 class="label-container__main__label add-label">Up To 20 Characters</h3>
-          <!---->
-          <!---->
-        </div>
-        <h3 class="label-container__limit">0/20</h3>
-      </div>
-      <!---->
-      <!----> <input id="Project Name" placeholder="Enter Project Name" maxlength="20" type="text" class="input" style="width: 100%; height: 48px;">
-      <!---->
-      <!---->
-    </div>
-    <div aria-roledescription="input-container" class="input-container full-input">
-      <div class="label-container">
-        <div class="label-container__main">
-          <!---->
-          <h3 class="label-container__main__label">Description</h3>
-          <h3 class="label-container__main__label add-label">Optional</h3>
-          <!---->
-          <!---->
-        </div>
-        <h3 class="label-container__limit">0/100</h3>
-      </div>
-      <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" maxlength="100" wrap="hard" class="textarea" style="width: 100%; height: 100px;"></textarea>
-      <!---->
-      <!---->
-      <!---->
-    </div>
+    <vinput-stub additionallabel="Up To 20 Characters" currentlimit="0" islimitshown="true" initvalue="" label="Project Name" placeholder="Enter Project Name" height="48px" width="100%" error="" maxsymbols="20" roledescription="input-container" class="full-input"></vinput-stub>
+    <vinput-stub additionallabel="Optional" currentlimit="0" islimitshown="true" ismultiline="true" initvalue="" label="Description" placeholder="Enter Project Description" height="100px" width="100%" error="" maxsymbols="100" roledescription="input-container" class="full-input"></vinput-stub>
     <div class="create-project__container__button-container">
-      <div class="create-project__container__button-container__cancel container transparent" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;">
-        <!---->
-        <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Cancel</span>
-      </div>
-      <div class="container disabled" style="width: 210px; height: 48px; border-radius: 6px; font-size: 16px;">
-        <!---->
-        <!----> <span class="label"><!----> <!----> <!----> <!----> <!----> <!---->Create Project +</span>
-      </div>
+      <vbutton-stub label="Cancel" width="210px" height="48px" fontsize="16px" borderradius="6px" icon="none" istransparent="true" onpress="[Function]" class="create-project__container__button-container__cancel"></vbutton-stub>
+      <vbutton-stub label="Create Project +" width="210px" height="48px" fontsize="16px" borderradius="6px" icon="none" isdisabled="true" onpress="[Function]"></vbutton-stub>
     </div>
     <!---->
   </div>

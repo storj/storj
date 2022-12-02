@@ -1,14 +1,14 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, {VueConstructor} from 'vue';
+import Vue, { VueConstructor } from 'vue';
 
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
 
-import DisqualificationIcon from "@/../static/images/notifications/disqualified.svg";
-import FailIcon from "@/../static/images/notifications/fail.svg";
-import InfoIcon from "@/../static/images/notifications/info.svg";
-import SuspendedIcon from "@/../static/images/notifications/suspended.svg";
+import DisqualificationIcon from '@/../static/images/notifications/disqualified.svg';
+import FailIcon from '@/../static/images/notifications/fail.svg';
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import SuspendedIcon from '@/../static/images/notifications/suspended.svg';
 
 /**
  * Holds all notifications module state.

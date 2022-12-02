@@ -26,9 +26,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import NodeOptions from '@/app/components/common/NodeOptions.vue';
-
 import { Node } from '@/nodes';
+
+import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
 // @vue/component
 @Component({

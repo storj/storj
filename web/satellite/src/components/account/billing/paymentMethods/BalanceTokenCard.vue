@@ -33,7 +33,7 @@
                 label="See transactions"
                 width="120px"
                 height="30px"
-                is-transparent="true"
+                :is-transparent="true"
                 font-size="13px"
                 class="token__base__transaction-button"
                 :on-press="toggleTransactionsTable"
@@ -47,35 +47,20 @@
                 :on-press="toggleShowAddFunds"
             />
         </div>
-        <div
-            v-if="showAddFunds"
-            class="token__add-funds"
-        >
-            <h3
-                class="token__add-funds__title"
-            >
+        <div v-else class="token__add-funds">
+            <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
-            <p class="token__add-funds__label">Deposit STORJ Tokens via Coin Payments:</p>
-            <div class="token__add-funds__button-container">
-                <VButton
-                    class="token__add-funds__button"
-                    label="Continue to CoinPayments"
-                    width="150px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="onConfirmAddSTORJ"
-                />
-                <VButton
-                    class="token__add-funds__button"
-                    label="Back"
-                    is-transparent="true"
-                    width="50px"
-                    height="30px"
-                    font-size="11px"
-                    :on-press="toggleShowAddFunds"
-                />
-            </div>
+            <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
+            <VButton
+                label="Back"
+                width="100px"
+                height="30px"
+                :is-transparent="true"
+                font-size="13px"
+                class="token__base__transaction-button"
+                :on-press="toggleShowAddFunds"
+            />
         </div>
     </div>
 </template>
@@ -83,10 +68,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { PaymentsHistoryItem } from '@/types/payments';
+
+import VButton from '@/components/common/VButton.vue';
+
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-import VButton from '@/components/common/VButton.vue';
-import { PaymentsHistoryItem } from '@/types/payments';
 
 // @vue/component
 @Component({
@@ -97,22 +84,24 @@ import { PaymentsHistoryItem } from '@/types/payments';
     },
 })
 export default class BalanceTokenCard extends Vue {
-    @Prop({default: () => new PaymentsHistoryItem()})
+    @Prop({ default: () => new PaymentsHistoryItem() })
     private readonly billingItem: PaymentsHistoryItem;
 
+    private showAddFunds = false;
+
     public toggleShowAddFunds(): void {
-        this.$emit("toggleShowAddFunds")
+        this.showAddFunds = !this.showAddFunds;
     }
 
     public toggleTransactionsTable(): void {
-        this.$emit("showTransactions")
+        this.$emit('showTransactions');
     }
 }
 </script>
 
 <style scoped lang="scss">
     .Confirmed {
-        color: #00ac26;
+        color: var(--c-green-5);
     }
 
     .Rejected {
@@ -120,18 +109,19 @@ export default class BalanceTokenCard extends Vue {
     }
 
     .Pending {
-        color: #ffa800;
+        color: var(--c-yellow-4);
     }
 
     .token {
         border-radius: 10px;
-        width: 227px;
-        height: 126px;
-        margin: 0 10px 10px 0;
-        padding: 20px;
+        width: 348px;
+        height: 203px;
+        box-sizing: border-box;
+        padding: 24px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         background: #fff;
         position: relative;
+        font-family: 'font_regular', sans-serif;
 
         &__large-icon-container {
             position: absolute;
@@ -166,7 +156,7 @@ export default class BalanceTokenCard extends Vue {
                 grid-row: 1;
                 height: 30px;
                 width: 40px;
-                background-color: #e6edf7;
+                background-color: var(--c-blue-1);
                 border-radius: 5px;
                 display: flex;
                 justify-content: center;
@@ -183,7 +173,7 @@ export default class BalanceTokenCard extends Vue {
                 &__label {
                     font-size: 12px;
                     font-weight: 700;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     grid-column: 1/ span 2;
                     grid-row: 1;
                     margin: auto 0 0;
@@ -213,7 +203,7 @@ export default class BalanceTokenCard extends Vue {
                 &__label {
                     font-size: 12px;
                     font-weight: 700;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     grid-row: 1;
                     margin: auto 0 0;
                 }
@@ -248,7 +238,7 @@ export default class BalanceTokenCard extends Vue {
             &__label {
                 font-size: 12px;
                 font-weight: 700;
-                color: #56606d;
+                color: var(--c-grey-6);
                 grid-column: 1/ span 2;
                 grid-row: 1;
                 margin: auto 0 0;
@@ -279,7 +269,7 @@ export default class BalanceTokenCard extends Vue {
             &__label {
                 font-size: 12px;
                 font-weight: 700;
-                color: #56606d;
+                color: var(--c-grey-6);
                 grid-row: 1;
                 margin: auto 0 0;
             }
@@ -303,6 +293,29 @@ export default class BalanceTokenCard extends Vue {
             grid-row: 4;
             z-index: 3;
         }
-    }
 
+        &__add-funds {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            width: 100%;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+            }
+
+            &__support-info {
+                font-size: 14px;
+                line-height: 20px;
+                color: #000;
+                z-index: 1;
+
+                a {
+                    color: var(--c-blue-3);
+                    text-decoration: underline !important;
+                }
+            }
+        }
+    }
 </style>

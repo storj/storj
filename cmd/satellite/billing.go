@@ -5,8 +5,6 @@ package main
 
 import (
 	"context"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -70,29 +68,15 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.BonusRate)
 }
 
-// parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.
-func parseBillingPeriod(s string) (time.Time, error) {
-	values := strings.Split(s, "/")
-
-	if len(values) != 2 {
-		return time.Time{}, errs.New("invalid date format %s, use mm/yyyy", s)
-	}
-
-	month, err := strconv.ParseInt(values[0], 10, 64)
+// parseYearMonth parses year and month from the provided string and returns a corresponding time.Time for the first day
+// of the month. The input year and month should be iso8601 format (yyyy-mm).
+func parseYearMonth(yearMonth string) (time.Time, error) {
+	// parse using iso8601 yyyy-mm
+	t, err := time.Parse("2006-01", yearMonth)
 	if err != nil {
-		return time.Time{}, errs.New("can not parse month: %v", err)
+		return time.Time{}, errs.New("invalid date specified. accepted format is yyyy-mm: %v", err)
 	}
-	year, err := strconv.ParseInt(values[1], 10, 64)
-	if err != nil {
-		return time.Time{}, errs.New("can not parse year: %v", err)
-	}
-
-	date := time.Date(int(year), time.Month(month), 1, 0, 0, 0, 0, time.UTC)
-	if date.Year() != int(year) || date.Month() != time.Month(month) || date.Day() != 1 {
-		return date, errs.New("dates mismatch have %s result %s", s, date)
-	}
-
-	return date, nil
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC), nil
 }
 
 // userData contains the uuid and email of a satellite user.

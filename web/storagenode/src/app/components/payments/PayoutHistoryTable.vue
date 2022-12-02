@@ -27,11 +27,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
-import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
-
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+
+import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
+import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
 // @vue/component
 @Component ({

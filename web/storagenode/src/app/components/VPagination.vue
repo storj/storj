@@ -41,9 +41,9 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-import PagesBlock from '@/app/components/PagesBlock.vue';
-
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
+
+import PagesBlock from '@/app/components/PagesBlock.vue';
 
 // @vue/component
 @Component({
@@ -61,9 +61,9 @@ export default class VPagination extends Vue {
     public middleBlockPages: Page[] = [];
     public lastBlockPages: Page[] = [];
 
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: () => () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     /**

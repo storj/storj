@@ -39,7 +39,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -227,7 +227,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	verisonInfo := planet.NewVersionInfo()
 
 	var db storagenode.DB
-	db, err = storagenodedb.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
+	db, err = storagenodedbtest.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 	if err != nil {
 		return nil, err
 	}

@@ -31,19 +31,19 @@ export default class VInfo extends Vue {
     private isVisible = false;
     private height = '5px';
 
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly text: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly boldText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly extraBoldText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly greenText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly extraGreenText: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isExtraPadding: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isCustomPosition: boolean;
 
     public toggleVisibility(): void {

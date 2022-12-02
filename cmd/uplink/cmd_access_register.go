@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/zeebo/clingy"
@@ -36,7 +37,7 @@ func (c *cmdAccessRegister) Setup(params clingy.Parameters) {
 	c.accessNameOrValue = params.Arg("access", "The name or value of the access grant we're registering with the auth service", clingy.Optional).(*string)
 }
 
-func (c *cmdAccessRegister) Execute(ctx clingy.Context) (err error) {
+func (c *cmdAccessRegister) Execute(ctx context.Context) (err error) {
 	accessNameOrValue := ""
 	if c.accessNameOrValue != nil && len(*c.accessNameOrValue) > 0 {
 		accessNameOrValue = *c.accessNameOrValue

@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
-
-import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project, ProjectLimits } from '@/types/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../mock/api/projects';
+
+import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
+import { Project, ProjectLimits } from '@/types/projects';
+
+import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -19,7 +19,7 @@ const projectsApi = new ProjectsApiMock();
 projectsApi.setMockLimits(projectLimits);
 const projectsModule = makeProjectsModule(projectsApi);
 
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule } });
 const project = new Project('id', 'test', 'test', 'test', 'ownedId', false);
 
 describe('ProjectUsage.vue', () => {

@@ -21,7 +21,7 @@
                 <VLoader width="30px" height="30px" />
             </div>
             <div v-else class="project-selection__dropdown__items">
-                <div class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
+                <div tabindex="0" class="project-selection__dropdown__items__choice" @click.prevent.stop="closeDropdown">
                     <div class="project-selection__dropdown__items__choice__mark-container">
                         <CheckmarkIcon class="project-selection__dropdown__items__choice__mark-container__image" />
                     </div>
@@ -34,15 +34,16 @@
                     :key="project.id"
                     class="project-selection__dropdown__items__choice"
                     @click.prevent.stop="onProjectSelected(project.id)"
+                    @keyup.enter="onProjectSelected(project.id)"
                 >
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
                 <ManageIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
             </div>
-            <div class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onCreateLinkClick" @keyup.enter="onCreateLinkClick">
                 <CreateProjectIcon />
                 <p class="project-selection__dropdown__link-container__label">Create new</p>
             </div>
@@ -53,21 +54,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VLoader from "@/components/common/VLoader.vue";
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { LocalData } from "@/utils/localData";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
-import { PAYMENTS_ACTIONS } from "@/store/modules/payments";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { Project } from "@/types/projects";
-import { User } from "@/types/users";
+import { LocalData } from '@/utils/localData';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { Project } from '@/types/projects';
+import { User } from '@/types/users';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
@@ -96,7 +97,7 @@ export default class ProjectSelection extends Vue {
 
     public $refs!: {
         projectSelection: HTMLDivElement,
-    }
+    };
 
     /**
      * Fetches projects related information and than toggles selection popup.
@@ -146,30 +147,46 @@ export default class ProjectSelection extends Vue {
 
         if (this.isBucketsView) {
             await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            this.analytics.pageVisit(RouteConfig.Buckets.path);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
+
+            return;
         }
 
-        if (this.$route.path === RouteConfig.NewProjectDashboard.path) {
-            const now = new Date()
-            const past = new Date()
-            past.setDate(past.getDate() - 30)
+        if (this.$route.name === RouteConfig.NewProjectDashboard.name) {
+            const now = new Date();
+            const past = new Date();
+            past.setDate(past.getDate() - 30);
 
             try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, {since: past, before: now});
+                await Promise.all([
+                    this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
+                    this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+                    this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id),
+                    this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE),
+                ]);
             } catch (error) {
-                await this.$notify.error(error.message)
+                await this.$notify.error(error.message);
             }
+
+            return;
         }
 
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-        } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`);
+        if (this.$route.name === RouteConfig.AccessGrants.name) {
+            try {
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
+
+            return;
+        }
+
+        if (this.$route.name === RouteConfig.Users.name) {
+            try {
+                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            } catch (error) {
+                await this.$notify.error(error.message);
+            }
         }
     }
 
@@ -262,7 +279,7 @@ export default class ProjectSelection extends Vue {
     private get isBucketsView(): boolean {
         const currentRoute = this.$route.path;
 
-        return currentRoute.includes(RouteConfig.BucketsManagement.path) || currentRoute.includes(RouteConfig.EncryptData.path);
+        return currentRoute.includes(RouteConfig.Buckets.path);
     }
 }
 </script>
@@ -293,7 +310,7 @@ export default class ProjectSelection extends Vue {
                     max-width: calc(100% - 24px - 16px);
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-left: 24px;
                     white-space: nowrap;
                     overflow: hidden;
@@ -306,15 +323,15 @@ export default class ProjectSelection extends Vue {
             }
 
             &:hover {
-                background-color: #fafafb;
-                border-color: #fafafb;
+                background-color: var(--c-grey-1);
+                border-color: var(--c-grey-1);
 
                 p {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                 }
 
-                ::v-deep path {
-                    fill: #0149ff;
+                :deep(path) {
+                    fill: var(--c-blue-3);
                 }
             }
         }
@@ -324,7 +341,7 @@ export default class ProjectSelection extends Vue {
             min-width: 240px;
             max-width: 240px;
             background-color: #fff;
-            border: 1px solid #ebeef1;
+            border: 1px solid var(--c-grey-2);
             box-shadow: 0 2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
             z-index: 1;
@@ -374,7 +391,7 @@ export default class ProjectSelection extends Vue {
                         background-color: #f5f6fa;
 
                         p {
-                            color: #0149ff;
+                            color: var(--c-blue-3);
                         }
                     }
 
@@ -386,6 +403,10 @@ export default class ProjectSelection extends Vue {
                             object-fit: cover;
                         }
                     }
+
+                    &:focus {
+                        background-color: #f5f6fa;
+                    }
                 }
             }
 
@@ -395,12 +416,12 @@ export default class ProjectSelection extends Vue {
                 cursor: pointer;
                 display: flex;
                 align-items: center;
-                border-top: 1px solid #ebeef1;
+                border-top: 1px solid var(--c-grey-2);
 
                 &__label {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin-left: 24px;
                 }
 
@@ -412,12 +433,16 @@ export default class ProjectSelection extends Vue {
                     background-color: #f5f6fa;
 
                     p {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                     }
 
-                    ::v-deep path {
-                        fill: #0149ff;
+                    :deep(path) {
+                        fill: var(--c-blue-3);
                     }
+                }
+
+                &:focus {
+                    background-color: #f5f6fa;
                 }
             }
         }
@@ -427,25 +452,25 @@ export default class ProjectSelection extends Vue {
         border-color: #000;
 
         p {
-            color: #091c45;
+            color: var(--c-blue-6);
             font-family: 'font_bold', sans-serif;
         }
 
-        ::v-deep path {
+        :deep(path) {
             fill: #000;
         }
     }
 
     .active:hover {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
         background-color: #f7f8fb;
 
         p {
-            color: #0149ff;
+            color: var(--c-blue-3);
         }
 
-        ::v-deep path {
-            fill: #0149ff;
+        :deep(path) {
+            fill: var(--c-blue-3);
         }
     }
 

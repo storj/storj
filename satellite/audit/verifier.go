@@ -22,6 +22,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
@@ -123,7 +124,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	orderLimits, privateKey, cachedNodesInfo, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-			mon.Counter("not_enough_shares_for_audit").Inc(1)
+			mon.Counter("not_enough_shares_for_audit").Inc(1)   //mon:locked
+			mon.Counter("audit_not_enough_nodes_online").Inc(1) //mon:locked
 			err = ErrNotEnoughShares.Wrap(err)
 		}
 		return Report{}, err
@@ -232,10 +234,15 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	total := segmentInfo.Redundancy.TotalShares
 
 	if len(sharesToAudit) < int(required) {
-		mon.Counter("not_enough_shares_for_audit").Inc(1)
+		mon.Counter("not_enough_shares_for_audit").Inc(1) //mon:locked
 		// if we have reached this point, most likely something went wrong
-		// like a forgotten delete. Don't fail nodes. We have an alert on this.
-		// Check the logs and see what happened.
+		// like a network problem or a forgotten delete. Don't fail nodes.
+		// We have an alert on this. Check the logs and see what happened.
+		if len(offlineNodes)+len(containedNodes) > len(sharesToAudit)+len(failedNodes)+len(unknownNodes) {
+			mon.Counter("audit_suspected_network_problem").Inc(1) //mon:locked
+		} else {
+			mon.Counter("audit_not_enough_shares_acquired").Inc(1) //mon:locked
+		}
 		report := Report{
 			Offlines: offlineNodes,
 			Unknown:  unknownNodes,
@@ -243,14 +250,17 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		return report, ErrNotEnoughShares.New("got: %d, required: %d, failed: %d, offline: %d, unknown: %d, contained: %d",
 			len(sharesToAudit), required, len(failedNodes), len(offlineNodes), len(unknownNodes), len(containedNodes))
 	}
-	// ensure we get values, even if only zero values, so that redash can have an alert based on this
-	mon.Counter("not_enough_shares_for_audit").Inc(0)
-	mon.Counter("could_not_verify_audit_shares").Inc(0) //mon:locked
+	// ensure we get values, even if only zero values, so that redash can have an alert based on these
+	mon.Counter("not_enough_shares_for_audit").Inc(0)      //mon:locked
+	mon.Counter("audit_not_enough_nodes_online").Inc(0)    //mon:locked
+	mon.Counter("audit_not_enough_shares_acquired").Inc(0) //mon:locked
+	mon.Counter("could_not_verify_audit_shares").Inc(0)    //mon:locked
+	mon.Counter("audit_suspected_network_problem").Inc(0)  //mon:locked
 
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
 		mon.Counter("could_not_verify_audit_shares").Inc(1) //mon:locked
-		verifier.log.Error("could not verify shares", zap.Error(err))
+		verifier.log.Error("could not verify shares", zap.String("Segment", segmentInfoString(segment)), zap.Error(err))
 		return Report{
 			Fails:    failedNodes,
 			Offlines: offlineNodes,
@@ -618,7 +628,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 			ID:      targetNodeID,
 			Address: cachedIPAndPort,
 		}
-		ps, err = piecestore.Dial(timedCtx, verifier.dialer, nodeAddr, piecestore.DefaultConfig)
+		ps, err = piecestore.Dial(rpcpool.WithForceDial(timedCtx), verifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
 			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
 		}
@@ -630,7 +640,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 			ID:      targetNodeID,
 			Address: limit.GetStorageNodeAddress().Address,
 		}
-		ps, err = piecestore.Dial(timedCtx, verifier.dialer, nodeAddr, piecestore.DefaultConfig)
+		ps, err = piecestore.Dial(rpcpool.WithForceDial(timedCtx), verifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
 			return Share{}, Error.Wrap(err)
 		}

@@ -9,7 +9,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -42,7 +41,7 @@ func binaryVersion(location string) (version.SemVer, error) {
 }
 
 func downloadBinary(ctx context.Context, url, target string) error {
-	f, err := ioutil.TempFile("", createPattern(url))
+	f, err := os.CreateTemp("", createPattern(url))
 	if err != nil {
 		return errs.New("cannot create temporary archive: %v", err)
 	}

@@ -62,7 +62,7 @@ type Service struct {
 	startedAt      time.Time
 	versionInfo    version.Info
 
-	quicEnabled    bool
+	quicStats      *contact.QUICStats
 	configuredPort string
 }
 
@@ -71,7 +71,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB,
 	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache,
-	walletFeatures operator.WalletFeatures, port string, quicEnabled bool) (*Service, error) {
+	walletFeatures operator.WalletFeatures, port string, quicStats *contact.QUICStats) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -123,7 +123,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
 		walletFeatures:     walletFeatures,
-		quicEnabled:        quicEnabled,
+		quicStats:          quicStats,
 		configuredPort:     port,
 	}, nil
 }
@@ -156,8 +156,9 @@ type Dashboard struct {
 
 	StartedAt time.Time `json:"startedAt"`
 
-	ConfiguredPort string `json:"configuredPort"`
-	QUICEnabled    bool   `json:"quicEnabled"`
+	ConfiguredPort   string    `json:"configuredPort"`
+	QUICStatus       string    `json:"quicStatus"`
+	LastQUICPingedAt time.Time `json:"lastQuicPingedAt"`
 }
 
 // GetDashboardData returns stale dashboard data.
@@ -174,7 +175,8 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	data.LastPinged = s.pingStats.WhenLastPinged()
 	data.AllowedVersion, data.UpToDate = s.version.IsAllowed(ctx)
 
-	data.QUICEnabled = s.quicEnabled
+	data.QUICStatus = s.quicStats.Status()
+	data.LastQUICPingedAt = s.quicStats.WhenLastPinged()
 	data.ConfiguredPort = s.configuredPort
 
 	stats, err := s.reputationDB.All(ctx)
@@ -475,9 +477,4 @@ func (s *Service) VerifySatelliteID(ctx context.Context, satelliteID storj.NodeI
 	}
 
 	return nil
-}
-
-// SetQUICEnabled sets QUIC status for the SNO dashboard.
-func (s *Service) SetQUICEnabled(enabled bool) {
-	s.quicEnabled = enabled
 }

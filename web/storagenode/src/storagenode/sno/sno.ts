@@ -17,8 +17,9 @@ export class Node {
         public wallet: string = '',
         public walletFeatures: string[] = [],
         public isLastVersion: boolean = false,
-        public quicEnabled: boolean = false,
+        public quicStatus: string = '',
         public configuredPort: string = '',
+        public lastQuicPingedAt: Date = new Date(),
     ) {}
 }
 
@@ -75,8 +76,9 @@ export class Dashboard {
         public version: string,
         public allowedVersion: string,
         public isUpToDate: boolean,
-        public quicEnabled: boolean,
+        public quicStatus: string,
         public configuredPort: string,
+        public lastQuicPingedAt: Date,
     ) { }
 }
 
@@ -330,9 +332,9 @@ export class Score {
     public label: string;
     public statusClassName: string;
 
-    private readonly WARNING_MINIMUM_SCORE: number = 0.95;
+    private readonly WARNING_MINIMUM_SCORE: number = 0.99;
     private readonly WARNING_CLASSNAME: string = 'warning';
-    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
+    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.96;
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(

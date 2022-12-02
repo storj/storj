@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
-	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -173,7 +172,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		var satellites []storj.NodeID
 
 		satellites = append(satellites, satelliteID)
-		stamps, _ := makeStorageUsageStamps(satellites)
+		stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, 30, time.Now().UTC())
 
 		err = storageusagedb.Store(ctx, stamps)
 		require.NoError(t, err)
@@ -277,30 +276,4 @@ func TestPayoutsUndistributedEndpoint(t *testing.T) {
 
 		require.EqualValues(t, 500, resp.Total)
 	})
-}
-
-// makeStorageUsageStamps creates storage usage stamps and expected summaries for provided satellites.
-// Creates one entry per day for 30 days with last date as beginning of provided endDate.
-func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, map[storj.NodeID]float64) {
-	var stamps []storageusage.Stamp
-	summary := make(map[storj.NodeID]float64)
-
-	now := time.Now().UTC().Day()
-
-	for _, satellite := range satellites {
-		for i := 0; i < now; i++ {
-			intervalEndTime := time.Now().UTC().Add(time.Hour * -24 * time.Duration(i))
-			stamp := storageusage.Stamp{
-				SatelliteID:     satellite,
-				AtRestTotal:     31234567891234,
-				IntervalStart:   time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
-				IntervalEndTime: intervalEndTime,
-			}
-
-			summary[satellite] += stamp.AtRestTotal
-			stamps = append(stamps, stamp)
-		}
-	}
-
-	return stamps, summary
 }

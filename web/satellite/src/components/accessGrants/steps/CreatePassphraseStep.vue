@@ -84,15 +84,16 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { generateMnemonic } from "bip39";
+import { generateMnemonic } from 'bip39';
 
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
-import { AnalyticsEvent } from "@/utils/constants/analyticsEventNames";
-import { AnalyticsHttpApi } from "@/api/analytics";
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
-import VButton from "@/components/common/VButton.vue";
-import VInput from "@/components/common/VInput.vue";
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
@@ -186,12 +187,13 @@ export default class CreatePassphraseStep extends Vue {
         await this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
 
         const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        const salt = await this.$store.dispatch(PROJECTS_ACTIONS.GET_SALT, this.$store.getters.selectedProject.id);
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.restrictedKey,
             'passphrase': this.passphrase,
-            'projectID': this.$store.getters.selectedProject.id,
+            'salt': salt,
             'satelliteNodeURL': satelliteNodeURL,
         });
 
@@ -476,24 +478,21 @@ export default class CreatePassphraseStep extends Vue {
         color: red;
     }
 
-    ::v-deep .label-container {
+    :deep(.label-container__main) {
+        margin-bottom: 10px;
+    }
 
-        &__main {
-            margin-bottom: 10px;
+    :deep(.label-container__main__label) {
+        margin: 0;
+        font-size: 14px;
+        line-height: 19px;
+        color: #7c8794;
+        font-family: 'font_bold', sans-serif;
+    }
 
-            &__label {
-                margin: 0;
-                font-size: 14px;
-                line-height: 19px;
-                color: #7c8794;
-                font-family: 'font_bold', sans-serif;
-            }
-
-            &__error {
-                margin: 0 0 0 10px;
-                font-size: 14px;
-                line-height: 19px;
-            }
-        }
+    :deep(.label-container__main__error) {
+        margin: 0 0 0 10px;
+        font-size: 14px;
+        line-height: 19px;
     }
 </style>

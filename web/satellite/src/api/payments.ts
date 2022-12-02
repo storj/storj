@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
+
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
@@ -9,12 +11,12 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
-    TokenDeposit,
+    TokenAmount,
+    NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
-import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -236,26 +238,40 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * makeTokenDeposit process coin payments.
+     * Returns a list of native token payments.
      *
-     * @param amount
+     * @returns list of native token payment history items
      * @throws Error
      */
-    public async makeTokenDeposit(amount: number): Promise<TokenDeposit> {
-        const path = `${this.ROOT_PATH}/tokens/deposit`;
-        const response = await this.client.post(path, JSON.stringify({ amount }));
+    public async nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/wallet/payments`;
+        const response = await this.client.get(path);
 
         if (!response.ok) {
             if (response.status === 401) {
                 throw new ErrorUnauthorized();
             }
-
-            throw new Error('can not process coin payment');
+            throw new Error('Can not list token payment history');
         }
 
-        const result = await response.json();
+        const json = await response.json();
+        if (!json) return  [];
+        if (json.payments) {
+            return json.payments.map(item =>
+                new NativePaymentHistoryItem(
+                    item.ID,
+                    item.Wallet,
+                    item.Type,
+                    new TokenAmount(item.Amount.value, item.Amount.currency),
+                    new TokenAmount(item.Received.value, item.Received.currency),
+                    item.Status,
+                    item.Link,
+                    new Date(item.Timestamp),
+                ),
+            );
+        }
 
-        return new TokenDeposit(result.amount, result.address, result.link);
+        return [];
     }
 
     /**
@@ -284,7 +300,7 @@ export class PaymentsHttpApi implements PaymentsApi {
                 coupon.percentOff,
                 new Date(coupon.addedAt),
                 coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-                coupon.duration
+                coupon.duration,
             );
         }
 
@@ -328,7 +344,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             coupon.percentOff,
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-            coupon.duration
+            coupon.duration,
         );
     }
 

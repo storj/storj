@@ -15,7 +15,7 @@
                     :label="buttonLabel"
                     height="42px"
                     border-radius="52px"
-                    is-uppercase="true"
+                    :is-uppercase="true"
                     :on-press="onClick"
                 />
             </div>
@@ -32,14 +32,14 @@ import VButton from '@/components/common/VButton.vue';
 @Component({
     components: {
         VButton,
-    }
+    },
 })
 export default class VInfo extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly title: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly buttonLabel: string;
-    @Prop({default: () => () => false})
+    @Prop({ default: () => () => false })
     private readonly onButtonClick: () => unknown;
 
     public isVisible = false;

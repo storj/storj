@@ -23,7 +23,7 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 var ErrTestapiAPI = errs.Class("example testapi api")
 
 type TestAPIService interface {
-	GenTestAPI(context.Context, uuid.UUID, time.Time, string, struct{ Content string }) (*struct {
+	GenTestAPI(ctx context.Context, path string, id uuid.UUID, date time.Time, request struct{ Content string }) (*struct {
 		ID        uuid.UUID
 		Date      time.Time
 		PathParam string
@@ -103,7 +103,7 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	retVal, httpErr := h.service.GenTestAPI(ctx, id, date, path, payload)
+	retVal, httpErr := h.service.GenTestAPI(ctx, path, id, date, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

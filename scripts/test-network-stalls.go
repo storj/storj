@@ -16,7 +16,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -176,7 +175,7 @@ func runTest() error {
 		configDir: configDir,
 		logLevel:  "error",
 	}
-	tempDir, err := ioutil.TempDir("", "storj-test-network-stalls.")
+	tempDir, err := os.MkdirTemp("", "storj-test-network-stalls.")
 	if err != nil {
 		return err
 	}

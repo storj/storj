@@ -54,13 +54,13 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import GreyChevron from '@/../static/images/common/greyChevron.svg';
-
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
+
+import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
 // @vue/component
 @Component({
@@ -72,7 +72,7 @@ export default class UsageAndChargesItem2 extends Vue {
     /**
      * item represents usage and charges of current project by period.
      */
-    @Prop({default: () => new ProjectUsageAndCharges()})
+    @Prop({ default: () => new ProjectUsageAndCharges() })
     private readonly item: ProjectUsageAndCharges;
 
     /**
@@ -85,8 +85,7 @@ export default class UsageAndChargesItem2 extends Vue {
      */
     private readonly GB_IN_TB = 1000;
 
-
-    public paymentMethod = "test";
+    public paymentMethod = 'test';
 
     /**
      * projectName returns project name.
@@ -180,7 +179,7 @@ export default class UsageAndChargesItem2 extends Vue {
 
     .divider {
         margin-top: 15px;
-        background-color: #ebeef1;
+        background-color: var(--c-grey-2);
         width: calc(100% + 40px);
         height: 1px;
         align-self: center;
@@ -262,7 +261,7 @@ export default class UsageAndChargesItem2 extends Vue {
                 justify-content: space-between;
                 font-size: 12px;
                 line-height: 19px;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-weight: 600;
                 height: 25px;
                 width: 100%;
@@ -313,7 +312,7 @@ export default class UsageAndChargesItem2 extends Vue {
                     padding-top: 10px;
 
                     &__method {
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         font-weight: 600;
                         font-size: 12px;
                     }
@@ -394,10 +393,16 @@ export default class UsageAndChargesItem2 extends Vue {
         }
     }
 
-    @media only screen and (max-width: 625px) {
+    @media only screen and (max-width: 768px) {
 
         .usage-charges-item-container__detailed-info-container__content-area__period-container,
-        .period-header,
+        .period-header {
+            display: none;
+        }
+    }
+
+    @media only screen and (max-width: 625px) {
+
         .usage-charges-item-container__detailed-info-container__content-area__usage-container,
         .usage-header {
             display: none;

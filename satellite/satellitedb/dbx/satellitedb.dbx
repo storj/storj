@@ -1,5 +1,40 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//-- Node Events --//
+model node_event (
+	key id
+
+	index (
+		name node_events_email_event_created_at_index
+		fields email event created_at
+		where node_event.email_sent = null
+	)
+
+	field id blob
+	field email text
+	field node_id blob
+	field event int
+	field created_at timestamp ( default current_timestamp )
+	field last_attempted timestamp ( nullable, updatable )
+	field email_sent timestamp ( nullable, updatable )
+)
+
+create node_event()
+
+read one (
+	select node_event
+	where node_event.id = ?
+)
+
+read first (
+	select node_event
+	where node_event.email = ?
+	where node_event.event = ?
+	orderby desc node_event.created_at
+)
+
+delete node_event ( where node_event.created_at < ? )
+
 //--- Value Attribution ---//
 model value_attribution (
 	key project_id bucket_name
@@ -38,6 +73,46 @@ delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
 read one (
 	select segment_pending_audits
 	where  segment_pending_audits.node_id = ?
+)
+
+//--- auditing ---//
+
+model verification_audits (
+    key inserted_at stream_id position
+
+    field inserted_at    timestamp ( default current_timestamp )
+    field stream_id      blob
+    field position       uint64
+    field expires_at     timestamp (nullable)
+    field encrypted_size int
+)
+
+model reverification_audits (
+    key node_id stream_id position
+
+    field node_id        blob
+    field stream_id      blob
+    field position       uint64
+    field piece_num      int
+    field inserted_at    timestamp ( default current_timestamp )
+    field last_attempt   timestamp ( updatable, nullable )
+    field reverify_count int64     ( updatable, default 0 )
+
+    index ( fields inserted_at )
+)
+
+read first (
+    select reverification_audits
+    where reverification_audits.node_id = ?
+    orderby ( asc reverification_audits.stream_id, asc reverification_audits.position )
+)
+
+create reverification_audits ()
+
+delete reverification_audits (
+    where reverification_audits.node_id = ?
+    where reverification_audits.stream_id = ?
+    where reverification_audits.position = ?
 )
 
 //--- accounting ---//
@@ -159,6 +234,11 @@ model node (
     field exit_loop_completed_at    timestamp ( updatable, nullable )
     field exit_finished_at          timestamp ( updatable, nullable )
     field exit_success              bool ( updatable, default false )
+
+    field contained                 timestamp ( updatable, nullable )
+
+    field last_offline_email         timestamp ( updatable, nullable )
+    field last_software_update_email timestamp ( updatable, nullable )
 )
 
 update node ( where node.id = ? )
@@ -310,9 +390,11 @@ model user (
 
     field last_verification_reminder timestamp ( updatable, nullable )
 	field verification_reminders int ( updatable, default 0 )
-	
+
     field failed_login_count int ( updatable, nullable )
     field login_lockout_expiration timestamp ( updatable, nullable )
+
+    field signup_captcha     float64    ( nullable )
 )
 
 create user ( )
@@ -382,29 +464,35 @@ model project (
 		fields public_id
 	)
 
-    field id              blob
-	field public_id       blob ( nullable )
+	field id              					blob
+	field public_id       					blob      ( nullable )
 
-    field name            text      ( updatable )
-    field description     text      ( updatable )
-    field usage_limit     int64     ( nullable, updatable )
-    field bandwidth_limit int64     ( nullable, updatable )
-    field segment_limit   int64     ( nullable, updatable, default 1000000)
-    field rate_limit      int       ( nullable, updatable )
-    field burst_limit     int       ( nullable, updatable )
-    field max_buckets     int       ( nullable, updatable )
-    field partner_id      blob      ( nullable )
-    field user_agent      blob      ( nullable )
-    field owner_id        blob
-	field salt			  blob		( nullable )
+	field name            					text      ( updatable )
+	field description     					text      ( updatable )
+	field usage_limit     					int64     ( nullable, updatable )
+	field bandwidth_limit 					int64     ( nullable, updatable )
+	field user_specified_usage_limit     	int64     ( nullable, updatable )
+	field user_specified_bandwidth_limit 	int64     ( nullable, updatable )
+	field segment_limit   					int64     ( nullable, updatable, default 1000000)
+	field rate_limit      					int       ( nullable, updatable )
+	field burst_limit     					int       ( nullable, updatable )
+	field max_buckets     					int       ( nullable, updatable )
+	field partner_id      					blob      ( nullable )
+	field user_agent      					blob      ( nullable )
+	field owner_id        					blob
+	field salt			  					blob      ( nullable )
 
-    field created_at      timestamp ( autoinsert )
+	field created_at      					timestamp ( autoinsert )
 )
 
 create project ( )
 update project ( where project.id = ? )
 delete project ( where project.id = ? )
 
+read one (
+	select project.salt
+	where project.id = ?
+)
 read one (
 	select project
 	where project.public_id = ?
@@ -419,6 +507,14 @@ read one (
 )
 read one (
     select project.bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_bandwidth_limit
     where  project.id = ?
 )
 read one (
@@ -1211,7 +1307,7 @@ read first (
     select billing_transaction
     where billing_transaction.source = ?
     where billing_transaction.type = ?
-    orderby ( desc billing_transaction.timestamp)
+    orderby ( desc billing_transaction.created_at)
 )
 
 model storjscan_wallet (

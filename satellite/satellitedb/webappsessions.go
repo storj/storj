@@ -32,6 +32,21 @@ func (db *webappSessions) Create(ctx context.Context, id, userID uuid.UUID, addr
 	return getSessionFromDBX(dbxSession)
 }
 
+// UpdateExpiration updates the expiration time of the session.
+func (db *webappSessions) UpdateExpiration(ctx context.Context, sessionID uuid.UUID, expiresAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.Update_WebappSession_By_Id(
+		ctx,
+		dbx.WebappSession_Id(sessionID.Bytes()),
+		dbx.WebappSession_Update_Fields{
+			ExpiresAt: dbx.WebappSession_ExpiresAt(expiresAt),
+		},
+	)
+
+	return err
+}
+
 // GetBySessionID gets the session info from the session ID.
 func (db *webappSessions) GetBySessionID(ctx context.Context, sessionID uuid.UUID) (session consoleauth.WebappSession, err error) {
 	defer mon.Task()(&ctx)(&err)

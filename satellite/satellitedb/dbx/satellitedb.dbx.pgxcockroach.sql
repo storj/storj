@@ -174,6 +174,9 @@ CREATE TABLE nodes (
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
 	exit_success boolean NOT NULL DEFAULT false,
+	contained timestamp with time zone,
+	last_offline_email timestamp with time zone,
+	last_software_update_email timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -181,6 +184,16 @@ CREATE TABLE node_api_versions (
 	api_version integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE node_events (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	node_id bytea NOT NULL,
+	event integer NOT NULL,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempted timestamp with time zone,
+	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE oauth_clients (
@@ -244,6 +257,8 @@ CREATE TABLE projects (
 	description text NOT NULL,
 	usage_limit bigint,
 	bandwidth_limit bigint,
+	user_specified_usage_limit bigint,
+	user_specified_bandwidth_limit bigint,
 	segment_limit bigint DEFAULT 1000000,
 	rate_limit integer,
 	burst_limit integer,
@@ -312,6 +327,16 @@ CREATE TABLE reset_password_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE reverification_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_num integer NOT NULL,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempt timestamp with time zone,
+	reverify_count bigint NOT NULL DEFAULT 0,
+	PRIMARY KEY ( node_id, stream_id, position )
 );
 CREATE TABLE revocations (
 	revoked bytea NOT NULL,
@@ -475,6 +500,7 @@ CREATE TABLE users (
 	verification_reminders integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,
+	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -484,6 +510,14 @@ CREATE TABLE value_attributions (
 	user_agent bytea,
 	last_updated timestamp with time zone NOT NULL,
 	PRIMARY KEY ( project_id, bucket_name )
+);
+CREATE TABLE verification_audits (
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	expires_at timestamp with time zone,
+	encrypted_size integer NOT NULL,
+	PRIMARY KEY ( inserted_at, stream_id, position )
 );
 CREATE TABLE webapp_sessions (
 	id bytea NOT NULL,
@@ -565,6 +599,7 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX node_events_email_event_created_at_index ON node_events ( email, event, created_at ) WHERE node_events.email_sent is NULL ;
 CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;
 CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;
 CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
@@ -573,6 +608,7 @@ CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
+CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;

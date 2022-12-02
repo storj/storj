@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import SNONotification from '@/app/components/notifications/SNONotification.vue';
+import { createLocalVue, mount } from '@vue/test-utils';
 
 import { newNotificationsModule } from '@/app/store/modules/notifications';
 import { UINotification } from '@/app/types/notifications';
 import { NotificationsHttpApi } from '@/storagenode/api/notifications';
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
 import { NotificationsService } from '@/storagenode/notifications/service';
-import { createLocalVue, mount } from '@vue/test-utils';
+
+import SNONotification from '@/app/components/notifications/SNONotification.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -19,7 +19,7 @@ const notificationsApi = new NotificationsHttpApi();
 const notificationsService = new NotificationsService(notificationsApi);
 const notificationsModule = newNotificationsModule(notificationsService);
 
-const store = new Vuex.Store({ modules: { notificationsModule }});
+const store = new Vuex.Store({ modules: { notificationsModule } });
 
 describe('SNONotification', (): void => {
     it('renders correctly with default props', (): void => {

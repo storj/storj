@@ -18,13 +18,13 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/BaseChart.vue';
-import VChart from '@/app/components/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { EgressUsed } from '@/storagenode/sno/sno';
+
+import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores egress data for egress bandwidth chart's tooltip
@@ -45,7 +45,7 @@ class EgressTooltip {
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class EgressChart extends BaseChart {
     private get chartBackgroundColor(): string {

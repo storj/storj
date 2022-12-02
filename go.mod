@@ -21,6 +21,7 @@ require (
 	github.com/jackc/pgtype v1.10.0
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
+	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -35,27 +36,27 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
-	github.com/zeebo/assert v1.3.0
-	github.com/zeebo/clingy v0.0.0-20220412150312-389f1ba2553d
+	github.com/zeebo/assert v1.3.1
+	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220526153639-5463443f8c37
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20220719163320-cd2ef8e1b9b0
+	storj.io/common v0.0.0-20221123115229-fed3e6651b63
 	storj.io/drpc v0.0.32
-	storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca
-	storj.io/private v0.0.0-20220801080548-639387a299f7
-	storj.io/uplink v1.9.1-0.20220623122820-25d79c31a876
+	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
+	storj.io/private v0.0.0-20221108123115-3a27297f0b78
+	storj.io/uplink v1.9.1-0.20221123134449-bf3a9813b6e0
 )
 
 require (
@@ -86,12 +87,14 @@ require (
 	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
+	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
-	github.com/lucas-clemente/quic-go v0.27.1 // indirect
+	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
@@ -129,7 +132,7 @@ require (
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

@@ -12,16 +12,21 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
+	"runtime/trace"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"storj.io/common/experiment"
 	"storj.io/common/rpc/rpctracing"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
@@ -54,8 +59,19 @@ type external struct {
 	}
 
 	tracing struct {
-		traceID      int64  // if non-zero, sets outgoing traces to the given id
-		traceAddress string // if non-zero, sampled spans are sent to this trace collector address.
+		traceID      int64   // if non-zero, sets outgoing traces to the given id
+		traceAddress string  // if non-zero, sampled spans are sent to this trace collector address.
+		sample       float64 // the chance (number between 0 and 1.0) to send samples to the server.
+		verbose      bool    // flag to print out tracing information (like the used trace id)
+	}
+
+	debug struct {
+		pprofFile string
+		traceFile string
+	}
+
+	events struct {
+		address string // if non-zero, events are sent to this address.
 	}
 }
 
@@ -88,13 +104,41 @@ func (ex *external) Setup(f clingy.Flags) {
 	).(string)
 
 	ex.tracing.traceID = f.Flag(
-		"trace-id", "Specify a trace id to send a trace to somewhere", int64(0),
+		"trace-id", "Specify a trace id manually. This should be globally unique. "+
+			"Usually you don't need to set it, and it will be automatically generated.", int64(0),
 		clingy.Transform(transformInt64),
 		clingy.Advanced,
 	).(int64)
 
+	ex.tracing.sample = f.Flag(
+		"trace-sample", "The chance (between 0 and 1.0) to report tracing information. Set to 1 to always send it.", float64(0),
+		clingy.Transform(transformFloat64),
+		clingy.Advanced,
+	).(float64)
+
+	ex.tracing.verbose = f.Flag(
+		"trace-verbose", "Flag to print out used trace ID", false,
+		clingy.Transform(strconv.ParseBool),
+		clingy.Advanced,
+	).(bool)
+
 	ex.tracing.traceAddress = f.Flag(
 		"trace-addr", "Specify where to send traces", "agent.tracing.datasci.storj.io:5775",
+		clingy.Advanced,
+	).(string)
+
+	ex.events.address = f.Flag(
+		"events-addr", "Specify where to send events", "eventkitd.datasci.storj.io:9002",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.pprofFile = f.Flag(
+		"debug-pprof", "File to collect Golang pprof profiling data", "",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.traceFile = f.Flag(
+		"debug-trace", "File to collect Golang trace data", "",
 		clingy.Advanced,
 	).(string)
 
@@ -103,6 +147,10 @@ func (ex *external) Setup(f clingy.Flags) {
 
 func transformInt64(x string) (int64, error) {
 	return strconv.ParseInt(x, 0, 64)
+}
+
+func transformFloat64(x string) (float64, error) {
+	return strconv.ParseFloat(x, 64)
 }
 
 func (ex *external) AccessInfoFile() string   { return filepath.Join(ex.dirs.current, "access.json") }
@@ -135,80 +183,193 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 	return ex.config.values[name], nil
 }
 
+func (ex *external) analyticsEnabled() bool {
+	// N.B.: saveInitialConfig prompts the user if they want analytics enabled.
+	// In the past, even after prompting for this, we did not write out their
+	// answer in the config. Instead, what has historically happened is that
+	// if the user said yes, we wrote out an empty config, and if the user
+	// said no, we wrote out:
+	//
+	//     [metrics]
+	//     addr =
+	//
+	// So, if the new value (analytics.enabled) exists at all, we prefer that.
+	// Otherwise, we need to check for the existence of metrics.addr and if it
+	// is an empty value to determine if analytics are disabled. At some point
+	// in the future after enough upgrades have happened, perhaps we can switch
+	// to just analytics.enabled. Unfortunately, an entirely empty config file
+	// is precisely the config file we've been writing out if a user opts in
+	// to analytics, so we are only going to have analytics disabled if (a)
+	// analytics.enabled says so, or absent that, if the config file's final
+	// specification for metrics.addr is the empty string.
+	val, err := ex.Dynamic("analytics.enabled")
+	if err != nil {
+		return false
+	}
+	if len(val) > 0 {
+		enabled, err := strconv.ParseBool(val[len(val)-1])
+		if err != nil {
+			return false
+		}
+		return enabled
+	}
+	val, err = ex.Dynamic("metrics.addr")
+	if err != nil {
+		return false
+	}
+	return len(val) == 0 || val[len(val)-1] != ""
+}
+
 // Wrap is called by clingy with the command to be executed.
-func (ex *external) Wrap(ctx clingy.Context, cmd clingy.Command) (err error) {
-	if err := ex.migrate(); err != nil {
+func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
+	if err = ex.migrate(); err != nil {
 		return err
 	}
-	if err := ex.loadConfig(); err != nil {
+	if err = ex.loadConfig(); err != nil {
 		return err
 	}
 	if !ex.config.loaded {
-		if err := saveInitialConfig(ctx, ex); err != nil {
+		if err = saveInitialConfig(ctx, ex); err != nil {
 			return err
 		}
 	}
 
-	ctxWrapped := ctx
+	exp := os.Getenv("STORJ_EXPERIMENTAL")
+	if exp != "" {
+		ctx = experiment.With(ctx, exp)
+	}
 
-	if ex.tracing.traceAddress != "" {
+	if ex.debug.pprofFile != "" {
+		var output *os.File
+		output, err = os.Create(ex.debug.pprofFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, output.Close())
+		}()
+
+		err = pprof.StartCPUProfile(output)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if ex.debug.traceFile != "" {
+		var output *os.File
+		output, err = os.Create(ex.debug.traceFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, output.Close())
+		}()
+
+		err = trace.Start(output)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer trace.Stop()
+	}
+
+	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is
+	// something a user can only opt into. as a result, we don't check ex.analyticsEnabled()
+	// in this if statement. If we do ever start turning on trace samples by default, we
+	// will need to make sure we only do so if ex.analyticsEnabled().
+	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
 		versionName := fmt.Sprintf("uplink-release-%s", version.Build.Version.String())
 		if !version.Build.Release {
-			versionName = fmt.Sprintf("uplink-dev-%s", version.Build.Timestamp.Format(time.RFC3339))
+			versionName = "uplink-dev"
 		}
 		collector, err := jaeger.NewUDPCollector(zap.L(), ex.tracing.traceAddress, versionName, nil, 0, 0, 0)
 		if err != nil {
 			return err
 		}
-		go collector.Run(context.Background())
 		defer func() {
-			sendErr := collector.Send(context.Background())
-			closeErr := collector.Close()
-			err = errs.Combine(err, sendErr, closeErr)
+			_ = collector.Close()
 		}()
-		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: 0})
+
+		defer tracked(ctx, collector.Run)()
+
+		cancel := jaeger.RegisterJaeger(monkit.Default, collector, jaeger.Options{Fraction: ex.tracing.sample})
 		defer cancel()
-	}
 
-	if ex.tracing.traceID != 0 {
-		trace := monkit.NewTrace(ex.tracing.traceID)
-		trace.Set(rpctracing.Sampled, true)
+		if ex.tracing.traceID == 0 {
+			if ex.tracing.verbose {
+				var printedFirst bool
+				monkit.Default.ObserveTraces(func(trace *monkit.Trace) {
+					// workaround to hide the traceID of tlsopts.verifyIndentity called from a separated goroutine
+					if !printedFirst {
+						_, _ = fmt.Fprintf(clingy.Stdout(ctx), "New traceID %x\n", trace.Id())
+						printedFirst = true
+					}
+				})
+			}
+		} else {
+			trace := monkit.NewTrace(ex.tracing.traceID)
+			trace.Set(rpctracing.Sampled, true)
 
-		var baseContext context.Context = ctx
-		defer mon.Func().RemoteTrace(&baseContext, monkit.NewId(), trace)(&err)
-
-		ctxWrapped = &clingyWrapper{
-			Context: baseContext,
-			clx:     ctx,
+			defer mon.Func().RemoteTrace(&ctx, monkit.NewId(), trace)(&err)
 		}
 	}
 
-	return cmd.Execute(ctxWrapped)
+	if ex.analyticsEnabled() && ex.events.address != "" {
+		var appname string
+		var appversion string
+		if version.Build.Release {
+			// TODO: eventkit should probably think through
+			// application and application version more carefully.
+			appname = "uplink-release"
+			appversion = version.Build.Version.String()
+		} else {
+			appname = "uplink-dev"
+			appversion = version.Build.Timestamp.Format(time.RFC3339)
+		}
+
+		client := eventkit.NewUDPClient(
+			appname,
+			appversion,
+			"",
+			ex.events.address,
+		)
+
+		defer tracked(ctx, client.Run)()
+		eventkit.DefaultRegistry.AddDestination(client)
+		eventkit.DefaultRegistry.Scope("init").Event("init")
+	}
+
+	defer mon.Task()(&ctx)(&err)
+	return cmd.Execute(ctx)
 }
 
-// clingyWrapper lets one swap out the context.Context in a clingy.Context.
-type clingyWrapper struct {
-	context.Context
-	clx clingy.Context
-}
+func tracked(ctx context.Context, cb func(context.Context)) (done func()) {
+	ctx, cancel := context.WithCancel(ctx)
 
-func (cw *clingyWrapper) Read(p []byte) (int, error)  { return cw.clx.Read(p) }
-func (cw *clingyWrapper) Write(p []byte) (int, error) { return cw.clx.Write(p) }
-func (cw *clingyWrapper) Stdin() io.Reader            { return cw.clx.Stdin() }
-func (cw *clingyWrapper) Stdout() io.Writer           { return cw.clx.Stdout() }
-func (cw *clingyWrapper) Stderr() io.Writer           { return cw.clx.Stderr() }
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		cb(ctx)
+		wg.Done()
+	}()
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
 
 // PromptInput gets a line of input text from the user and returns an error if
 // interactive mode is disabled.
-func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
+func (ex *external) PromptInput(ctx context.Context, prompt string) (input string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required user input in non-interactive setting")
 	}
-	fmt.Fprint(ctx.Stdout(), prompt, " ")
+	fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 	var buf []byte
 	var tmp [1]byte
 	for {
-		_, err := ctx.Stdin().Read(tmp[:])
+		_, err := clingy.Stdin(ctx).Read(tmp[:])
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -224,37 +385,37 @@ func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string
 // PromptInput gets a line of secret input from the user twice to ensure that
 // it is the same value, and returns an error if interactive mode is disabled
 // or if the prompt cannot be put into a mode where the typing is not echoed.
-func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
+func (ex *external) PromptSecret(ctx context.Context, prompt string) (secret string, err error) {
 	if !ex.interactive {
 		return "", errs.New("required secret input in non-interactive setting")
 	}
 
-	fh, ok := ctx.Stdin().(interface{ Fd() uintptr })
+	fh, ok := clingy.Stdin(ctx).(interface{ Fd() uintptr })
 	if !ok {
 		return "", errs.New("unable to request secret from stdin")
 	}
 	fd := int(fh.Fd())
 
 	for {
-		fmt.Fprint(ctx.Stdout(), prompt, " ")
+		fmt.Fprint(clingy.Stdout(ctx), prompt, " ")
 
 		first, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
-		fmt.Fprint(ctx.Stdout(), "Again: ")
+		fmt.Fprint(clingy.Stdout(ctx), "Again: ")
 
 		second, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errs.New("unable to request secret from stdin: %w", err)
 		}
-		fmt.Fprintln(ctx.Stdout())
+		fmt.Fprintln(clingy.Stdout(ctx))
 
 		if string(first) != string(second) {
-			fmt.Fprintln(ctx.Stdout(), "Values did not match. Try again.")
-			fmt.Fprintln(ctx.Stdout())
+			fmt.Fprintln(clingy.Stdout(ctx), "Values did not match. Try again.")
+			fmt.Fprintln(clingy.Stdout(ctx))
 			continue
 		}
 

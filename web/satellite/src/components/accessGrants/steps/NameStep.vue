@@ -19,7 +19,7 @@
                 width="50%"
                 height="48px"
                 :on-press="onCancelClick"
-                is-white="true"
+                :is-white="true"
                 :is-disabled="isLoading"
             />
             <VButton
@@ -36,14 +36,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({

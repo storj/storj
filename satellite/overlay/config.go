@@ -20,12 +20,14 @@ var (
 
 // Config is a configuration for overlay service.
 type Config struct {
-	Node                       NodeSelectionConfig
-	NodeSelectionCache         UploadSelectionCacheConfig
-	GeoIP                      GeoIPConfig
-	UpdateStatsBatchSize       int           `help:"number of update requests to process per transaction" default:"100"`
-	NodeCheckInWaitPeriod      time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
-	RepairExcludedCountryCodes []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
+	Node                            NodeSelectionConfig
+	NodeSelectionCache              UploadSelectionCacheConfig
+	GeoIP                           GeoIPConfig
+	UpdateStatsBatchSize            int           `help:"number of update requests to process per transaction" default:"100"`
+	NodeCheckInWaitPeriod           time.Duration `help:"the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)" default:"2h" testDefault:"30s"`
+	NodeSoftwareUpdateEmailCooldown time.Duration `help:"the amount of time to wait between sending Node Software Update emails" default:"168h"`
+	RepairExcludedCountryCodes      []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
+	SendNodeEmails                  bool          `help:"whether to send emails to nodes" default:"false"`
 }
 
 // AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.

@@ -50,7 +50,7 @@
                                 width="100%"
                                 height="48px"
                                 :on-press="closeModal"
-                                is-transparent="true"
+                                :is-transparent="true"
                             />
                             <VButton
                                 label="Add Team Members"
@@ -86,7 +86,9 @@ import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -116,6 +118,8 @@ export default class AddTeamMemberModal extends Vue {
     private isLoading = false;
 
     private FIRST_PAGE = 1;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Tries to add users related to entered emails list to current project.
@@ -160,7 +164,7 @@ export default class AddTeamMemberModal extends Vue {
             const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
             if (scrollableDiv) {
                 const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
-                if(scrollableDivHeight) {
+                if (scrollableDivHeight) {
                     scrollableDiv.scroll(0, -scrollableDivHeight);
                 }
             }
@@ -188,7 +192,8 @@ export default class AddTeamMemberModal extends Vue {
             return;
         }
 
-        await this.$notify.success('Members successfully added to project!');
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
+        await this.$notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
@@ -564,13 +569,13 @@ export default class AddTeamMemberModal extends Vue {
         }
     }
 
-    ::v-deep .container {
+    :deep(.container) {
         padding: 0 10px;
     }
 
     @media screen and (max-width: 500px) {
 
-        ::v-deep .container {
+        :deep(.container) {
             padding: 0;
         }
     }

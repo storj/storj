@@ -40,7 +40,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
@@ -50,9 +51,11 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
@@ -70,6 +73,7 @@ type Satellite struct {
 	Repairer *satellite.Repairer
 	Admin    *satellite.Admin
 	GC       *satellite.GarbageCollection
+	GCBF     *satellite.GarbageCollectionBF
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -87,9 +91,16 @@ type Satellite struct {
 	}
 
 	Overlay struct {
-		DB           overlay.DB
-		Service      *overlay.Service
-		DQStrayNodes *straynodes.Chore
+		DB                overlay.DB
+		Service           *overlay.Service
+		OfflineNodeEmails *offlinenodes.Chore
+		DQStrayNodes      *straynodes.Chore
+	}
+
+	NodeEvents struct {
+		DB       nodeevents.DB
+		Notifier nodeevents.Notifier
+		Chore    *nodeevents.Chore
 	}
 
 	Metainfo struct {
@@ -122,11 +133,11 @@ type Satellite struct {
 	}
 
 	Audit struct {
-		Queues   *audit.Queues
-		Worker   *audit.Worker
-		Chore    *audit.Chore
-		Verifier *audit.Verifier
-		Reporter audit.Reporter
+		VerifyQueue audit.VerifyQueue
+		Worker      *audit.Worker
+		Chore       *audit.Chore
+		Verifier    *audit.Verifier
+		Reporter    audit.Reporter
 	}
 
 	Reputation struct {
@@ -134,7 +145,8 @@ type Satellite struct {
 	}
 
 	GarbageCollection struct {
-		Service *gc.Service
+		Sender       *sender.Service
+		BloomFilters *bloomfilter.Service
 	}
 
 	ExpiredDeletion struct {
@@ -283,6 +295,7 @@ func (system *Satellite) Close() error {
 		system.Repairer.Close(),
 		system.Admin.Close(),
 		system.GC.Close(),
+		system.GCBF.Close(),
 	)
 }
 
@@ -304,6 +317,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.GC.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.GCBF.Run(ctx))
 	})
 	return group.Wait()
 }
@@ -459,6 +475,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		MinPartSize:      config.Metainfo.MinPartSize,
 		MaxNumberOfParts: config.Metainfo.MaxNumberOfParts,
 		ServerSideCopy:   config.Metainfo.ServerSideCopy,
+		MultipleVersions: config.Metainfo.MultipleVersions,
 	})
 	if err != nil {
 		return nil, err
@@ -527,18 +544,23 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	gcBFPeer, err := planet.newGarbageCollectionBF(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.EmailReminders.Enable {
 		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer, gcBFPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF) *Satellite {
 	system := &Satellite{
 		Name:     name,
 		Config:   config,
@@ -547,6 +569,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 		Repairer: repairerPeer,
 		Admin:    adminPeer,
 		GC:       gcPeer,
+		GCBF:     gcBFPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -559,7 +582,12 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
+	system.Overlay.OfflineNodeEmails = peer.Overlay.OfflineNodeEmails
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
+
+	system.NodeEvents.DB = peer.NodeEvents.DB
+	system.NodeEvents.Notifier = peer.NodeEvents.Notifier
+	system.NodeEvents.Chore = peer.NodeEvents.Chore
 
 	system.Reputation.Service = peer.Reputation.Service
 
@@ -580,13 +608,14 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
 
-	system.Audit.Queues = peer.Audit.Queues
+	system.Audit.VerifyQueue = peer.Audit.VerifyQueue
 	system.Audit.Worker = peer.Audit.Worker
 	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = peer.Audit.Verifier
 	system.Audit.Reporter = peer.Audit.Reporter
 
-	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
+	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
+	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
 	system.ZombieDeletion.Chore = peer.ZombieDeletion.Chore
@@ -658,7 +687,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {
@@ -681,6 +710,20 @@ func (planet *Planet) newGarbageCollection(ctx context.Context, index int, ident
 	}
 	planet.databases = append(planet.databases, revocationDB)
 	return satellite.NewGarbageCollection(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
+}
+
+func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.GarbageCollectionBF, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-gc-bf" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+	return satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

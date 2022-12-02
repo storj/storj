@@ -24,12 +24,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+
 import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 
 // @vue/component
 @Component({

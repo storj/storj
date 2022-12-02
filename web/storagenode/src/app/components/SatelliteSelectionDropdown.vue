@@ -23,14 +23,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutInfoRange } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
+
+import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
 // @vue/component
 @Component({

@@ -18,17 +18,35 @@
                     <h1 class="login-area__content-area__container__title-area__title" aria-roledescription="sign-in-title">Sign In</h1>
 
                     <div class="login-area__expand" @click.stop="toggleDropdown">
-                        <span class="login-area__expand__value">{{ satelliteName }}</span>
+                        <button
+                            id="loginDropdown"
+                            type="button"
+                            aria-haspopup="listbox"
+                            aria-roledescription="satellites-dropdown"
+                            :aria-expanded="isDropdownShown"
+                            class="login-area__expand__value"
+                        >
+                            {{ satelliteName }}
+                        </button>
                         <BottomArrowIcon />
-                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="login-area__expand__dropdown">
-                            <div class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
+                        <ul v-if="isDropdownShown" v-click-outside="closeDropdown" tabindex="-1" role="listbox" class="login-area__expand__dropdown">
+                            <li key="0" tabindex="0" role="option" class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
                                 <SelectedCheckIcon />
                                 <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                            </div>
-                            <a v-for="sat in partneredSatellites" :key="sat.id" class="login-area__expand__dropdown__item" :href="sat.address + '/login'">
+                            </li>
+                            <li
+                                v-for="(sat, index) in partneredSatellites"
+                                :key="index + 1"
+                                role="option"
+                                tabindex="0"
+                                :data-value="sat.name"
+                                class="login-area__expand__dropdown__item"
+                                @click="clickSatellite(sat.address)"
+                                @keypress.enter="clickSatellite(sat.address)"
+                            >
                                 {{ sat.name }}
-                            </a>
-                        </div>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 <template v-if="!isMFARequired">
@@ -57,7 +75,7 @@
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
-                            is-password="true"
+                            is-password
                             role-description="password"
                             @setData="setPassword"
                         />
@@ -142,19 +160,8 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import VueRecaptcha from "vue-recaptcha";
-import VueHcaptcha from "@hcaptcha/vue-hcaptcha";
-
-import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
-import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
-import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
-import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
-import LogoIcon from '@/../static/images/logo.svg';
-import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import VueRecaptcha from 'vue-recaptcha';
+import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
@@ -164,9 +171,23 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { ErrorBadRequest } from "@/api/errors/ErrorBadRequest";
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { TokenInfo } from '@/types/users';
+import { LocalData } from '@/utils/localData';
+
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import LogoIcon from '@/../static/images/logo.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
+import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
+import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
 interface ClearInput {
     clearInput(): void;
@@ -221,7 +242,6 @@ export default class Login extends Vue {
     public isDropdownShown = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
-    public readonly activatePath: string = RouteConfig.Activate.path;
 
     public $refs!: {
         recaptcha: VueRecaptcha;
@@ -316,6 +336,13 @@ export default class Login extends Vue {
     }
 
     /**
+     * Redirects to chosen satellite.
+     */
+    public clickSatellite(address): void {
+        window.location.href = address + '/login';
+    }
+
+    /**
      * Toggles satellite selection dropdown visibility (Tardigrade).
      */
     public toggleDropdown(): void {
@@ -350,7 +377,16 @@ export default class Login extends Vue {
      * Holds on login button click logic.
      */
     public async onLoginClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.isLoading && !this.isDropdownShown) {
+            return;
+        }
+
+        let activeElement = document.activeElement;
+
+        if (activeElement && activeElement.id === 'loginDropdown') return;
+
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
             return;
         }
 
@@ -379,7 +415,8 @@ export default class Login extends Vue {
         }
 
         try {
-            await this.auth.token(this.email, this.password, this.captchaResponseToken, this.passcode, this.recoveryCode);
+            const tokenInfo: TokenInfo = await this.auth.token(this.email, this.password, this.captchaResponseToken, this.passcode, this.recoveryCode);
+            LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
         } catch (error) {
             if (this.$refs.recaptcha) {
                 this.$refs.recaptcha.reset();
@@ -419,8 +456,11 @@ export default class Login extends Vue {
             return;
         }
 
+        await this.$store.dispatch(USER_ACTIONS.LOGIN);
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
         this.isLoading = false;
+
+        LocalData.setServerSideEncryptionBannerHidden(false);
 
         this.analytics.pageVisit(this.returnURL);
         await this.$router.push(this.returnURL);
@@ -437,7 +477,7 @@ export default class Login extends Vue {
             isNoErrors = false;
         }
 
-        if (!Validator.password(this.password)) {
+        if (this.password.length < Validator.PASS_MIN_LENGTH) {
             this.passwordError = 'Invalid Password';
             isNoErrors = false;
         }
@@ -491,6 +531,9 @@ export default class Login extends Vue {
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
+                border: none;
+                cursor: pointer;
+                background: transparent;
             }
 
             &__dropdown {
@@ -687,7 +730,7 @@ export default class Login extends Vue {
         }
     }
 
-    ::v-deep .grecaptcha-badge {
+    :deep(.grecaptcha-badge) {
         visibility: hidden;
     }
 

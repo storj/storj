@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/gracefulexit"
@@ -41,8 +40,10 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
@@ -83,9 +84,16 @@ type Core struct {
 
 	// services and endpoints
 	Overlay struct {
-		DB           overlay.DB
-		Service      *overlay.Service
-		DQStrayNodes *straynodes.Chore
+		DB                overlay.DB
+		Service           *overlay.Service
+		OfflineNodeEmails *offlinenodes.Chore
+		DQStrayNodes      *straynodes.Chore
+	}
+
+	NodeEvents struct {
+		DB       nodeevents.DB
+		Notifier nodeevents.Notifier
+		Chore    *nodeevents.Chore
 	}
 
 	Metainfo struct {
@@ -108,11 +116,11 @@ type Core struct {
 	}
 
 	Audit struct {
-		Queues   *audit.Queues
-		Worker   *audit.Worker
-		Chore    *audit.Chore
-		Verifier *audit.Verifier
-		Reporter audit.Reporter
+		VerifyQueue audit.VerifyQueue
+		Worker      *audit.Worker
+		Chore       *audit.Chore
+		Verifier    *audit.Verifier
+		Reporter    audit.Reporter
 	}
 
 	ExpiredDeletion struct {
@@ -138,7 +146,6 @@ type Core struct {
 	Payments struct {
 		Accounts         payments.Accounts
 		BillingChore     *billing.Chore
-		Chore            *stripecoinpayments.Chore
 		StorjscanClient  *storjscan.Client
 		StorjscanService *storjscan.Service
 		StorjscanChore   *storjscan.Chore
@@ -150,10 +157,6 @@ type Core struct {
 
 	Metrics struct {
 		Chore *metrics.Chore
-	}
-
-	Buckets struct {
-		Service *buckets.Service
 	}
 }
 
@@ -169,10 +172,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
-	}
-
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
 	}
 
 	{ // setup debug
@@ -261,7 +260,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -271,8 +270,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Overlay.Service.Close,
 		})
 
+		if config.Overlay.SendNodeEmails {
+			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "overlay:offline-node-emails",
+				Run:   peer.Overlay.OfflineNodeEmails.Run,
+				Close: peer.Overlay.OfflineNodeEmails.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Overlay Offline Node Emails", peer.Overlay.OfflineNodeEmails.Loop))
+		}
+
 		if config.StrayNodes.EnableDQ {
-			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.DB, config.StrayNodes)
+			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.Service, config.StrayNodes)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "overlay:dq-stray-nodes",
 				Run:   peer.Overlay.DQStrayNodes.Run,
@@ -280,6 +290,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			})
 			peer.Debug.Server.Panel.Add(
 				debug.Cycle("Overlay DQ Stray Nodes", peer.Overlay.DQStrayNodes.Loop))
+		}
+	}
+
+	{ // setup node events
+		if config.Overlay.SendNodeEmails {
+			peer.NodeEvents.Notifier = nodeevents.NewMockNotifier(log.Named("node events:mock notifier"))
+			peer.NodeEvents.DB = peer.DB.NodeEvents()
+			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "node-events:chore",
+				Run:   peer.NodeEvents.Chore.Run,
+				Close: peer.NodeEvents.Chore.Close,
+			})
 		}
 	}
 
@@ -301,7 +324,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -353,7 +375,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			reputationDB = cachingDB
 		}
 		peer.Reputation.Service = reputation.NewService(log.Named("reputation:service"),
-			peer.Overlay.DB,
+			peer.Overlay.Service,
 			reputationDB,
 			config.Reputation,
 		)
@@ -373,7 +395,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		config := config.Audit
 
-		peer.Audit.Queues = audit.NewQueues()
+		peer.Audit.VerifyQueue = db.VerifyQueue()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Metabase,
@@ -393,8 +415,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			int32(config.MaxReverifyCount),
 		)
 
-		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit:worker"),
-			peer.Audit.Queues,
+		peer.Audit.Worker = audit.NewWorker(peer.Log.Named("audit:worker"),
+			peer.Audit.VerifyQueue,
 			peer.Audit.Verifier,
 			peer.Audit.Reporter,
 			config,
@@ -412,7 +434,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-			peer.Audit.Queues,
+			peer.Audit.VerifyQueue,
 			peer.Metainfo.SegmentLoop,
 			config,
 		)
@@ -456,7 +478,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, config.Tally)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, peer.DB.Buckets(), config.Tally)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:tally",
 			Run:   peer.Accounting.Tally.Run,
@@ -541,21 +563,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Payments.Accounts = service.Accounts()
-
-		peer.Payments.Chore = stripecoinpayments.NewChore(
-			peer.Log.Named("payments.stripe:clearing"),
-			service,
-			pc.StripeCoinPayments.TransactionUpdateInterval,
-			pc.StripeCoinPayments.AccountBalanceUpdateInterval,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name: "payments.stripe:service",
-			Run:  peer.Payments.Chore.Run,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Payments Stripe Transactions", peer.Payments.Chore.TransactionCycle),
-			debug.Cycle("Payments Stripe Account Balance", peer.Payments.Chore.AccountBalanceCycle),
-		)
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,

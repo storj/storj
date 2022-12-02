@@ -15,10 +15,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import NodeOptions from '@/app/components/common/NodeOptions.vue';
-
 import { Config as RouterConfig } from '@/app/router';
 import { NodePayoutsSummary } from '@/payouts';
+
+import NodeOptions from '@/app/components/common/NodeOptions.vue';
 
 // @vue/component
 @Component({

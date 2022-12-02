@@ -21,7 +21,7 @@ const hcaptchaAPIURL = "https://hcaptcha.com/siteverify"
 // and returning whether the user response characterized by the given
 // response token and IP is valid.
 type CaptchaHandler interface {
-	Verify(ctx context.Context, responseToken string, userIP string) (bool, error)
+	Verify(ctx context.Context, responseToken string, userIP string) (bool, *float64, error)
 }
 
 // CaptchaType is a type of captcha.
@@ -55,12 +55,12 @@ func NewDefaultCaptcha(kind CaptchaType, secretKey string) CaptchaHandler {
 // Verify contacts the captcha API and returns whether the given response token is valid.
 // The documentation can be found here for recaptcha: https://developers.google.com/recaptcha/docs/verify
 // And here for hcaptcha: https://docs.hcaptcha.com/
-func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP string) (valid bool, err error) {
+func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP string) (valid bool, score *float64, err error) {
 	if responseToken == "" {
-		return false, errs.New("the response token is empty")
+		return false, nil, errs.New("the response token is empty")
 	}
 	if userIP == "" {
-		return false, errs.New("the user's IP address is empty")
+		return false, nil, errs.New("the user's IP address is empty")
 	}
 
 	reqBody := url.Values{
@@ -71,13 +71,13 @@ func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, r.Endpoint, strings.NewReader(reqBody))
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	defer func() {
@@ -85,16 +85,17 @@ func (r captchaHandler) Verify(ctx context.Context, responseToken string, userIP
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, errors.New(resp.Status)
+		return false, nil, errors.New(resp.Status)
 	}
 
 	var data struct {
-		Success bool `json:"success"`
+		Success bool    `json:"success"`
+		Score   float64 `json:"score"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
-	return data.Success, nil
+	return data.Success, &data.Score, nil
 }

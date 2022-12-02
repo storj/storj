@@ -31,11 +31,15 @@
                     </a>
                 </div>
             </div>
-            <div class="account-area__dropdown__item" @click="navigateToSettings">
+            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToBilling" @keyup.enter="navigateToBilling">
+                <BillingIcon />
+                <p class="account-area__dropdown__item__label">Billing</p>
+            </div>
+            <div tabindex="0" class="account-area__dropdown__item" @click="navigateToSettings" @keyup.enter="navigateToSettings">
                 <SettingsIcon />
                 <p class="account-area__dropdown__item__label">Account Settings</p>
             </div>
-            <div class="account-area__dropdown__item" @click="onLogout">
+            <div tabindex="0" class="account-area__dropdown__item" @click="onLogout" @keyup.enter="onLogout">
                 <LogoutIcon />
                 <p class="account-area__dropdown__item__label">Logout</p>
             </div>
@@ -46,17 +50,24 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { User } from "@/types/users";
-import { RouteConfig } from "@/router";
-import { LocalData } from "@/utils/localData";
-import { AuthHttpApi } from "@/api/auth";
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from "@/utils/constants/actionNames";
-import { PROJECTS_ACTIONS } from "@/store/modules/projects";
-import { USER_ACTIONS } from "@/store/modules/users";
-import { ACCESS_GRANTS_ACTIONS } from "@/store/modules/accessGrants";
-import { BUCKET_ACTIONS } from "@/store/modules/buckets";
-import { OBJECTS_ACTIONS } from "@/store/modules/objects";
+import { User } from '@/types/users';
+import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
+import { AuthHttpApi } from '@/api/auth';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 
+import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import SatelliteIcon from '@/../static/images/navigation/satellite.svg';
 import AccountIcon from '@/../static/images/navigation/account.svg';
@@ -66,9 +77,6 @@ import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
-import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-
 // @vue/component
 @Component({
     components: {
@@ -76,11 +84,12 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
         SatelliteIcon,
         AccountIcon,
         ArrowImage,
+        BillingIcon,
         SettingsIcon,
         LogoutIcon,
         TierBadgeFree,
         TierBadgePro,
-    }
+    },
 })
 export default class AccountArea extends Vue {
     private readonly auth: AuthHttpApi = new AuthHttpApi();
@@ -91,6 +100,22 @@ export default class AccountArea extends Vue {
 
     public $refs!: {
         accountArea: HTMLDivElement,
+    };
+
+    /**
+     * Navigates user to billing page.
+     */
+    public navigateToBilling(): void {
+        this.closeDropdown();
+        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
+
+        this.isNewBillingScreen ?
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path) :
+            this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
+
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+
     }
 
     /**
@@ -127,6 +152,8 @@ export default class AccountArea extends Vue {
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
+        await this.$store.dispatch(AB_TESTING_ACTIONS.RESET);
 
         LocalData.removeUserId();
     }
@@ -135,7 +162,7 @@ export default class AccountArea extends Vue {
      * Toggles account dropdown visibility.
      */
     public toggleDropdown(): void {
-        const DROPDOWN_HEIGHT = 158; // pixels
+        const DROPDOWN_HEIGHT = 224; // pixels
         const SIXTEEN_PIXELS = 16;
         const TWENTY_PIXELS = 20;
         const accountContainer = this.$refs.accountArea.getBoundingClientRect();
@@ -144,6 +171,7 @@ export default class AccountArea extends Vue {
         this.dropdownXPos = accountContainer.right - TWENTY_PIXELS;
 
         this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+        this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
     }
 
     /**
@@ -151,6 +179,14 @@ export default class AccountArea extends Vue {
      */
     public closeDropdown(): void {
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === 'true';
     }
 
     /**
@@ -208,7 +244,7 @@ export default class AccountArea extends Vue {
                 &__label-small {
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                     margin: 0 6px 0 24px;
                 }
 
@@ -219,16 +255,16 @@ export default class AccountArea extends Vue {
             }
 
             &:hover {
-                background-color: #fafafb;
-                border-color: #fafafb;
+                background-color: var(--c-grey-1);
+                border-color: var(--c-grey-1);
 
                 p {
-                    color: #0149ff;
+                    color: var(--c-blue-3);
                 }
 
-                .account-area__wrap__arrow ::v-deep path,
-                .account-area__wrap__left__icon ::v-deep path {
-                    fill: #0149ff;
+                .account-area__wrap__arrow :deep(path),
+                .account-area__wrap__left__icon :deep(path) {
+                    fill: var(--c-blue-3);
                 }
             }
         }
@@ -240,16 +276,16 @@ export default class AccountArea extends Vue {
             max-width: 240px;
             z-index: 1;
             cursor: default;
-            border: 1px solid #ebeef1;
+            border: 1px solid var(--c-grey-2);
             box-sizing: border-box;
             box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
             border-radius: 8px;
 
             &__header {
-                background: #fafafb;
+                background: var(--c-grey-1);
                 padding: 16px;
                 width: calc(100% - 32px);
-                border: 1px solid #ebeef1;
+                border: 1px solid var(--c-grey-2);
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -263,19 +299,26 @@ export default class AccountArea extends Vue {
                     &__label {
                         font-size: 14px;
                         line-height: 20px;
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         margin-left: 16px;
                     }
 
                     &__sat {
                         font-size: 14px;
                         line-height: 20px;
-                        color: #56606d;
+                        color: var(--c-grey-6);
                         margin-right: 16px;
                     }
 
                     &__link {
                         max-height: 16px;
+                    }
+
+                    &__link:focus {
+
+                        svg :deep(path) {
+                            fill: var(--c-blue-3);
+                        }
                     }
                 }
             }
@@ -283,7 +326,7 @@ export default class AccountArea extends Vue {
             &__item {
                 display: flex;
                 align-items: center;
-                border-top: 1px solid #ebeef1;
+                border-top: 1px solid var(--c-grey-2);
                 padding: 16px;
                 width: calc(100% - 32px);
                 cursor: pointer;
@@ -292,7 +335,7 @@ export default class AccountArea extends Vue {
                     margin-left: 16px;
                     font-size: 14px;
                     line-height: 20px;
-                    color: #56606d;
+                    color: var(--c-grey-6);
                 }
 
                 &:last-of-type {
@@ -300,15 +343,19 @@ export default class AccountArea extends Vue {
                 }
 
                 &:hover {
-                    background-color: #f7f8fb;
+                    background-color: #f5f6fa;
 
                     p {
-                        color: #0149ff;
+                        color: var(--c-blue-3);
                     }
 
-                    ::v-deep path {
-                        fill: #0149ff;
+                    :deep(path) {
+                        fill: var(--c-blue-3);
                     }
+                }
+
+                &:focus {
+                    background-color: #f5f6fa;
                 }
             }
         }
@@ -318,27 +365,27 @@ export default class AccountArea extends Vue {
         border-color: #000;
 
         p {
-            color: #091c45;
+            color: var(--c-blue-6);
             font-family: 'font_bold', sans-serif;
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
             fill: #000;
         }
     }
 
     .active:hover {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
         background-color: #f7f8fb;
 
         p {
-            color: #0149ff;
+            color: var(--c-blue-3);
         }
 
-        .account-area__wrap__arrow ::v-deep path,
-        .account-area__wrap__left__icon ::v-deep path {
-            fill: #0149ff;
+        .account-area__wrap__arrow :deep(path),
+        .account-area__wrap__left__icon :deep(path) {
+            fill: var(--c-blue-3);
         }
     }
 

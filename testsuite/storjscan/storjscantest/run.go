@@ -33,10 +33,12 @@ var mon = monkit.Package()
 
 // Stack contains references to storjscan app and eth test network.
 type Stack struct {
-	Log     *zap.Logger
-	App     *storjscan.App
-	Network *testeth.Network
-	Token   blockchain.Address
+	Log      *zap.Logger
+	App      *storjscan.App
+	StartApp func() error
+	CloseApp func() error
+	Network  *testeth.Network
+	Token    blockchain.Address
 }
 
 // Test defines common services for storjscan tests.
@@ -132,18 +134,38 @@ func Run(t *testing.T, test Test) {
 				var run errgroup.Group
 				runCtx, runCancel := context.WithCancel(ctx)
 
-				run.Go(func() error {
-					err := stack.App.Run(runCtx)
-					return err
-				})
-				defer ctx.Check(func() error {
+				stack.StartApp = func() error {
+					storjscanConfig.API.Address = stack.App.API.Listener.Addr().String()
+
+					stack.App, err = storjscan.NewApp(stack.Log.Named("app"), storjscanConfig, storjscanDB)
+					if err != nil {
+						return err
+					}
+
+					runCtx, runCancel = context.WithCancel(ctx)
+
+					run = errgroup.Group{}
+					run.Go(func() error {
+						err := stack.App.Run(runCtx)
+						return err
+					})
+
+					return nil
+				}
+				stack.CloseApp = func() error {
 					runCancel()
 
 					var errlist errs.Group
 					errlist.Add(run.Wait())
 					errlist.Add(stack.App.Close())
 					return errlist.Err()
+				}
+
+				run.Go(func() error {
+					err := stack.App.Run(runCtx)
+					return err
 				})
+				defer ctx.Check(stack.CloseApp)
 				// ------------
 
 				planetConfig.Reconfigure = testplanet.Reconfigure{Satellite: func(log *zap.Logger, index int, config *satellite.Config) {

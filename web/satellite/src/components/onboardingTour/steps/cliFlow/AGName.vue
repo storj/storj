@@ -27,17 +27,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from "@/router";
-import { AccessGrant} from "@/types/accessGrants";
-import { ACCESS_GRANTS_ACTIONS} from "@/store/modules/accessGrants";
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { RouteConfig } from '@/router';
+import { AccessGrant } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
-import CLIFlowContainer from "@/components/onboardingTour/steps/common/CLIFlowContainer.vue";
-import VInput from "@/components/common/VInput.vue";
+import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -45,7 +44,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
         CLIFlowContainer,
         VInput,
         Icon,
-    }
+    },
 })
 export default class AGName extends Vue {
     private name = '';
@@ -71,7 +70,7 @@ export default class AGName extends Vue {
         this.analytics.pageVisit(RouteConfig.OverviewStep.path);
         this.backRoute ?
             await this.$router.push(this.backRoute).catch(() => {return; }) :
-            await this.$router.push({name: RouteConfig.OverviewStep.name});
+            await this.$router.push({ name: RouteConfig.OverviewStep.name });
     }
 
     /**
@@ -92,7 +91,7 @@ export default class AGName extends Vue {
         try {
             createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.name);
 
-            await this.$notify.success("New clean access grant was generated successfully.");
+            await this.$notify.success('New clean access grant was generated successfully.');
         } catch {
             return;
         } finally {
@@ -103,7 +102,7 @@ export default class AGName extends Vue {
         this.name = '';
 
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);
-        await this.$router.push({name: RouteConfig.AGPermissions.name});
+        await this.$router.push({ name: RouteConfig.AGPermissions.name });
     }
 
     /**

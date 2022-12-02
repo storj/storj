@@ -16,7 +16,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
@@ -33,17 +32,11 @@ var (
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
-	Expiration          time.Duration  `help:"how long until an order expires" default:"48h" testDefault:"168h"` // default is 2 days
+	Expiration          time.Duration  `help:"how long until an order expires" default:"24h" testDefault:"168h"` // default is 1 day
 	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000" testDefault:"10"`
 	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
 	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
-}
-
-// BucketsDB returns information about buckets.
-type BucketsDB interface {
-	// GetBucketID returns an existing bucket id.
-	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 }
 
 // Service for creating order limits.
@@ -54,7 +47,6 @@ type Service struct {
 	satellite signing.Signer
 	overlay   *overlay.Service
 	orders    DB
-	buckets   BucketsDB
 
 	encryptionKeys EncryptionKeys
 
@@ -67,8 +59,7 @@ type Service struct {
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
-	orders DB, buckets BucketsDB,
-	config Config,
+	orders DB, config Config,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
@@ -79,7 +70,6 @@ func NewService(
 		satellite: satellite,
 		overlay:   overlay,
 		orders:    orders,
-		buckets:   buckets,
 
 		encryptionKeys: config.EncryptionKeys,
 
@@ -320,9 +310,35 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment meta
 	return limits, signer.PrivateKey, cachedNodesInfo, nil
 }
 
-// CreateAuditOrderLimit creates an order limit for auditing a single the piece from a segment.
+// CreateAuditOrderLimit creates an order limit for auditing a single piece from a segment.
 func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	// TODO reduce number of params ?
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
+	}
+	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
+}
+
+// CreateAuditPieceOrderLimit creates an order limit for auditing a single
+// piece from a segment, requesting that the original order limit and piece
+// hash be included.
+//
+// Unfortunately, because of the way the protocol works historically, we
+// must use GET_REPAIR for this operation instead of GET_AUDIT.
+func (service *Service) CreateAuditPieceOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, pieceSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerRepairGet(service, rootPieceID, time.Now(), int64(pieceSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
+	}
+	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
+}
+
+func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, signer *Signer) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.overlay.Get(ctx, nodeID)
@@ -346,11 +362,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.
 	}
 	if !service.overlay.IsOnline(node) {
 		return nil, storj.PiecePrivateKey{}, nodeInfo, overlay.ErrNodeOffline.New("%v", nodeID)
-	}
-
-	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nodeInfo, Error.Wrap(err)
 	}
 
 	orderLimit, err := signer.Sign(ctx, storj.NodeURL{

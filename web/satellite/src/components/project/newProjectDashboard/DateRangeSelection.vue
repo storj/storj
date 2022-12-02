@@ -21,9 +21,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-import VDateRangePicker from "@/components/common/VDateRangePicker.vue";
+import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 
@@ -59,19 +59,19 @@ export default class DateRangeSelection extends Vue {
      */
     public get dateRangeLabel(): string {
         if (this.since.getTime() === this.before.getTime()) {
-            return this.since.toLocaleDateString('en-US')
+            return this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
         }
 
-        const sinceFormattedString = this.since.toLocaleDateString('en-US');
-        const beforeFormattedString = this.before.toLocaleDateString('en-US');
-        return `${sinceFormattedString}-${beforeFormattedString}`;
+        const sinceFormattedString = this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        const beforeFormattedString = this.before.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+        return `${sinceFormattedString} - ${beforeFormattedString}`;
     }
 
     /**
      * Returns date range to be displayed in date range picker.
      */
     public get pickerDateRange(): Date[] {
-        return [this.since, this.before]
+        return [this.since, this.before];
     }
 }
 </script>
@@ -89,14 +89,14 @@ export default class DateRangeSelection extends Vue {
             justify-content: space-between;
             padding: 10px 16px;
             border-radius: 8px;
-            border: 1px solid #d8dee3;
+            border: 1px solid var(--c-grey-3);
 
             &__label {
                 font-family: 'font_medium', sans-serif;
                 font-size: 13px;
                 line-height: 20px;
                 letter-spacing: -0.02em;
-                color: #56606d;
+                color: var(--c-grey-6);
                 margin-left: 9px;
             }
         }
@@ -112,14 +112,14 @@ export default class DateRangeSelection extends Vue {
     }
 
     .active {
-        border-color: #0149ff;
+        border-color: var(--c-blue-3);
 
         h1 {
-            color: #0149ff;
+            color: var(--c-blue-3);
         }
 
-        svg ::v-deep path {
-            fill: #0149ff;
+        svg :deep(path) {
+            fill: var(--c-blue-3);
         }
     }
 </style>

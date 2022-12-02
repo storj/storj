@@ -49,14 +49,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import CopyIcon from '@/../static/images/Copy.svg';
-import DropdownArrowIcon from '@/../static/images/dropdownArrow.svg';
-import EyeIcon from '@/../static/images/Eye.svg';
+import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 
-import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
+import CopyIcon from '@/../static/images/Copy.svg';
+import DropdownArrowIcon from '@/../static/images/dropdownArrow.svg';
+import EyeIcon from '@/../static/images/Eye.svg';
 
 // @vue/component
 @Component({

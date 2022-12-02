@@ -69,6 +69,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { DurationPermission } from '@/types/accessGrants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
@@ -76,13 +82,6 @@ import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
-
-import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { DurationPermission } from '@/types/accessGrants';
-
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 // @vue/component
 @Component({
@@ -262,8 +261,8 @@ export default class PermissionsStep extends Vue {
             'isDelete': this.isDelete,
         };
 
-        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
-        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, { 'notBefore': this.notBeforePermission.toISOString() });
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': this.notAfterPermission.toISOString() });
 
         await this.worker.postMessage(permissionsMsg);
 

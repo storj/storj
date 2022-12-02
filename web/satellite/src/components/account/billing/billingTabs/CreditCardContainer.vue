@@ -12,16 +12,16 @@
         <div class="payment-methods-container__card-container__info-area__expiration-text">
             Exp. Date
         </div>
-        
+
         <div class="payment-methods-container__card-container__info-area__info-container">
-            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image"> 
+            <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
             {{ creditCard.last4 }}
         </div>
         <div class="payment-methods-container__card-container__info-area__expire-container">
             {{ creditCard.expMonth }}/{{ creditCard.expYear }}
         </div>
         <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-area">
-            <div class="payment-methods-container__card-container__default-text">Default</div> 
+            <div class="payment-methods-container__card-container__default-text">Default</div>
         </div>
         <div class="payment-methods-container__card-container__function-buttons">
             <div class="remove-button" @click="remove">
@@ -35,6 +35,9 @@
 import Vue, { VueConstructor } from 'vue';
 import { Component, Prop } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
@@ -45,9 +48,6 @@ import JCBIcon from '@/../static/images/payments/cardIcons/smalljcb.svg';
 import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercard.svg';
 import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
 
 const {
     TOGGLE_CARD_SELECTION,
@@ -68,7 +68,7 @@ const {
     },
 })
 export default class CardComponent extends Vue {
-    @Prop({default: () => new CreditCard()})
+    @Prop({ default: () => new CreditCard() })
     private readonly creditCard: CreditCard;
     public isEditPaymentMethodsModalOpen = false;
 
@@ -129,7 +129,7 @@ export default class CardComponent extends Vue {
     align-items: center;
     gap: 8px;
     background: white;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
     width: 70px;
@@ -139,6 +139,7 @@ export default class CardComponent extends Vue {
     margin: 0 7px 0 0;
     white-space: nowrap;
     color: #354049;
+    align-self: end;
 
     &:hover {
         background-color: #2683ff;
@@ -162,7 +163,7 @@ export default class CardComponent extends Vue {
     width: 70px;
     height: 30px;
     background: white;
-    border: 1px solid #d8dee3;
+    border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 6px;
     font-family: 'font_medium', sans-serif;
@@ -186,8 +187,8 @@ export default class CardComponent extends Vue {
     border-radius: 6px;
     display: grid;
     grid-template-columns: 4fr 2fr;
-    grid-template-rows: 1fr 0fr auto 0fr;
-    height: 126px;
+    grid-template-rows: 1fr 0fr 1fr 1fr;
+    height: 100%;
 
     &__function-buttons {
         grid-column: 1;
@@ -214,7 +215,7 @@ export default class CardComponent extends Vue {
             font-weight: 700;
             font-size: 12px;
             line-height: 18px;
-            color: #56606d;
+            color: var(--c-grey-6);
         }
 
         &__expiration-text {
@@ -225,7 +226,7 @@ export default class CardComponent extends Vue {
             font-weight: 700;
             font-size: 12px;
             line-height: 18px;
-            color: #56606d;
+            color: var(--c-grey-6);
         }
 
         &__last-four {
@@ -265,11 +266,10 @@ export default class CardComponent extends Vue {
         grid-column: 2;
         width: 58px;
         height: 24px;
-        left: 950px;
-        top: 250px;
-        background: #e6edf7;
-        border: 1px solid #d7e8ff;
+        background: var(--c-blue-1);
+        border: 1px solid var(--c-blue-2);
         border-radius: 4px;
+        justify-self: end;
     }
 
     &__default-text {
@@ -278,7 +278,7 @@ export default class CardComponent extends Vue {
         font-weight: 700;
         font-size: 12px;
         line-height: 20px;
-        color: #003dc1;
+        color: var(--c-blue-4);
         margin-left: 8px;
         margin-top: 3px;
     }

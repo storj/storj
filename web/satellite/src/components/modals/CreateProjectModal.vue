@@ -18,7 +18,7 @@
                     additional-label="Up To 20 Characters"
                     placeholder="Project Name"
                     class="full-input"
-                    is-limit-shown="true"
+                    is-limit-shown
                     :current-limit="projectName.length"
                     :max-symbols="20"
                     :error="nameError"
@@ -28,9 +28,9 @@
                     label="Description - Optional"
                     placeholder="Project Description"
                     class="full-input"
-                    is-multiline="true"
+                    is-multiline
                     height="100px"
-                    is-limit-shown="true"
+                    is-limit-shown
                     :current-limit="description.length"
                     :max-symbols="100"
                     @setData="setProjectDescription"
@@ -41,7 +41,7 @@
                         width="100%"
                         height="48px"
                         :on-press="closeModal"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Create Project"
@@ -62,19 +62,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-
-import VButton from '@/components/common/VButton.vue';
-import VModal from '@/components/common/VModal.vue';
-import VInput from '@/components/common/VInput.vue';
-import VLoader from '@/components/common/VLoader.vue';
-
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import VLoader from '@/components/common/VLoader.vue';
+import VInput from '@/components/common/VInput.vue';
+import VModal from '@/components/common/VModal.vue';
+import VButton from '@/components/common/VButton.vue';
 
 // @vue/component
 @Component({
@@ -150,7 +148,7 @@ export default class CreateProjectModal extends Vue {
         await this.$notify.success('Project created successfully!');
 
         this.isLoading = false;
-        this.closeModal()
+        this.closeModal();
 
         this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);
@@ -271,7 +269,7 @@ export default class CreateProjectModal extends Vue {
 
     @media screen and (max-width: 550px) {
 
-        ::v-deep .add-label {
+        :deep(.add-label) {
             display: none;
         }
     }

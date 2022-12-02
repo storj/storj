@@ -24,7 +24,7 @@
                         width="100%"
                         height="48px"
                         :on-press="closeModal"
-                        is-transparent="true"
+                        :is-transparent="true"
                     />
                     <VButton
                         label="Update"
@@ -41,15 +41,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VModal from '@/components/common/VModal.vue';
-
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import VModal from '@/components/common/VModal.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({
@@ -123,6 +123,16 @@ export default class EditProfileModal extends Vue {
         display: flex;
         flex-direction: column;
         padding: 48px;
+        min-width: 530px;
+        box-sizing: border-box;
+
+        @media screen and (max-width: 580px) {
+            min-width: 450px;
+        }
+
+        @media screen and (max-width: 500px) {
+            min-width: unset;
+        }
 
         @media screen and (max-width: 400px) {
             padding: 24px;

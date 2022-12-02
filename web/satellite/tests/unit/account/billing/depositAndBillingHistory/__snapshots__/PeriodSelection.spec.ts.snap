@@ -23,10 +23,15 @@ exports[`PeriodSelection renders correctly 1`] = `
 exports[`PeriodSelection renders correctly with dropdown 1`] = `
 <div class="period-selection">
   <div class="period-selection__current-choice">
-    <div class="period-selection__current-choice__label-area"><svg></svg> <span class="period-selection__current-choice__label-area__label">Current Billing Period</span></div> <svg></svg>
+    <div class="period-selection__current-choice__label-area">
+      <datepickericon-stub></datepickericon-stub> <span class="period-selection__current-choice__label-area__label">Current Billing Period</span>
+    </div>
+    <hideicon-stub></hideicon-stub>
   </div>
   <div class="period-selection__dropdown" style="">
-    <div class="period-selection__dropdown__item"><svg class="selected-image"></svg> <span class="period-selection__dropdown__item__label">Current Billing Period</span></div>
+    <div class="period-selection__dropdown__item">
+      <selectedicon-stub class="selected-image"></selectedicon-stub> <span class="period-selection__dropdown__item__label">Current Billing Period</span>
+    </div>
     <div class="period-selection__dropdown__item">
       <!----> <span class="period-selection__dropdown__item__label">Previous Billing Period</span>
     </div>

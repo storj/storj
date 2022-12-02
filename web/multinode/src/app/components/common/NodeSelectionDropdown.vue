@@ -8,9 +8,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
-
 import { Node } from '@/nodes';
+
+import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
 
 // @vue/component
 @Component({

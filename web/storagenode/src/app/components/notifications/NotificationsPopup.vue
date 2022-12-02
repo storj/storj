@@ -31,10 +31,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SNONotification from '@/app/components/notifications/SNONotification.vue';
-
 import { RouteConfig } from '@/app/router';
 import { UINotification } from '@/app/types/notifications';
+
+import SNONotification from '@/app/components/notifications/SNONotification.vue';
 
 // @vue/component
 @Component({

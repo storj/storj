@@ -2,8 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, mount } from '@vue/test-utils';
 
-import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
+import { PaymentsMock } from '../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../mock/api/projects';
+import { UsersApiMock } from '../../../mock/api/users';
 
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
@@ -11,11 +14,8 @@ import { makeUsersModule, USER_MUTATIONS } from '@/store/modules/users';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { createLocalVue, mount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { UsersApiMock } from '../../../mock/api/users';
+import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
 
 const localVue = createLocalVue();
 localVue.filter('centsToDollars', (cents: number): string => {
@@ -29,7 +29,7 @@ const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
-const store = new Vuex.Store({ modules: { usersModule, projectsModule, paymentsModule }});
+const store = new Vuex.Store({ modules: { usersModule, projectsModule, paymentsModule } });
 
 const now = new Date(2020, 4, 1, 12 /* avoid timezone issues */, 1, 1, 1);
 paymentsModule.state.startDate = now; // TODO: we shouldn't need to do this
@@ -48,7 +48,7 @@ const {
 
 describe('EstimatedCostsAndCredits', (): void => {
     beforeEach(() => {
-        jest.useFakeTimers("modern");
+        jest.useFakeTimers('modern');
         jest.setSystemTime(now);
     });
     afterAll(() => {

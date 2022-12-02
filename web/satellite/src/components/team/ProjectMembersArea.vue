@@ -24,13 +24,12 @@
             :selectable="true"
             :limit="projectMemberLimit"
             :total-page-count="totalPageCount"
-            :items="projectMembers"
             :total-items-count="projectMembersTotalCount"
             :on-page-click-callback="onPageClick"
         >
             <template #head>
                 <th class="align-left">Name</th>
-                <th class="align-left">Date Added</th>
+                <th class="align-left date-added">Date Added</th>
                 <th class="align-left">Email</th>
             </template>
             <template #body>
@@ -47,21 +46,22 @@
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
-import VLoader from '@/components/common/VLoader.vue';
-import HeaderArea from '@/components/team/HeaderArea.vue';
-import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import { Component, Vue } from 'vue-property-decorator';
 
-import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
-
-import {SortDirection} from '@/types/common';
+import { SortDirection } from '@/types/common';
 import {
     ProjectMember,
     ProjectMemberHeaderState,
-    ProjectMemberOrderBy
+    ProjectMemberOrderBy,
 } from '@/types/projectMembers';
-import {PM_ACTIONS} from '@/utils/constants/actionNames';
-import VTable from "@/components/common/VTable.vue";
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+
+import VLoader from '@/components/common/VLoader.vue';
+import HeaderArea from '@/components/team/HeaderArea.vue';
+import ProjectMemberListItem from '@/components/team/ProjectMemberListItem.vue';
+import VTable from '@/components/common/VTable.vue';
+
+import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
 const {
     FETCH,
@@ -77,7 +77,7 @@ const {
         HeaderArea,
         VLoader,
         VTable,
-        EmptySearchResultIcon
+        EmptySearchResultIcon,
     },
 })
 export default class ProjectMembersArea extends Vue {
@@ -219,6 +219,13 @@ export default class ProjectMembersArea extends Vue {
             &__image {
                 margin-top: 40px;
             }
+        }
+    }
+
+    @media screen and (max-width: 800px) and (min-width: 500px) {
+
+        .date-added {
+            display: none;
         }
     }
 </style>

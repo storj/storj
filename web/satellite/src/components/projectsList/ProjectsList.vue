@@ -24,7 +24,6 @@
             class="projects-list-items"
             :limit="projectsPage.limit"
             :total-page-count="projectsPage.pageCount"
-            :items="projectsPage.projects"
             items-label="projects"
             :on-page-click-callback="onPageClick"
             :total-items-count="projectsPage.totalCount"
@@ -49,11 +48,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VLoader from '@/components/common/VLoader.vue';
-import VTable from "@/components/common/VTable.vue";
-import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
-
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -62,11 +56,15 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
-import { User } from "@/types/users";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { User } from '@/types/users';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+
+import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
+import VTable from '@/components/common/VTable.vue';
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
 
 const {
     FETCH_OWNED,
@@ -78,7 +76,7 @@ const {
         ProjectsListItem,
         VButton,
         VLoader,
-        VTable
+        VTable,
     },
 })
 export default class Projects extends Vue {
@@ -176,7 +174,6 @@ export default class Projects extends Vue {
     public get projectsPage(): ProjectsPage {
         return this.$store.state.projectsModule.page;
     }
-
 
 }
 </script>

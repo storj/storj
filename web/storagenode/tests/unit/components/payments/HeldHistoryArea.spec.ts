@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newPayoutModule } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { PayoutService } from '@/storagenode/payouts/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -17,7 +17,7 @@ const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
 const payoutModule = newPayoutModule(payoutService);
 
-const store = new Vuex.Store({ modules: { payoutModule }});
+const store = new Vuex.Store({ modules: { payoutModule } });
 
 describe('HeldHistoryArea', (): void => {
     it('renders correctly',  (): void => {

@@ -13,6 +13,7 @@ type Endpoint struct {
 	Name         string
 	Description  string
 	MethodName   string
+	RequestName  string
 	NoCookieAuth bool
 	NoAPIAuth    bool
 	Request      interface{}

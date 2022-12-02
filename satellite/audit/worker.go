@@ -13,6 +13,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase"
 )
 
 // Error is the default audit errs class.
@@ -25,16 +26,20 @@ type Config struct {
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5m0s" testDefault:"5s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
-	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
-	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" releaseDefault:"1h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
-	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
-	WorkerConcurrency int           `help:"number of workers to run audits on segments" default:"2"`
+	ChoreInterval             time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
+	QueueInterval             time.Duration `help:"how often to recheck an empty audit queue" releaseDefault:"1h" devDefault:"1m" testDefault:"$TESTINTERVAL"`
+	Slots                     int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
+	VerificationPushBatchSize int           `help:"number of audit jobs to push at once to the verification queue" devDefault:"10" releaseDefault:"4096"`
+	WorkerConcurrency         int           `help:"number of workers to run audits on segments" default:"2"`
+
+	ReverifyWorkerConcurrency   int           `help:"number of workers to run reverify audits on pieces" default:"2"`
+	ReverificationRetryInterval time.Duration `help:"how long a single reverification job can take before it may be taken over by another worker" releaseDefault:"6h" devDefault:"10m"`
 }
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
 	log         *zap.Logger
-	queues      *Queues
+	queue       VerifyQueue
 	verifier    *Verifier
 	reporter    Reporter
 	Loop        *sync2.Cycle
@@ -42,16 +47,16 @@ type Worker struct {
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queues *Queues, verifier *Verifier, reporter Reporter, config Config) (*Worker, error) {
+func NewWorker(log *zap.Logger, queue VerifyQueue, verifier *Verifier, reporter Reporter, config Config) *Worker {
 	return &Worker{
 		log: log,
 
-		queues:      queues,
+		queue:       queue,
 		verifier:    verifier,
 		reporter:    reporter,
 		Loop:        sync2.NewCycle(config.QueueInterval),
 		concurrency: config.WorkerConcurrency,
-	}, nil
+	}
 }
 
 // Run runs audit service 2.0.
@@ -78,22 +83,14 @@ func (worker *Worker) Close() error {
 func (worker *Worker) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// get the current queue
-	queue := worker.queues.Fetch()
-
 	limiter := sync2.NewLimiter(worker.concurrency)
 	defer limiter.Wait()
 
 	for {
-		segment, err := queue.Next()
+		segment, err := worker.queue.Next(ctx)
 		if err != nil {
 			if ErrEmptyQueue.Has(err) {
-				// get a new queue and return if empty; otherwise continue working.
-				queue = worker.queues.Fetch()
-				if queue.Size() == 0 {
-					return nil
-				}
-				continue
+				return nil
 			}
 			return err
 		}
@@ -130,6 +127,16 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		errlist.Add(err)
 	}
 
+	if err != nil {
+		if metabase.ErrSegmentNotFound.Has(err) {
+			// no need to add this error; Verify() will encounter it again
+			// and will handle the verification job as appropriate.
+			err = nil
+		} else {
+			errlist.Add(err)
+		}
+	}
+
 	// Skip all reverified nodes in the next Verify step.
 	skip := make(map[storj.NodeID]bool)
 	for _, nodeID := range report.Successes {
@@ -148,7 +155,7 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		skip[nodeID] = true
 	}
 
-	// Next, audit the the remaining nodes that are not in containment mode.
+	// Next, audit the remaining nodes that are not in containment mode.
 	report, err = worker.verifier.Verify(ctx, segment, skip)
 	if err != nil {
 		errlist.Add(err)

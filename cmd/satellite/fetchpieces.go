@@ -59,11 +59,8 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL, metabase.Config{
-		ApplicationName:  "satellite-pieces-fetcher",
-		MinPartSize:      runCfg.Config.Metainfo.MinPartSize,
-		MaxNumberOfParts: runCfg.Config.Metainfo.MaxNumberOfParts,
-	})
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL,
+		runCfg.Config.Metainfo.Metabase("satellite-pieces-fetcher"))
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
 	}
@@ -92,6 +89,7 @@ func cmdFetchPieces(cmd *cobra.Command, args []string) (err error) {
 		db.RepairQueue(),
 		db.Buckets(),
 		db.OverlayCache(),
+		db.NodeEvents(),
 		db.Reputation(),
 		db.Containment(),
 		rollupsWriteCache,

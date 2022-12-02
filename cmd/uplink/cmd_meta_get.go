@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -41,7 +42,7 @@ func (c *cmdMetaGet) Setup(params clingy.Parameters) {
 	c.entry = params.Arg("entry", "Metadata entry to get", clingy.Optional).(*string)
 }
 
-func (c *cmdMetaGet) Execute(ctx clingy.Context) error {
+func (c *cmdMetaGet) Execute(ctx context.Context) error {
 	project, err := c.ex.OpenProject(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -64,12 +65,12 @@ func (c *cmdMetaGet) Execute(ctx clingy.Context) error {
 			return errs.New("entry %q does not exist", *c.entry)
 		}
 
-		fmt.Fprintln(ctx.Stdout(), value)
+		fmt.Fprintln(clingy.Stdout(ctx), value)
 		return nil
 	}
 
 	if object.Custom == nil {
-		fmt.Fprintln(ctx.Stdout(), "{}")
+		fmt.Fprintln(clingy.Stdout(ctx), "{}")
 		return nil
 	}
 
@@ -78,6 +79,6 @@ func (c *cmdMetaGet) Execute(ctx clingy.Context) error {
 		return errs.Wrap(err)
 	}
 
-	fmt.Fprintln(ctx.Stdout(), string(data))
+	fmt.Fprintln(clingy.Stdout(ctx), string(data))
 	return nil
 }

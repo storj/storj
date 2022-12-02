@@ -5,7 +5,7 @@ package admin_test
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -26,7 +26,7 @@ func assertGet(ctx context.Context, t *testing.T, link string, expected string, 
 	response, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	require.NoError(t, err)
 	require.NoError(t, response.Body.Close())
 
@@ -61,7 +61,7 @@ func assertReq(
 
 	require.Equal(t, expectedStatus, res.StatusCode, "response status code")
 
-	resBody, err := ioutil.ReadAll(res.Body)
+	resBody, err := io.ReadAll(res.Body)
 	if expectedBody != "" {
 		require.NoError(t, err)
 		require.Equal(t, expectedBody, string(resBody), "response body")

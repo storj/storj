@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 
 	"github.com/zeebo/errs"
 )
@@ -37,6 +38,22 @@ func (secret Secret) IsZero() bool {
 	// this doesn't need to be constant-time, because we're explicitly testing
 	// against a hardcoded, well-known value
 	return bytes.Equal(secret[:], zero[:])
+}
+
+// MarshalJSON implements json.Marshaler Interface.
+func (secret Secret) MarshalJSON() ([]byte, error) {
+	return json.Marshal(secret.String())
+}
+
+// UnmarshalJSON implements json.Unmarshaler Interface.
+func (secret *Secret) UnmarshalJSON(data []byte) error {
+	var err error
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	*secret, err = SecretFromBase64(s)
+	return err
 }
 
 // SecretFromBase64 creates new secret from base64 string.

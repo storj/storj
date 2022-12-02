@@ -47,10 +47,10 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+
 import BaseHeldHistoryTable from '@/app/components/payments/BaseHeldHistoryTable.vue';
 import HeldHistoryAllStatsTableItemSmall from '@/app/components/payments/HeldHistoryAllStatsTableItemSmall.vue';
-
-import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 // @vue/component
 @Component({

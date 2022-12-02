@@ -34,13 +34,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from "@/utils/meta";
+import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
+
+import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
 // @vue/component
 @Component({
@@ -69,7 +69,7 @@ export default class OverviewStep extends Vue {
         const partneredSatellitesJSON = JSON.parse(partneredSatellites);
         const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
             return el.name === this.satelliteName;
-        })
+        });
         if (isPartnered) {
             this.titleLabel = 'DCS';
             return;

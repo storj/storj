@@ -376,7 +376,7 @@ func dqNodes(ctx *testcontext.Context, overlayDB overlay.DB, storageNodes []stor
 			continue
 		}
 
-		err := overlayDB.DisqualifyNode(ctx, n, time.Now().UTC(), overlay.DisqualificationReasonUnknown)
+		_, err := overlayDB.DisqualifyNode(ctx, n, time.Now().UTC(), overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, err
 		}

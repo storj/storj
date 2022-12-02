@@ -18,13 +18,13 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/BaseChart.vue';
-import VChart from '@/app/components/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { IngressUsed } from '@/storagenode/sno/sno';
+
+import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores ingress data for ingress bandwidth chart's tooltip
@@ -43,7 +43,7 @@ class IngressTooltip {
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class IngressChart extends BaseChart {
     private get chartBackgroundColor(): string {

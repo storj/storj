@@ -9,7 +9,6 @@ import (
 	"encoding/base32"
 	"errors"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/experiment"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
 )
@@ -114,7 +114,7 @@ func (dir *Dir) CreateVerificationFile(ctx context.Context, id storj.NodeID) err
 // Verify verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
 func (dir *Dir) Verify(ctx context.Context, id storj.NodeID) error {
-	content, err := ioutil.ReadFile(filepath.Join(dir.path, verificationFileName))
+	content, err := os.ReadFile(filepath.Join(dir.path, verificationFileName))
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.
 		prealloc = preallocLimit
 	}
 
-	file, err := ioutil.TempFile(dir.tempdir(), "blob-*.partial")
+	file, err := os.CreateTemp(dir.tempdir(), "blob-*.partial")
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,12 @@ func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef, 
 	defer mon.Task()(&ctx)(&err)
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
-	syncErr := file.Sync()
+
+	var syncErr error
+	if !experiment.Has(ctx, "nosync") {
+		syncErr = file.Sync()
+	}
+
 	chmodErr := os.Chmod(file.Name(), blobPermission)
 	closeErr := file.Close()
 

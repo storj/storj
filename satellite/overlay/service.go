@@ -16,8 +16,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/storj/location"
 	"storj.io/common/sync2"
+	"storj.io/private/version"
 	"storj.io/storj/satellite/geoip"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -73,11 +76,13 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+	// SetNodeContained updates the contained field for the node record.
+	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
-	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
+	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
-	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error)
+	UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error)
 
 	// UpdateExitStatus is used to update a node's graceful exit status.
 	UpdateExitStatus(ctx context.Context, request *ExitStatusRequest) (_ *NodeDossier, err error)
@@ -94,11 +99,16 @@ type DB interface {
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
+
+	// GetOfflineNodesForEmail gets offline nodes in need of an email.
+	GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error)
+	// UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
+	UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error)
 
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error)
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error)
 
 	// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
@@ -114,9 +124,9 @@ type DB interface {
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 
-	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
-	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
 	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 
@@ -138,15 +148,17 @@ const (
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
 type NodeCheckInInfo struct {
-	NodeID      storj.NodeID
-	Address     *pb.NodeAddress
-	LastNet     string
-	LastIPPort  string
-	IsUp        bool
-	Operator    *pb.NodeOperator
-	Capacity    *pb.NodeCapacity
-	Version     *pb.NodeVersion
-	CountryCode location.CountryCode
+	NodeID                  storj.NodeID
+	Address                 *pb.NodeAddress
+	LastNet                 string
+	LastIPPort              string
+	IsUp                    bool
+	Operator                *pb.NodeOperator
+	Capacity                *pb.NodeCapacity
+	Version                 *pb.NodeVersion
+	CountryCode             location.CountryCode
+	SoftwareUpdateEmailSent bool
+	VersionBelowMin         bool
 }
 
 // InfoResponse contains node dossier info requested from the storage node.
@@ -180,6 +192,7 @@ type NodeCriteria struct {
 
 // ReputationStatus indicates current reputation status for a node.
 type ReputationStatus struct {
+	Email                  string
 	Disqualified           *time.Time
 	DisqualificationReason *DisqualificationReason
 	UnknownAuditSuspended  *time.Time
@@ -217,23 +230,25 @@ type ExitStatusRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node.
 type NodeDossier struct {
 	pb.Node
-	Type                   pb.NodeType
-	Operator               pb.NodeOperator
-	Capacity               pb.NodeCapacity
-	Reputation             NodeStats
-	Version                pb.NodeVersion
-	Contained              bool
-	Disqualified           *time.Time
-	DisqualificationReason *DisqualificationReason
-	UnknownAuditSuspended  *time.Time
-	OfflineSuspended       *time.Time
-	OfflineUnderReview     *time.Time
-	PieceCount             int64
-	ExitStatus             ExitStatus
-	CreatedAt              time.Time
-	LastNet                string
-	LastIPPort             string
-	CountryCode            location.CountryCode
+	Type                    pb.NodeType
+	Operator                pb.NodeOperator
+	Capacity                pb.NodeCapacity
+	Reputation              NodeStats
+	Version                 pb.NodeVersion
+	Contained               bool
+	Disqualified            *time.Time
+	DisqualificationReason  *DisqualificationReason
+	UnknownAuditSuspended   *time.Time
+	OfflineSuspended        *time.Time
+	OfflineUnderReview      *time.Time
+	PieceCount              int64
+	ExitStatus              ExitStatus
+	CreatedAt               time.Time
+	LastNet                 string
+	LastIPPort              string
+	LastOfflineEmail        *time.Time
+	LastSoftwareUpdateEmail *time.Time
+	CountryCode             location.CountryCode
 }
 
 // NodeStats contains statistics about a node.
@@ -288,9 +303,13 @@ func (node *SelectedNode) Clone() *SelectedNode {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	db     DB
-	config Config
+	log              *zap.Logger
+	db               DB
+	nodeEvents       nodeevents.DB
+	mail             *mailservice.Service
+	satelliteName    string
+	satelliteAddress string
+	config           Config
 
 	GeoIP                  geoip.IPToCountry
 	UploadSelectionCache   *UploadSelectionCache
@@ -298,7 +317,7 @@ type Service struct {
 }
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -328,9 +347,13 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 	}
 
 	return &Service{
-		log:    log,
-		db:     db,
-		config: config,
+		log:              log,
+		db:               db,
+		nodeEvents:       nodeEvents,
+		mail:             mailService,
+		satelliteAddress: satelliteAddr,
+		satelliteName:    satelliteName,
+		config:           config,
 
 		GeoIP: geoIP,
 
@@ -499,6 +522,39 @@ func (service *Service) KnownUnreliableOrOffline(ctx context.Context, nodeIds st
 	return service.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
 
+// InsertOfflineNodeEvents inserts offline events into node events.
+func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown time.Duration, cutoff time.Duration, limit int) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !service.config.SendNodeEmails {
+		return 0, nil
+	}
+
+	nodes, err := service.db.GetOfflineNodesForEmail(ctx, service.config.Node.OnlineWindow, cutoff, cooldown, limit)
+	if err != nil {
+		return 0, err
+	}
+
+	count = len(nodes)
+
+	var successful storj.NodeIDList
+	for id, email := range nodes {
+		_, err = service.nodeEvents.Insert(ctx, email, id, nodeevents.Offline)
+		if err != nil {
+			service.log.Error("could not insert node offline into node events", zap.Error(err))
+		} else {
+			successful = append(successful, id)
+		}
+	}
+	if len(successful) > 0 {
+		err = service.db.UpdateLastOfflineEmail(ctx, successful, time.Now())
+		if err != nil {
+			return count, err
+		}
+	}
+	return count, err
+}
+
 // KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
 func (service *Service) KnownReliableInExcludedCountries(ctx context.Context, nodeIds storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -528,15 +584,36 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
-func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request ReputationUpdate) (err error) {
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, email string, request ReputationUpdate, reputationChanges []nodeevents.Type) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateReputation(ctx, id, request)
+
+	err = service.db.UpdateReputation(ctx, id, request)
+	if err != nil {
+		return err
+	}
+
+	if service.config.SendNodeEmails {
+		service.insertReputationNodeEvents(ctx, email, id, reputationChanges)
+	}
+
+	return nil
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.SetNodeContained(ctx, node, contained)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info if needed.
@@ -560,6 +637,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	}
 
 	if oldInfo == nil {
+		if !node.IsUp {
+			// this is a previously unknown node, and we couldn't pingback to verify that it even
+			// exists. Don't bother putting it in the db.
+			return nil
+		}
+
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
@@ -606,10 +689,43 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		node.CountryCode = oldInfo.CountryCode
 	}
 
+	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
+		min, err := version.NewSemVer(service.config.Node.MinimumVersion)
+		if err != nil {
+			return err
+		}
+		v, err := version.NewSemVer(node.Version.GetVersion())
+		if err != nil {
+			return err
+		}
+
+		if v.Compare(min) == -1 {
+			node.VersionBelowMin = true
+			if oldInfo.LastSoftwareUpdateEmail == nil ||
+				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(time.Now()) {
+				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
+				if err != nil {
+					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))
+				} else {
+					node.SoftwareUpdateEmailSent = true
+				}
+			}
+		}
+	}
+
 	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
 		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort ||
-		oldInfo.CountryCode != node.CountryCode {
-		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		oldInfo.CountryCode != node.CountryCode || node.SoftwareUpdateEmailSent {
+		err = service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if service.config.SendNodeEmails && node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
+			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.Online)
+			return Error.Wrap(err)
+		}
+		return nil
 	}
 
 	service.log.Debug("ignoring unnecessary check-in",
@@ -664,10 +780,45 @@ func (service *Service) GetReliablePiecesInExcludedCountries(ctx context.Context
 	return piecesInExcluded, nil
 }
 
+// DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.
+func (service *Service) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, count, err := service.db.DQNodesLastSeenBefore(ctx, cutoff, limit)
+	if err != nil {
+		return 0, err
+	}
+	if service.config.SendNodeEmails {
+		for nodeID, email := range nodes {
+			_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+			if err != nil {
+				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
+			}
+		}
+	}
+	return count, err
+}
+
 // DisqualifyNode disqualifies a storage node.
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, reason DisqualificationReason) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+	email, err := service.db.DisqualifyNode(ctx, nodeID, time.Now().UTC(), reason)
+	if err != nil {
+		return err
+	}
+	if service.config.SendNodeEmails {
+		_, err = service.nodeEvents.Insert(ctx, email, nodeID, nodeevents.Disqualified)
+		if err != nil {
+			service.log.Error("could not insert node disqualified into node events")
+		}
+	}
+	return nil
+}
+
+// SelectAllStorageNodesDownload returns a nodes that are ready for downloading.
+func (service *Service) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) (_ []*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.db.SelectAllStorageNodesDownload(ctx, onlineWindow, asOf)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
@@ -732,4 +883,39 @@ func (service *Service) TestNodeCountryCode(ctx context.Context, nodeID storj.No
 	}
 
 	return nil
+}
+
+func (service *Service) insertReputationNodeEvents(ctx context.Context, email string, id storj.NodeID, repEvents []nodeevents.Type) {
+	defer mon.Task()(&ctx)(nil)
+
+	for _, event := range repEvents {
+		switch event {
+		case nodeevents.Disqualified:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.Disqualified)
+			if err != nil {
+				service.log.Error("could not insert node disqualified into node events", zap.Error(err))
+			}
+		case nodeevents.UnknownAuditSuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditSuspended)
+			if err != nil {
+				service.log.Error("could not insert node unknown audit suspended into node events", zap.Error(err))
+			}
+		case nodeevents.UnknownAuditUnsuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.UnknownAuditUnsuspended)
+			if err != nil {
+				service.log.Error("could not insert node unknown audit unsuspended into node events", zap.Error(err))
+			}
+		case nodeevents.OfflineSuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineSuspended)
+			if err != nil {
+				service.log.Error("could not insert node offline suspended into node events", zap.Error(err))
+			}
+		case nodeevents.OfflineUnsuspended:
+			_, err := service.nodeEvents.Insert(ctx, email, id, nodeevents.OfflineUnsuspended)
+			if err != nil {
+				service.log.Error("could not insert node offline unsuspended into node events", zap.Error(err))
+			}
+		default:
+		}
+	}
 }

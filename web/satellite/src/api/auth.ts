@@ -5,8 +5,9 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -15,7 +16,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
@@ -30,11 +30,14 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status == 429) {
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send email';
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-
-        throw new Error('Failed to send email');
     }
 
     /**
@@ -47,7 +50,7 @@ export class AuthHttpApi implements UsersApi {
      * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
@@ -60,11 +63,11 @@ export class AuthHttpApi implements UsersApi {
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             const result = await response.json();
-            if (typeof result !== 'string') {
+            if (result.error) {
                 throw new ErrorMFARequired();
             }
 
-            return result;
+            return new TokenInfo(result.token, new Date(result.expiresAt));
         }
 
         const result = await response.json();
@@ -75,7 +78,7 @@ export class AuthHttpApi implements UsersApi {
         case 401:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -105,11 +108,16 @@ export class AuthHttpApi implements UsersApi {
      * Used to restore password.
      *
      * @param email - email of the user
+     * @param captchaResponse - captcha response token
      * @throws Error
      */
-    public async forgotPassword(email: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.post(path, email);
+    public async forgotPassword(email: string, captchaResponse: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/forgot-password`;
+        const body = {
+            email,
+            captchaResponse,
+        };
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -120,7 +128,7 @@ export class AuthHttpApi implements UsersApi {
         case 404:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -274,7 +282,7 @@ export class AuthHttpApi implements UsersApi {
             case 401:
                 throw new ErrorUnauthorized(errMsg);
             case 429:
-                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+                throw new ErrorTooManyRequests(errMsg);
             default:
                 throw new Error(errMsg);
             }
@@ -400,8 +408,11 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == "mfa_required") {
+            if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
+            }
+            if (result.code == 'token_expired') {
+                throw new ErrorTokenExpired();
             }
             if (result.error) {
                 errMsg = result.error;
@@ -420,5 +431,26 @@ export class AuthHttpApi implements UsersApi {
         default:
             throw new Error(errMsg);
         }
+    }
+
+    /**
+     * Used to refresh the expiration time of the current session.
+     *
+     * @returns new expiration timestamp
+     * @throws Error
+     */
+    public async refreshSession(): Promise<Date> {
+        const path = `${this.ROOT_PATH}/refresh-session`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return new Date(await response.json());
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Unable to refresh session.');
     }
 }

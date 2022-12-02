@@ -6,13 +6,13 @@ package storjscan
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/storj/private/blockchain"
 )
 
@@ -34,8 +34,8 @@ type Header struct {
 type Payment struct {
 	From        blockchain.Address
 	To          blockchain.Address
-	TokenValue  *big.Int
-	USDValue    float64
+	TokenValue  currency.Amount
+	USDValue    currency.Amount
 	BlockHash   blockchain.Hash
 	BlockNumber int64
 	Transaction blockchain.Hash

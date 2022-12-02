@@ -8,7 +8,7 @@ import {
     ProjectsApi,
     ProjectsCursor,
     ProjectsPage,
-    ProjectsStorageBandwidthDaily
+    ProjectsStorageBandwidthDaily,
 } from '@/types/projects';
 
 /**
@@ -53,6 +53,10 @@ export class ProjectsApiMock implements ProjectsApi {
 
     getTotalLimits(): Promise<ProjectLimits> {
         return Promise.resolve(this.mockLimits);
+    }
+
+    getSalt(): Promise<string> {
+        throw new Error('not implemented');
     }
 
     getDailyUsage(_projectId: string, _start: Date, _end: Date): Promise<ProjectsStorageBandwidthDaily> {

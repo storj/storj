@@ -4,7 +4,7 @@
 <template>
     <table-item
         :class="{ 'owner': isProjectOwner }"
-        :item="{ name: itemData.name, date: itemData.localDate(), email: itemData.email }"
+        :item="itemToRender"
         :selectable="true"
         :select-disabled="isProjectOwner"
         :selected="itemData.isSelected"
@@ -14,21 +14,30 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 
 import { ProjectMember } from '@/types/projectMembers';
-import TableItem from "@/components/common/TableItem.vue";
+
+import TableItem from '@/components/common/TableItem.vue';
+import Resizable from '@/components/common/Resizable.vue';
 
 // @vue/component
 @Component({
-    components: {TableItem}
+    components: { TableItem },
 })
-export default class ProjectMemberListItem extends Vue {
+export default class ProjectMemberListItem extends Resizable {
     @Prop({ default: new ProjectMember('', '', '', new Date(), '') })
     public itemData: ProjectMember;
 
     public get isProjectOwner(): boolean {
         return this.itemData.user.id === this.$store.getters.selectedProject.ownerId;
+    }
+
+    public get itemToRender(): { [key: string]: string | string[] } {
+        if (!this.isMobile && !this.isTablet) return { name: this.itemData.name, date: this.itemData.localDate(), email: this.itemData.email };
+
+        // TODO: change after adding actions button to list item
+        return { name: this.itemData.name, email: this.itemData.email };
     }
 }
 </script>
@@ -37,7 +46,7 @@ export default class ProjectMemberListItem extends Vue {
     .owner {
         cursor: not-allowed;
 
-        & > ::v-deep th:nth-child(2):after {
+        & > :deep(th:nth-child(2):after) {
             content: 'Project Owner';
             font-size: 13px;
             color: #afb7c1;

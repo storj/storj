@@ -19,13 +19,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
-import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
-
 import { RouteConfig } from '@/router';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
-
 import { AnalyticsHttpApi } from '@/api/analytics';
+
+import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
+import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 
 // @vue/component
 @Component({

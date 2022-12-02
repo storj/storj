@@ -58,19 +58,21 @@ type Service struct {
 	mu   sync.Mutex
 	self NodeInfo
 
-	trust *trust.Pool
+	trust     *trust.Pool
+	quicStats *QUICStats
 
 	initialized sync2.Fence
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats) *Service {
 	return &Service{
-		log:    log,
-		rand:   rand.New(rand.NewSource(time.Now().UnixNano())),
-		dialer: dialer,
-		trust:  trust,
-		self:   self,
+		log:       log,
+		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
+		dialer:    dialer,
+		trust:     trust,
+		self:      self,
+		quicStats: quicStats,
 	}
 }
 
@@ -132,11 +134,16 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		Capacity: &self.Capacity,
 		Operator: &self.Operator,
 	})
+	service.quicStats.SetStatus(false)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
-	if resp != nil && !resp.PingNodeSuccess {
-		return errPingSatellite.New("%s", resp.PingErrorMessage)
+	if resp != nil {
+		service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
+
+		if !resp.PingNodeSuccess {
+			return errPingSatellite.New("%s", resp.PingErrorMessage)
+		}
 	}
 	if resp.PingErrorMessage != "" {
 		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
@@ -145,12 +152,14 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 }
 
 // RequestPingMeQUIC sends pings request to satellite for a pingBack via QUIC.
-func (service *Service) RequestPingMeQUIC(ctx context.Context) (err error) {
+func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	stats = NewQUICStats(true)
 
 	satellites := service.trust.GetSatellites(ctx)
 	if len(satellites) < 1 {
-		return errPingSatellite.New("no trusted satellite available")
+		return nil, errPingSatellite.New("no trusted satellite available")
 	}
 
 	// Shuffle the satellites
@@ -166,14 +175,18 @@ func (service *Service) RequestPingMeQUIC(ctx context.Context) (err error) {
 	for _, satellite := range satellites {
 		err = service.requestPingMeOnce(ctx, satellite)
 		if err != nil {
+			stats.SetStatus(false)
 			// log warning and try the next trusted satellite
 			service.log.Warn("failed PingMe request to satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
 			continue
 		}
-		return nil
+
+		stats.SetStatus(true)
+
+		return stats, nil
 	}
 
-	return errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
+	return stats, errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
 }
 
 func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.NodeID) (err error) {

@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import PagesBlock from '@/components/common/PagesBlock.vue';
+import { shallowMount } from '@vue/test-utils';
 
 import { Page } from '@/types/pagination';
-import { shallowMount } from '@vue/test-utils';
+
+import PagesBlock from '@/components/common/PagesBlock.vue';
 
 describe('Pagination.vue', () => {
     it('renders correctly without props', () => {

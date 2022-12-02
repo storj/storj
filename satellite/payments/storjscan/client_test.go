@@ -4,7 +4,6 @@
 package storjscan_test
 
 import (
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
@@ -29,8 +29,8 @@ func TestClientMocked(t *testing.T) {
 		payments = append(payments, storjscan.Payment{
 			From:        blockchaintest.NewAddress(),
 			To:          blockchaintest.NewAddress(),
-			TokenValue:  new(big.Int).SetInt64(int64(i)),
-			USDValue:    float64(i) + 0.1,
+			TokenValue:  currency.AmountFromBaseUnits(int64(i)*100000000, currency.StorjToken),
+			USDValue:    currency.AmountFromBaseUnits(int64(i)*1100000, currency.USDollarsMicro),
 			BlockHash:   blockchaintest.NewHash(),
 			BlockNumber: int64(i),
 			Transaction: blockchaintest.NewHash(),

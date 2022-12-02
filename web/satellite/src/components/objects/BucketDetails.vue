@@ -22,15 +22,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { Bucket } from "@/types/buckets";
-import { RouteConfig } from "@/router";
-import { MONTHS_NAMES } from "@/utils/constants/date";
+import { Bucket } from '@/types/buckets';
+import { RouteConfig } from '@/router';
+import { MONTHS_NAMES } from '@/utils/constants/date';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from "@/store/mutationConstants";
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import BucketDetailsOverview from "@/components/objects/BucketDetailsOverview.vue";
-import ArrowRightIcon from '@/../static/images/common/arrowRight.svg'
+import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
+
+import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
 // @vue/component
 @Component({
@@ -85,23 +86,31 @@ export default class BucketDetails extends Vue {
     public openBucket(): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
 
-        if (this.$route.params.backRoute === RouteConfig.BucketsManagement.name) {
-            this.isNewObjectsFlow
-                ? this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN)
-                : this.$router.push(RouteConfig.Buckets.with(RouteConfig.EncryptData).path);
+        if (
+            this.$route.params.backRoute === RouteConfig.UploadFileChildren.name ||
+            (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase)
+        ) {
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
             return;
         }
 
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
     }
 
     /**
-     * Returns objects flow status from store.
+     * Returns condition if user has to be prompt for passphrase from store.
      */
-    private get isNewObjectsFlow(): string {
-        return this.$store.state.appStateModule.isNewObjectsFlow;
+    private get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    private get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

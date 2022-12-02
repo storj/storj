@@ -5,12 +5,13 @@ package consoleapi
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 )
@@ -49,7 +50,7 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 	}
@@ -78,7 +79,7 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		a.serveJSONError(w, http.StatusInternalServerError, err)
 	}
@@ -101,5 +102,5 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Analytics) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(a.log, w, status, err)
+	web.ServeJSONError(a.log, w, status, err)
 }

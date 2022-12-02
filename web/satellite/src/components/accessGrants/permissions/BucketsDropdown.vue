@@ -47,11 +47,11 @@
 <script lang="ts">
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
-
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 // @vue/component
 @Component({
@@ -61,7 +61,7 @@ import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
     },
 })
 export default class BucketsDropdown extends Vue {
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly showScrollbar: boolean;
     public bucketSearch = '';
 

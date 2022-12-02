@@ -4,7 +4,7 @@
 <template>
     <div>
         <div class="total-cost">
-            <div class="total-cost__header-container"> 
+            <div class="total-cost__header-container">
                 <h3 class="total-cost__header-container__title">Total Cost</h3>
                 <div class="total-cost__header-container__date"><CalendarIcon />&nbsp;&nbsp;{{ currentDate }}</div>
             </div>
@@ -13,14 +13,14 @@
                     <EstimatedChargesIcon class="total-cost__card__main-icon" />
                     <p class="total-cost__card__money-text">{{ priceSummary | centsToDollars }}</p>
                     <p class="total-cost__card__label-text">
-                        Total Estimated Charges 
-                        <img 
+                        Total Estimated Charges
+                        <img
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
                             @mouseenter="showChargesTooltip = true"
                             @mouseleave="showChargesTooltip = false"
                         >
                     </p>
-                    <div 
+                    <div
                         v-if="showChargesTooltip"
                         class="total-cost__card__charges-tooltip"
                     >
@@ -57,15 +57,17 @@
                     icon="lock"
                     :is-transparent="true"
                     class="cost-by-project__buttons__none-assigned"
+                    :on-press="routeToPaymentMethods"
                 />
                 <v-button
-                    label="See Payment"
+                    label="See Payments"
                     font-size="13px"
                     width="auto"
                     height="30px"
                     icon="document"
                     :is-transparent="true"
                     class="cost-by-project__buttons__none-assigned"
+                    :on-press="routeToBillingHistory"
                 />
             </div>
             <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
@@ -83,20 +85,21 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import { RouteConfig } from '@/router';
+import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
+import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
 import VButton from '@/components/common/VButton.vue';
+
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
-
-import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance } from '@/types/payments';
-import { ProjectUsageAndCharges } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-
 
 // @vue/component
 @Component({
@@ -112,8 +115,9 @@ export default class BillingArea extends Vue {
     public availableBalance = 0;
     public showChargesTooltip = false;
     public isDataFetching = true;
-    public currentDate = ""
+    public currentDate = '';
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -138,7 +142,7 @@ export default class BillingArea extends Vue {
 
         const rawDate = new Date();
         let currentYear = rawDate.getFullYear();
-        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`
+        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
     }
 
     /**
@@ -163,10 +167,12 @@ export default class BillingArea extends Vue {
     }
 
     public routeToBillingHistory(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
     }
 
     public routeToPaymentMethods(): void {
+        this.analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
     }
 
@@ -187,10 +193,10 @@ export default class BillingArea extends Vue {
                 display: flex;
                 justify-content: space-between;
                 align-items: bottom;
-                color: #56606d;
+                color: var(--c-grey-6);
                 font-weight: 700;
                 font-family: sans-serif;
-                border: 1px solid #d8dee3;
+                border: 1px solid var(--c-grey-3);
                 border-radius: 5px;
                 background-color: #fff;
                 height: 15px;
@@ -240,7 +246,7 @@ export default class BillingArea extends Vue {
 
             &__main-icon {
 
-                ::v-deep g {
+                :deep(g) {
                     filter: none;
                 }
             }
@@ -255,7 +261,7 @@ export default class BillingArea extends Vue {
                 }
 
                 position: absolute;
-                background: #56606d;
+                background: var(--c-grey-6);
                 border-radius: 6px;
                 width: 253px;
                 color: #fff;
@@ -280,7 +286,7 @@ export default class BillingArea extends Vue {
                     width: 0;
                     height: 0;
                     border: 6px solid transparent;
-                    border-top-color: #56606d;
+                    border-top-color: var(--c-grey-6);
                     border-bottom: 0;
                     margin-left: -20px;
                     margin-bottom: -20px;

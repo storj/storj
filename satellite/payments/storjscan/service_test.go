@@ -11,10 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/currency"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/blockchain"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/monetary"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -32,8 +34,8 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -44,8 +46,8 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -56,8 +58,8 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet2,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -68,8 +70,8 @@ func TestServicePayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(200, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusPending,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
@@ -130,6 +132,53 @@ func TestServicePayments(t *testing.T) {
 	})
 }
 
+func TestServiceWallets(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		userID1 := testrand.UUID()
+		userID2 := testrand.UUID()
+		userID3 := testrand.UUID()
+		walletAddress1, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		walletAddress2, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+		walletAddress3, err := blockchain.BytesToAddress(testrand.Bytes(20))
+		require.NoError(t, err)
+
+		err = db.Wallets().Add(ctx, userID1, walletAddress1)
+		require.NoError(t, err)
+		err = db.Wallets().Add(ctx, userID2, walletAddress2)
+		require.NoError(t, err)
+		err = db.Wallets().Add(ctx, userID3, walletAddress3)
+		require.NoError(t, err)
+
+		service := storjscan.NewService(zaptest.NewLogger(t), db.Wallets(), db.StorjscanPayments(), nil)
+
+		t.Run("get Wallet", func(t *testing.T) {
+			actual, err := service.Get(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+
+			actual, err = service.Get(ctx, userID2)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress2, actual)
+
+			actual, err = service.Get(ctx, userID3)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress3, actual)
+		})
+		t.Run("claim Wallet already assigned", func(t *testing.T) {
+			actual, err := service.Get(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+
+			actual, err = service.Claim(ctx, userID1)
+			require.NoError(t, err)
+			require.Equal(t, walletAddress1, actual)
+		})
+	})
+
+}
+
 func TestListPayments(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		paymentsDB := db.StorjscanPayments()
@@ -140,8 +189,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -152,8 +201,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -164,8 +213,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 0,
@@ -176,8 +225,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(200, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
@@ -223,8 +272,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(100, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(100, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
@@ -235,8 +284,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(200, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 1,
@@ -247,8 +296,8 @@ func TestListPayments(t *testing.T) {
 			{
 				From:        blockchaintest.NewAddress(),
 				To:          wallet1,
-				TokenValue:  monetary.AmountFromBaseUnits(200, monetary.StorjToken),
-				USDValue:    monetary.AmountFromBaseUnits(100, monetary.USDollars),
+				TokenValue:  currency.AmountFromBaseUnits(200, currency.StorjToken),
+				USDValue:    currency.AmountFromBaseUnits(100, currency.USDollarsMicro),
 				Status:      payments.PaymentStatusConfirmed,
 				BlockHash:   blockchaintest.NewHash(),
 				BlockNumber: 2,

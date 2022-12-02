@@ -15,7 +15,7 @@
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
                     height="52px"
-                    :with-icon="true"
+                    with-icon
                     @setData="setCouponCode"
                 />
                 <CheckIcon
@@ -34,7 +34,7 @@
                 v-if="!isSignupView"
                 class="add-coupon__apply-button"
                 label="Apply Coupon Code"
-                width="85%"
+                width="100%"
                 height="44px"
                 :on-press="couponCheck"
             />
@@ -46,18 +46,16 @@
             </p>
             <div class="add-coupon__button-wrapper">
                 <VButton
-                    class="add-coupon__confirm-button"
                     label="Yes"
-                    width="250px"
-                    height="44px"
+                    width="100%"
+                    height="48px"
                     :on-press="applyCouponCode"
                 />
                 <VButton
-                    class="add-coupon__back-button"
                     label="Back"
-                    width="250px"
+                    width="calc(100% - 4px)"
                     height="44px"
-                    is-blue-white="true"
+                    :is-blue-white="true"
                     :on-press="toggleConfirmMessage"
                 />
             </div>
@@ -68,15 +66,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
-
-import { PaymentsHttpApi } from '@/api/payments';
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 // @vue/component
 @Component({
@@ -95,8 +92,6 @@ export default class AddCouponCodeInput extends Vue {
     private couponCode = '';
 
     private showConfirmMessage = false;
-
-    private readonly payments: PaymentsHttpApi = new PaymentsHttpApi();
 
     /**
      * Signup view requires some unque styling and element text.
@@ -130,20 +125,18 @@ export default class AddCouponCodeInput extends Vue {
     public async applyCouponCode(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
-        }
-        catch (error) {
-            if (this.showConfirmMessage) {
-                this.toggleConfirmMessage();
-            }
+        } catch (error) {
             this.errorMessage = error.message;
             this.isCodeValid = false;
             this.showValidationMessage = true;
 
             return;
+        } finally {
+            if (this.showConfirmMessage) {
+                this.toggleConfirmMessage();
+            }
         }
-        if (this.showConfirmMessage) {
-            this.toggleConfirmMessage();
-        }
+
         this.isCodeValid = true;
         this.showValidationMessage = true;
     }
@@ -152,20 +145,12 @@ export default class AddCouponCodeInput extends Vue {
      * Check if user has a coupon code applied to their account before applying
      */
     public async couponCheck(): Promise<void> {
-        try {
-            if (this.$store.state.paymentsModule.coupon) {
-                this.toggleConfirmMessage();
-            } else {
-                this.applyCouponCode();
-            }
-        } catch (error) {
-
-            this.errorMessage = error.message;
-            this.isCodeValid = false;
-            this.showValidationMessage = true;
-
+        if (this.$store.state.paymentsModule.coupon) {
+            this.toggleConfirmMessage();
             return;
         }
+
+        await this.applyCouponCode();
     }
 }
 </script>
@@ -178,21 +163,11 @@ export default class AddCouponCodeInput extends Vue {
         }
 
         &__valid-message {
-            position: relative;
-            top: 15px;
+            margin-top: 15px;
         }
 
         &__apply-button {
-            position: absolute;
-            left: 0;
-            right: 0;
-            margin: 0 auto;
-            bottom: 40px;
-            background: #2683ff;
-
-            &:hover {
-                background: #0059d0;
-            }
+            margin-top: 15px;
         }
 
         &__check {
@@ -211,7 +186,7 @@ export default class AddCouponCodeInput extends Vue {
         }
 
         &__input-icon.signup-view {
-            top: 63px;
+            top: 50px;
         }
 
         &__confirm-message {
@@ -222,8 +197,14 @@ export default class AddCouponCodeInput extends Vue {
 
         &__button-wrapper {
             display: flex;
-            justify-content: space-evenly;
             margin-top: 30px;
+            column-gap: 20px;
+
+            @media screen and (max-width: 650px) {
+                flex-direction: column;
+                column-gap: unset;
+                row-gap: 20px;
+            }
         }
     }
 

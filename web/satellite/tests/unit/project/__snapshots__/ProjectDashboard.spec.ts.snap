@@ -10,6 +10,7 @@ exports[`ProjectDashboard.vue renders correctly 1`] = `
   </div>
   <projectusage-stub></projectusage-stub>
   <projectsummary-stub></projectsummary-stub>
-  <bucketarea-stub></bucketarea-stub>
+  <p class="dashboard-area__title">Buckets</p>
+  <bucketstable-stub></bucketstable-stub>
 </div>
 `;

@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
+import { PaymentsMock } from '../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../mock/api/projects';
 
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { MetaUtils } from '@/utils/meta';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
 const localVue = createLocalVue();
 localVue.filter('centsToDollars', (cents: number): string => {
@@ -25,7 +25,7 @@ const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
-const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, paymentsModule } });
 
 jest.mock('@/utils/meta');
 

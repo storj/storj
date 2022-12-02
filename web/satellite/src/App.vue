@@ -12,11 +12,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
-
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
+
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 // @vue/component
 @Component({
@@ -40,7 +40,7 @@ export default class App extends Vue {
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
-        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
+        const isNewEncryptionPassphraseFlowEnabled = MetaUtils.getMetaContent('new-encryption-passphrase-flow-enabled');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -73,16 +73,19 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
         }
 
-        if (isNewObjectsFlow) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
+        if (isNewEncryptionPassphraseFlowEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS, isNewEncryptionPassphraseFlowEnabled === 'true');
         }
     }
 }
 </script>
 
 <style lang="scss">
+    @import 'static/styles/variables';
+
     html {
         overflow: hidden;
+        font-size: 14px;
     }
 
     body {

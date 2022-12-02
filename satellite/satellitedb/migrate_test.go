@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -34,8 +34,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
+const maxMigrationsToTest = 10
+
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
-func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, connstr, dbxscript string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
 	// find all postgres sql files
@@ -45,13 +47,10 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	}
 	sort.Strings(matches)
 
-	// Limit the number of snapshots we are checking for Cockroach
+	// Limit the number of snapshots we are checking
 	// because the database creation is not as fast.
-	if strings.Contains(connstr, "cockroach") {
-		const cockroachSnapshotLimit = 10
-		if len(matches) > cockroachSnapshotLimit {
-			matches = matches[len(matches)-cockroachSnapshotLimit:]
-		}
+	if len(matches) > maxSnapshots {
+		matches = matches[len(matches)-maxSnapshots:]
 	}
 
 	snapshots.List = make([]*dbschema.Snapshot, len(matches))
@@ -75,7 +74,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 				return errs.New("invalid testdata file %q: %v", match, err)
 			}
 
-			scriptData, err := ioutil.ReadFile(match)
+			scriptData, err := os.ReadFile(match)
 			if err != nil {
 				return errs.New("could not read testdata file for version %d: %v", version, err)
 			}
@@ -215,8 +214,10 @@ func migrateTest(t *testing.T, connStr string) {
 	// we need raw database access unfortunately
 	rawdb := db.(migrationTestingAccess).MigrationTestingDefaultDB().TestDBAccess()
 
-	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
+	loadingStart := time.Now()
+	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema(), maxMigrationsToTest)
 	require.NoError(t, err)
+	t.Logf("snapshot loading %v", time.Since(loadingStart))
 
 	// get migration for this database
 	migrations := db.(migrationTestingAccess).MigrationTestingDefaultDB().PostgresMigration()

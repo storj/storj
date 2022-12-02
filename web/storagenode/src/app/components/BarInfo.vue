@@ -19,10 +19,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { Size } from '@/private/memory/size';
+
 import VBar from '@/app/components/VBar.vue';
 import VInfo from '@/app/components/VInfo.vue';
-
-import { Size } from '@/private/memory/size';
 
 // @vue/component
 @Component ({
@@ -32,15 +32,15 @@ import { Size } from '@/private/memory/size';
     },
 })
 export default class BarInfo extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly label: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly amount: number;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly infoText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly currentBarAmount: number;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly maxBarAmount: number;
 
     public get infoMessage(): string {

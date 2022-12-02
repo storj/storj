@@ -48,13 +48,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { UINotification } from '@/app/types/notifications';
+
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 import VPagination from '@/app/components/VPagination.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
-
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { UINotification } from '@/app/types/notifications';
 
 // @vue/component
 @Component ({

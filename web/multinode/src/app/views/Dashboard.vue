@@ -20,10 +20,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+
 import AddNewNode from '@/app/components/modals/AddNewNode.vue';
 import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
-
-import { UnauthorizedError } from '@/api';
 
 // @vue/component
 @Component({

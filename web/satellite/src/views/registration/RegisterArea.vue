@@ -9,7 +9,7 @@
         >
             <div class="register-area__intro-area">
                 <div class="register-area__logo-wrapper">
-                    <div v-if="!!viewConfig.partnerLogoTopUrl" class="register-area__logo-wrapper__container mright">
+                    <div v-if="!!viewConfig.partnerLogoTopUrl" class="register-area__logo-wrapper__container">
                         <a :href="viewConfig.partnerUrl">
                             <img
                                 :src="viewConfig.partnerLogoTopUrl"
@@ -19,61 +19,77 @@
                             >
                         </a>
                     </div>
-                    <div class="register-area__logo-wrapper__container right">
-                        <LogoWithPartnerIcon v-if="viewConfig.partnerLogoTopUrl" class="logo" @click="onLogoClick" />
-                        <LogoIcon v-else class="logo" @click="onLogoClick" />
+                    <div v-if="viewConfig.partnerLogoTopUrl" class="logo-divider" />
+                    <div class="register-area__logo-wrapper__container">
+                        <LogoWithPartnerIcon v-if="viewConfig.partnerLogoTopUrl" class="logo-with-partner" @click="onLogoClick" />
+                        <LogoIcon v-else class="logo-no-partner" @click="onLogoClick" />
                     </div>
                 </div>
                 <h1 class="register-area__intro-area__title">{{ viewConfig.title }}</h1>
                 <p v-if="viewConfig.description" class="register-area__intro-area__sub-title">{{ viewConfig.description }}</p>
-                <div
-                    v-if="viewConfig.customHtmlDescription"
-                    class="register-area__intro-area__custom-html-container"
-                    v-html="$sanitize(viewConfig.customHtmlDescription)"
-                />
-                <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper bottom">
-                    <div class="register-area__logo-wrapper__container">
-                        <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                <div class="register-area__intro-area__large-content">
+                    <div
+                        v-if="viewConfig.customHtmlDescription"
+                        class="register-area__intro-area__large-content__custom-html-container"
+                        v-html="$sanitize(viewConfig.customHtmlDescription)"
+                    />
+                    <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper bottom">
+                        <div class="register-area__logo-wrapper__container">
+                            <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                        </div>
                     </div>
+                    <RegisterGlobe
+                        v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
+                        class="register-area__intro-area__large-content__globe-image"
+                        :class="{'professional-globe': isProfessional}"
+                    />
                 </div>
-                <RegisterGlobe
-                    v-if="!viewConfig.partnerLogoBottomUrl && !viewConfig.customHtmlDescription"
-                    class="register-area__intro-area__globe-image"
-                    :class="{'professional-globe': isProfessional}"
-                />
             </div>
             <div class="register-area__input-area">
                 <div
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
                 >
-                    <div class="register-area__input-area__container__title-area">
+                    <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
                         <div class="register-area__input-area__container__title-container">
                             <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
                         </div>
-                        <div class="register-area__input-area__expand" aria-roledescription="satellites-dropdown" @click.stop="toggleDropdown">
+                        <div class="register-area__input-area__expand">
                             <div class="register-area__input-area__info-button">
                                 <InfoIcon />
                                 <p class="register-area__input-area__info-button__message">
                                     {{ viewConfig.tooltip }}
                                 </p>
                             </div>
-                            <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
+                            <button
+                                id="registerDropdown"
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-roledescription="satellites-dropdown"
+                                :aria-expanded="isDropdownShown"
+                                class="register-area__input-area__expand__value"
+                            >
+                                {{ satelliteName }}
+                            </button>
                             <BottomArrowIcon />
-                            <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="register-area__input-area__expand__dropdown">
-                                <div class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
+                            <ul v-if="isDropdownShown" v-click-outside="closeDropdown" tabindex="-1" role="listbox" class="register-area__input-area__expand__dropdown">
+                                <li key="0" tabindex="0" role="option" class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                                </div>
-                                <a
+                                </li>
+                                <li
                                     v-for="(sat, index) in partneredSatellites"
-                                    :key="index"
+                                    :key="index + 1"
+                                    role="option"
+                                    tabindex="0"
+                                    :data-value="sat.name"
                                     class="register-area__input-area__expand__dropdown__item"
-                                    :href="sat.address"
+                                    @click="clickSatellite(sat.address)"
+                                    @keypress.enter="clickSatellite(sat.address)"
                                 >
                                     {{ sat.name }}
-                                </a>
-                            </div>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                     <div class="register-area__input-area__toggle__container">
@@ -146,7 +162,7 @@
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                is-password="true"
+                                is-password
                                 role-description="password"
                                 @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
@@ -163,7 +179,7 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            is-password="true"
+                            is-password
                             role-description="retype-password"
                             @setData="setRepeatedPassword"
                         />
@@ -171,8 +187,8 @@
                     <AddCouponCodeInput v-if="couponCodeSignupUIEnabled" />
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
-                            <label class="container">
-                                <input v-model="areBetaTermsAccepted" type="checkbox">
+                            <label class="checkmark-container">
+                                <input type="checkbox" @change="onBetaTermsAcceptedToggled">
                                 <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" />
                             </label>
                             <h2 class="register-area__input-area__container__warning__header__label">
@@ -200,7 +216,7 @@
                     </div>
                     <div class="register-area__input-area__container__checkbox-area">
                         <label class="checkmark-container">
-                            <input id="terms" v-model="isTermsAccepted" type="checkbox">
+                            <input id="terms" type="checkbox" @change="onTermsAcceptedToggled">
                             <span class="checkmark" :class="{'error': isTermsAcceptedError}" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="terms">
@@ -212,36 +228,24 @@
                             </p>
                         </label>
                     </div>
-                    <div v-if="recaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
-                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
-                            <ErrorIcon />
-                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">reCAPTCHA is required</p>
-                        </div>
-                        <VueRecaptcha
-                            ref="recaptcha"
-                            :sitekey="recaptchaSiteKey"
-                            :load-recaptcha-script="true"
-                            size="invisible"
-                            @verify="onCaptchaVerified"
-                            @expired="onCaptchaError"
-                            @error="onCaptchaError"
-                        />
-                    </div>
-                    <div v-else-if="hcaptchaEnabled" class="register-area__input-area__container__captcha-wrapper">
-                        <div v-if="captchaError" class="register-area__input-area__container__captcha-wrapper__label-container">
-                            <ErrorIcon />
-                            <p class="register-area__input-area__container__captcha-wrapper__label-container__error">HCaptcha is required</p>
-                        </div>
-                        <VueHcaptcha
-                            ref="hcaptcha"
-                            :sitekey="hcaptchaSiteKey"
-                            :re-captcha-compat="false"
-                            size="invisible"
-                            @verify="onCaptchaVerified"
-                            @expired="onCaptchaError"
-                            @error="onCaptchaError"
-                        />
-                    </div>
+                    <VueRecaptcha
+                        v-if="recaptchaEnabled"
+                        ref="captcha"
+                        :sitekey="recaptchaSiteKey"
+                        :load-recaptcha-script="true"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @error="onCaptchaError"
+                    />
+                    <VueHcaptcha
+                        v-else-if="hcaptchaEnabled"
+                        ref="captcha"
+                        :sitekey="hcaptchaSiteKey"
+                        :re-captcha-compat="false"
+                        size="invisible"
+                        @verify="onCaptchaVerified"
+                        @error="onCaptchaError"
+                    />
                     <v-button
                         class="register-area__input-area__container__button"
                         width="100%"
@@ -258,36 +262,50 @@
                     </div>
                 </div>
             </div>
+            <div class="register-area__container__mobile-content">
+                <div
+                    v-if="viewConfig.customHtmlDescription"
+                    class="register-area__container__mobile-content__custom-html-container"
+                    v-html="$sanitize(viewConfig.customHtmlDescription)"
+                />
+                <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper">
+                    <div class="register-area__logo-wrapper__container">
+                        <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
+                        <div class="logo-divider" />
+                        <LogoIcon class="logo" @click="onLogoClick" />
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-import {Component, Vue} from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
-import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
-import VInput from '@/components/common/VInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import PasswordStrength from '@/components/common/PasswordStrength.vue';
-import SelectInput from '@/components/common/SelectInput.vue';
-
-import InfoIcon from '@/../static/images/register/info.svg';
 import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
 import LogoIcon from '../../../static/images/logo.svg';
 import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
-import ErrorIcon from '../../../static/images/register/ErrorInfo.svg';
-import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
 
-import {AuthHttpApi} from '@/api/auth';
-import {RouteConfig} from '@/router';
-import {PartneredSatellite} from '@/types/common';
-import {User} from '@/types/users';
-import {MetaUtils} from '@/utils/meta';
-import {Validator} from '@/utils/validation';
-import {AnalyticsHttpApi} from '@/api/analytics';
+import { AuthHttpApi } from '@/api/auth';
+import { RouteConfig } from '@/router';
+import { PartneredSatellite } from '@/types/common';
+import { User } from '@/types/users';
+import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
+import SelectInput from '@/components/common/SelectInput.vue';
+import PasswordStrength from '@/components/common/PasswordStrength.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
+import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
+
+import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
+import InfoIcon from '@/../static/images/register/info.svg';
 
 type ViewConfig = {
     title: string;
@@ -306,7 +324,6 @@ type ViewConfig = {
         VInput,
         VButton,
         BottomArrowIcon,
-        ErrorIcon,
         SelectedCheckIcon,
         LogoIcon,
         PasswordStrength,
@@ -367,9 +384,8 @@ export default class RegisterArea extends Vue {
     public readonly loginPath: string = RouteConfig.Login.path;
 
     public $refs!: {
-        recaptcha: VueRecaptcha;
-        hcaptcha: VueHcaptcha;
-    }
+        captcha: VueRecaptcha | VueHcaptcha;
+    };
 
     public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -396,6 +412,13 @@ export default class RegisterArea extends Vue {
         } catch (e) {
             this.$notify.error('No configuration file for registration page.');
         }
+    }
+
+    /**
+     * Redirects to chosen satellite.
+     */
+    public clickSatellite(address): void {
+        window.location.href = address;
     }
 
     /**
@@ -430,17 +453,16 @@ export default class RegisterArea extends Vue {
      * Validates input fields and proceeds user creation.
      */
     public async onCreateClick(): Promise<void> {
-        if (this.isLoading) {
+        if (this.isLoading && !this.isDropdownShown) {
             return;
         }
 
-        this.isLoading = true;
+        let activeElement = document.activeElement;
 
-        if (this.$refs.recaptcha && !this.captchaResponseToken) {
-            this.$refs.recaptcha.execute();
-            return;
-        } if (this.$refs.hcaptcha && !this.captchaResponseToken) {
-            this.$refs.hcaptcha.execute();
+        if (activeElement && activeElement.id === 'registerDropdown') return;
+
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
             return;
         }
 
@@ -507,7 +529,7 @@ export default class RegisterArea extends Vue {
             }
 
             return s;
-        })
+        });
     }
 
     /**
@@ -565,11 +587,27 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Handles captcha error and expiry.
+     * Handles captcha error.
      */
     public onCaptchaError(): void {
         this.captchaResponseToken = '';
-        this.captchaError = true;
+        this.$notify.error('The captcha encountered an error. Please try again.');
+    }
+
+    /**
+     * Executes when the Terms of Service checkbox has been toggled.
+     */
+    public onTermsAcceptedToggled(event: Event): void {
+        this.isTermsAccepted = (event.target as HTMLInputElement).checked;
+        this.isTermsAcceptedError = false;
+    }
+
+    /**
+     * Executes when the beta satellite terms checkbox has been toggled.
+     */
+    public onBetaTermsAcceptedToggled(event: Event): void {
+        this.areBetaTermsAccepted = (event.target as HTMLInputElement).checked;
+        this.areBetaTermsAcceptedError = false;
     }
 
     /**
@@ -629,13 +667,13 @@ export default class RegisterArea extends Vue {
         }
 
         if (this.user.partner.length > 100) {
-            this.$notify.error('Partner must be less than or equal to 100 characters')
-            return false
+            this.$notify.error('Partner must be less than or equal to 100 characters');
+            return false;
         }
 
         if (this.user.signupPromoCode.length > 100) {
-            this.$notify.error('Promo code must be less than or equal to 100 characters')
-            return false
+            this.$notify.error('Promo code must be less than or equal to 100 characters');
+            return false;
         }
 
         return isNoErrors;
@@ -645,7 +683,7 @@ export default class RegisterArea extends Vue {
      * Detect if user uses Brave browser
      */
     public async detectBraveBrowser(): Promise<boolean> {
-        return (navigator['brave'] && await navigator['brave'].isBrave() || false)
+        return (navigator['brave'] && await navigator['brave'].isBrave() || false);
     }
 
     /**
@@ -671,6 +709,12 @@ export default class RegisterArea extends Vue {
             return;
         }
 
+        if (this.$refs.captcha && !this.captchaResponseToken) {
+            this.$refs.captcha.execute();
+            return;
+        }
+
+        this.isLoading = true;
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
 
@@ -688,23 +732,32 @@ export default class RegisterArea extends Vue {
 
             await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
-            if (this.$refs.recaptcha) {
-                this.$refs.recaptcha.reset();
-                this.captchaResponseToken = '';
-            }
-            if (this.$refs.hcaptcha) {
-                this.$refs.hcaptcha.reset();
-                this.captchaResponseToken = '';
-            }
             await this.$notify.error(error.message);
         }
 
+        this.$refs.captcha?.reset();
+        this.captchaResponseToken = '';
         this.isLoading = false;
     }
 }
 </script>
 
 <style scoped lang="scss">
+    %subtitle-text {
+        max-width: 550px;
+        margin-top: 27px;
+        font-size: 16px;
+        font-family: 'font_regular', sans-serif;
+        line-height: 24px;
+        text-align: left;
+    }
+
+    .logo-divider {
+        border-left: 1px solid var(--c-light-blue-2);
+        height: 40px;
+        margin: 0 10px;
+    }
+
     .register-area {
         display: flex;
         flex-direction: column;
@@ -733,14 +786,6 @@ export default class RegisterArea extends Vue {
                 align-items: center;
                 justify-content: flex-end;
                 height: 100%;
-
-                &.mright {
-                    margin-right: 30px;
-                }
-
-                &.right {
-                    justify-content: flex-start;
-                }
             }
 
             &__logo {
@@ -753,6 +798,11 @@ export default class RegisterArea extends Vue {
                     width: auto;
                     height: 56px;
                     max-width: unset;
+
+                    @media screen and (max-width: 1024px) {
+                        object-fit: contain;
+                        max-width: 45%;
+                    }
                 }
             }
 
@@ -773,6 +823,46 @@ export default class RegisterArea extends Vue {
 
             @media screen and (max-width: 1600px) {
                 width: 90%;
+            }
+
+            &__mobile-content {
+                @media screen and (min-width: 1025px) {
+                    display: none;
+                }
+
+                .register-area__logo-wrapper {
+                    display: block;
+                    margin-top: 24px;
+
+                    &__container {
+                        justify-content: center;
+                    }
+                }
+
+                &__custom-html-container {
+                    margin-top: 27px;
+
+                    :deep(p) {
+                        @extend %subtitle-text;
+
+                        text-align: center;
+
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
+                    }
+
+                    :deep(ol) {
+                        @extend %subtitle-text;
+
+                        list-style-position: inside;
+                    }
+                }
             }
         }
 
@@ -797,34 +887,45 @@ export default class RegisterArea extends Vue {
                 text-align: left;
             }
 
-            &__sub-title,
-            &__custom-html-container {
-                max-width: 550px;
-                margin-top: 27px;
-                font-size: 16px;
-                font-family: 'font_regular', sans-serif;
-                line-height: 24px;
-                text-align: left;
+            &__sub-title {
+                @extend %subtitle-text;
             }
 
-            &__custom-html-container {
-                padding-bottom: 27px;
+            &__large-content {
 
-                ::v-deep a {
-                    text-decoration: underline !important;
-                    color: inherit !important;
+                &__custom-html-container {
+                    padding-bottom: 27px;
+
+                    :deep(p) {
+                        @extend %subtitle-text;
+
+                        strong {
+                            font-family: 'font_bold', sans-serif;
+                        }
+
+                        a {
+                            text-decoration: underline !important;
+                            color: inherit !important;
+                        }
+                    }
+
+                    :deep(ol) {
+                        @extend %subtitle-text;
+
+                        list-style-position: inside;
+                    }
                 }
-            }
 
-            &__globe-image {
-                position: relative;
-                top: 140px;
-                left: 40px;
-            }
+                &__globe-image {
+                    position: relative;
+                    top: 140px;
+                    left: 40px;
+                }
 
-            &__globe-image.professional-globe {
-                top: 110px;
-                left: 40px;
+                &__globe-image.professional-globe {
+                    top: 110px;
+                    left: 40px;
+                }
             }
         }
 
@@ -848,6 +949,9 @@ export default class RegisterArea extends Vue {
                     line-height: 21px;
                     color: #afb7c1;
                     margin-right: 10px;
+                    border: none;
+                    cursor: pointer;
+                    background: transparent;
                 }
 
                 &__dropdown {
@@ -907,7 +1011,7 @@ export default class RegisterArea extends Vue {
                     right: 12px;
                     transform: translateX(50%);
                     visibility: hidden;
-                    background-color: #56606d;
+                    background-color: var(--c-grey-6);
                     text-align: center;
                     border-radius: 4px;
                     font-family: 'font-medium', sans-serif;
@@ -926,7 +1030,7 @@ export default class RegisterArea extends Vue {
                         left: 50%;
                         border-width: 5px;
                         border-style: solid;
-                        border-color: #56606d transparent transparent;
+                        border-color: var(--c-grey-6) transparent transparent;
                         transform: rotate(180deg);
                     }
                 }
@@ -1061,20 +1165,6 @@ export default class RegisterArea extends Vue {
                 &__button {
                     margin-top: 30px;
                 }
-
-                &__captcha-wrapper__label-container {
-                    margin-top: 30px;
-                    display: flex;
-                    justify-content: flex-start;
-                    align-items: flex-end;
-                    padding-bottom: 8px;
-
-                    &__error {
-                        font-size: 16px;
-                        margin-left: 10px;
-                        color: #ff5560;
-                    }
-                }
             }
 
             &__footer {
@@ -1122,8 +1212,16 @@ export default class RegisterArea extends Vue {
 
     .logo {
         cursor: pointer;
-        width: 207px;
-        height: 37px;
+    }
+
+    .logo-with-partner {
+        cursor: pointer;
+        max-width: 100%;
+    }
+
+    .logo-no-partner {
+        cursor: pointer;
+        width: 100%;
     }
 
     .register-input {
@@ -1198,7 +1296,7 @@ export default class RegisterArea extends Vue {
         display: block;
     }
 
-    ::v-deep .grecaptcha-badge {
+    :deep(.grecaptcha-badge) {
         visibility: hidden;
     }
 
@@ -1244,7 +1342,7 @@ export default class RegisterArea extends Vue {
             display: block;
             position: relative;
             width: 100%;
-            padding: 30px;
+            padding: 10px;
 
             &__container {
                 display: flex;
@@ -1254,6 +1352,10 @@ export default class RegisterArea extends Vue {
                 overflow: visible;
                 width: 85%;
                 margin: 0 auto;
+            }
+
+            .register-area__logo-wrapper.bottom {
+                display: none;
             }
 
             &__intro-area {
@@ -1275,9 +1377,12 @@ export default class RegisterArea extends Vue {
                     text-align: center;
                 }
 
-                &__globe-image,
-                &__custom-html-container {
-                    display: none;
+                &__large-content {
+
+                    &__globe-image,
+                    &__custom-html-container {
+                        display: none;
+                    }
                 }
             }
 
@@ -1356,46 +1461,36 @@ export default class RegisterArea extends Vue {
         }
     }
 
-    @media screen and (max-width: 450px) {
+    @media screen and (max-width: 1024px) {
 
         .register-area {
 
             &__container {
-                padding: 0;
+                padding: 40px 10px 20px;
             }
 
             &__logo-wrapper {
                 height: auto;
-                flex-direction: column;
+                justify-content: center;
 
                 img {
-                    max-height: 100%;
+                    height: 62px;
                     max-width: 100%;
                 }
 
                 &__container {
-                    margin-top: 20px;
 
                     a {
                         width: 100%;
                         height: 100%;
-                    }
-
-                    &.mright {
-                        margin-right: 0;
                     }
                 }
             }
 
             &__intro-area {
                 flex-direction: column;
-                padding: 0 0 80px;
+                padding: 0 0 20px;
                 height: auto;
-
-                .right,
-                .bottom {
-                    height: 42px;
-                }
 
                 &__title {
                     font-size: 28px;
@@ -1410,7 +1505,6 @@ export default class RegisterArea extends Vue {
 
             &__container {
                 width: 90%;
-                padding: 60px 10px 20px;
             }
 
             &__intro-area__title {
@@ -1435,7 +1529,6 @@ export default class RegisterArea extends Vue {
 
                 &__login-container {
                     margin-top: 40px;
-                    padding-bottom: 40px;
                 }
             }
         }

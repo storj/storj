@@ -36,13 +36,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VButton from '@/app/components/common/VButton.vue';
-
-import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
-
 import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
+
+import VButton from '@/app/components/common/VButton.vue';
+
+import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
 
 // @vue/component
 @Component({

@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -73,7 +72,7 @@ func send(t *testing.T, body io.Reader, response interface{}, status int, parts 
 	require.Equal(t, status, resp.StatusCode)
 
 	if response != nil {
-		data, err := ioutil.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 
 		err = json.Unmarshal(data, response)
@@ -124,7 +123,7 @@ func TestOIDC(t *testing.T) {
 		user, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		sessionToken, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "")
+		tokenInfo, err := sat.API.Console.Service.GenerateSessionToken(ctx, user.ID, user.Email, "", "")
 		require.NoError(t, err)
 
 		// Set up a test project and bucket
@@ -246,7 +245,7 @@ func TestOIDC(t *testing.T) {
 
 		{
 			body := strings.NewReader(consent.Encode())
-			send(t, body, &token, http.StatusOK, authEndpoint, http.MethodPost, sessionToken.String(), "application/x-www-form-urlencoded")
+			send(t, body, &token, http.StatusOK, authEndpoint, http.MethodPost, tokenInfo.Token.String(), "application/x-www-form-urlencoded")
 		}
 
 		require.Equal(t, "Bearer", token.TokenType)

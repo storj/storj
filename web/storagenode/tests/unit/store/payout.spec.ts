@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { newNodeModule } from '@/app/store/modules/node';
 import { newPayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
@@ -21,7 +22,6 @@ import {
 } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const payoutApi = new PayoutHttpApi();

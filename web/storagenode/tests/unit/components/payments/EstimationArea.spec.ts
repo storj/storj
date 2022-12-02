@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import EstimationArea from '@/app/components/payments/EstimationArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { APPSTATE_MUTATIONS, appStateModule } from '@/app/store/modules/appState';
 import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
@@ -20,7 +19,8 @@ import {
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Satellites } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -36,7 +36,7 @@ const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
 const payoutModule = newPayoutModule(payoutService);
 
-const store = new Vuex.Store({ modules: { payoutModule, appStateModule, node: nodeModule }});
+const store = new Vuex.Store({ modules: { payoutModule, appStateModule, node: nodeModule } });
 
 describe('EstimationArea', (): void => {
     it('renders correctly with actual values and current period', async (): Promise<void> => {
