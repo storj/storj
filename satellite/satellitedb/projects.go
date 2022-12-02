@@ -131,6 +131,11 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		return nil, err
 	}
 
+	salt, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
 	createFields := dbx.Project_Create_Fields{}
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
@@ -150,6 +155,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
+	createFields.Salt = dbx.Project_Salt(salt[:])
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),

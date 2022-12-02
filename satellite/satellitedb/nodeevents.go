@@ -56,6 +56,17 @@ func (ne *nodeEvents) GetLatestByEmailAndEvent(ctx context.Context, email string
 	return fromDBX(dbxNE)
 }
 
+// GetByID get a node event by id.
+func (ne *nodeEvents) GetByID(ctx context.Context, id uuid.UUID) (nodeEvent nodeevents.NodeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxNE, err := ne.db.Get_NodeEvent_By_Id(ctx, dbx.NodeEvent_Id(id[:]))
+	if err != nil {
+		return nodeEvent, err
+	}
+	return fromDBX(dbxNE)
+}
+
 // GetNextBatch gets the next batch of events to combine into an email.
 // It selects one item that was inserted before 'firstSeenBefore', then selects
 // all entries with the same email and event so that they can be combined into a
@@ -71,7 +82,7 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 			FROM node_events
 			WHERE created_at < $1
 				AND email_sent is NULL
-			ORDER BY created_at ASC
+			ORDER BY last_attempted ASC NULLS FIRST, created_at ASC
 			LIMIT 1
 		) as t
 		ON node_events.email = t.email
@@ -121,12 +132,13 @@ func fromDBX(dbxNE *dbx.NodeEvent) (event nodeevents.NodeEvent, err error) {
 		return event, err
 	}
 	return nodeevents.NodeEvent{
-		ID:        id,
-		Email:     dbxNE.Email,
-		NodeID:    nodeID,
-		Event:     nodeevents.Type(dbxNE.Event),
-		CreatedAt: dbxNE.CreatedAt,
-		EmailSent: dbxNE.EmailSent,
+		ID:            id,
+		Email:         dbxNE.Email,
+		NodeID:        nodeID,
+		Event:         nodeevents.Type(dbxNE.Event),
+		CreatedAt:     dbxNE.CreatedAt,
+		LastAttempted: dbxNE.LastAttempted,
+		EmailSent:     dbxNE.EmailSent,
 	}, nil
 }
 
@@ -136,6 +148,17 @@ func (ne *nodeEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUID, time
 
 	_, err = ne.db.ExecContext(ctx, `
 		UPDATE node_events SET email_sent = $1
+		WHERE id = ANY($2::bytea[])
+	`, timestamp, pgutil.UUIDArray(ids))
+	return err
+}
+
+// UpdateLastAttempted updates last_attempted for a group of rows.
+func (ne *nodeEvents) UpdateLastAttempted(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = ne.db.ExecContext(ctx, `
+		UPDATE node_events SET last_attempted = $1
 		WHERE id = ANY($2::bytea[])
 	`, timestamp, pgutil.UUIDArray(ids))
 	return err
