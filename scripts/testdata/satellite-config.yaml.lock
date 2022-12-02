@@ -679,8 +679,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# api key for the customer.io api
+# node-events.customerio.api-key: ""
+
+# timeout for the http request to customer.io endpoint
+# node-events.customerio.request-timeout: 30s
+
+# the account id for the customer.io api
+# node-events.customerio.site-id: ""
+
+# the url for the customer.io endpoint to send node event data to
+# node-events.customerio.url: https://track.customer.io/api/v1
+
 # how long to wait before checking the node events DB again if there is nothing to work on
 # node-events.interval: 5m0s
+
+# which notification provider to use
+# node-events.notifier: ""
 
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s

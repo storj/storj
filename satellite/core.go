@@ -295,9 +295,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup node events
 		if config.Overlay.SendNodeEmails {
-			peer.NodeEvents.Notifier = nodeevents.NewMockNotifier(log.Named("node events:mock notifier"))
+			var notifier nodeevents.Notifier
+			switch config.NodeEvents.Notifier {
+			case "customer.io":
+				notifier = nodeevents.NewCustomerioNotifier(
+					log.Named("node-events:customer.io-notifier"),
+					config.NodeEvents.Customerio,
+				)
+			default:
+				notifier = nodeevents.NewMockNotifier(log.Named("node-events:mock-notifier"))
+			}
+			peer.NodeEvents.Notifier = notifier
 			peer.NodeEvents.DB = peer.DB.NodeEvents()
-			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
+			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node-events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "node-events:chore",
 				Run:   peer.NodeEvents.Chore.Run,
