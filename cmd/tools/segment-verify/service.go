@@ -31,6 +31,7 @@ type Metabase interface {
 	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
+	ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (result metabase.ListBucketsStreamIDsResult, err error)
 }
 
 // Verifier verifies a batch of segments.
@@ -83,6 +84,7 @@ type Service struct {
 	priorityNodes  NodeAliasSet
 	onlineNodes    NodeAliasSet
 	offlineCount   map[metabase.NodeAlias]int
+	bucketList     BucketList
 }
 
 // NewService returns a new service for verifying segments.
@@ -216,6 +218,19 @@ func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
 	return set, nil
 }
 
+// BucketList contains a list of buckets to check segments from.
+type BucketList struct {
+	Buckets []metabase.BucketLocation
+}
+
+// Add adds a bucket to the bucket list.
+func (list *BucketList) Add(projectID uuid.UUID, bucketName string) {
+	list.Buckets = append(list.Buckets, metabase.BucketLocation{
+		ProjectID:  projectID,
+		BucketName: bucketName,
+	})
+}
+
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
 func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -297,6 +312,107 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 		if err != nil {
 			return Error.Wrap(err)
 		}
+	}
+}
+
+// ProcessBuckets processes segments in buckets with the specified batchSize.
+func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.BucketLocation) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	service.aliasMap = aliasMap
+
+	err = service.loadOnlineNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.loadPriorityNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.applyIgnoreNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var progress int64
+
+	cursorBucket := metabase.BucketLocation{}
+	cursorStreamID := uuid.UUID{}
+	cursorPosition := metabase.SegmentPosition{} // Convert to struct that contains the status.
+	segmentsData := make([]Segment, service.config.BatchSize)
+	segments := make([]*Segment, service.config.BatchSize)
+	for {
+
+		listStreamIDsResult, err := service.metabase.ListBucketsStreamIDs(ctx, metabase.ListBucketsStreamIDs{
+			BucketList: metabase.ListVerifyBucketList{
+				Buckets: service.bucketList.Buckets,
+			},
+			CursorBucket:   cursorBucket,
+			CursorStreamID: cursorStreamID,
+			Limit:          service.config.BatchSize,
+
+			AsOfSystemInterval: service.config.AsOfSystemInterval,
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for {
+			// TODO loop for this
+			result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
+				StreamIDs:      listStreamIDsResult.StreamIDs,
+				CursorStreamID: cursorStreamID,
+				CursorPosition: cursorPosition,
+				Limit:          service.config.BatchSize,
+
+				AsOfSystemInterval: service.config.AsOfSystemInterval,
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// All done?
+			if len(result.Segments) == 0 {
+				break
+			}
+
+			segmentsData = segmentsData[:len(result.Segments)]
+			segments = segments[:len(result.Segments)]
+
+			last := &result.Segments[len(result.Segments)-1]
+			cursorStreamID, cursorPosition = last.StreamID, last.Position
+
+			for i := range segments {
+				segmentsData[i].VerifySegment = result.Segments[i]
+				segments[i] = &segmentsData[i]
+			}
+
+			service.log.Info("processing segments",
+				zap.Int64("progress", progress),
+				zap.Int("count", len(segments)),
+				zap.Stringer("first", segments[0].StreamID),
+				zap.Stringer("last", segments[len(segments)-1].StreamID),
+			)
+			progress += int64(len(segments))
+
+			// Process the data.
+			err = service.ProcessSegments(ctx, segments)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		if len(listStreamIDsResult.StreamIDs) == 0 {
+			return nil
+		}
+
+		cursorBucket = listStreamIDsResult.LastBucket
+		// TODO remove processed project_ids and bucket_names?
 	}
 }
 
