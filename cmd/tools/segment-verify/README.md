@@ -25,7 +25,11 @@ There are few parameters for controlling the verification itself:
 ```
 
 ## Running the tool
-
+- by specifying range boundaries:
 ```
 segment-verify run range --low 00 --high ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --config-dir ./satellite-config-dir
+```
+- by specifying buckets to be checked:
+```
+segment-verify run buckets --buckets-csv bucket.csv
 ```
