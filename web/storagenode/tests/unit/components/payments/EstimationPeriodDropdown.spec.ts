@@ -51,6 +51,7 @@ describe('EstimationPeriodDropdown', (): void => {
             [],
             [],
             111,
+            11,
             222,
             50,
             70,

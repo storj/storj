@@ -19,14 +19,23 @@ func MakeStorageUsageStamps(satellites []storj.NodeID, days int, endDate time.Ti
 
 	startDate := time.Date(endDate.Year(), endDate.Month(), endDate.Day()-days, 0, 0, 0, 0, endDate.Location())
 	for _, satellite := range satellites {
+		previousStampIntervalEndTime := startDate
 		for i := 0; i < days; i++ {
 			h := testrand.Intn(24)
 			intervalEndTime := startDate.Add(time.Hour * 24 * time.Duration(i)).Add(time.Hour * time.Duration(h))
+			atRestTotalBytes := math.Round(testrand.Float64n(100))
+			intervalInHours := float64(24)
+			if i > 0 {
+				intervalInHours = intervalEndTime.Sub(previousStampIntervalEndTime).Hours()
+			}
+			previousStampIntervalEndTime = intervalEndTime
 			stamp := storageusage.Stamp{
-				SatelliteID:     satellite,
-				AtRestTotal:     math.Round(testrand.Float64n(1000)),
-				IntervalStart:   time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
-				IntervalEndTime: intervalEndTime,
+				SatelliteID:      satellite,
+				AtRestTotalBytes: atRestTotalBytes,
+				AtRestTotal:      atRestTotalBytes * intervalInHours,
+				IntervalInHours:  intervalInHours,
+				IntervalStart:    time.Date(intervalEndTime.Year(), intervalEndTime.Month(), intervalEndTime.Day(), 0, 0, 0, 0, intervalEndTime.Location()),
+				IntervalEndTime:  intervalEndTime,
 			}
 			stamps = append(stamps, stamp)
 		}

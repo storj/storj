@@ -52,8 +52,9 @@ export class StorageClient extends APIClient {
         const usage = data.stamps || [];
 
         return new DiskSpaceUsage(
-            usage.map(stamp => new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart))),
+            usage.map(stamp => new Stamp(stamp.atRestTotal, stamp.atRestTotalBytes, new Date(stamp.intervalStart))),
             data.summary,
+            data.summaryBytes,
         );
     }
 

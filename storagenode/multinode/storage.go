@@ -85,7 +85,7 @@ func (storage *StorageEndpoint) Usage(ctx context.Context, req *multinodepb.Stor
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
-	summary, err := storage.usage.Summary(ctx, from, to)
+	summary, averageUsageInBytes, err := storage.usage.Summary(ctx, from, to)
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -93,14 +93,16 @@ func (storage *StorageEndpoint) Usage(ctx context.Context, req *multinodepb.Stor
 	var usage []*multinodepb.StorageUsage
 	for _, stamp := range stamps {
 		usage = append(usage, &multinodepb.StorageUsage{
-			AtRestTotal:   stamp.AtRestTotal,
-			IntervalStart: stamp.IntervalStart,
+			AtRestTotal:      stamp.AtRestTotal,
+			AtRestTotalBytes: stamp.AtRestTotalBytes,
+			IntervalStart:    stamp.IntervalStart,
 		})
 	}
 
 	return &multinodepb.StorageUsageResponse{
-		StorageUsage: usage,
-		Summary:      summary,
+		StorageUsage:      usage,
+		Summary:           summary,
+		AverageUsageBytes: averageUsageInBytes,
 	}, nil
 }
 
@@ -129,7 +131,7 @@ func (storage *StorageEndpoint) UsageSatellite(ctx context.Context, req *multino
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
-	summary, err := storage.usage.SatelliteSummary(ctx, req.SatelliteId, from, to)
+	summary, averageUsageInBytes, err := storage.usage.SatelliteSummary(ctx, req.SatelliteId, from, to)
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -137,13 +139,15 @@ func (storage *StorageEndpoint) UsageSatellite(ctx context.Context, req *multino
 	var usage []*multinodepb.StorageUsage
 	for _, stamp := range stamps {
 		usage = append(usage, &multinodepb.StorageUsage{
-			AtRestTotal:   stamp.AtRestTotal,
-			IntervalStart: stamp.IntervalStart,
+			AtRestTotal:      stamp.AtRestTotal,
+			AtRestTotalBytes: stamp.AtRestTotalBytes,
+			IntervalStart:    stamp.IntervalStart,
 		})
 	}
 
 	return &multinodepb.StorageUsageSatelliteResponse{
-		StorageUsage: usage,
-		Summary:      summary,
+		StorageUsage:      usage,
+		Summary:           summary,
+		AverageUsageBytes: averageUsageInBytes,
 	}, nil
 }

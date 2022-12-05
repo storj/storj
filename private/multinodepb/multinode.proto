@@ -47,7 +47,7 @@ message StorageUsageRequest {
 message StorageUsageResponse {
   repeated StorageUsage storage_usage = 1;
   double summary = 2;
-  double summary_bytes = 3;
+  double average_usage_bytes = 3;
 }
 
 message StorageUsageSatelliteRequest {
@@ -60,7 +60,7 @@ message StorageUsageSatelliteRequest {
 message StorageUsageSatelliteResponse {
   repeated StorageUsage storage_usage = 1;
   double summary = 2;
-  double summary_bytes = 3;
+  double average_usage_bytes = 3;
 }
 
 service Bandwidth {

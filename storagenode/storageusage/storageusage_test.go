@@ -36,10 +36,11 @@ func TestStorageUsage(t *testing.T) {
 
 	stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, days, now)
 
-	var totalSummary float64
+	var totalSummary, averageUsage float64
 	expectedDailyStamps := make(map[storj.NodeID]map[time.Time]storageusage.Stamp)
 	expectedDailyStampsTotals := make(map[time.Time]float64)
-	summary := make(map[storj.NodeID]float64)
+	summaryBySatellite := make(map[storj.NodeID]float64)
+	averageBySatellite := make(map[storj.NodeID]float64)
 
 	for _, stamp := range stamps {
 		if expectedDailyStamps[stamp.SatelliteID] == nil {
@@ -48,26 +49,28 @@ func TestStorageUsage(t *testing.T) {
 		expectedDailyStamps[stamp.SatelliteID][stamp.IntervalStart.UTC()] = stamp
 	}
 
+	totalUsageBytes := float64(0)
+	totalStamps := float64(0)
 	for _, satellite := range satellites {
+		satelliteUsageBytes := float64(0)
 		for _, stamp := range expectedDailyStamps[satellite] {
 			intervalStart := stamp.IntervalStart.UTC()
-			prevTimestamp := intervalStart.AddDate(0, 0, -1)
-			atRestTotal := stamp.AtRestTotal / 24
-			if prevStamp, ok := expectedDailyStamps[satellite][prevTimestamp]; ok {
-				diff := stamp.IntervalEndTime.UTC().Sub(prevStamp.IntervalEndTime.UTC()).Hours()
-				atRestTotal = stamp.AtRestTotal / diff
-			}
-			expectedDailyStamps[satellite][intervalStart] = storageusage.Stamp{
-				SatelliteID:     satellite,
-				AtRestTotal:     atRestTotal,
-				IntervalStart:   intervalStart,
-				IntervalEndTime: stamp.IntervalEndTime,
-			}
-			expectedDailyStampsTotals[intervalStart] += atRestTotal
-			summary[satellite] += atRestTotal
-			totalSummary += atRestTotal
+
+			expectedDailyStampsTotals[intervalStart] += stamp.AtRestTotal
+
+			summaryBySatellite[satellite] += stamp.AtRestTotal
+			totalSummary += stamp.AtRestTotal
+
+			satelliteUsageBytes += stamp.AtRestTotalBytes
+			totalUsageBytes += stamp.AtRestTotalBytes
+
+			totalStamps++
 		}
+
+		averageBySatellite[satellite] = satelliteUsageBytes / float64(len(expectedDailyStamps[satellite]))
 	}
+
+	averageUsage = totalUsageBytes / totalStamps
 
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		storageUsageDB := db.StorageUsage()
@@ -85,6 +88,8 @@ func TestStorageUsage(t *testing.T) {
 			for _, stamp := range res {
 				assert.Equal(t, satelliteID, stamp.SatelliteID)
 				assert.Equal(t, expectedDailyStamps[satelliteID][stamp.IntervalStart].AtRestTotal, stamp.AtRestTotal)
+				assert.Equal(t, expectedDailyStamps[satelliteID][stamp.IntervalStart].AtRestTotalBytes, stamp.AtRestTotalBytes)
+				assert.Equal(t, expectedDailyStamps[satelliteID][stamp.IntervalStart].IntervalInHours, stamp.IntervalInHours)
 			}
 		})
 
@@ -103,22 +108,24 @@ func TestStorageUsage(t *testing.T) {
 		})
 
 		t.Run("summary satellite", func(t *testing.T) {
-			summ, err := storageUsageDB.SatelliteSummary(ctx, satelliteID, time.Time{}, now)
+			summ, averageUsageInBytes, err := storageUsageDB.SatelliteSummary(ctx, satelliteID, time.Time{}, now)
 			assert.NoError(t, err)
-			assert.Equal(t, roundFloat(summary[satelliteID]), roundFloat(summ))
+			assert.Equal(t, roundFloat(summaryBySatellite[satelliteID]), roundFloat(summ))
+			assert.Equal(t, roundFloat(averageBySatellite[satelliteID]), roundFloat(averageUsageInBytes))
 		})
 
 		t.Run("summary", func(t *testing.T) {
-			summ, err := storageUsageDB.Summary(ctx, time.Time{}, now)
+			summ, averageUsageInBytes, err := storageUsageDB.Summary(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, roundFloat(totalSummary), roundFloat(summ))
+			assert.Equal(t, roundFloat(averageUsage), roundFloat(averageUsageInBytes))
 		})
 	})
 }
 
 func TestEmptyStorageUsage(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		var emptySummary float64
+		var emptySummary, zeroHourInterval float64
 		now := time.Now()
 
 		storageUsageDB := db.StorageUsage()
@@ -136,15 +143,17 @@ func TestEmptyStorageUsage(t *testing.T) {
 		})
 
 		t.Run("summary satellite", func(t *testing.T) {
-			summ, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
+			summ, hourInterval, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
+			assert.Equal(t, zeroHourInterval, hourInterval)
 		})
 
 		t.Run("summary", func(t *testing.T) {
-			summ, err := storageUsageDB.Summary(ctx, time.Time{}, now)
+			summ, hourInterval, err := storageUsageDB.Summary(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
+			assert.Equal(t, zeroHourInterval, hourInterval)
 		})
 	})
 }

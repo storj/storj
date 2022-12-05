@@ -150,8 +150,8 @@ func (s *Service) estimationUsagePeriod(ctx context.Context, period time.Time, j
 	for j := 0; j < len(storageDaily); j++ {
 		payout.DiskSpace += storageDaily[j].AtRestTotal
 	}
-	// dividing by 30 to show tbm instead of tb.
-	payout.DiskSpace /= 30
+	// dividing by 720 to show tbm instead of tbh.
+	payout.DiskSpace /= 720
 	payout.SetDiskSpacePayout(priceModel.DiskSpace)
 	payout.SetHeldAmount()
 	payout.SetPayout()
