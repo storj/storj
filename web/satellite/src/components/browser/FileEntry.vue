@@ -356,7 +356,7 @@ const link = computed((): string => {
 /**
  * Return a flag signifying whether the current file/folder is selected.
  */
-const isFileSelected: boolean = computed((): boolean => {
+const isFileSelected = computed((): boolean => {
     return Boolean(
         store.state.files.selectedAnchorFile === props.file ||
         store.state.files.selectedFiles.find(

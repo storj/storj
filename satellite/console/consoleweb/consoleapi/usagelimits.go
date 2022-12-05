@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 )
@@ -155,5 +156,5 @@ func (ul *UsageLimits) DailyUsage(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (ul *UsageLimits) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(ul.log, w, status, err)
+	web.ServeJSONError(ul.log, w, status, err)
 }

@@ -5,6 +5,7 @@ version: "3.4"
 services:
   postgres:
     hostname: postgres
+    command: -c fsync=off
     image: postgres
     environment:
       POSTGRES_USER: postgres

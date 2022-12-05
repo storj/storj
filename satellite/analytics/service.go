@@ -71,6 +71,9 @@ const (
 	eventCreditCardAddedFromBilling = "Credit Card Added From Billing"
 	eventStorjTokenAddedFromBilling = "Storj Token Added From Billing"
 	eventAddFundsClicked            = "Add Funds Clicked"
+	eventProjectMembersInviteSent   = "Project Members Invite Sent"
+	eventProjectMemberAdded         = "Project Member Added"
+	eventProjectMemberDeleted       = "Project Member Deleted"
 )
 
 var (
@@ -120,7 +123,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked,
 		eventSeePaymentsClicked, eventEditPaymentMethodClicked, eventUsageDetailedInfoClicked, eventAddNewPaymentMethodClicked,
 		eventApplyNewCouponClicked, eventCreditCardRemoved, eventCouponCodeApplied, eventInvoiceDownloaded, eventCreditCardAddedFromBilling,
-		eventStorjTokenAddedFromBilling, eventAddFundsClicked} {
+		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent} {
 		service.clientEvents[name] = true
 	}
 
@@ -465,6 +468,40 @@ func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventStorjTokenAdded,
+		Properties: props,
+	})
+
+}
+
+// TrackProjectMemberAddition sends an "Project Member Added" event to Segment.
+func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectMemberAdded,
+		Properties: props,
+	})
+
+}
+
+// TrackProjectMemberDeletion sends an "Project Member Deleted" event to Segment.
+func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectMemberDeleted,
 		Properties: props,
 	})
 

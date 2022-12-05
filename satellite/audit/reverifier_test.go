@@ -38,7 +38,7 @@ func TestReverifyPiece(t *testing.T) {
 
 		// ensure ReverifyPiece tells us to remove the segment from the queue after a successful audit
 		for _, piece := range segment.Pieces {
-			keepInQueue := satellite.Audit.Verifier.ReverifyPiece(ctx, audit.PieceLocator{
+			keepInQueue := satellite.Audit.Reverifier.ReverifyPiece(ctx, audit.PieceLocator{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 				NodeID:   piece.StorageNode,
@@ -68,7 +68,7 @@ func TestDoReverifyPieceSucceeds(t *testing.T) {
 
 		// ensure DoReverifyPiece succeeds on the new pieces we uploaded
 		for _, piece := range segment.Pieces {
-			outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+			outcome, err := satellite.Audit.Reverifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 				NodeID:   piece.StorageNode,
@@ -103,7 +103,7 @@ func TestDoReverifyPieceWithNodeOffline(t *testing.T) {
 		require.NoError(t, planet.StopPeer(offlineNode))
 
 		// see what happens when DoReverifyPiece tries to hit that node
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		outcome, err := satellite.Audit.Reverifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   offlinePiece.StorageNode,
@@ -139,7 +139,7 @@ func TestDoReverifyPieceWithPieceMissing(t *testing.T) {
 		require.NoError(t, err)
 
 		// see what happens when DoReverifyPiece tries to hit that node
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		outcome, err := satellite.Audit.Reverifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   missingPiece.StorageNode,
@@ -175,7 +175,7 @@ func testReverifyRewrittenPiece(t *testing.T, mutator func(content []byte, heade
 
 		rewritePiece(t, ctx, node, satellite.ID(), pieceID, mutator)
 
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		outcome, err := satellite.Audit.Reverifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   pieceToRewrite.StorageNode,

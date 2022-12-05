@@ -76,6 +76,8 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+	// SetNodeContained updates the contained field for the node record.
+	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
@@ -601,6 +603,17 @@ func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, e
 func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.SetNodeContained(ctx, node, contained)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info if needed.

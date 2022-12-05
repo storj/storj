@@ -81,6 +81,68 @@ func TestNodeEventsUpdateEmailSent(t *testing.T) {
 	})
 }
 
+func TestNodeEventsUpdateLastAttempted(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testID1 := teststorj.NodeIDFromString("test1")
+		testID2 := teststorj.NodeIDFromString("test2")
+		testEmail1 := "test1@storj.test"
+		eventType := nodeevents.Disqualified
+
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		require.NoError(t, err)
+
+		event1, err = db.NodeEvents().GetByID(ctx, event1.ID)
+		require.NoError(t, err)
+		require.Nil(t, event1.LastAttempted)
+
+		event2, err := db.NodeEvents().Insert(ctx, testEmail1, testID2, eventType)
+		require.NoError(t, err)
+
+		event2, err = db.NodeEvents().GetByID(ctx, event2.ID)
+		require.NoError(t, err)
+		require.Nil(t, event2.LastAttempted)
+
+		require.NoError(t, db.NodeEvents().UpdateLastAttempted(ctx, []uuid.UUID{event1.ID, event2.ID}, time.Now()))
+
+		event1, err = db.NodeEvents().GetByID(ctx, event1.ID)
+		require.NoError(t, err)
+		require.NotNil(t, event1.LastAttempted)
+
+		event2, err = db.NodeEvents().GetByID(ctx, event2.ID)
+		require.NoError(t, err)
+		require.NotNil(t, event2.LastAttempted)
+	})
+}
+
+func TestNodeEventsGetByID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		testID1 := teststorj.NodeIDFromString("test1")
+		testID2 := teststorj.NodeIDFromString("test2")
+		testEmail1 := "test1@storj.test"
+		testEmail2 := "test2@storj.test"
+
+		eventType := nodeevents.Disqualified
+
+		event1, err := db.NodeEvents().Insert(ctx, testEmail1, testID1, eventType)
+		require.NoError(t, err)
+
+		event2, err := db.NodeEvents().Insert(ctx, testEmail2, testID2, eventType)
+		require.NoError(t, err)
+
+		res, err := db.NodeEvents().GetByID(ctx, event1.ID)
+		require.NoError(t, err)
+		require.Equal(t, event1.Email, res.Email)
+		require.Equal(t, event1.CreatedAt, res.CreatedAt)
+		require.Equal(t, event1.Event, res.Event)
+
+		res, err = db.NodeEvents().GetByID(ctx, event2.ID)
+		require.NoError(t, err)
+		require.Equal(t, event2.Email, res.Email)
+		require.Equal(t, event2.CreatedAt, res.CreatedAt)
+		require.Equal(t, event2.Event, res.Event)
+	})
+}
+
 func TestNodeEventsGetNextBatch(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		testID1 := teststorj.NodeIDFromString("test1")
@@ -127,5 +189,55 @@ func TestNodeEventsGetNextBatch(t *testing.T) {
 		}
 		require.True(t, foundEvent1)
 		require.True(t, foundEvent2)
+	})
+}
+
+func TestNodeEventsGetNextBatchSelectionOrder(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		id0 := teststorj.NodeIDFromString("test0")
+		id1 := teststorj.NodeIDFromString("test1")
+		id2 := teststorj.NodeIDFromString("test2")
+		id3 := teststorj.NodeIDFromString("test3")
+
+		email0 := "test0@storj.test"
+		email1 := "test1@storj.test"
+		email2 := "test2@storj.test"
+		email3 := "test3@storj.test"
+
+		eventType := nodeevents.Disqualified
+
+		// GetNextBatch orders by last_attempted, created_at asc
+		// expected selection order:
+		// 1. insert0: last_attempted = nil, created_at = earliest
+		// 2. insert3: last_attempted = nil, created_at = 3rd earliest
+		// 3. insert2: last_attempted != nil, created_at = 4th earliest
+		// 4. insert1: last_attempted later than insert2, created_at = 2nd earliest
+		expectedOrder := []string{
+			email0, email3, email2, email1,
+		}
+
+		_, err := db.NodeEvents().Insert(ctx, email0, id0, eventType)
+		require.NoError(t, err)
+
+		insert1, err := db.NodeEvents().Insert(ctx, email1, id1, eventType)
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.NoError(t, db.NodeEvents().UpdateLastAttempted(ctx, []uuid.UUID{insert1.ID}, time.Now().Add(5*time.Minute)))
+
+		insert2, err := db.NodeEvents().Insert(ctx, email2, id2, eventType)
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.NoError(t, db.NodeEvents().UpdateLastAttempted(ctx, []uuid.UUID{insert2.ID}, time.Now()))
+
+		_, err = db.NodeEvents().Insert(ctx, email3, id3, eventType)
+		require.NoError(t, err)
+
+		for i := 0; i < 4; i++ {
+			e, err := db.NodeEvents().GetNextBatch(ctx, time.Now())
+			require.NoError(t, err)
+			require.Equal(t, expectedOrder[i], e[0].Email)
+
+			require.NoError(t, db.NodeEvents().UpdateEmailSent(ctx, []uuid.UUID{e[0].ID}, time.Now()))
+		}
 	})
 }

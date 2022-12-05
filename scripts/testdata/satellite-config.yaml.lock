@@ -49,8 +49,17 @@
 # how often to recheck an empty audit queue
 # audit.queue-interval: 1h0m0s
 
+# how long a single reverification job can take before it may be taken over by another worker
+# audit.reverification-retry-interval: 6h0m0s
+
+# number of workers to run reverify audits on pieces
+# audit.reverify-worker-concurrency: 2
+
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
+
+# number of audit jobs to push at once to the verification queue
+# audit.verification-push-batch-size: 4096
 
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
@@ -95,7 +104,7 @@ compensation.rates.put-tb: "0"
 compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # expiration time for account recovery and activation tokens
-# console-auth.token-expiration-time: 24h0m0s
+# console-auth.token-expiration-time: 30m0s
 
 # the Flagship API key
 # console.ab-testing.api-key: ""
@@ -578,7 +587,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.min-remote-segment-size: 1.2 KiB
 
 # feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: false
+# metainfo.multiple-versions: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -670,8 +679,23 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to log for oom notices
 # monkit.hw.oomlog: /var/log/kern.log
 
+# api key for the customer.io api
+# node-events.customerio.api-key: ""
+
+# timeout for the http request to customer.io endpoint
+# node-events.customerio.request-timeout: 30s
+
+# the account id for the customer.io api
+# node-events.customerio.site-id: ""
+
+# the url for the customer.io endpoint to send node event data to
+# node-events.customerio.url: https://track.customer.io/api/v1
+
 # how long to wait before checking the node events DB again if there is nothing to work on
 # node-events.interval: 5m0s
+
+# which notification provider to use
+# node-events.notifier: ""
 
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s
@@ -805,20 +829,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # storjscan chore interval to query new payments for all satellite deposit wallets
 # payments.storjscan.interval: 1m0s
 
-# amount of time we wait before running next account balance update loop
-# payments.stripe-coin-payments.account-balance-update-interval: 2m0s
-
 # toogle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
-
-# coinpayments API private key key
-# payments.stripe-coin-payments.coinpayments-private-key: ""
-
-# coinpayments API public key
-# payments.stripe-coin-payments.coinpayments-public-key: ""
-
-# amount of time we wait before running next conversion rates update loop
-# payments.stripe-coin-payments.conversion-rates-cycle-interval: 10m0s
 
 # stripe free tier coupon ID
 # payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
@@ -828,9 +840,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
-
-# amount of time we wait before running next transaction update loop
-# payments.stripe-coin-payments.transaction-update-interval: 2m0s
 
 # how often to remove unused project bandwidth rollups
 # project-bw-cleanup.interval: 168h0m0s
@@ -861,6 +870,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
+
+# whether the audit score of nodes should be updated as a part of repair
+# repairer.reputation-update-enabled: false
 
 # time limit for uploading repaired pieces to new storage nodes
 # repairer.timeout: 5m0s

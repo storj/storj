@@ -34,15 +34,18 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db stor
 		log := zaptest.NewLogger(t)
 
 		storageDir := ctx.Dir("storage")
+
 		cfg := storagenodedb.Config{
 			Storage: storageDir,
 			Info:    filepath.Join(storageDir, "piecestore.db"),
 			Info2:   filepath.Join(storageDir, "info.db"),
 			Driver:  "sqlite3+utccheck",
 			Pieces:  storageDir,
+
+			TestingDisableWAL: true,
 		}
 
-		db, err := storagenodedb.OpenNew(ctx, log, cfg)
+		db, err := OpenNew(ctx, log, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}

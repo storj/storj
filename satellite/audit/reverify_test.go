@@ -52,8 +52,8 @@ func TestReverifySuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -131,8 +131,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -217,8 +217,8 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -289,8 +289,8 @@ func TestReverifyOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -363,8 +363,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -465,8 +465,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -513,8 +513,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-		queueSegment, err = queue.Next()
+		queue = audits.VerifyQueue
+		queueSegment, err = queue.Next(ctx)
 		require.NoError(t, err)
 
 		// reverify the new segment
@@ -555,8 +555,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -604,10 +604,10 @@ func TestReverifyModifiedSegment(t *testing.T) {
 
 		// select the segment that was not used for the pending audit
 		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-		queueSegment1, err := queue.Next()
+		queue = audits.VerifyQueue
+		queueSegment1, err := queue.Next(ctx)
 		require.NoError(t, err)
-		queueSegment2, err := queue.Next()
+		queueSegment2, err := queue.Next(ctx)
 		require.NoError(t, err)
 		reverifySegment := queueSegment1
 		if queueSegment1 == queueSegment {
@@ -652,8 +652,8 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -693,10 +693,10 @@ func TestReverifyReplacedSegment(t *testing.T) {
 
 		// select the segment that was not used for the pending audit
 		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-		queueSegment1, err := queue.Next()
+		queue = audits.VerifyQueue
+		queueSegment1, err := queue.Next(ctx)
 		require.NoError(t, err)
-		queueSegment2, err := queue.Next()
+		queueSegment2, err := queue.Next(ctx)
 		require.NoError(t, err)
 		reverifySegment := queueSegment1
 		if queueSegment1 == queueSegment {
@@ -750,10 +750,10 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment1, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment1, err := queue.Next(ctx)
 		require.NoError(t, err)
-		queueSegment2, err := queue.Next()
+		queueSegment2, err := queue.Next(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
@@ -857,8 +857,8 @@ func TestReverifyExpired1(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		// move time into the future so the segment is expired
@@ -904,10 +904,10 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment1, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment1, err := queue.Next(ctx)
 		require.NoError(t, err)
-		queueSegment2, err := queue.Next()
+		queueSegment2, err := queue.Next(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
@@ -1030,8 +1030,8 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -1119,8 +1119,8 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -1212,8 +1212,8 @@ func TestMaxReverifyCount(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{

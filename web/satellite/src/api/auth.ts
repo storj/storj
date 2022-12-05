@@ -7,6 +7,7 @@ import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -15,7 +16,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
@@ -30,11 +30,14 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status == 429) {
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send email';
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-
-        throw new Error('Failed to send email');
     }
 
     /**
@@ -75,7 +78,7 @@ export class AuthHttpApi implements UsersApi {
         case 401:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -125,7 +128,7 @@ export class AuthHttpApi implements UsersApi {
         case 404:
             throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -279,7 +282,7 @@ export class AuthHttpApi implements UsersApi {
             case 401:
                 throw new ErrorUnauthorized(errMsg);
             case 429:
-                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+                throw new ErrorTooManyRequests(errMsg);
             default:
                 throw new Error(errMsg);
             }
@@ -408,6 +411,9 @@ export class AuthHttpApi implements UsersApi {
             if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
+            if (result.code == 'token_expired') {
+                throw new ErrorTokenExpired();
+            }
             if (result.error) {
                 errMsg = result.error;
             }
@@ -429,7 +435,7 @@ export class AuthHttpApi implements UsersApi {
 
     /**
      * Used to refresh the expiration time of the current session.
-     * 
+     *
      * @returns new expiration timestamp
      * @throws Error
      */

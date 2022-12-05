@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/pprof"
+	"runtime/trace"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,6 +26,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 
+	"storj.io/common/experiment"
 	"storj.io/common/rpc/rpctracing"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/private/version"
@@ -60,6 +63,11 @@ type external struct {
 		traceAddress string  // if non-zero, sampled spans are sent to this trace collector address.
 		sample       float64 // the chance (number between 0 and 1.0) to send samples to the server.
 		verbose      bool    // flag to print out tracing information (like the used trace id)
+	}
+
+	debug struct {
+		pprofFile string
+		traceFile string
 	}
 
 	events struct {
@@ -121,6 +129,16 @@ func (ex *external) Setup(f clingy.Flags) {
 
 	ex.events.address = f.Flag(
 		"events-addr", "Specify where to send events", "eventkitd.datasci.storj.io:9002",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.pprofFile = f.Flag(
+		"debug-pprof", "File to collect Golang pprof profiling data", "",
+		clingy.Advanced,
+	).(string)
+
+	ex.debug.traceFile = f.Flag(
+		"debug-trace", "File to collect Golang trace data", "",
 		clingy.Advanced,
 	).(string)
 
@@ -204,16 +222,55 @@ func (ex *external) analyticsEnabled() bool {
 
 // Wrap is called by clingy with the command to be executed.
 func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
-	if err := ex.migrate(); err != nil {
+	if err = ex.migrate(); err != nil {
 		return err
 	}
-	if err := ex.loadConfig(); err != nil {
+	if err = ex.loadConfig(); err != nil {
 		return err
 	}
 	if !ex.config.loaded {
-		if err := saveInitialConfig(ctx, ex); err != nil {
+		if err = saveInitialConfig(ctx, ex); err != nil {
 			return err
 		}
+	}
+
+	exp := os.Getenv("STORJ_EXPERIMENTAL")
+	if exp != "" {
+		ctx = experiment.With(ctx, exp)
+	}
+
+	if ex.debug.pprofFile != "" {
+		var output *os.File
+		output, err = os.Create(ex.debug.pprofFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, output.Close())
+		}()
+
+		err = pprof.StartCPUProfile(output)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if ex.debug.traceFile != "" {
+		var output *os.File
+		output, err = os.Create(ex.debug.traceFile)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer func() {
+			err = errs.Combine(err, output.Close())
+		}()
+
+		err = trace.Start(output)
+		if err != nil {
+			return errs.Wrap(err)
+		}
+		defer trace.Stop()
 	}
 
 	// N.B.: Tracing is currently disabled by default (sample == 0, traceID == 0) and is

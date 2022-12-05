@@ -71,6 +71,8 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (_ []byte, err error) {
 		Info:    filepath.Join(storagePath, "piecestore.db"),
 		Info2:   filepath.Join(storagePath, "info.db"),
 		Pieces:  storagePath,
+
+		TestingDisableWAL: true,
 	})
 	if err != nil {
 		return nil, errs.New("Error creating new storagenode db: %+w", err)

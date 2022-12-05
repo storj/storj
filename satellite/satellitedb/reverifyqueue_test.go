@@ -5,7 +5,6 @@ package satellitedb_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
@@ -17,32 +16,31 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+)
+
+func randomLocator() *audit.PieceLocator {
+	return &audit.PieceLocator{
+		StreamID: testrand.UUID(),
+		Position: metabase.SegmentPosition{
+			Part:  uint32(testrand.Intn(1 << 10)),
+			Index: uint32(testrand.Intn(1 << 20)),
+		},
+		NodeID:   testrand.NodeID(),
+		PieceNum: testrand.Intn(1 << 10),
+	}
+}
+
+const (
+	retryInterval = 30 * time.Minute
 )
 
 func TestReverifyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		reverifyQueue := db.ReverifyQueue()
 
-		locator1 := audit.PieceLocator{
-			StreamID: testrand.UUID(),
-			Position: metabase.SegmentPosition{
-				Part:  uint32(testrand.Intn(1 << 10)),
-				Index: uint32(testrand.Intn(1 << 20)),
-			},
-			NodeID:   testrand.NodeID(),
-			PieceNum: testrand.Intn(1 << 10),
-		}
-		locator2 := audit.PieceLocator{
-			StreamID: testrand.UUID(),
-			Position: metabase.SegmentPosition{
-				Part:  uint32(testrand.Intn(1 << 10)),
-				Index: uint32(testrand.Intn(1 << 20)),
-			},
-			NodeID:   testrand.NodeID(),
-			PieceNum: testrand.Intn(1 << 10),
-		}
+		locator1 := randomLocator()
+		locator2 := randomLocator()
 
 		err := reverifyQueue.Insert(ctx, locator1)
 		require.NoError(t, err)
@@ -54,34 +52,34 @@ func TestReverifyQueue(t *testing.T) {
 		err = reverifyQueue.Insert(ctx, locator2)
 		require.NoError(t, err)
 
-		job1, err := reverifyQueue.GetNextJob(ctx)
+		job1, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
-		require.Equal(t, locator1, job1.Locator)
-		require.Equal(t, 1, job1.ReverifyCount)
+		require.Equal(t, *locator1, job1.Locator)
+		require.EqualValues(t, 1, job1.ReverifyCount)
 
-		job2, err := reverifyQueue.GetNextJob(ctx)
+		job2, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
-		require.Equal(t, locator2, job2.Locator)
-		require.Equal(t, 1, job2.ReverifyCount)
+		require.Equal(t, *locator2, job2.Locator)
+		require.EqualValues(t, 1, job2.ReverifyCount)
 
 		require.Truef(t, job1.InsertedAt.Before(job2.InsertedAt), "job1 [%s] should have an earlier insertion time than job2 [%s]", job1.InsertedAt, job2.InsertedAt)
 
-		_, err = reverifyQueue.GetNextJob(ctx)
-		require.Error(t, sql.ErrNoRows, err)
+		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 
 		// pretend that ReverifyRetryInterval has elapsed
 		reverifyQueueTest := reverifyQueue.(interface {
-			TestingFudgeUpdateTime(ctx context.Context, piece audit.PieceLocator, updateTime time.Time) error
+			TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error
 		})
-		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-satellitedb.ReverifyRetryInterval))
+		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-retryInterval))
 		require.NoError(t, err)
 
 		// job 1 should be eligible for a new worker to take over now (whatever
 		// worker acquired job 1 before is presumed to have died or timed out).
-		job3, err := reverifyQueue.GetNextJob(ctx)
+		job3, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
-		require.Equal(t, locator1, job3.Locator)
-		require.Equal(t, 2, job3.ReverifyCount)
+		require.Equal(t, *locator1, job3.Locator)
+		require.EqualValues(t, 2, job3.ReverifyCount)
 
 		wasDeleted, err := reverifyQueue.Remove(ctx, locator1)
 		require.NoError(t, err)
@@ -93,7 +91,62 @@ func TestReverifyQueue(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, wasDeleted)
 
-		_, err = reverifyQueue.GetNextJob(ctx)
-		require.Error(t, sql.ErrNoRows, err)
+		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
+	})
+}
+
+func TestReverifyQueueGetByNodeID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		reverifyQueue := db.ReverifyQueue()
+
+		locator1 := randomLocator()
+		locator2 := randomLocator()
+		locator3 := randomLocator()
+		// two jobs on the same node
+		locator3.NodeID = locator1.NodeID
+
+		err := reverifyQueue.Insert(ctx, locator1)
+		require.NoError(t, err)
+
+		// Postgres/Cockroach have only microsecond time resolution, so make
+		// sure at least 1us has elapsed between inserts.
+		sync2.Sleep(ctx, time.Microsecond)
+
+		err = reverifyQueue.Insert(ctx, locator2)
+		require.NoError(t, err)
+
+		sync2.Sleep(ctx, time.Microsecond)
+
+		err = reverifyQueue.Insert(ctx, locator3)
+		require.NoError(t, err)
+
+		job1, err := reverifyQueue.GetByNodeID(ctx, locator1.NodeID)
+		require.NoError(t, err)
+
+		// we got either locator1 or locator3
+		if job1.Locator.StreamID == locator1.StreamID {
+			require.Equal(t, locator1.NodeID, job1.Locator.NodeID)
+			require.Equal(t, locator1.PieceNum, job1.Locator.PieceNum)
+			require.Equal(t, locator1.Position, job1.Locator.Position)
+		} else {
+			require.Equal(t, locator3.StreamID, job1.Locator.StreamID)
+			require.Equal(t, locator3.NodeID, job1.Locator.NodeID)
+			require.Equal(t, locator3.PieceNum, job1.Locator.PieceNum)
+			require.Equal(t, locator3.Position, job1.Locator.Position)
+		}
+
+		job2, err := reverifyQueue.GetByNodeID(ctx, locator2.NodeID)
+		require.NoError(t, err)
+		require.Equal(t, locator2.StreamID, job2.Locator.StreamID)
+		require.Equal(t, locator2.NodeID, job2.Locator.NodeID)
+		require.Equal(t, locator2.PieceNum, job2.Locator.PieceNum)
+		require.Equal(t, locator2.Position, job2.Locator.Position)
+
+		// ask for a nonexistent node ID
+		job3, err := reverifyQueue.GetByNodeID(ctx, testrand.NodeID())
+		require.Error(t, err)
+		require.Truef(t, audit.ErrContainedNotFound.Has(err), "expected ErrContainedNotFound error but got %+v", err)
+		require.Nil(t, job3)
 	})
 }

@@ -86,21 +86,17 @@ export default class BucketDetails extends Vue {
     public openBucket(): void {
         this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
 
-        if (this.$route.params.backRoute === RouteConfig.BucketsManagement.name) {
-            if (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase) {
-                this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-                this.$router.push(RouteConfig.UploadFile.path);
-
-                return;
-            }
-
-            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+        if (
+            this.$route.params.backRoute === RouteConfig.UploadFileChildren.name ||
+            (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase)
+        ) {
+            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
             return;
         }
 
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
     }
 
     /**

@@ -152,3 +152,12 @@ func TestCreatePendingAudits(t *testing.T) {
 	assert.Equal(t, pkcrypto.SHA256Hash(shares[1].Data), pending[0].ExpectedShareHash)
 	assert.EqualValues(t, 0, pending[0].ReverifyCount)
 }
+
+func testSegment() Segment {
+	return Segment{
+		StreamID: testrand.UUID(),
+		Position: metabase.SegmentPosition{
+			Index: uint32(testrand.Intn(100)),
+		},
+	}
+}

@@ -192,6 +192,7 @@ CREATE TABLE node_events (
 	node_id bytea NOT NULL,
 	event integer NOT NULL,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempted timestamp with time zone,
 	email_sent timestamp with time zone,
 	PRIMARY KEY ( id )
 );
