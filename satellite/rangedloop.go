@@ -84,7 +84,9 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 	}
 
 	{ // setup ranged loop
-		var observers []rangedloop.Observer
+		observers := []rangedloop.Observer{
+			rangedloop.NewLiveCountObserver(),
+		}
 
 		// TODO: replace with real segment provider
 		segments := &rangedlooptest.RangeSplitter{}
