@@ -32,7 +32,7 @@ export default class BaseChart extends Vue {
     };
 
     /**
-     * Rebuilds chat after type switch.
+     * Rebuilds chart after type switch.
      */
     public mounted(): void {
         this.rebuildChart();
