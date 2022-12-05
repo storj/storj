@@ -226,6 +226,8 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	verisonInfo := planet.NewVersionInfo()
 
+	dbconfig := config.DatabaseConfig()
+	dbconfig.TestingDisableWAL = true
 	var db storagenode.DB
 	db, err = storagenodedbtest.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 	if err != nil {
