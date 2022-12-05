@@ -53,29 +53,14 @@ func parseHumanDate(date string) (time.Time, error) {
 		return time.Now().Add(d), errs.Wrap(err)
 	default:
 		t, err := time.Parse(time.RFC3339, date)
+		if err != nil {
+			d, err := time.ParseDuration(date)
+			if err == nil {
+				return time.Now().Add(d), nil
+			}
+		}
 		return t, errs.Wrap(err)
 	}
-}
-
-// NoneDate is a date type which tracks if it was set to "none" explicitly.
-type NoneDate struct {
-	isExplicitNone bool
-	Date           time.Time
-}
-
-// IsImplicitZero indicates if the date has defaulted to empty becaues the argument was empty.
-func (e NoneDate) IsImplicitZero() bool {
-	return e.Date.IsZero() && !e.isExplicitNone
-}
-
-func parseNoneDate(date string) (result NoneDate, err error) {
-	if date == "none" {
-		result.isExplicitNone = true
-	}
-
-	result.Date, err = parseHumanDate(date)
-
-	return result, err
 }
 
 // parseJSON parses command-line flags which accept JSON string.
