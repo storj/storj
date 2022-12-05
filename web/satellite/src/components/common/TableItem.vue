@@ -11,17 +11,19 @@
             <v-table-checkbox :disabled="selectDisabled" :value="selected" @checkChange="onChange" />
         </th>
         <th
-            v-for="(val, key, index) in item" :key="index" class="align-left data"
-            :class="{'guide-container': showBucketGuide(index)}"
+            v-for="(val, _, index) in item" :key="index" class="align-left data"
+            :class="{'overflow-visible': showBucketGuide(index)}"
         >
-            <BucketGuide v-if="showBucketGuide(index)" :hide-guide="hideGuide" />
             <div v-if="Array.isArray(val)" class="few-items">
                 <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
             </div>
             <div v-else class="table-item">
-                <BucketIcon v-if="(tableType.toLowerCase() === 'bucket') && (index == 0)" class="item-icon" />
+                <BucketIcon v-if="(tableType.toLowerCase() === 'bucket') && (index === 0)" class="item-icon" />
                 <p :class="{primary: index === 0}">{{ val }}</p>
-                <div v-if="showBucketGuide(index)" class="animation"><span><span /></span></div>
+                <div v-if="showBucketGuide(index)" class="animation">
+                    <span><span /></span>
+                    <BucketGuide :hide-guide="hideGuide" />
+                </div>
             </div>
         </th>
         <slot name="options" />
@@ -102,6 +104,7 @@ export default class TableItem extends Vue {
         margin-left: 23px;
         margin-top: 5px;
         background-color: #0149ff;
+        position: relative;
 
         > span {
             animation: pulse 1s linear infinite;
@@ -168,10 +171,6 @@ export default class TableItem extends Vue {
 
     .item-icon {
         margin-right: 12px;
-    }
-
-    .guide-container {
-        position: relative;
-        overflow: visible;
+        min-width: 18px;
     }
 </style>

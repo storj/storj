@@ -84,6 +84,8 @@ type SegmentRepairer struct {
 	timeout        time.Duration
 	reporter       audit.Reporter
 
+	reputationUpdateEnabled bool
+
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
 	// repaired pieces
@@ -110,9 +112,10 @@ func NewSegmentRepairer(
 	reporter audit.Reporter,
 	ecRepairer *ECRepairer,
 	repairOverrides checker.RepairOverrides,
-	timeout time.Duration, excessOptimalThreshold float64,
+	config Config,
 ) *SegmentRepairer {
 
+	excessOptimalThreshold := config.MaxExcessRateOptimalThreshold
 	if excessOptimalThreshold < 0 {
 		excessOptimalThreshold = 0
 	}
@@ -124,10 +127,11 @@ func NewSegmentRepairer(
 		orders:                     orders,
 		overlay:                    overlay,
 		ec:                         ecRepairer,
-		timeout:                    timeout,
+		timeout:                    config.Timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverrides:            repairOverrides.GetMap(),
 		reporter:                   reporter,
+		reputationUpdateEnabled:    config.ReputationUpdateEnabled,
 
 		nowFn: time.Now,
 	}
@@ -448,10 +452,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	for _, outcome := range piecesReport.Unknown {
 		report.Unknown = append(report.Unknown, outcome.Piece.StorageNode)
 	}
-	_, reportErr := repairer.reporter.RecordAudits(ctx, report)
-	if reportErr != nil {
-		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to record audit", zap.Error(reportErr))
+	if repairer.reputationUpdateEnabled {
+		_, reportErr := repairer.reporter.RecordAudits(ctx, report)
+		if reportErr != nil {
+			// failed updates should not affect repair, therefore we will not return the error
+			repairer.log.Debug("failed to record audit", zap.Error(reportErr))
+		}
 	}
 
 	// Upload the repaired pieces

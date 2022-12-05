@@ -21,16 +21,21 @@ type DB interface {
 	GetLatestByEmailAndEvent(ctx context.Context, email string, event Type) (nodeEvent NodeEvent, err error)
 	// GetNextBatch gets the next batch of events to combine into an email.
 	GetNextBatch(ctx context.Context, firstSeenBefore time.Time) (events []NodeEvent, err error)
+	// GetByID get a node event by id.
+	GetByID(ctx context.Context, id uuid.UUID) (nodeEvent NodeEvent, err error)
 	// UpdateEmailSent updates email_sent for a group of rows.
 	UpdateEmailSent(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error)
+	// UpdateLastAttempted updates last_attempted for a group of rows.
+	UpdateLastAttempted(ctx context.Context, ids []uuid.UUID, timestamp time.Time) (err error)
 }
 
 // NodeEvent contains information needed to notify a node operator about something that happened to a node.
 type NodeEvent struct {
-	ID        uuid.UUID
-	Email     string
-	NodeID    storj.NodeID
-	Event     Type
-	CreatedAt time.Time
-	EmailSent *time.Time
+	ID            uuid.UUID
+	Email         string
+	NodeID        storj.NodeID
+	Event         Type
+	CreatedAt     time.Time
+	LastAttempted *time.Time
+	EmailSent     *time.Time
 }

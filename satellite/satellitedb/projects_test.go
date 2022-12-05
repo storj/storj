@@ -4,12 +4,12 @@
 package satellitedb_test
 
 import (
-	"crypto/sha256"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -50,7 +50,7 @@ func TestProjectsGetSalt(t *testing.T) {
 		salt, err := projects.GetSalt(ctx, prj.ID)
 		require.NoError(t, err)
 
-		hash := sha256.Sum256(prj.ID[:])
-		require.Equal(t, hash[:], salt)
+		_, err = uuid.FromBytes(salt)
+		require.NoError(t, err)
 	})
 }

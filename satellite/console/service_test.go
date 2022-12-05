@@ -844,7 +844,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			require.True(t, console.ErrLoginPassword.Has(err))
+			require.True(t, console.ErrLoginCredentials.Has(err))
 		}
 
 		lockedUser, err := service.GetUser(userCtx, user.ID)
@@ -1003,9 +1003,9 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Timeout:   0,
 			}
 
-			createdAt, err := sat.DB.StripeCoinPayments().Transactions().Insert(ctx, tx)
+			createdAt, err := sat.DB.StripeCoinPayments().Transactions().TestInsert(ctx, tx)
 			require.NoError(t, err)
-			err = sat.DB.StripeCoinPayments().Transactions().LockRate(ctx, tx.ID, decimal.NewFromInt(1))
+			err = sat.DB.StripeCoinPayments().Transactions().TestLockRate(ctx, tx.ID, decimal.NewFromInt(1))
 			require.NoError(t, err)
 
 			tx.CreatedAt = createdAt.UTC()

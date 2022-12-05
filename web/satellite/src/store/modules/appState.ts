@@ -33,7 +33,6 @@ class ViewsState {
         public isCreateProjectModalShown = false,
         public isAddPMModalShown = false,
         public isOpenBucketModalShown = false,
-        public isSetEncryptionPassphraseModalShown = false,
         public isMFARecoveryModalShown = false,
         public isEnableMFAModalShown = false,
         public isDisableMFAModalShown = false,
@@ -42,6 +41,7 @@ class ViewsState {
         public isShareObjectModalShown = false,
         public isDeleteBucketModalShown = false,
         public isNewFolderModalShown = false,
+        public isCreateProjectPassphraseModalShown = false,
         public isObjectDetailsModalShown = false,
         public isAddCouponModalShown = false,
         public isNewBillingAddCouponModalShown = false,
@@ -144,8 +144,8 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_SET_ENCRYPTION_PASSPHRASE_MODAL_SHOWN](state: State): void {
-            state.appState.isSetEncryptionPassphraseModalShown = !state.appState.isSetEncryptionPassphraseModalShown;
+        [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
+            state.appState.isCreateProjectPassphraseModalShown = !state.appState.isCreateProjectPassphraseModalShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
             state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;

@@ -25,6 +25,9 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how long to wait before checking the node events DB again if there is nothing to work on" default:"5m"`
 	SelectionWaitPeriod time.Duration `help:"how long the earliest instance of an event for a particular email should exist in the DB before it is selected" default:"5m"`
+	Notifier            string        `help:"which notification provider to use" default:""`
+
+	Customerio CustomerioConfig
 }
 
 // Notifier notifies node operators about node events.
@@ -96,6 +99,7 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 	}
 
 	if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
+		err = errs.Combine(err, chore.db.UpdateLastAttempted(ctx, rowIDs, chore.nowFn()))
 		return 0, err
 	}
 

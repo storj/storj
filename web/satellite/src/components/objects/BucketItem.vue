@@ -77,13 +77,27 @@ export default class BucketItem extends Resizable {
      * Returns formatted date.
      */
     public get formattedDate(): string {
-        return this.itemData.since.toLocaleString() || '';
+        return this.itemData.since.toLocaleString('en-US', { day: '2-digit', month: 'numeric', year: 'numeric' }) || '';
     }
 
     public get itemToRender(): { [key: string]: string | string[] } {
-        if (!this.isMobile) return { name: this.itemData.name, date: this.formattedDate };
+        if (this.screenWidth > 875) return {
+            name: this.itemData.name,
+            storage: `${this.itemData.storage.toFixed(2)}GB`,
+            bandwidth: `${this.itemData.egress.toFixed(2)}GB`,
+            objects: this.itemData.objectCount.toString(),
+            segments: this.itemData.segmentCount.toString(),
+            date: this.formattedDate,
+        };
 
-        return { info: [ this.itemData.name, `Created ${this.formattedDate}` ] };
+        return { info: [
+            this.itemData.name,
+            `Storage ${this.itemData.storage.toFixed(2)}GB`,
+            `Bandwidth ${this.itemData.egress.toFixed(2)}GB`,
+            `Objects ${this.itemData.objectCount.toString()}`,
+            `Segments ${this.itemData.segmentCount.toString()}`,
+            `Created ${this.formattedDate}`,
+        ] };
     }
 
     /*
@@ -250,6 +264,40 @@ export default class BucketItem extends Resizable {
                     }
                 }
             }
+        }
+    }
+
+    :deep(.primary) {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    @media screen and (max-width: 1400px) {
+
+        :deep(th) {
+            max-width: 25rem;
+        }
+    }
+
+    @media screen and (max-width: 1100px) {
+
+        :deep(th) {
+            max-width: 20rem;
+        }
+    }
+
+    @media screen and (max-width: 1000px) {
+
+        :deep(th) {
+            max-width: 15rem;
+        }
+    }
+
+    @media screen and (max-width: 940px) {
+
+        :deep(th) {
+            max-width: 10rem;
         }
     }
 </style>

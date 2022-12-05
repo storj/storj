@@ -2165,6 +2165,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN last_software_update_email timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column last_attempted to node_events",
+				Version:     218,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_attempted timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

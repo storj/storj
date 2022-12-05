@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 	"time"
 
+	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/audit"
@@ -28,30 +30,42 @@ type verifyQueue struct {
 
 var _ audit.VerifyQueue = (*verifyQueue)(nil)
 
-func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment) (err error) {
+func (vq *verifyQueue) Push(ctx context.Context, segments []audit.Segment, maxBatchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamIDSlice := make([][]byte, len(segments))
-	positionSlice := make([]int64, len(segments))
-	expirationSlice := make([]*time.Time, len(segments))
-	encryptedSizeSlice := make([]int32, len(segments))
+	streamIDSlice := make([]uuid.UUID, maxBatchSize)
+	positionSlice := make([]int64, maxBatchSize)
+	expirationSlice := make([]*time.Time, maxBatchSize)
+	encryptedSizeSlice := make([]int32, maxBatchSize)
 
-	for i, seg := range segments {
-		streamIDSlice[i] = seg.StreamID.Bytes()
-		positionSlice[i] = int64(seg.Position.Encode())
-		expirationSlice[i] = seg.ExpiresAt
-		encryptedSizeSlice[i] = seg.EncryptedSize
-	}
-	_, err = vq.db.DB.ExecContext(ctx, `
+	// sort segments in the order of the primary key before inserting, for performance reasons
+	sort.Sort(audit.ByStreamIDAndPosition(segments))
+
+	segmentsIndex := 0
+	for segmentsIndex < len(segments) {
+		batchIndex := 0
+		for batchIndex < maxBatchSize && segmentsIndex < len(segments) {
+			streamIDSlice[batchIndex] = segments[segmentsIndex].StreamID
+			positionSlice[batchIndex] = int64(segments[segmentsIndex].Position.Encode())
+			expirationSlice[batchIndex] = segments[segmentsIndex].ExpiresAt
+			encryptedSizeSlice[batchIndex] = segments[segmentsIndex].EncryptedSize
+			batchIndex++
+			segmentsIndex++
+		}
+		_, err = vq.db.DB.ExecContext(ctx, `
 		INSERT INTO verification_audits (stream_id, position, expires_at, encrypted_size)
 		SELECT unnest($1::bytea[]), unnest($2::int8[]), unnest($3::timestamptz[]), unnest($4::int4[])
 	`,
-		pgutil.ByteaArray(streamIDSlice),
-		pgutil.Int8Array(positionSlice),
-		pgutil.NullTimestampTZArray(expirationSlice),
-		pgutil.Int4Array(encryptedSizeSlice),
-	)
-	return Error.Wrap(err)
+			pgutil.UUIDArray(streamIDSlice[:batchIndex]),
+			pgutil.Int8Array(positionSlice[:batchIndex]),
+			pgutil.NullTimestampTZArray(expirationSlice[:batchIndex]),
+			pgutil.Int4Array(encryptedSizeSlice[:batchIndex]),
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func (vq *verifyQueue) Next(ctx context.Context) (seg audit.Segment, err error) {

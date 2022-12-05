@@ -41,6 +41,23 @@ type ReverificationJob struct {
 	Locator       PieceLocator
 	InsertedAt    time.Time
 	ReverifyCount int
+	LastAttempt   time.Time
+}
+
+// Reverifier pulls jobs from the reverification queue and fulfills them
+// by performing the requested reverifications.
+//
+// architecture: Worker
+type Reverifier struct {
+	*Verifier
+
+	log *zap.Logger
+	db  ReverifyQueue
+
+	// retryInterval defines a limit on how frequently we will retry
+	// reverification audits. At least this long should elapse between
+	// attempts.
+	retryInterval time.Duration
 }
 
 // Outcome enumerates the possible results of a piecewise audit.
@@ -76,19 +93,29 @@ const (
 	OutcomeUnknownError
 )
 
+// NewReverifier creates a Reverifier.
+func NewReverifier(log *zap.Logger, verifier *Verifier, db ReverifyQueue, config Config) *Reverifier {
+	return &Reverifier{
+		log:           log,
+		Verifier:      verifier,
+		db:            db,
+		retryInterval: config.ReverificationRetryInterval,
+	}
+}
+
 // ReverifyPiece acquires a piece from a single node and verifies its
 // contents, its hash, and its order limit.
-func (verifier *Verifier) ReverifyPiece(ctx context.Context, locator PieceLocator) (keepInQueue bool) {
+func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, locator PieceLocator) (keepInQueue bool) {
 	defer mon.Task()(&ctx)(nil)
 
-	logger := verifier.log.With(
+	logger := reverifier.log.With(
 		zap.Stringer("stream-id", locator.StreamID),
 		zap.Uint32("position-part", locator.Position.Part),
 		zap.Uint32("position-index", locator.Position.Index),
 		zap.Stringer("node-id", locator.NodeID),
 		zap.Int("piece-num", locator.PieceNum))
 
-	outcome, err := verifier.DoReverifyPiece(ctx, logger, locator)
+	outcome, err := reverifier.DoReverifyPiece(ctx, logger, locator)
 	if err != nil {
 		logger.Error("could not perform reverification due to error", zap.Error(err))
 		return true
@@ -130,11 +157,11 @@ func (verifier *Verifier) ReverifyPiece(ctx context.Context, locator PieceLocato
 
 // DoReverifyPiece acquires a piece from a single node and verifies its
 // contents, its hash, and its order limit.
-func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logger, locator PieceLocator) (outcome Outcome, err error) {
+func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.Logger, locator PieceLocator) (outcome Outcome, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// First, we must ensure that the specified node still holds the indicated piece.
-	segment, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segment, err := reverifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: locator.StreamID,
 		Position: locator.Position,
 	})
@@ -145,7 +172,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 		}
 		return OutcomeNotPerformed, Error.Wrap(err)
 	}
-	if segment.Expired(verifier.nowFn()) {
+	if segment.Expired(reverifier.nowFn()) {
 		logger.Debug("segment expired before ReverifyPiece")
 		return OutcomeNotNecessary, nil
 	}
@@ -168,7 +195,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 
 	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 
-	limit, piecePrivateKey, cachedNodeInfo, err := verifier.orders.CreateAuditPieceOrderLimit(ctx, locator.NodeID, uint16(locator.PieceNum), segment.RootPieceID, int32(pieceSize))
+	limit, piecePrivateKey, cachedNodeInfo, err := reverifier.orders.CreateAuditPieceOrderLimit(ctx, locator.NodeID, uint16(locator.PieceNum), segment.RootPieceID, int32(pieceSize))
 	if err != nil {
 		if overlay.ErrNodeDisqualified.Has(err) {
 			logger.Debug("ReverifyPiece: order limit not created (node is already disqualified)")
@@ -185,7 +212,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 		return OutcomeNotPerformed, Error.Wrap(err)
 	}
 
-	pieceData, pieceHash, pieceOriginalLimit, err := verifier.GetPiece(ctx, limit, piecePrivateKey, cachedNodeInfo.LastIPPort, int32(pieceSize))
+	pieceData, pieceHash, pieceOriginalLimit, err := reverifier.GetPiece(ctx, limit, piecePrivateKey, cachedNodeInfo.LastIPPort, int32(pieceSize))
 	if err != nil {
 		if rpc.Error.Has(err) {
 			if errs.Is(err, context.DeadlineExceeded) {
@@ -202,7 +229,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 		}
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			// Fetch the segment metadata again and see if it has been altered in the interim
-			err := verifier.checkIfSegmentAltered(ctx, segment)
+			err := reverifier.checkIfSegmentAltered(ctx, segment)
 			if err != nil {
 				// if so, we skip this audit
 				logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
@@ -249,7 +276,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 			// check that the order limit and hash sent by the storagenode were
 			// correctly signed (order limit signed by this satellite, hash signed
 			// by the uplink public key in the order limit)
-			signer := signing.SigneeFromPeerIdentity(verifier.auditor)
+			signer := signing.SigneeFromPeerIdentity(reverifier.auditor)
 			if err := signing.VerifyOrderLimitSignature(ctx, signer, pieceOriginalLimit); err != nil {
 				return OutcomeFailure, nil
 			}
@@ -259,7 +286,7 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 		}
 	}
 
-	if err := verifier.checkIfSegmentAltered(ctx, segment); err != nil {
+	if err := reverifier.checkIfSegmentAltered(ctx, segment); err != nil {
 		logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
 		return OutcomeNotNecessary, nil
 	}
@@ -272,15 +299,15 @@ func (verifier *Verifier) DoReverifyPiece(ctx context.Context, logger *zap.Logge
 
 // GetPiece uses the piecestore client to download a piece (and the associated
 // original OrderLimit and PieceHash) from a node.
-func (verifier *Verifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
+func (reverifier *Reverifier) GetPiece(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, cachedIPAndPort string, pieceSize int32) (pieceData []byte, hash *pb.PieceHash, origLimit *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
-	if verifier.minBytesPerSecond > 0 {
-		maxTransferTime := time.Duration(int64(time.Second) * int64(pieceSize) / verifier.minBytesPerSecond.Int64())
-		if maxTransferTime < verifier.minDownloadTimeout {
-			maxTransferTime = verifier.minDownloadTimeout
+	if reverifier.minBytesPerSecond > 0 {
+		maxTransferTime := time.Duration(int64(time.Second) * int64(pieceSize) / reverifier.minBytesPerSecond.Int64())
+		if maxTransferTime < reverifier.minDownloadTimeout {
+			maxTransferTime = reverifier.minDownloadTimeout
 		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
@@ -288,7 +315,7 @@ func (verifier *Verifier) GetPiece(ctx context.Context, limit *pb.AddressedOrder
 	}
 
 	targetNodeID := limit.GetLimit().StorageNodeId
-	log := verifier.log.With(zap.Stringer("node-id", targetNodeID), zap.Stringer("piece-id", limit.GetLimit().PieceId))
+	log := reverifier.log.With(zap.Stringer("node-id", targetNodeID), zap.Stringer("piece-id", limit.GetLimit().PieceId))
 	var ps *piecestore.Client
 
 	// if cached IP is given, try connecting there first
@@ -297,7 +324,7 @@ func (verifier *Verifier) GetPiece(ctx context.Context, limit *pb.AddressedOrder
 			ID:      targetNodeID,
 			Address: cachedIPAndPort,
 		}
-		ps, err = piecestore.Dial(timedCtx, verifier.dialer, nodeAddr, piecestore.DefaultConfig)
+		ps, err = piecestore.Dial(timedCtx, reverifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
 			log.Debug("failed to connect to audit target node at cached IP", zap.String("cached-ip-and-port", cachedIPAndPort), zap.Error(err))
 		}
@@ -309,7 +336,7 @@ func (verifier *Verifier) GetPiece(ctx context.Context, limit *pb.AddressedOrder
 			ID:      targetNodeID,
 			Address: limit.GetStorageNodeAddress().Address,
 		}
-		ps, err = piecestore.Dial(timedCtx, verifier.dialer, nodeAddr, piecestore.DefaultConfig)
+		ps, err = piecestore.Dial(timedCtx, reverifier.dialer, nodeAddr, piecestore.DefaultConfig)
 		if err != nil {
 			return nil, nil, nil, Error.Wrap(err)
 		}
@@ -318,7 +345,7 @@ func (verifier *Verifier) GetPiece(ctx context.Context, limit *pb.AddressedOrder
 	defer func() {
 		err := ps.Close()
 		if err != nil {
-			log.Error("audit verifier failed to close conn to node", zap.Error(err))
+			log.Error("audit reverifier failed to close conn to node", zap.Error(err))
 		}
 	}()
 

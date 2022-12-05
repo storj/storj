@@ -12,6 +12,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
@@ -134,5 +135,52 @@ func TestUpdateLastOfflineEmail(t *testing.T) {
 		node1, err := cache.Get(ctx, nodeID1)
 		require.NoError(t, err)
 		require.Equal(t, now.Truncate(time.Second), node1.LastOfflineEmail.Truncate(time.Second))
+	})
+}
+
+func TestSetNodeContained(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		nodeID := testrand.NodeID()
+		checkInInfo := overlay.NodeCheckInInfo{
+			IsUp: true,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+			Operator: &pb.NodeOperator{
+				Email: "offline@storj.test",
+			},
+		}
+
+		now := time.Now()
+
+		// offline node should be selected
+		checkInInfo.NodeID = nodeID
+		require.NoError(t, cache.UpdateCheckIn(ctx, checkInInfo, now.Add(-24*time.Hour), overlay.NodeSelectionConfig{}))
+
+		cacheInfo, err := cache.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.False(t, cacheInfo.Contained)
+
+		err = cache.SetNodeContained(ctx, nodeID, true)
+		require.NoError(t, err)
+
+		cacheInfo, err = cache.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.True(t, cacheInfo.Contained)
+
+		err = cache.SetNodeContained(ctx, nodeID, false)
+		require.NoError(t, err)
+
+		cacheInfo, err = cache.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.False(t, cacheInfo.Contained)
 	})
 }

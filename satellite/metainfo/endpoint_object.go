@@ -40,7 +40,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
 				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedPath,
+				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
@@ -48,7 +48,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedPath,
+				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 			actionPermitted: &canDelete,
@@ -68,7 +68,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	objectKeyLength := len(req.EncryptedPath)
+	objectKeyLength := len(req.EncryptedObjectKey)
 	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength))
 	}
@@ -93,7 +93,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			})
 			if err != nil && !storj.ErrObjectNotFound.Has(err) {
 				return nil, err
@@ -103,7 +103,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 				ObjectLocation: metabase.ObjectLocation{
 					ProjectID:  keyInfo.ProjectID,
 					BucketName: string(req.Bucket),
-					ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+					ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 				},
 			})
 			if err == nil {
@@ -147,7 +147,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			ObjectStream: metabase.ObjectStream{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 				StreamID:   streamID,
 				Version:    metabase.NextVersion,
 			},
@@ -163,7 +163,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			ObjectStream: metabase.ObjectStream{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 				StreamID:   streamID,
 				Version:    metabase.DefaultVersion,
 			},
@@ -199,11 +199,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	mon.Meter("req_put_object").Mark(1)
 
 	return &pb.ObjectBeginResponse{
-		Bucket:           req.Bucket,
-		EncryptedPath:    req.EncryptedPath,
-		Version:          req.Version,
-		StreamId:         satStreamID,
-		RedundancyScheme: endpoint.defaultRS,
+		Bucket:             req.Bucket,
+		EncryptedObjectKey: req.EncryptedObjectKey,
+		Version:            req.Version,
+		StreamId:           satStreamID,
+		RedundancyScheme:   endpoint.defaultRS,
 	}, nil
 }
 
@@ -315,13 +315,13 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		macaroon.Action{
 			Op:            macaroon.ActionRead,
 			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedPath,
+			EncryptedPath: req.EncryptedObjectKey,
 			Time:          now,
 		},
 		macaroon.Action{
 			Op:            macaroon.ActionList,
 			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedPath,
+			EncryptedPath: req.EncryptedObjectKey,
 			Time:          now,
 		},
 	)
@@ -338,7 +338,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 	})
 	if err != nil {
@@ -890,7 +890,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
-		EncryptedPath: req.EncryptedPath,
+		EncryptedPath: req.EncryptedObjectKey,
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -937,7 +937,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
 				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
 			BatchSize: limit + 1,
 			Cursor:    cursor,
@@ -980,7 +980,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			action: macaroon.Action{
 				Op:            macaroon.ActionDelete,
 				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedPath,
+				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 		},
@@ -988,7 +988,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			action: macaroon.Action{
 				Op:            macaroon.ActionRead,
 				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedPath,
+				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 			actionPermitted: &canRead,
@@ -998,7 +998,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			action: macaroon.Action{
 				Op:            macaroon.ActionList,
 				Bucket:        req.Bucket,
-				EncryptedPath: req.EncryptedPath,
+				EncryptedPath: req.EncryptedObjectKey,
 				Time:          now,
 			},
 			actionPermitted: &canList,
@@ -1037,7 +1037,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			}
 		}
 	} else {
-		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
+		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedObjectKey))
 	}
 	if err != nil {
 		if !canRead && !canList {
@@ -1054,7 +1054,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			endpoint.log.Error("failed to construct deleted object information",
 				zap.Stringer("Project ID", keyInfo.ProjectID),
 				zap.String("Bucket", string(req.Bucket)),
-				zap.String("Encrypted Path", string(req.EncryptedPath)),
+				zap.String("Encrypted Path", string(req.EncryptedObjectKey)),
 				zap.Error(err),
 			)
 		}
@@ -1083,13 +1083,13 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		macaroon.Action{
 			Op:            macaroon.ActionRead,
 			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedPath,
+			EncryptedPath: req.EncryptedObjectKey,
 			Time:          now,
 		},
 		macaroon.Action{
 			Op:            macaroon.ActionList,
 			Bucket:        req.Bucket,
-			EncryptedPath: req.EncryptedPath,
+			EncryptedPath: req.EncryptedObjectKey,
 			Time:          now,
 		},
 	)
@@ -1107,7 +1107,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
 	})
 	if err != nil {
@@ -1276,12 +1276,12 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	}
 
 	result := &pb.Object{
-		Bucket:        []byte(object.BucketName),
-		EncryptedPath: []byte(object.ObjectKey),
-		Version:       int32(object.Version), // TODO incompatible types
-		StreamId:      streamID,
-		ExpiresAt:     expires,
-		CreatedAt:     object.CreatedAt,
+		Bucket:             []byte(object.BucketName),
+		EncryptedObjectKey: []byte(object.ObjectKey),
+		Version:            int32(object.Version), // TODO incompatible types
+		StreamId:           streamID,
+		ExpiresAt:          expires,
+		CreatedAt:          object.CreatedAt,
 
 		TotalSize: object.TotalEncryptedSize,
 		PlainSize: object.TotalPlainSize,
@@ -1305,9 +1305,9 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	includeSystem, includeMetadata bool, placement storj.PlacementConstraint) (item *pb.ObjectListItem, err error) {
 
 	item = &pb.ObjectListItem{
-		EncryptedPath: []byte(entry.ObjectKey),
-		Version:       int32(entry.Version), // TODO incompatible types
-		Status:        pb.Object_Status(entry.Status),
+		EncryptedObjectKey: []byte(entry.ObjectKey),
+		Version:            int32(entry.Version), // TODO incompatible types
+		Status:             pb.Object_Status(entry.Status),
 	}
 
 	expiresAt := time.Time{}

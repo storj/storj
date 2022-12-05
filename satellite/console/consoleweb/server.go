@@ -217,8 +217,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		analytics:         analytics,
 		abTesting:         abTesting,
 		stripePublicKey:   stripePublicKey,
-		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit),
-		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit),
+		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
+		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:           nodeURL,
 		pricing:           pricing,
 	}
@@ -548,7 +548,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 
 		defer func() {
 			if err != nil {
-				consoleapi.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
+				web.ServeJSONError(server.log, w, http.StatusUnauthorized, console.ErrUnauthorized.Wrap(err))
 				server.cookieAuth.RemoveTokenCookie(w)
 			}
 		}()
@@ -702,7 +702,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, http.StatusNotFound)
+			http.Redirect(w, r, server.config.ExternalAddress+"activate?expired=true", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -991,8 +991,8 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
-func NewUserIDRateLimiter(config web.RateLimiterConfig) *web.RateLimiter {
-	return web.NewRateLimiter(config, func(r *http.Request) (string, error) {
+func NewUserIDRateLimiter(config web.RateLimiterConfig, log *zap.Logger) *web.RateLimiter {
+	return web.NewRateLimiter(config, log, func(r *http.Request) (string, error) {
 		user, err := console.GetUser(r.Context())
 		if err != nil {
 			return "", err

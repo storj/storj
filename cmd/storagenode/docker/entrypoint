@@ -78,6 +78,10 @@ if [ -n "${WALLET:-}" ]; then
   SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --operator.wallet=${WALLET}"
 fi
 
+if [ -n "${LOG_LEVEL:-}" ]; then
+  SNO_RUN_PARAMS="${SNO_RUN_PARAMS} --log.level=${LOG_LEVEL}"
+fi
+
 if [ "${SETUP:-}" = "true" ]; then
   echo "Running ./storagenode setup $SNO_RUN_PARAMS ${*}"
   exec ./storagenode setup ${SNO_RUN_PARAMS} ${*}

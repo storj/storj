@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/console"
 )
@@ -40,13 +41,13 @@ func (a *ABTesting) GetABValues(w http.ResponseWriter, r *http.Request) {
 
 	user, err := console.GetUser(ctx)
 	if err != nil {
-		ServeJSONError(a.log, w, http.StatusUnauthorized, err)
+		web.ServeJSONError(a.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
 	values, err := a.service.GetABValues(ctx, *user)
 	if err != nil {
-		ServeJSONError(a.log, w, http.StatusInternalServerError, err)
+		web.ServeJSONError(a.log, w, http.StatusInternalServerError, err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -65,13 +66,13 @@ func (a *ABTesting) SendHit(w http.ResponseWriter, r *http.Request) {
 
 	action := mux.Vars(r)["action"]
 	if action == "" {
-		ServeJSONError(a.log, w, http.StatusBadRequest, errs.New("parameter 'action' can't be empty"))
+		web.ServeJSONError(a.log, w, http.StatusBadRequest, errs.New("parameter 'action' can't be empty"))
 		return
 	}
 
 	user, err := console.GetUser(ctx)
 	if err != nil {
-		ServeJSONError(a.log, w, http.StatusUnauthorized, err)
+		web.ServeJSONError(a.log, w, http.StatusUnauthorized, err)
 		return
 	}
 

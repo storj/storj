@@ -30,6 +30,9 @@ type Chore struct {
 
 // NewChore instantiates Chore.
 func NewChore(log *zap.Logger, queue VerifyQueue, loop *segmentloop.Service, config Config) *Chore {
+	if config.VerificationPushBatchSize < 1 {
+		config.VerificationPushBatchSize = 1
+	}
 	return &Chore{
 		log:   log,
 		rand:  rand.New(rand.NewSource(time.Now().Unix())),
@@ -86,7 +89,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 
 		// Push new queue to queues struct so it can be fetched by worker.
-		return chore.queue.Push(ctx, newQueue)
+		return chore.queue.Push(ctx, newQueue, chore.config.VerificationPushBatchSize)
 	})
 }
 

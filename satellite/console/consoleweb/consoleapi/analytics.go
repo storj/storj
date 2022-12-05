@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 )
@@ -101,5 +102,5 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Analytics) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(a.log, w, status, err)
+	web.ServeJSONError(a.log, w, status, err)
 }

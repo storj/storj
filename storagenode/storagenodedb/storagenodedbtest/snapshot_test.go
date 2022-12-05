@@ -1,7 +1,7 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb
+package storagenodedbtest
 
 import (
 	"context"
@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/private/tagsql"
 	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/storagenodedb"
 )
 
 // TestSnapshot tests if the snapshot migration (used for faster testplanet) is the same as the prod migration.
@@ -25,24 +26,25 @@ func TestSnapshot(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	fromMigrationSteps := getSchemeSnapshot(t, ctx, "migration", func(ctx context.Context, db *DB) error {
+	fromMigrationSteps := getSchemeSnapshot(t, ctx, "migration", func(ctx context.Context, db *storagenodedb.DB) error {
 		return db.MigrateToLatest(ctx)
 	})
-	fromSnapshot := getSchemeSnapshot(t, ctx, "steps", func(ctx context.Context, db *DB) error {
-		return db.TestMigrateToLatest(ctx)
+	fromSnapshot := getSchemeSnapshot(t, ctx, "steps", func(ctx context.Context, db *storagenodedb.DB) error {
+		if err := deploySnapshot(db.DBDirectory()); err != nil {
+			return err
+		}
+		return db.MigrateToLatest(ctx)
 	})
 
-	require.Equal(t, fromSnapshot, fromMigrationSteps, "storagenode/storagenodedb/snapshot.go produces different scheme compared to storagenode/storagenodedb/database.go. "+
-		"If you changed the database.go recently, please also change snapshot.go (but instead of adding new migration step, try to modify the existing steps. snapshot.go should have "+
-		"just the minimal number of migrations to keep the unit test executions fast.)")
-
+	require.Equal(t, fromSnapshot, fromMigrationSteps, "The database snapshot produces a different scheme than the current storagenodedb migrations. "+
+		"If you have introduced a new migration, please run go generate ./storagenode/storagenodedb/storagenodedbtest/testdata to update the snapshot.")
 }
 
-func getSchemeSnapshot(t *testing.T, ctx *testcontext.Context, name string, init func(ctx context.Context, db *DB) error) schemeSnapshot {
+func getSchemeSnapshot(t *testing.T, ctx *testcontext.Context, name string, init func(ctx context.Context, db *storagenodedb.DB) error) schemeSnapshot {
 	log := zaptest.NewLogger(t)
 
 	storageDir := ctx.Dir(name)
-	cfg := Config{
+	cfg := storagenodedb.Config{
 		Pieces:    storageDir,
 		Storage:   storageDir,
 		Info:      filepath.Join(storageDir, "piecestore.db"),
@@ -50,7 +52,7 @@ func getSchemeSnapshot(t *testing.T, ctx *testcontext.Context, name string, init
 		Filestore: filestore.DefaultConfig,
 	}
 
-	db, err := OpenNew(ctx, log, cfg)
+	db, err := storagenodedb.OpenNew(ctx, log, cfg)
 	if err != nil {
 		require.NoError(t, err)
 	}
@@ -69,7 +71,7 @@ type schemeSnapshot map[string]dbScheme
 // dbScheme represents uniq id (table/name/...) -> sql.
 type dbScheme map[string]string
 
-func getSerializedScheme(t *testing.T, ctx *testcontext.Context, db *DB) schemeSnapshot {
+func getSerializedScheme(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB) schemeSnapshot {
 	dbs := schemeSnapshot{}
 	for dbName, db := range db.SQLDBs {
 		s := dbScheme{}

@@ -6,17 +6,14 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
-)
-
-const (
-	// ReverifyRetryInterval defines a limit on how frequently we retry
-	// reverification audits. At least this long should elapse between
-	// attempts.
-	ReverifyRetryInterval = 4 * time.Hour
 )
 
 // reverifyQueue implements storj.io/storj/satellite/audit.ReverifyQueue.
@@ -27,7 +24,7 @@ type reverifyQueue struct {
 var _ audit.ReverifyQueue = (*reverifyQueue)(nil)
 
 // Insert adds a reverification job to the queue.
-func (rq *reverifyQueue) Insert(ctx context.Context, piece audit.PieceLocator) (err error) {
+func (rq *reverifyQueue) Insert(ctx context.Context, piece *audit.PieceLocator) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = rq.db.Create_ReverificationAudits(
@@ -44,11 +41,15 @@ func (rq *reverifyQueue) Insert(ctx context.Context, piece audit.PieceLocator) (
 // GetNextJob retrieves a job from the queue. The job will be the
 // job which has been in the queue the longest, except those which
 // have already been claimed by another worker within the last
-// ReverifyRetryInterval. If there are no such jobs, sql.ErrNoRows
-// will be returned.
-func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job audit.ReverificationJob, err error) {
+// retryInterval. If there are no such jobs, an error wrapped by
+// audit.ErrEmptyQueue will be returned.
+//
+// retryInterval is expected to be held to the same value for every
+// call to GetNextJob() within a given satellite cluster.
+func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Duration) (job *audit.ReverificationJob, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	job = &audit.ReverificationJob{}
 	err = rq.db.QueryRowContext(ctx, `
 		WITH next_entry AS (
 			SELECT *
@@ -65,7 +66,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job audit.Reverificati
 			AND ra.stream_id = next_entry.stream_id
 			AND ra.position = next_entry.position
 		RETURNING ra.node_id, ra.stream_id, ra.position, ra.piece_num, ra.inserted_at, ra.reverify_count
-	`, ReverifyRetryInterval.Microseconds()).Scan(
+	`, retryInterval.Microseconds()).Scan(
 		&job.Locator.NodeID,
 		&job.Locator.StreamID,
 		&job.Locator.Position,
@@ -73,6 +74,9 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job audit.Reverificati
 		&job.InsertedAt,
 		&job.ReverifyCount,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, audit.ErrEmptyQueue.Wrap(err)
+	}
 	return job, err
 }
 
@@ -80,7 +84,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context) (job audit.Reverificati
 // was successful or because the job is no longer necessary. The wasDeleted
 // return value indicates whether the indicated job was actually deleted (if
 // not, there was no such job in the queue).
-func (rq *reverifyQueue) Remove(ctx context.Context, piece audit.PieceLocator) (wasDeleted bool, err error) {
+func (rq *reverifyQueue) Remove(ctx context.Context, piece *audit.PieceLocator) (wasDeleted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return rq.db.Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(
@@ -93,7 +97,7 @@ func (rq *reverifyQueue) Remove(ctx context.Context, piece audit.PieceLocator) (
 
 // TestingFudgeUpdateTime (used only for testing) changes the last_update
 // timestamp for an entry in the reverification queue to a specific value.
-func (rq *reverifyQueue) TestingFudgeUpdateTime(ctx context.Context, piece audit.PieceLocator, updateTime time.Time) error {
+func (rq *reverifyQueue) TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error {
 	result, err := rq.db.ExecContext(ctx, `
 		UPDATE reverification_audits
 		SET last_attempt = $4
@@ -112,4 +116,53 @@ func (rq *reverifyQueue) TestingFudgeUpdateTime(ctx context.Context, piece audit
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (rq *reverifyQueue) GetByNodeID(ctx context.Context, nodeID storj.NodeID) (pendingJob *audit.ReverificationJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pending, err := rq.db.First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx, dbx.ReverificationAudits_NodeId(nodeID.Bytes()))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// it looks like dbx will not return this, but this is here just
+			// in case dbx learns how.
+			return nil, audit.ErrContainedNotFound.New("%v", nodeID)
+		}
+		return nil, audit.ContainError.Wrap(err)
+	}
+	if pending == nil {
+		return nil, audit.ErrContainedNotFound.New("%v", nodeID)
+	}
+
+	return convertDBJob(ctx, pending)
+}
+
+func convertDBJob(ctx context.Context, info *dbx.ReverificationAudits) (pendingJob *audit.ReverificationJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if info == nil {
+		return nil, Error.New("missing info")
+	}
+
+	pendingJob = &audit.ReverificationJob{
+		Locator: audit.PieceLocator{
+			Position: metabase.SegmentPositionFromEncoded(info.Position),
+			PieceNum: info.PieceNum,
+		},
+		InsertedAt:    info.InsertedAt,
+		ReverifyCount: int(info.ReverifyCount),
+	}
+
+	pendingJob.Locator.NodeID, err = storj.NodeIDFromBytes(info.NodeId)
+	if err != nil {
+		return nil, audit.ContainError.Wrap(err)
+	}
+	pendingJob.Locator.StreamID, err = uuid.FromBytes(info.StreamId)
+	if err != nil {
+		return nil, audit.ContainError.Wrap(err)
+	}
+	if info.LastAttempt != nil {
+		pendingJob.LastAttempt = *info.LastAttempt
+	}
+
+	return pendingJob, nil
 }

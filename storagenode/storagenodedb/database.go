@@ -83,6 +83,8 @@ type Config struct {
 	Driver    string // if unset, uses sqlite3
 	Pieces    string
 	Filestore filestore.Config
+
+	TestingDisableWAL bool
 }
 
 // DB contains access to different database tables.
@@ -319,7 +321,12 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	wal := "&_journal=WAL"
+	if db.config.TestingDisableWAL {
+		wal = "&_journal=MEMORY"
+	}
+
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal)
 	if err != nil {
 		return ErrDatabase.New("%s opening file %q failed: %w", dbName, path, err)
 	}
@@ -344,13 +351,6 @@ func (db *DB) filepathFromDBName(dbName string) string {
 // MigrateToLatest creates any necessary tables.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.Migration(ctx)
-	return migration.Run(ctx, db.log.Named("migration"))
-}
-
-// TestMigrateToLatest creates any necessary tables from snapshot.
-// it's faster for the testing but should be the same as MigrateToLatest.
-func (db *DB) TestMigrateToLatest(ctx context.Context) error {
-	migration := db.Snapshot(ctx)
 	return migration.Run(ctx, db.log.Named("migration"))
 }
 
@@ -564,6 +564,11 @@ func (db *DB) APIKeys() apikeys.DB {
 // RawDatabases are required for testing purposes.
 func (db *DB) RawDatabases() map[string]DBContainer {
 	return db.SQLDBs
+}
+
+// DBDirectory returns the database directory for testing purposes.
+func (db *DB) DBDirectory() string {
+	return db.dbDirectory
 }
 
 // migrateToDB is a helper method that performs the migration from the

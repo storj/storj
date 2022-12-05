@@ -103,7 +103,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+			web.ServeCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -795,6 +795,22 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if console.ErrTokenExpiration.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "token_expired",
+		})
+
+		if err != nil {
+			a.log.Error("password-reset-token expired: failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	} else {
@@ -838,7 +854,7 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
+	web.ServeCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
@@ -846,7 +862,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
@@ -883,8 +899,6 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
-	case console.ErrLoginPassword.Has(err):
-		return "Your login credentials are incorrect. You have just used up one of your login attempts"
 	case console.ErrValidation.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):

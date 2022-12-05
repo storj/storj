@@ -458,6 +458,9 @@ func TestFinishCopyObject(t *testing.T) {
 				expectedCopyObject := originalObj
 				expectedCopyObject.ObjectKey = copyStream.ObjectKey
 				expectedCopyObject.StreamID = copyStream.StreamID
+				// copy operation will always try to find first free version for new/copied object
+				// so if there are no objects under this location it will be always 1
+				expectedCopyObject.Version = metabase.DefaultVersion
 				expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)
 				expectedCopyObject.EncryptedMetadataNonce = metadataNonce.Bytes()
 
@@ -814,6 +817,9 @@ func TestFinishCopyObject(t *testing.T) {
 				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
 			}
 
+			// copy operation is finding first available version for new/copied object
+			// so we need to bump copyBackObj version
+			copyBackObj.Version++
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(copyObj),
@@ -890,6 +896,9 @@ func TestFinishCopyObject(t *testing.T) {
 				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
 			}
 
+			// copy operation is finding first available version for new/copied object
+			// so we need to bump copyBackObj version
+			copyBackObj.Version++
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(copyObj),

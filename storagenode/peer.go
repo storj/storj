@@ -78,9 +78,6 @@ type DB interface {
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
 
-	// TestMigrateToLatest is a fast migration with skipping test (not safe for production + old db state)
-	TestMigrateToLatest(ctx context.Context) error
-
 	// Close closes the database
 	Close() error
 

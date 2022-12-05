@@ -135,7 +135,6 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		Conversion    *stripecoinpayments.ConversionService
 		StripeService *stripecoinpayments.Service
 		StripeClient  stripecoinpayments.StripeClient
 	}
@@ -533,16 +532,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.StripeClient = stripeClient
 		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
-		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
-			peer.Log.Named("payments.stripe:version"),
-			peer.Payments.StripeService,
-			pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Conversion.Run,
-			Close: peer.Payments.Conversion.Close,
-		})
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,

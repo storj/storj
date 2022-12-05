@@ -242,7 +242,6 @@ export default class Login extends Vue {
     public isDropdownShown = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
-    public readonly activatePath: string = RouteConfig.Activate.path;
 
     public $refs!: {
         recaptcha: VueRecaptcha;

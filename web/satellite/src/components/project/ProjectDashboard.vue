@@ -11,11 +11,8 @@
         </div>
         <ProjectUsage />
         <ProjectSummary :is-data-fetching="isSummaryDataFetching" />
-        <div v-if="areBucketsFetching" class="dashboard-area__container">
-            <p class="dashboard-area__container__title">Buckets</p>
-            <VLoader />
-        </div>
-        <BucketArea v-else />
+        <p class="dashboard-area__title">Buckets</p>
+        <BucketsTable :is-loading="areBucketsFetching" />
     </div>
 </template>
 
@@ -31,16 +28,14 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
-import BucketArea from '@/components/project/buckets/BucketArea.vue';
-import VLoader from '@/components/common/VLoader.vue';
+import BucketsTable from '@/components/objects/BucketsTable.vue';
 
 // @vue/component
 @Component({
     components: {
-        BucketArea,
+        BucketsTable,
         ProjectUsage,
         ProjectSummary,
-        VLoader,
     },
 })
 export default class ProjectDashboard extends Vue {
@@ -114,19 +109,12 @@ export default class ProjectDashboard extends Vue {
             }
         }
 
-        &__container {
-            background-color: #fff;
-            border-radius: 6px;
-            padding: 20px;
-            margin-top: 30px;
-
-            &__title {
-                margin: 0 0 20px;
-                font-family: 'font_bold', sans-serif;
-                font-size: 16px;
-                line-height: 16px;
-                color: #1b2533;
-            }
+        &__title {
+            margin: 20px 0;
+            font-family: 'font_bold', sans-serif;
+            font-size: 16px;
+            line-height: 16px;
+            color: #1b2533;
         }
     }
 </style>
