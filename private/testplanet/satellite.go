@@ -135,8 +135,9 @@ type Satellite struct {
 	}
 
 	Repair struct {
-		Checker  *checker.Checker
-		Repairer *repairer.Service
+		Checker            *checker.Checker
+		Repairer           *repairer.Service
+		RangedLoopObserver *checker.RangedLoopObserver
 	}
 
 	Audit struct {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net"
 	"runtime/pprof"
+	"storj.io/storj/satellite/metabase/rangedloop"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -99,6 +100,7 @@ type Core struct {
 	Metainfo struct {
 		Metabase    *metabase.DB
 		SegmentLoop *segmentloop.Service
+		RangedLoop  *rangedloop.Service
 	}
 
 	Orders struct {
@@ -112,7 +114,8 @@ type Core struct {
 	}
 
 	Repair struct {
-		Checker *checker.Checker
+		Checker            *checker.Checker
+		RangedLoopObserver *checker.RangedLoopObserver
 	}
 
 	Audit struct {
@@ -346,6 +349,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Metainfo.SegmentLoop,
 			peer.Metainfo.Metabase,
 		)
+		peer.Metainfo.RangedLoop = rangedloop.NewService(
+			peer.Log.Named("metainfo:rangedloop"),
+			config.RangedLoop,
+			nil, []rangedloop.Observer{},
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:segmentloop",
 			Run:   peer.Metainfo.SegmentLoop.Run,
@@ -353,7 +361,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup datarepair
+	{ // setup data repair
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Log.Named("repair:checker"),
@@ -362,13 +370,31 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Metainfo.SegmentLoop,
 			peer.Overlay.Service,
 			config.Checker)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "repair:checker",
-			Run:   peer.Repair.Checker.Run,
-			Close: peer.Repair.Checker.Close,
-		})
+		peer.Repair.RangedLoopObserver = checker.NewRangedLoopObserver(
+			peer.Log.Named("repair:rangedloop"),
+			peer.DB.RepairQueue(),
+			peer.Metainfo.Metabase,
+			peer.Metainfo.RangedLoop,
+			peer.Overlay.Service,
+			config.Checker).(*checker.RangedLoopObserver)
+		if config.Repairer.UseRangedLoop {
+			peer.Services.Add(lifecycle.Item{
+				Name:  "repair:rangedloop",
+				Run:   peer.Repair.RangedLoopObserver.Run,
+				Close: peer.Repair.RangedLoopObserver.Close,
+			})
+		} else {
+			peer.Services.Add(lifecycle.Item{
+				Name:  "repair:checker",
+				Run:   peer.Repair.Checker.Run,
+				Close: peer.Repair.Checker.Close,
+			})
+		}
+
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Repair Ranged Loop", peer.Repair.RangedLoopObserver.Loop))
 	}
 
 	{ // setup reputation
