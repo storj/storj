@@ -5,7 +5,6 @@ package rangedlooptest
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sort"
 
@@ -74,9 +73,6 @@ func min(x, y int) int {
 func streamsFromSegments(segments []segmentloop.Segment) [][]segmentloop.Segment {
 	// Duplicate and sort the segments by stream ID
 	segments = append([]segmentloop.Segment(nil), segments...)
-	for i, segment := range segments {
-		fmt.Println("BEFORE:", i, segment.StreamID, segment.Position)
-	}
 	sort.Slice(segments, func(i int, j int) bool {
 		idcmp := segments[i].StreamID.Compare(segments[j].StreamID)
 		switch {
@@ -88,9 +84,6 @@ func streamsFromSegments(segments []segmentloop.Segment) [][]segmentloop.Segment
 			return segments[i].Position.Less(segments[j].Position)
 		}
 	})
-	for i, segment := range segments {
-		fmt.Println("AFTER:", i, segment.StreamID, segment.Position)
-	}
 	// Break up the sorted segments into streams
 	var streams [][]segmentloop.Segment
 	var stream []segmentloop.Segment
@@ -107,13 +100,6 @@ func streamsFromSegments(segments []segmentloop.Segment) [][]segmentloop.Segment
 	if len(stream) > 0 {
 		streams = append(streams, stream)
 	}
-
-	for i, stream := range streams {
-		for j, segment := range stream {
-			fmt.Println("STREAM:", i, j, segment.StreamID, segment.Position)
-		}
-	}
-
 	return streams
 }
 
