@@ -46,27 +46,6 @@
                         <ResourcesLinks />
                     </GuidesDropdown>
                 </div>
-                <div v-if="isNewEncryptionPassphraseFlowEnabled" class="container-wrapper">
-                    <div
-                        class="navigation-area__container__wrap__item-container"
-                        :class="{ active: isSwitchEncryptionPassphraseShown }"
-                        @click.stop="toggleEncryptionPassphraseShown"
-                    >
-                        <div class="navigation-area__container__wrap__item-container__left">
-                            <p class="navigation-area__container__wrap__item-container__left__label">switch passphrase</p>
-                        </div>
-                    </div>
-                </div>
-                <div v-if="isNewEncryptionPassphraseFlowEnabled" class="container-wrapper">
-                    <div
-                        class="navigation-area__container__wrap__item-container"
-                        @click.stop="debugShowAccess"
-                    >
-                        <div class="navigation-area__container__wrap__item-container__left">
-                            <p class="navigation-area__container__wrap__item-container__left__label">debug show access</p>
-                        </div>
-                    </div>
-                </div>
                 <div ref="quickStartContainer" class="container-wrapper">
                     <div
                         class="navigation-area__container__wrap__item-container"
@@ -249,25 +228,6 @@ export default class NavigationArea extends Vue {
     }
 
     /**
-     * Toggles switch passphrase modal.
-     */
-    public toggleEncryptionPassphraseShown(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
-    }
-
-    public debugShowAccess(): void {
-        const passphrase = this.$store.state.objectsModule.passphrase;
-        const apiKey= this.$store.state.objectsModule.apiKey;
-        const gwCreds = this.$store.state.objectsModule.gatewayCredentials;
-
-        console.log('passphrase', passphrase);
-        console.log('api key', apiKey);
-        console.log('gw creds', gwCreds);
-
-        this.$notify.success('passphrase: ' +  passphrase);
-    }
-
-    /**
      * Toggles quick start dropdown visibility.
      */
     public toggleQuickStartDropdown(): void {
@@ -288,20 +248,6 @@ export default class NavigationArea extends Vue {
      */
     public get isResourcesDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.isResourcesDropdownShown;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
-    }
-
-    /**
-     * Indicates if set passphrase modal shown.
-     */
-    public get isSwitchEncryptionPassphraseShown(): boolean {
-        return this.$store.state.appStateModule.appState.isSetEncryptionPassphraseModalShown;
     }
 
     /**

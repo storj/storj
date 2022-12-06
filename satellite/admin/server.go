@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -30,8 +31,9 @@ import (
 
 // Config defines configuration for debug server.
 type Config struct {
-	Address   string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
-	StaticDir string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	Address          string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
 
 	AuthorizationToken string `internal:"true"`
 }
@@ -87,7 +89,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	root := mux.NewRouter()
 
 	api := root.PathPrefix("/api/").Subrouter()
-	api.Use(allowedAuthorization(config.AuthorizationToken))
+	api.Use(allowedAuthorization(log, config))
 
 	// When adding new options, also update README.md
 	api.HandleFunc("/users", server.addUser).Methods("POST")
@@ -159,24 +161,36 @@ func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
 
-func allowedAuthorization(token string) func(next http.Handler) http.Handler {
+func allowedAuthorization(log *zap.Logger, config Config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token == "" {
-				sendJSONError(w, "Authorization not enabled.",
-					"", http.StatusForbidden)
-				return
+
+			if r.Host != config.AllowedOauthHost {
+				// not behind the proxy; use old authentication method.
+				if config.AuthorizationToken == "" {
+					sendJSONError(w, "Authorization not enabled.",
+						"", http.StatusForbidden)
+					return
+				}
+
+				equality := subtle.ConstantTimeCompare(
+					[]byte(r.Header.Get("Authorization")),
+					[]byte(config.AuthorizationToken),
+				)
+				if equality != 1 {
+					sendJSONError(w, "Forbidden",
+						"", http.StatusForbidden)
+					return
+				}
 			}
 
-			equality := subtle.ConstantTimeCompare(
-				[]byte(r.Header.Get("Authorization")),
-				[]byte(token),
+			log.Info(
+				"admin action",
+				zap.String("host", r.Host),
+				zap.String("user", r.Header.Get("X-Forwarded-Email")),
+				zap.String("action", fmt.Sprintf("%s-%s", r.Method, r.RequestURI)),
+				zap.String("queries", r.URL.Query().Encode()),
 			)
-			if equality != 1 {
-				sendJSONError(w, "Forbidden",
-					"", http.StatusForbidden)
-				return
-			}
 
 			r.Header.Set("Cache-Control", "must-revalidate")
 			next.ServeHTTP(w, r)

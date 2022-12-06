@@ -1,6 +1,9 @@
 # admin peer http listening address
 # admin.address: ""
 
+# the oauth host allowed to bypass token authentication.
+# admin.allowed-oauth-host: ""
+
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
 
