@@ -471,40 +471,7 @@ func TestRangedLoopObserver(t *testing.T) {
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		observer := planet.Satellites[0].Repair.RangedLoopObserver
-
-		p, err := observer.Fork(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, p)
-
-		rawSegments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-
-		var segments []segmentloop.Segment
-		for _, v := range rawSegments {
-			segments = append(segments, segmentloop.Segment{
-				StreamID:      v.StreamID,
-				Position:      v.Position,
-				CreatedAt:     v.CreatedAt,
-				ExpiresAt:     v.ExpiresAt,
-				RepairedAt:    v.RepairedAt,
-				RootPieceID:   v.RootPieceID,
-				EncryptedSize: v.EncryptedSize,
-				PlainOffset:   v.PlainOffset,
-				PlainSize:     v.PlainSize,
-				Redundancy:    v.Redundancy,
-				Pieces:        v.Pieces,
-				Placement:     v.Placement,
-			})
-		}
-
-		err = p.Process(ctx, segments)
-		require.NoError(t, err)
-
-		err = observer.Join(ctx, p)
-		require.NoError(t, err)
-
-		err = observer.Finish(ctx)
+		err = planet.Satellites[0].RL.RangedLoop.Service.RunOnce(ctx) // TODO: add correct segment provider and try
 		require.NoError(t, err)
 	})
 }

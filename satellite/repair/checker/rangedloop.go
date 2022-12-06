@@ -12,9 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
@@ -30,32 +28,26 @@ var _ rangedloop.Observer = (*RangedLoopObserver)(nil)
 type RangedLoopObserver struct {
 	logger               *zap.Logger
 	repairQueue          queue.RepairQueue
-	metabase             *metabase.DB
-	service              *rangedloop.Service
 	nodestate            *ReliabilityCache
 	statsCollector       *statsCollector
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
-	Loop                 *sync2.Cycle
 	TotalStats           aggregateStats
 }
 
 // NewRangedLoopObserver creates new checker observer instance.
-func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, metabase *metabase.DB, rangedLoop *rangedloop.Service, overlay *overlay.Service, config Config) rangedloop.Observer {
+func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, overlay *overlay.Service, config Config) rangedloop.Observer {
 	return &RangedLoopObserver{
 		logger: logger,
 
 		repairQueue:          repairQueue,
-		metabase:             metabase,
-		service:              rangedLoop,
 		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		statsCollector:       newStatsCollector(),
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
 
-		Loop:       sync2.NewCycle(config.Interval),
 		TotalStats: aggregateStats{},
 	}
 }
@@ -143,19 +135,6 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	allChecked := observer.TotalStats.remoteSegmentsChecked
 	allHealthy := allChecked - allUnhealthy
 	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //mon:locked
-	return nil
-}
-
-// Run the Ranged Loop.
-func (observer *RangedLoopObserver) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return observer.service.Run(ctx)
-}
-
-// Close halts the loop.
-func (observer *RangedLoopObserver) Close() error {
-	observer.Loop.Close()
 	return nil
 }
 
