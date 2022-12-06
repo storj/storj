@@ -325,20 +325,21 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 }
 
 // IterateBucketLocations iterates through all buckets from some point with limit.
-func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (err error) {
+func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var result []metabase.BucketLocation
 
+	moreLimit := limit + 1
 	rows, err := db.db.QueryContext(ctx, `
 			SELECT project_id, name
 			FROM bucket_metainfos
 			WHERE (project_id, name) > ($1, $2)
 			GROUP BY (project_id, name)
 			ORDER BY (project_id, name) ASC LIMIT $3
-		`, projectID, bucketName, limit)
+	`, projectID, bucketName, moreLimit)
 	if err != nil {
-		return storj.ErrBucket.New("BatchBuckets query error: %s", err)
+		return false, storj.ErrBucket.New("BatchBuckets query error: %s", err)
 	}
 	defer func() {
 		err = errs.Combine(err, Error.Wrap(rows.Close()))
@@ -348,15 +349,23 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 		var bucketLocation metabase.BucketLocation
 
 		if err = rows.Scan(&bucketLocation.ProjectID, &bucketLocation.BucketName); err != nil {
-			return storj.ErrBucket.New("bucket location scan error: %s", err)
+			return false, storj.ErrBucket.New("bucket location scan error: %s", err)
 		}
 
 		result = append(result, bucketLocation)
 	}
 
 	if err = rows.Err(); err != nil {
-		return storj.ErrBucket.Wrap(err)
+		return false, storj.ErrBucket.Wrap(err)
 	}
 
-	return Error.Wrap(fn(result))
+	if len(result) == 0 {
+		return false, nil
+	}
+
+	if len(result) > limit {
+		return true, Error.Wrap(fn(result[:len(result)-1]))
+	}
+
+	return false, Error.Wrap(fn(result))
 }
