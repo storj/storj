@@ -425,6 +425,90 @@ func BenchmarkRemoteSegment(b *testing.B) {
 
 }
 
+func TestRepairObserver(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		repairChecker := planet.Satellites[0].Repair.Checker
+		repairChecker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+
+		rs := storj.RedundancyScheme{
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
+			ShareSize:      256,
+		}
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		expectedLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "test-bucket",
+		}
+
+		// add some valid pointers
+		for x := 0; x < 10; x++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
+		}
+
+		// add pointer that needs repair
+		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
+		_ = insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
+
+		// add pointer that is unhealthy, but is expired
+		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
+		expiresAt := time.Now().Add(-time.Hour)
+		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
+
+		// add some valid pointers
+		for x := 0; x < 10; x++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
+		}
+
+		observer := planet.Satellites[0].Repair.Observer
+		p, err := observer.Fork(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, p)
+
+		rawSegments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+
+		var segments []segmentloop.Segment
+		for _, v := range rawSegments {
+			segments = append(segments, segmentloop.Segment{
+				StreamID:      v.StreamID,
+				Position:      v.Position,
+				CreatedAt:     v.CreatedAt,
+				ExpiresAt:     v.ExpiresAt,
+				RepairedAt:    v.RepairedAt,
+				RootPieceID:   v.RootPieceID,
+				EncryptedSize: v.EncryptedSize,
+				PlainOffset:   v.PlainOffset,
+				PlainSize:     v.PlainSize,
+				Redundancy:    v.Redundancy,
+				Pieces:        v.Pieces,
+				Placement:     v.Placement,
+			})
+		}
+
+		err = p.Process(ctx, segments)
+		require.NoError(t, err)
+
+		err = observer.Join(ctx, p)
+		require.NoError(t, err)
+
+		err = observer.Finish(ctx)
+		require.NoError(t, err)
+		require.NoError(t, observer.CompareStats(21, 21, 1, 1, 0, 0, nil))
+	})
+}
+
 func TestRangedLoopObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -471,7 +555,10 @@ func TestRangedLoopObserver(t *testing.T) {
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		err = planet.Satellites[0].RL.RangedLoop.Service.RunOnce(ctx) // TODO: add correct segment provider and try
+		err = planet.Satellites[0].RL.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
+
+		observer := planet.Satellites[0].Repair.Observer
+		require.NoError(t, observer.CompareStats(21, 21, 1, 1, 0, 0, nil))
 	})
 }

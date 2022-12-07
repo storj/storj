@@ -197,6 +197,11 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
 
+		if config.Repairer.UseRangedLoop {
+			observers = append(observers, peer.Repair.Observer)
+		}
+
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",
 			Run:  peer.RangedLoop.Service.Run,
