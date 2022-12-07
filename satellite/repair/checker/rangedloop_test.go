@@ -6,6 +6,8 @@ package checker_test
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
+	"storj.io/storj/satellite"
 	"testing"
 	"time"
 
@@ -512,6 +514,11 @@ func TestRepairObserver(t *testing.T) {
 func TestRangedLoopObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Repairer.UseRangedLoop = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairChecker := planet.Satellites[0].Repair.Checker
 		repairChecker.Loop.Pause()
