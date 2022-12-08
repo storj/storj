@@ -118,7 +118,7 @@ export default class ActivateAccount extends Vue {
             await this.auth.resendEmail(this.email);
             this.isResendSuccessShown = true;
         } catch (error) {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, null);
         }
     }
 

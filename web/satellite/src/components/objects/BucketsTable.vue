@@ -74,7 +74,7 @@ import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -162,7 +162,7 @@ async function fetchBuckets(page = 1): Promise<void> {
     try {
         await store.dispatch(BUCKET_ACTIONS.FETCH, page);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`);
+        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 }
 
@@ -178,7 +178,7 @@ async function searchBuckets(searchQuery: string): Promise<void> {
     try {
         await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
     } catch (error) {
-        await notify.error(`Unable to fetch buckets: ${error.message}`);
+        await notify.error(`Unable to fetch buckets: ${error.message}`, AnalyticsErrorEventSource.BUCKET_TABLE);
     }
 
     searchLoading.value = false;

@@ -204,7 +204,7 @@ export default class ForgotPassword extends Vue {
      */
     public onCaptchaError(): void {
         this.captchaResponseToken = '';
-        this.$notify.error('The captcha encountered an error. Please try again.');
+        this.$notify.error('The captcha encountered an error. Please try again.', null);
     }
 
     /**
@@ -226,7 +226,7 @@ export default class ForgotPassword extends Vue {
             await this.auth.forgotPassword(this.email, this.captchaResponseToken);
             await this.$notify.success('Please look for instructions in your email');
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
         }
 
         this.$refs.captcha?.reset();

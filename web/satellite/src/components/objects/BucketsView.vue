@@ -27,6 +27,7 @@ import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -84,7 +85,7 @@ export default class BucketsView extends Vue {
                 await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
             }
         } catch (error) {
-            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
+            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
         } finally {
             this.isLoading = false;
         }
@@ -97,7 +98,7 @@ export default class BucketsView extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
         }
     }
 

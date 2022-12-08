@@ -72,6 +72,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -89,7 +90,6 @@ import InfoIcon from '@/../static/images/payments/infoIcon.svg';
     },
 })
 export default class AddTokenFundsModal extends Vue {
-
     public $refs!: {
         canvas: HTMLCanvasElement;
     };
@@ -105,7 +105,7 @@ export default class AddTokenFundsModal extends Vue {
         try {
             await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
         }
     }
 

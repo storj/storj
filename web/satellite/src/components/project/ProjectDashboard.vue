@@ -25,6 +25,7 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
@@ -69,7 +70,7 @@ export default class ProjectDashboard extends Vue {
 
             this.isSummaryDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
         }
     }
 

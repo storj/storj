@@ -43,6 +43,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -118,7 +119,7 @@ export default class ShareBucketModal extends Vue {
             const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
             const grantData = grantEvent.data;
             if (grantData.error) {
-                await this.$notify.error(grantData.error);
+                await this.$notify.error(grantData.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
 
                 return;
             }
@@ -136,7 +137,7 @@ export default class ShareBucketModal extends Vue {
             const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
             const data = event.data;
             if (data.error) {
-                await this.$notify.error(data.error);
+                await this.$notify.error(data.error, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
 
                 return;
             }
@@ -150,7 +151,7 @@ export default class ShareBucketModal extends Vue {
 
             this.link = `${linksharingURL}/${credentials.accessKeyId}/${path}`;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
         } finally {
             this.isLoading = false;
         }
@@ -162,7 +163,7 @@ export default class ShareBucketModal extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);
         };
     }
 

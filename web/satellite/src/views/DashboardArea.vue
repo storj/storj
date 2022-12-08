@@ -89,6 +89,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import eventBus from '@/utils/eventBus';
 import { ABTestValues } from '@/types/abtesting';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -241,7 +242,7 @@ export default class DashboardArea extends Vue {
 
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
 
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
@@ -253,26 +254,26 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
         } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         try {
             const couponType = await this.$store.dispatch(SETUP_ACCOUNT);
             if (couponType === CouponType.NoCoupon) {
-                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`);
+                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
 
             if (couponType === CouponType.SignupCoupon) {
                 await this.$notify.success(`The coupon code was added successfully`);
             }
         } catch (error) {
-            await this.$notify.error(`Unable to setup account. ${error.message}`);
+            await this.$notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         let projects: Project[] = [];
@@ -292,6 +293,7 @@ export default class DashboardArea extends Vue {
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
             } catch (error) {
+                this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
                 return;
             }
 
@@ -333,7 +335,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
             this.toggleMFARecoveryModal();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
     }
 
@@ -468,7 +470,7 @@ export default class DashboardArea extends Vue {
         try {
             LocalData.setSessionExpirationDate(await this.auth.refreshSession());
         } catch (error) {
-            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message);
+            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
             await this.handleInactive();
             this.isSessionRefreshing = false;
             return;
@@ -499,7 +501,7 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             if (error instanceof ErrorUnauthorized) return;
 
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         }
     }
 

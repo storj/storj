@@ -12,14 +12,12 @@
                 info="Start uploading files in the browser and instantly see how your data gets distributed over the Storj network around the world."
                 button-label="Continue in web ->"
                 :on-click="onUploadInBrowserClick"
-                :is-disabled="isLoading"
             />
             <OverviewContainer
                 title="Start with Uplink CLI"
                 info="The Uplink CLI is a command-line interface tool which allows you to upload and download files from the network, manage permissions and share files."
                 button-label="Continue in cli ->"
                 :on-click="onUplinkCLIClick"
-                :is-disabled="isLoading"
             />
         </div>
         <p class="overview-area__skip-button" @click="onSkip">
@@ -47,7 +45,6 @@ import OverviewContainer from '@/components/onboardingTour/steps/common/Overview
     },
 })
 export default class OverviewStep extends Vue {
-    public isLoading = false;
     public projectDashboardPath = RouteConfig.ProjectDashboard.path;
     public titleLabel = '';
 
@@ -88,31 +85,19 @@ export default class OverviewStep extends Vue {
      * Holds button click logic.
      * Redirects to next step (creating access grant).
      */
-    public async onUplinkCLIClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
+    public onUplinkCLIClick(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
         this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
-
-        this.isLoading = false;
     }
 
     /**
      * Redirects to buckets page.
      */
-    public async onUploadInBrowserClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
+    public onUploadInBrowserClick(): void {
+        this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
         this.analytics.pageVisit(RouteConfig.Buckets.path);
-        await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-
-        this.isLoading = false;
     }
 
     private get satelliteName(): string {

@@ -55,6 +55,7 @@ import {
     ProjectMemberOrderBy,
 } from '@/types/projectMembers';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -95,7 +96,7 @@ export default class ProjectMembersArea extends Vue {
 
             this.areMembersFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     }
 
@@ -169,7 +170,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, index);
         } catch (error) {
-            this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     }
 
@@ -184,7 +185,7 @@ export default class ProjectMembersArea extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
         }
     }
 }

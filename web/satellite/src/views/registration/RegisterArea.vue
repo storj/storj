@@ -414,7 +414,7 @@ export default class RegisterArea extends Vue {
             const config = require('@/views/registration/registrationViewConfig.json');
             this.viewConfig = this.user.partner && config[this.user.partner] ? config[this.user.partner] : config['default'];
         } catch (e) {
-            this.$notify.error('No configuration file for registration page.');
+            this.$notify.error('No configuration file for registration page.', null);
         }
     }
 
@@ -595,7 +595,7 @@ export default class RegisterArea extends Vue {
      */
     public onCaptchaError(): void {
         this.captchaResponseToken = '';
-        this.$notify.error('The captcha encountered an error. Please try again.');
+        this.$notify.error('The captcha encountered an error. Please try again.', null);
     }
 
     /**
@@ -704,12 +704,12 @@ export default class RegisterArea extends Vue {
         }
 
         if (this.user.partner.length > 100) {
-            this.$notify.error('Partner must be less than or equal to 100 characters');
+            this.$notify.error('Partner must be less than or equal to 100 characters', null);
             return false;
         }
 
         if (this.user.signupPromoCode.length > 100) {
-            this.$notify.error('Promo code must be less than or equal to 100 characters');
+            this.$notify.error('Promo code must be less than or equal to 100 characters', null);
             return false;
         }
 
@@ -776,7 +776,7 @@ export default class RegisterArea extends Vue {
 
             await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
         }
 
         this.$refs.captcha?.reset();

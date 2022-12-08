@@ -32,6 +32,7 @@ import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -81,6 +82,7 @@ export default class AGName extends Vue {
 
         if (!this.name) {
             this.errorMessage = 'Access Grant name can\'t be empty';
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
 
             return;
         }
@@ -92,7 +94,8 @@ export default class AGName extends Vue {
             createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.name);
 
             await this.$notify.success('New clean access grant was generated successfully.');
-        } catch {
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_NAME_STEP);
             return;
         } finally {
             this.isLoading = false;

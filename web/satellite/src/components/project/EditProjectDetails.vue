@@ -210,6 +210,7 @@ import {
     ProjectFields, ProjectLimits,
 } from '@/types/projects';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -220,7 +221,6 @@ import VButton from '@/components/common/VButton.vue';
     },
 })
 export default class EditProjectDetails extends Vue {
-
     @Prop({ default: Dimensions.TB })
     public activeStorageMeasurement: string;
     @Prop({ default: Dimensions.TB })
@@ -261,7 +261,7 @@ export default class EditProjectDetails extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
-            return;
+            this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
         }
     }
 
@@ -443,7 +443,6 @@ export default class EditProjectDetails extends Vue {
     }
 
     public toggleBandwidthMeasurement(isTB: boolean): void {
-
         if (isTB) {
             this.activeBandwidthMeasurement = Dimensions.TB;
             this.bandwidthLimitValue = this.toTB(this.bandwidthLimitValue);
@@ -508,6 +507,7 @@ export default class EditProjectDetails extends Vue {
 
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_NAME, updatedProject);
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
             return;
         }
 
@@ -523,6 +523,7 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectFields('', this.descriptionValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_DESCRIPTION, updatedProject);
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
             return;
         }
 
@@ -546,6 +547,7 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectLimits(0, 0, storageLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_STORAGE_LIMIT, updatedProject);
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
             return;
         }
 
@@ -569,6 +571,7 @@ export default class EditProjectDetails extends Vue {
             const updatedProject = new ProjectLimits(bandwidthLimitValue);
             await this.$store.dispatch(PROJECTS_ACTIONS.UPDATE_BANDWIDTH_LIMIT, updatedProject);
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROJECT_DETAILS);
             return;
         }
 

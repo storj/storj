@@ -96,7 +96,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import VButton from '@/components/common/VButton.vue';
@@ -168,7 +168,7 @@ export default class AddTokenCardNative extends Vue {
             // wallet claimed; open token modal
             this.onAddTokensClick();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
         }
         this.isLoading = false;
     }

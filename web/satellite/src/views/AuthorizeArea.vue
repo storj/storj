@@ -163,7 +163,7 @@ export default class Authorize extends Vue {
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, null);
             }
 
             const query = new URLSearchParams(this.oauthData).toString();
@@ -180,12 +180,12 @@ export default class Authorize extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
         } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`, null);
             return;
         }
 
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onerror = (error: ErrorEvent) => this.$notify.error(error.message);
+        this.worker.onerror = (error: ErrorEvent) => this.$notify.error(error.message, null);
     }
 
     private async verifyClientConfiguration(): Promise<void> {
@@ -310,7 +310,7 @@ export default class Authorize extends Vue {
         const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
 
         if (event.data.error) {
-            await this.$notify.error(event.data.error);
+            await this.$notify.error(event.data.error, null);
             return;
         }
 

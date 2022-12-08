@@ -68,6 +68,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -88,10 +90,10 @@ export default class AddCouponCodeInput extends Vue {
     private showValidationMessage = false;
     private errorMessage = '';
     private isCodeValid = false;
-
     private couponCode = '';
-
     private showConfirmMessage = false;
+
+    private readonly analytics = new AnalyticsHttpApi();
 
     /**
      * Signup view requires some unque styling and element text.
@@ -129,6 +131,7 @@ export default class AddCouponCodeInput extends Vue {
             this.errorMessage = error.message;
             this.isCodeValid = false;
             this.showValidationMessage = true;
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
 
             return;
         } finally {

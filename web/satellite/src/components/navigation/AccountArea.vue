@@ -61,7 +61,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -138,7 +138,7 @@ export default class AccountArea extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
 
             return;
         }

@@ -7,6 +7,7 @@ import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 
 import { AuthHttpApi } from '@/api/auth';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 /**
  * Satellite url.
@@ -32,19 +33,19 @@ const authLink = setContext((_, { headers }) => {
  */
 const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (graphQLErrors?.length) {
-        Vue.prototype.$notify.error(graphQLErrors.join('\n'));
+        Vue.prototype.$notify.error(graphQLErrors.join('\n'), AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR);
     }
 
     if (networkError) {
         const nError = (networkError as ServerError);
         if (nError.statusCode === 401) {
             new AuthHttpApi().logout();
-            Vue.prototype.$notify.error('Session token expired');
+            Vue.prototype.$notify.error('Session token expired', AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
             setTimeout(() => {
                 window.location.href = window.location.origin + '/login';
             }, 3000);
         } else {
-            nError.result && Vue.prototype.$notify.error(nError.result.error);
+            nError.result && Vue.prototype.$notify.error(nError.result.error, AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR);
         }
     }
 

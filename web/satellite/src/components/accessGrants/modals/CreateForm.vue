@@ -214,7 +214,7 @@ import { Component, Vue, Prop } from 'vue-property-decorator';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
@@ -353,7 +353,7 @@ export default class CreateForm extends Vue {
     public encryptClickAction(): void {
         let mappedList = this.accessGrantList.map((key) => (key.name));
         if (mappedList.includes(this.accessName)) {
-            this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`);
+            this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`, AnalyticsErrorEventSource.CREATE_AG_FORM);
             return;
         } else if (!this.checkedTypes.includes('api')) {
             // emit event here

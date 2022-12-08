@@ -24,7 +24,7 @@ import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 import { Bucket } from '@/types/buckets';
 
@@ -97,7 +97,11 @@ export default class UploadFile extends Vue {
             accessKey: this.edgeCredentials.accessKeyId,
             secretKey: this.edgeCredentials.secretKey,
         });
-        await this.$store.dispatch('files/list', '');
+        try {
+            await this.$store.dispatch('files/list', '');
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+        }
     }
 
     /**
@@ -113,7 +117,7 @@ export default class UploadFile extends Vue {
 
             return `${this.linksharingURL}/s/${creds.accessKeyId}/${path}`;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
             return '';
         }
@@ -137,7 +141,7 @@ export default class UploadFile extends Vue {
 
             return `${this.linksharingURL}/${credentials.accessKeyId}/${path}`;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
             return '';
         }
@@ -149,7 +153,7 @@ export default class UploadFile extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         };
     }
 
@@ -171,7 +175,7 @@ export default class UploadFile extends Vue {
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         const grantData = grantEvent.data;
         if (grantData.error) {
-            await this.$notify.error(grantData.error);
+            await this.$notify.error(grantData.error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
             return new EdgeCredentials();
         }
@@ -198,7 +202,7 @@ export default class UploadFile extends Vue {
         const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         const data = event.data;
         if (data.error) {
-            await this.$notify.error(data.error);
+            await this.$notify.error(data.error, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
 
             return new EdgeCredentials();
         }

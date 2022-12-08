@@ -35,6 +35,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import SelectedIcon from '@/../static/images/account/billing/selected.svg';
@@ -137,7 +138,7 @@ export default class PeriodSelection extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
         }
     }
 
@@ -148,7 +149,7 @@ export default class PeriodSelection extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
         }
     }
 }

@@ -113,7 +113,8 @@ export default class NameStep extends Vue {
         try {
             createdAccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.name);
         } catch (error) {
-            await this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(error.message, null);
             this.isLoading = false;
 
             return;
@@ -125,7 +126,8 @@ export default class NameStep extends Vue {
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, null);
 
             this.isLoading = false;
         }

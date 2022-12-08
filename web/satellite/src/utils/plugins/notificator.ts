@@ -2,9 +2,10 @@
 // See LICENSE for copying information.
 
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 interface Dispatcher {
-    dispatch(key:string, message:string)
+    dispatch(key: string, payload: string | object)
 }
 
 /**
@@ -17,8 +18,8 @@ export class Notificator {
         await this.store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
     }
 
-    public async error(message: string): Promise<void> {
-        await this.store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
+    public async error(message: string, source: AnalyticsErrorEventSource | null): Promise<void> {
+        await this.store.dispatch(NOTIFICATION_ACTIONS.ERROR, { message, source });
     }
 
     public async notify(message: string): Promise<void> {

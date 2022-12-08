@@ -111,6 +111,7 @@ import prettyBytes from 'pretty-bytes';
 import type { BrowserFile } from '@/types/browser';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -401,7 +402,7 @@ function download(): void {
         store.dispatch('files/download', props.file);
         notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
     } catch (error) {
-        notify.error('Can not download your file');
+        notify.error('Can not download your file', AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
     }
 
     store.dispatch('files/closeDropdown');
@@ -427,7 +428,12 @@ async function finalDelete(): Promise<void> {
     (props.file.type === 'file') ? await store.dispatch('files/delete', params) : store.dispatch('files/deleteFolder', params);
 
     // refresh the files displayed
-    await store.dispatch('files/list');
+    try {
+        await store.dispatch('files/list');
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_ENTRY);
+    }
+
     store.dispatch('files/removeFileFromToBeDeleted', props.file);
     deleteConfirmation.value = false;
 }

@@ -28,8 +28,7 @@ import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
         StorjLarge,
     },
 })
-export default class AddTokenCard extends Vue {
-}
+export default class AddTokenCard extends Vue {}
 </script>
 
 <style scoped lang="scss">

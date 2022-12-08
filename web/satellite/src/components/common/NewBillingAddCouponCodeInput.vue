@@ -32,6 +32,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -51,6 +53,8 @@ export default class NewBillingAddCouponCodeInput extends Vue {
     private errorMessage = '';
     private couponCode = '';
     private isLoading = false;
+
+    private readonly analytics = new AnalyticsHttpApi();
 
     public setCouponCode(value: string): void {
         this.couponCode = value;
@@ -72,6 +76,7 @@ export default class NewBillingAddCouponCodeInput extends Vue {
             this.errorMessage = error.message;
             this.isCodeValid = false;
             this.showValidationMessage = true;
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
         } finally {
             this.isLoading = false;
         }

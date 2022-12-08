@@ -62,7 +62,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -127,8 +127,9 @@ export default class ProjectSelection extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            this.isLoading = false;
         } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        } finally {
             this.isLoading = false;
         }
     }
@@ -174,7 +175,7 @@ export default class ProjectSelection extends Vue {
                     this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE),
                 ]);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
 
             return;
@@ -184,7 +185,7 @@ export default class ProjectSelection extends Vue {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
 
             return;
@@ -194,7 +195,7 @@ export default class ProjectSelection extends Vue {
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
         }
     }

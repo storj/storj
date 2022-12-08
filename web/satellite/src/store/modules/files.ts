@@ -5,6 +5,7 @@ import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/types/store';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const listCache = new Map();
 
@@ -507,9 +508,9 @@ export const makeFilesModule = (): FilesModule => ({
                     } catch (error) {
                         const limitExceededError = 'storage limit exceeded';
                         if (error.message.includes(limitExceededError)) {
-                            dispatch('error', `Error: ${limitExceededError}`, { root:true });
+                            dispatch('error', { message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR }, { root: true });
                         } else {
-                            dispatch('error', error.message, { root:true });
+                            dispatch('error', { message: error.message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR }, { root: true });
                         }
                     }
 

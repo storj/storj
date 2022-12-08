@@ -176,7 +176,7 @@ import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
@@ -386,8 +386,9 @@ export default class MobileNavigation extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            this.isLoading = false;
         } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        } finally {
             this.isLoading = false;
         }
     }
@@ -416,7 +417,7 @@ export default class MobileNavigation extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`);
+            await this.$notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
         }
     }
 
@@ -489,7 +490,7 @@ export default class MobileNavigation extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
 
             return;
         }

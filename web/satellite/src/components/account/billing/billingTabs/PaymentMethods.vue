@@ -192,7 +192,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -305,7 +305,7 @@ export default class PaymentMethods extends Vue {
             this.transactionCount = this.nativePaymentHistoryItems.length;
             this.displayedHistory = this.nativePaymentHistoryItems.slice(0,this.pageSize);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         } finally {
             this.nativePayIsLoading = false;
         }
@@ -326,7 +326,7 @@ export default class PaymentMethods extends Vue {
         try {
             await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
     }
 
@@ -336,7 +336,7 @@ export default class PaymentMethods extends Vue {
             await this.$notify.success('Default payment card updated');
             this.isChangeDefaultPaymentModalOpen = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
     }
 
@@ -347,12 +347,12 @@ export default class PaymentMethods extends Vue {
                 this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
                 await this.$notify.success('Credit card removed');
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
             }
             this.isRemovePaymentMethodsModalOpen = false;
 
         } else {
-            this.$notify.error('You cannot delete the default payment method.');
+            this.$notify.error('You cannot delete the default payment method.', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         }
     }
 
@@ -377,7 +377,7 @@ export default class PaymentMethods extends Vue {
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
 
             this.$emit('toggleIsLoading');
 
@@ -388,7 +388,7 @@ export default class PaymentMethods extends Vue {
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
             this.$emit('toggleIsLoading');
         }
 

@@ -437,7 +437,7 @@ export default class Login extends Vue {
 
             if (this.isMFARequired) {
                 if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                    await this.$notify.error(error.message);
+                    await this.$notify.error(error.message, null);
                 }
 
                 this.isMFAError = true;
@@ -451,7 +451,7 @@ export default class Login extends Vue {
                 return;
             }
 
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
             this.isLoading = false;
             return;
         }

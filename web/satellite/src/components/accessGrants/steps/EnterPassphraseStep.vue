@@ -111,7 +111,8 @@ export default class EnterPassphraseStep extends Vue {
 
         const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (accessEvent.data.error) {
-            await this.$notify.error(accessEvent.data.error);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(accessEvent.data.error, null);
             this.isLoading = false;
 
             return;
@@ -140,7 +141,8 @@ export default class EnterPassphraseStep extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            this.$notify.error(error.message, null);
         };
     }
 

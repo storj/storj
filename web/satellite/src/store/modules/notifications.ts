@@ -7,14 +7,22 @@ import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 import { StoreModule } from '@/types/store';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
+    public analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 }
 
 interface NotificationsContext {
     state: NotificationsState
     commit: (string, ...unknown) => void
+}
+
+interface ErrorPayload {
+    message: string,
+    source: AnalyticsErrorEventSource | null,
 }
 
 export function makeNotificationsModule(): StoreModule<NotificationsState, NotificationsContext> {
@@ -66,7 +74,6 @@ export function makeNotificationsModule(): StoreModule<NotificationsState, Notif
             },
             // Commits mutation for adding info notification
             [NOTIFICATION_ACTIONS.NOTIFY]: function ({ commit }: NotificationsContext, message: string): void {
-
                 const notification = new DelayedNotification(
                     () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
                     NOTIFICATION_TYPES.NOTIFICATION,
@@ -76,11 +83,15 @@ export function makeNotificationsModule(): StoreModule<NotificationsState, Notif
                 commit(NOTIFICATION_MUTATIONS.ADD, notification);
             },
             // Commits mutation for adding error notification
-            [NOTIFICATION_ACTIONS.ERROR]: function ({ commit }: NotificationsContext, message: string): void {
+            [NOTIFICATION_ACTIONS.ERROR]: function ({ commit, state }: NotificationsContext, payload: ErrorPayload): void {
+                if (payload.source) {
+                    state.analytics.errorEventTriggered(payload.source);
+                }
+
                 const notification = new DelayedNotification(
                     () => commit(NOTIFICATION_MUTATIONS.DELETE, notification.id),
                     NOTIFICATION_TYPES.ERROR,
-                    message,
+                    payload.message,
                 );
 
                 commit(NOTIFICATION_MUTATIONS.ADD, notification);

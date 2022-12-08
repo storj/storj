@@ -60,6 +60,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -75,9 +76,10 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
     },
 })
 export default class ConfirmDeletePopup extends Vue {
-    private readonly FIRST_PAGE: number = 1;
     private isLoading = false;
     private confirmedInput = '';
+
+    private readonly FIRST_PAGE: number = 1;
 
     /**
      * sets Comfirmed Input property to the given value.
@@ -98,14 +100,14 @@ export default class ConfirmDeletePopup extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
             await this.$notify.success(`Access Grant deleted successfully`);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
 
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
 
         this.$emit('resetPagination');

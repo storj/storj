@@ -37,7 +37,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { computed, onMounted, ref } from 'vue';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -47,6 +46,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -102,7 +102,7 @@ function setWorker(): void {
     worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
-            notify.error(error.message);
+            notify.error(error.message, AnalyticsErrorEventSource.SWITCH_PROJECT_LEVEL_PASSPHRASE_MODAL);
         };
     }
 }
@@ -112,8 +112,7 @@ function setWorker(): void {
  */
 async function setAccess(): Promise<void> {
     if (!worker.value) {
-        notify.error('Worker is not defined');
-        return;
+        throw new Error('Worker is not defined');
     }
 
     if (!apiKey.value) {
@@ -193,8 +192,8 @@ async function onSwitch(): Promise<void> {
 
         notify.success('Passphrase was switched successfully');
         store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
-    } catch (e) {
-        await notify.error(e.message);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.SWITCH_PROJECT_LEVEL_PASSPHRASE_MODAL);
     } finally {
         isLoading.value = false;
     }

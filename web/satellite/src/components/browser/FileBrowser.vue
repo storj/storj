@@ -206,10 +206,10 @@ import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import eventBus from '@/utils/eventBus';
 
 import VButton from '@/components/common/VButton.vue';
@@ -223,6 +223,7 @@ import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
 const store = useStore();
 const router = useRouter();
+const notify = useNotify();
 
 const folderInput = ref<HTMLInputElement>(null);
 const fileInput = ref<HTMLInputElement>(null);
@@ -337,7 +338,7 @@ onBeforeMount(async () => {
     if (!bucket.value) {
         const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
 
-        await analytics.pageVisit(path);
+        analytics.pageVisit(path);
         await router.push(path);
 
         return;
@@ -348,12 +349,13 @@ onBeforeMount(async () => {
 
     if (!routePath.value) {
         try {
-            await analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
             await router.push({
                 path: `${store.state.files.browserRoot}${path.value}`,
             });
+            analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
         } catch (err) {
             await list('');
+            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER);
         }
     }
 
@@ -414,18 +416,23 @@ function cancelUpload(fileName: string): void {
  * Call the list method from the store, which will trigger a re-render and fetch all files under the current path passed in as an argument.
  */
 async function list(path: string): Promise<void> {
-    await store.dispatch('files/list', path, {
-        root: true,
-    });
+    try {
+        await store.dispatch('files/list', path, {
+            root: true,
+        });
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER);
+    }
+
 }
 
 /**
  * Open the operating system's file system for file upload.
  */
 async function buttonFileUpload(): Promise<void> {
-    await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
     const fileInputElement = fileInput.value as HTMLInputElement;
     fileInputElement.showPicker();
+    analytics.eventTriggered(AnalyticsEvent.UPLOAD_FILE_CLICKED);
     closeUploadDropdown();
 }
 
@@ -433,9 +440,9 @@ async function buttonFileUpload(): Promise<void> {
  * Open the operating system's file system for folder upload.
  */
 async function buttonFolderUpload(): Promise<void> {
-    await analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
     const folderInputElement = folderInput.value as HTMLInputElement;
     folderInputElement.showPicker();
+    analytics.eventTriggered(AnalyticsEvent.UPLOAD_FOLDER_CLICKED);
     closeUploadDropdown();
 }
 
@@ -457,8 +464,8 @@ function closeUploadDropdown(): void {
  * Redirects to buckets list view.
  */
 async function goToBuckets(): Promise<void> {
-    await analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     await router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(err => {});
+    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     await onRouteChange();
 }
 </script>

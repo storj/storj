@@ -30,6 +30,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -55,6 +56,7 @@ export default class ProjectInfoBar extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_INFO_BAR);
             return;
         }
     }

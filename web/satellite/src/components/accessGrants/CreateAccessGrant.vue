@@ -32,8 +32,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
     },
 })
 export default class CreateAccessGrant extends Vue {
-
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Closes popup.

@@ -92,7 +92,7 @@ import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -126,6 +126,7 @@ export default class BillingArea extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
             this.isDataFetching = false;
             return;
         }
@@ -135,7 +136,7 @@ export default class BillingArea extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
             this.isDataFetching = false;
         }
 

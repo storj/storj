@@ -42,6 +42,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { BrowserFile } from '@/types/browser';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -139,7 +140,7 @@ export default class NewFolderModal extends Vue {
                 this.createFolderName.trim(),
             );
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
         }
 
         this.createFolderName = '';

@@ -56,6 +56,7 @@ import { Validator } from '@/utils/validation';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -86,8 +87,8 @@ export default class BucketCreationNameStep extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
             this.name = this.allBucketNames.length > 0 ? '' : 'demo-bucket';
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
         } finally {
             this.isLoading = false;
         }
@@ -105,10 +106,13 @@ export default class BucketCreationNameStep extends Vue {
      * Sets bucket name from input.
      */
     public onNextButtonClick(): void {
-        if (!this.isBucketNameValid(this.name)) return;
+        if (!this.isBucketNameValid(this.name)) {
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+            return;
+        }
 
         if (this.allBucketNames.includes(this.name)) {
-            this.$notify.error('Bucket with this name already exists');
+            this.$notify.error('Bucket with this name already exists', AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
             return;
         }
 

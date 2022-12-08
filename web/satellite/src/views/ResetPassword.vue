@@ -201,7 +201,7 @@ export default class ResetPassword extends Vue {
                 return;
             }
 
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
         }
 
         this.isLoading = false;

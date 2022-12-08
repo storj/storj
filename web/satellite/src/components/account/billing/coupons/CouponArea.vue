@@ -56,7 +56,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
@@ -87,7 +87,7 @@ export default class CouponArea extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
             this.isCouponFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPON_AREA);
         }
     }
 
@@ -138,7 +138,7 @@ export default class CouponArea extends Vue {
         } else {
             return '';
         }
-        
+
         return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     }
 
