@@ -34,6 +34,7 @@ type RangedLoopObserver struct {
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
+	startTime            time.Time
 	TotalStats           aggregateStats
 }
 
@@ -81,6 +82,20 @@ func (observer *RangedLoopObserver) createInsertBuffer() *queue.InsertBuffer {
 	return queue.NewInsertBuffer(observer.repairQueue, observer.repairQueueBatchSize)
 }
 
+// CompareInjuredSegment compares stream id of injured segment, for testing purposes only.
+func (observer *RangedLoopObserver) CompareInjuredSegment(ctx context.Context, streamID uuid.UUID) error {
+	injuredSegment, err := observer.repairQueue.Select(ctx)
+	if err != nil {
+		return err
+	}
+
+	if injuredSegment.StreamID != streamID {
+		return errs.New("streamID of injured segment does not match")
+	}
+
+	return nil
+}
+
 // CompareStats compares total stats with given data, used only for tests.
 func (observer *RangedLoopObserver) CompareStats(objChecked int64, remoteSegmentsChecked int64, remoteSegmentsNeedingRepair int64,
 	newRemoteSegmentsNeedingRepair int64, remoteSegmentsLost int64, remoteSegmentsFailedToCheck int64, objLost []uuid.UUID) error {
@@ -113,6 +128,7 @@ func (observer *RangedLoopObserver) CompareStats(objChecked int64, remoteSegment
 
 // Start starts parallel segments loop.
 func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Time) error {
+	observer.startTime = startTime
 	return nil
 }
 
@@ -125,6 +141,7 @@ func (observer *RangedLoopObserver) Fork(ctx context.Context) (rangedloop.Partia
 // This gives the opportunity to merge the output like in a reduce step.
 func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) error {
 	repPartial := partial.(*repairPartial)
+
 	if err := repPartial.repairQueue.Flush(ctx); err != nil {
 		return Error.Wrap(err)
 	}
@@ -142,14 +159,8 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 
 // Finish is called after all segments are processed by all observers.
 func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
-	startTime := time.Now()
-
-	if err := observer.createInsertBuffer().Flush(ctx); err != nil {
-		return Error.Wrap(err)
-	}
-
 	// remove all segments which were not seen as unhealthy by this checker iteration
-	healthyDeleted, err := observer.repairQueue.Clean(ctx, startTime)
+	healthyDeleted, err := observer.repairQueue.Clean(ctx, observer.startTime)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -166,6 +177,7 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	allChecked := observer.TotalStats.remoteSegmentsChecked
 	allHealthy := allChecked - allUnhealthy
 	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //mon:locked
+
 	return nil
 }
 
@@ -366,11 +378,11 @@ func (cp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 		continue
 	}
 
-	mon.IntVal("remote_segments_over_threshold_1").Observe(cp.monStats.remoteSegmentsOverThreshold[0]) //mon:locked
-	mon.IntVal("remote_segments_over_threshold_2").Observe(cp.monStats.remoteSegmentsOverThreshold[1]) //mon:locked
-	mon.IntVal("remote_segments_over_threshold_3").Observe(cp.monStats.remoteSegmentsOverThreshold[2]) //mon:locked
-	mon.IntVal("remote_segments_over_threshold_4").Observe(cp.monStats.remoteSegmentsOverThreshold[3]) //mon:locked
-	mon.IntVal("remote_segments_over_threshold_5").Observe(cp.monStats.remoteSegmentsOverThreshold[4]) //mon:locked
+	mon.Counter("remote_segments_over_threshold_1").Inc(cp.monStats.remoteSegmentsOverThreshold[0]) //mon:locked
+	mon.Counter("remote_segments_over_threshold_2").Inc(cp.monStats.remoteSegmentsOverThreshold[1]) //mon:locked
+	mon.Counter("remote_segments_over_threshold_3").Inc(cp.monStats.remoteSegmentsOverThreshold[2]) //mon:locked
+	mon.Counter("remote_segments_over_threshold_4").Inc(cp.monStats.remoteSegmentsOverThreshold[3]) //mon:locked
+	mon.Counter("remote_segments_over_threshold_5").Inc(cp.monStats.remoteSegmentsOverThreshold[4]) //mon:locked
 
 	return nil
 }
