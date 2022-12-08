@@ -100,32 +100,18 @@
                             <tr
                                 v-for="file in formattedFilesUploading"
                                 :key="file.ETag"
-                                scope="row"
                             >
-                                <td
-                                    class="upload-text"
+                                <!-- using <th> to comply with common Vtable.vue-->
+                                <th
+                                    class="align-left data"
                                     aria-roledescription="file-uploading"
                                 >
-                                    <span>
-                                        <svg
-                                            width="21"
-                                            height="18"
-                                            viewBox="0 0 16 16"
-                                            fill="currentColor"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            class="bi bi-file-earmark ml-2 mr-1"
-                                        >
-                                            <path
-                                                d="M4 0h5.5v1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h1V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z"
-                                            />
-                                            <path
-                                                d="M9.5 3V0L14 4.5h-3A1.5 1.5 0 0 1 9.5 3z"
-                                            />
-                                        </svg>
-                                        {{ filename(file) }}
-                                    </span>
-                                </td>
-                                <td aria-roledescription="progress-bar">
+                                    <p class="file-name">
+                                        <file-icon />
+                                        <span>{{ filename(file) }}</span>
+                                    </p>
+                                </th>
+                                <th class="align-left data" aria-roledescription="progress-bar">
                                     <div class="progress">
                                         <div
                                             class="progress-bar"
@@ -137,41 +123,40 @@
                                             {{ file.progress }}%
                                         </div>
                                     </div>
-                                </td>
-                                <td>
-                                    <button
-                                        type="button"
-                                        class="btn btn-danger btn-sm"
-                                        @click="cancelUpload(file.Key)"
-                                    >
-                                        Cancel
-                                    </button>
-                                </td>
-                                <td />
+                                </th>
+                                <th class="align-left data">
+                                    <v-button
+                                        width="60px"
+                                        font-size="14px"
+                                        label="Cancel" :is-deletion="true"
+                                        :on-press="() => cancelUpload(file.Key)"
+                                    />
+                                </th>
+                                <th />
                             </tr>
 
-                            <tr v-if="filesUploading.length">
-                                <div class="files-uploading-count my-3">
-                                    <div
-                                        class="px-2"
-                                        aria-roledescription="files-uploading-count"
-                                    >
-                                        {{ formattedFilesWaitingToBeUploaded }}
-                                        waiting to be uploaded...
-                                    </div>
-                                </div>
+                            <tr v-if="filesUploading.length" class="files-uploading-count">
+                                <th class="align-left data files-uploading-count__content" aria-roledescription="files-uploading-count">
+                                    {{ formattedFilesWaitingToBeUploaded }}
+                                    waiting to be uploaded...
+                                </th>
+                                <th class="files-uploading-count__content" />
+                                <th class="files-uploading-count__content" />
+                                <th class="files-uploading-count__content" />
                             </tr>
 
-                            <tr v-if="path.length > 0">
-                                <td class="px-3">
+                            <tr v-if="path.length > 0" class="up-button">
+                                <th class="align-left data up-button__content">
                                     <span @click.prevent="onBack">
                                         <a
                                             id="navigate-back"
                                             href="javascript:null"
-                                            class="px-2 font-weight-bold"
-                                        >..</a>
+                                        >...</a>
                                     </span>
-                                </td>
+                                </th>
+                                <th class="up-button__content" />
+                                <th class="up-button__content" />
+                                <th class="up-button__content" />
                             </tr>
 
                             <file-entry
@@ -227,12 +212,14 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useRouter, useStore } from '@/utils/hooks';
 import eventBus from '@/utils/eventBus';
 
+import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 
-import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
+import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
+import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
 const store = useStore();
 const router = useRouter();
@@ -477,10 +464,18 @@ async function goToBuckets(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
-@import './scoped-bootstrap.css';
-
 .file-browser {
     min-height: 500px;
+}
+
+.position-relative {
+    position: relative;
+}
+
+.file-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .no-selection {
@@ -493,7 +488,6 @@ async function goToBuckets(): Promise<void> {
 }
 
 .file-browser-table {
-    padding: 0 12px 24px;
     border: 1px solid var(--c-grey-3);
     box-shadow: none;
 }
@@ -568,8 +562,20 @@ async function goToBuckets(): Promise<void> {
     font-size: 18px;
 }
 
+.up-button {
+
+    &__content {
+        padding: 0.5rem 1.125rem;
+    }
+}
+
 .files-uploading-count {
-    color: #0d6efd;
+
+    &__content {
+        color: #0d6efd;
+        border-top: none;
+        padding: 0 1.125rem 0.5rem;
+    }
 }
 
 .arrow {
@@ -586,8 +592,7 @@ async function goToBuckets(): Promise<void> {
 
 .dropdown {
     position: absolute;
-    top: 45px;
-    left: 0;
+    margin-top: 10px;
     border-radius: 8px;
     box-shadow: 0 -2px 16px rgb(0 0 0 / 10%);
     width: 240px;
@@ -612,6 +617,7 @@ async function goToBuckets(): Promise<void> {
         &:hover {
             background: var(--c-grey-1);
             color: var(--c-blue-3);
+            font-family: 'font_medium', sans-serif;
 
             .btn-icon > path {
                 fill: var(--c-blue-3);
@@ -667,6 +673,7 @@ async function goToBuckets(): Promise<void> {
     align-items: center;
     justify-content: space-between;
     background-color: var(--c-blue-3);
+    border: 1px solid transparent;
 
     &__divider {
         height: 100%;
@@ -690,6 +697,9 @@ async function goToBuckets(): Promise<void> {
 
     &__title {
         margin: 0;
+        font-size: 2rem;
+        font-weight: 500;
+        line-height: 1.2;
 
         @media screen and (max-width: 768px) {
             margin-bottom: 0.5rem;
@@ -707,5 +717,30 @@ async function goToBuckets(): Promise<void> {
 .hr-divider {
     margin-bottom: 1.5em;
     border-bottom: 1px solid #dadfe7;
+}
+
+/* copied over from scoped-bootstrap.css */
+
+.file-browser .progress {
+    display: flex;
+    height: 1rem;
+    overflow: hidden;
+    line-height: 0;
+    font-size: 0.75rem;
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+}
+
+.file-browser .progress-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: visible !important; /* hack to override double import */
+    color: #fff;
+    text-shadow: 0 1px #000 !important; /* make #fff visible on gray background */
+    text-align: center;
+    white-space: nowrap;
+    background-color: #007bff;
+    transition: width 0.6s ease;
 }
 </style>

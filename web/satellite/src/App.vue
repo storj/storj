@@ -117,6 +117,11 @@ export default class App extends Vue {
 <style lang="scss">
     @import 'static/styles/variables';
 
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
     html {
         overflow: hidden;
         font-size: 14px;

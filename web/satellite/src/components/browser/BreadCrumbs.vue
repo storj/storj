@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="mb-3">
-        <div class="d-inline">
-            <a class="d-inline path-buckets" @click="bucketClick">Buckets</a>
+    <p class="breadcrumbs">
+        <span class="breadcrumbs__item">
+            <a class="breadcrumbs__item__text" @click="bucketClick">Buckets</a>
             <svg
-                class="mx-3"
+                class="breadcrumbs__item__chevron"
                 width="6"
                 height="11"
                 viewBox="0 0 6 11"
@@ -21,16 +21,14 @@
                     fill="black"
                 />
             </svg>
-        </div>
+        </span>
 
-        <div v-for="(path, idx) in crumbs" :key="idx" class="d-inline">
-            <span @click.prevent="redirectToCrumb(idx)">
-                <a class="path" href="javascript:null">{{ path }}</a>
-            </span>
+        <span v-for="(path, idx) in crumbs" :key="idx" class="breadcrumbs__item">
+            <a class="breadcrumbs__item__text path" @click.prevent="redirectToCrumb(idx)">{{ path }}</a>
 
             <svg
                 v-if="displayDivider(idx)"
-                class="mx-3"
+                class="breadcrumbs__item__chevron"
                 width="6"
                 height="11"
                 viewBox="0 0 6 11"
@@ -45,8 +43,8 @@
                     fill="black"
                 />
             </svg>
-        </div>
-    </div>
+        </span>
+    </p>
 </template>
 
 <script setup lang="ts">
@@ -111,26 +109,34 @@ function displayDivider(idx: number): boolean {
 }
 </script>
 
-<style scoped lang="css">
+<style scoped lang="scss">
 .path {
     font-family: 'font_bold', sans-serif;
-    font-size: 14px;
     color: #1b2533;
     font-weight: bold;
-    cursor: pointer;
 }
 
-.path:hover {
-    color: #376fff;
-}
+.breadcrumbs {
 
-.path-buckets {
-    font-size: 14px;
-    color: #232a34;
-    cursor: pointer;
-}
+    &__item {
+        display: inline-flex;
+        gap: 7px;
+        align-items: center;
 
-.path-buckets:hover {
-    color: #376fff;
+        &__text {
+            font-family: sans-serif;
+            font-size: 14px;
+            color: #232a34;
+            cursor: pointer;
+
+            &:hover {
+                color: #376fff;
+            }
+        }
+
+        &__chevron {
+            margin-right: 7px;
+        }
+    }
 }
 </style>
