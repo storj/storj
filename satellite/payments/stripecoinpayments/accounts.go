@@ -97,21 +97,14 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ payments.Balance, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	balance, err := accounts.service.billingDB.GetBalance(ctx, userID)
 	if err != nil {
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	c, err := accounts.service.stripeClient.Customers().Get(customerID, nil)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
-	accountBalance := payments.Balance{
-		Coins: -c.Balance,
-	}
-
-	return accountBalance, nil
+	return payments.Balance{
+		Coins: balance.AsDecimal(),
+	}, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.

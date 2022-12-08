@@ -280,6 +280,11 @@ func (dbc *satelliteDBCollection) Containment() audit.Containment {
 	return &containment{db: dbc.getByName("containment")}
 }
 
+// NewContainment is temporary and will replace Containment later in the commit chain.
+func (dbc *satelliteDBCollection) NewContainment() audit.NewContainment {
+	return &newContainment{reverifyQueue: dbc.ReverifyQueue()}
+}
+
 // GracefulExit returns database for graceful exit.
 func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
 	return &gracefulexitDB{db: dbc.getByName("gracefulexit")}

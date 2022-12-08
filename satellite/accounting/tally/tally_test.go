@@ -5,12 +5,14 @@ package tally_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -419,6 +421,53 @@ func TestTallyOnCopiedObject(t *testing.T) {
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalBytes, lastTally.TotalBytes)
 				require.Equal(t, tc.expectedTallyAfterDelete.TotalSegments, lastTally.TotalSegments)
 			})
+		}
+	})
+}
+
+func TestTallyBatchSize(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ProjectLimits.MaxBuckets = 100
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+
+		numberOfBuckets := 13
+		for i := 0; i < numberOfBuckets; i++ {
+			data := testrand.Bytes(1*memory.KiB + memory.Size(i))
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket"+strconv.Itoa(i), "test", data)
+			require.NoError(t, err)
+		}
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, numberOfBuckets)
+
+		for _, batchSize := range []int{1, 2, 3, numberOfBuckets, 14, planet.Satellites[0].Config.Tally.ListLimit} {
+			collector := tally.NewBucketTallyCollector(zaptest.NewLogger(t), time.Now(), planet.Satellites[0].Metabase.DB, planet.Satellites[0].DB.Buckets(), tally.Config{
+				Interval:           1 * time.Hour,
+				UseObjectsLoop:     false,
+				ListLimit:          batchSize,
+				AsOfSystemInterval: 1 * time.Microsecond,
+			})
+			err := collector.Run(ctx)
+			require.NoError(t, err)
+
+			require.Equal(t, numberOfBuckets, len(collector.Bucket))
+			for _, object := range objects {
+				bucket := collector.Bucket[metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: object.BucketName,
+				}]
+				require.Equal(t, object.TotalEncryptedSize, bucket.TotalBytes)
+				require.EqualValues(t, 1, bucket.ObjectCount)
+			}
 		}
 	})
 }

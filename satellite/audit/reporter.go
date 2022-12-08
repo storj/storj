@@ -18,9 +18,11 @@ import (
 //
 // architecture: Service
 type reporter struct {
-	log              *zap.Logger
-	reputations      *reputation.Service
-	containment      Containment
+	log         *zap.Logger
+	reputations *reputation.Service
+	containment Containment
+	// newContainment is temporary, and will replace containment
+	newContainment   NewContainment
 	maxRetries       int
 	maxReverifyCount int32
 }
@@ -45,11 +47,12 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
+func NewReporter(log *zap.Logger, reputations *reputation.Service, containment Containment, newContainment NewContainment, maxRetries int, maxReverifyCount int32) Reporter {
 	return &reporter{
 		log:              log,
 		reputations:      reputations,
 		containment:      containment,
+		newContainment:   newContainment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount,
 	}

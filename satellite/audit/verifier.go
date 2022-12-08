@@ -61,6 +61,7 @@ type Verifier struct {
 	dialer             rpc.Dialer
 	overlay            *overlay.Service
 	containment        Containment
+	newContainment     NewContainment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
 
@@ -69,7 +70,7 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier.
-func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, newContainment NewContainment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metabase:           metabase,
@@ -78,6 +79,7 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 		dialer:             dialer,
 		overlay:            overlay,
 		containment:        containment,
+		newContainment:     newContainment,
 		minBytesPerSecond:  minBytesPerSecond,
 		minDownloadTimeout: minDownloadTimeout,
 		nowFn:              time.Now,

@@ -11,7 +11,7 @@
                 <CrossIcon v-if="isOpened" @click="toggleNavigation" />
                 <MenuIcon v-else @click="toggleNavigation" />
             </header>
-            <div v-if="isOpened" class="navigation-area__container__wrap" :class="{ 'with-padding': !isAccountDropdownShown }">
+            <div v-if="isOpened" class="navigation-area__container__wrap" :class="{ 'with-padding': isAccountDropdownShown }">
                 <div class="navigation-area__container__wrap__edit">
                     <div
                         class="project-selection__selected"
@@ -584,11 +584,11 @@ export default class MobileNavigation extends Vue {
             overflow-y: auto;
             overflow-x: hidden;
             background: white;
-            height: calc(100vh - 4rem);
+            height: calc(var(--vh, 100vh) - 4rem);
 
             &.with-padding {
                 padding-bottom: 3rem;
-                height: calc(100vh - 7rem);
+                height: calc(var(--vh, 100vh) - 7rem);
             }
 
             &__small-logo {
