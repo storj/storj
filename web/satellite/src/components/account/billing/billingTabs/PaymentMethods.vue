@@ -283,6 +283,12 @@ export default class PaymentMethods extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+    public mounted(): void {
+        if (this.$route.params.action === 'token history') {
+            this.showTransactionsTable();
+        }
+    }
+
     private get wallet(): Wallet {
         return this.$store.state.paymentsModule.wallet;
     }

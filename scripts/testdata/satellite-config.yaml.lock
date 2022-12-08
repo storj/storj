@@ -398,7 +398,7 @@ contact.external-address: ""
 # email-reminders.chore-interval: 24h0m0s
 
 # enable sending emails reminding users to verify their email
-# email-reminders.enable: false
+# email-reminders.enable: true
 
 # amount of time before sending first reminder to users who need to verify their email
 # email-reminders.first-verification-reminder: 24h0m0s
