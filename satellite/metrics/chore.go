@@ -23,6 +23,7 @@ var (
 
 // Config contains configurable values for metrics collection.
 type Config struct {
+	UseRangedLoop bool `help:"whether to use ranged loop instead of segment loop" default:"false"`
 }
 
 // Chore implements the metrics chore.

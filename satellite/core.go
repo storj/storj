@@ -663,18 +663,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metrics service
-		peer.Metrics.Chore = metrics.NewChore(
-			peer.Log.Named("metrics"),
-			config.Metrics,
-			peer.Metainfo.SegmentLoop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metrics",
-			Run:   peer.Metrics.Chore.Run,
-			Close: peer.Metrics.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
+		log := peer.Log.Named("metrics")
+		if config.Metrics.UseRangedLoop {
+			log.Info("using ranged loop")
+		} else {
+			peer.Metrics.Chore = metrics.NewChore(
+				log,
+				config.Metrics,
+				peer.Metainfo.SegmentLoop,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "metrics",
+				Run:   peer.Metrics.Chore.Run,
+				Close: peer.Metrics.Chore.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
+		}
 	}
 
 	return peer, nil

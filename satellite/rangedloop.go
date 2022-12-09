@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
+	"storj.io/storj/satellite/metrics"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -37,6 +38,10 @@ type RangedLoop struct {
 	Debug struct {
 		Listener net.Listener
 		Server   *debug.Server
+	}
+
+	Metrics struct {
+		Observer rangedloop.Observer
 	}
 
 	RangedLoop struct {
@@ -74,10 +79,21 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 		})
 	}
 
+	{ // setup metrics observer
+		peer.Metrics.Observer = metrics.NewObserver()
+	}
+
 	{ // setup ranged loop
+		var observers []rangedloop.Observer
+
 		// TODO: replace with real segment provider
 		segments := &rangedlooptest.RangeSplitter{}
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, nil)
+
+		if config.Metrics.UseRangedLoop {
+			observers = append(observers, peer.Metrics.Observer)
+		}
+
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",
