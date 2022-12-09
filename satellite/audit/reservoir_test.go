@@ -4,10 +4,13 @@
 package audit
 
 import (
+	"encoding/binary"
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testrand"
@@ -30,7 +33,7 @@ func TestReservoir(t *testing.T) {
 	require.Equal(t, r.Segments[:], []segmentloop.Segment{*seg(1), *seg(2), *seg(3)})
 }
 
-func TestReservoirBias(t *testing.T) {
+func TestReservoirWeights(t *testing.T) {
 	var weight10StreamID = testrand.UUID()
 	var weight5StreamID = testrand.UUID()
 	var weight2StreamID = testrand.UUID()
@@ -92,3 +95,57 @@ func TestReservoirBias(t *testing.T) {
 	require.Greater(t, streamIDCountsMap[weight5StreamID], streamIDCountsMap[weight2StreamID])
 	require.Greater(t, streamIDCountsMap[weight2StreamID], streamIDCountsMap[weight1StreamID])
 }
+
+// Sample many segments, with equal weight, uniformly distributed, and in order,
+// through the reservoir. Expect that elements show up in the result set with
+// equal chance, whether they were inserted near the beginning of the list or
+// near the end.
+func TestReservoirBias(t *testing.T) {
+	const (
+		reservoirSize = 3
+		useBits       = 14
+		numSegments   = 1 << useBits
+		weight        = 100000 // any number; same for all segments
+		numRounds     = 1000
+	)
+
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	numsSelected := make([]uint64, numRounds*reservoirSize)
+
+	for r := 0; r < numRounds; r++ {
+		res := NewReservoir(reservoirSize)
+		for n := 0; n < numSegments; n++ {
+			seg := segmentloop.Segment{
+				EncryptedSize: weight,
+			}
+			binary.BigEndian.PutUint64(seg.StreamID[0:8], uint64(n)<<(64-useBits))
+			res.Sample(rng, &seg)
+		}
+		for i, seg := range res.Segments {
+			num := binary.BigEndian.Uint64(seg.StreamID[0:8]) >> (64 - useBits)
+			numsSelected[r*reservoirSize+i] = num
+		}
+	}
+
+	sort.Sort(uint64Slice(numsSelected))
+
+	// this delta is probably way too generous. but, the A-Chao
+	// implementation failed the test with this value, so maybe it's fine.
+	delta := float64(numSegments / 8)
+	quartile0 := numsSelected[len(numsSelected)*0/4]
+	assert.InDelta(t, numSegments*0/4, quartile0, delta)
+	quartile1 := numsSelected[len(numsSelected)*1/4]
+	assert.InDelta(t, numSegments*1/4, quartile1, delta)
+	quartile2 := numsSelected[len(numsSelected)*2/4]
+	assert.InDelta(t, numSegments*2/4, quartile2, delta)
+	quartile3 := numsSelected[len(numsSelected)*3/4]
+	assert.InDelta(t, numSegments*3/4, quartile3, delta)
+	quartile4 := numsSelected[len(numsSelected)-1]
+	assert.InDelta(t, numSegments*4/4, quartile4, delta)
+}
+
+type uint64Slice []uint64
+
+func (us uint64Slice) Len() int           { return len(us) }
+func (us uint64Slice) Swap(i, j int)      { us[i], us[j] = us[j], us[i] }
+func (us uint64Slice) Less(i, j int) bool { return us[i] < us[j] }
