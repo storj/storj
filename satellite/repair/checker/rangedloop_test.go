@@ -460,12 +460,12 @@ func TestRepairObserver(t *testing.T) {
 
 		// add pointer that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
-		_ = insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
+		injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 
 		// add pointer that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
 		expiresAt := time.Now().Add(-time.Hour)
-		injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
+		_ = insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
