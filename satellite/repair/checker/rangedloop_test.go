@@ -518,6 +518,8 @@ func TestRangedLoopObserver(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Repairer.UseRangedLoop = true
+				config.RangedLoop.Parallelism = 5
+				config.RangedLoop.BatchSize = 5
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
