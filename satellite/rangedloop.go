@@ -18,9 +18,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/metrics"
 )
 
@@ -41,6 +41,10 @@ type RangedLoop struct {
 	}
 
 	Metrics struct {
+		Observer rangedloop.Observer
+	}
+
+	GracefulExit struct {
 		Observer rangedloop.Observer
 	}
 
@@ -83,17 +87,28 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 		peer.Metrics.Observer = metrics.NewObserver()
 	}
 
+	{ // setup gracefulexit
+		peer.GracefulExit.Observer = gracefulexit.NewObserver(
+			peer.Log.Named("gracefulexit:observer"),
+			peer.DB.GracefulExit(),
+			peer.DB.OverlayCache(),
+			config.GracefulExit,
+		)
+	}
+
 	{ // setup ranged loop
 		var observers []rangedloop.Observer
-
-		// TODO: replace with real segment provider
-		segments := &rangedlooptest.RangeSplitter{}
 
 		if config.Metrics.UseRangedLoop {
 			observers = append(observers, peer.Metrics.Observer)
 		}
 
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
+		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
+			observers = append(observers, peer.GracefulExit.Observer)
+		}
+
+		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.BatchSize)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/uplink/private/eestream"
 )
@@ -17,6 +18,7 @@ import (
 var remoteSegmentFunc = mon.Task()
 
 var _ segmentloop.Observer = (*PathCollector)(nil)
+var _ rangedloop.Partial = (*PathCollector)(nil)
 
 // PathCollector uses the metainfo loop to add paths to node reservoirs.
 //
@@ -62,11 +64,13 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	defer remoteSegmentFunc(&ctx)(&err)
-
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
+	return collector.handleRemoteSegment(ctx, segment)
+}
 
+func (collector *PathCollector) handleRemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	pieceSize := int64(-1)
 
 	numPieces := len(segment.Pieces)
@@ -112,6 +116,27 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segm
 
 // InlineSegment returns nil because we're only auditing for storage nodes for now.
 func (collector *PathCollector) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
+	return nil
+}
+
+// Process adds transfer queue items for remote segments belonging to newly
+// exiting nodes.
+func (collector *PathCollector) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+	// Intentionally emitting mon.Task here. The duration for all process
+	// calls are aggregated and and emitted by the ranged loop service.
+
+	if len(collector.nodeIDStorage) == 0 {
+		return nil
+	}
+
+	for _, segment := range segments {
+		if segment.Inline() {
+			continue
+		}
+		if err := collector.handleRemoteSegment(ctx, &segment); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
