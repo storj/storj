@@ -1,6 +1,6 @@
 module storj.io/storj
 
-go 1.17
+go 1.18
 
 require (
 	github.com/alessio/shellescape v1.2.2

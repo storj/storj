@@ -125,6 +125,22 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getSessionID gets the session ID from the request.
+func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	return sessionID, nil
+}
+
 // Logout removes auth cookie.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -132,19 +148,13 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	tokenInfo, err := a.cookieAuth.GetToken(r)
+	sessionID, err := a.getSessionID(r)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
-	if err != nil {
-		a.serveJSONError(w, err)
-		return
-	}
-
-	err = a.service.DeleteSession(ctx, id)
+	err = a.service.DeleteSession(ctx, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -686,6 +696,24 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
 }
 
 // DisableUserMFA disables multi-factor authentication for the user.
@@ -705,6 +733,24 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return

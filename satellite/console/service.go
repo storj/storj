@@ -2931,6 +2931,27 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
 }
 
+// DeleteAllSessionsByUserIDExcept removes all sessions except the specified session from the database.
+func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sessions, err := s.store.WebappSessions().GetAllByUserID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, session := range sessions {
+		if session.ID != sessionID {
+			err = s.DeleteSession(ctx, session.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // RefreshSession resets the expiration time of the session.
 func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
