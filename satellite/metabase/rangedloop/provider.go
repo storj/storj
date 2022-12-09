@@ -9,7 +9,8 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
-// RangeSplitter gives a way to get non-overlapping ranges of segments concurrently.
+// RangeSplitter splits a source of segments into ranges,
+// so that multiple segments can be processed concurrently.
 // It usually abstracts over a database.
 // It is a subcomponent of the ranged segment loop.
 type RangeSplitter interface {
