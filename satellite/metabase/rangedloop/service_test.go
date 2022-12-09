@@ -47,7 +47,7 @@ func RunTest(t *testing.T, parallelism int, nSegments int, nObservers int) {
 			Parallelism:        parallelism,
 			AsOfSystemInterval: 0,
 		},
-		&rangedlooptest.RangeSplitterMock{
+		&rangedlooptest.RangeSplitter{
 			Segments: make([]segmentloop.Segment, nSegments),
 		},
 		observers,

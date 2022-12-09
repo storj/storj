@@ -76,7 +76,7 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 
 	{ // setup ranged loop
 		// TODO: replace with real segment provider
-		segments := &rangedlooptest.RangeSplitterMock{}
+		segments := &rangedlooptest.RangeSplitter{}
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, nil)
 
 		peer.Services.Add(lifecycle.Item{
