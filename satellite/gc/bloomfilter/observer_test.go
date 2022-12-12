@@ -23,10 +23,11 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/uplink"
 )
 
-func TestServiceGarbageCollectionBloomFilters(t *testing.T) {
+func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 7,
@@ -34,7 +35,6 @@ func TestServiceGarbageCollectionBloomFilters(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.SegmentLoop.AsOfSystemInterval = 1
-
 				testplanet.ReconfigureRS(2, 2, 7, 7)(log, index, config)
 			},
 		},
@@ -64,14 +64,27 @@ func TestServiceGarbageCollectionBloomFilters(t *testing.T) {
 		}
 
 		for _, tc := range testCases {
+			// TODO: this is a little chicken-and-eggy... the GCBF config is
+			// provided to the rangedloop service above, but we don't have the
+			// access grant available until after testplanet has configured
+			// everything. For now, just test the bloomfilter observer
+			// directly, as is already done for the service. Maybe we can
+			// improve this later.
 			config := planet.Satellites[0].Config.GarbageCollectionBF
 			config.Enabled = true
+			config.UseRangedLoop = true
 			config.AccessGrant = accessString
 			config.Bucket = tc.Bucket
 			config.ZipBatchSize = tc.ZipBatchSize
-			service := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
+			observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
 
-			err = service.RunOnce(ctx)
+			// TODO: see comment above. ideally this should use the rangedloop
+			// service instantiated for the testplanet.
+			segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.RangedLoop.BatchSize)
+			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, &segments,
+				[]rangedloop.Observer{observer})
+
+			_, err = rangedLoop.RunOnce(ctx)
 			require.NoError(t, err)
 
 			download, err := project.DownloadObject(ctx, tc.Bucket, bloomfilter.LATEST, nil)
@@ -143,7 +156,7 @@ func TestServiceGarbageCollectionBloomFilters(t *testing.T) {
 	})
 }
 
-func TestServiceGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) {
+func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -151,7 +164,6 @@ func TestServiceGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) 
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfo.SegmentLoop.AsOfSystemInterval = 1
-
 				testplanet.ReconfigureRS(2, 2, 4, 4)(log, index, config)
 			},
 		},
@@ -170,12 +182,26 @@ func TestServiceGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) 
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bloomfilters", "some object", testrand.Bytes(1*memory.KiB))
 		require.NoError(t, err)
 
+		// TODO: this is a little chicken-and-eggy... the GCBF config is
+		// provided to the rangedloop service above, but we don't have the
+		// access grant available until after testplanet has configured
+		// everything. For now, just test the bloomfilter observer
+		// directly, as is already done for the service. Maybe we can
+		// improve this later.
 		config := planet.Satellites[0].Config.GarbageCollectionBF
+		config.Enabled = true
 		config.AccessGrant = accessString
 		config.Bucket = "bloomfilters"
-		service := bloomfilter.NewService(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB, planet.Satellites[0].Metabase.SegmentLoop)
+		config.UseRangedLoop = true
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
 
-		err = service.RunOnce(ctx)
+		// TODO: see comment above. ideally this should use the rangedloop
+		// service instantiated for the testplanet.
+		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.RangedLoop.BatchSize)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, &segments,
+			[]rangedloop.Observer{observer})
+
+		_, err = rangedLoop.RunOnce(ctx)
 		require.NoError(t, err)
 
 		// check that there are 2 objects and the names match

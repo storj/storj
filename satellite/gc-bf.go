@@ -128,21 +128,26 @@ func NewGarbageCollectionBF(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup garbage collection bloom filters
+		log := peer.Log.Named("garbage-collection-bf")
 		peer.GarbageCollection.Config = config.GarbageCollectionBF
-		peer.GarbageCollection.Service = bloomfilter.NewService(
-			peer.Log.Named("garbage-collection-bf"),
-			config.GarbageCollectionBF,
-			peer.Overlay.DB,
-			peer.Metainfo.SegmentLoop,
-		)
+		if config.GarbageCollectionBF.UseRangedLoop {
+			log.Info("using ranged loop")
+		} else {
+			peer.GarbageCollection.Service = bloomfilter.NewService(
+				log,
+				config.GarbageCollectionBF,
+				peer.Overlay.DB,
+				peer.Metainfo.SegmentLoop,
+			)
 
-		if !config.GarbageCollectionBF.RunOnce {
-			peer.Services.Add(lifecycle.Item{
-				Name: "garbage-collection-bf",
-				Run:  peer.GarbageCollection.Service.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
+			if !config.GarbageCollectionBF.RunOnce {
+				peer.Services.Add(lifecycle.Item{
+					Name: "garbage-collection-bf",
+					Run:  peer.GarbageCollection.Service.Run,
+				})
+				peer.Debug.Server.Panel.Add(
+					debug.Cycle("Garbage Collection Bloom Filters", peer.GarbageCollection.Service.Loop))
+			}
 		}
 	}
 
