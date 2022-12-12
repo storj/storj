@@ -153,7 +153,7 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 			status       = `+committedStatus+` AND
 			(expires_at IS NULL OR expires_at > now())
 		ORDER BY version desc
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
 		objectFound := false
 		for rows.Next() {
 			var scannedObject Object
@@ -170,9 +170,9 @@ func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastComm
 
 			if objectFound {
 				db.log.Warn("object with multiple committed versions were found!",
-					zap.Stringer("Project ID", scannedObject.ProjectID), zap.String("Bucket Name", scannedObject.BucketName),
-					zap.String("Object Key", string(scannedObject.ObjectKey)), zap.Int("Version", int(scannedObject.Version)),
-					zap.Stringer("Stream ID", scannedObject.StreamID))
+					zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+					zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("Version", int(scannedObject.Version)),
+					zap.Stringer("Stream ID", scannedObject.StreamID), zap.Stack("stacktrace"))
 				mon.Meter("multiple_committed_versions").Mark(1)
 				continue
 			}
