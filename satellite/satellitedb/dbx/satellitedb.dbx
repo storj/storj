@@ -1,5 +1,15 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//-- Account Freeze Events --//
+model account_freeze_event (
+	key user_id event
+
+	field user_id blob
+	field event int // enum indicating the type of event
+	field limits json ( nullable )
+	field created_at timestamp ( default current_timestamp )
+)
+
 //-- Node Events --//
 model node_event (
 	key id

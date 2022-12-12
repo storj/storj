@@ -320,7 +320,14 @@ func newpgx(db *DB) *pgxDB {
 }
 
 func (obj *pgxDB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
+	return `CREATE TABLE account_freeze_events (
+	user_id bytea NOT NULL,
+	event integer NOT NULL,
+	limits jsonb,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( user_id, event )
+);
+CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -1037,7 +1044,14 @@ func newpgxcockroach(db *DB) *pgxcockroachDB {
 }
 
 func (obj *pgxcockroachDB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
+	return `CREATE TABLE account_freeze_events (
+	user_id bytea NOT NULL,
+	event integer NOT NULL,
+	limits jsonb,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( user_id, event )
+);
+CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -1717,6 +1731,112 @@ nextval:
 	}
 	fmt.Fprint(f, "]")
 }
+
+type AccountFreezeEvent struct {
+	UserId    []byte
+	Event     int
+	Limits    []byte
+	CreatedAt time.Time
+}
+
+func (AccountFreezeEvent) _Table() string { return "account_freeze_events" }
+
+type AccountFreezeEvent_Create_Fields struct {
+	Limits    AccountFreezeEvent_Limits_Field
+	CreatedAt AccountFreezeEvent_CreatedAt_Field
+}
+
+type AccountFreezeEvent_Update_Fields struct {
+}
+
+type AccountFreezeEvent_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AccountFreezeEvent_UserId(v []byte) AccountFreezeEvent_UserId_Field {
+	return AccountFreezeEvent_UserId_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_UserId_Field) _Column() string { return "user_id" }
+
+type AccountFreezeEvent_Event_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func AccountFreezeEvent_Event(v int) AccountFreezeEvent_Event_Field {
+	return AccountFreezeEvent_Event_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_Event_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_Event_Field) _Column() string { return "event" }
+
+type AccountFreezeEvent_Limits_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AccountFreezeEvent_Limits(v []byte) AccountFreezeEvent_Limits_Field {
+	return AccountFreezeEvent_Limits_Field{_set: true, _value: v}
+}
+
+func AccountFreezeEvent_Limits_Raw(v []byte) AccountFreezeEvent_Limits_Field {
+	if v == nil {
+		return AccountFreezeEvent_Limits_Null()
+	}
+	return AccountFreezeEvent_Limits(v)
+}
+
+func AccountFreezeEvent_Limits_Null() AccountFreezeEvent_Limits_Field {
+	return AccountFreezeEvent_Limits_Field{_set: true, _null: true}
+}
+
+func (f AccountFreezeEvent_Limits_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f AccountFreezeEvent_Limits_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_Limits_Field) _Column() string { return "limits" }
+
+type AccountFreezeEvent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func AccountFreezeEvent_CreatedAt(v time.Time) AccountFreezeEvent_CreatedAt_Field {
+	return AccountFreezeEvent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup struct {
 	NodeId          []byte
@@ -20554,6 +20674,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM account_freeze_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 
 	return count, nil
 
@@ -28395,6 +28525,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM account_freeze_events;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
