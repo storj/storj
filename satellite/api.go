@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -105,6 +106,10 @@ type API struct {
 		Metabase      *metabase.DB
 		PieceDeletion *piecedeletion.Service
 		Endpoint      *metainfo.Endpoint
+	}
+
+	Userinfo struct {
+		Endpoint *userinfo.Endpoint
 	}
 
 	Inspector struct {

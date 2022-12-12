@@ -39,6 +39,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/sender"
@@ -111,6 +112,10 @@ type Satellite struct {
 		Endpoint *metainfo.Endpoint
 		// TODO remove when uplink will be adjusted to use Metabase.SegmentLoop
 		SegmentLoop *segmentloop.Service
+	}
+
+	Userinfo struct {
+		Endpoint *userinfo.Endpoint
 	}
 
 	Metabase struct {
@@ -615,6 +620,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	// system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Endpoint = api.Metainfo.Endpoint
 	// system.Metainfo.SegmentLoop = peer.Metainfo.SegmentLoop
+
+	system.Userinfo.Endpoint = api.Userinfo.Endpoint
 
 	system.Metabase.DB = api.Metainfo.Metabase
 	system.Metabase.SegmentLoop = peer.Metainfo.SegmentLoop
