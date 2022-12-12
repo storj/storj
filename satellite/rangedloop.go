@@ -132,7 +132,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			db.StoragenodeAccounting())
 	}
 
-	{ // setup mailservice
+	{ // setup mail service
 		peer.Mail.Service, err = setupMailService(peer.Log, *config)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -196,7 +196,6 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
-		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.BatchSize)
 
 		if config.Repairer.UseRangedLoop {
 			observers = append(observers, peer.Repair.Observer)
