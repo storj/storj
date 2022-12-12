@@ -1089,8 +1089,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		assert.Len(t, report.Unknown, 0)
 		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		assert.NoError(t, err)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		_, err = containment.Get(ctx, slowNode)
 		assert.NoError(t, err)
@@ -1275,8 +1274,7 @@ func TestMaxReverifyCount(t *testing.T) {
 			assert.Len(t, report.Unknown, 0)
 			assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
-			_, err = audits.Reporter.RecordAudits(ctx, report)
-			assert.NoError(t, err)
+			audits.Reporter.RecordAudits(ctx, report)
 
 			_, err = containment.Get(ctx, slowNode)
 			assert.NoError(t, err)
@@ -1292,8 +1290,7 @@ func TestMaxReverifyCount(t *testing.T) {
 		assert.Len(t, report.Unknown, 0)
 		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode)
 
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		assert.NoError(t, err)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		_, err = containment.Get(ctx, slowNode)
 		assert.True(t, audit.ErrContainedNotFound.Has(err))

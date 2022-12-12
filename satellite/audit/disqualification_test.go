@@ -56,10 +56,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 		require.Nil(t, dossier.Disqualified)
 
-		_, err = satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
+		satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
 			Successes: storj.NodeIDList{nodeID},
 		})
-		require.NoError(t, err)
 
 		reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -70,8 +69,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
-			require.NoError(t, err)
+			satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 
 			reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 			require.NoError(t, err)

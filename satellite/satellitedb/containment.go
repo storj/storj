@@ -23,9 +23,13 @@ type containment struct {
 	db *satelliteDB
 }
 
+var _ audit.Containment = &containment{}
+
 type newContainment struct {
 	reverifyQueue audit.ReverifyQueue
 }
+
+var _ audit.NewContainment = &newContainment{}
 
 // Get gets the pending audit by node id.
 func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit.PendingAudit, err error) {

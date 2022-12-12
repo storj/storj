@@ -38,24 +38,26 @@ type Config struct {
 
 // Worker contains information for populating audit queue and processing audits.
 type Worker struct {
-	log         *zap.Logger
-	queue       VerifyQueue
-	verifier    *Verifier
-	reporter    Reporter
-	Loop        *sync2.Cycle
-	concurrency int
+	log           *zap.Logger
+	queue         VerifyQueue
+	verifier      *Verifier
+	reverifyQueue ReverifyQueue
+	reporter      Reporter
+	Loop          *sync2.Cycle
+	concurrency   int
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, queue VerifyQueue, verifier *Verifier, reporter Reporter, config Config) *Worker {
+func NewWorker(log *zap.Logger, queue VerifyQueue, verifier *Verifier, reverifyQueue ReverifyQueue, reporter Reporter, config Config) *Worker {
 	return &Worker{
 		log: log,
 
-		queue:       queue,
-		verifier:    verifier,
-		reporter:    reporter,
-		Loop:        sync2.NewCycle(config.QueueInterval),
-		concurrency: config.WorkerConcurrency,
+		queue:         queue,
+		verifier:      verifier,
+		reverifyQueue: reverifyQueue,
+		reporter:      reporter,
+		Loop:          sync2.NewCycle(config.QueueInterval),
+		concurrency:   config.WorkerConcurrency,
 	}
 }
 
@@ -121,11 +123,7 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		errlist.Add(err)
 	}
 
-	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
-	if err != nil {
-		errlist.Add(err)
-	}
+	worker.reporter.RecordAudits(ctx, report)
 
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
@@ -161,11 +159,7 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		errlist.Add(err)
 	}
 
-	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report)
-	if err != nil {
-		errlist.Add(err)
-	}
+	worker.reporter.RecordAudits(ctx, report)
 
 	return errlist.Err()
 }

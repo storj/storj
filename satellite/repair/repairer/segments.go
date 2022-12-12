@@ -453,11 +453,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		report.Unknown = append(report.Unknown, outcome.Piece.StorageNode)
 	}
 	if repairer.reputationUpdateEnabled {
-		_, reportErr := repairer.reporter.RecordAudits(ctx, report)
-		if reportErr != nil {
-			// failed updates should not affect repair, therefore we will not return the error
-			repairer.log.Debug("failed to record audit", zap.Error(reportErr))
-		}
+		repairer.reporter.RecordAudits(ctx, report)
 	}
 
 	// Upload the repaired pieces
