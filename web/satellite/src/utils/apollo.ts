@@ -1,14 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { InMemoryCache } from 'apollo-cache-inmemory';
-import ApolloClient from 'apollo-client/ApolloClient';
-import { ApolloLink } from 'apollo-link';
-import { setContext } from 'apollo-link-context';
-import { onError } from 'apollo-link-error';
-import { HttpLink } from 'apollo-link-http';
-import { ServerError } from 'apollo-link-http-common';
 import Vue from 'vue';
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, ServerError } from '@apollo/client/core';
+import { setContext } from '@apollo/client/link/context';
+import { onError } from '@apollo/client/link/error';
 
 import { AuthHttpApi } from '@/api/auth';
 

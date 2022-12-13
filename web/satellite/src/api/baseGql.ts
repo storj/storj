@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { gql } from 'graphql-tag';
 import { GraphQLError } from 'graphql';
+import { gql } from '@apollo/client/core';
 
 import { apollo } from '@/utils/apollo';
 
