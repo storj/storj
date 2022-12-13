@@ -38,7 +38,7 @@
                     v-for="(project, key) in projectsPage.projects"
                     :key="key"
                     :item-data="project"
-                    :on-click="onProjectSelected"
+                    :on-click="() => onProjectSelected(project)"
                 />
             </template>
         </v-table>
@@ -137,9 +137,9 @@ export default class Projects extends Vue {
      */
     public async onProjectSelected(project: Project): Promise<void> {
         if (this.isLoading) return;
-
+        
         this.isLoading = true;
-
+        
         const projectID = project.id;
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
