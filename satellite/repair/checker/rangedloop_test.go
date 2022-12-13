@@ -523,10 +523,6 @@ func TestRangedLoopObserver(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		repairChecker := planet.Satellites[0].Repair.Checker
-		repairChecker.Loop.Pause()
-
-		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
 			RepairShares:   3,
