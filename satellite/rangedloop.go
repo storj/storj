@@ -23,9 +23,9 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/metrics"
 )
 
 // RangedLoop is the satellite ranged loop process.
