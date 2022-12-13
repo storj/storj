@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/storj/satellite/metabase"
@@ -20,7 +19,7 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-func verifySegmentsDuplicates(cmd *cobra.Command, args []string) error {
+func verifySegmentsNodeCheck(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
@@ -58,7 +57,7 @@ func verifySegmentsDuplicates(cmd *cobra.Command, args []string) error {
 		return Error.Wrap(versionErr)
 	}
 
-	service, err := NewDuplicatesService(log, metabaseDB, db.OverlayCache(), duplicatesCfg)
+	service, err := NewNodeCheckService(log, metabaseDB, db.OverlayCache(), nodeCheckCfg)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -67,34 +66,36 @@ func verifySegmentsDuplicates(cmd *cobra.Command, args []string) error {
 	return service.ProcessAll(ctx)
 }
 
-// DuplicatesConfig defines configuration for verifying segment existence.
-type DuplicatesConfig struct {
-	BatchSize int `help:"number of segments to process per batch" default:"10000"`
-	Limit     int `help:"maximum duplicates allowed" default:"3"`
+// NodeCheckConfig defines configuration for verifying segment existence.
+type NodeCheckConfig struct {
+	BatchSize       int  `help:"number of segments to process per batch" default:"10000"`
+	DuplicatesLimit int  `help:"maximum duplicates allowed" default:"3"`
+	UnvettedLimit   int  `help:"maximum unvetted allowed" default:"9"`
+	IncludeAllNodes bool `help:"include disqualified and exited nodes in the node check" default:"false"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
-// DuplicatesOverlayDB contains dependencies from overlay that are needed for the processing.
-type DuplicatesOverlayDB interface {
+// NodeCheckOverlayDB contains dependencies from overlay that are needed for the processing.
+type NodeCheckOverlayDB interface {
 	IterateAllContactedNodes(context.Context, func(context.Context, *overlay.SelectedNode) error) error
+	IterateAllNodeDossiers(context.Context, func(context.Context, *overlay.NodeDossier) error) error
 }
 
-// DuplicatesService implements a service for checking duplicate nets being used in a segment.
-type DuplicatesService struct {
+// NodeCheckService implements a service for checking duplicate nets being used in a segment.
+type NodeCheckService struct {
 	log    *zap.Logger
-	config DuplicatesConfig
+	config NodeCheckConfig
 
 	metabase Metabase
-	overlay  DuplicatesOverlayDB
+	overlay  NodeCheckOverlayDB
 
 	// lookup tables for nodes
 	aliasMap *metabase.NodeAliasMap
-	nodeByID map[storj.NodeID]*overlay.SelectedNode
 
 	// alias table for lastNet lookups
-	netAlias     map[string]netAlias
-	netAliasName map[netAlias]string
+	netAlias           map[string]netAlias
+	nodeInfoByNetAlias map[metabase.NodeAlias]nodeInfo
 
 	// table for converting a node alias to a net alias
 	nodeAliasToNetAlias []netAlias
@@ -105,9 +106,15 @@ type DuplicatesService struct {
 // netAlias represents a unique ID for a given subnet.
 type netAlias int
 
-// NewDuplicatesService returns a new service for verifying segments.
-func NewDuplicatesService(log *zap.Logger, metabaseDB Metabase, overlay DuplicatesOverlayDB, config DuplicatesConfig) (*DuplicatesService, error) {
-	return &DuplicatesService{
+type nodeInfo struct {
+	vetted       bool
+	disqualified bool
+	exited       bool
+}
+
+// NewNodeCheckService returns a new service for verifying segments.
+func NewNodeCheckService(log *zap.Logger, metabaseDB Metabase, overlay NodeCheckOverlayDB, config NodeCheckConfig) (*NodeCheckService, error) {
+	return &NodeCheckService{
 		log:    log,
 		config: config,
 
@@ -117,43 +124,42 @@ func NewDuplicatesService(log *zap.Logger, metabaseDB Metabase, overlay Duplicat
 }
 
 // Close closes the service.
-func (service *DuplicatesService) Close() (err error) {
+func (service *NodeCheckService) Close() (err error) {
 	return nil
 }
 
 // init sets up tables for quick verification.
-func (service *DuplicatesService) init(ctx context.Context) (err error) {
+func (service *NodeCheckService) init(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.aliasMap, err = service.metabase.LatestNodesAliasMap(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	service.nodeByID = make(map[storj.NodeID]*overlay.SelectedNode)
-
 	service.netAlias = make(map[string]netAlias)
-	service.netAliasName = make(map[netAlias]string)
+	service.nodeInfoByNetAlias = make(map[metabase.NodeAlias]nodeInfo)
 	service.nodeAliasToNetAlias = make([]netAlias, service.aliasMap.Max()+1)
 
-	err = service.overlay.IterateAllContactedNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
-		nodeAlias, ok := service.aliasMap.Alias(node.ID)
+	err = service.overlay.IterateAllNodeDossiers(ctx, func(ctx context.Context, node *overlay.NodeDossier) error {
+		nodeAlias, ok := service.aliasMap.Alias(node.Id)
 		if !ok {
 			// some nodes aren't in the metabase
 			return nil
 		}
 
-		// create a lookup table for nodes
-		service.nodeByID[node.ID] = node
-
 		// assign unique ID-s for all nets
 		net := node.LastNet
 		alias, ok := service.netAlias[net]
 		if !ok {
-			alias = netAlias(len(service.netAliasName))
+			alias = netAlias(len(service.netAlias))
 			service.netAlias[net] = alias
-			service.netAliasName[alias] = net
 		}
-
+		nodeInfo := nodeInfo{
+			vetted:       node.Reputation.Status.VettedAt != nil,
+			disqualified: node.Reputation.Status.Disqualified != nil,
+			exited:       node.ExitStatus.ExitFinishedAt != nil,
+		}
+		service.nodeInfoByNetAlias[nodeAlias] = nodeInfo
 		service.nodeAliasToNetAlias[nodeAlias] = alias
 		return nil
 	})
@@ -167,7 +173,7 @@ func (service *DuplicatesService) init(ctx context.Context) (err error) {
 }
 
 // ProcessAll processes all segments with the specified batchSize.
-func (service *DuplicatesService) ProcessAll(ctx context.Context) (err error) {
+func (service *NodeCheckService) ProcessAll(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := service.init(ctx); err != nil {
@@ -220,24 +226,35 @@ func (service *DuplicatesService) ProcessAll(ctx context.Context) (err error) {
 }
 
 // Verify verifies a single segment.
-func (service *DuplicatesService) Verify(ctx context.Context, segment metabase.VerifySegment) (err error) {
+func (service *NodeCheckService) Verify(ctx context.Context, segment metabase.VerifySegment) (err error) {
 	// intentionally no monitoring for performance
 	scratch := service.scratch
 	scratch.Clear()
 
 	count := 0
+	unvetted := 0
 	for _, alias := range segment.AliasPieces {
 		if alias.Alias >= metabase.NodeAlias(len(service.nodeAliasToNetAlias)) {
 			continue
 		}
+
+		nodeInfo := service.nodeInfoByNetAlias[alias.Alias]
+		if !service.config.IncludeAllNodes &&
+			(nodeInfo.disqualified || nodeInfo.exited) {
+			continue
+		}
+
+		if !nodeInfo.vetted {
+			unvetted++
+		}
+
 		netAlias := service.nodeAliasToNetAlias[alias.Alias]
 		if scratch.Include(int(netAlias)) {
 			count++
 		}
 	}
-
-	if count > service.config.Limit {
-		fmt.Printf("%s\t%d\t%d\n", segment.StreamID, segment.Position.Encode(), count)
+	if count > service.config.DuplicatesLimit || unvetted > service.config.UnvettedLimit {
+		fmt.Printf("%s\t%d\t%d\t%d\t%v\t%v\n", segment.StreamID, segment.Position.Encode(), count, unvetted, segment.CreatedAt, segment.RepairedAt)
 	}
 
 	return nil
