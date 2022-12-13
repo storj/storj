@@ -99,8 +99,10 @@ type DB interface {
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
 
-	// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
+	// GetNodesNetwork returns the last_net subnet for each storage node, order is not guaranteed.
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
+	// GetNodesNetworkInOrder returns the last_net subnet for each storage node in order of the requested nodeIDs.
+	GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
@@ -422,6 +424,13 @@ func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
+}
+
+// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
+// requested node is not in the database, an empty string will be returned corresponding
+// to that node's last_net.
+func (service *Service) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (lastNets []string, err error) {
+	return service.db.GetNodesNetworkInOrder(ctx, nodeIDs)
 }
 
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.

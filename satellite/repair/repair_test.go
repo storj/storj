@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/storagenode"
@@ -1822,6 +1823,7 @@ func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplan
 			Address: local.Address,
 		},
 		LastIPPort: local.Address,
+		LastNet:    local.Address,
 		IsUp:       isUp,
 		Operator:   &local.Operator,
 		Capacity:   &local.Capacity,
@@ -3204,4 +3206,85 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 
 func reputationRatio(info reputation.Info) float64 {
 	return info.AuditReputationAlpha / (info.AuditReputationAlpha + info.AuditReputationBeta)
+}
+
+func TestRepairClumpedPieces(t *testing.T) {
+	// Test that if nodes change IPs such that multiple pieces of a segment
+	// reside in the same network, that segment will be considered unhealthy
+	// by the repair checker and it will be repaired by the repair worker.
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		uplinkPeer := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Worker.Loop.Pause()
+
+		satellite.Repair.Checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		var testData = testrand.Bytes(8 * memory.KiB)
+		// first, upload some remote data
+		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		remotePiecesBefore := segment.Pieces
+
+		// that segment should be ignored by repair checker for now
+		satellite.Repair.Checker.Loop.TriggerWait()
+		injuredSegment, err := satellite.DB.RepairQueue().Select(ctx)
+		require.Error(t, err)
+		if !queue.ErrEmpty.Has(err) {
+			require.FailNow(t, "Should get ErrEmptyQueue, but got", err)
+		}
+		require.Nil(t, injuredSegment)
+
+		// pieces list has not changed
+		segment, _ = getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		remotePiecesAfter := segment.Pieces
+		require.Equal(t, remotePiecesBefore, remotePiecesAfter)
+
+		// now move the network of one storage node holding a piece, so that it's the same as another
+		node0 := planet.FindNode(remotePiecesAfter[0].StorageNode)
+		node1 := planet.FindNode(remotePiecesAfter[1].StorageNode)
+
+		local := node0.Contact.Service.Local()
+		checkInInfo := overlay.NodeCheckInInfo{
+			NodeID:     node0.ID(),
+			Address:    &pb.NodeAddress{Address: local.Address},
+			LastIPPort: local.Address,
+			LastNet:    node1.Contact.Service.Local().Address,
+			IsUp:       true,
+			Operator:   &local.Operator,
+			Capacity:   &local.Capacity,
+			Version:    &local.Version,
+		}
+		err = satellite.DB.OverlayCache().UpdateCheckIn(ctx, checkInInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
+		require.NoError(t, err)
+
+		// running repair checker again should put the segment into the repair queue
+		satellite.Repair.Checker.Loop.TriggerWait()
+		// and subsequently running the repair worker should pull that off the queue and repair it
+		satellite.Repair.Repairer.Loop.TriggerWait()
+		satellite.Repair.Repairer.WaitForPendingRepairs()
+
+		// confirm that the segment now has exactly one piece on (node0 or node1)
+		// and still has the right number of pieces.
+		segment, _ = getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		require.Len(t, segment.Pieces, 4)
+		foundOnFirstNetwork := 0
+		for _, piece := range segment.Pieces {
+			if piece.StorageNode.Compare(node0.ID()) == 0 || piece.StorageNode.Compare(node1.ID()) == 0 {
+				foundOnFirstNetwork++
+			}
+		}
+		require.Equalf(t, 1, foundOnFirstNetwork,
+			"%v should only include one of %s or %s", segment.Pieces, node0.ID(), node1.ID())
+	})
 }
