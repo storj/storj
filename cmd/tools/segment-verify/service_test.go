@@ -33,9 +33,10 @@ func TestService_EmptyRange(t *testing.T) {
 	log := testplanet.NewLogger(t)
 
 	config := segmentverify.ServiceConfig{
-		NotFoundPath: ctx.File("not-found.csv"),
-		RetryPath:    ctx.File("retry.csv"),
-		MaxOffline:   2,
+		NotFoundPath:      ctx.File("not-found.csv"),
+		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
+		MaxOffline:        2,
 	}
 
 	metabase := newMetabaseMock(map[metabase.NodeAlias]storj.NodeID{})
@@ -58,6 +59,7 @@ func TestService_Success(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath:      ctx.File("not-found.csv"),
 		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
 		PriorityNodesPath: ctx.File("priority-nodes.txt"),
 
 		Check:       3,
@@ -145,6 +147,7 @@ func TestService_Buckets_Success(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath:      ctx.File("not-found.csv"),
 		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
 		PriorityNodesPath: ctx.File("priority-nodes.txt"),
 
 		Check:       3,
@@ -231,6 +234,7 @@ func TestService_Failures(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath:      ctx.File("not-found.csv"),
 		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
 		PriorityNodesPath: ctx.File("priority-nodes.txt"),
 
 		Check:       2,
