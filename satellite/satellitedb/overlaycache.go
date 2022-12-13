@@ -178,10 +178,16 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
+// GetNodesNetwork returns the /24 subnet for each storage node. Order is not guaranteed.
+// If a requested node is not in the database, no corresponding last_net will be returned
+// for that node.
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+	query := `
+		SELECT last_net FROM nodes
+			WHERE id = any($1::bytea[])
+	`
 	for {
-		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs)
+		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -194,15 +200,35 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 	return nodeNets, err
 }
 
-func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+// GetNodesNetworkInOrder returns the /24 subnet for each storage node, in order. If a
+// requested node is not in the database, an empty string will be returned corresponding
+// to that node's last_net.
+func (cache *overlaycache) GetNodesNetworkInOrder(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+	query := `
+		SELECT coalesce(n.last_net, '')
+		FROM unnest($1::bytea[]) WITH ORDINALITY AS input(node_id, ord)
+			LEFT OUTER JOIN nodes n ON input.node_id = n.id
+		ORDER BY input.ord
+	`
+	for {
+		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs, query)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodeNets, err
+		}
+		break
+	}
+
+	return nodeNets, err
+}
+
+func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID, query string) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net FROM nodes
-			WHERE id = any($1::bytea[])
-		`), pgutil.NodeIDArray(nodeIDs),
-	)
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(query), pgutil.NodeIDArray(nodeIDs))
 	if err != nil {
 		return nil, err
 	}
