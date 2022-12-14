@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -58,6 +59,7 @@ type Config struct {
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
 	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
 	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
+	ExistsCheckWorkers      int           `help:"how many workers to use to check if satellite pieces exists" default:"5"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
@@ -185,6 +187,66 @@ func (endpoint *Endpoint) DeletePieces(
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
 	}, nil
+}
+
+// Exists check if pieces from the list exists on storage node. Request will
+// accept only connections from trusted satellite and will check pieces only
+// for that satellite.
+func (endpoint *Endpoint) Exists(
+	ctx context.Context, req *pb.ExistsRequest,
+) (_ *pb.ExistsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "piecestore.exists called with untrusted ID")
+	}
+
+	if len(req.PieceIds) == 0 {
+		return &pb.ExistsResponse{}, nil
+	}
+
+	limiter := sync2.NewLimiter(endpoint.config.ExistsCheckWorkers)
+	var mu sync.Mutex
+
+	missing := make([]uint32, 0, 100)
+
+	addMissing := func(index int) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		missing = append(missing, uint32(index))
+	}
+
+	for index, pieceID := range req.PieceIds {
+		index := index
+		pieceID := pieceID
+
+		ok := limiter.Go(ctx, func() {
+			_, err := endpoint.store.Stat(ctx, peer.ID, pieceID)
+			if err != nil {
+				if errs.Is(err, os.ErrNotExist) {
+					addMissing(index)
+				}
+				endpoint.log.Debug("failed to stat piece", zap.String("Piece ID", pieceID.String()), zap.String("Satellite ID", peer.ID.String()), zap.Error(err))
+				return
+			}
+		})
+		if !ok {
+			return &pb.ExistsResponse{}, rpcstatus.Wrap(rpcstatus.Internal, ctx.Err())
+		}
+	}
+
+	limiter.Wait()
+
+	return &pb.ExistsResponse{
+		Missing: missing,
+	}, rpcstatus.Wrap(rpcstatus.Internal, err)
 }
 
 // Upload handles uploading a piece on piece store.
