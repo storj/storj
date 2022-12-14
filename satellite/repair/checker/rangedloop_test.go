@@ -561,7 +561,7 @@ func TestRangedLoopObserver(t *testing.T) {
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		err = planet.Satellites[0].RL.RangedLoop.Service.RunOnce(ctx)
+		err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
 		require.NoError(t, err)
 
 		observer := planet.Satellites[0].Repair.Observer
