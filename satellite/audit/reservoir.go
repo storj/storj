@@ -17,10 +17,10 @@ const maxReservoirSize = 3
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	Segments [maxReservoirSize]segmentloop.Segment
-	Keys     [maxReservoirSize]float64
+	segments [maxReservoirSize]segmentloop.Segment
+	keys     [maxReservoirSize]float64
 	size     int8
-	index    int64
+	index    int8
 }
 
 // NewReservoir instantiates a Reservoir.
@@ -36,6 +36,16 @@ func NewReservoir(size int) *Reservoir {
 	}
 }
 
+// Segments returns the segments picked by the reservoir.
+func (reservoir *Reservoir) Segments() []segmentloop.Segment {
+	return reservoir.segments[:reservoir.index]
+}
+
+// Keys returns the keys for the segments picked by the reservoir.
+func (reservoir *Reservoir) Keys() []float64 {
+	return reservoir.keys[:reservoir.index]
+}
+
 // Sample tries to ensure that each segment passed in has a chance (proportional
 // to its size) to be in the reservoir when sampling is complete.
 //
@@ -45,22 +55,22 @@ func NewReservoir(size int) *Reservoir {
 // article: https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Res
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
 	k := -math.Log(r.Float64()) / float64(segment.EncryptedSize)
-	if reservoir.index < int64(reservoir.size) {
-		reservoir.Segments[reservoir.index] = *segment
-		reservoir.Keys[reservoir.index] = k
+	if reservoir.index < reservoir.size {
+		reservoir.segments[reservoir.index] = *segment
+		reservoir.keys[reservoir.index] = k
+		reservoir.index++
 	} else {
-		max := 0
-		for i := 1; i < int(reservoir.size); i++ {
-			if reservoir.Keys[i] > reservoir.Keys[max] {
+		max := int8(0)
+		for i := int8(1); i < reservoir.size; i++ {
+			if reservoir.keys[i] > reservoir.keys[max] {
 				max = i
 			}
 		}
-		if k < reservoir.Keys[max] {
-			reservoir.Segments[max] = *segment
-			reservoir.Keys[max] = k
+		if k < reservoir.keys[max] {
+			reservoir.segments[max] = *segment
+			reservoir.keys[max] = k
 		}
 	}
-	reservoir.index++
 }
 
 // Segment is a segment to audit.
