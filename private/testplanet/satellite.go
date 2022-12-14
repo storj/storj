@@ -68,12 +68,13 @@ type Satellite struct {
 	Name   string
 	Config satellite.Config
 
-	Core     *satellite.Core
-	API      *satellite.API
-	Repairer *satellite.Repairer
-	Admin    *satellite.Admin
-	GC       *satellite.GarbageCollection
-	GCBF     *satellite.GarbageCollectionBF
+	Core       *satellite.Core
+	API        *satellite.API
+	Repairer   *satellite.Repairer
+	Admin      *satellite.Admin
+	GC         *satellite.GarbageCollection
+	GCBF       *satellite.GarbageCollectionBF
+	RangedLoop *satellite.RangedLoop
 
 	Log      *zap.Logger
 	Identity *identity.FullIdentity
@@ -552,27 +553,33 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, identity, db, metabaseDB, config)
+	if err != nil {
+		return nil, err
+	}
+
 	if config.EmailReminders.Enable {
 		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer, gcBFPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer, gcBFPeer, rangedLoopPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
 	system := &Satellite{
-		Name:     name,
-		Config:   config,
-		Core:     peer,
-		API:      api,
-		Repairer: repairerPeer,
-		Admin:    adminPeer,
-		GC:       gcPeer,
-		GCBF:     gcBFPeer,
+		Name:       name,
+		Config:     config,
+		Core:       peer,
+		API:        api,
+		Repairer:   repairerPeer,
+		Admin:      adminPeer,
+		GC:         gcPeer,
+		GCBF:       gcBFPeer,
+		RangedLoop: rangedLoopPeer,
 	}
 	system.Log = log
 	system.Identity = peer.Identity
@@ -730,6 +737,15 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, ide
 	}
 	planet.databases = append(planet.databases, revocationDB)
 	return satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
+}
+
+func (planet *Planet) newRangedLoop(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-ranged-loop" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	return satellite.NewRangedLoop(log, identity, db, metabaseDB, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.
