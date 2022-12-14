@@ -160,7 +160,10 @@ func (observer *RangedLoopObserver) Fork(ctx context.Context) (rangedloop.Partia
 // Join is called after the chunk for Partial is done.
 // This gives the opportunity to merge the output like in a reduce step.
 func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) error {
-	repPartial := partial.(*repairPartial)
+	repPartial, ok := partial.(*repairPartial)
+	if !ok {
+		return Error.New("expected partial type %T but got %T", repPartial, partial)
+	}
 
 	if err := repPartial.repairQueue.Flush(ctx); err != nil {
 		return Error.Wrap(err)

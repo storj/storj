@@ -636,7 +636,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
-	system.Repair.Observer = rlPeer.Repair.Observer.(*checker.RangedLoopObserver)
+	system.Repair.Observer = rangedLoopPeer.Repair.Observer.(*checker.RangedLoopObserver)
 
 	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue
 	system.Audit.ReverifyQueue = auditorPeer.Audit.ReverifyQueue
