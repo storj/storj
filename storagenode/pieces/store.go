@@ -728,6 +728,14 @@ func (store *Store) CheckWritability(ctx context.Context) error {
 	return store.blobs.CheckWritability(ctx)
 }
 
+// Stat looks up disk metadata on the blob file.
+func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (storage.BlobInfo, error) {
+	return store.blobs.Stat(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
+}
+
 type storedPieceAccess struct {
 	storage.BlobInfo
 	store   *Store
