@@ -11,27 +11,20 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import ErrorIcon from '@/../static/images/common/errorNotice.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ErrorIcon,
-    },
-})
-export default class ValidationMessage extends Vue {
-    @Prop({ default: 'Valid!' })
-    protected readonly successMessage: string;
-    @Prop({ default: 'Invalid. Please Try again' })
-    protected readonly errorMessage: string;
-    @Prop({ default: false })
-    protected readonly isValid: boolean;
-    @Prop({ default: false })
-    protected readonly showMessage: boolean;
-}
+const props = withDefaults(defineProps<{
+    successMessage?: string;
+    errorMessage?: string;
+    isValid?: boolean;
+    showMessage?: boolean;
+}>(), {
+    successMessage: 'Valid!',
+    errorMessage: 'Invalid. Please try again',
+    isValid: false,
+    showMessage: false,
+});
 </script>
 
 <style scoped lang="scss">
