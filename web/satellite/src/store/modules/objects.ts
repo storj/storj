@@ -153,6 +153,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 });
                 state.bucketsList = [];
                 state.fileComponentBucketName = '';
+                state.leaveRoute = '';
             },
         },
         actions: {

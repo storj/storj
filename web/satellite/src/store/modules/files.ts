@@ -288,6 +288,29 @@ export const makeFilesModule = (): FilesModule => ({
         addUploadToChain(state: FilesState, fn) {
             state.uploadChain = state.uploadChain.then(fn);
         },
+
+        clear(state: FilesState) {
+            state.s3 = null;
+            state.accessKey = null;
+            state.path = '';
+            state.bucket = '';
+            state.browserRoot = '/';
+            state.files = [];
+            state.uploadChain = Promise.resolve();
+            state.uploading = [];
+            state.selectedAnchorFile = null;
+            state.unselectedAnchorFile = null;
+            state.selectedFiles = [];
+            state.shiftSelectedFiles = [];
+            state.filesToBeDeleted = [];
+            state.fetchSharedLink = () => 'javascript:null';
+            state.fetchPreviewAndMapUrl = () => 'javascript:null';
+            state.openedDropdown = null;
+            state.headingSorted = 'name';
+            state.orderBy = 'asc';
+            state.openModalOnFirstUpload = false;
+            state.objectPathForModal = '';
+        },
     },
     actions: {
         async list({ commit, state }, path = state.path) {
@@ -725,6 +748,10 @@ export const makeFilesModule = (): FilesModule => ({
             if (state.selectedAnchorFile) {
                 dispatch('clearAllSelectedFiles');
             }
+        },
+
+        clear({ commit }) {
+            commit('clear');
         },
     },
 });

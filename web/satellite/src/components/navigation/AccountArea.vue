@@ -143,17 +143,20 @@ export default class AccountArea extends Vue {
             return;
         }
 
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(USER_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-        await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
-        await this.$store.dispatch(AB_TESTING_ACTIONS.RESET);
+        await Promise.all([
+            this.$store.dispatch(PM_ACTIONS.CLEAR),
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(USER_ACTIONS.CLEAR),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
+            this.$store.dispatch('files/clear'),
+        ]);
 
         LocalData.removeUserId();
     }
