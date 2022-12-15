@@ -1472,6 +1472,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1479,9 +1481,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -1538,6 +1540,8 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1545,9 +1549,9 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -2711,7 +2715,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
-func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UserProjectLimits, err error) {
+func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := s.store.Users().GetUserProjectLimits(ctx, userID)
@@ -2719,10 +2723,10 @@ func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	return &UserProjectLimits{
-		StorageLimit:   result.ProjectStorageLimit,
-		BandwidthLimit: result.ProjectBandwidthLimit,
-		SegmentLimit:   result.ProjectSegmentLimit,
+	return &UsageLimits{
+		Storage:   result.ProjectStorageLimit.Int64(),
+		Bandwidth: result.ProjectBandwidthLimit.Int64(),
+		Segment:   result.ProjectSegmentLimit,
 	}, nil
 }
 

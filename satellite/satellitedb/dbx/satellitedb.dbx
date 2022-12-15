@@ -6,9 +6,24 @@ model account_freeze_event (
 
 	field user_id blob
 	field event int // enum indicating the type of event
-	field limits json ( nullable )
+	field limits json ( nullable, updatable )
 	field created_at timestamp ( default current_timestamp )
 )
+
+create account_freeze_event()
+
+read one (
+	select account_freeze_event
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+update account_freeze_event (
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+delete account_freeze_event ( where account_freeze_event.user_id = ? )
 
 //-- Node Events --//
 model node_event (
