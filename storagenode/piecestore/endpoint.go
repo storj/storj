@@ -96,6 +96,7 @@ type Endpoint struct {
 	pingStats pingStatsSource
 
 	store        *pieces.Store
+	trashChore   *pieces.TrashChore
 	ordersStore  *orders.FileStore
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
@@ -105,7 +106,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -117,6 +118,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		pingStats: pingStats,
 
 		store:        store,
+		trashChore:   trashChore,
 		ordersStore:  ordersStore,
 		usage:        usage,
 		usedSerials:  usedSerials,
@@ -750,13 +752,7 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
 
-	endpoint.log.Info("restore trash started", zap.Stringer("Satellite ID", peer.ID))
-	err = endpoint.store.RestoreTrash(ctx, peer.ID)
-	if err != nil {
-		endpoint.log.Error("restore trash failed", zap.Stringer("Satellite ID", peer.ID), zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-	endpoint.log.Info("restore trash finished", zap.Stringer("Satellite ID", peer.ID))
+	endpoint.trashChore.StartRestore(ctx, peer.ID)
 
 	return &pb.RestoreTrashResponse{}, nil
 }

@@ -418,12 +418,14 @@ func TestTrashAndRestore(t *testing.T) {
 
 		// Empty trash by running the chore once
 		trashDur := 4 * 24 * time.Hour
+		chorectx, chorecancel := context.WithCancel(ctx)
 		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
 		ctx.Go(func() error {
-			return chore.Run(ctx)
+			return chore.Run(chorectx)
 		})
-		chore.TriggerWait(ctx)
+		chore.Cycle.TriggerWait()
 		require.NoError(t, chore.Close())
+		chorecancel()
 
 		// Restore all pieces in the first satellite
 		require.NoError(t, store.RestoreTrash(ctx, satellites[0].satelliteID))
