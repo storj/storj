@@ -456,12 +456,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
 		// storage nodes tally
-		peer.Accounting.NodeTally = nodetally.New(peer.Log.Named("accounting:nodetally"), peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "accounting:nodetally",
-			Run:   peer.Accounting.NodeTally.Run,
-			Close: peer.Accounting.NodeTally.Close,
-		})
+		nodeTallyLog := peer.Log.Named("accounting:nodetally")
+
+		if config.Tally.UseRangedLoop {
+			nodeTallyLog.Info("using ranged loop")
+		} else {
+			peer.Accounting.NodeTally = nodetally.New(nodeTallyLog, peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accounting:nodetally",
+				Run:   peer.Accounting.NodeTally.Run,
+				Close: peer.Accounting.NodeTally.Close,
+			})
+		}
 
 		// Lets add 1 more day so we catch any off by one errors when deleting tallies
 		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval

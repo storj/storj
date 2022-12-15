@@ -72,7 +72,7 @@ type rangeObserverState struct {
 // ObserverDuration reports back on how long it took the observer to process all the segments.
 type ObserverDuration struct {
 	Observer Observer
-	// When this observer errored out, set duration to -1s
+	// Duration is set to -1 when the observer has errored out
 	// so someone watching metrics can tell that something went wrong.
 	Duration time.Duration
 }

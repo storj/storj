@@ -16,6 +16,7 @@ import (
 
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
@@ -53,6 +54,10 @@ type RangedLoop struct {
 
 	GarbageCollectionBF struct {
 		Observer rangedloop.Observer
+	}
+
+	Accounting struct {
+		NodeTallyObserver *nodetally.RangedLoopObserver
 	}
 
 	RangedLoop struct {
@@ -106,6 +111,12 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
+	{ // setup node tally observer
+		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
+			log.Named("accounting:nodetally"),
+			db.StoragenodeAccounting())
+	}
+
 	{ // setup garbage collection bloom filter observer
 		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
 	}
@@ -121,6 +132,9 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 		if config.Metrics.UseRangedLoop {
 			observers = append(observers, peer.Metrics.Observer)
+		}
+		if config.Tally.UseRangedLoop {
+			observers = append(observers, peer.Accounting.NodeTallyObserver)
 		}
 
 		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {

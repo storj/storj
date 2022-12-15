@@ -8,7 +8,7 @@ model accounting_timestamps (
 	field value timestamp ( updatable )
 )
 
-create accounting_timestamps ( noreturn )
+create accounting_timestamps ( noreturn, replace )
 update accounting_timestamps (
 	where accounting_timestamps.name = ?
 	noreturn
