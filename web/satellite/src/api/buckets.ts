@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 
@@ -70,10 +69,6 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('Can not get bucket names');
         }
 

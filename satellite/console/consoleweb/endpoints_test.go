@@ -57,7 +57,7 @@ func TestAuth(t *testing.T) {
 					"newPassword": user.password + "2",
 				}))
 
-			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			_ = body
 			//TODO: require.Contains(t, body, "password was incorrect")
 		}
