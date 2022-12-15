@@ -531,12 +531,11 @@ func TestRangedLoopObserver(t *testing.T) {
 			ShareSize:      256,
 		}
 
-		projectID := planet.Uplinks[0].Projects[0].ID
 		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
 		expectedLocation := metabase.SegmentLocation{
-			ProjectID:  projectID,
+			ProjectID:  planet.Uplinks[0].Projects[0].ID,
 			BucketName: "test-bucket",
 		}
 
