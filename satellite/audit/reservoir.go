@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
@@ -55,6 +57,10 @@ func (reservoir *Reservoir) Keys() []float64 {
 // article: https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Res
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
 	k := -math.Log(r.Float64()) / float64(segment.EncryptedSize)
+	reservoir.sample(k, segment)
+}
+
+func (reservoir *Reservoir) sample(k float64, segment *segmentloop.Segment) {
 	if reservoir.index < reservoir.size {
 		reservoir.segments[reservoir.index] = *segment
 		reservoir.keys[reservoir.index] = k
@@ -71,6 +77,17 @@ func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
 			reservoir.keys[max] = k
 		}
 	}
+}
+
+// Merge merges the given reservoir into the first. Both reservoirs must have the same size.
+func (reservoir *Reservoir) Merge(operand *Reservoir) error {
+	if reservoir.size != operand.size {
+		return errs.New("cannot merge: mismatched size: expected %d but got %d", reservoir.size, operand.size)
+	}
+	for i := int8(0); i < operand.index; i++ {
+		reservoir.sample(operand.keys[i], &operand.segments[i])
+	}
+	return nil
 }
 
 // Segment is a segment to audit.
