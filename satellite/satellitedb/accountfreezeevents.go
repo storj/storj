@@ -20,8 +20,8 @@ type accountFreezeEvents struct {
 	db dbx.Methods
 }
 
-// Insert is a method for inserting account freeze event into the database.
-func (events *accountFreezeEvents) Insert(ctx context.Context, event *console.AccountFreezeEvent) (_ *console.AccountFreezeEvent, err error) {
+// Upsert is a method for updating an account freeze event if it exists and inserting it otherwise.
+func (events *accountFreezeEvents) Upsert(ctx context.Context, event *console.AccountFreezeEvent) (_ *console.AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if event == nil {
@@ -37,7 +37,7 @@ func (events *accountFreezeEvents) Insert(ctx context.Context, event *console.Ac
 		createFields.Limits = dbx.AccountFreezeEvent_Limits(limitBytes)
 	}
 
-	dbxEvent, err := events.db.Create_AccountFreezeEvent(ctx,
+	dbxEvent, err := events.db.Replace_AccountFreezeEvent(ctx,
 		dbx.AccountFreezeEvent_UserId(event.UserID.Bytes()),
 		dbx.AccountFreezeEvent_Event(int(event.Type)),
 		createFields,
@@ -62,26 +62,6 @@ func (events *accountFreezeEvents) Get(ctx context.Context, userID uuid.UUID, ev
 	}
 
 	return fromDBXAccountFreezeEvent(dbxEvent)
-}
-
-// UpdateLimits is a method for updating the limits of an account freeze event by user ID and event type.
-func (events *accountFreezeEvents) UpdateLimits(ctx context.Context, userID uuid.UUID, eventType console.AccountFreezeEventType, limits *console.AccountFreezeEventLimits) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	limitBytes, err := json.Marshal(limits)
-	if err != nil {
-		return err
-	}
-
-	_, err = events.db.Update_AccountFreezeEvent_By_UserId_And_Event(ctx,
-		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
-		dbx.AccountFreezeEvent_Event(int(eventType)),
-		dbx.AccountFreezeEvent_Update_Fields{
-			Limits: dbx.AccountFreezeEvent_Limits(limitBytes),
-		},
-	)
-
-	return err
 }
 
 // DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.

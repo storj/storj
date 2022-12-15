@@ -455,3 +455,18 @@ func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxB
 	}
 	return dbxRow.MaxBuckets, nil
 }
+
+// UpdateUsageLimits is a method for updating project's bandwidth, storage, and segment limits.
+func (projects *projects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			BandwidthLimit: dbx.Project_BandwidthLimit(limits.Bandwidth),
+			UsageLimit:     dbx.Project_UsageLimit(limits.Storage),
+			SegmentLimit:   dbx.Project_SegmentLimit(limits.Segment),
+		},
+	)
+	return err
+}

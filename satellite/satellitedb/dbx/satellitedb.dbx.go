@@ -12830,7 +12830,7 @@ type WalletAddress_Row struct {
 	WalletAddress []byte
 }
 
-func (obj *pgxImpl) Create_AccountFreezeEvent(ctx context.Context,
+func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
 	account_freeze_event_event AccountFreezeEvent_Event_Field,
 	optional AccountFreezeEvent_Create_Fields) (
@@ -12844,7 +12844,7 @@ func (obj *pgxImpl) Create_AccountFreezeEvent(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" ON CONFLICT ( user_id, event ) DO UPDATE SET user_id = EXCLUDED.user_id, event = EXCLUDED.event, limits = EXCLUDED.limits, created_at = EXCLUDED.created_at RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __user_id_val, __event_val, __limits_val)
@@ -20781,7 +20781,7 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 
 }
 
-func (obj *pgxcockroachImpl) Create_AccountFreezeEvent(ctx context.Context,
+func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
 	account_freeze_event_event AccountFreezeEvent_Event_Field,
 	optional AccountFreezeEvent_Create_Fields) (
@@ -20795,7 +20795,7 @@ func (obj *pgxcockroachImpl) Create_AccountFreezeEvent(ctx context.Context,
 	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
 
 	var __values []interface{}
 	__values = append(__values, __user_id_val, __event_val, __limits_val)
@@ -29171,19 +29171,6 @@ func (rx *Rx) CreateNoReturn_StorjscanWallet(ctx context.Context,
 
 }
 
-func (rx *Rx) Create_AccountFreezeEvent(ctx context.Context,
-	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
-	account_freeze_event_event AccountFreezeEvent_Event_Field,
-	optional AccountFreezeEvent_Create_Fields) (
-	account_freeze_event *AccountFreezeEvent, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_AccountFreezeEvent(ctx, account_freeze_event_user_id, account_freeze_event_event, optional)
-
-}
-
 func (rx *Rx) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
@@ -30515,6 +30502,19 @@ func (rx *Rx) ReplaceNoReturn_StoragenodePaystub(ctx context.Context,
 
 }
 
+func (rx *Rx) Replace_AccountFreezeEvent(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	optional AccountFreezeEvent_Create_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Replace_AccountFreezeEvent(ctx, account_freeze_event_user_id, account_freeze_event_event, optional)
+
+}
+
 func (rx *Rx) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -30988,12 +30988,6 @@ type Methods interface {
 		storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
 		err error)
-
-	Create_AccountFreezeEvent(ctx context.Context,
-		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
-		account_freeze_event_event AccountFreezeEvent_Event_Field,
-		optional AccountFreezeEvent_Create_Fields) (
-		account_freeze_event *AccountFreezeEvent, err error)
 
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
@@ -31611,6 +31605,12 @@ type Methods interface {
 		storagenode_paystub_paid StoragenodePaystub_Paid_Field,
 		storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
 		err error)
+
+	Replace_AccountFreezeEvent(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+		account_freeze_event_event AccountFreezeEvent_Event_Field,
+		optional AccountFreezeEvent_Create_Fields) (
+		account_freeze_event *AccountFreezeEvent, err error)
 
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,

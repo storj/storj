@@ -10,7 +10,7 @@ model account_freeze_event (
 	field created_at timestamp ( default current_timestamp )
 )
 
-create account_freeze_event()
+create account_freeze_event( replace )
 
 read one (
 	select account_freeze_event
