@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
@@ -34,6 +35,10 @@ type RangedLoop struct {
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
+
+	Audit struct {
+		Observer rangedloop.Observer
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -83,6 +88,10 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 		})
 	}
 
+	{ // setup audit observer
+		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), db.VerifyQueue(), config.Audit)
+	}
+
 	{ // setup metrics observer
 		peer.Metrics.Observer = metrics.NewObserver()
 	}
@@ -98,6 +107,10 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 
 	{ // setup ranged loop
 		var observers []rangedloop.Observer
+
+		if config.Audit.UseRangedLoop {
+			observers = append(observers, peer.Audit.Observer)
+		}
 
 		if config.Metrics.UseRangedLoop {
 			observers = append(observers, peer.Metrics.Observer)

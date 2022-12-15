@@ -397,18 +397,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.VerifyQueue = db.VerifyQueue()
 
-		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-			peer.Audit.VerifyQueue,
-			peer.Metainfo.SegmentLoop,
-			config,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "audit:chore",
-			Run:   peer.Audit.Chore.Run,
-			Close: peer.Audit.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
+		if config.UseRangedLoop {
+			peer.Log.Named("audit:chore").Info("using ranged loop")
+		} else {
+			peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
+				peer.Audit.VerifyQueue,
+				peer.Metainfo.SegmentLoop,
+				config,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "audit:chore",
+				Run:   peer.Audit.Chore.Run,
+				Close: peer.Audit.Chore.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
+		}
 	}
 
 	{ // setup expired segment cleanup
