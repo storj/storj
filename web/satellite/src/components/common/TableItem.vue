@@ -19,7 +19,12 @@
             </div>
             <div v-else class="table-item">
                 <BucketIcon v-if="(tableType.toLowerCase() === 'bucket') && (index === 0)" class="item-icon" />
-                <p :class="{primary: index === 0}">{{ val }}</p>
+                <FileIcon v-else-if="(tableType.toLowerCase() === 'file') && (index === 0)" class="item-icon" />
+                <FolderIcon v-else-if="(tableType.toLowerCase() === 'folder') && (index === 0)" class="item-icon" />
+                <p :class="{primary: index === 0}" @click.stop="(e) => cellContentClicked(index, e)">
+                    <middle-truncate v-if="(tableType.toLowerCase() === 'file')" :text="val" />
+                    <span v-else>{{ val }}</span>
+                </p>
                 <div v-if="showBucketGuide(index)" class="animation">
                     <span><span /></span>
                     <BucketGuide :hide-guide="hideGuide" />
@@ -30,47 +35,55 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
+import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
 
+import FolderIcon from '@/../static/images/objects/folder.svg';
 import BucketIcon from '@/../static/images/objects/bucketIcon.svg';
+import FileIcon from '@/../static/images/objects/file.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VTableCheckbox,
-        BucketGuide,
-        BucketIcon,
-    },
-})
-export default class TableItem extends Vue {
-    @Prop({ default: false })
-    public readonly selectDisabled: boolean;
-    @Prop({ default: false })
-    public readonly selected: boolean;
-    @Prop({ default: false })
-    public readonly selectable: boolean;
-    @Prop({ default: false })
-    public readonly showGuide: boolean;
-    @Prop({ default: 'none' })
-    private readonly tableType: string;
-    @Prop({ default: () => {} })
-    public readonly item: object;
-    @Prop({ default: null })
-    public readonly onClick: (data?: unknown) => void;
-    @Prop({ default: null })
-    public readonly hideGuide: () => void;
+const props = withDefaults(defineProps<{
+    selectDisabled?: boolean;
+    selected?: boolean;
+    selectable?: boolean;
+    showGuide?: boolean;
+    tableType?: string;
+    item?: object;
+    onClick?: (data?: unknown) => void;
+    // event for the first cell of this item.
+    onPrimaryClick?: (data?: unknown) => void;
+    hideGuide?: () => void;
+}>(), {
+    selectDisabled: false,
+    selected: false,
+    selectable: false,
+    showGuide: false,
+    tableType: 'none',
+    item: () => ({}),
+    onClick: () => {},
+    onPrimaryClick: () => {},
+    hideGuide: () => {},
+});
 
-    public onChange(value: boolean): void {
-        this.$emit('selectChange', value);
+const emit = defineEmits(['selectChange']);
+
+function onChange(value: boolean): void {
+    emit('selectChange', value);
+}
+
+function showBucketGuide(index: number): boolean {
+    return (props.tableType.toLowerCase() === 'bucket') && (index === 0) && props.showGuide;
+}
+
+function cellContentClicked(cellIndex: number, event: Event) {
+    if (cellIndex === 0 && props.onPrimaryClick) {
+        props.onPrimaryClick(event);
+        return;
     }
-
-    public showBucketGuide(index: number): boolean {
-        return (this.tableType.toLowerCase() === 'bucket') && (index === 0) && this.showGuide;
-    }
+    // trigger default item onClick instead.
+    props.onClick();
 }
 </script>
 
@@ -138,6 +151,13 @@ export default class TableItem extends Vue {
             color: #0149ff;
         }
 
+        &:hover .table-item {
+
+            svg :deep(path) {
+                fill: var(--c-blue-3);
+            }
+        }
+
         &.selected {
             background: #f0f3f8;
         }
@@ -163,6 +183,7 @@ export default class TableItem extends Vue {
 
     .table-item {
         display: flex;
+        align-items: center;
     }
 
     .item-container {

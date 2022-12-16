@@ -88,7 +88,7 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -177,7 +177,7 @@ export default class AddTeamMemberModal extends Vue {
         }
 
         if (emailArray.includes(this.$store.state.usersModule.email)) {
-            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             this.isLoading = false;
 
             return;
@@ -186,7 +186,7 @@ export default class AddTeamMemberModal extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
         } catch (error) {
-            await this.$notify.error(`Error during adding project members. ${error.message}`);
+            await this.$notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             this.isLoading = false;
 
             return;
@@ -199,7 +199,7 @@ export default class AddTeamMemberModal extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         }
 
         this.closeModal();

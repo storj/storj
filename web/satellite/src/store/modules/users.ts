@@ -78,6 +78,8 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
             [CLEAR](state: UsersState): void {
                 state.user = new User();
                 state.user.projectLimit = 1;
+                state.userMFASecret = '';
+                state.userMFARecoveryCodes = [];
             },
             [UPDATE_USER](state: UsersState, user: UpdatedUser): void {
                 state.user.fullName = user.fullName;

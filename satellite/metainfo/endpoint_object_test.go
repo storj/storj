@@ -900,9 +900,31 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, bucketName))
 			require.NoError(t, uplnk.Upload(uplinkCtx, sat, bucketName, "jones", testrand.Bytes(20*memory.KB)))
+
+			project, err := uplnk.OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			// make a copy
+			_, err = project.CopyObject(ctx, bucketName, "jones", bucketName, "jones_copy", nil)
+			require.NoError(t, err)
+
 			ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
 			require.NoError(t, err)
 			require.True(t, len(ips) > 0)
+
+			copyIPs, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones_copy")
+			require.NoError(t, err)
+
+			sort.Slice(ips, func(i, j int) bool {
+				return bytes.Compare(ips[i], ips[j]) < 0
+			})
+			sort.Slice(copyIPs, func(i, j int) bool {
+				return bytes.Compare(copyIPs[i], copyIPs[j]) < 0
+			})
+
+			// verify that orignal and copy has the same results
+			require.Equal(t, ips, copyIPs)
 
 			// verify it's a real IP with valid host and port
 			for _, ip := range ips {

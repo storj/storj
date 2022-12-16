@@ -58,14 +58,14 @@ func TestAuditCollector(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			// expect a reservoir for every node
 			require.NotNil(t, observer.Reservoirs[node.ID()])
-			require.True(t, len(observer.Reservoirs[node.ID()].Segments) > 1)
+			require.True(t, len(observer.Reservoirs[node.ID()].Segments()) > 1)
 
 			// Require that len segments are <= 3 even though the Collector was instantiated with 4
 			// because the maxReservoirSize is currently 3.
-			require.True(t, len(observer.Reservoirs[node.ID()].Segments) <= 3)
+			require.True(t, len(observer.Reservoirs[node.ID()].Segments()) <= 3)
 
 			repeats := make(map[audit.Segment]bool)
-			for _, loopSegment := range observer.Reservoirs[node.ID()].Segments {
+			for _, loopSegment := range observer.Reservoirs[node.ID()].Segments() {
 				segment := audit.NewSegment(loopSegment)
 				assert.False(t, repeats[segment], "expected every item in reservoir to be unique")
 				repeats[segment] = true

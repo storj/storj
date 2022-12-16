@@ -11,7 +11,7 @@
                 <CrossIcon v-if="isOpened" @click="toggleNavigation" />
                 <MenuIcon v-else @click="toggleNavigation" />
             </header>
-            <div v-if="isOpened" class="navigation-area__container__wrap" :class="{ 'with-padding': !isAccountDropdownShown }">
+            <div v-if="isOpened" class="navigation-area__container__wrap" :class="{ 'with-padding': isAccountDropdownShown }">
                 <div class="navigation-area__container__wrap__edit">
                     <div
                         class="project-selection__selected"
@@ -46,6 +46,10 @@
                             >
                                 <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                             </div>
+                        </div>
+                        <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+                            <PassphraseIcon />
+                            <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
                         </div>
                         <div class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick">
                             <ManageIcon />
@@ -172,7 +176,7 @@ import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
@@ -195,6 +199,7 @@ import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
 import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
+import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import DashboardIcon from '@/../static/images/navigation/projectDashboard.svg';
@@ -225,6 +230,7 @@ import UsersIcon from '@/../static/images/navigation/users.svg';
         CheckmarkIcon,
         ProjectIcon,
         ManageIcon,
+        PassphraseIcon,
         CreateProjectIcon,
         VLoader,
         CrossIcon,
@@ -337,10 +343,21 @@ export default class MobileNavigation extends Vue {
     }
 
     /**
-     * Indicates if current route is onboarding tour.
+     * Toggles manage passphrase modal shown.
      */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    public onManagePassphraseClick(): void {
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            return;
+        }
+
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**
@@ -369,8 +386,9 @@ export default class MobileNavigation extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            this.isLoading = false;
         } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        } finally {
             this.isLoading = false;
         }
     }
@@ -399,7 +417,7 @@ export default class MobileNavigation extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`);
+            await this.$notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
         }
     }
 
@@ -472,7 +490,7 @@ export default class MobileNavigation extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
 
             return;
         }
@@ -567,11 +585,11 @@ export default class MobileNavigation extends Vue {
             overflow-y: auto;
             overflow-x: hidden;
             background: white;
-            height: calc(100vh - 4rem);
+            height: calc(var(--vh, 100vh) - 4rem);
 
             &.with-padding {
                 padding-bottom: 3rem;
-                height: calc(100vh - 7rem);
+                height: calc(var(--vh, 100vh) - 7rem);
             }
 
             &__small-logo {

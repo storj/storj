@@ -194,8 +194,14 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	if project.StorageLimit != nil {
 		updateFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
 	}
+	if project.UserSpecifiedStorageLimit != nil {
+		updateFields.UserSpecifiedUsageLimit = dbx.Project_UserSpecifiedUsageLimit(int64(*project.UserSpecifiedStorageLimit))
+	}
 	if project.BandwidthLimit != nil {
 		updateFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
+	}
+	if project.UserSpecifiedBandwidthLimit != nil {
+		updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit(int64(*project.UserSpecifiedBandwidthLimit))
 	}
 	if project.SegmentLimit != nil {
 		updateFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)

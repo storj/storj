@@ -116,13 +116,14 @@ type Core struct {
 	}
 
 	Audit struct {
-		VerifyQueue   audit.VerifyQueue
-		ReverifyQueue audit.ReverifyQueue
-		Worker        *audit.Worker
-		Chore         *audit.Chore
-		Verifier      *audit.Verifier
-		Reverifier    *audit.Reverifier
-		Reporter      audit.Reporter
+		VerifyQueue    audit.VerifyQueue
+		ReverifyQueue  audit.ReverifyQueue
+		Worker         *audit.Worker
+		ReverifyWorker *audit.ReverifyWorker
+		Chore          *audit.Chore
+		Verifier       *audit.Verifier
+		Reverifier     *audit.Reverifier
+		Reporter       audit.Reporter
 	}
 
 	ExpiredDeletion struct {
@@ -408,12 +409,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		config := config.Audit
 
 		peer.Audit.VerifyQueue = db.VerifyQueue()
+		peer.Audit.ReverifyQueue = db.ReverifyQueue()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Metabase,
 			dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
+			peer.DB.NewContainment(),
 			peer.Orders.Service,
 			peer.Identity,
 			config.MinBytesPerSecond,
@@ -426,7 +429,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
 			peer.Reputation.Service,
+			peer.Overlay.Service,
 			peer.DB.Containment(),
+			peer.DB.NewContainment(),
 			config.MaxRetriesStatDB,
 			int32(config.MaxReverifyCount),
 		)
@@ -434,6 +439,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Audit.Worker = audit.NewWorker(peer.Log.Named("audit:worker"),
 			peer.Audit.VerifyQueue,
 			peer.Audit.Verifier,
+			peer.Audit.ReverifyQueue,
 			peer.Audit.Reporter,
 			config,
 		)
@@ -445,9 +451,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Audit Worker", peer.Audit.Worker.Loop))
 
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		peer.Audit.ReverifyWorker = audit.NewReverifyWorker(peer.Log.Named("audit:reverify-worker"),
+			peer.Audit.ReverifyQueue,
+			peer.Audit.Reverifier,
+			peer.Audit.Reporter,
+			config)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "audit:reverify-worker",
+			Run:   peer.Audit.ReverifyWorker.Run,
+			Close: peer.Audit.ReverifyWorker.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Audit Reverify Worker", peer.Audit.ReverifyWorker.Loop))
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.VerifyQueue,
@@ -561,6 +576,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
 
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		service, err := stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -570,9 +595,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
 			pc.BonusRate)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -639,18 +663,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metrics service
-		peer.Metrics.Chore = metrics.NewChore(
-			peer.Log.Named("metrics"),
-			config.Metrics,
-			peer.Metainfo.SegmentLoop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metrics",
-			Run:   peer.Metrics.Chore.Run,
-			Close: peer.Metrics.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
+		log := peer.Log.Named("metrics")
+		if config.Metrics.UseRangedLoop {
+			log.Info("using ranged loop")
+		} else {
+			peer.Metrics.Chore = metrics.NewChore(
+				log,
+				config.Metrics,
+				peer.Metainfo.SegmentLoop,
+			)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "metrics",
+				Run:   peer.Metrics.Chore.Run,
+				Close: peer.Metrics.Chore.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
+		}
 	}
 
 	return peer, nil

@@ -320,7 +320,14 @@ func newpgx(db *DB) *pgxDB {
 }
 
 func (obj *pgxDB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
+	return `CREATE TABLE account_freeze_events (
+	user_id bytea NOT NULL,
+	event integer NOT NULL,
+	limits jsonb,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( user_id, event )
+);
+CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -1037,7 +1044,14 @@ func newpgxcockroach(db *DB) *pgxcockroachDB {
 }
 
 func (obj *pgxcockroachDB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
+	return `CREATE TABLE account_freeze_events (
+	user_id bytea NOT NULL,
+	event integer NOT NULL,
+	limits jsonb,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	PRIMARY KEY ( user_id, event )
+);
+CREATE TABLE accounting_rollups (
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -1717,6 +1731,113 @@ nextval:
 	}
 	fmt.Fprint(f, "]")
 }
+
+type AccountFreezeEvent struct {
+	UserId    []byte
+	Event     int
+	Limits    []byte
+	CreatedAt time.Time
+}
+
+func (AccountFreezeEvent) _Table() string { return "account_freeze_events" }
+
+type AccountFreezeEvent_Create_Fields struct {
+	Limits    AccountFreezeEvent_Limits_Field
+	CreatedAt AccountFreezeEvent_CreatedAt_Field
+}
+
+type AccountFreezeEvent_Update_Fields struct {
+	Limits AccountFreezeEvent_Limits_Field
+}
+
+type AccountFreezeEvent_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AccountFreezeEvent_UserId(v []byte) AccountFreezeEvent_UserId_Field {
+	return AccountFreezeEvent_UserId_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_UserId_Field) _Column() string { return "user_id" }
+
+type AccountFreezeEvent_Event_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func AccountFreezeEvent_Event(v int) AccountFreezeEvent_Event_Field {
+	return AccountFreezeEvent_Event_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_Event_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_Event_Field) _Column() string { return "event" }
+
+type AccountFreezeEvent_Limits_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func AccountFreezeEvent_Limits(v []byte) AccountFreezeEvent_Limits_Field {
+	return AccountFreezeEvent_Limits_Field{_set: true, _value: v}
+}
+
+func AccountFreezeEvent_Limits_Raw(v []byte) AccountFreezeEvent_Limits_Field {
+	if v == nil {
+		return AccountFreezeEvent_Limits_Null()
+	}
+	return AccountFreezeEvent_Limits(v)
+}
+
+func AccountFreezeEvent_Limits_Null() AccountFreezeEvent_Limits_Field {
+	return AccountFreezeEvent_Limits_Field{_set: true, _null: true}
+}
+
+func (f AccountFreezeEvent_Limits_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f AccountFreezeEvent_Limits_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_Limits_Field) _Column() string { return "limits" }
+
+type AccountFreezeEvent_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func AccountFreezeEvent_CreatedAt(v time.Time) AccountFreezeEvent_CreatedAt_Field {
+	return AccountFreezeEvent_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f AccountFreezeEvent_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (AccountFreezeEvent_CreatedAt_Field) _Column() string { return "created_at" }
 
 type AccountingRollup struct {
 	NodeId          []byte
@@ -12709,6 +12830,54 @@ type WalletAddress_Row struct {
 	WalletAddress []byte
 }
 
+func (obj *pgxImpl) Create_AccountFreezeEvent(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	optional AccountFreezeEvent_Create_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := account_freeze_event_user_id.value()
+	__event_val := account_freeze_event_event.value()
+	__limits_val := optional.Limits.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, event, limits")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __event_val, __limits_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+
+}
+
 func (obj *pgxImpl) Create_NodeEvent(ctx context.Context,
 	node_event_id NodeEvent_Id_Field,
 	node_event_email NodeEvent_Email_Field,
@@ -14075,6 +14244,29 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
+	}
+	return account_freeze_event, nil
 
 }
 
@@ -17550,6 +17742,48 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	update AccountFreezeEvent_Update_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Limits._set {
+		__values = append(__values, update.Limits.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("limits = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -19510,6 +19744,33 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
+func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 	node_event_created_at_less NodeEvent_CreatedAt_Field) (
 	count int64, err error) {
@@ -20554,8 +20815,66 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM account_freeze_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 
 	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_AccountFreezeEvent(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	optional AccountFreezeEvent_Create_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := account_freeze_event_user_id.value()
+	__event_val := account_freeze_event_event.value()
+	__limits_val := optional.Limits.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, event, limits")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO account_freeze_events "), __clause, __sqlbundle_Literal(" RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __event_val, __limits_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.CreatedAt._set {
+		__values = append(__values, optional.CreatedAt.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("created_at"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
 
 }
 
@@ -21925,6 +22244,29 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err != nil {
+		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
+	}
+	return account_freeze_event, nil
 
 }
 
@@ -25400,6 +25742,48 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	update AccountFreezeEvent_Update_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE account_freeze_events SET "), __sets, __sqlbundle_Literal(" WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ? RETURNING account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Limits._set {
+		__values = append(__values, update.Limits.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("limits = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	account_freeze_event = &AccountFreezeEvent{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return account_freeze_event, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -27360,6 +27744,33 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
+func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_NodeEvent_By_CreatedAt_Less(ctx context.Context,
 	node_event_created_at_less NodeEvent_CreatedAt_Field) (
 	count int64, err error) {
@@ -28404,6 +28815,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM account_freeze_events;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 
 	return count, nil
 
@@ -28848,6 +29269,19 @@ func (rx *Rx) CreateNoReturn_StorjscanWallet(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_AccountFreezeEvent(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	optional AccountFreezeEvent_Create_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_AccountFreezeEvent(ctx, account_freeze_event_user_id, account_freeze_event_event, optional)
+
+}
+
 func (rx *Rx) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
@@ -29171,6 +29605,17 @@ func (rx *Rx) Create_WebappSession(ctx context.Context,
 
 }
 
+func (rx *Rx) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_AccountFreezeEvent_By_UserId(ctx, account_freeze_event_user_id)
+
+}
+
 func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -29424,6 +29869,17 @@ func (rx *Rx) First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNum
 		return
 	}
 	return tx.First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx, storjscan_payment_status)
+}
+
+func (rx *Rx) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_AccountFreezeEvent_By_UserId_And_Event(ctx, account_freeze_event_user_id, account_freeze_event_event)
 }
 
 func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
@@ -30314,6 +30770,18 @@ func (rx *Rx) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_Reputation_By_Id(ctx, reputation_id, update)
 }
 
+func (rx *Rx) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field,
+	update AccountFreezeEvent_Update_Fields) (
+	account_freeze_event *AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_AccountFreezeEvent_By_UserId_And_Event(ctx, account_freeze_event_user_id, account_freeze_event_event, update)
+}
+
 func (rx *Rx) Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
 	billing_balance_user_id BillingBalance_UserId_Field,
 	billing_balance_balance BillingBalance_Balance_Field,
@@ -30639,6 +31107,12 @@ type Methods interface {
 		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
 		err error)
 
+	Create_AccountFreezeEvent(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+		account_freeze_event_event AccountFreezeEvent_Event_Field,
+		optional AccountFreezeEvent_Create_Fields) (
+		account_freeze_event *AccountFreezeEvent, err error)
+
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		api_key_project_id ApiKey_ProjectId_Field,
@@ -30815,6 +31289,10 @@ type Methods interface {
 		webapp_session_expires_at WebappSession_ExpiresAt_Field) (
 		webapp_session *WebappSession, err error)
 
+	Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+		count int64, err error)
+
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
@@ -30919,6 +31397,11 @@ type Methods interface {
 	First_StorjscanPayment_BlockNumber_By_Status_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		row *BlockNumber_Row, err error)
+
+	Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+		account_freeze_event_event AccountFreezeEvent_Event_Field) (
+		account_freeze_event *AccountFreezeEvent, err error)
 
 	Get_ApiKey_By_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
@@ -31319,6 +31802,12 @@ type Methods interface {
 		reputation_id Reputation_Id_Field,
 		update Reputation_Update_Fields) (
 		err error)
+
+	Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+		account_freeze_event_event AccountFreezeEvent_Event_Field,
+		update AccountFreezeEvent_Update_Fields) (
+		account_freeze_event *AccountFreezeEvent, err error)
 
 	Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
 		billing_balance_user_id BillingBalance_UserId_Field,

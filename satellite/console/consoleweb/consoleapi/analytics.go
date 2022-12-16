@@ -36,8 +36,9 @@ func NewAnalytics(log *zap.Logger, service *console.Service, a *analytics.Servic
 }
 
 type eventTriggeredBody struct {
-	EventName string `json:"eventName"`
-	Link      string `json:"link"`
+	EventName        string `json:"eventName"`
+	Link             string `json:"link"`
+	ErrorEventSource string `json:"errorEventSource"`
 }
 
 type pageVisitBody struct {
@@ -65,7 +66,10 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, http.StatusUnauthorized, err)
 		return
 	}
-	if et.Link != "" {
+
+	if et.ErrorEventSource != "" {
+		a.analytics.TrackErrorEvent(user.ID, user.Email, et.ErrorEventSource)
+	} else if et.Link != "" {
 		a.analytics.TrackLinkEvent(et.EventName, user.ID, user.Email, et.Link)
 	} else {
 		a.analytics.TrackEvent(et.EventName, user.ID, user.Email)

@@ -96,7 +96,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 import VButton from '@/components/common/VButton.vue';
@@ -123,6 +123,44 @@ export default class AddTokenCardNative extends Vue {
 
     public isLoading = false;
 
+    async mounted(): Promise<void> {
+        await this.getWallet();
+
+        // check if user navigated here from Billing overview screen
+        if (this.$route.params.action !== 'add tokens') {
+            return;
+        }
+        // user clicked 'Add Funds' on Billing overview screen.
+        if (this.wallet.address) {
+            this.onAddTokensClick();
+        } else {
+            await this.claimWalletClick();
+        }
+    }
+
+    /**
+     * getWallet tries to get an existing wallet for this user. this will not claim a wallet.
+     */
+    private async getWallet() {
+        if (this.wallet.address) {
+            return;
+        }
+        this.isLoading = true;
+        await this.$store.dispatch(PAYMENTS_ACTIONS.GET_WALLET).catch(_ => {});
+        this.isLoading = false;
+    }
+
+    /**
+     * claimWallet claims a wallet for the current account.
+     */
+    private async claimWallet(): Promise<void> {
+        if (!this.wallet.address)
+            await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
+    }
+
+    /**
+     * Called when "Add STORJ Tokens" button is clicked.
+     */
     public async claimWalletClick(): Promise<void> {
         this.isLoading = true;
         try {
@@ -130,21 +168,9 @@ export default class AddTokenCardNative extends Vue {
             // wallet claimed; open token modal
             this.onAddTokensClick();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_STORJ_TOKEN_CONTAINER);
         }
         this.isLoading = false;
-    }
-
-    mounted(): void {
-        if (!this.wallet.address) {
-            // try to get an existing wallet for this user. this will not claim a wallet.
-            this.$store.dispatch(PAYMENTS_ACTIONS.GET_WALLET);
-        }
-    }
-
-    public async claimWallet(): Promise<void> {
-        if (!this.wallet.address)
-            await this.$store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
     }
 
     /**

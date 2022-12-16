@@ -135,7 +135,7 @@ type Server struct {
 
 	stripePublicKey string
 
-	pricing paymentsconfig.PricingValues
+	usagePrice paymentsconfig.ProjectUsagePrice
 
 	schema graphql.Schema
 
@@ -206,7 +206,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, listener net.Listener, stripePublicKey string, usagePrice paymentsconfig.ProjectUsagePrice, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -220,7 +220,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:           nodeURL,
-		pricing:           pricing,
+		usagePrice:        usagePrice,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -500,9 +500,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
 	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
 	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
-	data.StorageTBPrice = server.pricing.StorageTBPrice
-	data.EgressTBPrice = server.pricing.EgressTBPrice
-	data.SegmentPrice = server.pricing.SegmentPrice
+	data.StorageTBPrice = server.usagePrice.StorageTB
+	data.EgressTBPrice = server.usagePrice.EgressTB
+	data.SegmentPrice = server.usagePrice.Segment
 	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
 	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
 	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled

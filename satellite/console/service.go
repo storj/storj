@@ -1472,6 +1472,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1479,9 +1481,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -1538,6 +1540,8 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1545,9 +1549,9 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -1698,6 +1702,19 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 		}
 		if updatedProject.BandwidthLimit.Int64() < bandwidthUsed {
 			return nil, Error.New("cannot set bandwidth limit below current usage")
+		}
+		/*
+			The purpose of userSpecifiedBandwidthLimit and userSpecifiedStorageLimit is to know if a user has set a bandwidth
+			or storage limit in the UI (to ensure their limits are not unintentionally modified by the satellite admin),
+			the BandwidthLimit and StorageLimit is still used for verifying limits during uploads and downloads.
+		*/
+		if project.StorageLimit != nil && updatedProject.StorageLimit != *project.StorageLimit {
+			project.UserSpecifiedStorageLimit = new(memory.Size)
+			*project.UserSpecifiedStorageLimit = updatedProject.StorageLimit
+		}
+		if project.BandwidthLimit != nil && updatedProject.BandwidthLimit != *project.BandwidthLimit {
+			project.UserSpecifiedBandwidthLimit = new(memory.Size)
+			*project.UserSpecifiedBandwidthLimit = updatedProject.BandwidthLimit
 		}
 
 		project.StorageLimit = new(memory.Size)
@@ -2698,7 +2715,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
-func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UserProjectLimits, err error) {
+func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := s.store.Users().GetUserProjectLimits(ctx, userID)
@@ -2706,10 +2723,10 @@ func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	return &UserProjectLimits{
-		StorageLimit:   result.ProjectStorageLimit,
-		BandwidthLimit: result.ProjectBandwidthLimit,
-		SegmentLimit:   result.ProjectSegmentLimit,
+	return &UsageLimits{
+		Storage:   result.ProjectStorageLimit.Int64(),
+		Bandwidth: result.ProjectBandwidthLimit.Int64(),
+		Segment:   result.ProjectSegmentLimit,
 	}, nil
 }
 
@@ -2929,6 +2946,27 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 	defer mon.Task()(&ctx)(&err)
 
 	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
+}
+
+// DeleteAllSessionsByUserIDExcept removes all sessions except the specified session from the database.
+func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sessions, err := s.store.WebappSessions().GetAllByUserID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for _, session := range sessions {
+		if session.ID != sessionID {
+			err = s.DeleteSession(ctx, session.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // RefreshSession resets the expiration time of the session.

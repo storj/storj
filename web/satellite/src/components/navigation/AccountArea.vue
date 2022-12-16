@@ -61,7 +61,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -138,22 +138,25 @@ export default class AccountArea extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
 
             return;
         }
 
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(USER_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-        await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
-        await this.$store.dispatch(AB_TESTING_ACTIONS.RESET);
+        await Promise.all([
+            this.$store.dispatch(PM_ACTIONS.CLEAR),
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(USER_ACTIONS.CLEAR),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
+            this.$store.dispatch('files/clear'),
+        ]);
 
         LocalData.removeUserId();
     }

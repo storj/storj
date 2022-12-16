@@ -4,6 +4,7 @@
 package audit
 
 import (
+	"math"
 	"math/rand"
 	"time"
 
@@ -16,10 +17,10 @@ const maxReservoirSize = 3
 
 // Reservoir holds a certain number of segments to reflect a random sample.
 type Reservoir struct {
-	Segments [maxReservoirSize]segmentloop.Segment
+	segments [maxReservoirSize]segmentloop.Segment
+	keys     [maxReservoirSize]float64
 	size     int8
-	index    int64
-	wSum     int64
+	index    int8
 }
 
 // NewReservoir instantiates a Reservoir.
@@ -35,26 +36,41 @@ func NewReservoir(size int) *Reservoir {
 	}
 }
 
-// Sample makes sure that for every segment in metainfo from index i=size..n-1,
-// compute the relative weight based on segment size, and pick a random floating
-// point number r = rand(0..1), and if r < the relative weight of the segment,
-// select uniformly a random segment reservoir.Segments[rand(0..i)] to replace with
-// segment. See https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Chao
-// for the algorithm used.
+// Segments returns the segments picked by the reservoir.
+func (reservoir *Reservoir) Segments() []segmentloop.Segment {
+	return reservoir.segments[:reservoir.index]
+}
+
+// Keys returns the keys for the segments picked by the reservoir.
+func (reservoir *Reservoir) Keys() []float64 {
+	return reservoir.keys[:reservoir.index]
+}
+
+// Sample tries to ensure that each segment passed in has a chance (proportional
+// to its size) to be in the reservoir when sampling is complete.
+//
+// The tricky part is that we do not know ahead of time how many segments will
+// be passed in. The way this is accomplished is known as _Reservoir Sampling_.
+// The specific algorithm we are using here is called A-Res on the Wikipedia
+// article: https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Res
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment *segmentloop.Segment) {
-	if reservoir.index < int64(reservoir.size) {
-		reservoir.Segments[reservoir.index] = *segment
-		reservoir.wSum += int64(segment.EncryptedSize)
+	k := -math.Log(r.Float64()) / float64(segment.EncryptedSize)
+	if reservoir.index < reservoir.size {
+		reservoir.segments[reservoir.index] = *segment
+		reservoir.keys[reservoir.index] = k
+		reservoir.index++
 	} else {
-		reservoir.wSum += int64(segment.EncryptedSize)
-		p := float64(segment.EncryptedSize) / float64(reservoir.wSum)
-		random := r.Float64()
-		if random < p {
-			index := r.Int31n(int32(reservoir.size))
-			reservoir.Segments[index] = *segment
+		max := int8(0)
+		for i := int8(1); i < reservoir.size; i++ {
+			if reservoir.keys[i] > reservoir.keys[max] {
+				max = i
+			}
+		}
+		if k < reservoir.keys[max] {
+			reservoir.segments[max] = *segment
+			reservoir.keys[max] = k
 		}
 	}
-	reservoir.index++
 }
 
 // Segment is a segment to audit.

@@ -140,7 +140,7 @@ export default class RegistrationSuccess extends Vue {
         try {
             await this.auth.resendEmail(email);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
         }
 
         this.startResendEmailCountdown();

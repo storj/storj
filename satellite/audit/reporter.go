@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -18,16 +19,21 @@ import (
 //
 // architecture: Service
 type reporter struct {
-	log              *zap.Logger
-	reputations      *reputation.Service
-	containment      Containment
+	log         *zap.Logger
+	reputations *reputation.Service
+	overlay     *overlay.Service
+	containment Containment
+	// newContainment is temporary, and will replace containment
+	newContainment   NewContainment
 	maxRetries       int
 	maxReverifyCount int32
 }
 
 // Reporter records audit reports in the overlay and database.
 type Reporter interface {
-	RecordAudits(ctx context.Context, req Report) (_ Report, err error)
+	RecordAudits(ctx context.Context, req Report)
+	ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error)
+	RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error)
 }
 
 // Report contains audit result.
@@ -36,36 +42,41 @@ type Reporter interface {
 // succeeded, failed, were offline, have pending audits, or failed for unknown
 // reasons and their current reputation status.
 type Report struct {
-	Successes       storj.NodeIDList
-	Fails           storj.NodeIDList
-	Offlines        storj.NodeIDList
-	PendingAudits   []*PendingAudit
+	Successes     storj.NodeIDList
+	Fails         storj.NodeIDList
+	Offlines      storj.NodeIDList
+	PendingAudits []*PendingAudit
+	// PieceAudits is temporary and will replace PendingAudits.
+	PieceAudits     []*ReverificationJob
 	Unknown         storj.NodeIDList
 	NodesReputation map[storj.NodeID]overlay.ReputationStatus
 }
 
 // NewReporter instantiates a reporter.
-func NewReporter(log *zap.Logger, reputations *reputation.Service, containment Containment, maxRetries int, maxReverifyCount int32) Reporter {
+func NewReporter(log *zap.Logger, reputations *reputation.Service, overlay *overlay.Service, containment Containment, newContainment NewContainment, maxRetries int, maxReverifyCount int32) Reporter {
 	return &reporter{
 		log:              log,
 		reputations:      reputations,
+		overlay:          overlay,
 		containment:      containment,
+		newContainment:   newContainment,
 		maxRetries:       maxRetries,
 		maxReverifyCount: maxReverifyCount,
 	}
 }
 
-// RecordAudits saves audit results to overlay. When no error, it returns
-// nil for both return values, otherwise it returns the report with the fields
-// set to the values which have been saved and the error.
-func (reporter *reporter) RecordAudits(ctx context.Context, req Report) (_ Report, err error) {
-	defer mon.Task()(&ctx)(&err)
+// RecordAudits saves audit results, applying reputation changes as appropriate.
+// If some records can not be updated after a number of attempts, the failures
+// are logged at level ERROR, but are otherwise thrown away.
+func (reporter *reporter) RecordAudits(ctx context.Context, req Report) {
+	defer mon.Task()(&ctx)(nil)
 
 	successes := req.Successes
 	fails := req.Fails
 	unknowns := req.Unknown
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
+	pieceAudits := req.PieceAudits
 
 	reporter.log.Debug("Reporting audits",
 		zap.Int("successes", len(successes)),
@@ -73,44 +84,43 @@ func (reporter *reporter) RecordAudits(ctx context.Context, req Report) (_ Repor
 		zap.Int("unknowns", len(unknowns)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
+		zap.Int("piece-pending", len(pieceAudits)),
 	)
 
-	var errlist errs.Group
 	nodesReputation := req.NodesReputation
 
-	tries := 0
-	for tries <= reporter.maxRetries {
-		if len(successes) == 0 && len(fails) == 0 && len(unknowns) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
-			return Report{}, nil
+	reportFailures := func(tries int, resultType string, err error, nodes storj.NodeIDList, pending []*PendingAudit, pieces []*ReverificationJob) {
+		if err == nil || tries < reporter.maxRetries {
+			// don't need to report anything until the last time through
+			return
+		}
+		reporter.log.Error("failed to update reputation information with audit results",
+			zap.String("result type", resultType),
+			zap.Error(err),
+			zap.String("node IDs", strings.Join(nodes.Strings(), ", ")),
+			zap.Any("pending segment audits", pending),
+			zap.Any("pending piece audits", pieces))
+	}
+
+	var err error
+	for tries := 0; tries <= reporter.maxRetries; tries++ {
+		if len(successes) == 0 && len(fails) == 0 && len(unknowns) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 && len(pieceAudits) == 0 {
+			return
 		}
 
-		errlist = errs.Group{}
-
 		successes, err = reporter.recordAuditStatus(ctx, successes, nodesReputation, reputation.AuditSuccess)
-		errlist.Add(err)
+		reportFailures(tries, "successful", err, successes, nil, nil)
 		fails, err = reporter.recordAuditStatus(ctx, fails, nodesReputation, reputation.AuditFailure)
-		errlist.Add(err)
+		reportFailures(tries, "failed", err, fails, nil, nil)
 		unknowns, err = reporter.recordAuditStatus(ctx, unknowns, nodesReputation, reputation.AuditUnknown)
-		errlist.Add(err)
+		reportFailures(tries, "unknown", err, unknowns, nil, nil)
 		offlines, err = reporter.recordAuditStatus(ctx, offlines, nodesReputation, reputation.AuditOffline)
-		errlist.Add(err)
+		reportFailures(tries, "offline", err, offlines, nil, nil)
 		pendingAudits, err = reporter.recordPendingAudits(ctx, pendingAudits, nodesReputation)
-		errlist.Add(err)
-
-		tries++
+		reportFailures(tries, "pending", err, nil, pendingAudits, nil)
+		pieceAudits, err = reporter.recordPendingPieceAudits(ctx, pieceAudits, nodesReputation)
+		reportFailures(tries, "pending", err, nil, nil, pieceAudits)
 	}
-
-	err = errlist.Err()
-	if tries >= reporter.maxRetries && err != nil {
-		return Report{
-			Successes:     successes,
-			Fails:         fails,
-			Offlines:      offlines,
-			Unknown:       unknowns,
-			PendingAudits: pendingAudits,
-		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
-	}
-	return Report{}, nil
 }
 
 func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.NodeIDList, nodesReputation map[storj.NodeID]overlay.ReputationStatus, auditOutcome reputation.AuditType) (failed storj.NodeIDList, err error) {
@@ -128,6 +138,59 @@ func (reporter *reporter) recordAuditStatus(ctx context.Context, nodeIDs storj.N
 		}
 	}
 	return failed, errors.Err()
+}
+
+// recordPendingPieceAudits updates the containment status of nodes with pending piece audits.
+// This function is temporary and will replace recordPendingAudits later in this commit chain.
+func (reporter *reporter) recordPendingPieceAudits(ctx context.Context, pendingAudits []*ReverificationJob, nodesReputation map[storj.NodeID]overlay.ReputationStatus) (failed []*ReverificationJob, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var errlist errs.Group
+
+	for _, pendingAudit := range pendingAudits {
+		logger := reporter.log.With(
+			zap.Stringer("Node ID", pendingAudit.Locator.NodeID),
+			zap.Stringer("Stream ID", pendingAudit.Locator.StreamID),
+			zap.Uint64("Position", pendingAudit.Locator.Position.Encode()),
+			zap.Int("Piece Num", pendingAudit.Locator.PieceNum))
+
+		if pendingAudit.ReverifyCount < int(reporter.maxReverifyCount) {
+			err := reporter.ReportReverificationNeeded(ctx, &pendingAudit.Locator)
+			if err != nil {
+				failed = append(failed, pendingAudit)
+				errlist.Add(err)
+				continue
+			}
+			logger.Info("reverification queued")
+			continue
+		}
+		// record failure -- max reverify count reached
+		logger.Info("max reverify count reached (audit failed)")
+		err = reporter.reputations.ApplyAudit(ctx, pendingAudit.Locator.NodeID, nodesReputation[pendingAudit.Locator.NodeID], reputation.AuditFailure)
+		if err != nil {
+			logger.Info("failed to update reputation information", zap.Error(err))
+			errlist.Add(err)
+			failed = append(failed, pendingAudit)
+			continue
+		}
+		_, stillContained, err := reporter.newContainment.Delete(ctx, &pendingAudit.Locator)
+		if err != nil {
+			if !ErrContainedNotFound.Has(err) {
+				errlist.Add(err)
+			}
+			continue
+		}
+		if !stillContained {
+			err = reporter.overlay.SetNodeContained(ctx, pendingAudit.Locator.NodeID, false)
+			if err != nil {
+				logger.Error("failed to mark node as not contained", zap.Error(err))
+			}
+		}
+	}
+
+	if len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
+	}
+	return nil, nil
 }
 
 // recordPendingAudits updates the containment status of nodes with pending audits.
@@ -171,4 +234,69 @@ func (reporter *reporter) recordPendingAudits(ctx context.Context, pendingAudits
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
 	return nil, nil
+}
+
+func (reporter *reporter) ReportReverificationNeeded(ctx context.Context, piece *PieceLocator) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = reporter.newContainment.Insert(ctx, piece)
+	if err != nil {
+		return Error.New("failed to queue reverification audit for node: %w", err)
+	}
+
+	err = reporter.overlay.SetNodeContained(ctx, piece.NodeID, true)
+	if err != nil {
+		return Error.New("failed to update contained status: %w", err)
+	}
+	return nil
+}
+
+func (reporter *reporter) RecordReverificationResult(ctx context.Context, pendingJob *ReverificationJob, outcome Outcome, reputation overlay.ReputationStatus) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keepInQueue := true
+	report := Report{
+		NodesReputation: map[storj.NodeID]overlay.ReputationStatus{
+			pendingJob.Locator.NodeID: reputation,
+		},
+	}
+	switch outcome {
+	case OutcomeNotPerformed:
+	case OutcomeNotNecessary:
+		keepInQueue = false
+	case OutcomeSuccess:
+		report.Successes = append(report.Successes, pendingJob.Locator.NodeID)
+		keepInQueue = false
+	case OutcomeFailure:
+		report.Fails = append(report.Fails, pendingJob.Locator.NodeID)
+		keepInQueue = false
+	case OutcomeTimedOut:
+		// This will get re-added to the reverification queue, but that is idempotent
+		// and fine. We do need to add it to PendingAudits in order to get the
+		// maxReverifyCount check.
+		report.PieceAudits = append(report.PieceAudits, pendingJob)
+	case OutcomeUnknownError:
+		report.Unknown = append(report.Unknown, pendingJob.Locator.NodeID)
+		keepInQueue = false
+	case OutcomeNodeOffline:
+		report.Offlines = append(report.Offlines, pendingJob.Locator.NodeID)
+	}
+	var errList errs.Group
+
+	// apply any necessary reputation changes
+	reporter.RecordAudits(ctx, report)
+
+	// remove from reverifications queue if appropriate
+	if !keepInQueue {
+		_, stillContained, err := reporter.newContainment.Delete(ctx, &pendingJob.Locator)
+		if err != nil {
+			if !ErrContainedNotFound.Has(err) {
+				errList.Add(err)
+			}
+		} else if !stillContained {
+			err = reporter.overlay.SetNodeContained(ctx, pendingJob.Locator.NodeID, false)
+			errList.Add(err)
+		}
+	}
+	return errList.Err()
 }

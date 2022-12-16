@@ -229,7 +229,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
@@ -301,7 +301,7 @@ export default class AccessGrants extends Vue {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
             this.areGrantsFetching = false;
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
     /**
@@ -326,7 +326,7 @@ export default class AccessGrants extends Vue {
         try {
             await this.$store.dispatch(FETCH, index);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
     /**
@@ -340,7 +340,7 @@ export default class AccessGrants extends Vue {
         try {
             await this.$store.dispatch(FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
 
@@ -388,7 +388,7 @@ export default class AccessGrants extends Vue {
         try {
             await this.$store.dispatch(FETCH, 1);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch accesses: ${error.message}`);
+            await this.$notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
     public get deleteButtonLabel(): string {

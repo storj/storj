@@ -8,14 +8,14 @@
         </div>
         <div v-if="styleType === 'common'" class="search-container">
             <VSearch
-                ref="search"
+                ref="searchInput"
                 :placeholder="placeholder"
                 :search="search"
             />
         </div>
         <div v-if="styleType === 'access'">
             <VSearchAlternateStyling
-                ref="search"
+                ref="searchInput"
                 :placeholder="placeholder"
                 :search="search"
             />
@@ -23,39 +23,30 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import VSearch from '@/components/common/VSearch.vue';
 import VSearchAlternateStyling from '@/components/common/VSearchAlternateStyling.vue';
 
-declare type searchCallback = (search: string) => Promise<void>;
+type searchCallback = (search: string) => Promise<void>;
 
-// @vue/component
-@Component({
-    components: {
-        VSearch,
-        VSearchAlternateStyling,
-    },
-})
-export default class VHeader extends Vue {
-    @Prop({ default: 'common' })
-    private readonly styleType: string;
-    @Prop({ default: '' })
-    private readonly placeholder: string;
-    @Prop({ default: function(): searchCallback {
-        return async function(_: string) {};
-    } })
-    private readonly search: searchCallback;
+const props = withDefaults(defineProps<{
+    placeholder: string;
+    search: searchCallback;
+    styleType?: string;
+}>(), {
+    placeholder: '',
+    styleType: 'common',
+});
 
-    public $refs!: {
-        search: VSearch;
-    };
+const searchInput = ref<{ clearSearch: () => void }>();
 
-    public clearSearch(): void {
-        this.$refs.search.clearSearch();
-    }
+function clearSearch(): void {
+    searchInput.value?.clearSearch();
 }
+
+defineExpose({ clearSearch });
 </script>
 
 <style scoped lang="scss">

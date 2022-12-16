@@ -27,6 +27,7 @@ import { AppState } from '@/utils/constants/appStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { makeABTestingModule } from '@/store/modules/abTesting';
 import DashboardArea from '@/views/DashboardArea.vue';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -65,6 +66,7 @@ localVue.use(new NotificatorPlugin(store));
 describe('Dashboard', () => {
     beforeEach(() => {
         jest.resetAllMocks();
+        jest.spyOn(AnalyticsHttpApi.prototype, 'errorEventTriggered').mockImplementation(() => Promise.resolve());
     });
 
     it('renders correctly when data is loading', () => {

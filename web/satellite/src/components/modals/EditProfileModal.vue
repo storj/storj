@@ -44,7 +44,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
@@ -88,7 +88,7 @@ export default class EditProfileModal extends Vue {
         try {
             await this.$store.dispatch(USER_ACTIONS.UPDATE, this.userInfo);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
 
             return;
         }

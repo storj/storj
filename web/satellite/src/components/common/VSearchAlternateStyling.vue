@@ -8,19 +8,26 @@
         :placeholder="`Search ${placeholder}`"
         type="text"
         autocomplete="off"
+        readonly
         @input="processSearchQuery"
+        @focus="removeReadOnly"
+        @blur="addReadOnly"
     >
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 
+import { useDOM } from '@/composables/DOM';
+
 declare type searchCallback = (search: string) => Promise<void>;
 
-const props = defineProps<{
-    placeholder: string,
+const props = withDefaults(defineProps<{
+    placeholder?: string,
     search: searchCallback,
-}>();
+}>(), { placeholder: '' });
+
+const { removeReadOnly, addReadOnly } = useDOM();
 
 const searchQuery = ref<string>('');
 

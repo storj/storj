@@ -42,6 +42,7 @@ class ViewsState {
         public isDeleteBucketModalShown = false,
         public isNewFolderModalShown = false,
         public isCreateProjectPassphraseModalShown = false,
+        public isManageProjectPassphraseModalShown = false,
         public isObjectDetailsModalShown = false,
         public isAddCouponModalShown = false,
         public isNewBillingAddCouponModalShown = false,
@@ -147,6 +148,9 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
             state.appState.isCreateProjectPassphraseModalShown = !state.appState.isCreateProjectPassphraseModalShown;
         },
+        [APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
+            state.appState.isManageProjectPassphraseModalShown = !state.appState.isManageProjectPassphraseModalShown;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN](state: State): void {
             state.appState.isMFARecoveryModalShown = !state.appState.isMFARecoveryModalShown;
         },
@@ -204,6 +208,35 @@ export const appStateModule = {
             state.appState.isAGDatePickerShown = false;
             state.appState.isChartsDatePickerShown = false;
             state.appState.isBucketNamesDropdownShown = false;
+            state.appState.isAddTeamMembersModalShown = false;
+            state.appState.isEditProfileModalShown = false;
+            state.appState.isChangePasswordModalShown = false;
+            state.appState.isUploadCancelPopupVisible = false;
+            state.appState.isSuccessfulPasswordResetShown = false;
+            state.appState.isCreateProjectPromptModalShown = false;
+            state.appState.isCreateProjectModalShown = false;
+            state.appState.isAddPMModalShown = false;
+            state.appState.isOpenBucketModalShown = false;
+            state.appState.isMFARecoveryModalShown = false;
+            state.appState.isEnableMFAModalShown = false;
+            state.appState.isDisableMFAModalShown = false;
+            state.appState.isAddTokenFundsModalShown = false;
+            state.appState.isShareBucketModalShown = false;
+            state.appState.isShareObjectModalShown = false;
+            state.appState.isDeleteBucketModalShown = false;
+            state.appState.isNewFolderModalShown = false;
+            state.appState.isCreateProjectPassphraseModalShown = false;
+            state.appState.isManageProjectPassphraseModalShown = false;
+            state.appState.isObjectDetailsModalShown = false;
+            state.appState.isAddCouponModalShown = false;
+            state.appState.isNewBillingAddCouponModalShown = false;
+            state.appState.onbAGStepBackRoute = '';
+            state.appState.onbAPIKeyStepBackRoute = '';
+            state.appState.onbCleanApiKey = '';
+            state.appState.onbApiKey = '';
+            state.appState.setDefaultPaymentMethodID = '';
+            state.appState.deletePaymentMethodID = '';
+            state.appState.onbSelectedOs = null;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

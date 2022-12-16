@@ -256,6 +256,7 @@ type Satellite struct {
 	StorageDaily       []storageusage.Stamp    `json:"storageDaily"`
 	BandwidthDaily     []bandwidth.UsageRollup `json:"bandwidthDaily"`
 	StorageSummary     float64                 `json:"storageSummary"`
+	AverageUsageBytes  float64                 `json:"averageUsageBytes"`
 	BandwidthSummary   int64                   `json:"bandwidthSummary"`
 	EgressSummary      int64                   `json:"egressSummary"`
 	IngressSummary     int64                   `json:"ingressSummary"`
@@ -296,7 +297,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageSummary, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
+	storageSummary, averageUsageInBytes, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -334,6 +335,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		StorageDaily:       storageDaily,
 		BandwidthDaily:     bandwidthDaily,
 		StorageSummary:     storageSummary,
+		AverageUsageBytes:  averageUsageInBytes,
 		BandwidthSummary:   bandwidthSummary.Total(),
 		CurrentStorageUsed: currentStorageUsed,
 		EgressSummary:      egressSummary.Total(),
@@ -352,14 +354,15 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 
 // Satellites represents consolidated data across all satellites.
 type Satellites struct {
-	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	StorageSummary   float64                 `json:"storageSummary"`
-	BandwidthSummary int64                   `json:"bandwidthSummary"`
-	EgressSummary    int64                   `json:"egressSummary"`
-	IngressSummary   int64                   `json:"ingressSummary"`
-	EarliestJoinedAt time.Time               `json:"earliestJoinedAt"`
-	Audits           []Audits                `json:"audits"`
+	StorageDaily      []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily    []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary    float64                 `json:"storageSummary"`
+	AverageUsageBytes float64                 `json:"averageUsageBytes"`
+	BandwidthSummary  int64                   `json:"bandwidthSummary"`
+	EgressSummary     int64                   `json:"egressSummary"`
+	IngressSummary    int64                   `json:"ingressSummary"`
+	EarliestJoinedAt  time.Time               `json:"earliestJoinedAt"`
+	Audits            []Audits                `json:"audits"`
 }
 
 // Audits represents audit, suspension and online scores of SNO across all satellites.
@@ -403,7 +406,7 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageSummary, err := s.storageUsageDB.Summary(ctx, from, to)
+	storageSummary, averageUsageInBytes, err := s.storageUsageDB.Summary(ctx, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
@@ -436,14 +439,15 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 	}
 
 	return &Satellites{
-		StorageDaily:     storageDaily,
-		BandwidthDaily:   bandwidthDaily,
-		StorageSummary:   storageSummary,
-		BandwidthSummary: bandwidthSummary.Total(),
-		EgressSummary:    egressSummary.Total(),
-		IngressSummary:   ingressSummary.Total(),
-		EarliestJoinedAt: joinedAt,
-		Audits:           audits,
+		StorageDaily:      storageDaily,
+		BandwidthDaily:    bandwidthDaily,
+		StorageSummary:    storageSummary,
+		AverageUsageBytes: averageUsageInBytes,
+		BandwidthSummary:  bandwidthSummary.Total(),
+		EgressSummary:     egressSummary.Total(),
+		IngressSummary:    ingressSummary.Total(),
+		EarliestJoinedAt:  joinedAt,
+		Audits:            audits,
 	}, nil
 }
 

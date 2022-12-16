@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -32,9 +33,10 @@ func TestService_EmptyRange(t *testing.T) {
 	log := testplanet.NewLogger(t)
 
 	config := segmentverify.ServiceConfig{
-		NotFoundPath: ctx.File("not-found.csv"),
-		RetryPath:    ctx.File("retry.csv"),
-		MaxOffline:   2,
+		NotFoundPath:      ctx.File("not-found.csv"),
+		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
+		MaxOffline:        2,
 	}
 
 	metabase := newMetabaseMock(map[metabase.NodeAlias]storj.NodeID{})
@@ -57,6 +59,7 @@ func TestService_Success(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath:      ctx.File("not-found.csv"),
 		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
 		PriorityNodesPath: ctx.File("priority-nodes.txt"),
 
 		Check:       3,
@@ -67,6 +70,12 @@ func TestService_Success(t *testing.T) {
 
 	// the node 1 is going to be priority
 	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	require.NoError(t, err)
+
+	bucketListPath := ctx.File("buckets.csv")
+	err = os.WriteFile(bucketListPath, []byte(`
+	00000000000000000000000000000001,67616c617879
+	00000000000000000000000000000002,7368696e6f6269`), 0755)
 	require.NoError(t, err)
 
 	func() {
@@ -92,6 +101,10 @@ func TestService_Success(t *testing.T) {
 
 		metabase := newMetabaseMock(nodes, segments...)
 		verifier := &verifierMock{allSuccess: true}
+
+		metabase.AddStreamIDToBucket(uuid.UUID{1}, "67616c617879", uuid.UUID{0x10, 0x10})
+		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7368696e6f6269", uuid.UUID{0x20, 0x20})
+		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7777777", uuid.UUID{0x30, 0x30})
 
 		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
 		require.NoError(t, err)
@@ -127,6 +140,93 @@ func TestService_Success(t *testing.T) {
 	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
 }
 
+func TestService_Buckets_Success(t *testing.T) {
+	ctx := testcontext.New(t)
+	log := testplanet.NewLogger(t)
+
+	config := segmentverify.ServiceConfig{
+		NotFoundPath:      ctx.File("not-found.csv"),
+		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
+		PriorityNodesPath: ctx.File("priority-nodes.txt"),
+
+		Check:       3,
+		BatchSize:   100,
+		Concurrency: 3,
+		MaxOffline:  2,
+	}
+
+	// the node 1 is going to be priority
+	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
+	require.NoError(t, err)
+
+	bucketListPath := ctx.File("buckets.csv")
+	err = os.WriteFile(bucketListPath, []byte(`
+	00000000000000000000000000000001,67616c617879
+	00000000000000000000000000000002,7368696e6f6269`), 0755)
+	require.NoError(t, err)
+
+	func() {
+		nodes := map[metabase.NodeAlias]storj.NodeID{}
+		for i := 1; i <= 0xFF; i++ {
+			nodes[metabase.NodeAlias(i)] = storj.NodeID{byte(i)}
+		}
+
+		segments := []metabase.VerifySegment{
+			{
+				StreamID:    uuid.UUID{0x10, 0x10},
+				AliasPieces: metabase.AliasPieces{{Number: 1, Alias: 8}, {Number: 3, Alias: 9}, {Number: 5, Alias: 10}, {Number: 0, Alias: 1}},
+			},
+			{
+				StreamID:    uuid.UUID{0x20, 0x20},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+			},
+			{ // this won't get processed due to the high limit
+				StreamID:    uuid.UUID{0x30, 0x30},
+				AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 2}, {Number: 1, Alias: 3}, {Number: 7, Alias: 4}},
+			},
+		}
+
+		metabase := newMetabaseMock(nodes, segments...)
+		verifier := &verifierMock{allSuccess: true}
+
+		metabase.AddStreamIDToBucket(uuid.UUID{1}, "67616c617879", uuid.UUID{0x10, 0x10})
+		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7368696e6f6269", uuid.UUID{0x20, 0x20})
+		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7777777", uuid.UUID{0x30, 0x30})
+
+		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
+		require.NoError(t, err)
+		require.NotNil(t, service)
+
+		defer ctx.Check(service.Close)
+
+		bucketList, err := service.ParseBucketFile(bucketListPath)
+		require.NoError(t, err)
+
+		err = service.ProcessBuckets(ctx, bucketList.Buckets)
+		require.NoError(t, err)
+
+		for node, list := range verifier.processed {
+			assert.True(t, isUnique(list), "each node should process only once: %v %#v", node, list)
+		}
+
+		// node 1 is a priority node in the segments[0]
+		assert.Len(t, verifier.processed[nodes[1]], 1)
+		// we should get two other checks against the nodes in segments[8-10]
+		assert.Equal(t, 2,
+			len(verifier.processed[nodes[8]])+len(verifier.processed[nodes[9]])+len(verifier.processed[nodes[10]]),
+		)
+	}()
+
+	retryCSV, err := os.ReadFile(config.RetryPath)
+	require.NoError(t, err)
+	require.Equal(t, "stream id,position,found,not found,retry\n", string(retryCSV))
+
+	notFoundCSV, err := os.ReadFile(config.NotFoundPath)
+	require.NoError(t, err)
+	require.Equal(t, "stream id,position,found,not found,retry\n", string(notFoundCSV))
+}
+
 func TestService_Failures(t *testing.T) {
 	ctx := testcontext.New(t)
 	log := testplanet.NewLogger(t)
@@ -134,6 +234,7 @@ func TestService_Failures(t *testing.T) {
 	config := segmentverify.ServiceConfig{
 		NotFoundPath:      ctx.File("not-found.csv"),
 		RetryPath:         ctx.File("retry.csv"),
+		ProblemPiecesPath: ctx.File("problem-pieces.csv"),
 		PriorityNodesPath: ctx.File("priority-nodes.txt"),
 
 		Check:       2,
@@ -220,21 +321,28 @@ func isUnique(segments []*segmentverify.Segment) bool {
 }
 
 type metabaseMock struct {
-	nodeIDToAlias map[storj.NodeID]metabase.NodeAlias
-	aliasToNodeID map[metabase.NodeAlias]storj.NodeID
-	segments      []metabase.VerifySegment
+	nodeIDToAlias      map[storj.NodeID]metabase.NodeAlias
+	aliasToNodeID      map[metabase.NodeAlias]storj.NodeID
+	streamIDsPerBucket map[metabase.BucketLocation][]uuid.UUID
+	segments           []metabase.VerifySegment
 }
 
 func newMetabaseMock(nodes map[metabase.NodeAlias]storj.NodeID, segments ...metabase.VerifySegment) *metabaseMock {
 	mock := &metabaseMock{
-		nodeIDToAlias: map[storj.NodeID]metabase.NodeAlias{},
-		aliasToNodeID: nodes,
-		segments:      segments,
+		nodeIDToAlias:      map[storj.NodeID]metabase.NodeAlias{},
+		aliasToNodeID:      nodes,
+		segments:           segments,
+		streamIDsPerBucket: make(map[metabase.BucketLocation][]uuid.UUID),
 	}
 	for n, id := range nodes {
 		mock.nodeIDToAlias[id] = n
 	}
 	return mock
+}
+
+func (db *metabaseMock) AddStreamIDToBucket(projectID uuid.UUID, bucketName string, streamIDs ...uuid.UUID) {
+	bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
+	db.streamIDsPerBucket[bucket] = append(db.streamIDsPerBucket[bucket], streamIDs...)
 }
 
 func (db *metabaseMock) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
@@ -307,6 +415,39 @@ func (db *metabaseMock) GetSegmentByPosition(ctx context.Context, opts metabase.
 	}
 
 	return metabase.Segment{}, metabase.ErrSegmentNotFound.New("%v", opts)
+}
+
+func (db *metabaseMock) ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (metabase.ListBucketsStreamIDsResult, error) {
+	result := metabase.ListBucketsStreamIDsResult{}
+
+	for _, bucket := range opts.BucketList.Buckets {
+		if bucket.ProjectID.Compare(opts.CursorBucket.ProjectID) <= 0 {
+			continue
+		}
+		if bucket.BucketName <= opts.CursorBucket.BucketName {
+			continue
+		}
+		if opts.CursorStreamID.IsZero() {
+			result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket]...)
+			continue
+		}
+		for cursorIndex, streamID := range db.streamIDsPerBucket[bucket] {
+			if opts.CursorStreamID.Less(streamID) {
+				result.StreamIDs = append(result.StreamIDs, db.streamIDsPerBucket[bucket][cursorIndex:]...)
+				break
+			}
+		}
+		if len(result.StreamIDs) > opts.Limit {
+			break
+		}
+	}
+	if len(result.StreamIDs) > opts.Limit {
+		result.StreamIDs = result.StreamIDs[:opts.Limit]
+	}
+	sort.Slice(result.StreamIDs, func(i, j int) bool {
+		return result.StreamIDs[i].Less(result.StreamIDs[j])
+	})
+	return result, nil
 }
 
 func (db *metabaseMock) ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error) {

@@ -105,20 +105,13 @@ func NewReverifier(log *zap.Logger, verifier *Verifier, db ReverifyQueue, config
 
 // ReverifyPiece acquires a piece from a single node and verifies its
 // contents, its hash, and its order limit.
-func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, locator PieceLocator) (keepInQueue bool) {
+func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, logger *zap.Logger, locator *PieceLocator) (outcome Outcome, reputation overlay.ReputationStatus) {
 	defer mon.Task()(&ctx)(nil)
 
-	logger := reverifier.log.With(
-		zap.Stringer("stream-id", locator.StreamID),
-		zap.Uint32("position-part", locator.Position.Part),
-		zap.Uint32("position-index", locator.Position.Index),
-		zap.Stringer("node-id", locator.NodeID),
-		zap.Int("piece-num", locator.PieceNum))
-
-	outcome, err := reverifier.DoReverifyPiece(ctx, logger, locator)
+	outcome, reputation, err := reverifier.DoReverifyPiece(ctx, logger, locator)
 	if err != nil {
 		logger.Error("could not perform reverification due to error", zap.Error(err))
-		return true
+		return outcome, reputation
 	}
 
 	var (
@@ -129,22 +122,17 @@ func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, locator PieceLo
 		unknown   int
 	)
 	switch outcome {
-	case OutcomeNotPerformed:
-		keepInQueue = true
-	case OutcomeNotNecessary:
+	case OutcomeNotPerformed, OutcomeNotNecessary:
 	case OutcomeSuccess:
 		successes++
 	case OutcomeFailure:
 		fails++
 	case OutcomeTimedOut:
 		pending++
-		keepInQueue = true
 	case OutcomeNodeOffline:
 		offlines++
-		keepInQueue = true
 	case OutcomeUnknownError:
 		unknown++
-		keepInQueue = true
 	}
 	mon.Meter("reverify_successes_global").Mark(successes) //mon:locked
 	mon.Meter("reverify_offlines_global").Mark(offlines)   //mon:locked
@@ -152,12 +140,12 @@ func (reverifier *Reverifier) ReverifyPiece(ctx context.Context, locator PieceLo
 	mon.Meter("reverify_contained_global").Mark(pending)   //mon:locked
 	mon.Meter("reverify_unknown_global").Mark(unknown)     //mon:locked
 
-	return keepInQueue
+	return outcome, reputation
 }
 
 // DoReverifyPiece acquires a piece from a single node and verifies its
 // contents, its hash, and its order limit.
-func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.Logger, locator PieceLocator) (outcome Outcome, err error) {
+func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.Logger, locator *PieceLocator) (outcome Outcome, reputation overlay.ReputationStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// First, we must ensure that the specified node still holds the indicated piece.
@@ -168,29 +156,29 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
 			logger.Debug("segment no longer exists")
-			return OutcomeNotNecessary, nil
+			return OutcomeNotNecessary, reputation, nil
 		}
-		return OutcomeNotPerformed, Error.Wrap(err)
+		return OutcomeNotPerformed, reputation, Error.Wrap(err)
 	}
 	if segment.Expired(reverifier.nowFn()) {
 		logger.Debug("segment expired before ReverifyPiece")
-		return OutcomeNotNecessary, nil
+		return OutcomeNotNecessary, reputation, nil
 	}
 	piece, found := segment.Pieces.FindByNum(locator.PieceNum)
 	if !found || piece.StorageNode != locator.NodeID {
 		logger.Debug("piece is no longer held by the indicated node")
-		return OutcomeNotNecessary, nil
+		return OutcomeNotNecessary, reputation, nil
 	}
 
 	// TODO remove this when old entries with empty StreamID will be deleted
 	if locator.StreamID.IsZero() {
 		logger.Debug("ReverifyPiece: skip pending audit with empty StreamID")
-		return OutcomeNotNecessary, nil
+		return OutcomeNotNecessary, reputation, nil
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
-		return OutcomeNotPerformed, Error.Wrap(err)
+		return OutcomeNotPerformed, reputation, Error.Wrap(err)
 	}
 
 	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
@@ -199,33 +187,34 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 	if err != nil {
 		if overlay.ErrNodeDisqualified.Has(err) {
 			logger.Debug("ReverifyPiece: order limit not created (node is already disqualified)")
-			return OutcomeNotNecessary, nil
+			return OutcomeNotNecessary, reputation, nil
 		}
 		if overlay.ErrNodeFinishedGE.Has(err) {
 			logger.Debug("ReverifyPiece: order limit not created (node has completed graceful exit)")
-			return OutcomeNotNecessary, nil
+			return OutcomeNotNecessary, reputation, nil
 		}
 		if overlay.ErrNodeOffline.Has(err) {
 			logger.Debug("ReverifyPiece: order limit not created (node considered offline)")
-			return OutcomeNotPerformed, nil
+			return OutcomeNotPerformed, reputation, nil
 		}
-		return OutcomeNotPerformed, Error.Wrap(err)
+		return OutcomeNotPerformed, reputation, Error.Wrap(err)
 	}
 
+	reputation = cachedNodeInfo.Reputation
 	pieceData, pieceHash, pieceOriginalLimit, err := reverifier.GetPiece(ctx, limit, piecePrivateKey, cachedNodeInfo.LastIPPort, int32(pieceSize))
 	if err != nil {
 		if rpc.Error.Has(err) {
 			if errs.Is(err, context.DeadlineExceeded) {
 				// dial timeout
-				return OutcomeTimedOut, nil
+				return OutcomeTimedOut, reputation, nil
 			}
 			if errs2.IsRPC(err, rpcstatus.Unknown) {
 				// dial failed -- offline node
-				return OutcomeNodeOffline, nil
+				return OutcomeNodeOffline, reputation, nil
 			}
 			// unknown transport error
 			logger.Info("ReverifyPiece: unknown transport error", zap.Error(err))
-			return OutcomeUnknownError, nil
+			return OutcomeUnknownError, reputation, nil
 		}
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			// Fetch the segment metadata again and see if it has been altered in the interim
@@ -233,30 +222,30 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 			if err != nil {
 				// if so, we skip this audit
 				logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
-				return OutcomeNotNecessary, nil
+				return OutcomeNotNecessary, reputation, nil
 			}
 			// missing share
 			logger.Info("ReverifyPiece: audit failure; node indicates piece not found")
-			return OutcomeFailure, nil
+			return OutcomeFailure, reputation, nil
 		}
 		if errs2.IsRPC(err, rpcstatus.DeadlineExceeded) {
 			// dial successful, but download timed out
-			return OutcomeTimedOut, nil
+			return OutcomeTimedOut, reputation, nil
 		}
 		// unknown error
 		logger.Info("ReverifyPiece: unknown error from node", zap.Error(err))
-		return OutcomeUnknownError, nil
+		return OutcomeUnknownError, reputation, nil
 	}
 
 	// We have successfully acquired the piece from the node. Now, we must verify its contents.
 
 	if pieceHash == nil {
 		logger.Info("ReverifyPiece: audit failure; node did not send piece hash as requested")
-		return OutcomeFailure, nil
+		return OutcomeFailure, reputation, nil
 	}
 	if pieceOriginalLimit == nil {
 		logger.Info("ReverifyPiece: audit failure; node did not send original order limit as requested")
-		return OutcomeFailure, nil
+		return OutcomeFailure, reputation, nil
 	}
 	// check for the correct size
 	if int64(len(pieceData)) != pieceSize {
@@ -278,23 +267,23 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 			// by the uplink public key in the order limit)
 			signer := signing.SigneeFromPeerIdentity(reverifier.auditor)
 			if err := signing.VerifyOrderLimitSignature(ctx, signer, pieceOriginalLimit); err != nil {
-				return OutcomeFailure, nil
+				return OutcomeFailure, reputation, nil
 			}
 			if err := signing.VerifyUplinkPieceHashSignature(ctx, pieceOriginalLimit.UplinkPublicKey, pieceHash); err != nil {
-				return OutcomeFailure, nil
+				return OutcomeFailure, reputation, nil
 			}
 		}
 	}
 
 	if err := reverifier.checkIfSegmentAltered(ctx, segment); err != nil {
 		logger.Debug("ReverifyPiece: audit source segment changed during reverification", zap.Error(err))
-		return OutcomeNotNecessary, nil
+		return OutcomeNotNecessary, reputation, nil
 	}
 	if outcome == OutcomeFailure {
-		return OutcomeFailure, nil
+		return OutcomeFailure, reputation, nil
 	}
 
-	return OutcomeSuccess, nil
+	return OutcomeSuccess, reputation, nil
 }
 
 // GetPiece uses the piecestore client to download a piece (and the associated

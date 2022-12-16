@@ -24,6 +24,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import UsageArea from '@/components/project/usage/UsageArea.vue';
 
@@ -50,7 +51,7 @@ export default class ProjectUsage extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_USAGE_CONTAINER);
         }
     }
 

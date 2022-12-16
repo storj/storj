@@ -129,7 +129,8 @@ export default class PermissionsStep extends Vue {
 
             this.areBucketNamesFetching = false;
         } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`, null);
         }
 
         this.isLoading = false;
@@ -151,7 +152,8 @@ export default class PermissionsStep extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            this.$notify.error(error.message, null);
         };
     }
 
@@ -166,7 +168,8 @@ export default class PermissionsStep extends Vue {
         try {
             await this.setPermissions();
         } catch (error) {
-            await this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(error.message, null);
             this.isLoading = false;
 
             return;
@@ -195,7 +198,8 @@ export default class PermissionsStep extends Vue {
         try {
             await this.setPermissions();
         } catch (error) {
-            await this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(error.message, null);
             this.isLoading = false;
 
             return;

@@ -38,7 +38,7 @@
                     v-for="(project, key) in projectsPage.projects"
                     :key="key"
                     :item-data="project"
-                    :on-click="onProjectSelected"
+                    :on-click="() => onProjectSelected(project)"
                 />
             </template>
         </v-table>
@@ -59,7 +59,7 @@ import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -97,7 +97,7 @@ export default class Projects extends Vue {
 
             this.areProjectsFetching = false;
         } catch (error) {
-            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
+            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
         }
     }
 
@@ -110,7 +110,7 @@ export default class Projects extends Vue {
         try {
             await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
+            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
         }
     }
 
@@ -137,9 +137,9 @@ export default class Projects extends Vue {
      */
     public async onProjectSelected(project: Project): Promise<void> {
         if (this.isLoading) return;
-
+        
         this.isLoading = true;
-
+        
         const projectID = project.id;
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);
@@ -155,7 +155,7 @@ export default class Projects extends Vue {
             this.analytics.pageVisit(RouteConfig.EditProjectDetails.path);
             await this.$router.push(RouteConfig.EditProjectDetails.path);
         } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`);
+            await this.$notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.PROJECTS_LIST);
         }
 
         this.isLoading = false;

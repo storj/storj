@@ -27,6 +27,7 @@ export class StorageNodeState {
     public ingressChartData: IngressUsed[] = [];
     public storageChartData: Stamp[] = [];
     public storageSummary = 0;
+    public averageUsageBytes = 0;
     public bandwidthSummary = 0;
     public egressSummary = 0;
     public ingressSummary = 0;

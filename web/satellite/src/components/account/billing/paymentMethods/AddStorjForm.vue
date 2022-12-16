@@ -12,8 +12,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 // @vue/component
 @Component
-export default class AddStorjForm extends Vue {
-}
+export default class AddStorjForm extends Vue {}
 </script>
 
 <style scoped lang="scss">

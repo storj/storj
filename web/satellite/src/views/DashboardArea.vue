@@ -78,7 +78,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -89,6 +89,9 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import eventBus from '@/utils/eventBus';
 import { ABTestValues } from '@/types/abtesting';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -138,7 +141,7 @@ export default class DashboardArea extends Vue {
     private inactivityModalShown = false;
     private inactivityModalTime = 60000;
     private ACTIVITY_REFRESH_TIME_LIMIT = 180000;
-    private sessionRefreshInterval: number = this.sessionDuration/2;
+    private sessionRefreshInterval: number = this.sessionDuration / 2;
     private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
     private isSessionActive = false;
     private isSessionRefreshing = false;
@@ -216,7 +219,7 @@ export default class DashboardArea extends Vue {
      */
     public async mounted(): Promise<void> {
         this.$store.subscribeAction((action) => {
-            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
+            if (action.type === USER_ACTIONS.CLEAR) this.clearSessionTimers();
         });
 
         if (LocalData.getBillingNotificationAcknowledged()) {
@@ -241,7 +244,7 @@ export default class DashboardArea extends Vue {
 
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
 
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
@@ -253,26 +256,26 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
         } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         try {
             const couponType = await this.$store.dispatch(SETUP_ACCOUNT);
             if (couponType === CouponType.NoCoupon) {
-                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`);
+                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             }
 
             if (couponType === CouponType.SignupCoupon) {
                 await this.$notify.success(`The coupon code was added successfully`);
             }
         } catch (error) {
-            await this.$notify.error(`Unable to setup account. ${error.message}`);
+            await this.$notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
         let projects: Project[] = [];
@@ -292,6 +295,7 @@ export default class DashboardArea extends Vue {
 
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
             } catch (error) {
+                this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
                 return;
             }
 
@@ -333,7 +337,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
             this.toggleMFARecoveryModal();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
     }
 
@@ -468,7 +472,7 @@ export default class DashboardArea extends Vue {
         try {
             LocalData.setSessionExpirationDate(await this.auth.refreshSession());
         } catch (error) {
-            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message);
+            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
             await this.handleInactive();
             this.isSessionRefreshing = false;
             return;
@@ -499,8 +503,23 @@ export default class DashboardArea extends Vue {
         } catch (error) {
             if (error instanceof ErrorUnauthorized) return;
 
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         }
+
+        await Promise.all([
+            this.$store.dispatch(PM_ACTIONS.CLEAR),
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(USER_ACTIONS.CLEAR),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
+            this.$store.dispatch('files/clear'),
+        ]);
     }
 
     /**
@@ -509,7 +528,7 @@ export default class DashboardArea extends Vue {
     private async onSessionActivity(): Promise<void> {
         if (this.inactivityModalShown || this.isSessionActive) return;
 
-        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
+        if (this.sessionRefreshTimerId === null && !this.isSessionRefreshing) {
             await this.refreshSession();
         }
         this.isSessionActive = true;

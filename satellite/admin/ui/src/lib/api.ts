@@ -408,7 +408,7 @@ Blank fields will not be updated.`,
 
 	private readonly baseURL: string;
 
-	constructor(baseURL: string, private readonly authToken: string) {
+	constructor(baseURL: string, private readonly authToken: string = '') {
 		this.baseURL = baseURL.endsWith('/') ? baseURL.substring(0, baseURL.length - 1) : baseURL;
 	}
 
@@ -419,9 +419,11 @@ Blank fields will not be updated.`,
 		data?: Record<string, unknown>
 	): Promise<Record<string, unknown> | null> {
 		const url = this.apiURL(path, query);
-		const headers = new window.Headers({
-			Authorization: this.authToken
-		});
+		const headers = new window.Headers();
+
+		if (this.authToken) {
+			headers.set('Authorization', this.authToken);
+		}
 
 		let body: string;
 		if (data) {

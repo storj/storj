@@ -88,6 +88,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -126,7 +127,7 @@ export default class SettingsArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
             this.toggleEnableMFAModal();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
 
         this.isLoading = false;
@@ -144,7 +145,7 @@ export default class SettingsArea extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
             this.toggleMFACodesModal();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
         }
 
         this.isLoading = false;

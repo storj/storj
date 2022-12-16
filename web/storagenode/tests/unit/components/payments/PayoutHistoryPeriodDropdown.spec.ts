@@ -68,7 +68,7 @@ describe('PayoutHistoryPeriodDropdown', (): void => {
             localVue,
         });
 
-        const satelliteInfo = new Satellites([], [], [], [], 0, 0, 0, 0, new Date(2020, 1));
+        const satelliteInfo = new Satellites([], [], [], [], 0, 0, 0, 0, 0, new Date(2020, 1));
 
         await store.commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, satelliteInfo);
 

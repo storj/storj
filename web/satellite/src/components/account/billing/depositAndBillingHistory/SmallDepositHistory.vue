@@ -34,8 +34,8 @@ import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/
     },
 })
 export default class SmallDepositHistory extends Vue {
-
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Changes location to deposit history route.
      */

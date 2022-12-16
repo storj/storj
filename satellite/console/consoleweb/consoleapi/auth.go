@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -124,6 +125,22 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getSessionID gets the session ID from the request.
+func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	return sessionID, nil
+}
+
 // Logout removes auth cookie.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -131,19 +148,13 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	tokenInfo, err := a.cookieAuth.GetToken(r)
+	sessionID, err := a.getSessionID(r)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
-	if err != nil {
-		a.serveJSONError(w, err)
-		return
-	}
-
-	err = a.service.DeleteSession(ctx, id)
+	err = a.service.DeleteSession(ctx, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -206,7 +217,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	// trim leading and trailing spaces of email address.
 	registerData.Email = strings.TrimSpace(registerData.Email)
 
-	isValidEmail := ValidateEmail(registerData.Email)
+	isValidEmail := utils.ValidateEmail(registerData.Email)
 	if !isValidEmail {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
@@ -354,15 +365,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			UserName:       userName,
 		},
 	)
-}
-
-// ValidateEmail validates email to have correct form and syntax.
-func ValidateEmail(email string) bool {
-	// This regular expression was built according to RFC 5322 and then extended to include international characters.
-	re := regexp.MustCompile(`^(?:[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+(?:\.[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9\p{L}](?:[a-z0-9\p{L}-]*[a-z0-9\p{L}])?\.)+[a-z0-9\p{L}](?:[a-z\p{L}]*[a-z\p{L}])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9\p{L}-]*[a-z0-9\p{L}]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$`)
-	match := re.MatchString(email)
-
-	return match
 }
 
 // loadSession looks for a cookie for the session id.
@@ -694,6 +696,24 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
 }
 
 // DisableUserMFA disables multi-factor authentication for the user.
@@ -713,6 +733,24 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return

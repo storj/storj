@@ -31,7 +31,6 @@ pipeline {
 
                 // download dependencies
                 sh 'go mod download'
-                sh 'cd testsuite/ui && go mod download'
 
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'

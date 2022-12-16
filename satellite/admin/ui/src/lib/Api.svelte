@@ -16,7 +16,7 @@ wants to perform.
 	import UIGen from '$lib/UIGenerator.svelte';
 
 	const baseURL = `${window.location.protocol}//${window.location.host}/api`;
-	let api: Admin;
+	let api: Admin = new Admin(baseURL);
 	let selectedGroupOp: Operation[];
 	let selectedOp: Operation;
 	let authToken: string;
@@ -25,21 +25,19 @@ wants to perform.
 		if (authToken) {
 			api = new Admin(baseURL, authToken);
 		} else {
-			api = null;
+			api = new Admin(baseURL);
 		}
 	}
 </script>
 
 <p>
-	In order to use the API you have to set the authentication token in the input box and press enter
-	or click the "confirm" button.
+	If you did not log in using Oauth (e.g. with Google), you have to set the authentication token in
+	the input box and press enter or click the "confirm" button.
 </p>
 <p>
 	Token: <input
 		bind:value={authToken}
 		on:focus={() => {
-			api = null;
-
 			// This allows to select the empty item of the second select.
 			selectedOp = null;
 		}}
@@ -52,38 +50,36 @@ wants to perform.
 	<button on:click={confirmAuthToken}>confirm</button>
 </p>
 
-{#if api}
-	<p>
-		Operation:
-		<select
-			bind:value={selectedGroupOp}
-			on:change={() => {
-				// This allows hiding the UIGen component when this select change until
-				// a new operations is selected in the following select element and also
-				// selecting the empty item of the select.
-				selectedOp = null;
-			}}
-		>
+<p>
+	Operation:
+	<select
+		bind:value={selectedGroupOp}
+		on:change={() => {
+			// This allows hiding the UIGen component when this select change until
+			// a new operations is selected in the following select element and also
+			// selecting the empty item of the select.
+			selectedOp = null;
+		}}
+	>
+		<option selected />
+		{#each Object.keys(api.operations) as group}
+			<option value={api.operations[group]}>{group}</option>
+		{/each}
+	</select>
+	{#if selectedGroupOp}
+		<select bind:value={selectedOp}>
 			<option selected />
-			{#each Object.keys(api.operations) as group}
-				<option value={api.operations[group]}>{group}</option>
+			{#each selectedGroupOp as op (op)}
+				<option value={op}>{op.name}</option>
 			{/each}
 		</select>
-		{#if selectedGroupOp}
-			<select bind:value={selectedOp}>
-				<option selected />
-				{#each selectedGroupOp as op (op)}
-					<option value={op}>{op.name}</option>
-				{/each}
-			</select>
-		{/if}
-	</p>
-	<hr />
-	<p>
-		{#if selectedOp}
-			{#key selectedOp}
-				<UIGen operation={selectedOp} />
-			{/key}
-		{/if}
-	</p>
-{/if}
+	{/if}
+</p>
+<hr />
+<p>
+	{#if selectedOp}
+		{#key selectedOp}
+			<UIGen operation={selectedOp} />
+		{/key}
+	{/if}
+</p>

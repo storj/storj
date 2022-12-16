@@ -224,7 +224,8 @@ export default class GatewayStep extends Vue {
 
             this.areKeysVisible = true;
         } catch (error) {
-            await this.$notify.error(error.message);
+            // we pass null because we don't use this flow anymore. It will be removed entirely soon.
+            await this.$notify.error(error.message, null);
         }
 
         this.isLoading = false;

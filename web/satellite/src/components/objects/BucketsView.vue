@@ -22,12 +22,12 @@
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -43,8 +43,6 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
     },
 })
 export default class BucketsView extends Vue {
-    private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
-
     public isLoading = true;
     public isServerSideEncryptionBannerHidden = true;
 
@@ -82,18 +80,12 @@ export default class BucketsView extends Vue {
                 return;
             }
 
-            if (!this.bucketsPage.buckets.length && wasDemoBucketCreated) {
-                await this.removeTemporaryAccessGrant();
-
-                return;
-            }
-
             if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
                 await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
             }
         } catch (error) {
-            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
+            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
         } finally {
             this.isLoading = false;
         }
@@ -106,7 +98,7 @@ export default class BucketsView extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
         }
     }
 
@@ -116,18 +108,6 @@ export default class BucketsView extends Vue {
     public onNewBucketButtonClick(): void {
         this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
         this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    }
-
-    /**
-     * Removes temporary created access grant.
-     */
-    public async removeTemporaryAccessGrant(): Promise<void> {
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
     }
 
     /**

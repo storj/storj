@@ -61,6 +61,7 @@ type Verifier struct {
 	dialer             rpc.Dialer
 	overlay            *overlay.Service
 	containment        Containment
+	newContainment     NewContainment
 	minBytesPerSecond  memory.Size
 	minDownloadTimeout time.Duration
 
@@ -69,7 +70,7 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier.
-func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, newContainment NewContainment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metabase:           metabase,
@@ -78,6 +79,7 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 		dialer:             dialer,
 		overlay:            overlay,
 		containment:        containment,
+		newContainment:     newContainment,
 		minBytesPerSecond:  minBytesPerSecond,
 		minDownloadTimeout: minDownloadTimeout,
 		nowFn:              time.Now,
@@ -344,6 +346,32 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 	}
 
 	return shares, nil
+}
+
+// IdentifyContainedNodes returns the set of all contained nodes out of the
+// holders of pieces in the given segment.
+func (verifier *Verifier) IdentifyContainedNodes(ctx context.Context, segment Segment) (skipList map[storj.NodeID]bool, err error) {
+	segmentInfo, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: segment.StreamID,
+		Position: segment.Position,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	skipList = make(map[storj.NodeID]bool)
+	for _, piece := range segmentInfo.Pieces {
+		_, err := verifier.newContainment.Get(ctx, piece.StorageNode)
+		if err != nil {
+			if ErrContainedNotFound.Has(err) {
+				continue
+			}
+			verifier.log.Error("can not determine if node is contained", zap.Stringer("node-id", piece.StorageNode), zap.Error(err))
+			continue
+		}
+		skipList[piece.StorageNode] = true
+	}
+	return skipList, nil
 }
 
 // Reverify reverifies the contained nodes in the stripe.

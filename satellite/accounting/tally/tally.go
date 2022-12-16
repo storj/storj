@@ -300,14 +300,8 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 	defer mon.Task()(&ctx)(&err)
 
 	var lastBucketLocation metabase.BucketLocation
-	var bucketLocationsSize int
-
 	for {
-		err := observer.bucketsDB.IterateBucketLocations(ctx, lastBucketLocation.ProjectID, lastBucketLocation.BucketName, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
-			if len(bucketLocations) < 1 {
-				return nil
-			}
-
+		more, err := observer.bucketsDB.IterateBucketLocations(ctx, lastBucketLocation.ProjectID, lastBucketLocation.BucketName, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
 			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
 				From:               bucketLocations[0],
 				To:                 bucketLocations[len(bucketLocations)-1],
@@ -330,16 +324,13 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, sta
 				bucket.ObjectCount = tally.ObjectCount
 			}
 
-			bucketLocationsSize = len(bucketLocations)
-
 			lastBucketLocation = bucketLocations[len(bucketLocations)-1]
 			return nil
 		})
 		if err != nil {
 			return err
 		}
-
-		if bucketLocationsSize < observer.config.ListLimit {
+		if !more {
 			break
 		}
 	}

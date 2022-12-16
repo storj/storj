@@ -56,6 +56,7 @@ describe('TotalHeldArea', (): void => {
             [],
             [],
             111,
+            11,
             222,
             50,
             70,

@@ -104,9 +104,12 @@ export interface PaymentsApi {
 export class AccountBalance {
     constructor(
         public freeCredits: number = 0,
-        public coins: number = 0,
+        private _coins: string = '0',
     ) { }
 
+    public get coins(): number {
+        return parseFloat(this._coins);
+    }
     public get sum(): number {
         return this.freeCredits + this.coins;
     }

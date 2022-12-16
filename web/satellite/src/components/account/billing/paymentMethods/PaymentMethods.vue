@@ -88,6 +88,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
@@ -134,7 +135,7 @@ export default class PaymentMethods extends Vue {
 
             this.areCardsFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS);
         }
     }
 

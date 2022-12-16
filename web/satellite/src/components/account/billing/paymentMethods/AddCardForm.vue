@@ -20,6 +20,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
@@ -59,7 +60,7 @@ export default class AddCardForm extends Vue {
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ADD_STRIPE_CC_FORM);
 
             this.$emit('toggleIsLoading');
 
@@ -70,7 +71,7 @@ export default class AddCardForm extends Vue {
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ADD_STRIPE_CC_FORM);
             this.$emit('toggleIsLoading');
         }
 

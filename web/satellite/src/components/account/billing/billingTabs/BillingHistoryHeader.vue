@@ -20,6 +20,5 @@ import { Fragment } from 'vue-fragment';
         Fragment,
     },
 })
-export default class BillingHistoryHeader extends Vue {
-}
+export default class BillingHistoryHeader extends Vue {}
 </script>

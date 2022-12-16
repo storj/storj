@@ -83,7 +83,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -118,7 +118,11 @@ export default class EnableMFAModal extends Vue {
      * Renders QR code.
      */
     public async mounted(): Promise<void> {
-        await QRCode.toCanvas(this.$refs.canvas, this.qrLink);
+        try {
+            await QRCode.toCanvas(this.$refs.canvas, this.qrLink);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
+        }
     }
 
     /**
@@ -140,10 +144,13 @@ export default class EnableMFAModal extends Vue {
      * Toggles view to MFA Recovery Codes state.
      */
     public async showCodes(): Promise<void> {
-        await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-
-        this.isEnable = false;
-        this.isCodes = true;
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            this.isEnable = false;
+            this.isCodes = true;
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
+        }
     }
 
     /**
@@ -169,7 +176,7 @@ export default class EnableMFAModal extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.MFA_ENABLED);
             await this.$notify.success('MFA was enabled successfully');
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
             this.isError = true;
         }
 

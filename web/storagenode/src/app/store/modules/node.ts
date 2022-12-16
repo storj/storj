@@ -118,6 +118,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 state.egressSummary = satelliteInfo.egressSummary;
                 state.ingressSummary = satelliteInfo.ingressSummary;
                 state.storageSummary = satelliteInfo.storageSummary;
+                state.averageUsageBytes = satelliteInfo.averageUsageBytes;
             },
         },
         actions: {

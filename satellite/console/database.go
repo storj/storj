@@ -27,6 +27,8 @@ type DB interface {
 	ResetPasswordTokens() ResetPasswordTokens
 	// WebappSessions is a getter for WebappSessions repository.
 	WebappSessions() consoleauth.WebappSessions
+	// AccountFreezeEvents is a getter for AccountFreezeEvents repository.
+	AccountFreezeEvents() AccountFreezeEvents
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error
