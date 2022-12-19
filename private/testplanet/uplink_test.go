@@ -147,6 +147,9 @@ func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest
 func (mock *piecestoreMock) RestoreTrash(context.Context, *pb.RestoreTrashRequest) (*pb.RestoreTrashResponse, error) {
 	return nil, nil
 }
+func (mock *piecestoreMock) Exists(context.Context, *pb.ExistsRequest) (*pb.ExistsResponse, error) {
+	return nil, nil
+}
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
