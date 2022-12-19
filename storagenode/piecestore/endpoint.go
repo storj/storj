@@ -211,6 +211,10 @@ func (endpoint *Endpoint) Exists(
 		return &pb.ExistsResponse{}, nil
 	}
 
+	if endpoint.config.ExistsCheckWorkers < 1 {
+		endpoint.config.ExistsCheckWorkers = 1
+	}
+
 	limiter := sync2.NewLimiter(endpoint.config.ExistsCheckWorkers)
 	var mu sync.Mutex
 
@@ -238,7 +242,8 @@ func (endpoint *Endpoint) Exists(
 			}
 		})
 		if !ok {
-			return &pb.ExistsResponse{}, rpcstatus.Wrap(rpcstatus.Internal, ctx.Err())
+			limiter.Wait()
+			return nil, rpcstatus.Wrap(rpcstatus.Canceled, ctx.Err())
 		}
 	}
 
@@ -246,7 +251,7 @@ func (endpoint *Endpoint) Exists(
 
 	return &pb.ExistsResponse{
 		Missing: missing,
-	}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}, nil
 }
 
 // Upload handles uploading a piece on piece store.
