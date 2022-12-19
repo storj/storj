@@ -4,6 +4,7 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
+            <div class="load" />
             <LoaderImage class="loading-icon" />
         </div>
         <div v-else class="dashboard__wrap">
@@ -117,7 +118,7 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
-import LoaderImage from '@/../static/images/common/loader.svg';
+import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
 const {
     SETUP_ACCOUNT,
@@ -621,6 +622,33 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
+    @keyframes rotate {
+
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .load {
+        width: 90px;
+        height: 90px;
+        margin: auto 0;
+        border: solid 3px var(--c-blue-3);
+        border-radius: 50%;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+        transition: all 0.5s ease-in;
+        animation-name: rotate;
+        animation-duration: 1.2s;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+    }
+
     .loading-overlay {
         display: flex;
         justify-content: center;
@@ -630,7 +658,7 @@ onBeforeUnmount(() => {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgb(134 134 148 / 30%);
+        background-color: #fff;
         visibility: hidden;
         opacity: 0;
         transition: all 0.5s linear;
@@ -642,8 +670,12 @@ onBeforeUnmount(() => {
     }
 
     .loading-icon {
-        width: 100px;
-        height: 100px;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
     }
 
     .dashboard {
