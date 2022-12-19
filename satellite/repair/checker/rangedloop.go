@@ -6,6 +6,7 @@ package checker
 import (
 	"context"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -97,14 +98,27 @@ func (observer *RangedLoopObserver) createInsertBuffer() *queue.InsertBuffer {
 }
 
 // CompareInjuredSegment compares stream id of injured segment, for testing purposes only.
-func (observer *RangedLoopObserver) CompareInjuredSegment(ctx context.Context, streamID uuid.UUID) error {
-	injuredSegment, err := observer.repairQueue.Select(ctx)
+func (observer *RangedLoopObserver) CompareInjuredSegment(ctx context.Context, streamIDs []uuid.UUID) error {
+	injuredSegments, err := observer.repairQueue.SelectN(ctx, 100)
 	if err != nil {
 		return err
 	}
 
-	if injuredSegment.StreamID != streamID {
-		return errs.New("streamID of injured segment does not match")
+	var injuredSegmentsIds []uuid.UUID
+	for _, segment := range injuredSegments {
+		injuredSegmentsIds = append(injuredSegmentsIds, segment.StreamID)
+	}
+
+	sort.Slice(injuredSegmentsIds, func(i, j int) bool {
+		return injuredSegmentsIds[i].Less(injuredSegmentsIds[j])
+	})
+
+	sort.Slice(streamIDs, func(i, j int) bool {
+		return streamIDs[i].Less(streamIDs[j])
+	})
+
+	if !reflect.DeepEqual(streamIDs, injuredSegmentsIds) {
+		return errs.New("injured objects ids are different")
 	}
 
 	return nil

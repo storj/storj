@@ -205,7 +205,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, peer.Metrics.Observer)
 		}
 
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",
 			Run:  peer.RangedLoop.Service.Run,

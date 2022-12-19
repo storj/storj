@@ -508,7 +508,7 @@ func TestRepairObserver(t *testing.T) {
 		err = observer.Finish(ctx)
 		require.NoError(t, err)
 		require.NoError(t, observer.CompareStats(21, 21, 1, 1, 0, 0, nil))
-		require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamID))
+		require.NoError(t, observer.CompareInjuredSegment(ctx, []uuid.UUID{injuredSegmentStreamID}))
 	})
 }
 
@@ -540,22 +540,27 @@ func TestRangedLoopObserver(t *testing.T) {
 		}
 
 		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		for x := 0; x < 20; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
+		var injuredSegmentStreamIDs []uuid.UUID
+
 		// add pointer that needs repair
-		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
-		injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
+		for x := 0; x < 5; x++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("b-%d", x))
+			injuredSegmentStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
+			injuredSegmentStreamIDs = append(injuredSegmentStreamIDs, injuredSegmentStreamID)
+		}
 
 		// add pointer that is unhealthy, but is expired
-		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
+		expectedLocation.ObjectKey = metabase.ObjectKey("d-1")
 		expiresAt := time.Now().Add(-time.Hour)
 		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
-		for x := 0; x < 10; x++ {
+		for x := 0; x < 20; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
@@ -564,7 +569,7 @@ func TestRangedLoopObserver(t *testing.T) {
 		require.NoError(t, err)
 
 		observer := planet.Satellites[0].Repair.Observer
-		require.NoError(t, observer.CompareStats(21, 21, 1, 1, 0, 0, nil))
-		require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamID))
+		require.NoError(t, observer.CompareStats(45, 45, 5, 5, 0, 0, nil))
+		require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamIDs))
 	})
 }
