@@ -515,7 +515,7 @@ export default class DashboardArea extends Vue {
             this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
             this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
             this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
-            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLEAR),
             this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
             this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
             this.$store.dispatch('files/clear'),
