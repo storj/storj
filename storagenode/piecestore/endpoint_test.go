@@ -6,6 +6,7 @@ package piecestore_test
 import (
 	"bytes"
 	"io"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -795,4 +796,74 @@ func downloadPiece(
 	buffer := make([]byte, limit)
 	n, err := downloader.Read(buffer)
 	return buffer[:n], err
+}
+
+func TestExists(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// use non satellite dialer to check if request will be rejected
+		uplinkDialer := planet.Uplinks[0].Dialer
+		conn, err := uplinkDialer.DialNodeURL(ctx, planet.StorageNodes[0].NodeURL())
+		require.NoError(t, err)
+		piecestore := pb.NewDRPCPiecestoreClient(conn)
+		_, err = piecestore.Exists(ctx, &pb.ExistsRequest{})
+		require.Error(t, err)
+		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+
+		for i := 0; i < 15; i++ {
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "object"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+		}
+
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+
+		existingSNPieces := map[storj.NodeID][]storj.PieceID{}
+
+		for _, segment := range segments {
+			for _, piece := range segment.Pieces {
+				pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+				existingSNPieces[piece.StorageNode] = append(existingSNPieces[piece.StorageNode], pieceID)
+			}
+		}
+
+		dialer := planet.Satellites[0].Dialer
+		for _, node := range planet.StorageNodes {
+			conn, err := dialer.DialNodeURL(ctx, node.NodeURL())
+			require.NoError(t, err)
+
+			piecestore := pb.NewDRPCPiecestoreClient(conn)
+
+			response, err := piecestore.Exists(ctx, &pb.ExistsRequest{})
+			require.NoError(t, err)
+			require.Empty(t, response.Missing)
+
+			piecesToVerify := existingSNPieces[node.ID()]
+			response, err = piecestore.Exists(ctx, &pb.ExistsRequest{
+				PieceIds: piecesToVerify,
+			})
+			require.NoError(t, err)
+			require.Empty(t, response.Missing)
+
+			notExistingPieceID := testrand.PieceID()
+			// add not existing piece to the list
+			piecesToVerify = append(piecesToVerify, notExistingPieceID)
+			response, err = piecestore.Exists(ctx, &pb.ExistsRequest{
+				PieceIds: piecesToVerify,
+			})
+			require.NoError(t, err)
+			require.Equal(t, []uint32{uint32(len(piecesToVerify) - 1)}, response.Missing)
+
+			// verify single missing piece
+			response, err = piecestore.Exists(ctx, &pb.ExistsRequest{
+				PieceIds: []pb.PieceID{notExistingPieceID},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []uint32{0}, response.Missing)
+		}
+
+		// TODO verify that pieces from different satellite doesn't leak into results
+		// TODO verify larger number of pieces
+	})
 }
