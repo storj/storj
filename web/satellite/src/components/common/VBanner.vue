@@ -28,11 +28,10 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 const props = withDefaults(defineProps<{
     severity?: 'info' | 'warning' | 'critical';
     onClick?: () => void;
-    dashboardRef?: HTMLElement;
+    dashboardRef: HTMLElement;
 }>(), {
     severity: 'info',
     onClick: () => () => {},
-    dashboardRef: () => {},
 });
 
 const { isMobile } = useResize();
@@ -130,6 +129,8 @@ watch(() => props.dashboardRef, () => {
     }
 
     &__close {
+        width: 15px;
+        height: 15px;
         margin-left: 2.375rem;
         cursor: pointer;
     }
@@ -146,6 +147,7 @@ watch(() => props.dashboardRef, () => {
 .link {
     color: black;
     text-decoration: underline !important;
+    cursor: pointer;
 }
 
 @media screen and (max-width: 500px) {

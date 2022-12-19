@@ -4,13 +4,13 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { AccessGrantsMock } from '../mock/api/accessGrants';
-import { BucketsMock } from '../mock/api/buckets';
-import { PaymentsMock } from '../mock/api/payments';
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
-import { UsersApiMock } from '../mock/api/users';
-import { ABMockApi } from '../mock/api/abtesting';
+import { AccessGrantsMock } from '../../mock/api/accessGrants';
+import { BucketsMock } from '../../mock/api/buckets';
+import { PaymentsMock } from '../../mock/api/payments';
+import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
+import { ProjectsApiMock } from '../../mock/api/projects';
+import { UsersApiMock } from '../../mock/api/users';
+import { ABMockApi } from '../../mock/api/abtesting';
 
 import { RouteConfig, router } from '@/router';
 import { makeAccessGrantsModule } from '@/store/modules/accessGrants';

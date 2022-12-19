@@ -59,6 +59,8 @@ export default class AddCardForm extends Vue {
 
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
+
+            await this.$store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ADD_STRIPE_CC_FORM);
 
@@ -67,7 +69,8 @@ export default class AddCardForm extends Vue {
             return;
         }
 
-        await this.$notify.success('Card successfully added');
+        await this.$notify.success('Card successfully added. There can be a delay before changes related to changing your limits will take effect.');
+
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {

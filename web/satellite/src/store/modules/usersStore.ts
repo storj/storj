@@ -50,6 +50,10 @@ export const useUsersStore = defineStore('users', () => {
         usersState.user.projectLimit = user.projectLimit;
     }
 
+    async function fetchFrozenStatus(): Promise<void> {
+        usersState.user.isFrozen = await api.getFrozenStatus();
+    }
+
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
         await api.disableUserMFA(request.passcode, request.recoveryCode);
     }
@@ -84,5 +88,6 @@ export const useUsersStore = defineStore('users', () => {
         generateUserMFASecret,
         generateUserMFARecoveryCodes,
         clearUserInfo,
+        fetchFrozenStatus,
     };
 });

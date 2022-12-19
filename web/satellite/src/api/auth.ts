@@ -220,6 +220,23 @@ export class AuthHttpApi implements UsersApi {
         throw new Error('can not delete user');
     }
 
+    /**
+     * Fetches user frozen status.
+     *
+     * @throws Error
+     */
+    public async getFrozenStatus(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/account/freezestatus`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return responseData.frozen;
+        }
+
+        throw new Error('can not get user frozen status');
+    }
+
     // TODO: remove secret after Vanguard release
     /**
      * Used to register account.
