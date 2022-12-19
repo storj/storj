@@ -258,7 +258,6 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
-			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
 			minBytesPerSecond,
@@ -334,7 +333,6 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			satellite.Dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
-			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
 			minBytesPerSecond,
@@ -636,7 +634,6 @@ func TestVerifierDialTimeout(t *testing.T) {
 			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
-			satellite.DB.NewContainment(),
 			satellite.Orders.Service,
 			satellite.Identity,
 			minBytesPerSecond,
@@ -878,7 +875,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
 		require.Len(t, report.PendingAudits, 1)
-		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode.ID())
+		assert.Equal(t, report.PendingAudits[0].Locator.NodeID, slowNode.ID())
 	})
 }
 
@@ -1139,7 +1136,7 @@ func TestIdentifyContainedNodes(t *testing.T) {
 
 		// mark a node as contained
 		containedNode := segment.Pieces[0].StorageNode
-		containment := satellite.DB.NewContainment()
+		containment := satellite.DB.Containment()
 		err = containment.Insert(ctx, &audit.PieceLocator{
 			StreamID: testrand.UUID(),
 			NodeID:   containedNode,

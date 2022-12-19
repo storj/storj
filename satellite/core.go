@@ -116,14 +116,8 @@ type Core struct {
 	}
 
 	Audit struct {
-		VerifyQueue    audit.VerifyQueue
-		ReverifyQueue  audit.ReverifyQueue
-		Worker         *audit.Worker
-		ReverifyWorker *audit.ReverifyWorker
-		Chore          *audit.Chore
-		Verifier       *audit.Verifier
-		Reverifier     *audit.Reverifier
-		Reporter       audit.Reporter
+		VerifyQueue audit.VerifyQueue
+		Chore       *audit.Chore
 	}
 
 	ExpiredDeletion struct {
@@ -399,70 +393,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup audit
-		// force tcp for now because audit is very sensitive to how errors
-		// are returned, and adding quic can cause problems
-		dialer := peer.Dialer
-		//lint:ignore SA1019 deprecated is fine here.
-		//nolint:staticcheck // deprecated is fine here.
-		dialer.Connector = rpc.NewDefaultTCPConnector(nil)
-
 		config := config.Audit
 
 		peer.Audit.VerifyQueue = db.VerifyQueue()
-		peer.Audit.ReverifyQueue = db.ReverifyQueue()
-
-		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
-			peer.Metainfo.Metabase,
-			dialer,
-			peer.Overlay.Service,
-			peer.DB.Containment(),
-			peer.DB.NewContainment(),
-			peer.Orders.Service,
-			peer.Identity,
-			config.MinBytesPerSecond,
-			config.MinDownloadTimeout,
-		)
-		peer.Audit.Reverifier = audit.NewReverifier(log.Named("audit:reverifier"),
-			peer.Audit.Verifier,
-			peer.Audit.ReverifyQueue,
-			config)
-
-		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
-			peer.Reputation.Service,
-			peer.Overlay.Service,
-			peer.DB.Containment(),
-			peer.DB.NewContainment(),
-			config.MaxRetriesStatDB,
-			int32(config.MaxReverifyCount),
-		)
-
-		peer.Audit.Worker = audit.NewWorker(peer.Log.Named("audit:worker"),
-			peer.Audit.VerifyQueue,
-			peer.Audit.Verifier,
-			peer.Audit.ReverifyQueue,
-			peer.Audit.Reporter,
-			config,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "audit:worker",
-			Run:   peer.Audit.Worker.Run,
-			Close: peer.Audit.Worker.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Audit Worker", peer.Audit.Worker.Loop))
-
-		peer.Audit.ReverifyWorker = audit.NewReverifyWorker(peer.Log.Named("audit:reverify-worker"),
-			peer.Audit.ReverifyQueue,
-			peer.Audit.Reverifier,
-			peer.Audit.Reporter,
-			config)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "audit:reverify-worker",
-			Run:   peer.Audit.ReverifyWorker.Run,
-			Close: peer.Audit.ReverifyWorker.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Audit Reverify Worker", peer.Audit.ReverifyWorker.Loop))
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.VerifyQueue,

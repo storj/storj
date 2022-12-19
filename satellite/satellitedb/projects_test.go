@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -52,5 +53,25 @@ func TestProjectsGetSalt(t *testing.T) {
 
 		_, err = uuid.FromBytes(salt)
 		require.NoError(t, err)
+	})
+}
+
+func TestUpdateProjectUsageLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		limits := console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
+		projectsRepo := db.Console().Projects()
+
+		proj, err := projectsRepo.Insert(ctx, &console.Project{})
+		require.NoError(t, err)
+		require.NotNil(t, proj)
+
+		err = projectsRepo.UpdateUsageLimits(ctx, proj.ID, limits)
+		require.NoError(t, err)
+
+		proj, err = projectsRepo.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, limits.Bandwidth, proj.BandwidthLimit.Int64())
+		require.Equal(t, limits.Storage, proj.StorageLimit.Int64())
+		require.Equal(t, limits.Segment, *proj.SegmentLimit)
 	})
 }

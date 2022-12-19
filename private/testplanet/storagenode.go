@@ -169,6 +169,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			ReportCapacityThreshold: 100 * memory.MB,
 			DeleteQueueSize:         10000,
 			DeleteWorkers:           1,
+			ExistsCheckWorkers:      5,
 			Orders: orders.Config{
 				SenderInterval:  defaultInterval,
 				SenderTimeout:   10 * time.Minute,

@@ -4,6 +4,7 @@
 package stripecoinpayments_test
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -121,32 +123,16 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			projects[i], err = satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
 			require.NoError(t, err)
 
-			// generate egress
 			projectsEgress[i] = int64(i+10) * memory.GiB.Int64()
-			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, projects[i].ID, []byte("testbucket"),
-				pb.PieceAction_GET, projectsEgress[i], 0, period)
-			require.NoError(t, err)
-
-			// generate storage
-			// we need at least two tallies across time to calculate storage
 			projectsStorage[i] = int64(i+1) * memory.TiB.Int64()
-			tally := &accounting.BucketTally{
-				BucketLocation: metabase.BucketLocation{
-					ProjectID:  projects[i].ID,
-					BucketName: "testbucket",
-				},
-				TotalBytes:    projectsStorage[i],
-				TotalSegments: int64(i + 1),
-			}
-			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
-				{}: tally,
-			}
-			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period, tallies)
-			require.NoError(t, err)
-
-			err = satellite.DB.ProjectAccounting().SaveTallies(ctx, period.Add(time.Duration(storageHours)*time.Hour), tallies)
-			require.NoError(t, err)
-
+			totalSegments := int64(i + 1)
+			generateProjectStorage(ctx, t, satellite.DB,
+				projects[i].ID,
+				period,
+				period.Add(time.Duration(storageHours)*time.Hour),
+				projectsEgress[i],
+				projectsStorage[i],
+				totalSegments)
 			// verify that projects don't have records yet
 			projectRecord, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, projects[i].ID, start, end)
 			require.NoError(t, err)
@@ -345,66 +331,161 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 }
 
 func TestService_GenerateInvoice(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		payments := satellite.API.Payments
+	for _, testCase := range []struct {
+		desc              string
+		skipEmptyInvoices bool
+		addProjectUsage   bool
+		expectInvoice     bool
+	}{
+		{
+			desc:              "invoice with non-empty usage created if not configured to skip",
+			skipEmptyInvoices: false,
+			addProjectUsage:   true,
+			expectInvoice:     true,
+		},
+		{
+			desc:              "invoice with non-empty usage created if configured to skip",
+			skipEmptyInvoices: true,
+			addProjectUsage:   true,
+			expectInvoice:     true,
+		},
+		{
+			desc:              "invoice with empty usage created if not configured to skip",
+			skipEmptyInvoices: false,
+			addProjectUsage:   false,
+			expectInvoice:     true,
+		},
+		{
+			desc:              "invoice with empty usage not created if configured to skip",
+			skipEmptyInvoices: true,
+			addProjectUsage:   false,
+			expectInvoice:     false,
+		},
+	} {
+		t.Run(testCase.desc, func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.Payments.StripeCoinPayments.SkipEmptyInvoices = testCase.skipEmptyInvoices
+					},
+				},
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+				satellite := planet.Satellites[0]
+				payments := satellite.API.Payments
 
-		// pick a specific date so that it doesn't fail if it's the last day of the month
-		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+				// pick a specific date so that it doesn't fail if it's the last day of the month
+				// keep month + 1 because user needs to be created before calculation
+				period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
-		payments.StripeService.SetNow(func() time.Time {
-			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+				payments.StripeService.SetNow(func() time.Time {
+					return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+				})
+				start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+				end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+				user, err := satellite.AddUser(ctx, console.CreateUser{
+					FullName: "Test User",
+					Email:    "test@mail.test",
+				}, 1)
+				require.NoError(t, err)
+
+				proj, err := satellite.AddProject(ctx, user.ID, "testproject")
+				require.NoError(t, err)
+
+				// optionally add some usage for the project
+				if testCase.addProjectUsage {
+					generateProjectStorage(ctx, t, satellite.DB,
+						proj.ID,
+						period,
+						period.Add(24*time.Hour),
+						100000,
+						200000,
+						99)
+				}
+
+				require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
+
+				// ensure free tier coupon was applied
+				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+				require.NoError(t, err)
+
+				stripeUser, err := payments.StripeClient.Customers().Get(cusID, nil)
+				require.NoError(t, err)
+				require.NotNil(t, stripeUser.Discount)
+				require.NotNil(t, stripeUser.Discount.Coupon)
+				require.Equal(t, payments.StripeService.StripeFreeTierCouponID, stripeUser.Discount.Coupon.ID)
+
+				// ensure project record was generated
+				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
+				require.ErrorIs(t, stripecoinpayments.ErrProjectRecordExists, err)
+
+				rec, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, proj.ID, start, end)
+				require.NotNil(t, rec)
+				require.NoError(t, err)
+
+				invoice, hasInvoice := getCustomerInvoice(payments.StripeClient, cusID)
+				invoiceItems := getCustomerInvoiceItems(payments.StripeClient, cusID)
+
+				// If invoicing empty usage invoices was skipped, then we don't
+				// expect an invoice or invoice items.
+				if !testCase.expectInvoice {
+					require.False(t, hasInvoice, "expected no invoice but got one")
+					require.Empty(t, invoiceItems, "not expecting any invoice items")
+					return
+				}
+
+				// Otherwise, we expect one or more line items that have been
+				// associated with the newly created invoice.
+				require.True(t, hasInvoice, "expected invoice but did not get one")
+				require.NotZero(t, len(invoiceItems), "expecting one or more invoice items")
+				for _, item := range invoiceItems {
+					require.Contains(t, item.Metadata, "projectID")
+					require.Equal(t, item.Metadata["projectID"], proj.ID.String())
+					require.NotNil(t, invoice, item.Invoice)
+					require.Equal(t, invoice.ID, item.Invoice.ID)
+				}
+			})
 		})
-		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
-		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	}
+}
 
-		user, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "Test User",
-			Email:    "test@mail.test",
-		}, 1)
-		require.NoError(t, err)
+func getCustomerInvoice(stripeClient stripecoinpayments.StripeClient, cusID string) (*stripe.Invoice, bool) {
+	iter := stripeClient.Invoices().List(&stripe.InvoiceListParams{Customer: &cusID})
+	if iter.Next() {
+		return iter.Invoice(), true
+	}
+	return nil, false
+}
 
-		proj, err := satellite.AddProject(ctx, user.ID, "testproject")
-		require.NoError(t, err)
+func getCustomerInvoiceItems(stripeClient stripecoinpayments.StripeClient, cusID string) (items []*stripe.InvoiceItem) {
+	iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{Customer: &cusID})
+	for iter.Next() {
+		items = append(items, iter.InvoiceItem())
+	}
+	return items
+}
 
-		require.NoError(t, payments.StripeService.GenerateInvoices(ctx, start))
+func generateProjectStorage(ctx context.Context, tb testing.TB, db satellite.DB, projectID uuid.UUID, start, end time.Time, egress, totalBytes, totalSegments int64) {
+	// generate egress
+	err := db.Orders().UpdateBucketBandwidthSettle(ctx, projectID, []byte("testbucket"),
+		pb.PieceAction_GET, egress, 0, start)
+	require.NoError(tb, err)
 
-		// ensure free tier coupon was applied
-		cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
-		require.NoError(t, err)
+	// generate storage
+	tallies := map[metabase.BucketLocation]*accounting.BucketTally{
+		{}: {
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: "testbucket",
+			},
+			TotalBytes:    totalBytes,
+			TotalSegments: totalSegments,
+		},
+	}
+	err = db.ProjectAccounting().SaveTallies(ctx, start, tallies)
+	require.NoError(tb, err)
 
-		stripeUser, err := payments.StripeClient.Customers().Get(cusID, nil)
-		require.NoError(t, err)
-		require.NotNil(t, stripeUser.Discount)
-		require.NotNil(t, stripeUser.Discount.Coupon)
-		require.Equal(t, payments.StripeService.StripeFreeTierCouponID, stripeUser.Discount.Coupon.ID)
-
-		// ensure project record was generated
-		err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
-		require.ErrorIs(t, stripecoinpayments.ErrProjectRecordExists, err)
-
-		rec, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, proj.ID, start, end)
-		require.NotNil(t, rec)
-		require.NoError(t, err)
-
-		// ensure an invoice was created
-		invoiceIter := payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{Customer: &cusID})
-		require.True(t, invoiceIter.Next())
-		invoice := invoiceIter.Invoice()
-
-		// ensure project record was applied as invoice items to that invoice
-		itemIter := payments.StripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{Customer: &cusID})
-		count := 0
-		for ; itemIter.Next(); count++ {
-			item := itemIter.InvoiceItem()
-			require.Contains(t, item.Metadata, "projectID")
-			require.Equal(t, item.Metadata["projectID"], proj.ID.String())
-			require.NotNil(t, itemIter.InvoiceItem().Invoice)
-			require.Equal(t, invoice.ID, itemIter.InvoiceItem().Invoice.ID)
-		}
-		require.NotZero(t, count)
-	})
+	err = db.ProjectAccounting().SaveTallies(ctx, end, tallies)
+	require.NoError(tb, err)
 }

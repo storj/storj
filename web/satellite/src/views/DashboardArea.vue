@@ -78,7 +78,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -90,6 +90,8 @@ import eventBus from '@/utils/eventBus';
 import { ABTestValues } from '@/types/abtesting';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -139,7 +141,7 @@ export default class DashboardArea extends Vue {
     private inactivityModalShown = false;
     private inactivityModalTime = 60000;
     private ACTIVITY_REFRESH_TIME_LIMIT = 180000;
-    private sessionRefreshInterval: number = this.sessionDuration/2;
+    private sessionRefreshInterval: number = this.sessionDuration / 2;
     private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
     private isSessionActive = false;
     private isSessionRefreshing = false;
@@ -217,7 +219,7 @@ export default class DashboardArea extends Vue {
      */
     public async mounted(): Promise<void> {
         this.$store.subscribeAction((action) => {
-            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
+            if (action.type === USER_ACTIONS.CLEAR) this.clearSessionTimers();
         });
 
         if (LocalData.getBillingNotificationAcknowledged()) {
@@ -503,6 +505,21 @@ export default class DashboardArea extends Vue {
 
             await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         }
+
+        await Promise.all([
+            this.$store.dispatch(PM_ACTIONS.CLEAR),
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(USER_ACTIONS.CLEAR),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
+            this.$store.dispatch('files/clear'),
+        ]);
     }
 
     /**
@@ -511,7 +528,7 @@ export default class DashboardArea extends Vue {
     private async onSessionActivity(): Promise<void> {
         if (this.inactivityModalShown || this.isSessionActive) return;
 
-        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
+        if (this.sessionRefreshTimerId === null && !this.isSessionRefreshing) {
             await this.refreshSession();
         }
         this.isSessionActive = true;

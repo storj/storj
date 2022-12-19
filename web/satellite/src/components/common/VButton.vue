@@ -23,9 +23,9 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 
-import { computed, defineComponent } from 'vue';
+import { computed } from 'vue';
 
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
@@ -33,62 +33,68 @@ import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 
-export default defineComponent({
-    name: 'VButton',
-    components: {
-        CopyIcon,
-        TrashIcon,
-        LockIcon,
-        CreditCardIcon,
-        DocumentIcon,
-    },
-    props:  {
-        label: { type: String, default: 'Default' },
-        width: { type: String, default: 'inherit' },
-        height: { type: String, default: 'inherit' },
-        fontSize: { type: String, default: '16px' },
-        borderRadius: { type: String, default: '6px' },
-        icon: { type: String, default: 'none' },
-        isWhite: Boolean,
-        isSolidDelete: Boolean,
-        isTransparent: Boolean,
-        isDeletion: Boolean,
-        isGreyBlue: Boolean,
-        isBlueWhite: Boolean,
-        isWhiteGreen: Boolean,
-        isGreenWhite: Boolean,
-        isDisabled: Boolean,
-        isUppercase: Boolean,
-        onPress: { type: Function as () => void, default: () => {} },
-    },
-    setup(props) {
-        return {
-            containerClassName: computed(() => {
-                if (props.isDisabled) return 'container disabled';
+const props = withDefaults(defineProps<{
+    label?: string;
+    width?: string;
+    height?: string;
+    fontSize?: string;
+    borderRadius?: string;
+    icon?: string;
+    isWhite?: boolean;
+    isSolidDelete?: boolean;
+    isTransparent?: boolean;
+    isDeletion?: boolean;
+    isGreyBlue?: boolean;
+    isBlueWhite?: boolean;
+    isWhiteGreen?: boolean;
+    isGreenWhite?: boolean;
+    isDisabled?: boolean;
+    isUppercase?: boolean;
+    onPress?: () => void;
+}>(), {
+    label: 'Default',
+    width: 'inherit',
+    height: 'inherit',
+    fontSize: '16px',
+    borderRadius: '6px',
+    icon: 'none',
+    isWhite: false,
+    isSolidDelete: false,
+    isTransparent: false,
+    isDeletion: false,
+    isGreyBlue: false,
+    isBlueWhite: false,
+    isWhiteGreen: false,
+    isGreenWhite: false,
+    isDisabled: false,
+    isUppercase: false,
+    onPress: () => {},
+});
 
-                if (props.isWhite) return 'container white';
+const containerClassName = computed((): string => {
+    if (props.isDisabled) return 'container disabled';
 
-                if (props.isSolidDelete) return 'container solid-red';
+    if (props.isWhite) return 'container white';
 
-                if (props.isTransparent) return 'container transparent';
+    if (props.isSolidDelete) return 'container solid-red';
 
-                if (props.isDeletion) return 'container red';
+    if (props.isTransparent) return 'container transparent';
 
-                if (props.isGreyBlue) return 'container grey-blue';
+    if (props.isDeletion) return 'container red';
 
-                if (props.isBlueWhite) return 'container blue-white';
+    if (props.isGreyBlue) return 'container grey-blue';
 
-                if (props.isWhiteGreen) return 'container white-green';
+    if (props.isBlueWhite) return 'container blue-white';
 
-                if (props.isGreenWhite) return 'container green-white';
+    if (props.isWhiteGreen) return 'container white-green';
 
-                return 'container';
-            }),
-            style: computed(() => {
-                return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
-            }),
-        };
-    },
+    if (props.isGreenWhite) return 'container green-white';
+
+    return 'container';
+});
+
+const style = computed(() => {
+    return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
 });
 </script>
 

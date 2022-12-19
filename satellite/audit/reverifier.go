@@ -195,7 +195,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 		}
 		if overlay.ErrNodeOffline.Has(err) {
 			logger.Debug("ReverifyPiece: order limit not created (node considered offline)")
-			return OutcomeNotPerformed, reputation, nil
+			return OutcomeNodeOffline, reputation, nil
 		}
 		return OutcomeNotPerformed, reputation, Error.Wrap(err)
 	}

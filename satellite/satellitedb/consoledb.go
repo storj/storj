@@ -74,6 +74,11 @@ func (db *ConsoleDB) WebappSessions() consoleauth.WebappSessions {
 	return &webappSessions{db.methods}
 }
 
+// AccountFreezeEvents is a getter for AccountFreezeEvents repository.
+func (db *ConsoleDB) AccountFreezeEvents() console.AccountFreezeEvents {
+	return &accountFreezeEvents{db.methods}
+}
+
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {

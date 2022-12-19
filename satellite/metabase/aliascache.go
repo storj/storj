@@ -335,10 +335,15 @@ func (m *NodeAliasMap) ContainsAll(nodeIDs []storj.NodeID, nodeAliases []NodeAli
 	return true
 }
 
-// Size returns the number of entries in this map.
+// Size returns the number of entries in this map. Contrast with Max.
 func (m *NodeAliasMap) Size() int {
 	if m == nil {
 		return 0
 	}
 	return len(m.alias)
+}
+
+// Max returns the largest node alias in this map, -1 otherwise. Contrast with Size.
+func (m *NodeAliasMap) Max() NodeAlias {
+	return NodeAlias(len(m.node) - 1)
 }

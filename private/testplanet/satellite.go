@@ -71,6 +71,7 @@ type Satellite struct {
 	Core       *satellite.Core
 	API        *satellite.API
 	Repairer   *satellite.Repairer
+	Auditor    *satellite.Auditor
 	Admin      *satellite.Admin
 	GC         *satellite.GarbageCollection
 	GCBF       *satellite.GarbageCollectionBF
@@ -297,6 +298,7 @@ func (system *Satellite) Close() error {
 		system.API.Close(),
 		system.Core.Close(),
 		system.Repairer.Close(),
+		system.Auditor.Close(),
 		system.Admin.Close(),
 		system.GC.Close(),
 		system.GCBF.Close(),
@@ -315,6 +317,9 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Repairer.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(system.Auditor.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(system.Admin.Run(ctx))
@@ -543,6 +548,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	auditorPeer, err := planet.newAuditor(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
@@ -562,20 +572,21 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		peer.Mail.EmailReminders.TestSetLinkAddress("http://" + api.Console.Listener.Addr().String() + "/")
 	}
 
-	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer, gcBFPeer, rangedLoopPeer), nil
+	return createNewSystem(prefix, log, config, peer, api, repairerPeer, auditorPeer, adminPeer, gcPeer, gcBFPeer, rangedLoopPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many processes.
-func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, auditorPeer *satellite.Auditor, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection, gcBFPeer *satellite.GarbageCollectionBF, rangedLoopPeer *satellite.RangedLoop) *Satellite {
 	system := &Satellite{
 		Name:       name,
 		Config:     config,
 		Core:       peer,
 		API:        api,
 		Repairer:   repairerPeer,
+		Auditor:    auditorPeer,
 		Admin:      adminPeer,
 		GC:         gcPeer,
 		GCBF:       gcBFPeer,
@@ -618,14 +629,14 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Repair.Checker = peer.Repair.Checker
 	system.Repair.Repairer = repairerPeer.Repairer
 
-	system.Audit.VerifyQueue = peer.Audit.VerifyQueue
-	system.Audit.ReverifyQueue = peer.Audit.ReverifyQueue
-	system.Audit.Worker = peer.Audit.Worker
-	system.Audit.ReverifyWorker = peer.Audit.ReverifyWorker
+	system.Audit.VerifyQueue = auditorPeer.Audit.VerifyQueue
+	system.Audit.ReverifyQueue = auditorPeer.Audit.ReverifyQueue
+	system.Audit.Worker = auditorPeer.Audit.Worker
+	system.Audit.ReverifyWorker = auditorPeer.Audit.ReverifyWorker
 	system.Audit.Chore = peer.Audit.Chore
-	system.Audit.Verifier = peer.Audit.Verifier
-	system.Audit.Reverifier = peer.Audit.Reverifier
-	system.Audit.Reporter = peer.Audit.Reporter
+	system.Audit.Verifier = auditorPeer.Audit.Verifier
+	system.Audit.Reverifier = auditorPeer.Audit.Reverifier
+	system.Audit.Reporter = auditorPeer.Audit.Reporter
 
 	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
 	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
@@ -700,7 +711,25 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), db.NewContainment(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
+}
+
+func (planet *Planet) newAuditor(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Auditor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	prefix := "satellite-auditor" + strconv.Itoa(index)
+	log := planet.log.Named(prefix)
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, revocationDB)
+
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	return satellite.NewAuditor(log, identity, metabaseDB, revocationDB, db.VerifyQueue(), db.ReverifyQueue(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {

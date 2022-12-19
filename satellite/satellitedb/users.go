@@ -240,6 +240,23 @@ func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier b
 	return err
 }
 
+// UpdateUserProjectLimits is a method to update the user's usage limits for new projects.
+func (users *users) UpdateUserProjectLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			ProjectBandwidthLimit: dbx.User_ProjectBandwidthLimit(limits.Bandwidth),
+			ProjectStorageLimit:   dbx.User_ProjectStorageLimit(limits.Storage),
+			ProjectSegmentLimit:   dbx.User_ProjectSegmentLimit(limits.Segment),
+		},
+	)
+
+	return err
+}
+
 // GetProjectLimit is a method to get the users project limit.
 func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error) {
 	defer mon.Task()(&ctx)(&err)

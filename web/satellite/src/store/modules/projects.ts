@@ -188,6 +188,8 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 state.settledBandwidthChartData = [];
                 state.chartDataSince = new Date();
                 state.chartDataBefore = new Date();
+                state.cursor = new ProjectsCursor();
+                state.page = new ProjectsPage();
             },
             [SET_PAGE_NUMBER](state: ProjectsState, pageNumber: number) {
                 state.cursor.page = pageNumber;

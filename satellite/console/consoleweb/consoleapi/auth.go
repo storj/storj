@@ -54,6 +54,7 @@ type Auth struct {
 	ActivateAccountURL        string
 	SatelliteName             string
 	service                   *console.Service
+	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
@@ -61,7 +62,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -74,6 +75,7 @@ func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery/",
 		ActivateAccountURL:        externalAddress + "activation/",
 		service:                   service,
+		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
 		partners:                  partners,
@@ -375,6 +377,38 @@ func loadSession(req *http.Request) string {
 		return ""
 	}
 	return sessionCookie.Value
+}
+
+// IsAccountFrozen checks to see if an account is frozen.
+func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
+	type FrozenResult struct {
+		Frozen bool `json:"frozen"`
+	}
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	userID, err := a.service.GetUserID(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	frozenBool, err := a.accountFreezeService.IsUserFrozen(ctx, userID)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(FrozenResult{
+		Frozen: frozenBool,
+	})
+	if err != nil {
+		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
 }
 
 // UpdateAccount updates user's full name and short name.

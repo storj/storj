@@ -439,14 +439,16 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 	mocks.Lock()
 	defer mocks.Unlock()
 
+	items, ok := m.invoiceItems.items[*params.Customer]
+	if !ok || len(items) == 0 {
+		return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+	}
+
 	invoice := &stripe.Invoice{ID: "in_" + string(testrand.RandAlphaNumeric(25))}
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
-
-	if items, ok := m.invoiceItems.items[*params.Customer]; ok {
-		for _, item := range items {
-			if item.Invoice == nil {
-				item.Invoice = invoice
-			}
+	for _, item := range items {
+		if item.Invoice == nil {
+			item.Invoice = invoice
 		}
 	}
 

@@ -4,9 +4,9 @@
 import Vuex from 'vuex';
 import { createLocalVue, mount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { UsersApiMock } from '../../../mock/api/users';
+import { UsersApiMock } from '../../../../mock/api/users';
+import { ProjectsApiMock } from '../../../../mock/api/projects';
+import { PaymentsMock } from '../../../../mock/api/payments';
 
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';

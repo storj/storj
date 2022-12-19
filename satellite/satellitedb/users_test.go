@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
@@ -299,5 +300,29 @@ func TestUpdateUser(t *testing.T) {
 
 		u.LoginLockoutExpiration = newInfo.LoginLockoutExpiration
 		require.Equal(t, u, updatedUser)
+	})
+}
+
+func TestUpdateUserProjectLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		limits := console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
+		usersRepo := db.Console().Users()
+
+		user, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "User",
+			Email:        "test@mail.test",
+			PasswordHash: []byte("123a123"),
+		})
+		require.NoError(t, err)
+
+		err = usersRepo.UpdateUserProjectLimits(ctx, user.ID, limits)
+		require.NoError(t, err)
+
+		user, err = usersRepo.Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
+		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
+		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
 	})
 }

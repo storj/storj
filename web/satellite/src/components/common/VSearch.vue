@@ -5,6 +5,7 @@
     <input
         ref="input"
         v-model="searchQuery"
+        readonly
         class="common-search-input"
         :placeholder="`Search ${placeholder}`"
         :style="style"
@@ -13,11 +14,15 @@
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="processSearchQuery"
+        @focus="removeReadOnly"
+        @blur="addReadOnly"
     >
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+
+import { useDOM } from '@/composables/DOM';
 
 type searchCallback = (search: string) => Promise<void>;
 interface SearchStyle {
@@ -30,6 +35,8 @@ const props = withDefaults(defineProps<{
 }>(), {
     placeholder: '',
 });
+
+const { removeReadOnly, addReadOnly } = useDOM();
 
 const inputWidth = ref<string>('56px');
 const searchQuery = ref<string>('');

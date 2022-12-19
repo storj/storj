@@ -51,9 +51,6 @@ func TestAuditOrderLimit(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, queueSegment.StreamID.IsZero())
 
-		_, err = audits.Verifier.Reverify(ctx, queueSegment)
-		require.NoError(t, err)
-
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 

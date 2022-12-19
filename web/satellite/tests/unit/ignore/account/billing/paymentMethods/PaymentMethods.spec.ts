@@ -4,9 +4,9 @@
 import Vuex from 'vuex';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { UsersApiMock } from '../../../mock/api/users';
+import { PaymentsMock } from '../../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../../mock/api/projects';
+import { UsersApiMock } from '../../../../mock/api/users';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';

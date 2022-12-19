@@ -6,9 +6,24 @@ model account_freeze_event (
 
 	field user_id blob
 	field event int // enum indicating the type of event
-	field limits json ( nullable )
+	field limits json ( nullable, updatable )
 	field created_at timestamp ( default current_timestamp )
 )
+
+create account_freeze_event( replace )
+
+read one (
+	select account_freeze_event
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+update account_freeze_event (
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+delete account_freeze_event ( where account_freeze_event.user_id = ? )
 
 //-- Node Events --//
 model node_event (
@@ -77,12 +92,6 @@ model segment_pending_audits (
 	field share_size          int64
 	field expected_share_hash blob
 	field reverify_count      int64 ( updatable )
-)
-
-delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
-read one (
-	select segment_pending_audits
-	where  segment_pending_audits.node_id = ?
 )
 
 //--- auditing ---//

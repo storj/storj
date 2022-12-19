@@ -114,8 +114,6 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
-	// NewContainment is temporary and will replace Containment later in the commit chain.
-	NewContainment() audit.NewContainment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
 	// GracefulExit returns database for graceful exit

@@ -148,6 +148,8 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 0.95
 				config.Reputation.AuditDQ = 0.6
+				// disable write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

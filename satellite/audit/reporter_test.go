@@ -35,8 +35,8 @@ func TestReportPendingAudits(t *testing.T) {
 			},
 		}
 
-		report := audit.Report{PieceAudits: []*audit.ReverificationJob{&pending}}
-		containment := satellite.DB.NewContainment()
+		report := audit.Report{PendingAudits: []*audit.ReverificationJob{&pending}}
+		containment := satellite.DB.Containment()
 
 		audits.Reporter.RecordAudits(ctx, report)
 
@@ -49,6 +49,12 @@ func TestReportPendingAudits(t *testing.T) {
 func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -94,7 +100,7 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 			Successes: []storj.NodeID{goodNode},
 			Fails:     []storj.NodeID{dqNode},
 			Unknown:   []storj.NodeID{suspendedNode},
-			PieceAudits: []*audit.ReverificationJob{
+			PendingAudits: []*audit.ReverificationJob{
 				{
 					Locator:       audit.PieceLocator{NodeID: pendingNode},
 					ReverifyCount: 0,
@@ -206,11 +212,11 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			},
 		}
 		report = audit.Report{
-			Successes:   storj.NodeIDList{successNode.ID()},
-			Fails:       storj.NodeIDList{failedNode.ID()},
-			Offlines:    storj.NodeIDList{offlineNode.ID()},
-			PieceAudits: []*audit.ReverificationJob{&pending},
-			Unknown:     storj.NodeIDList{unknownNode.ID()},
+			Successes:     storj.NodeIDList{successNode.ID()},
+			Fails:         storj.NodeIDList{failedNode.ID()},
+			Offlines:      storj.NodeIDList{offlineNode.ID()},
+			PendingAudits: []*audit.ReverificationJob{&pending},
+			Unknown:       storj.NodeIDList{unknownNode.ID()},
 		}
 		audits.Reporter.RecordAudits(ctx, report)
 
@@ -228,6 +234,12 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 func TestReportOfflineAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0]

@@ -826,8 +826,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # storjscan chore interval to query new payments for all satellite deposit wallets
 # payments.storjscan.interval: 1m0s
 
-# toogle autoadvance feature for invoice creation
+# toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# if set, skips the creation of empty invoices for customers with zero usage for the billing period
+# payments.stripe-coin-payments.skip-empty-invoices: true
 
 # stripe free tier coupon ID
 # payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
