@@ -19,7 +19,11 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 	defer mon.Task()(&ctx)(&err)
 
 	for _, segment := range segments {
-		segment.Status.Retry = int32(service.config.Check)
+		retryCount := service.config.Check
+		if retryCount == 0 {
+			retryCount = len(segment.AliasPieces)
+		}
+		segment.Status.Retry = int32(retryCount)
 	}
 
 	batches, err := service.CreateBatches(ctx, segments)
@@ -40,6 +44,9 @@ func (service *Service) Verify(ctx context.Context, segments []*Segment) (err er
 	}
 
 	if len(retrySegments) == 0 {
+		return nil
+	}
+	if service.config.Check <= 0 {
 		return nil
 	}
 
@@ -81,10 +88,16 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 			return Error.Wrap(err)
 		}
 
+		// TODO cache it or something
+		dossie, err := service.overlay.Get(ctx, nodeURL.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, dossie.Version.Version, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
@@ -92,7 +105,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 						service.onlineNodes.Remove(batch.Alias)
 					} else {
 						service.offlineCount[batch.Alias]++
-						if service.offlineCount[batch.Alias] >= service.config.MaxOffline {
+						if service.config.MaxOffline > 0 && service.offlineCount[batch.Alias] >= service.config.MaxOffline {
 							service.onlineNodes.Remove(batch.Alias)
 						}
 					}

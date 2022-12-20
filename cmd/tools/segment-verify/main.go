@@ -67,9 +67,16 @@ var (
 		RunE:  summarizeVerificationLog,
 	}
 
+	nodeCheckCmd = &cobra.Command{
+		Use:   "node-check",
+		Short: "checks segments for too many duplicate or unvetted nodes",
+		RunE:  verifySegmentsNodeCheck,
+	}
+
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
 	bucketsCfg   BucketConfig
+	nodeCheckCfg NodeCheckConfig
 
 	confDir     string
 	identityDir string
@@ -84,14 +91,19 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(summarizeCmd)
+	rootCmd.AddCommand(nodeCheckCmd)
 	runCmd.AddCommand(rangeCmd)
 	runCmd.AddCommand(bucketsCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
 	process.Bind(rangeCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &bucketsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
+	process.Bind(nodeCheckCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(nodeCheckCmd, &nodeCheckCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 // RangeConfig defines configuration for verifying segment existence.
@@ -189,6 +201,7 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	verifier.reportPiece = service.reportPiece
 	defer func() { err = errs.Combine(err, service.Close()) }()
 	if cmd.Name() == "range" {
 		return verifySegmentsRange(ctx, service, rangeCfg)

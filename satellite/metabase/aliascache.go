@@ -342,3 +342,8 @@ func (m *NodeAliasMap) Size() int {
 	}
 	return len(m.alias)
 }
+
+// Max returns the largest node alias in this map, -1 otherwise. Contrast with Size.
+func (m *NodeAliasMap) Max() NodeAlias {
+	return NodeAlias(len(m.node) - 1)
+}

@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
@@ -36,7 +37,7 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -56,16 +57,24 @@ type SegmentWriter interface {
 type ServiceConfig struct {
 	NotFoundPath      string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
 	RetryPath         string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+	ProblemPiecesPath string `help:"pieces that could not be fetched successfully" default:"problem-pieces.csv"`
 	PriorityNodesPath string `help:"list of priority node ID-s" default:""`
 	IgnoreNodesPath   string `help:"list of nodes to ignore" default:""`
 
-	Check       int `help:"how many storagenodes to query per segment" default:"3"`
+	Check       int `help:"how many storagenodes to query per segment (if 0, query all)" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
-	MaxOffline  int `help:"maximum number of offline in a sequence" default:"2"`
+	MaxOffline  int `help:"maximum number of offline in a sequence (if 0, no limit)" default:"2"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
+
+type pieceReporterFunc func(
+	ctx context.Context,
+	segment *metabase.VerifySegment,
+	nodeID storj.NodeID,
+	pieceNum int,
+	outcome audit.Outcome) error
 
 // Service implements segment verification logic.
 type Service struct {
@@ -85,6 +94,10 @@ type Service struct {
 	onlineNodes    NodeAliasSet
 	offlineCount   map[metabase.NodeAlias]int
 	bucketList     BucketList
+
+	// this is a callback so that problematic pieces can be reported as they are found,
+	// rather than being kept in a list which might grow unreasonably large.
+	reportPiece pieceReporterFunc
 }
 
 // NewService returns a new service for verifying segments.
@@ -98,6 +111,12 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 	if err != nil {
 		return nil, errs.Combine(Error.Wrap(err), notFound.Close())
 	}
+
+	problemPieces, err := newPieceCSVWriter(config.ProblemPiecesPath)
+	if err != nil {
+		return nil, errs.Combine(Error.Wrap(err), retry.Close(), notFound.Close())
+	}
+	defer func() { _ = problemPieces.Close() }()
 
 	return &Service{
 		log:    log,
@@ -114,6 +133,8 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		priorityNodes:  NodeAliasSet{},
 		onlineNodes:    NodeAliasSet{},
 		offlineCount:   map[metabase.NodeAlias]int{},
+
+		reportPiece: problemPieces.Write,
 	}, nil
 }
 
