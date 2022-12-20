@@ -81,12 +81,12 @@ func (e *Endpoint) Get(ctx context.Context, _ *pb.GetUserInfoRequest) (response 
 	}
 
 	if err = e.verifyPeer(peerID.ID); err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	}
 
 	// TODO: implement get user info
 
-	return nil, nil
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Get Userinfo not implemented")
 }
 
 // verifyPeer verifies that a peer is allowed.
