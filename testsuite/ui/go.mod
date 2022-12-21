@@ -55,6 +55,7 @@ require (
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-oauth2/oauth2/v4 v4.4.2 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
@@ -100,6 +101,7 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8 // indirect
+	github.com/jtolio/noiseconn v0.0.0-20230111204749-d7ec1a08b0b8 // indirect
 	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
@@ -197,8 +199,8 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	golang.org/x/tools v0.1.10 // indirect

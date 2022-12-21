@@ -9,6 +9,7 @@ require (
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
+	github.com/flynn/noise v1.0.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gogo/protobuf v1.3.2
@@ -22,6 +23,7 @@ require (
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
+	github.com/jtolio/noiseconn v0.0.0-20230111204749-d7ec1a08b0b8
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -37,6 +39,7 @@ require (
 	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
+	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
@@ -45,8 +48,8 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	golang.org/x/sync v0.1.0
+	golang.org/x/sys v0.1.0
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
@@ -113,7 +116,6 @@ require (
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	github.com/zeebo/admission/v3 v3.0.3 // indirect
-	github.com/zeebo/blake3 v0.2.3 // indirect
 	github.com/zeebo/errs/v2 v2.0.3 // indirect
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect

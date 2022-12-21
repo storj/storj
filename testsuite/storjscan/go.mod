@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
+	golang.org/x/sync v0.1.0
 	storj.io/common v0.0.0-20230125172029-ac90a56db6dd
 	storj.io/private v0.0.0-20230123202745-d3e63b336444
 	storj.io/storj v1.63.1
@@ -39,6 +39,7 @@ require (
 	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.10.16 // indirect
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
+	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20190607065134-2772fd86a8ff // indirect
 	github.com/go-oauth2/oauth2/v4 v4.4.2 // indirect
@@ -79,6 +80,7 @@ require (
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3 // indirect
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8 // indirect
+	github.com/jtolio/noiseconn v0.0.0-20230111204749-d7ec1a08b0b8 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
 	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/magefile/mage v1.13.0 // indirect
@@ -131,7 +133,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	golang.org/x/tools v0.1.10 // indirect

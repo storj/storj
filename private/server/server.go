@@ -6,7 +6,9 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +16,9 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/flynn/noise"
+	"github.com/jtolio/noiseconn"
+	"github.com/zeebo/blake3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,10 +26,12 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/experiment"
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpctracing"
+	"storj.io/drpc"
 	"storj.io/drpc/drpcmigrate"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
@@ -38,38 +45,30 @@ type Config struct {
 	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
 	DisableQUIC    bool   `help:"disable QUIC listener on a server" hidden:"true" default:"false"`
 
-	DisableTCPTLS   bool `help:"disable TCP/TLS listener on a server" internal:"true"`
+	DisableTCP      bool `help:"disable TCP listener on a server" internal:"true"`
 	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
-}
-
-type public struct {
-	tcpListener   net.Listener
-	udpConn       *net.UDPConn
-	quicListener  net.Listener
-	addr          net.Addr
-	disableTCPTLS bool
-	disableQUIC   bool
-
-	drpc *drpcserver.Server
-	// http fallback for the public endpoint
-	http http.HandlerFunc
-
-	mux *drpcmux.Mux
-}
-
-type private struct {
-	listener net.Listener
-	drpc     *drpcserver.Server
-	mux      *drpcmux.Mux
 }
 
 // Server represents a bundle of services defined by a specific ID.
 // Examples of servers are the satellite, the storagenode, and the uplink.
 type Server struct {
 	log        *zap.Logger
-	public     public
-	private    private
 	tlsOptions *tlsopts.Options
+	noiseConf  noise.Config
+	config     Config
+
+	publicTCPListener  net.Listener
+	publicUDPConn      *net.UDPConn
+	publicQUICListener net.Listener
+	privateTCPListener net.Listener
+	addr               net.Addr
+
+	publicEndpointsReplaySafe *endpointCollection
+	publicEndpointsAll        *endpointCollection
+	privateEndpoints          *endpointCollection
+
+	// http fallback for the public endpoint
+	publicHTTP http.HandlerFunc
 
 	mu   sync.Mutex
 	wg   sync.WaitGroup
@@ -77,34 +76,109 @@ type Server struct {
 	done chan struct{}
 }
 
-// New creates a Server out of an Identity, a net.Listener,
-// and interceptors.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server, err error) {
-	server := &Server{
-		log:        log,
-		tlsOptions: tlsOptions,
-		done:       make(chan struct{}),
-	}
+func identityBasedEntropy(context string, ident *identity.FullIdentity) (io.Reader, error) {
+	h := blake3.NewDeriveKey(context)
 
-	server.public, err = newPublic(config.Address, config.DisableTCPTLS, config.DisableQUIC)
+	serialized, err := x509.MarshalPKCS8PrivateKey(ident.Key)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	serverOptions := drpcserver.Options{
-		Manager: rpc.NewDefaultManagerOptions(),
-	}
-	privateListener, err := net.Listen("tcp", config.PrivateAddress)
+	_, err = h.Write(serialized)
+	return h.Digest(), Error.Wrap(err)
+}
+
+func generateNoiseConf(ident *identity.FullIdentity) (noise.Config, error) {
+	noiseConf := defaultNoiseConfig()
+	noiseConf.Initiator = false
+	entropy, err := identityBasedEntropy("noise key", ident)
 	if err != nil {
-		return nil, errs.Combine(err, server.public.Close())
+		return noise.Config{}, err
 	}
-	privateMux := drpcmux.New()
-	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
-	server.private = private{
-		listener: wrapListener(privateListener),
-		drpc:     drpcserver.NewWithOptions(experiment.NewHandler(privateTracingHandler), serverOptions),
-		mux:      privateMux,
+	noiseConf.StaticKeypair, err = noiseConf.CipherSuite.GenerateKeypair(entropy)
+	if err != nil {
+		return noise.Config{}, Error.Wrap(err)
 	}
+	return noiseConf, nil
+}
+
+// New creates a Server out of an Identity, a net.Listener,
+// and interceptors.
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server, err error) {
+	noiseConf, err := generateNoiseConf(tlsOptions.Ident)
+	if err != nil {
+		return nil, err
+	}
+
+	server := &Server{
+		log:        log,
+		tlsOptions: tlsOptions,
+		noiseConf:  noiseConf,
+		config:     config,
+
+		publicEndpointsReplaySafe: newEndpointCollection(),
+		publicEndpointsAll:        newEndpointCollection(),
+		privateEndpoints:          newEndpointCollection(),
+
+		done: make(chan struct{}),
+	}
+
+	for retry := 0; ; retry++ {
+		addr := config.Address
+		if !config.DisableTCP {
+			publicTCPListener, err := net.Listen("tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+			addr = publicTCPListener.Addr().String()
+			server.publicTCPListener = wrapListener(publicTCPListener)
+		}
+
+		if !config.DisableQUIC {
+			udpAddr, err := net.ResolveUDPAddr("udp", addr)
+			if err != nil {
+				if server.publicTCPListener != nil {
+					_ = server.publicTCPListener.Close()
+				}
+				return nil, err
+			}
+
+			publicUDPConn, err := net.ListenUDP("udp", udpAddr)
+			if err != nil {
+				_, port, splitErr := net.SplitHostPort(config.Address)
+				if splitErr == nil && port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
+					// from here, we know for sure that the tcp port chosen by the
+					// os is available, but we don't know if the same port number
+					// for udp is also available.
+					// if a udp port is already in use, we will close the tcp port and retry
+					// to find one that is available for both udp and tcp.
+					if server.publicTCPListener != nil {
+						_ = server.publicTCPListener.Close()
+					}
+					continue
+				}
+				if server.publicTCPListener != nil {
+					return nil, errs.Combine(err, server.publicTCPListener.Close())
+				}
+				return nil, err
+			}
+			server.publicUDPConn = publicUDPConn
+		}
+
+		break
+	}
+
+	if server.publicTCPListener != nil {
+		server.addr = server.publicTCPListener.Addr()
+	} else if server.publicUDPConn != nil {
+		server.addr = server.publicUDPConn.LocalAddr()
+	}
+
+	privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
+	if err != nil {
+		return nil, errs.Combine(err, server.Close())
+	}
+	server.privateTCPListener = wrapListener(privateTCPListener)
 
 	return server, nil
 }
@@ -113,19 +187,33 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
 // Addr returns the server's public listener address.
-func (p *Server) Addr() net.Addr { return p.public.addr }
+func (p *Server) Addr() net.Addr { return p.addr }
 
 // PrivateAddr returns the server's private listener address.
-func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
+func (p *Server) PrivateAddr() net.Addr { return p.privateTCPListener.Addr() }
 
-// DRPC returns the server's dRPC mux for registration purposes.
-func (p *Server) DRPC() *drpcmux.Mux { return p.public.mux }
+// DRPC returns the server's DRPC mux for registration purposes.
+func (p *Server) DRPC() drpc.Mux {
+	return newReplayRouter(
+		p.publicEndpointsReplaySafe.mux,
+		p.publicEndpointsAll.mux,
+	)
+}
 
-// PrivateDRPC returns the server's dRPC mux for registration purposes.
-func (p *Server) PrivateDRPC() *drpcmux.Mux { return p.private.mux }
+// PrivateDRPC returns the server's DRPC mux for registration purposes.
+func (p *Server) PrivateDRPC() drpc.Mux { return p.privateEndpoints.mux }
 
 // IsQUICEnabled checks if QUIC is enabled by config and udp port is open.
-func (p *Server) IsQUICEnabled() bool { return !p.public.disableQUIC && p.public.udpConn != nil }
+func (p *Server) IsQUICEnabled() bool { return !p.config.DisableQUIC && p.publicUDPConn != nil }
+
+// NoiseInfo returns the noise configuration for this server. This includes the
+// keypair in use.
+func (p *Server) NoiseInfo() *pb.NoiseInfo {
+	return &pb.NoiseInfo{
+		Proto:     defaultNoiseProto,
+		PublicKey: p.noiseConf.StaticKeypair.Public,
+	}
+}
 
 // Close shuts down the server.
 func (p *Server) Close() error {
@@ -140,14 +228,24 @@ func (p *Server) Close() error {
 	// We ignore these errors because there's not really anything to do
 	// even if they happen, and they'll just be errors due to duplicate
 	// closes anyway.
-	_ = p.public.Close()
-	_ = p.private.listener.Close()
+	if p.publicQUICListener != nil {
+		_ = p.publicQUICListener.Close()
+	}
+	if p.publicUDPConn != nil {
+		_ = p.publicUDPConn.Close()
+	}
+	if p.publicTCPListener != nil {
+		_ = p.publicTCPListener.Close()
+	}
+	if p.privateTCPListener != nil {
+		_ = p.privateTCPListener.Close()
+	}
 	return nil
 }
 
 // AddHTTPFallback adds http fallback to the drpc endpoint.
 func (p *Server) AddHTTPFallback(httpHandler http.HandlerFunc) {
-	p.public.http = httpHandler
+	p.publicHTTP = httpHandler
 }
 
 // Run will run the server and all of its services.
@@ -174,28 +272,26 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// a chance to be notified that they're done running.
 
 	var (
-		publicMux          *drpcmigrate.ListenMux
-		publicDRPCListener net.Listener
-		publicHTTPListener net.Listener
+		publicTLSDRPCListener   net.Listener
+		publicNoiseDRPCListener net.Listener
+		publicHTTPListener      net.Listener
+		privateDRPCListener     net.Listener
 	)
-	if p.public.tcpListener != nil {
-		publicMux = drpcmigrate.NewListenMux(p.public.tcpListener, len(drpcmigrate.DRPCHeader))
-		publicDRPCListener = tls.NewListener(publicMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
 
-		if p.public.http != nil {
-			publicHTTPListener = NewPrefixedListener([]byte("GET / HT"), publicMux.Route("GET / HT"))
-		}
-	}
-
-	if p.public.udpConn != nil {
-		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), nil)
+	if p.publicUDPConn != nil {
+		// TODO: we goofed here. we need something like a drpcmigrate.ListenMux
+		// for UDP packets.
+		publicQUICListener, err := quic.NewListener(p.publicUDPConn, p.tlsOptions.ServerTLSConfig(), nil)
 		if err != nil {
 			return err
 		}
+		// TODO: this is also strange. why does (*Server).Close() need to close
+		// the quic listener? Shouldn't closing p.publicUDPConn be enough?
+		// We should be able to remove UDP-specific protocols from the Server
+		// struct and keep them localized to (*Server).Run, akin to TLS vs
+		// Noise drpcmigrate.ListenMuxed listeners over TCP.
+		p.publicQUICListener = wrapListener(publicQUICListener)
 	}
-
-	privateMux := drpcmigrate.NewListenMux(p.private.listener, len(drpcmigrate.DRPCHeader))
-	privateDRPCListener := privateMux.Route(drpcmigrate.DRPCHeader)
 
 	// We need a new context chain because we require this context to be
 	// canceled only after all of the upcoming drpc servers have
@@ -206,14 +302,26 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	defer muxCancel()
 
 	var muxGroup errgroup.Group
-	if publicMux != nil {
+
+	if p.publicTCPListener != nil {
+		publicLMux := drpcmigrate.NewListenMux(p.publicTCPListener, len(drpcmigrate.DRPCHeader))
+		publicTLSDRPCListener = tls.NewListener(publicLMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
+		publicNoiseDRPCListener = noiseconn.NewListener(publicLMux.Route(NoiseHeader), p.noiseConf)
+		if p.publicHTTP != nil {
+			publicHTTPListener = NewPrefixedListener([]byte("GET / HT"), publicLMux.Route("GET / HT"))
+		}
 		muxGroup.Go(func() error {
-			return publicMux.Run(muxCtx)
+			return publicLMux.Run(muxCtx)
 		})
 	}
-	muxGroup.Go(func() error {
-		return privateMux.Run(muxCtx)
-	})
+
+	{
+		privateLMux := drpcmigrate.NewListenMux(p.privateTCPListener, len(drpcmigrate.DRPCHeader))
+		privateDRPCListener = privateLMux.Route(drpcmigrate.DRPCHeader)
+		muxGroup.Go(func() error {
+			return privateLMux.Run(muxCtx)
+		})
+	}
 
 	// Now we launch all the stuff that uses the listeners.
 	ctx, cancel := context.WithCancel(ctx)
@@ -230,24 +338,24 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return nil
 	})
 
-	if publicDRPCListener != nil {
-		group.Go(func() error {
-			defer cancel()
-			return p.public.drpc.Serve(ctx, publicDRPCListener)
-		})
+	connectListenerToEndpoints := func(ctx context.Context, listener net.Listener, endpoints *endpointCollection) {
+		if listener != nil {
+			group.Go(func() error {
+				defer cancel()
+				return endpoints.drpc.Serve(ctx, listener)
+			})
+		}
 	}
 
-	if p.public.quicListener != nil {
-		group.Go(func() error {
-			defer cancel()
-			return p.public.drpc.Serve(ctx, wrapListener(p.public.quicListener))
-		})
-	}
+	connectListenerToEndpoints(ctx, publicTLSDRPCListener, p.publicEndpointsAll)
+	connectListenerToEndpoints(ctx, p.publicQUICListener, p.publicEndpointsAll)
+	connectListenerToEndpoints(ctx, publicNoiseDRPCListener, p.publicEndpointsReplaySafe)
+	connectListenerToEndpoints(ctx, privateDRPCListener, p.privateEndpoints)
 
 	if publicHTTPListener != nil {
 		// this http server listens on the filtered messages of the incoming DRPC port, instead of a separated port
 		httpServer := http.Server{
-			Handler: p.public.http,
+			Handler: p.publicHTTP,
 		}
 
 		group.Go(func() error {
@@ -264,11 +372,6 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		})
 	}
 
-	group.Go(func() error {
-		defer cancel()
-		return p.private.drpc.Serve(ctx, privateDRPCListener)
-	})
-
 	// Now we wait for all the stuff using the listeners to exit.
 	err = group.Wait()
 
@@ -277,88 +380,26 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	return errs.Combine(err, muxGroup.Wait())
 }
 
-func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, error) {
-	var (
-		err               error
-		publicTCPListener net.Listener
-		publicUDPConn     *net.UDPConn
-	)
-
-	for retry := 0; ; retry++ {
-		addr := publicAddr
-		if !disableTCPTLS {
-			publicTCPListener, err = net.Listen("tcp", addr)
-			if err != nil {
-				return public{}, err
-			}
-
-			addr = publicTCPListener.Addr().String()
-		}
-
-		if !disableQUIC {
-			udpAddr, err := net.ResolveUDPAddr("udp", addr)
-			if err != nil {
-				return public{}, err
-			}
-
-			publicUDPConn, err = net.ListenUDP("udp", udpAddr)
-			if err != nil {
-				_, port, _ := net.SplitHostPort(publicAddr)
-				if port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
-					// from here, we know for sure that the tcp port chosen by the
-					// os is available, but we don't know if the same port number
-					// for udp is also available.
-					// if a udp port is already in use, we will close the tcp port and retry
-					// to find one that is available for both udp and tcp.
-					_ = publicTCPListener.Close()
-					continue
-				}
-				return public{}, errs.Combine(err, publicTCPListener.Close())
-			}
-		}
-
-		break
-	}
-
-	publicMux := drpcmux.New()
-	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
-
-	serverOptions := drpcserver.Options{
-		Manager: rpc.NewDefaultManagerOptions(),
-	}
-
-	var netAddr net.Addr
-	if publicTCPListener != nil {
-		netAddr = publicTCPListener.Addr()
-	}
-
-	if publicUDPConn != nil && netAddr == nil {
-		netAddr = publicUDPConn.LocalAddr()
-	}
-
-	return public{
-		tcpListener:   wrapListener(publicTCPListener),
-		udpConn:       publicUDPConn,
-		addr:          netAddr,
-		drpc:          drpcserver.NewWithOptions(experiment.NewHandler(publicTracingHandler), serverOptions),
-		mux:           publicMux,
-		disableTCPTLS: disableTCPTLS,
-		disableQUIC:   disableQUIC,
-	}, nil
+type endpointCollection struct {
+	mux  *drpcmux.Mux
+	drpc *drpcserver.Server
 }
 
-func (p public) Close() (err error) {
-	if p.quicListener != nil {
-		err = p.quicListener.Close()
+func newEndpointCollection() *endpointCollection {
+	mux := drpcmux.New()
+	return &endpointCollection{
+		mux: mux,
+		drpc: drpcserver.NewWithOptions(
+			experiment.NewHandler(
+				rpctracing.NewHandler(
+					mux,
+					jaeger.RemoteTraceHandler),
+			),
+			drpcserver.Options{
+				Manager: rpc.NewDefaultManagerOptions(),
+			},
+		),
 	}
-	if p.udpConn != nil {
-		err = errs.Combine(err, p.udpConn.Close())
-	}
-	if p.tcpListener != nil {
-		err = errs.Combine(err, p.tcpListener.Close())
-	}
-
-	return err
 }
 
 // isErrorAddressAlreadyInUse checks whether the error is corresponding to
