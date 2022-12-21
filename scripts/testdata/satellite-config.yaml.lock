@@ -1063,6 +1063,9 @@ server.private-address: 127.0.0.1:7778
 # how frequent to sample traces
 # tracing.sample: 0
 
+# A comma delimited list of peers (IDs/addresses) allowed to use this endpoint.
+# userinfo.allowed-peers: ""
+
 # Interval to check the version
 # version.check-interval: 15m0s
 

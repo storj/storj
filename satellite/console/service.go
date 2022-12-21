@@ -57,6 +57,7 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	changePasswordErrMsg                 = "Your old password is incorrect, please try again"
 	passwordTooShortErrMsg               = "Your password needs to be at least %d characters long"
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
@@ -93,6 +94,9 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrChangePassword occurs when provided old password is incorrect.
+	ErrChangePassword = errs.Class("change password")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -1306,7 +1310,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
 	if err != nil {
-		return ErrUnauthorized.New(credentialsErrMsg)
+		return ErrChangePassword.New(changePasswordErrMsg)
 	}
 
 	if err := ValidatePassword(newPass); err != nil {

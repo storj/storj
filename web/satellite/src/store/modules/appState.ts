@@ -208,6 +208,8 @@ export const appStateModule = {
             state.appState.isAGDatePickerShown = false;
             state.appState.isChartsDatePickerShown = false;
             state.appState.isBucketNamesDropdownShown = false;
+        },
+        [APP_STATE_MUTATIONS.CLEAR](state: State): void {
             state.appState.isAddTeamMembersModalShown = false;
             state.appState.isEditProfileModalShown = false;
             state.appState.isChangePasswordModalShown = false;
@@ -406,6 +408,10 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+        },
+        [APP_STATE_ACTIONS.CLEAR]: function ({ commit }: AppContext): void {
+            commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            commit(APP_STATE_MUTATIONS.CLEAR);
         },
         [APP_STATE_ACTIONS.CHANGE_STATE]: function ({ commit }: AppContext, newFetchState: AppState): void {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);

@@ -5,7 +5,7 @@
  * ErrorUnauthorized is a custom error type for performing unauthorized operations.
  */
 export class ErrorUnauthorized extends Error {
-    public constructor(message = 'authorization required') {
+    public constructor(message = 'Authorization required') {
         super(message);
     }
 }

@@ -932,7 +932,7 @@ func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
 		return http.StatusUnauthorized
@@ -940,8 +940,6 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
-	case console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err):
-		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}
@@ -966,12 +964,12 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFAConflict.Has(err):
 		return "Expected either passcode or recovery code, but got both"
 	case console.ErrMFAPasscode.Has(err):
-		return "The MFA passcode is not valid or has expired. You have just used up one of your login attempts"
+		return "The MFA passcode is not valid or has expired"
 	case console.ErrMFARecoveryCode.Has(err):
-		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
+		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

@@ -17,6 +17,10 @@ export class UsersApiMock implements UsersApi {
         return Promise.resolve(this.mockUser);
     }
 
+    public getFrozenStatus(): Promise<boolean> {
+        return Promise.resolve(true);
+    }
+
     public update(_user: UpdatedUser): Promise<void> {
         throw new Error('not implemented');
     }

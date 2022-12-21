@@ -136,7 +136,7 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 			}
 		}
 		if !found {
-			return ErrUnauthorized.Wrap(ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg))
+			return ErrMFARecoveryCode.New(mfaRecoveryInvalidErrMsg)
 		}
 	} else if passcode != "" {
 		valid, err := ValidateMFAPasscode(passcode, user.MFASecretKey, t)

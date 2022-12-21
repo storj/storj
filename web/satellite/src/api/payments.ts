@@ -3,7 +3,6 @@
 
 import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
     Coupon,
@@ -37,10 +36,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('Can not get account balance');
         }
 
@@ -66,10 +61,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return couponType;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not setup account');
     }
 
@@ -83,10 +74,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('can not get projects charges');
         }
 
@@ -124,10 +111,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not add credit card');
     }
 
@@ -145,10 +128,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not remove credit card');
     }
 
@@ -163,9 +142,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
             throw new Error('can not list credit cards');
         }
 
@@ -192,10 +168,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not make credit card default');
     }
 
@@ -210,9 +182,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
             throw new Error('can not list billing history');
         }
 
@@ -248,9 +217,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
             throw new Error('Can not list token payment history');
         }
 
@@ -285,33 +251,31 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.patch(path, couponCode);
         const errMsg = `Could not apply coupon code "${couponCode}"`;
 
-        if (response.ok) {
-            const coupon = await response.json();
-
-            if (!coupon) {
+        if (!response.ok) {
+            switch (response.status) {
+            case 429:
+                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            default:
                 throw new Error(errMsg);
             }
-
-            return new Coupon(
-                coupon.id,
-                coupon.promoCode,
-                coupon.name,
-                coupon.amountOff,
-                coupon.percentOff,
-                new Date(coupon.addedAt),
-                coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-                coupon.duration,
-            );
         }
 
-        switch (response.status) {
-        case 429:
-            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
-        default:
+        const coupon = await response.json();
+
+        if (!coupon) {
             throw new Error(errMsg);
         }
+
+        return new Coupon(
+            coupon.id,
+            coupon.promoCode,
+            coupon.name,
+            coupon.amountOff,
+            coupon.percentOff,
+            new Date(coupon.addedAt),
+            coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+            coupon.duration,
+        );
     }
 
     /**
@@ -323,10 +287,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/coupon`;
         const response = await this.client.get(path);
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('cannot retrieve coupon');
         }
 
@@ -359,10 +319,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('Can not get wallet');
         }
 
@@ -385,10 +341,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.post(path, null);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('Can not claim new wallet');
         }
 

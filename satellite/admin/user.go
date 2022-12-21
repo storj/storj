@@ -326,6 +326,64 @@ func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.FreezeUser(ctx, u.ID)
+	if err != nil {
+		sendJSONError(w, "failed to freeze user",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = server.freezeAccounts.UnfreezeUser(ctx, u.ID); err != nil {
+		sendJSONError(w, "failed to unfreeze user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

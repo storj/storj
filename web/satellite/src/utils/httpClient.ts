@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+
 /**
  * HttpClient is a custom wrapper around fetch api.
  * Exposes get, post and delete methods for JSON strings.
@@ -22,7 +24,13 @@ export class HttpClient {
             'Content-Type': 'application/json',
         };
 
-        return await fetch(path, request);
+        const response = await fetch(path, request);
+        if (response.status === 401) {
+            await this.handleUnauthorized();
+            throw new ErrorUnauthorized();
+        }
+
+        return response;
     }
 
     /**
@@ -66,5 +74,32 @@ export class HttpClient {
      */
     public async delete(path: string): Promise<Response> {
         return this.sendJSON('DELETE', path, null);
+    }
+
+    /**
+     * Handles unauthorized actions.
+     * Call logout and redirect to login.
+     */
+    private async handleUnauthorized(): Promise<void> {
+        try {
+            const logoutPath = '/api/v0/auth/logout';
+            const request: RequestInit = {
+                method: 'POST',
+                body: null,
+            };
+
+            request.headers = {
+                'Content-Type': 'application/json',
+            };
+
+            await fetch(logoutPath, request);
+            // eslint-disable-next-line no-empty
+        } catch (error) {}
+
+        setTimeout(() => {
+            if (!window.location.href.includes('/login')) {
+                window.location.href = window.location.origin + '/login';
+            }
+        }, 2000);
     }
 }

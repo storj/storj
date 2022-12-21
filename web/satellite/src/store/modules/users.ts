@@ -14,6 +14,7 @@ export const USER_ACTIONS = {
     GENERATE_USER_MFA_SECRET: 'generateUserMFASecret',
     GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
     CLEAR: 'clearUser',
+    GET_FROZEN_STATUS: 'getFrozenStatus',
 };
 
 export const USER_MUTATIONS = {
@@ -22,6 +23,7 @@ export const USER_MUTATIONS = {
     SET_USER_MFA_RECOVERY_CODES: 'setUserMFARecoveryCodes',
     UPDATE_USER: 'updateUser',
     CLEAR: 'clearUser',
+    SET_FROZEN_STATUS: 'setFrozenStatus',
 };
 
 export class UsersState {
@@ -37,6 +39,7 @@ const {
     DISABLE_USER_MFA,
     GENERATE_USER_MFA_SECRET,
     GENERATE_USER_MFA_RECOVERY_CODES,
+    GET_FROZEN_STATUS,
 } = USER_ACTIONS;
 
 const {
@@ -45,6 +48,7 @@ const {
     SET_USER_MFA_SECRET,
     SET_USER_MFA_RECOVERY_CODES,
     CLEAR,
+    SET_FROZEN_STATUS,
 } = USER_MUTATIONS;
 
 interface UsersContext {
@@ -74,6 +78,9 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
                 }
 
                 state.user.projectLimit = user.projectLimit;
+            },
+            [SET_FROZEN_STATUS](state: UsersState, status: boolean): void {
+                state.user.isFrozen = status;
             },
             [CLEAR](state: UsersState): void {
                 state.user = new User();
@@ -106,6 +113,11 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
                 commit(SET_USER, user);
 
                 return user;
+            },
+            [GET_FROZEN_STATUS]: async function ({ commit }: UsersContext): Promise<void> {
+                const frozenStatus = await api.getFrozenStatus();
+
+                commit(SET_FROZEN_STATUS, frozenStatus);
             },
             [DISABLE_USER_MFA]: async function (_, request: DisableMFARequest): Promise<void> {
                 await api.disableUserMFA(request.passcode, request.recoveryCode);

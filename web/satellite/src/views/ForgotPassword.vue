@@ -22,17 +22,28 @@
                 <div class="forgot-area__content-area__container__title-area">
                     <h1 class="forgot-area__content-area__container__title-area__title">Reset Password</h1>
                     <div class="forgot-area__expand" @click.stop="toggleDropdown">
-                        <span class="forgot-area__expand__value">{{ satelliteName }}</span>
+                        <button 
+                            id="resetDropdown"
+                            type="button"
+                            aria-haspopup="listbox"
+                            aria-roledescription="satellites-dropdown"
+                            :aria-expanded="isDropdownShown"
+                            class="forgot-area__expand__value"
+                        >
+                            {{ satelliteName }}
+                        </button>
                         <BottomArrowIcon />
-                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="forgot-area__expand__dropdown">
-                            <div class="forgot-area__expand__dropdown__item" @click.stop="closeDropdown">
+                        <ul v-if="isDropdownShown" v-click-outside="closeDropdown" role="listbox" tabindex="-1" class="forgot-area__expand__dropdown">
+                            <li class="forgot-area__expand__dropdown__item" @click.stop="closeDropdown">
                                 <SelectedCheckIcon />
                                 <span class="forgot-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                            </div>
-                            <a v-for="sat in partneredSatellites" :key="sat.id" class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
-                                {{ sat.name }}
-                            </a>
-                        </div>
+                            </li>
+                            <li v-for="sat in partneredSatellites" :key="sat.id">
+                                <a class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
+                                    {{ sat.name }}
+                                </a>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
@@ -211,12 +222,20 @@ export default class ForgotPassword extends Vue {
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
+        let activeElement = document.activeElement;
+        if (activeElement && activeElement.id === 'resetDropdown') return;
+
         if (this.isLoading || !this.validateFields()) {
             return;
         }
 
         if (this.$refs.captcha && !this.captchaResponseToken) {
             this.$refs.captcha.execute();
+            return;
+        }
+
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
             return;
         }
 
@@ -304,6 +323,8 @@ export default class ForgotPassword extends Vue {
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
+                background: none;
+                border: none;
             }
 
             &__dropdown {
@@ -316,6 +337,7 @@ export default class ForgotPassword extends Vue {
                 box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                 border-radius: 6px;
                 min-width: 250px;
+                list-style-type: none;
 
                 &__item {
                     display: flex;
@@ -339,6 +361,10 @@ export default class ForgotPassword extends Vue {
                     &:hover {
                         background-color: #f2f2f6;
                     }
+                }
+
+                &__item:focus-visible {
+                    outline: -webkit-focus-ring-color auto 1px;
                 }
             }
         }
@@ -395,6 +421,10 @@ export default class ForgotPassword extends Vue {
                         font-size: 14px;
                         line-height: 18px;
                         color: #0149ff;
+                    }
+
+                    &__link:focus {
+                        text-decoration: underline !important;
                     }
                 }
             }
