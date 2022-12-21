@@ -50,7 +50,18 @@ func NewService(log *zap.Logger, config Config, provider RangeSplitter, observer
 // Improvement: track duration.
 type observerState struct {
 	observer       Observer
-	rangeObservers []Partial
+	rangeObservers []*rangeObserverState
+}
+
+type rangeObserverState struct {
+	rangeObserver Partial
+	duration      time.Duration
+}
+
+// ObserverDuration reports back on how long it took the observer to process all the segments.
+type ObserverDuration struct {
+	Observer Observer
+	Duration time.Duration
 }
 
 // Run starts the looping service.
@@ -58,7 +69,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		if err := service.RunOnce(ctx); err != nil {
+		_, err := service.RunOnce(ctx)
+		if err != nil {
 			service.log.Error("ranged loop failure", zap.Error(err))
 
 			if errs2.IsCanceled(err) {
@@ -74,81 +86,115 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 // RunOnce goes through one time and sends information to observers.
-func (service *Service) RunOnce(ctx context.Context) (err error) {
+func (service *Service) RunOnce(ctx context.Context) (observerDurations []ObserverDuration, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	startTime := time.Now()
-	observerStates := []observerState{}
-
-	for _, obs := range service.observers {
-		err := obs.Start(ctx, startTime)
-		if err != nil {
-			return err
-		}
-
-		observerStates = append(observerStates, observerState{
-			observer: obs,
-		})
+	observerStates, err := startObservers(ctx, service.observers)
+	if err != nil {
+		return nil, err
 	}
 
 	rangeProviders, err := service.provider.CreateRanges(service.config.Parallelism, service.config.BatchSize)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	group := errs2.Group{}
-	for rangeIndex, rangeProvider := range rangeProviders {
-		rangeObservers := []Partial{}
+	for _, rangeProvider := range rangeProviders {
+		rangeObservers := []*rangeObserverState{}
 		for i, observerState := range observerStates {
 			rangeObserver, err := observerState.observer.Fork(ctx)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			rangeObservers = append(rangeObservers, rangeObserver)
-			observerStates[i].rangeObservers = append(observerStates[i].rangeObservers, rangeObserver)
+			rangeState := &rangeObserverState{
+				rangeObserver: rangeObserver,
+			}
+			rangeObservers = append(rangeObservers, rangeState)
+			observerStates[i].rangeObservers = append(observerStates[i].rangeObservers, rangeState)
 		}
 
 		// Create closure to capture loop variables.
-		createClosure := func(ctx context.Context, rangeIndex int, rangeProvider SegmentProvider, rangeObservers []Partial) func() error {
-			return func() (err error) {
-				defer mon.Task()(&ctx)(&err)
-
-				return rangeProvider.Iterate(ctx, func(segments []segmentloop.Segment) error {
-					for _, rangeObserver := range rangeObservers {
-						err := rangeObserver.Process(ctx, segments)
-						if err != nil {
-							return err
-						}
-					}
-					return nil
-				})
-			}
-		}
-
-		group.Go(createClosure(ctx, rangeIndex, rangeProvider, rangeObservers))
+		group.Go(createGoroutineClosure(ctx, rangeProvider, rangeObservers))
 	}
 
 	// Improvement: stop all ranges when one has an error.
 	errList := group.Wait()
 	if errList != nil {
-		return errs.Combine(errList...)
+		return nil, errs.Combine(errList...)
 	}
 
-	// Segment loop has ended.
-	// This is the reduce step.
-	for _, state := range observerStates {
-		for _, rangeObserver := range state.rangeObservers {
-			err := state.observer.Join(ctx, rangeObserver)
-			if err != nil {
-				return err
+	return finishObservers(ctx, observerStates)
+}
+
+func createGoroutineClosure(ctx context.Context, rangeProvider SegmentProvider, states []*rangeObserverState) func() error {
+	return func() (err error) {
+		defer mon.Task()(&ctx)(&err)
+
+		return rangeProvider.Iterate(ctx, func(segments []segmentloop.Segment) error {
+			for _, state := range states {
+				start := time.Now()
+				err := state.rangeObserver.Process(ctx, segments)
+				if err != nil {
+					return err
+				}
+				state.duration += time.Since(start)
 			}
+			return nil
+		})
+	}
+}
+
+func startObservers(ctx context.Context, observers []Observer) (observerStates []observerState, err error) {
+	startTime := time.Now()
+
+	for _, obs := range observers {
+		state, err := startObserver(ctx, startTime, obs)
+		if err != nil {
+			return nil, err
 		}
 
-		err := state.observer.Finish(ctx)
-		if err != nil {
-			return err
-		}
+		observerStates = append(observerStates, state)
 	}
 
-	return nil
+	return observerStates, nil
+}
+
+func startObserver(ctx context.Context, startTime time.Time, observer Observer) (observerState, error) {
+	err := observer.Start(ctx, startTime)
+
+	return observerState{
+		observer: observer,
+	}, err
+}
+
+func finishObservers(ctx context.Context, observerStates []observerState) (observerDurations []ObserverDuration, err error) {
+	for _, state := range observerStates {
+		observerDuration, err := finishObserver(ctx, state)
+		if err != nil {
+			return nil, err
+		}
+
+		observerDurations = append(observerDurations, observerDuration)
+	}
+
+	return observerDurations, nil
+}
+
+// Iterating over the segments is done.
+// This is the reduce step.
+func finishObserver(ctx context.Context, state observerState) (ObserverDuration, error) {
+	var duration time.Duration
+	for _, rangeObserver := range state.rangeObservers {
+		err := state.observer.Join(ctx, rangeObserver.rangeObserver)
+		if err != nil {
+			return ObserverDuration{}, err
+		}
+		duration += rangeObserver.duration
+	}
+
+	return ObserverDuration{
+		Duration: duration,
+		Observer: state.observer,
+	}, state.observer.Finish(ctx)
 }
