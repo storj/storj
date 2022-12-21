@@ -28,58 +28,54 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VInput,
-        ValidationMessage,
-    },
-})
-export default class NewBillingAddCouponCodeInput extends Vue {
-    private showValidationMessage = false;
-    private isCodeValid = false;
-    private errorMessage = '';
-    private couponCode = '';
-    private isLoading = false;
+const store = useStore();
+const notify = useNotify();
 
-    private readonly analytics = new AnalyticsHttpApi();
+const emit = defineEmits(['close']);
 
-    public setCouponCode(value: string): void {
-        this.couponCode = value;
-    }
+const showValidationMessage = ref<boolean>(false);
+const isCodeValid = ref<boolean>(false);
+const errorMessage = ref<string>('');
+const couponCode = ref<string>('');
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Check if coupon code is valid
-     */
-    public async applyCouponCode(): Promise<void> {
-        if (this.isLoading) return;
+const analytics = new AnalyticsHttpApi();
 
-        this.isLoading = true;
+function setCouponCode(value: string): void {
+    couponCode.value = value;
+}
 
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
-            await this.$notify.success('Coupon Added!');
-            this.$emit('close');
-        } catch (error) {
-            this.errorMessage = error.message;
-            this.isCodeValid = false;
-            this.showValidationMessage = true;
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
-        } finally {
-            this.isLoading = false;
-        }
+/**
+ * Check if coupon code is valid
+ */
+async function applyCouponCode(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, couponCode.value);
+        await notify.success('Coupon Added!');
+        emit('close');
+    } catch (error) {
+        errorMessage.value = error.message;
+        isCodeValid.value = false;
+        showValidationMessage.value = true;
+        await analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
+    } finally {
+        isLoading.value = false;
     }
 }
 </script>
