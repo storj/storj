@@ -305,7 +305,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		abRouter.Handle("/hit/{action}", server.withAuth(http.HandlerFunc(abController.SendHit))).Methods(http.MethodPost)
 	}
 
-	paymentController := consoleapi.NewPayments(logger, service)
+	paymentController := consoleapi.NewPayments(logger, service, accountFreezeService)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 	paymentsRouter.Use(server.withAuth)
 	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)

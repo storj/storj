@@ -20,6 +20,8 @@ type Invoices interface {
 	ListWithDiscounts(ctx context.Context, userID uuid.UUID) ([]Invoice, []CouponUsage, error)
 	// CheckPendingItems returns if pending invoice items for a given payment account exist.
 	CheckPendingItems(ctx context.Context, userID uuid.UUID) (existingItems bool, err error)
+	// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
+	AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error)
 }
 
 // Invoice holds all public information about invoice.

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stripe/stripe-go/v72"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -18,6 +19,45 @@ import (
 // architecture: Service
 type invoices struct {
 	service *Service
+}
+
+// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
+func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error) {
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.InvoiceListParams{
+		Customer:     &customerID,
+		Status:       stripe.String(string(stripe.InvoiceStatusOpen)),
+		DueDateRange: &stripe.RangeQueryParams{LesserThan: time.Now().Unix()},
+	}
+
+	var errGrp errs.Group
+
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		params := &stripe.InvoicePayParams{}
+		invResponse, err := invoices.service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
+		if err != nil {
+			errGrp.Add(Error.New("unable to pay invoice %s: %w", stripeInvoice.ID, err))
+			continue
+		}
+
+		if invResponse != nil && invResponse.Status != stripe.InvoiceStatusPaid {
+			errGrp.Add(Error.New("invoice not paid after payment triggered %s", stripeInvoice.ID))
+		}
+
+	}
+
+	if err = invoicesIterator.Err(); err != nil {
+		return Error.Wrap(err)
+	}
+
+	return errGrp.Err()
 }
 
 // List returns a list of invoices for a given payment account.

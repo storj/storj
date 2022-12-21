@@ -625,6 +625,23 @@ func (payment Payments) GetCoupon(ctx context.Context) (coupon *payments.Coupon,
 	return coupon, nil
 }
 
+// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
+func (payment Payments) AttemptPayOverdueInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "attempt to pay overdue invoices")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.Invoices().AttemptPayOverdueInvoices(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
 // if and only if the registration shouldn't proceed.
 func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret RegistrationSecret) (*RegistrationToken, error) {
