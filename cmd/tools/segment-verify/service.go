@@ -37,7 +37,7 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -88,12 +88,13 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap       *metabase.NodeAliasMap
-	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
-	priorityNodes  NodeAliasSet
-	onlineNodes    NodeAliasSet
-	offlineCount   map[metabase.NodeAlias]int
-	bucketList     BucketList
+	aliasMap        *metabase.NodeAliasMap
+	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	priorityNodes   NodeAliasSet
+	onlineNodes     NodeAliasSet
+	offlineCount    map[metabase.NodeAlias]int
+	bucketList      BucketList
+	nodesVersionMap map[metabase.NodeAlias]string
 
 	// this is a callback so that problematic pieces can be reported as they are found,
 	// rather than being kept in a list which might grow unreasonably large.
@@ -129,10 +130,11 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		verifier: verifier,
 		overlay:  overlay,
 
-		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
-		priorityNodes:  NodeAliasSet{},
-		onlineNodes:    NodeAliasSet{},
-		offlineCount:   map[metabase.NodeAlias]int{},
+		aliasToNodeURL:  map[metabase.NodeAlias]storj.NodeURL{},
+		priorityNodes:   NodeAliasSet{},
+		onlineNodes:     NodeAliasSet{},
+		offlineCount:    map[metabase.NodeAlias]int{},
+		nodesVersionMap: map[metabase.NodeAlias]string{},
 
 		reportPiece: problemPieces.Write,
 	}, nil

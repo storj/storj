@@ -471,7 +471,7 @@ type verifierMock struct {
 	processed map[storj.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
 		v.processed = map[storj.NodeID][]*segmentverify.Segment{}
