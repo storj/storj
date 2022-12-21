@@ -83,7 +83,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 	for _, batch := range batches {
 		batch := batch
 
-		nodeURL, err := service.convertAliasToNodeURL(ctx, batch.Alias)
+		info, err := service.GetNodeInfo(ctx, batch.Alias)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -91,7 +91,7 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, info.NodeURL, info.Version, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
@@ -143,6 +143,9 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 			return storj.NodeURL{}, Error.Wrap(err)
 		}
 
+		// TODO: single responsibility?
+		service.nodesVersionMap[alias] = info.Version.Version
+
 		nodeURL = storj.NodeURL{
 			ID:      info.Id,
 			Address: info.Address.Address,
@@ -151,4 +154,35 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 		service.aliasToNodeURL[alias] = nodeURL
 	}
 	return nodeURL, nil
+}
+
+// NodeInfo contains node information.
+type NodeInfo struct {
+	Version string
+	NodeURL storj.NodeURL
+}
+
+// GetNodeInfo retrieves node information, using a cache if needed.
+func (service *Service) GetNodeInfo(ctx context.Context, alias metabase.NodeAlias) (NodeInfo, error) {
+	nodeURL, err := service.convertAliasToNodeURL(ctx, alias)
+	if err != nil {
+		return NodeInfo{}, Error.Wrap(err)
+	}
+
+	version, ok := service.nodesVersionMap[alias]
+
+	if !ok {
+		info, err := service.overlay.Get(ctx, nodeURL.ID)
+		if err != nil {
+			return NodeInfo{}, Error.Wrap(err)
+		}
+
+		service.nodesVersionMap[alias] = info.Version.Version
+		version = info.Version.Version
+	}
+
+	return NodeInfo{
+		NodeURL: nodeURL,
+		Version: version,
+	}, nil
 }
