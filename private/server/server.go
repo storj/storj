@@ -231,6 +231,12 @@ func (p *Server) NoiseInfo() *pb.NoiseInfo {
 	}
 }
 
+// NoiseKeyAttestation returns the noise key attestation for this server.
+func (p *Server) NoiseKeyAttestation(ctx context.Context) (_ *pb.NoiseKeyAttestation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return GenerateNoiseKeyAttestation(ctx, p.tlsOptions.Ident, p.NoiseInfo())
+}
+
 // Close shuts down the server.
 func (p *Server) Close() error {
 	p.mu.Lock()

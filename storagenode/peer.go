@@ -420,6 +420,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		noiseKeyAttestation, err := peer.Server.NoiseKeyAttestation(context.Background())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		self := contact.NodeInfo{
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
@@ -428,7 +432,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Wallet:         config.Operator.Wallet,
 				WalletFeatures: config.Operator.WalletFeatures,
 			},
-			Version: *pbVersion,
+			Version:             *pbVersion,
+			NoiseKeyAttestation: noiseKeyAttestation,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
