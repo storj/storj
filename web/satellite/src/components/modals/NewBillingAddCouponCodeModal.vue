@@ -7,7 +7,7 @@
             <div class="modal">
                 <CouponIcon />
                 <h2 class="modal__title">Apply Coupon Code</h2>
-                <p class="modal__text">If you have a coupon active, it will automatically be replaced.</p>
+                <p class="modal__text">Entering a new coupon will replace any existing coupon.</p>
                 <NewBillingAddCouponCodeInput @close="onCloseClick" />
             </div>
         </template>
