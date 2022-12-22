@@ -1,4 +1,4 @@
-//--- overlay cache ---//
+//--- node db ---//
 
 model node (
     key id
@@ -86,6 +86,9 @@ model node (
 
     field last_offline_email         timestamp ( updatable, nullable )
     field last_software_update_email timestamp ( updatable, nullable )
+
+    field noise_proto int ( updatable, nullable )
+    field noise_public_key blob ( updatable, nullable )
 )
 
 update node ( where node.id = ? )
