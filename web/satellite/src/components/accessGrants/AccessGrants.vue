@@ -1,33 +1,13 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 <template>
     <div class="access-grants">
-        <div v-if="!isNewAccessGrantFlow" class="access-grants__title-area">
-            <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Grants</h2>
-            <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
-                <VButton
-                    v-if="selectedAccessGrantsAmount"
-                    :label="deleteButtonLabel"
-                    width="203px"
-                    height="40px"
-                    :on-press="onDeleteClick"
-                    :is-deletion="true"
-                />
-                <VButton
-                    v-else
-                    label="Create Access Grant +"
-                    width="203px"
-                    height="44px"
-                    :on-press="onCreateClick"
-                    :is-disabled="areGrantsFetching"
-                />
-            </div>
-        </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__new-title-area">
+        <div class="access-grants__new-title-area">
             <h2 class="access-grants__title-area__title" aria-roledescription="title">Access Management</h2>
             <div class="access-grants__title-area__title-subtext" aria-roledescription="title">Create encryption keys to setup permissions to access your objects.</div>
         </div>
-        <div v-if="isNewAccessGrantFlow" class="access-grants__flows-area">
+        <div class="access-grants__flows-area">
             <div class="access-grants__flows-area__access-grant">
                 <div class="access-grants__flows-area__icon-container">
                     <AccessGrantsIcon />
@@ -127,115 +107,70 @@
                 </div>
             </div>
         </div>
-        <div v-if="isNewAccessGrantFlow">
-            <div class="access-grants__header-container">
-                <h3 class="access-grants__header-container__title">My Accesses</h3>
-                <div class="access-grants__header-container__divider" />
-                <VHeader
-                    class="access-header-component"
-                    placeholder="Accesses"
-                    :search="fetch"
-                    style-type="access"
-                />
-            </div>
-            <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-            <div class="access-grants-items2">
-                <v-table
-                    v-if="accessGrantsList.length && !areGrantsFetching"
-                    class="access-grants-items2__content"
-                    items-label="access grants"
-                    :limit="accessGrantLimit"
-                    :total-page-count="totalPageCount"
-                    :total-items-count="accessGrantsTotalCount"
-                    :on-page-click-callback="onPageClick"
-                >
-                    <template #head>
-                        <th class="align-left">Name</th>
-                        <th class="align-left">Date Created</th>
-                    </template>
-                    <template #body>
-                        <AccessGrantsItem2
-                            v-for="(grant, key) in accessGrantsList"
-                            :key="key"
-                            :item-data="grant"
-                            :dropdown-key="key"
-                            :is-dropdown-open="activeDropdown === key"
-                            @openDropdown="openDropdown"
-                            @deleteClick="onDeleteClick"
-                        />
-                    </template>
-                </v-table>
-                <div
-                    v-if="!accessGrantsList.length && !areGrantsFetching"
-                    class="access-grants-items2__empty-state"
-                >
-                    <span class="access-grants-items2__empty-state__text">
-                        {{ emptyStateLabel }}
-                    </span>
-                </div>
-            </div>
-        </div>
-        <div v-if="!isNewAccessGrantFlow">
-            <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
-            <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-                <v-table
-                    v-if="accessGrantsList.length && !areGrantsFetching"
-                    class="access-grants-items__content"
-                    items-label="access grants"
-                    :selectable="true"
-                    :limit="accessGrantLimit"
-                    :total-page-count="totalPageCount"
-                    :total-items-count="accessGrantsTotalCount"
-                    :on-page-click-callback="onPageClick"
-                >
-                    <template #head>
-                        <th class="align-left">Name</th>
-                        <th class="align-left">Date Created</th>
-                    </template>
-                    <template #body>
-                        <AccessGrantsItem
-                            v-for="(grant, key) in accessGrantsList"
-                            :key="key"
-                            :item-data="grant"
-                            @accessGrantClick="toggleSelection"
-                            @selectChange="(_) => toggleSelection(grant)"
-                        />
-                    </template>
-                </v-table>
-            </div>
-        </div>
-        <div v-if="!isNewAccessGrantFlow">
-            <ConfirmDeletePopup
-                v-if="isDeleteClicked"
-                @close="onClearSelection"
-            />
-            <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
-        </div>
-        <div v-if="isNewAccessGrantFlow">
-            <ConfirmDeletePopup2
-                v-if="isDeleteClicked"
-                @close="onClearSelection"
+        <div class="access-grants__header-container">
+            <h3 class="access-grants__header-container__title">My Accesses</h3>
+            <div class="access-grants__header-container__divider" />
+            <VHeader
+                class="access-header-component"
+                placeholder="Accesses"
+                :search="fetch"
+                style-type="access"
             />
         </div>
+        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
+        <div class="access-grants-items">
+            <v-table
+                v-if="accessGrantsList.length && !areGrantsFetching"
+                class="access-grants-items__content"
+                items-label="access grants"
+                :limit="accessGrantLimit"
+                :total-page-count="totalPageCount"
+                :total-items-count="accessGrantsTotalCount"
+                :on-page-click-callback="onPageClick"
+            >
+                <template #head>
+                    <th class="align-left">Name</th>
+                    <th class="align-left">Date Created</th>
+                </template>
+                <template #body>
+                    <AccessGrantsItem
+                        v-for="(grant, key) in accessGrantsList"
+                        :key="key"
+                        :item-data="grant"
+                        :dropdown-key="key"
+                        :is-dropdown-open="activeDropdown === key"
+                        @openDropdown="openDropdown"
+                        @deleteClick="onDeleteClick"
+                    />
+                </template>
+            </v-table>
+            <div
+                v-if="!accessGrantsList.length && !areGrantsFetching"
+                class="access-grants-items__empty-state"
+            >
+                <span class="access-grants-items__empty-state__text">
+                    {{ emptyStateLabel }}
+                </span>
+            </div>
+        </div>
+        <ConfirmDeletePopup
+            v-if="isDeleteClicked"
+            @close="onClearSelection"
+        />
         <router-view />
     </div>
 </template>
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { MetaUtils } from '@/utils/meta';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
-import { SortDirection } from '@/types/common';
+import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
-import AccessGrantsItem2 from '@/components/accessGrants/AccessGrantsItem2.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
-import ConfirmDeletePopup2 from '@/components/accessGrants/ConfirmDeletePopup2.vue';
-import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -249,23 +184,18 @@ const {
     FETCH,
     TOGGLE_SELECTION,
     CLEAR_SELECTION,
-    SET_SORT_BY,
-    SET_SORT_DIRECTION,
     SET_SEARCH_QUERY,
 } = ACCESS_GRANTS_ACTIONS;
 
 // @vue/component
 @Component({
     components: {
-        AccessGrantsItem2,
         AccessGrantsItem,
         AccessGrantsIcon,
         CLIIcon,
-        EmptyState,
         S3Icon,
         VButton,
         ConfirmDeletePopup,
-        ConfirmDeletePopup2,
         VLoader,
         VHeader,
         VTable,
@@ -277,22 +207,9 @@ export default class AccessGrants extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Indicates if the access modal should be shown and what the defaulted type of access should be defaulted.
-     */
-    private showAccessModal = false;
-    private modalAccessType = '';
     public activeDropdown = -1;
-
     public areGrantsFetching = true;
 
-    /**
-     * Indicates if navigation side bar is hidden.
-     */
-    public get isNewAccessGrantFlow(): boolean {
-        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
-        return isNewAccessGrantFlow === 'true';
-    }
     /**
      * Lifecycle hook after initial render where list of existing access grants is fetched.
      */
@@ -304,6 +221,7 @@ export default class AccessGrants extends Vue {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
+
     /**
      * Lifecycle hook before component destruction.
      * Clears existing access grants selection.
@@ -311,6 +229,7 @@ export default class AccessGrants extends Vue {
     public beforeDestroy(): void {
         this.onClearSelection();
     }
+
     /**
      * Toggles access grant selection.
      * @param accessGrant
@@ -318,6 +237,7 @@ export default class AccessGrants extends Vue {
     public async toggleSelection(accessGrant: AccessGrant): Promise<void> {
         await this.$store.dispatch(TOGGLE_SELECTION, accessGrant);
     }
+
     /**
      * Fetches access grants page by clicked index.
      * @param index
@@ -328,28 +248,6 @@ export default class AccessGrants extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
-    }
-    /**
-     * Used for sorting.
-     * @param sortBy
-     * @param sortDirection
-     */
-    public async onHeaderSectionClickCallback(sortBy: AccessGrantsOrderBy, sortDirection: SortDirection): Promise<void> {
-        await this.$store.dispatch(SET_SORT_BY, sortBy);
-        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
-        }
-    }
-
-    /**
-     * Starts create access grant flow.
-     */
-    public onCreateClick(): void {
-        this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
-        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
 
     /**
@@ -372,6 +270,7 @@ export default class AccessGrants extends Vue {
         await this.$store.dispatch(TOGGLE_SELECTION, grant);
         this.isDeleteClicked = true;
     }
+
     /**
      * Clears access grants selection.
      */
@@ -379,6 +278,7 @@ export default class AccessGrants extends Vue {
         this.isDeleteClicked = false;
         await this.$store.dispatch(CLEAR_SELECTION);
     }
+
     /**
      * Fetches Access records by name depending on search query.
      */
@@ -391,9 +291,7 @@ export default class AccessGrants extends Vue {
             await this.$notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
         }
     }
-    public get deleteButtonLabel(): string {
-        return `Remove Selected (${this.selectedAccessGrantsAmount})`;
-    }
+
     /**
      * Returns access grants pages count from store.
      */
@@ -420,13 +318,6 @@ export default class AccessGrants extends Vue {
      */
     public get accessGrantsList(): AccessGrant[] {
         return this.$store.state.accessGrantsModule.page.accessGrants;
-    }
-
-    /**
-     * Returns selected access grants IDs amount from store.
-     */
-    public get selectedAccessGrantsAmount(): number {
-        return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
 
     /**
@@ -602,13 +493,6 @@ export default class AccessGrants extends Vue {
         }
 
         .access-grants-items {
-
-            &__content {
-                margin-top: 20px;
-            }
-        }
-
-        .access-grants-items2 {
 
             &__content {
                 margin-top: 20px;

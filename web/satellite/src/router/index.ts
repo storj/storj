@@ -9,14 +9,6 @@ import { MetaUtils } from '@/utils/meta';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
-import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
-import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
-import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
-import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphraseStep.vue';
-import GatewayStep from '@/components/accessGrants/steps/GatewayStep.vue';
-import NameStep from '@/components/accessGrants/steps/NameStep.vue';
-import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
-import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
@@ -101,14 +93,6 @@ export abstract class RouteConfig {
 
     // access grant child paths
     public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
-    public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
-    public static NameStep = new NavigationLink('name', 'Name Access Grant');
-    public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
-    public static CreatePassphraseStep = new NavigationLink('create-passphrase', 'Access Grant Create Passphrase');
-    public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
-    public static ResultStep = new NavigationLink('result', 'Access Grant Result');
-    public static GatewayStep = new NavigationLink('gateway', 'Access Grant Gateway');
-    public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
@@ -369,54 +353,6 @@ export const router = new Router({
                             path: RouteConfig.CreateAccessModal.path,
                             name: RouteConfig.CreateAccessModal.name,
                             component: CreateAccessModal,
-                        },
-                        {
-                            path: RouteConfig.CreateAccessGrant.path,
-                            name: RouteConfig.CreateAccessGrant.name,
-                            component: CreateAccessGrant,
-                            children: [
-                                {
-                                    path: RouteConfig.NameStep.path,
-                                    name: RouteConfig.NameStep.name,
-                                    component: NameStep,
-                                },
-                                {
-                                    path: RouteConfig.PermissionsStep.path,
-                                    name: RouteConfig.PermissionsStep.name,
-                                    component: PermissionsStep,
-                                    props: true,
-                                },
-                                {
-                                    path: RouteConfig.CreatePassphraseStep.path,
-                                    name: RouteConfig.CreatePassphraseStep.name,
-                                    component: CreatePassphraseStep,
-                                    props: true,
-                                },
-                                {
-                                    path: RouteConfig.EnterPassphraseStep.path,
-                                    name: RouteConfig.EnterPassphraseStep.name,
-                                    component: EnterPassphraseStep,
-                                    props: true,
-                                },
-                                {
-                                    path: RouteConfig.ResultStep.path,
-                                    name: RouteConfig.ResultStep.name,
-                                    component: ResultStep,
-                                    props: true,
-                                },
-                                {
-                                    path: RouteConfig.GatewayStep.path,
-                                    name: RouteConfig.GatewayStep.name,
-                                    component: GatewayStep,
-                                    props: true,
-                                },
-                                {
-                                    path: RouteConfig.CLIStep.path,
-                                    name: RouteConfig.CLIStep.name,
-                                    component: CLIStep,
-                                    props: true,
-                                },
-                            ],
                         },
                     ],
                 },

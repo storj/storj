@@ -38,7 +38,7 @@ const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
 const abTestingAPI = new ABHttpApi();
 
-// We need to use a WebWorker facotory because jest testing does not support
+// We need to use a WebWorker factory because jest testing does not support
 // WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
 const webWorkerFactory = {
     create(): Worker {
@@ -107,12 +107,6 @@ router.beforeEach(async (to, _, next) => {
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
-
-        return;
-    }
-
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant))) {
-        next(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
 
         return;
     }
