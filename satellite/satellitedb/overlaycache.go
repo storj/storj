@@ -1089,6 +1089,14 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		return nil, err
 	}
 
+	var noiseInfo *pb.NoiseInfo
+	if info.NoiseProto != nil && len(info.NoisePublicKey) > 0 {
+		noiseInfo = &pb.NoiseInfo{
+			Proto:     pb.NoiseProtocol(*info.NoiseProto),
+			PublicKey: info.NoisePublicKey,
+		}
+	}
+
 	exitStatus := overlay.ExitStatus{NodeID: id}
 	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
 	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
@@ -1099,7 +1107,8 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Node: pb.Node{
 			Id: id,
 			Address: &pb.NodeAddress{
-				Address: info.Address,
+				Address:   info.Address,
+				NoiseInfo: noiseInfo,
 			},
 		},
 		Type: pb.NodeType(info.Type),
@@ -1271,6 +1280,16 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 }
 
 func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
+		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
+	}
+
 	// First try the fast path.
 	var res sql.Result
 	res, err = cache.db.ExecContext(ctx, `
@@ -1294,6 +1313,8 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			last_ip_port=$16,
 			wallet_features=$17,
 			country_code=$18,
+			noise_proto=$21,
+			noise_public_key=$22,
 			last_software_update_email = CASE
 				WHEN $19::bool IS TRUE THEN $15::timestamptz
 				WHEN $20::bool IS FALSE THEN NULL
@@ -1322,6 +1343,8 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 		node.CountryCode.String(),
 		// args $19 - $20
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $21 - $22
+		noiseProto, noisePublicKey,
 	)
 
 	if err != nil {
@@ -1360,6 +1383,16 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return nil
 	}
 
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
+		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
+	}
+
 	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
@@ -1368,9 +1401,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_success,
 				last_contact_failure,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port,
-				wallet_features,
-				country_code
+				last_ip_port, wallet_features, country_code,
+				noise_proto, noise_public_key
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1382,9 +1414,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$10, $11, $12, $13, $14, $15,
-				$17,
-				$18,
-				$19
+				$17, $18, $19,
+				$22, $23
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1407,6 +1438,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_ip_port=$17,
 				wallet_features=$18,
 				country_code=$19,
+				noise_proto=$22,
+				noise_public_key=$23,
 				last_software_update_email = CASE
 					WHEN $20::bool IS TRUE THEN $16::timestamptz
 					WHEN $21::bool IS FALSE THEN NULL
@@ -1427,14 +1460,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $16
 		timestamp,
-		// args $17
-		node.LastIPPort,
-		// args $18,
-		walletFeatures,
-		// args $19,
-		node.CountryCode.String(),
+		// args $17 - $19
+		node.LastIPPort, walletFeatures, node.CountryCode.String(),
 		// args $20 - $21
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $22 - $23
+		noiseProto, noisePublicKey,
 	)
 	if err != nil {
 		return Error.Wrap(err)

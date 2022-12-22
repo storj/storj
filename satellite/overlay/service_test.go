@@ -6,7 +6,6 @@ package overlay_test
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -421,14 +420,15 @@ func TestGetOnlineNodesForGetDelete(t *testing.T) {
 				LastNet:    dossier.LastNet,
 				LastIPPort: dossier.LastIPPort,
 			}
+			// TODO(jt): bring this back in the next patchset
+			expectedNodes[dossier.Id].Address.NoiseInfo = nil
 		}
 		// add a fake node ID to make sure GetOnlineNodesForGetDelete doesn't error and still returns the expected nodes.
 		nodeIDs[len(planet.StorageNodes)] = testrand.NodeID()
 
 		actualNodes, err = planet.Satellites[0].Overlay.Service.GetOnlineNodesForGetDelete(ctx, nodeIDs)
 		require.NoError(t, err)
-
-		require.True(t, reflect.DeepEqual(expectedNodes, actualNodes))
+		require.Equal(t, expectedNodes, actualNodes)
 	})
 }
 

@@ -153,6 +153,8 @@ CREATE TABLE nodes (
 	contained timestamp with time zone,
 	last_offline_email timestamp with time zone,
 	last_software_update_email timestamp with time zone,
+	noise_proto integer,
+	noise_public_key bytea,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (

@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/storj/private/nodeoperator"
+	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -85,6 +86,18 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		ID:      nodeID,
 		Address: req.Address,
 	}
+
+	var noiseInfo *pb.NoiseInfo
+	if req.NoiseKeyAttestation != nil {
+		if err := server.ValidateNoiseKeyAttestation(ctx, req.NoiseKeyAttestation); err == nil {
+			noiseInfo = &pb.NoiseInfo{
+				Proto:     req.NoiseKeyAttestation.NoiseProto,
+				PublicKey: req.NoiseKeyAttestation.NoisePublicKey,
+			}
+			nodeurl.NoiseInfo = noiseInfo.Convert()
+		}
+	}
+
 	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
 		return nil, endpoint.checkPingRPCErr(err, nodeurl)
@@ -105,7 +118,8 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Address: req.Address,
+			Address:   req.Address,
+			NoiseInfo: noiseInfo,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),

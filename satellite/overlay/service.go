@@ -665,8 +665,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	dbStale := lastContact.Add(service.config.NodeCheckInWaitPeriod).Before(timestamp) ||
 		(node.IsUp && lastUp.Before(lastDown)) || (!node.IsUp && lastDown.Before(lastUp))
 
-	addrChanged := ((node.Address == nil) != (oldInfo.Address == nil)) ||
-		(oldInfo.Address != nil && node.Address != nil && oldInfo.Address.Address != node.Address.Address)
+	addrChanged := !pb.AddressEqual(node.Address, oldInfo.Address)
 
 	walletChanged := (node.Operator == nil && oldInfo.Operator.Wallet != "") ||
 		(node.Operator != nil && oldInfo.Operator.Wallet != node.Operator.Wallet)
