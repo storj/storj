@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
+	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
@@ -26,6 +27,7 @@ var (
 
 // Config holds Endpoint's configuration.
 type Config struct {
+	Enabled      bool           `help:"Whether the private Userinfo rpc endpoint is enabled" default:"false"`
 	AllowedPeers storj.NodeURLs `help:"A comma delimited list of peers (IDs/addresses) allowed to use this endpoint."`
 }
 
@@ -67,7 +69,7 @@ func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, 
 func (e *Endpoint) Close() error { return nil }
 
 // Get returns relevant info about the current user.
-func (e *Endpoint) Get(ctx context.Context, _ *pb.GetUserInfoRequest) (response *pb.GetUserInfoResponse, err error) {
+func (e *Endpoint) Get(ctx context.Context, req *pb.GetUserInfoRequest) (response *pb.GetUserInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := rpcpeer.FromContext(ctx)
@@ -84,9 +86,29 @@ func (e *Endpoint) Get(ctx context.Context, _ *pb.GetUserInfoRequest) (response 
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
 	}
 
-	// TODO: implement get user info
+	key, err := e.getAPIKey(ctx, req.Header)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
 
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Get Userinfo not implemented")
+	info, err := e.apiKeys.GetByHead(ctx, key.Head())
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, Error.Wrap(err).Error())
+	}
+
+	project, err := e.projects.Get(ctx, info.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, Error.Wrap(err).Error())
+	}
+
+	user, err := e.users.Get(ctx, project.OwnerID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, Error.Wrap(err).Error())
+	}
+
+	return &pb.GetUserInfoResponse{
+		PaidTier: user.PaidTier,
+	}, nil
 }
 
 // verifyPeer verifies that a peer is allowed.
@@ -96,4 +118,21 @@ func (e *Endpoint) verifyPeer(id storj.NodeID) error {
 		return Error.New("peer %q is untrusted", id)
 	}
 	return nil
+}
+
+func (e *Endpoint) getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if header == nil {
+		return nil, Error.New("Missing API credentials")
+	}
+
+	key, err = macaroon.ParseRawAPIKey(header.ApiKey)
+	if err != nil {
+		err = Error.Wrap(err)
+		e.log.Debug("Invalid credentials", zap.Error(err))
+		return nil, err
+	}
+
+	return key, nil
 }

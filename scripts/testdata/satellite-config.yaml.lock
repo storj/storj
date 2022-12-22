@@ -1066,6 +1066,9 @@ server.private-address: 127.0.0.1:7778
 # A comma delimited list of peers (IDs/addresses) allowed to use this endpoint.
 # userinfo.allowed-peers: ""
 
+# Whether the private Userinfo rpc endpoint is enabled
+# userinfo.enabled: false
+
 # Interval to check the version
 # version.check-interval: 15m0s
 

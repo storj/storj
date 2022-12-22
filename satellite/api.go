@@ -490,6 +490,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup userinfo.
+		if config.Userinfo.Enabled {
+
+			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
+				peer.Log.Named("userinfo:endpoint"),
+				peer.DB.Console().Users(),
+				peer.DB.Console().APIKeys(),
+				peer.DB.Console().Projects(),
+				config.Userinfo,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if err := pb.DRPCRegisterUserInfo(peer.Server.DRPC(), peer.Userinfo.Endpoint); err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "userinfo:endpoint",
+				Close: peer.Userinfo.Endpoint.Close,
+			})
+		} else {
+			peer.Log.Named("userinfo:endpoint").Info("disabled")
+		}
+	}
+
 	{ // setup inspector
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
