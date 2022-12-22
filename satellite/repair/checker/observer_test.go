@@ -503,7 +503,7 @@ func TestRangedLoopObserver(t *testing.T) {
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
 			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
-			err = service.RunOnce(ctx)
+			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
 
 			// if first testcase run - all segments to repair counts as new
