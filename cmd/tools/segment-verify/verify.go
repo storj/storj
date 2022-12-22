@@ -87,7 +87,7 @@ func NewVerifier(log *zap.Logger, dialer rpc.Dialer, orders *orders.Service, con
 func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error) {
 	verifiedCount, err = service.VerifyWithExists(ctx, alias, target, targetVersion, segments)
 	// if Exists method is unimplemented or it is wrong node version fallback to download verification
-	if !errs2.IsRPC(err, rpcstatus.Unimplemented) && !errWrongNodeVersion.Has(err) {
+	if !methodUnimplemented(err) && !errWrongNodeVersion.Has(err) {
 		return verifiedCount, err
 	}
 	if err != nil {
@@ -292,6 +292,10 @@ func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabas
 	return len(segments), nil
 }
 
+func methodUnimplemented(err error) bool {
+	return errs2.IsRPC(err, rpcstatus.Unimplemented) || errs2.IsRPC(err, rpcstatus.Unknown)
+}
+
 // verifySegmentsWithExists calls the Exists endpoint on the specified target node for each segment.
 func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, client pb.DRPCPiecestoreClient, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment) (err error) {
 	pieceIds := make([]storj.PieceID, 0, len(segments))
@@ -310,24 +314,28 @@ func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, clien
 		return Error.Wrap(err)
 	}
 
-	for index := range pieceIds {
-		if missing(index, response.Missing) {
-			segments[index].Status.MarkNotFound()
+	if len(response.Missing) == 0 {
+		for i := range segments {
+			segments[i].Status.MarkFound()
+		}
+		return nil
+	}
+
+	missing := make(map[uint32]struct{}, len(segments))
+	for _, m := range response.Missing {
+		missing[m] = struct{}{}
+	}
+
+	for i := range segments {
+		_, miss := missing[uint32(i)]
+		if miss {
+			segments[i].Status.MarkNotFound()
 		} else {
-			segments[index].Status.MarkFound()
+			segments[i].Status.MarkFound()
 		}
 	}
 
 	return nil
-}
-
-func missing(index int, missing []uint32) bool {
-	for _, m := range missing {
-		if uint32(index) == m {
-			return true
-		}
-	}
-	return false
 }
 
 // rateLimiter limits the rate of some type of event. It acts like a token
