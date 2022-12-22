@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/context2"
+	"storj.io/common/fpath"
 	"storj.io/common/memory"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/sync2"
@@ -40,6 +41,8 @@ type cmdCp struct {
 
 	parallelism          int
 	parallelismChunkSize memory.Size
+
+	inmemoryEC bool
 
 	locs []ulloc.Location
 }
@@ -94,6 +97,12 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 		}),
 	).(memory.Size)
 
+	c.inmemoryEC = params.Flag("inmemory-erasure-coding", "Keep erasure-coded pieces in-memory instead of writing them on the disk during upload", false,
+		clingy.Transform(strconv.ParseBool),
+		clingy.Boolean,
+		clingy.Advanced,
+	).(bool)
+
 	c.expires = params.Flag("expires",
 		"Schedule removal after this time (e.g. '+2h', 'now', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseHumanDate), clingy.Type("relative_date")).(time.Time)
@@ -122,6 +131,10 @@ func (c *cmdCp) Execute(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = fs.Close() }()
+
+	if c.inmemoryEC {
+		ctx = fpath.WithTempData(ctx, "", true)
+	}
 
 	var eg errs.Group
 	for _, source := range c.locs[:len(c.locs)-1] {
