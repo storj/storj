@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -126,8 +126,11 @@ const {
 } = PAYMENTS_ACTIONS;
 
 const store = useStore();
-const router = useRouter();
+// TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
+const nativeRouter = useRouter();
 const notify = useNotify();
+
+const router = reactive(nativeRouter);
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -496,7 +499,7 @@ function closeInactivityModal(): void {
  * Redirects to Billing Page.
  */
 async function redirectToBillingPage(): Promise<void> {
-    await router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingOverview)).path);
+    await router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingPaymentMethods)).path);
 }
 
 /**
