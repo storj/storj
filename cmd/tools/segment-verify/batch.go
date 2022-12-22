@@ -7,6 +7,8 @@ import (
 	"context"
 	"sort"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -38,7 +40,12 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 	// We assume that segment.AliasPieces is randomly ordered in terms of nodes.
 	for _, segment := range segments {
 		if len(segment.AliasPieces) < int(segment.Status.Retry) {
-			panic("segment contains too few pieces")
+			service.log.Error("segment contains too few pieces. skipping segment",
+				zap.Int("num-pieces", len(segment.AliasPieces)),
+				zap.Int32("retry-at", segment.Status.Retry),
+				zap.Stringer("stream-id", segment.StreamID),
+				zap.Uint64("position", segment.Position.Encode()))
+			continue
 		}
 		for _, piece := range segment.AliasPieces[:segment.Status.Retry] {
 			enqueue(piece.Alias, segment)
