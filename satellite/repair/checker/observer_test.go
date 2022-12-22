@@ -4,13 +4,11 @@
 package checker_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -18,13 +16,13 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/repair/checker"
 )
 
-func TestIdentifyInjuredSegments(t *testing.T) {
+func TestObserverIdentifyInjuredSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -88,7 +86,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 	})
 }
 
-func TestIdentifyIrreparableSegments(t *testing.T) {
+func TestObserverIdentifyIrreparableSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -174,7 +172,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	})
 }
 
-func TestCleanRepairQueue(t *testing.T) {
+func TestObserverCleanRepairQueue(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -261,7 +259,7 @@ func TestCleanRepairQueue(t *testing.T) {
 	})
 }
 
-func TestIgnoringCopiedSegments(t *testing.T) {
+func TestObserverIgnoringCopiedSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -317,85 +315,7 @@ func TestIgnoringCopiedSegments(t *testing.T) {
 	})
 }
 
-func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
-	pieces := make(metabase.Pieces, rs.OptimalShares)
-	for i := range pieces {
-		pieces[i] = metabase.Piece{
-			Number:      uint16(i),
-			StorageNode: planet.StorageNodes[i].Identity.ID,
-		}
-	}
-	return pieces
-}
-
-func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
-	pieces := make(metabase.Pieces, rs.OptimalShares)
-	for i := range pieces[:rs.RequiredShares] {
-		pieces[i] = metabase.Piece{
-			Number:      uint16(i),
-			StorageNode: planet.StorageNodes[i].Identity.ID,
-		}
-	}
-	for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
-		pieces[i] = metabase.Piece{
-			Number:      uint16(i),
-			StorageNode: storj.NodeID{byte(0xFF)},
-		}
-	}
-	return pieces
-}
-
-func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
-	metabaseDB := planet.Satellites[0].Metabase.DB
-
-	obj := metabase.ObjectStream{
-		ProjectID:  location.ProjectID,
-		BucketName: location.BucketName,
-		ObjectKey:  location.ObjectKey,
-		Version:    1,
-		StreamID:   testrand.UUID(),
-	}
-
-	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-		ObjectStream: obj,
-		Encryption: storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   256,
-		},
-		ExpiresAt: expiresAt,
-	})
-	require.NoError(t, err)
-
-	rootPieceID := testrand.PieceID()
-	err = metabaseDB.BeginSegment(ctx, metabase.BeginSegment{
-		ObjectStream: obj,
-		RootPieceID:  rootPieceID,
-		Pieces:       pieces,
-	})
-	require.NoError(t, err)
-
-	err = metabaseDB.CommitSegment(ctx, metabase.CommitSegment{
-		ObjectStream:      obj,
-		RootPieceID:       rootPieceID,
-		Pieces:            pieces,
-		EncryptedKey:      testrand.Bytes(256),
-		EncryptedKeyNonce: testrand.Bytes(256),
-		PlainSize:         1,
-		EncryptedSize:     1,
-		Redundancy:        rs,
-		ExpiresAt:         expiresAt,
-	})
-	require.NoError(t, err)
-
-	_, err = metabaseDB.CommitObject(ctx, metabase.CommitObject{
-		ObjectStream: obj,
-	})
-	require.NoError(t, err)
-
-	return obj.StreamID
-}
-
-func BenchmarkRemoteSegment(b *testing.B) {
+func BenchmarkObserverRemoteSegment(b *testing.B) {
 	testplanet.Bench(b, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -507,7 +427,7 @@ func TestRepairObserver(t *testing.T) {
 
 		err = observer.Finish(ctx)
 		require.NoError(t, err)
-		require.NoError(t, observer.CompareStats(21, 21, 1, 1, 0, 0, nil))
+		require.NoError(t, observer.TotalStats.Compare(21, 21, 1, 1, 0, 0, nil))
 		require.NoError(t, observer.CompareInjuredSegment(ctx, []uuid.UUID{injuredSegmentStreamID}))
 	})
 }
@@ -515,13 +435,6 @@ func TestRepairObserver(t *testing.T) {
 func TestRangedLoopObserver(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
-				config.Repairer.UseRangedLoop = true
-				config.RangedLoop.Parallelism = 5
-				config.RangedLoop.BatchSize = 5
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -565,11 +478,43 @@ func TestRangedLoopObserver(t *testing.T) {
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
-		err = planet.Satellites[0].RangedLoop.RangedLoop.Service.RunOnce(ctx)
-		require.NoError(t, err)
+		type TestCase struct {
+			BatchSize   int
+			Parallelism int
+		}
 
-		observer := planet.Satellites[0].Repair.Observer
-		require.NoError(t, observer.CompareStats(45, 45, 5, 5, 0, 0, nil))
-		require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamIDs))
+		// new segments to will be detected only on 1st test case
+		firstRun := true
+		var newSegmentsNeedRepair int64
+
+		for _, tc := range []TestCase{
+			{1, 1},
+			{3, 1},
+			{5, 1},
+			{1, 3},
+			{3, 3},
+			{5, 3},
+			{1, 5},
+			{3, 5},
+			{5, 5},
+		} {
+			observer := planet.Satellites[0].Repair.Observer
+			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
+				Parallelism: tc.Parallelism,
+				BatchSize:   tc.BatchSize,
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			err = service.RunOnce(ctx)
+			require.NoError(t, err)
+
+			// if first testcase run - all segments to repair counts as new
+			if firstRun {
+				newSegmentsNeedRepair = 5
+				firstRun = false
+			}
+
+			require.NoError(t, observer.TotalStats.Compare(45, 45, 5, newSegmentsNeedRepair, 0, 0, nil))
+			require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamIDs))
+			newSegmentsNeedRepair = 0
+		}
 	})
 }

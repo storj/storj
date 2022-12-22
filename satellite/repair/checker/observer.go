@@ -124,36 +124,6 @@ func (observer *RangedLoopObserver) CompareInjuredSegment(ctx context.Context, s
 	return nil
 }
 
-// CompareStats compares total stats with given data, used only for tests.
-func (observer *RangedLoopObserver) CompareStats(objChecked int64, remoteSegmentsChecked int64, remoteSegmentsNeedingRepair int64,
-	newRemoteSegmentsNeedingRepair int64, remoteSegmentsLost int64, remoteSegmentsFailedToCheck int64, objLost []uuid.UUID) error {
-	stats := observer.TotalStats
-	if stats.objectsChecked != objChecked {
-		return errs.New("objects checked amount is different")
-	}
-	if stats.remoteSegmentsLost != remoteSegmentsLost {
-		return errs.New("remote segments lost amount is different")
-	}
-	if stats.remoteSegmentsChecked != remoteSegmentsChecked {
-		return errs.New("remote segments checked amount is different")
-	}
-	if stats.remoteSegmentsNeedingRepair != remoteSegmentsNeedingRepair {
-		return errs.New("remote segments needing repair amount is different")
-	}
-	if stats.newRemoteSegmentsNeedingRepair != newRemoteSegmentsNeedingRepair {
-		return errs.New("new remote segments needing repair amount is different")
-	}
-	if stats.remoteSegmentsFailedToCheck != remoteSegmentsFailedToCheck {
-		return errs.New("new remote segments needing repair amount is different")
-	}
-
-	if !reflect.DeepEqual(stats.objectsLost, objLost) {
-		return errs.New("objects lost amount is different")
-	}
-
-	return nil
-}
-
 // Start starts parallel segments loop.
 func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Time) error {
 	observer.counter1.Reset() // reset counter values before new ranged loop run
@@ -162,6 +132,7 @@ func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Ti
 	observer.counter4.Reset()
 	observer.counter5.Reset()
 
+	observer.TotalStats = aggregateStats{}
 	observer.startTime = startTime
 	return nil
 }

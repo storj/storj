@@ -5,8 +5,10 @@ package checker
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 )
@@ -88,6 +90,34 @@ type aggregateStats struct {
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
+}
+
+// Compare total stats with given data, used for tests.
+func (a aggregateStats) Compare(objChecked int64, remoteSegmentsChecked int64, remoteSegmentsNeedingRepair int64,
+	newRemoteSegmentsNeedingRepair int64, remoteSegmentsLost int64, remoteSegmentsFailedToCheck int64, objLost []uuid.UUID) error {
+	if a.objectsChecked != objChecked {
+		return errs.New("objects checked amount is different")
+	}
+	if a.remoteSegmentsLost != remoteSegmentsLost {
+		return errs.New("remote segments lost amount is different")
+	}
+	if a.remoteSegmentsChecked != remoteSegmentsChecked {
+		return errs.New("remote segments checked amount is different")
+	}
+	if a.remoteSegmentsNeedingRepair != remoteSegmentsNeedingRepair {
+		return errs.New("remote segments needing repair amount is different")
+	}
+	if a.newRemoteSegmentsNeedingRepair != newRemoteSegmentsNeedingRepair {
+		return errs.New("new remote segments needing repair amount is different")
+	}
+	if a.remoteSegmentsFailedToCheck != remoteSegmentsFailedToCheck {
+		return errs.New("new remote segments needing repair amount is different")
+	}
+	if !reflect.DeepEqual(a.objectsLost, objLost) {
+		return errs.New("objects lost amount is different")
+	}
+
+	return nil
 }
 
 func newStats(rs string) *stats {
