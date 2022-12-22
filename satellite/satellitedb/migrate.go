@@ -2207,6 +2207,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE project_bandwidth_rollups`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add noise columns to nodes table",
+				Version:     222,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN noise_proto integer;`,
+					`ALTER TABLE nodes ADD COLUMN noise_public_key bytea;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
