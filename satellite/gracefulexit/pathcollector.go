@@ -122,7 +122,7 @@ func (collector *PathCollector) InlineSegment(ctx context.Context, segment *segm
 // Process adds transfer queue items for remote segments belonging to newly
 // exiting nodes.
 func (collector *PathCollector) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
-	// Intentionally emitting mon.Task here. The duration for all process
+	// Intentionally omitting mon.Task here. The duration for all process
 	// calls are aggregated and and emitted by the ranged loop service.
 
 	if len(collector.nodeIDStorage) == 0 {
