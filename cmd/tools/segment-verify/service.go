@@ -457,9 +457,7 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 	for _, segment := range segments {
 		if segment.Status.NotFound > 0 {
 			notFound = append(notFound, segment)
-		} else if segment.Status.Retry > 0 {
-			// TODO: should we do a smarter check here?
-			// e.g. if at least half did find, then consider it ok?
+		} else if (service.config.Check > 0 && segment.Status.Retry > 0) || segment.Status.Retry > 5 {
 			retry = append(retry, segment)
 		}
 	}
