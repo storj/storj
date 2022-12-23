@@ -390,8 +390,8 @@ func (c *cmdCp) parallelCopy(
 	}
 
 	var readBufs *ulfs.BytesPool
-	if p > 1 && dest.Std() {
-		// Create the read buffer pool only for downloads to stdout with parallelism > 1.
+	if p > 1 && (source.Std() || dest.Std()) {
+		// Create the read buffer pool only for uploads from stdin and downloads to stdout with parallelism > 1.
 		readBufs = ulfs.NewBytesPool(int(chunkSize))
 	}
 
