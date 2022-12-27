@@ -198,7 +198,6 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 	if err != nil {
 		logger.Error("download failed", zap.Error(err))
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
-			segment.Status.MarkNotFound()
 			return audit.OutcomeFailure, nil
 		}
 		if errs2.IsRPC(err, rpcstatus.Unknown) {
