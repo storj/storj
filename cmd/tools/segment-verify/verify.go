@@ -302,10 +302,11 @@ func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, clien
 	defer mon.Task()(&ctx)(&err)
 
 	pieceIds := make([]storj.PieceID, 0, len(segments))
+	pieceNums := make([]uint16, 0, len(segments))
 
 	for _, segment := range segments {
 		pieceNum := findPieceNum(segment, alias)
-
+		pieceNums = append(pieceNums, pieceNum)
 		pieceId := segment.RootPieceID.Derive(target.ID, int32(pieceNum))
 		pieceIds = append(pieceIds, pieceId)
 	}
@@ -333,12 +334,16 @@ func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, clien
 		_, miss := missing[uint32(i)]
 		if miss {
 			segments[i].Status.MarkNotFound()
+			if service.reportPiece != nil {
+				reportErr := service.reportPiece(ctx, &segments[i].VerifySegment, target.ID, int(pieceNums[i]), audit.OutcomeFailure)
+				err = errs.Combine(err, reportErr)
+			}
 		} else {
 			segments[i].Status.MarkFound()
 		}
 	}
 
-	return nil
+	return err
 }
 
 // rateLimiter limits the rate of some type of event. It acts like a token
