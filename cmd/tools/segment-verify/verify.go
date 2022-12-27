@@ -240,6 +240,8 @@ func findPieceNum(segment *Segment, alias metabase.NodeAlias) uint16 {
 // VerifyWithExists verifies that the segments exist on the specified node by calling the piecestore Exists
 // endpoint if the node version supports it.
 func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment) (verifiedCount int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if service.versionWithExists.String() == "" || targetVersion == "" {
 		return 0, errWrongNodeVersion.New("missing node version or no base version defined")
 	}
@@ -298,6 +300,8 @@ func methodUnimplemented(err error) bool {
 
 // verifySegmentsWithExists calls the Exists endpoint on the specified target node for each segment.
 func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, client pb.DRPCPiecestoreClient, alias metabase.NodeAlias, target storj.NodeURL, segments []*Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	pieceIds := make([]storj.PieceID, 0, len(segments))
 
 	for _, segment := range segments {
