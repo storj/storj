@@ -133,6 +133,8 @@ func (csv *pieceCSVWriter) Write(
 	csv.mu.Lock()
 	defer csv.mu.Unlock()
 
+	defer csv.wr.Flush()
+
 	if !csv.header {
 		csv.header = true
 		err := csv.wr.Write([]string{
