@@ -122,9 +122,18 @@ func (cache *UploadSelectionCache) Size(ctx context.Context) (reputableNodeCount
 
 func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {
 	for _, n := range nodes {
+		var noiseInfo *pb.NoiseInfo
+		if n.NoiseInfo.PublicKey != "" && n.NoiseInfo.Proto != storj.NoiseProto_Unset {
+			// TODO(jt): storj/common's NoiseInfoConvert or NodeFromNodeURL should
+			// handle this empty case.
+			noiseInfo = pb.NoiseInfoConvert(n.NoiseInfo)
+		}
 		xs = append(xs, &SelectedNode{
-			ID:          n.ID,
-			Address:     &pb.NodeAddress{Address: n.Address},
+			ID: n.ID,
+			Address: &pb.NodeAddress{
+				Address:   n.Address,
+				NoiseInfo: noiseInfo,
+			},
 			LastNet:     n.LastNet,
 			LastIPPort:  n.LastIPPort,
 			CountryCode: n.CountryCode,
@@ -135,11 +144,17 @@ func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode
 
 func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*uploadselection.Node) {
 	for _, n := range nodes {
+		nodeurl := storj.NodeURL{
+			ID:      n.ID,
+			Address: n.Address.Address,
+		}
+		if n.Address.NoiseInfo != nil {
+			// TODO(jt): storj/common's (*pb.Node).NodeURL() should
+			// handle this if statement.
+			nodeurl.NoiseInfo = n.Address.NoiseInfo.Convert()
+		}
 		xs = append(xs, &uploadselection.Node{
-			NodeURL: storj.NodeURL{
-				ID:      n.ID,
-				Address: n.Address.Address,
-			},
+			NodeURL:     nodeurl,
 			LastNet:     n.LastNet,
 			LastIPPort:  n.LastIPPort,
 			CountryCode: n.CountryCode,
