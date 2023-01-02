@@ -66,6 +66,8 @@ type ServiceConfig struct {
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
 	MaxOffline  int `help:"maximum number of offline in a sequence (if 0, no limit)" default:"2"`
 
+	OfflineStatusCacheTime time.Duration `help:"how long to cache a \"node offline\" status" default:"30m"`
+
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
@@ -91,7 +93,8 @@ type Service struct {
 	aliasMap        *metabase.NodeAliasMap
 	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
 	priorityNodes   NodeAliasSet
-	onlineNodes     NodeAliasSet
+	ignoreNodes     NodeAliasSet
+	offlineNodes    *nodeAliasExpiringSet
 	offlineCount    map[metabase.NodeAlias]int
 	bucketList      BucketList
 	nodesVersionMap map[metabase.NodeAlias]string
@@ -132,7 +135,8 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 
 		aliasToNodeURL:  map[metabase.NodeAlias]storj.NodeURL{},
 		priorityNodes:   NodeAliasSet{},
-		onlineNodes:     NodeAliasSet{},
+		ignoreNodes:     NodeAliasSet{},
+		offlineNodes:    newNodeAliasExpiringSet(config.OfflineStatusCacheTime),
 		offlineCount:    map[metabase.NodeAlias]int{},
 		nodesVersionMap: map[metabase.NodeAlias]string{},
 
@@ -177,7 +181,6 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 			ID:      node.ID,
 			Address: addr,
 		}
-		service.onlineNodes.Add(alias)
 	}
 
 	return nil
@@ -193,19 +196,18 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
-// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority and online nodes.
+// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority nodes.
 func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
 	if service.config.IgnoreNodesPath == "" {
 		return nil
 	}
 
-	ignoreNodes, err := service.parseNodeFile(service.config.IgnoreNodesPath)
+	service.ignoreNodes, err = service.parseNodeFile(service.config.IgnoreNodesPath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	service.onlineNodes.RemoveAll(ignoreNodes)
-	service.priorityNodes.RemoveAll(ignoreNodes)
+	service.priorityNodes.RemoveAll(service.ignoreNodes)
 
 	return nil
 }
