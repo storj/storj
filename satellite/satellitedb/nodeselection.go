@@ -108,25 +108,25 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
 	if !criteria.DistinctIP {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, false FROM nodes`,
+			selection: `SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, false FROM nodes`,
 			condition: reputableNodesCondition,
 			limit:     reputableNodeCount,
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, true FROM nodes`,
+			selection: `SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key, true FROM nodes`,
 			condition: newNodesCondition,
 			limit:     newNodeCount,
 		}
 	} else {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`,
+			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, false FROM nodes`,
 			condition: reputableNodesCondition,
 			distinct:  true,
 			limit:     reputableNodeCount,
 			orderBy:   "last_net",
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`,
+			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, noise_proto, noise_public_key, true FROM nodes`,
 			condition: newNodesCondition,
 			distinct:  true,
 			limit:     newNodeCount,
@@ -148,8 +148,9 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var isNew bool
+		var noise noiseScanner
 
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &isNew)
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.LastIPPort, &noise.Proto, &noise.PublicKey, &isNew)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -157,6 +158,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		if isNew {
 			newNodes = append(newNodes, &node)
