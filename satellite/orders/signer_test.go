@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -56,9 +57,14 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 		signer, err := orders.NewSignerGet(satellite.Orders.Service, root, orderCreation, 1e6, bucketLocation)
 		require.NoError(t, err)
 
-		addressedLimit, err := signer.Sign(ctx, storj.NodeURL{
-			ID:      storagenode.ID(),
-			Address: storagenode.Addr(),
+		addressedLimit, err := signer.Sign(ctx, &pb.Node{
+			Id: storagenode.ID(),
+			Address: &pb.NodeAddress{
+				Address: storagenode.Addr(),
+				NoiseInfo: &pb.NoiseInfo{
+					PublicKey: []byte("testpublickey"),
+				},
+			},
 		}, 1)
 		require.NoError(t, err)
 
@@ -66,6 +72,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 		require.NotEmpty(t, addressedLimit.Limit.EncryptedMetadataKeyId)
 
 		require.Equal(t, ekeys.Default.ID[:], addressedLimit.Limit.EncryptedMetadataKeyId)
+		require.Equal(t, addressedLimit.StorageNodeAddress.NoiseInfo.PublicKey, []byte("testpublickey"))
 
 		metadata, err := ekeys.Default.DecryptMetadata(addressedLimit.Limit.SerialNumber, addressedLimit.Limit.EncryptedMetadata)
 		require.NoError(t, err)
