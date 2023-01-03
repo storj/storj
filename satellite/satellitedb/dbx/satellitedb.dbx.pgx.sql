@@ -503,7 +503,6 @@ CREATE TABLE users (
 	mfa_secret_key text,
 	mfa_recovery_codes text,
 	signup_promo_code text,
-	last_verification_reminder timestamp with time zone,
 	verification_reminders integer NOT NULL DEFAULT 0,
 	failed_login_count integer,
 	login_lockout_expiration timestamp with time zone,

@@ -197,7 +197,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.LastVerificationReminder)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
@@ -220,7 +219,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.LastVerificationReminder)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)
@@ -253,38 +251,32 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		oldUser, err := repository.GetByEmail(ctx, email)
 		assert.NoError(t, err)
 
-		d := (60 * time.Second)
-		date := time.Now().Add(-24 * 365 * time.Hour).Truncate(d)
-
 		newUserInfo := &console.User{
-			ID:                       oldUser.ID,
-			FullName:                 newName,
-			ShortName:                newLastName,
-			Email:                    newEmail,
-			Status:                   console.Active,
-			PaidTier:                 true,
-			MFAEnabled:               true,
-			MFASecretKey:             mfaSecretKey,
-			MFARecoveryCodes:         []string{"1", "2"},
-			PasswordHash:             []byte(newPass),
-			LastVerificationReminder: date,
+			ID:               oldUser.ID,
+			FullName:         newName,
+			ShortName:        newLastName,
+			Email:            newEmail,
+			Status:           console.Active,
+			PaidTier:         true,
+			MFAEnabled:       true,
+			MFASecretKey:     mfaSecretKey,
+			MFARecoveryCodes: []string{"1", "2"},
+			PasswordHash:     []byte(newPass),
 		}
 
 		shortNamePtr := &newUserInfo.ShortName
 		secretKeyPtr := &newUserInfo.MFASecretKey
-		lastVerificationReminderPtr := &newUserInfo.LastVerificationReminder
 
 		err = repository.Update(ctx, newUserInfo.ID, console.UpdateUserRequest{
-			FullName:                 &newUserInfo.FullName,
-			ShortName:                &shortNamePtr,
-			Email:                    &newUserInfo.Email,
-			Status:                   &newUserInfo.Status,
-			PaidTier:                 &newUserInfo.PaidTier,
-			MFAEnabled:               &newUserInfo.MFAEnabled,
-			MFASecretKey:             &secretKeyPtr,
-			MFARecoveryCodes:         &newUserInfo.MFARecoveryCodes,
-			PasswordHash:             newUserInfo.PasswordHash,
-			LastVerificationReminder: &lastVerificationReminderPtr,
+			FullName:         &newUserInfo.FullName,
+			ShortName:        &shortNamePtr,
+			Email:            &newUserInfo.Email,
+			Status:           &newUserInfo.Status,
+			PaidTier:         &newUserInfo.PaidTier,
+			MFAEnabled:       &newUserInfo.MFAEnabled,
+			MFASecretKey:     &secretKeyPtr,
+			MFARecoveryCodes: &newUserInfo.MFARecoveryCodes,
+			PasswordHash:     newUserInfo.PasswordHash,
 		})
 		assert.NoError(t, err)
 
@@ -299,7 +291,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.True(t, newUser.MFAEnabled)
 		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
 		assert.Equal(t, newUserInfo.MFARecoveryCodes, newUser.MFARecoveryCodes)
-		assert.Equal(t, newUserInfo.LastVerificationReminder, newUser.LastVerificationReminder)
 		// PartnerID should not change
 		assert.Equal(t, user.PartnerID, newUser.PartnerID)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)
