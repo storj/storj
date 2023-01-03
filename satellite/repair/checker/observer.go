@@ -97,8 +97,8 @@ func (observer *RangedLoopObserver) createInsertBuffer() *queue.InsertBuffer {
 	return queue.NewInsertBuffer(observer.repairQueue, observer.repairQueueBatchSize)
 }
 
-// CompareInjuredSegment compares stream id of injured segment, for testing purposes only.
-func (observer *RangedLoopObserver) CompareInjuredSegment(ctx context.Context, streamIDs []uuid.UUID) error {
+// TestingCompareInjuredSegmentIDs compares stream id of injured segment.
+func (observer *RangedLoopObserver) TestingCompareInjuredSegmentIDs(ctx context.Context, streamIDs []uuid.UUID) error {
 	injuredSegments, err := observer.repairQueue.SelectN(ctx, 100)
 	if err != nil {
 		return err

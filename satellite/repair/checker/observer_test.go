@@ -428,7 +428,7 @@ func TestRepairObserver(t *testing.T) {
 		err = observer.Finish(ctx)
 		require.NoError(t, err)
 		require.NoError(t, observer.TotalStats.Compare(21, 21, 1, 1, 0, 0, nil))
-		require.NoError(t, observer.CompareInjuredSegment(ctx, []uuid.UUID{injuredSegmentStreamID}))
+		require.NoError(t, observer.TestingCompareInjuredSegmentIDs(ctx, []uuid.UUID{injuredSegmentStreamID}))
 	})
 }
 
@@ -483,9 +483,8 @@ func TestRangedLoopObserver(t *testing.T) {
 			Parallelism int
 		}
 
-		// new segments to will be detected only on 1st test case
-		firstRun := true
-		var newSegmentsNeedRepair int64
+		// first run all segments to repair counts as new
+		newSegmentsNeedRepair := 5
 
 		for _, tc := range []TestCase{
 			{1, 1},
@@ -506,14 +505,9 @@ func TestRangedLoopObserver(t *testing.T) {
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
 
-			// if first testcase run - all segments to repair counts as new
-			if firstRun {
-				newSegmentsNeedRepair = 5
-				firstRun = false
-			}
-
-			require.NoError(t, observer.TotalStats.Compare(45, 45, 5, newSegmentsNeedRepair, 0, 0, nil))
-			require.NoError(t, observer.CompareInjuredSegment(ctx, injuredSegmentStreamIDs))
+			require.NoError(t, observer.TotalStats.Compare(45, 45, 5, int64(newSegmentsNeedRepair), 0, 0, nil))
+			require.NoError(t, observer.TestingCompareInjuredSegmentIDs(ctx, injuredSegmentStreamIDs))
+			// all next runs these segments already knows and not new
 			newSegmentsNeedRepair = 0
 		}
 	})
