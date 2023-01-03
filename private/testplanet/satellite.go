@@ -568,7 +568,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, identity, db, metabaseDB, config)
+	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, config)
 	if err != nil {
 		return nil, err
 	}
@@ -775,13 +775,13 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, ide
 	return satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRangedLoop(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {
+func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-ranged-loop" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
-	return satellite.NewRangedLoop(log, identity, db, metabaseDB, &config, nil)
+	return satellite.NewRangedLoop(log, db, metabaseDB, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

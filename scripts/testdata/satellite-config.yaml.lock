@@ -877,6 +877,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many items to query in a batch
 # ranged-loop.batch-size: 2500
 
+# how often to run the loop
+# ranged-loop.interval: 2h0m0s
+
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
 

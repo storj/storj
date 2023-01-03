@@ -14,8 +14,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/satellite/audit"
@@ -30,9 +28,8 @@ import (
 //
 // architecture: Peer
 type RangedLoop struct {
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
-	DB       DB
+	Log *zap.Logger
+	DB  DB
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
@@ -64,11 +61,10 @@ type RangedLoop struct {
 }
 
 // NewRangedLoop creates a new satellite ranged loop process.
-func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (*RangedLoop, error) {
+func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (*RangedLoop, error) {
 	peer := &RangedLoop{
-		Log:      log,
-		Identity: full, // TODO: figure out if we need Identity here
-		DB:       db,
+		Log: log,
+		DB:  db,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
@@ -169,6 +165,3 @@ func (peer *RangedLoop) Close() error {
 		peer.Services.Close(),
 	)
 }
-
-// ID returns the peer ID.
-func (peer *RangedLoop) ID() storj.NodeID { return peer.Identity.ID }
