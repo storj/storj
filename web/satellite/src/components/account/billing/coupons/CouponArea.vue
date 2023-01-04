@@ -57,8 +57,10 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -72,6 +74,14 @@ const store = useStore();
 const notify = useNotify();
 
 const isCouponFetching = ref<boolean>(true);
+
+/**
+     * Opens Add Coupon modal.
+     */
+function onCreateClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addCoupon);
+}
 
 /**
  * Returns the coupon applied to the user's account.
@@ -137,14 +147,6 @@ const expiration = computed((): string => {
         }
     }
 });
-
-/**
- * Opens Add Coupon modal.
- */
-function onCreateClick(): void {
-    analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_COUPON_MODAL_SHOWN);
-}
 
 /**
  * Lifecycle hook after initial render.

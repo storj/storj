@@ -15,6 +15,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -37,7 +38,7 @@ export default class AddCouponCodeModal extends Vue {
     */
     public onCloseClick(): void {
         this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_COUPON_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addCoupon);
     }
 }
 </script>

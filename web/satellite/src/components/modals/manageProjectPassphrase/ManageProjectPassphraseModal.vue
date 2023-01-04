@@ -33,6 +33,8 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { useNotify, useStore } from '@/utils/hooks';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 
@@ -88,7 +90,7 @@ function setManageOptions(): void {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
 }
 
 onMounted(() => {

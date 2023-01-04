@@ -39,7 +39,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useNotify, useStore } from '@/utils/hooks';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -47,6 +47,8 @@ import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -191,7 +193,7 @@ async function onSwitch(): Promise<void> {
         store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, passphrase.value);
 
         notify.success('Passphrase was switched successfully');
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.SWITCH_PROJECT_LEVEL_PASSPHRASE_MODAL);
     } finally {

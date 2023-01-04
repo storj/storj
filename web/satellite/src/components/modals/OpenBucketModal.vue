@@ -53,7 +53,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
@@ -63,6 +62,8 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -213,7 +214,7 @@ export default class OpenBucketModal extends Vue {
     public closeModal(): void {
         if (this.isLoading) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
     }
 
     /**

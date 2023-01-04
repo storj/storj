@@ -4,8 +4,9 @@
 import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/types/store';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 const listCache = new Map();
 

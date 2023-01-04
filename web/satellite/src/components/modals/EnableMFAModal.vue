@@ -81,9 +81,10 @@ import QRCode from 'qrcode';
 import { Component, Vue } from 'vue-property-decorator';
 
 import { USER_ACTIONS } from '@/store/modules/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -137,7 +138,7 @@ export default class EnableMFAModal extends Vue {
      * Closes enable MFA modal.
      */
     public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
     }
 
     /**

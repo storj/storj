@@ -81,7 +81,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -224,7 +224,7 @@ export default class NavigationArea extends Vue {
     public toggleResourcesDropdown(): void {
         this.setResourcesDropdownYPos();
         this.setResourcesDropdownXPos();
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.RESOURCES);
     }
 
     /**
@@ -233,7 +233,7 @@ export default class NavigationArea extends Vue {
     public toggleQuickStartDropdown(): void {
         this.setQuickStartDropdownYPos();
         this.setQuickStartDropdownXPos();
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_QUICK_START_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.QUICK_START);
     }
 
     /**
@@ -247,14 +247,14 @@ export default class NavigationArea extends Vue {
      * Indicates if resources dropdown shown.
      */
     public get isResourcesDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isResourcesDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.RESOURCES;
     }
 
     /**
      * Indicates if quick start dropdown shown.
      */
     public get isQuickStartDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isQuickStartDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.QUICK_START;
     }
 
     /**

@@ -37,6 +37,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import SelectedIcon from '@/../static/images/account/billing/selected.svg';
@@ -59,8 +60,8 @@ const currentOption = ref<string>(periodOptions[0]);
 /**
  * Indicates if periods dropdown is shown.
  */
-const isDropdownShown = computed((): Date => {
-    return store.state.appStateModule.appState.isPeriodsDropdownShown;
+const isDropdownShown = computed((): boolean => {
+    return store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.PERIODS;
 });
 
 /**
@@ -98,7 +99,7 @@ function closeDropdown(): void {
  * Toggles dropdown visibility.
  */
 function toggleDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN);
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PERIODS);
 }
 
 /**

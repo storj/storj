@@ -62,10 +62,11 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -169,7 +170,7 @@ export default class AccountArea extends Vue {
         this.dropdownYPos = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
         this.dropdownXPos = accountContainer.right - TWENTY_PIXELS;
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.ACCOUNT);
         this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
     }
 
@@ -199,7 +200,7 @@ export default class AccountArea extends Vue {
      * Indicates if account dropdown is visible.
      */
     public get isDropdown(): boolean {
-        return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.ACCOUNT;
     }
 
     /**

@@ -54,12 +54,13 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -124,10 +125,10 @@ export default class Projects extends Vue {
         const ownProjectsCount: number = this.$store.getters.projectsCount;
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+            this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
         } else {
             this.analytics.pageVisit(RouteConfig.CreateProject.path);
-            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+            this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
         }
     }
 
@@ -137,9 +138,9 @@ export default class Projects extends Vue {
      */
     public async onProjectSelected(project: Project): Promise<void> {
         if (this.isLoading) return;
-        
+
         this.isLoading = true;
-        
+
         const projectID = project.id;
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
         LocalData.setSelectedProjectId(projectID);

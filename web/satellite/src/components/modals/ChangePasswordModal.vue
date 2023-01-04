@@ -69,6 +69,7 @@ import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -203,7 +204,7 @@ export default class ChangePasswordModal extends Vue {
      * Closes popup.
      */
     public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
     }
 }
 </script>

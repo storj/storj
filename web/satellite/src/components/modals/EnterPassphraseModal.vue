@@ -180,7 +180,7 @@ export default class EnterPassphraseModal extends Vue {
     public closeModal(): void {
         if (this.isLoading) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
     }
 
     /**

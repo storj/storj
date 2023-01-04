@@ -156,7 +156,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
 import { DataStamp, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
@@ -164,6 +163,8 @@ import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
@@ -235,12 +236,12 @@ export default class NewProjectDashboard extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             if (this.hasJustLoggedIn) {
                 if (this.limits.objectCount > 0) {
-                    this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
                     if (!this.bucketWasCreated) {
                         LocalData.setBucketWasCreatedStatus();
                     }
                 } else {
-                    this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
                 }
 
                 this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
@@ -292,7 +293,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upgrade button click logic.
      */
     public onUpgradeClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
     }
 
     /**
@@ -314,7 +315,7 @@ export default class NewProjectDashboard extends Vue {
      * toggleChartsDatePicker holds logic for toggling charts date picker.
      */
     public toggleChartsDatePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
     }
 
     /**
@@ -338,7 +339,7 @@ export default class NewProjectDashboard extends Vue {
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
-        return this.$store.state.appStateModule.appState.isChartsDatePickerShown;
+        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
     }
 
     /**

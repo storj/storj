@@ -19,6 +19,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { MetaUtils } from '@/utils/meta';
 import { BucketPage } from '@/types/buckets';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -189,7 +190,7 @@ export default class UploadFile extends Vue {
      * Indicates if upload cancel popup is visible.
      */
     public get isCancelUploadPopupVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
+        return this.$store.state.appStateModule.appState.activeModal == MODALS.uploadCancelPopup;
     }
 
     /**

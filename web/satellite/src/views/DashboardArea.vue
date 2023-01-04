@@ -89,7 +89,6 @@ import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -102,6 +101,8 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -476,7 +477,7 @@ function setIsLimitModalShown(value: boolean): void {
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
 }
 
 /**
@@ -496,7 +497,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  */
 function togglePMModal(): void {
     isLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
 }
 
 /**

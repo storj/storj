@@ -214,10 +214,11 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import eventBus from '@/utils/eventBus';
 import { Bucket } from '@/types/buckets';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -432,7 +433,7 @@ function closeModalDropdown(): void {
  * Toggle the folder creation modal in the store.
  */
 function toggleFolderCreationModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
 }
 
 /**

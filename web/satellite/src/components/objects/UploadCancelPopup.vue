@@ -29,8 +29,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -60,7 +61,7 @@ export default class UploadCancelPopup extends Vue {
      * Close upload cancel info popup.
      */
     public closePopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.uploadCancelPopup);
     }
 
     /**

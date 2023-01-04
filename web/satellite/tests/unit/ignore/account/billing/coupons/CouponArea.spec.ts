@@ -10,6 +10,7 @@ import { appStateModule } from '@/store/modules/appState';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 
@@ -30,7 +31,7 @@ paymentsApi.setMockCoupon(new Coupon(
 ));
 
 const store = new Vuex.Store({ modules: { paymentsModule, appStateModule } });
-store.commit(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, true);
+store.commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, true);
 
 describe('CouponArea', (): void => {
     it('renders correctly', async (): Promise<void> => {

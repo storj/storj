@@ -41,8 +41,9 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { BrowserFile } from '@/types/browser';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -72,7 +73,7 @@ export default class NewFolderModal extends Vue {
      * Close the NewFolderModal.
      */
     public close(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
     }
 
     /**

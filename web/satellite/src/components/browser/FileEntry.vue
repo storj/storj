@@ -109,9 +109,11 @@ import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
 import type { BrowserFile } from '@/types/browser';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -202,7 +204,7 @@ const fileTypeIsFile = computed((): boolean => {
  */
 function openModal(): void {
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
     store.dispatch('files/closeDropdown');
 }
 
@@ -372,7 +374,7 @@ function setShiftSelectedFiles(): void {
 function share(): void {
     store.dispatch('files/closeDropdown');
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.SHARE_OBJECT);
 }
 
 /**
