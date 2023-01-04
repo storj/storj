@@ -53,3 +53,19 @@ func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentl
 func (collector *Collector) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	return nil
 }
+
+// Process performs per-node reservoir sampling on remote segments for addition into the audit queue.
+func (collector *Collector) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+	for _, segment := range segments {
+		// The reservoir ends up deferencing and copying the segment internally
+		// but that's not obvious, so alias the loop variable.
+		segment := segment
+		if segment.Inline() {
+			continue
+		}
+		if err := collector.RemoteSegment(ctx, &segment); err != nil {
+			return err
+		}
+	}
+	return nil
+}

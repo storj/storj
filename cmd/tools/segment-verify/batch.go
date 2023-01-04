@@ -118,14 +118,14 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 // selectOnlinePieces modifies slice such that it only contains online pieces.
 func (service *Service) selectOnlinePieces(segment *Segment) {
 	for i, x := range segment.AliasPieces {
-		if service.onlineNodes.Contains(x.Alias) {
+		if !service.offlineNodes.Contains(x.Alias) && !service.ignoreNodes.Contains(x.Alias) {
 			continue
 		}
 
 		// found an offline node, start removing
 		rs := segment.AliasPieces[:i]
 		for _, x := range segment.AliasPieces[i+1:] {
-			if service.onlineNodes.Contains(x.Alias) {
+			if !service.offlineNodes.Contains(x.Alias) && !service.ignoreNodes.Contains(x.Alias) {
 				rs = append(rs, x)
 			}
 		}

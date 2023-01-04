@@ -96,11 +96,11 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
 					if verifiedCount == 0 {
-						service.onlineNodes.Remove(batch.Alias)
+						service.offlineNodes.Add(batch.Alias)
 					} else {
 						service.offlineCount[batch.Alias]++
 						if service.config.MaxOffline > 0 && service.offlineCount[batch.Alias] >= service.config.MaxOffline {
-							service.onlineNodes.Remove(batch.Alias)
+							service.offlineNodes.Add(batch.Alias)
 						}
 					}
 					mu.Unlock()

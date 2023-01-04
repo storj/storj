@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
@@ -25,10 +24,18 @@ type TrashChore struct {
 
 	Cycle *sync2.Cycle
 
-	workers   workersService
-	mu        sync.Mutex
-	restoring map[storj.NodeID]bool
+	started sync2.Fence
+	root    context.Context
+
+	mu         sync.Mutex
+	done       bool
+	satellites map[storj.NodeID]*sync2.Workplace
 }
+
+const (
+	jobEmptyTrash   = 1
+	jobRestoreTrash = 2
+)
 
 // NewTrashChore instantiates a new TrashChore. choreInterval is how often this
 // chore runs, and trashExpiryInterval is passed into the EmptyTrash method to
@@ -40,8 +47,8 @@ func NewTrashChore(log *zap.Logger, choreInterval, trashExpiryInterval time.Dura
 		store:               store,
 		trust:               trust,
 
-		Cycle:     sync2.NewCycle(choreInterval),
-		restoring: map[storj.NodeID]bool{},
+		Cycle:      sync2.NewCycle(choreInterval),
+		satellites: map[storj.NodeID]*sync2.Workplace{},
 	}
 }
 
@@ -49,47 +56,78 @@ func NewTrashChore(log *zap.Logger, choreInterval, trashExpiryInterval time.Dura
 func (chore *TrashChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var group errgroup.Group
-	chore.Cycle.Start(ctx, &group, func(ctx context.Context) error {
+	chore.root = ctx
+	chore.started.Release()
+
+	err = chore.Cycle.Run(ctx, func(ctx context.Context) error {
 		chore.log.Debug("starting to empty trash")
 
-		for _, satelliteID := range chore.trust.GetSatellites(ctx) {
-			// ignore satellites that are being restored
-			chore.mu.Lock()
-			isRestoring := chore.restoring[satelliteID]
-			chore.mu.Unlock()
-			if isRestoring {
-				continue
-			}
+		var wg sync.WaitGroup
+		limiter := make(chan struct{}, 1)
+		for _, satellite := range chore.trust.GetSatellites(ctx) {
+			satellite := satellite
+			place := chore.ensurePlace(satellite)
+			wg.Add(1)
+			ok := place.Start(chore.root, jobEmptyTrash, nil, func(ctx context.Context) {
+				defer wg.Done()
+				// don't allow multiple trash jobs at the same time
+				select {
+				case <-ctx.Done():
+					return
+				case limiter <- struct{}{}:
+				}
+				defer func() { <-limiter }()
 
-			trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
-			err := chore.store.EmptyTrash(ctx, satelliteID, trashedBefore)
-			if err != nil {
-				chore.log.Error("emptying trash failed", zap.Error(err))
+				chore.log.Info("restore trash started", zap.Stringer("Satellite ID", satellite))
+				trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
+				err := chore.store.EmptyTrash(ctx, satellite, trashedBefore)
+				if err != nil {
+					chore.log.Error("emptying trash failed", zap.Error(err))
+				}
+			})
+			if !ok {
+				wg.Done()
 			}
 		}
-
+		wg.Wait()
 		return nil
 	})
-	group.Go(func() error {
-		chore.workers.Run(ctx)
-		return nil
-	})
-	return group.Wait()
-}
 
-// StartRestore starts restoring trash for the specified satellite.
-func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeID) {
 	chore.mu.Lock()
-	isRestoring := chore.restoring[satellite]
-	if isRestoring {
-		chore.mu.Unlock()
-		return
-	}
-	chore.restoring[satellite] = true
+	chore.done = true
 	chore.mu.Unlock()
 
-	ok := chore.workers.Go(ctx, func(ctx context.Context) {
+	for _, place := range chore.satellites {
+		place.Cancel()
+	}
+	for _, place := range chore.satellites {
+		<-place.Done()
+	}
+
+	return err
+}
+
+// Close closes the chore.
+func (chore *TrashChore) Close() error {
+	chore.Cycle.Close()
+	return nil
+}
+
+// StartRestore starts a satellite restore, if it hasn't already started and
+// the chore is not shutting down.
+func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeID) error {
+	if !chore.started.Wait(ctx) {
+		return ctx.Err()
+	}
+
+	place := chore.ensurePlace(satellite)
+	if place == nil {
+		return context.Canceled
+	}
+
+	place.Start(chore.root, jobRestoreTrash, func(jobID interface{}) bool {
+		return jobID == jobEmptyTrash
+	}, func(ctx context.Context) {
 		chore.log.Info("restore trash started", zap.Stringer("Satellite ID", satellite))
 		err := chore.store.RestoreTrash(ctx, satellite)
 		if err != nil {
@@ -97,70 +135,23 @@ func (chore *TrashChore) StartRestore(ctx context.Context, satellite storj.NodeI
 		} else {
 			chore.log.Info("restore trash finished", zap.Stringer("Satellite ID", satellite))
 		}
-
-		chore.mu.Lock()
-		delete(chore.restoring, satellite)
-		chore.mu.Unlock()
 	})
-	if !ok {
-		chore.log.Info("failed to start restore trash", zap.Stringer("Satellite ID", satellite))
-	}
-}
 
-// Close the chore.
-func (chore *TrashChore) Close() error {
-	chore.Cycle.Close()
 	return nil
 }
 
-// workersService allows to start workers with a different context.
-type workersService struct {
-	started sync2.Fence
-	root    context.Context
-	active  sync.WaitGroup
-
-	mu     sync.Mutex
-	closed bool
-}
-
-// Run starts waiting for worker requests with the specified context.
-func (workers *workersService) Run(ctx context.Context) {
-	// setup root context that the workers are bound to
-	workers.root = ctx
-	workers.started.Release()
-
-	// wait until it's time to shut down:
-	<-workers.root.Done()
-
-	// ensure we don't allow starting workers after it's time to shut down
-	workers.mu.Lock()
-	workers.closed = true
-	workers.mu.Unlock()
-
-	// wait for any remaining workers
-	workers.active.Wait()
-}
-
-// Go tries to start a worker.
-func (workers *workersService) Go(ctx context.Context, work func(context.Context)) bool {
-	// Wait until we can use workers.root.
-	if !workers.started.Wait(ctx) {
-		return false
+// ensurePlace creates a work place for the specified satellite.
+func (chore *TrashChore) ensurePlace(satellite storj.NodeID) *sync2.Workplace {
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	if chore.done {
+		return nil
 	}
 
-	// check that we are still allowed to start new workers
-	workers.mu.Lock()
-	if workers.closed {
-		workers.mu.Unlock()
-		return false
+	place, ok := chore.satellites[satellite]
+	if !ok {
+		place = sync2.NewWorkPlace()
+		chore.satellites[satellite] = place
 	}
-	workers.active.Add(1)
-	workers.mu.Unlock()
-
-	go func() {
-		defer workers.active.Done()
-		work(workers.root)
-	}()
-
-	return true
+	return place
 }

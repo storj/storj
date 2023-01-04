@@ -61,6 +61,9 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
+# whether or not to use the ranged loop observer instead of the chore.
+# audit.use-ranged-loop: false
+
 # number of audit jobs to push at once to the verification queue
 # audit.verification-push-batch-size: 4096
 
@@ -435,6 +438,9 @@ contact.external-address: ""
 
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
+
+# whether to use ranged loop instead of segment loop
+# garbage-collection-bf.use-ranged-loop: false
 
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500

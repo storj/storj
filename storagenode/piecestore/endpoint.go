@@ -819,7 +819,10 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
 
-	endpoint.trashChore.StartRestore(ctx, peer.ID)
+	err = endpoint.trashChore.StartRestore(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "failed to start restore")
+	}
 
 	return &pb.RestoreTrashResponse{}, nil
 }

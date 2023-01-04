@@ -27,9 +27,9 @@ import (
 )
 
 func TestReverifySuccess(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// This is a bulky test but all it's doing is:
 		// - uploads random data
 		// - uses the cursor to get a stripe
@@ -40,7 +40,7 @@ func TestReverifySuccess(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -48,7 +48,9 @@ func TestReverifySuccess(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -87,9 +89,9 @@ func TestReverifySuccess(t *testing.T) {
 }
 
 func TestReverifyFailMissingShare(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates one pending audit for a node holding a piece for that stripe
@@ -101,7 +103,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		audits := satellite.Audit
 		reporter := audits.Reporter
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -109,7 +111,9 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -155,9 +159,9 @@ func TestReverifyFailMissingShare(t *testing.T) {
 }
 
 func TestReverifyOffline(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates pending audits for one node holding a piece for that stripe
@@ -170,7 +174,7 @@ func TestReverifyOffline(t *testing.T) {
 		reporter := audits.Reporter
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -178,7 +182,9 @@ func TestReverifyOffline(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -219,9 +225,9 @@ func TestReverifyOffline(t *testing.T) {
 }
 
 func TestReverifyOfflineDialTimeout(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data
 		// - uses the cursor to get a stripe
 		// - creates pending audit for one node holding a piece for that stripe
@@ -233,7 +239,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -241,7 +247,9 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -311,12 +319,12 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 }
 
 func TestReverifyDeletedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data to all nodes
 		// - gets a segment from the audit queue
 		// - creates one pending audit for a node holding a piece for that segment
@@ -328,14 +336,16 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -390,12 +400,12 @@ func cloneAndDropPiece(ctx context.Context, metabaseDB *metabase.DB, segment *me
 }
 
 func TestReverifyModifiedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data to an object on all nodes
 		// - creates a pending audit for a particular piece of that object
 		// - removes a (different) piece from the object so that the segment is modified
@@ -405,14 +415,16 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -466,12 +478,12 @@ func TestReverifyModifiedSegment(t *testing.T) {
 }
 
 func TestReverifyReplacedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		// - uploads random data to an object on all nodes
 		// - creates a pending audit for a particular piece of that object
 		// - re-uploads the object (with the same contents) so that the segment is modified
@@ -481,14 +493,16 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testData1)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -533,14 +547,14 @@ func TestReverifyReplacedSegment(t *testing.T) {
 
 // TestReverifyExpired tests the case where the segment passed into Reverify is expired.
 func TestReverifyExpired(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -548,7 +562,9 @@ func TestReverifyExpired(t *testing.T) {
 		err := ul.UploadWithExpiration(ctx, satellite, "testbucket", "test/path", testData, time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -592,7 +608,7 @@ func TestReverifyExpired(t *testing.T) {
 // audit service gets put into containment mode.
 func TestReverifySlowDownload(t *testing.T) {
 	const auditTimeout = time.Second
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -607,19 +623,21 @@ func TestReverifySlowDownload(t *testing.T) {
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -665,7 +683,7 @@ func TestReverifySlowDownload(t *testing.T) {
 
 // TestReverifyUnknownError checks that a node that returns an unknown error during an audit does not get marked as successful, failed, or contained.
 func TestReverifyUnknownError(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -673,19 +691,21 @@ func TestReverifyUnknownError(t *testing.T) {
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -729,7 +749,7 @@ func TestReverifyUnknownError(t *testing.T) {
 
 func TestMaxReverifyCount(t *testing.T) {
 	const auditTimeout = time.Second
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -746,20 +766,22 @@ func TestMaxReverifyCount(t *testing.T) {
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
 		audits.ReverifyWorker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)

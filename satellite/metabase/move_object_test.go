@@ -526,5 +526,61 @@ func TestFinishMoveObject(t *testing.T) {
 				Segments: expectedSegments,
 			}.Check(ctx, t, db)
 		})
+
+	})
+}
+
+func TestFinishMoveObject_MultipleVersions(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		db.TestingEnableMultipleVersions(true)
+
+		t.Run("finish move object - different versions reject", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			committedTargetStreams := []metabase.ObjectStream{}
+			obj := metabasetest.RandObjectStream()
+			for _, version := range []metabase.Version{1, 2} {
+				obj.Version = version
+				object, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 1)
+				committedTargetStreams = append(committedTargetStreams, object.ObjectStream)
+			}
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			_, _ = metabasetest.CreateTestObject{}.Run(ctx, t, db, sourceStream, 1)
+
+			// it's not possible to move if under location were we have committed version
+			for _, targetStream := range committedTargetStreams {
+				metabasetest.FinishMoveObject{
+					Opts: metabase.FinishMoveObject{
+						ObjectStream:          sourceStream,
+						NewBucket:             targetStream.BucketName,
+						NewEncryptedObjectKey: []byte(targetStream.ObjectKey),
+					},
+					ErrClass: &metabase.ErrObjectAlreadyExists,
+				}.Check(ctx, t, db)
+			}
+		})
+
+		t.Run("finish move object - target pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+
+			metabasetest.CreatePendingObject(ctx, t, db, obj, 1)
+
+			sourceStream := metabasetest.RandObjectStream()
+			sourceStream.ProjectID = obj.ProjectID
+			_, _ = metabasetest.CreateTestObject{}.Run(ctx, t, db, sourceStream, 0)
+
+			// it's possible to move if under location were we have only pending version
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          sourceStream,
+					NewBucket:             obj.BucketName,
+					NewEncryptedObjectKey: []byte(obj.ObjectKey),
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
