@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
 var (
@@ -25,6 +26,9 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how long to wait before checking the node events DB again if there is nothing to work on" default:"5m"`
 	SelectionWaitPeriod time.Duration `help:"how long the earliest instance of an event for a particular email should exist in the DB before it is selected" default:"5m"`
+	Notifier            string        `help:"which notification provider to use" default:""`
+
+	Customerio CustomerioConfig
 }
 
 // Notifier notifies node operators about node events.
@@ -89,14 +93,24 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 	if err != nil {
 		return 0, err
 	}
+	if len(batch) == 0 {
+		return 0, nil
+	}
+
+	email := batch[0].Email
 
 	var rowIDs []uuid.UUID
 	for _, event := range batch {
 		rowIDs = append(rowIDs, event.ID)
 	}
 
-	if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
-		return 0, err
+	if utils.ValidateEmail(email) {
+		if err = chore.notifier.Notify(ctx, chore.satellite, batch); err != nil {
+			err = errs.Combine(err, chore.db.UpdateLastAttempted(ctx, rowIDs, chore.nowFn()))
+			return 0, err
+		}
+	} else {
+		chore.log.Error("invalid email", zap.String("email", email))
 	}
 
 	err = chore.db.UpdateEmailSent(ctx, rowIDs, chore.nowFn())

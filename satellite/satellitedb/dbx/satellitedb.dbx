@@ -1,5 +1,30 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//-- Account Freeze Events --//
+model account_freeze_event (
+	key user_id event
+
+	field user_id blob
+	field event int // enum indicating the type of event
+	field limits json ( nullable, updatable )
+	field created_at timestamp ( default current_timestamp )
+)
+
+create account_freeze_event( replace )
+
+read one (
+	select account_freeze_event
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+update account_freeze_event (
+	where account_freeze_event.user_id = ?
+	where account_freeze_event.event = ?
+)
+
+delete account_freeze_event ( where account_freeze_event.user_id = ? )
+
 //-- Node Events --//
 model node_event (
 	key id
@@ -15,10 +40,16 @@ model node_event (
 	field node_id blob
 	field event int
 	field created_at timestamp ( default current_timestamp )
+	field last_attempted timestamp ( nullable, updatable )
 	field email_sent timestamp ( nullable, updatable )
 )
 
 create node_event()
+
+read one (
+	select node_event
+	where node_event.id = ?
+)
 
 read first (
 	select node_event
@@ -63,11 +94,7 @@ model segment_pending_audits (
 	field reverify_count      int64 ( updatable )
 )
 
-delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
-read one (
-	select segment_pending_audits
-	where  segment_pending_audits.node_id = ?
-)
+//--- auditing ---//
 
 model verification_audits (
     key inserted_at stream_id position
@@ -91,6 +118,12 @@ model reverification_audits (
     field reverify_count int64     ( updatable, default 0 )
 
     index ( fields inserted_at )
+)
+
+read first (
+    select reverification_audits
+    where reverification_audits.node_id = ?
+    orderby ( asc reverification_audits.stream_id, asc reverification_audits.position )
 )
 
 create reverification_audits ()

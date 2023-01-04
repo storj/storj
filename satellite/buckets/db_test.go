@@ -269,10 +269,10 @@ func TestBatchBuckets(t *testing.T) {
 
 		sortBucketLocations(expectedBucketLocations)
 
-		testLimits := []int{1, 3, 30, 1000}
+		testLimits := []int{1, 3, 30, 1000, len(expectedBucketLocations)}
 
 		for _, testLimit := range testLimits {
-			err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "", testLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+			more, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "", testLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
 				if testLimit > len(expectedBucketLocations) {
 					testLimit = len(expectedBucketLocations)
 				}
@@ -282,7 +282,11 @@ func TestBatchBuckets(t *testing.T) {
 				return nil
 			})
 			require.NoError(t, err)
-
+			if testLimit < len(expectedBucketLocations) {
+				require.True(t, more)
+			} else {
+				require.False(t, more)
+			}
 		}
 	})
 }

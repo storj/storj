@@ -87,6 +87,8 @@ import { EmailInput } from '@/types/EmailInput';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -116,6 +118,8 @@ export default class AddTeamMemberModal extends Vue {
     private isLoading = false;
 
     private FIRST_PAGE = 1;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Tries to add users related to entered emails list to current project.
@@ -173,7 +177,7 @@ export default class AddTeamMemberModal extends Vue {
         }
 
         if (emailArray.includes(this.$store.state.usersModule.email)) {
-            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`);
+            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             this.isLoading = false;
 
             return;
@@ -182,19 +186,20 @@ export default class AddTeamMemberModal extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
         } catch (error) {
-            await this.$notify.error(`Error during adding project members. ${error.message}`);
+            await this.$notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
             this.isLoading = false;
 
             return;
         }
 
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
         await this.$notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         }
 
         this.closeModal();

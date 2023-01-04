@@ -57,6 +57,7 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -98,6 +99,7 @@ export default class OpenBucketModal extends Vue {
 
         if (!this.passphrase) {
             this.enterError = 'Passphrase can\'t be empty';
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
 
             return;
         }
@@ -110,9 +112,9 @@ export default class OpenBucketModal extends Vue {
 
             this.closeModal();
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.UploadFile.path);
-        } catch (e) {
-            await this.$notify.error(e.message);
+            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
             this.isLoading = false;
         }
     }
@@ -184,7 +186,7 @@ export default class OpenBucketModal extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
         };
     }
 

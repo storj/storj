@@ -1,46 +1,51 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package audit_test
 
 import (
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pkcrypto"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
 
-func TestContainIncrementAndGet(t *testing.T) {
+func TestContainInsertAndGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 
-		input := &audit.PendingAudit{
-			NodeID:            planet.StorageNodes[0].ID(),
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		input := &audit.PieceLocator{
+			StreamID: testrand.UUID(),
+			Position: metabase.SegmentPositionFromEncoded(uint64(rand.Int63())),
+			NodeID:   planet.StorageNodes[0].ID(),
+			PieceNum: 0,
 		}
 
-		err := containment.IncrementPending(ctx, input)
+		err := containment.Insert(ctx, input)
 		require.NoError(t, err)
 
 		output, err := containment.Get(ctx, input.NodeID)
 		require.NoError(t, err)
 
-		assert.Equal(t, input, output)
+		assert.Equal(t, *input, output.Locator)
+		assert.EqualValues(t, 0, output.ReverifyCount)
 
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = containment.Get(ctx, nodeID1)
 		require.Error(t, err, audit.ErrContainedNotFound.New("%v", nodeID1))
-		assert.True(t, audit.ErrContainedNotFound.Has(err))
+		assert.Truef(t, audit.ErrContainedNotFound.Has(err), "expected ErrContainedNotFound but got %+v", err)
 	})
 }
 
@@ -50,12 +55,11 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
 
-		info1 := &audit.PendingAudit{
-			NodeID:            planet.StorageNodes[0].ID(),
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		info1 := &audit.PieceLocator{
+			NodeID: planet.StorageNodes[0].ID(),
 		}
 
-		err := containment.IncrementPending(ctx, info1)
+		err := containment.Insert(ctx, info1)
 		require.NoError(t, err)
 
 		// expect reverify count for an entry to be 0 after first IncrementPending call
@@ -63,9 +67,19 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		require.NoError(t, err)
 		assert.EqualValues(t, 0, pending.ReverifyCount)
 
-		// expect reverify count to be 1 after second IncrementPending call
-		err = containment.IncrementPending(ctx, info1)
+		// expect reverify count to be 0 still after second IncrementPending call
+		err = containment.Insert(ctx, info1)
 		require.NoError(t, err)
+		pending, err = containment.Get(ctx, info1.NodeID)
+		require.NoError(t, err)
+		assert.EqualValues(t, 0, pending.ReverifyCount)
+
+		// after the job is selected for work, its ReverifyCount should be increased to 1
+		job, err := planet.Satellites[0].DB.ReverifyQueue().GetNextJob(ctx, 10*time.Minute)
+		require.NoError(t, err)
+		require.Equal(t, pending.Locator, job.Locator)
+		assert.EqualValues(t, 1, job.ReverifyCount)
+
 		pending, err = containment.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, pending.ReverifyCount)
@@ -77,35 +91,57 @@ func TestContainDelete(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
-		cache := planet.Satellites[0].DB.OverlayCache()
 
-		info1 := &audit.PendingAudit{
-			NodeID:            planet.StorageNodes[0].ID(),
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		// add two reverification jobs for the same node
+		info1 := &audit.PieceLocator{
+			NodeID:   planet.StorageNodes[0].ID(),
+			StreamID: testrand.UUID(),
+		}
+		info2 := &audit.PieceLocator{
+			NodeID:   planet.StorageNodes[0].ID(),
+			StreamID: testrand.UUID(),
 		}
 
-		err := containment.IncrementPending(ctx, info1)
+		err := containment.Insert(ctx, info1)
+		require.NoError(t, err)
+		err = containment.Insert(ctx, info2)
 		require.NoError(t, err)
 
-		// delete the node from containment db
-		isDeleted, err := containment.Delete(ctx, info1.NodeID)
+		// 'get' will choose one of them (we don't really care which)
+		got, err := containment.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		assert.True(t, isDeleted)
+		if got.Locator != *info1 {
+			require.Equal(t, *info2, got.Locator)
+		}
+		require.EqualValues(t, 0, got.ReverifyCount)
 
-		// check contained flag set to false
-		node, err := cache.Get(ctx, info1.NodeID)
+		// delete one of the pending reverifications
+		wasDeleted, stillInContainment, err := containment.Delete(ctx, info2)
 		require.NoError(t, err)
-		assert.False(t, node.Contained)
+		require.True(t, wasDeleted)
+		require.True(t, stillInContainment)
 
-		// get pending audit that doesn't exist
+		// 'get' now is sure to select info1
+		got, err = containment.Get(ctx, info1.NodeID)
+		require.NoError(t, err)
+		require.Equal(t, *info1, got.Locator)
+		require.EqualValues(t, 0, got.ReverifyCount)
+
+		// delete the other pending reverification
+		wasDeleted, stillInContainment, err = containment.Delete(ctx, info1)
+		require.NoError(t, err)
+		require.True(t, wasDeleted)
+		require.False(t, stillInContainment)
+
+		// try to get a pending reverification that isn't in the queue
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
-		assert.True(t, audit.ErrContainedNotFound.Has(err))
+		require.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 
-		// delete pending audit that doesn't exist
-		isDeleted, err = containment.Delete(ctx, info1.NodeID)
+		// and try to delete that pending reverification that isn't in the queue
+		wasDeleted, _, err = containment.Delete(ctx, info1)
 		require.NoError(t, err)
-		assert.False(t, isDeleted)
+		assert.False(t, wasDeleted)
 	})
 }
 
@@ -118,12 +154,11 @@ func TestContainUpdateStats(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 		cache := planet.Satellites[0].DB.OverlayCache()
 
-		info1 := &audit.PendingAudit{
-			NodeID:            planet.StorageNodes[0].ID(),
-			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
+		info1 := &audit.PieceLocator{
+			NodeID: planet.StorageNodes[0].ID(),
 		}
 
-		err := containment.IncrementPending(ctx, info1)
+		err := containment.Insert(ctx, info1)
 		require.NoError(t, err)
 
 		// update node stats

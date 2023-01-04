@@ -87,6 +87,7 @@ import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -170,7 +171,7 @@ export default class HeaderArea extends Vue {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
             await this.setProjectState();
         } catch (error) {
-            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
+            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
             this.isDeleteClicked = false;
 
             return;
@@ -190,7 +191,7 @@ export default class HeaderArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         }
     }
 

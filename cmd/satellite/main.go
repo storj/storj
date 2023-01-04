@@ -107,6 +107,11 @@ var (
 		Short: "Run the repair service",
 		RunE:  cmdRepairerRun,
 	}
+	runAuditorCmd = &cobra.Command{
+		Use:   "auditor",
+		Short: "Run the auditor service",
+		RunE:  cmdAuditorRun,
+	}
 	runAdminCmd = &cobra.Command{
 		Use:   "admin",
 		Short: "Run the satellite Admin",
@@ -344,6 +349,7 @@ func init() {
 	runCmd.AddCommand(runAPICmd)
 	runCmd.AddCommand(runAdminCmd)
 	runCmd.AddCommand(runRepairerCmd)
+	runCmd.AddCommand(runAuditorCmd)
 	runCmd.AddCommand(runGCCmd)
 	runCmd.AddCommand(runGCBloomFilterCmd)
 	runCmd.AddCommand(runRangedLoopCmd)
@@ -378,6 +384,7 @@ func init() {
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runAuditorCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCBloomFilterCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRangedLoopCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

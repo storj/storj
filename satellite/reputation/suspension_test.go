@@ -148,6 +148,8 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 0.95
 				config.Reputation.AuditDQ = 0.6
+				// disable write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -186,8 +188,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		auditService.Reporter.RecordAudits(ctx, report)
 
 		// success and offline nodes should not be disqualified
 		// fail and unknown nodes should be disqualified
@@ -253,8 +254,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			NodesReputation: nodesStatus,
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
+		auditService.Reporter.RecordAudits(ctx, report)
 
 		// successful node should not be suspended or disqualified
 		n, err := oc.Get(ctx, successNodeID)

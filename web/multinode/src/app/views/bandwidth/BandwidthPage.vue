@@ -53,9 +53,9 @@
         <section class="bandwidth__chart-area">
             <section class="chart-container">
                 <div class="chart-container__title-area disk-space-title">
-                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                    <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}*d</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
                     <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" />
                 </div>
@@ -110,7 +110,7 @@ export default class BandwidthPage extends Vue {
     }
 
     public get diskSpaceUsageSummary(): number {
-        return this.$store.state.storage.usage.diskSpaceSummary;
+        return this.$store.state.storage.usage.diskSpaceSummaryBytes;
     }
 
     /**

@@ -131,6 +131,11 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 		return nil, err
 	}
 
+	salt, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
 	createFields := dbx.Project_Create_Fields{}
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
@@ -150,6 +155,7 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
 	createFields.PublicId = dbx.Project_PublicId(publicID[:])
+	createFields.Salt = dbx.Project_Salt(salt[:])
 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
@@ -188,8 +194,14 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 	if project.StorageLimit != nil {
 		updateFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
 	}
+	if project.UserSpecifiedStorageLimit != nil {
+		updateFields.UserSpecifiedUsageLimit = dbx.Project_UserSpecifiedUsageLimit(int64(*project.UserSpecifiedStorageLimit))
+	}
 	if project.BandwidthLimit != nil {
 		updateFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
+	}
+	if project.UserSpecifiedBandwidthLimit != nil {
+		updateFields.UserSpecifiedBandwidthLimit = dbx.Project_UserSpecifiedBandwidthLimit(int64(*project.UserSpecifiedBandwidthLimit))
 	}
 	if project.SegmentLimit != nil {
 		updateFields.SegmentLimit = dbx.Project_SegmentLimit(*project.SegmentLimit)
@@ -442,4 +454,19 @@ func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxB
 		return nil, err
 	}
 	return dbxRow.MaxBuckets, nil
+}
+
+// UpdateUsageLimits is a method for updating project's bandwidth, storage, and segment limits.
+func (projects *projects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			BandwidthLimit: dbx.Project_BandwidthLimit(limits.Bandwidth),
+			UsageLimit:     dbx.Project_UsageLimit(limits.Storage),
+			SegmentLimit:   dbx.Project_SegmentLimit(limits.Segment),
+		},
+	)
+	return err
 }

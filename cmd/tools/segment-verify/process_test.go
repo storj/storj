@@ -36,12 +36,13 @@ func TestProcess(t *testing.T) {
 			})
 
 		config := segmentverify.ServiceConfig{
-			NotFoundPath: ctx.File("not-found.csv"),
-			RetryPath:    ctx.File("retry.csv"),
-			Check:        2,
-			BatchSize:    4,
-			Concurrency:  2,
-			MaxOffline:   3,
+			NotFoundPath:      ctx.File("not-found.csv"),
+			RetryPath:         ctx.File("retry.csv"),
+			ProblemPiecesPath: ctx.File("problem-pieces.csv"),
+			Check:             2,
+			BatchSize:         4,
+			Concurrency:       2,
+			MaxOffline:        3,
 		}
 
 		service, err := segmentverify.NewService(

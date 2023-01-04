@@ -56,10 +56,15 @@
                     :on-press="closeModal"
                 />
                 <div class="modal__footer">
-                    <h2 class="modal__footer__title">Send only STORJ Tokens to this deposit address.</h2>
-                    <p class="modal__footer__msg">
-                        Sending coin or token other than STORJ Token may result in the loss of your deposit.
-                    </p>
+                    <h2 class="modal__footer__title">Send only STORJ tokens via Layer 1 transaction to this deposit address.</h2>
+                    <div class="modal__footer__msg">
+                        <p>
+                            Sending anything else than STORJ token will result in the loss of your deposit.
+                        </p>
+                        <p>
+                            Please note that zkSync transactions are not yet supported.
+                        </p>
+                    </div>
                 </div>
             </div>
         </template>
@@ -72,6 +77,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Wallet } from '@/types/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -89,7 +95,6 @@ import InfoIcon from '@/../static/images/payments/infoIcon.svg';
     },
 })
 export default class AddTokenFundsModal extends Vue {
-
     public $refs!: {
         canvas: HTMLCanvasElement;
     };
@@ -105,7 +110,7 @@ export default class AddTokenFundsModal extends Vue {
         try {
             await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ADD_TOKEN_FUNDS_MODAL);
         }
     }
 

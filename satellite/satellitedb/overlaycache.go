@@ -1137,6 +1137,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	if info.CountryCode != nil {
 		node.CountryCode = location.ToCountryCode(*info.CountryCode)
 	}
+	if info.Contained != nil {
+		node.Contained = true
+	}
 
 	return node, nil
 }
@@ -1267,24 +1270,7 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 	return nodeIDs, rows.Err()
 }
 
-// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
-func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if node.Address.GetAddress() == "" {
-		return Error.New("error UpdateCheckIn: missing the storage node address")
-	}
-
-	semVer, err := version.NewSemVer(node.Version.GetVersion())
-	if err != nil {
-		return Error.New("unable to convert version to semVer")
-	}
-
-	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
+func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
 	// First try the fast path.
 	var res sql.Result
 	res, err = cache.db.ExecContext(ctx, `
@@ -1307,7 +1293,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			END,
 			last_ip_port=$16,
 			wallet_features=$17,
-			country_code=$18
+			country_code=$18,
 			last_software_update_email = CASE
 				WHEN $19::bool IS TRUE THEN $15::timestamptz
 				WHEN $20::bool IS FALSE THEN NULL
@@ -1337,11 +1323,40 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
 	)
 
-	if err == nil {
-		affected, affectedErr := res.RowsAffected()
-		if affectedErr == nil && affected > 0 {
-			return nil
-		}
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	affected, affectedErr := res.RowsAffected()
+	if affectedErr != nil {
+		return false, Error.Wrap(err)
+	}
+	return affected > 0, nil
+}
+
+// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if node.Address.GetAddress() == "" {
+		return Error.New("error UpdateCheckIn: missing the storage node address")
+	}
+
+	semVer, err := version.NewSemVer(node.Version.GetVersion())
+	if err != nil {
+		return Error.New("unable to convert version to semVer")
+	}
+
+	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	updated, err := cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if updated {
+		return nil
 	}
 
 	_, err = cache.db.ExecContext(ctx, `
@@ -1424,6 +1439,31 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 	}
 
 	return nil
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+	if contained {
+		// only update the timestamp if it's not already set
+		query = `
+			UPDATE nodes SET contained = current_timestamp
+			WHERE id = $1 AND contained IS NULL
+		`
+	} else {
+		query = `
+			UPDATE nodes SET contained = NULL
+			WHERE id = $1
+		`
+	}
+	_, err = cache.db.DB.ExecContext(ctx, query, nodeID[:])
+	return Error.Wrap(err)
 }
 
 var (
@@ -1551,4 +1591,8 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 			return nil
 		}
 	}
+}
+
+func (cache *overlaycache) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	return cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
 }

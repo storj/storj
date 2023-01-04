@@ -76,6 +76,8 @@ type DB interface {
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
+	// SetNodeContained updates the contained field for the node record.
+	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
@@ -121,6 +123,8 @@ type DB interface {
 	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// TestNodeCountryCode sets node country code.
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
+	// TestUpdateCheckInDirectUpdate tries to update a node info directly. Returns true if it succeeded, false if there were no node with the provided (used for testing).
+	TestUpdateCheckInDirectUpdate(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error)
 
 	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -601,6 +605,17 @@ func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, e
 func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.SetNodeContained(ctx, node, contained)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info if needed.

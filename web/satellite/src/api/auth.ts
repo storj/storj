@@ -4,9 +4,9 @@
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -15,7 +15,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
@@ -30,11 +29,14 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status == 429) {
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send email';
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-
-        throw new Error('Failed to send email');
     }
 
     /**
@@ -72,10 +74,8 @@ export class AuthHttpApi implements UsersApi {
         switch (response.status) {
         case 400:
             throw new ErrorBadRequest(errMsg);
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -92,10 +92,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Can not logout. Please try again later');
@@ -122,10 +118,8 @@ export class AuthHttpApi implements UsersApi {
         const result = await response.json();
         const errMsg = result.error || 'Failed to send password reset link';
         switch (response.status) {
-        case 404:
-            throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -182,10 +176,6 @@ export class AuthHttpApi implements UsersApi {
             );
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not get user data');
     }
 
@@ -207,14 +197,8 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        switch (response.status) {
-        case 401: {
-            throw new Error('old password is incorrect, please try again');
-        }
-        default: {
-            throw new Error('can not change password');
-        }
-        }
+        const result = await response.json();
+        throw new Error(result.error);
     }
 
     /**
@@ -233,11 +217,24 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        throw new Error('can not delete user');
+    }
+
+    /**
+     * Fetches user frozen status.
+     *
+     * @throws Error
+     */
+    public async getFrozenStatus(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/account/freezestatus`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return responseData.frozen;
         }
 
-        throw new Error('can not delete user');
+        throw new Error('can not get user frozen status');
     }
 
     // TODO: remove secret after Vanguard release
@@ -276,10 +273,8 @@ export class AuthHttpApi implements UsersApi {
             switch (response.status) {
             case 400:
                 throw new ErrorBadRequest(errMsg);
-            case 401:
-                throw new ErrorUnauthorized(errMsg);
             case 429:
-                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+                throw new ErrorTooManyRequests(errMsg);
             default:
                 throw new Error(errMsg);
             }
@@ -297,10 +292,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return await response.json();
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Can not generate MFA secret. Please try again later');
@@ -321,10 +312,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Can not enable MFA. Please try again later');
@@ -349,15 +336,8 @@ export class AuthHttpApi implements UsersApi {
         }
 
         const result = await response.json();
-        if (!response.ok) {
-            const errMsg = result.error || 'Cannot disable MFA. Please try again later';
-            switch (response.status) {
-            case 401:
-                throw new ErrorUnauthorized(errMsg);
-            default:
-                throw new Error(errMsg);
-            }
-        }
+        const errMsg = result.error || 'Cannot disable MFA. Please try again later';
+        throw new Error(errMsg);
     }
 
     /**
@@ -371,10 +351,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return await response.json();
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Can not generate MFA recovery codes. Please try again later');
@@ -408,6 +384,9 @@ export class AuthHttpApi implements UsersApi {
             if (result.code == 'mfa_required') {
                 throw new ErrorMFARequired();
             }
+            if (result.code == 'token_expired') {
+                throw new ErrorTokenExpired();
+            }
             if (result.error) {
                 errMsg = result.error;
             }
@@ -420,8 +399,6 @@ export class AuthHttpApi implements UsersApi {
         switch (response.status) {
         case 400:
             throw new ErrorBadRequest(errMsg);
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -429,7 +406,7 @@ export class AuthHttpApi implements UsersApi {
 
     /**
      * Used to refresh the expiration time of the current session.
-     * 
+     *
      * @returns new expiration timestamp
      * @throws Error
      */
@@ -439,10 +416,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return new Date(await response.json());
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Unable to refresh session.');

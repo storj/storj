@@ -5,6 +5,7 @@ import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/types/store';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const listCache = new Map();
 
@@ -287,6 +288,29 @@ export const makeFilesModule = (): FilesModule => ({
         addUploadToChain(state: FilesState, fn) {
             state.uploadChain = state.uploadChain.then(fn);
         },
+
+        clear(state: FilesState) {
+            state.s3 = null;
+            state.accessKey = null;
+            state.path = '';
+            state.bucket = '';
+            state.browserRoot = '/';
+            state.files = [];
+            state.uploadChain = Promise.resolve();
+            state.uploading = [];
+            state.selectedAnchorFile = null;
+            state.unselectedAnchorFile = null;
+            state.selectedFiles = [];
+            state.shiftSelectedFiles = [];
+            state.filesToBeDeleted = [];
+            state.fetchSharedLink = () => 'javascript:null';
+            state.fetchPreviewAndMapUrl = () => 'javascript:null';
+            state.openedDropdown = null;
+            state.headingSorted = 'name';
+            state.orderBy = 'asc';
+            state.openModalOnFirstUpload = false;
+            state.objectPathForModal = '';
+        },
     },
     actions: {
         async list({ commit, state }, path = state.path) {
@@ -507,9 +531,9 @@ export const makeFilesModule = (): FilesModule => ({
                     } catch (error) {
                         const limitExceededError = 'storage limit exceeded';
                         if (error.message.includes(limitExceededError)) {
-                            dispatch('error', `Error: ${limitExceededError}`, { root:true });
+                            dispatch('error', { message: `Error: ${limitExceededError}`, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR }, { root: true });
                         } else {
-                            dispatch('error', error.message, { root:true });
+                            dispatch('error', { message: error.message, source: AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR }, { root: true });
                         }
                     }
 
@@ -724,6 +748,10 @@ export const makeFilesModule = (): FilesModule => ({
             if (state.selectedAnchorFile) {
                 dispatch('clearAllSelectedFiles');
             }
+        },
+
+        clear({ commit }) {
+            commit('clear');
         },
     },
 });

@@ -4,7 +4,12 @@
 package main
 
 import (
+	"context"
+	"encoding/csv"
 	"encoding/hex"
+	"errors"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -46,7 +51,13 @@ var (
 	rangeCmd = &cobra.Command{
 		Use:   "range",
 		Short: "runs the command on a range of segments",
-		RunE:  verifySegmentsRange,
+		RunE:  verifySegments,
+	}
+
+	bucketsCmd = &cobra.Command{
+		Use:   "buckets",
+		Short: "runs the command on segments from specified buckets",
+		RunE:  verifySegments,
 	}
 
 	summarizeCmd = &cobra.Command{
@@ -56,8 +67,16 @@ var (
 		RunE:  summarizeVerificationLog,
 	}
 
+	nodeCheckCmd = &cobra.Command{
+		Use:   "node-check",
+		Short: "checks segments for too many duplicate or unvetted nodes",
+		RunE:  verifySegmentsNodeCheck,
+	}
+
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
+	bucketsCfg   BucketConfig
+	nodeCheckCfg NodeCheckConfig
 
 	confDir     string
 	identityDir string
@@ -72,11 +91,19 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(summarizeCmd)
+	rootCmd.AddCommand(nodeCheckCmd)
 	runCmd.AddCommand(rangeCmd)
+	runCmd.AddCommand(bucketsCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
 	process.Bind(rangeCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(bucketsCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(bucketsCmd, &bucketsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
+	process.Bind(nodeCheckCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(nodeCheckCmd, &nodeCheckCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 // RangeConfig defines configuration for verifying segment existence.
@@ -88,7 +115,16 @@ type RangeConfig struct {
 	High string `help:"hex highest segment id prefix to verify (excluded)"`
 }
 
-func verifySegmentsRange(cmd *cobra.Command, args []string) error {
+// BucketConfig defines configuration for verifying segment existence within a list of buckets.
+type BucketConfig struct {
+	Service ServiceConfig
+	Verify  VerifierConfig
+
+	BucketsCSV string `help:"csv file of project_id,bucket_name of buckets to verify" default:""`
+}
+
+func verifySegments(cmd *cobra.Command, args []string) error {
+
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
@@ -165,8 +201,18 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	verifier.reportPiece = service.reportPiece
 	defer func() { err = errs.Combine(err, service.Close()) }()
+	if cmd.Name() == "range" {
+		return verifySegmentsRange(ctx, service, rangeCfg)
+	}
+	if cmd.Name() == "buckets" {
+		return verifySegmentsBuckets(ctx, service, bucketsCfg)
+	}
+	return errors.New("unknown commnand: " + cmd.Name())
+}
 
+func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeConfig) error {
 	// parse arguments
 	var low, high uuid.UUID
 
@@ -189,6 +235,58 @@ func verifySegmentsRange(cmd *cobra.Command, args []string) error {
 	return service.ProcessRange(ctx, low, high)
 }
 
+func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg BucketConfig) error {
+	if bucketsCfg.BucketsCSV == "" {
+		return Error.New("bucket list file path not provided")
+	}
+
+	bucketList, err := service.ParseBucketFile(bucketsCfg.BucketsCSV)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return service.ProcessBuckets(ctx, bucketList.Buckets)
+}
+
 func main() {
 	process.Exec(rootCmd)
+}
+
+// ParseBucketFile parses a csv file containing project_id and bucket names.
+func (service *Service) ParseBucketFile(path string) (_ BucketList, err error) {
+	csvFile, err := os.Open(path)
+	if err != nil {
+		return BucketList{}, err
+	}
+	defer func() {
+		err = errs.Combine(err, csvFile.Close())
+	}()
+
+	csvReader := csv.NewReader(csvFile)
+	allEntries, err := csvReader.ReadAll()
+	if err != nil {
+		return BucketList{}, err
+	}
+
+	bucketList := BucketList{}
+	for _, entry := range allEntries {
+		if len(entry) < 2 {
+			return BucketList{}, Error.New("unable to parse buckets file: %w", err)
+		}
+
+		projectId, err := projectIdFromCompactString(strings.TrimSpace(entry[0]))
+		if err != nil {
+			return BucketList{}, Error.New("unable to parse buckets file: %w", err)
+		}
+		bucketList.Add(projectId, strings.TrimSpace(entry[1]))
+	}
+	return bucketList, nil
+}
+
+func projectIdFromCompactString(s string) (uuid.UUID, error) {
+	decoded, err := hex.DecodeString(s)
+	if err != nil {
+		return uuid.UUID{}, Error.New("invalid string")
+	}
+
+	return uuid.FromBytes(decoded)
 }

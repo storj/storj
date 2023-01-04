@@ -120,6 +120,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { generateMnemonic } from 'bip39';
 
 import { Download } from '@/utils/download';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -165,6 +167,8 @@ export default class GeneratePassphrase extends Vue {
     public isSavingConfirmed = false;
     public isCheckboxError = false;
 
+    private readonly analytics = new AnalyticsHttpApi();
+
     public setSavingConfirmation(value: boolean): void {
         this.isSavingConfirmed = value;
     }
@@ -189,6 +193,7 @@ export default class GeneratePassphrase extends Vue {
     public onDownloadClick(): void {
         if (!this.passphrase) {
             this.enterError = 'Can\'t be empty!';
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_PASSPHRASE_STEP);
 
             return;
         }
@@ -224,12 +229,14 @@ export default class GeneratePassphrase extends Vue {
     public async onNextButtonClick(): Promise<void> {
         if (!this.passphrase) {
             this.enterError = 'Can\'t be empty!';
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_PASSPHRASE_STEP);
 
             return;
         }
 
         if (!this.isSavingConfirmed) {
             this.isCheckboxError = true;
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_PASSPHRASE_STEP);
 
             return;
         }

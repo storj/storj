@@ -57,10 +57,18 @@ func TestGraphqlQuery(t *testing.T) {
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{
-			StorageTBPrice: "10",
-			EgressTBPrice:  "45",
-			SegmentPrice:   "0.0000022",
+			UsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "10",
+				EgressTB:  "45",
+				Segment:   "0.0000022",
+			},
 		}
+
+		prices, err := pc.UsagePrice.ToModel()
+		require.NoError(t, err)
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		require.NoError(t, err)
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
@@ -75,9 +83,8 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Billing(),
 			db.Console().Projects(),
 			db.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
 			pc.BonusRate)
 		require.NoError(t, err)
 

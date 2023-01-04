@@ -18,8 +18,12 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metrics"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -33,9 +37,25 @@ type RangedLoop struct {
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
 
+	Audit struct {
+		Observer rangedloop.Observer
+	}
+
 	Debug struct {
 		Listener net.Listener
 		Server   *debug.Server
+	}
+
+	Metrics struct {
+		Observer rangedloop.Observer
+	}
+
+	GracefulExit struct {
+		Observer rangedloop.Observer
+	}
+
+	GarbageCollectionBF struct {
+		Observer rangedloop.Observer
 	}
 
 	RangedLoop struct {
@@ -73,8 +93,48 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 		})
 	}
 
+	{ // setup audit observer
+		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), db.VerifyQueue(), config.Audit)
+	}
+
+	{ // setup metrics observer
+		peer.Metrics.Observer = metrics.NewObserver()
+	}
+
+	{ // setup gracefulexit
+		peer.GracefulExit.Observer = gracefulexit.NewObserver(
+			peer.Log.Named("gracefulexit:observer"),
+			peer.DB.GracefulExit(),
+			peer.DB.OverlayCache(),
+			config.GracefulExit,
+		)
+	}
+
+	{ // setup garbage collection bloom filter observer
+		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
+	}
+
 	{ // setup ranged loop
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, metabaseDB, nil)
+		var observers []rangedloop.Observer
+
+		if config.Audit.UseRangedLoop {
+			observers = append(observers, peer.Audit.Observer)
+		}
+
+		if config.Metrics.UseRangedLoop {
+			observers = append(observers, peer.Metrics.Observer)
+		}
+
+		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
+			observers = append(observers, peer.GracefulExit.Observer)
+		}
+
+		if config.GarbageCollectionBF.Enabled && config.GarbageCollectionBF.UseRangedLoop {
+			observers = append(observers, peer.GarbageCollectionBF.Observer)
+		}
+
+		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.BatchSize)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",

@@ -82,8 +82,10 @@ var safelyPartitionableDBs = map[string]bool{
 	// WARNING: only list additional db names here after they have been
 	// validated to be safely partitionable and that they do not do
 	// cross-db queries.
-	"repairqueue": true,
-	"nodeevents":  true,
+	"repairqueue":   true,
+	"nodeevents":    true,
+	"verifyqueue":   true,
+	"reverifyqueue": true,
 }
 
 // Open creates instance of satellite.DB.
@@ -275,8 +277,9 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 }
 
 // Containment returns database for storing pending audit info.
+// It does all of its work by way of the ReverifyQueue.
 func (dbc *satelliteDBCollection) Containment() audit.Containment {
-	return &containment{db: dbc.getByName("containment")}
+	return &containment{reverifyQueue: dbc.ReverifyQueue()}
 }
 
 // GracefulExit returns database for graceful exit.

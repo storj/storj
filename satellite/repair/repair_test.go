@@ -371,6 +371,7 @@ func TestMinRequiredDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -480,6 +481,7 @@ func TestFailedDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -600,6 +602,7 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -722,6 +725,7 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -843,6 +847,7 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.InitialBeta = 0.01
 					config.Reputation.AuditLambda = 0.95
@@ -959,6 +964,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
@@ -1076,6 +1082,7 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
@@ -1190,6 +1197,7 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
 					config.Repairer.InMemoryRepair = true
+					config.Repairer.ReputationUpdateEnabled = true
 					config.Reputation.InitialAlpha = 1
 					config.Reputation.AuditLambda = 0.95
 				},
@@ -1347,8 +1355,6 @@ func TestRepairExpiredSegment(t *testing.T) {
 
 		// get encrypted path of segment with audit service
 		satellite.Audit.Chore.Loop.TriggerWait()
-		queue := satellite.Audit.Queues.Fetch()
-		require.EqualValues(t, queue.Size(), 1)
 
 		// Verify that the segment is on the repair queue
 		count, err := satellite.DB.RepairQueue().Count(ctx)
@@ -1365,7 +1371,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// Verify that the segment is still in the queue
+		// Verify that the segment is not still in the queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 0, count)
@@ -2863,8 +2869,8 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -2935,8 +2941,8 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := testSatellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{

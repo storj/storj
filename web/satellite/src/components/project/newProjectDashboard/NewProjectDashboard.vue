@@ -170,8 +170,8 @@
         <div class="project-dashboard__stats-header">
             <p class="project-dashboard__stats-header__title">Buckets</p>
         </div>
-        <VLoader v-if="areBucketsFetching" />
-        <BucketArea v-else class="project-dashboard__bucket-area" />
+        <BucketsTable :is-loading="areBucketsFetching" />
+        <EncryptionBanner v-if="!isServerSideEncryptionBannerHidden" :hide="hideBanner" />
     </div>
 </template>
 
@@ -188,6 +188,8 @@ import { DataStamp, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { LocalData } from '@/utils/localData';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
@@ -196,7 +198,8 @@ import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthCh
 import VButton from '@/components/common/VButton.vue';
 import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
 import VInfo from '@/components/common/VInfo.vue';
-import BucketArea from '@/components/project/buckets/BucketArea.vue';
+import BucketsTable from '@/components/objects/BucketsTable.vue';
+import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -213,13 +216,15 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         VInfo,
         NewProjectIcon,
         InfoIcon,
-        BucketArea,
+        BucketsTable,
+        EncryptionBanner,
     },
 })
 export default class NewProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
     public isDataFetching = true;
     public areBucketsFetching = true;
+    public isServerSideEncryptionBannerHidden = true;
 
     public chartWidth = 0;
 
@@ -234,6 +239,8 @@ export default class NewProjectDashboard extends Vue {
      * Fetches project limits.
      */
     public async mounted(): Promise<void> {
+        this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
+
         if (!this.$store.getters.selectedProject.id) {
             this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
@@ -252,9 +259,8 @@ export default class NewProjectDashboard extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
         } finally {
             this.isDataFetching = false;
         }
@@ -266,7 +272,7 @@ export default class NewProjectDashboard extends Vue {
 
             this.areBucketsFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
         }
     }
 
@@ -276,6 +282,14 @@ export default class NewProjectDashboard extends Vue {
      */
     public beforeDestroy(): void {
         window.removeEventListener('resize', this.recalculateChartWidth);
+    }
+
+    /**
+     * Hides server-side encryption banner.
+     */
+    public hideBanner(): void {
+        this.isServerSideEncryptionBannerHidden = true;
+        LocalData.setServerSideEncryptionBannerHidden(true);
     }
 
     /**
@@ -335,7 +349,7 @@ export default class NewProjectDashboard extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
         }
     }
 

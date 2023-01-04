@@ -1,15 +1,12 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="confirm-delete">
-        <div v-if="!isNewAccessGrantFlow" class="confirm-delete__container">
-            <h1 class="confirm-delete__container__title">Are you sure?</h1>
+        <div class="confirm-delete__container">
+            <h1 class="confirm-delete__container__title">Delete Access</h1>
             <p class="confirm-delete__container__info">
-                When an access grant is removed, users using it will no longer have access to the buckets or data.
-            </p>
-            <p class="confirm-delete__container__list-label">
-                The following access grant(s) will be removed from this project:
+                You won’t be able to access bucket(s) or object(s) related to the access:
             </p>
             <div class="confirm-delete__container__list">
                 <div
@@ -24,53 +21,18 @@
                     </div>
                 </div>
             </div>
+            <div>
+                <p>This action cannot be undone.</p>
+            </div>
+            <VInput
+                placeholder="Type the name of the access"
+                @setData="setConfirmedInput"
+            />
             <div class="confirm-delete__container__buttons-area">
                 <VButton
                     class="cancel-button"
                     label="Cancel"
-                    width="50%"
-                    height="44px"
-                    :on-press="onCancelClick"
-                    :is-white="true"
-                    :is-disabled="isLoading"
-                />
-                <VButton
-                    label="Remove"
-                    width="50%"
-                    height="44px"
-                    :on-press="onDeleteClick"
-                    :is-disabled="isLoading"
-                />
-            </div>
-            <div class="confirm-delete__container__close-cross-container" @click="onCancelClick">
-                <CloseCrossIcon />
-            </div>
-        </div>
-        <div v-if="isNewAccessGrantFlow" class="confirm-delete__container">
-            <div class="confirm-delete__text-container">
-                <h1 class="confirm-delete__container__title">Delete Access</h1>
-                <p class="confirm-delete__container__info-new">
-                    You wont be able to access bucket(s) or object(s) related to this access. This action cannot be undone.
-                </p>
-            </div>
-            <div class="confirm-delete__container__list">
-                <div
-                    v-for="accessGrant in selectedAccessGrants"
-                    :key="accessGrant.id"
-                    class="confirm-delete__container__list__container"
-                >
-                    <div class="confirm-delete__container__list__container__item">
-                        <p class="confirm-delete__container__list__container__item__name">
-                            {{ accessGrant.name }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="confirm-delete__container__buttons-area">
-                <VButton
-                    class="cancel-button"
-                    label="Cancel"
-                    width="50%"
+                    width="70px"
                     height="44px"
                     :on-press="onCancelClick"
                     :is-white="true"
@@ -78,13 +40,13 @@
                 />
                 <VButton
                     label="Delete Access"
-                    width="50%"
+                    width="150px"
                     height="44px"
-                    :is-solid-delete="true"
                     :on-press="onDeleteClick"
-                    :is-disabled="isLoading"
+                    :is-disabled="isLoading || confirmedInput !== selectedAccessGrants[0].name"
+                    :is-solid-delete="true"
+                    has-trash-icon="true"
                 />
-                <TrashIcon class="confirm-delete__trash-icon" />
             </div>
             <div class="confirm-delete__container__close-cross-container" @click="onCancelClick">
                 <CloseCrossIcon />
@@ -96,26 +58,35 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import { MetaUtils } from '@/utils/meta';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
-import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 
 // @vue/component
 @Component({
     components: {
         VButton,
+        VInput,
         CloseCrossIcon,
-        TrashIcon,
     },
 })
 export default class ConfirmDeletePopup extends Vue {
-    private FIRST_PAGE = 1;
     private isLoading = false;
+    private confirmedInput = '';
+
+    private readonly FIRST_PAGE: number = 1;
+
+    /**
+     * sets Comfirmed Input property to the given value.
+     */
+    public setConfirmedInput(value: string): void {
+        this.confirmedInput = value;
+    }
 
     /**
      * Deletes selected access grants, fetches updated list and closes popup.
@@ -129,17 +100,17 @@ export default class ConfirmDeletePopup extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
             await this.$notify.success(`Access Grant deleted successfully`);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
 
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
         }
 
-        this.$emit('reset-pagination');
+        this.$emit('resetPagination');
         this.isLoading = false;
         this.onCancelClick();
     }
@@ -150,13 +121,7 @@ export default class ConfirmDeletePopup extends Vue {
     public onCancelClick(): void {
         this.$emit('close');
     }
-    /**
-     * Checks for new access grant flag
-     */
-    public get isNewAccessGrantFlow(): boolean {
-        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
-        return isNewAccessGrantFlow === 'true';
-    }
+
     /**
      * Returns list of selected access grants from store.
      */
@@ -193,12 +158,11 @@ export default class ConfirmDeletePopup extends Vue {
 
         &__container {
             border-radius: 6px;
-            max-width: 475px;
-            padding: 50px 65px;
+            max-width: 325px;
+            padding: 40px 30px;
             position: relative;
             display: flex;
             flex-direction: column;
-            align-items: center;
             background-color: #fff;
 
             &__title {
@@ -213,9 +177,8 @@ export default class ConfirmDeletePopup extends Vue {
                 font-weight: normal;
                 font-size: 16px;
                 line-height: 21px;
-                text-align: center;
                 color: #000;
-                margin: 20px 0;
+                margin: 25px 0 10px;
             }
 
             &__info-new {
@@ -246,17 +209,18 @@ export default class ConfirmDeletePopup extends Vue {
                 &__container {
 
                     &__item {
-                        padding: 25px;
-                        width: calc(100% - 50px);
-                        max-width: calc(100% - 50px);
-                        background: rgb(245 246 250 / 60%);
+                        padding: 3px 7px;
+                        max-width: fit-content;
+                        background: var(--c-grey-3);
+                        border-radius: 20px;
+                        margin-bottom: 10px;
 
                         &__name {
                             font-family: 'font_medium', sans-serif;
                             margin: 0;
                             font-weight: bold;
-                            font-size: 14px;
-                            line-height: 19px;
+                            font-size: 17px;
+                            line-height: 30px;
                             color: #1b2533;
                             overflow: hidden;
                             text-overflow: ellipsis;
@@ -267,7 +231,7 @@ export default class ConfirmDeletePopup extends Vue {
             }
 
             &__buttons-area {
-                width: 100%;
+                width: fit-content;
                 display: flex;
                 align-items: center;
                 margin-top: 30px;

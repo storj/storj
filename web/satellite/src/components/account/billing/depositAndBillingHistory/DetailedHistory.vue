@@ -31,6 +31,7 @@ import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
@@ -61,7 +62,7 @@ export default class DetailedHistory extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENTS_HISTORY);
         }
     }
 

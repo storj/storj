@@ -119,6 +119,8 @@ func TestService(t *testing.T) {
 				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
 				require.NotEqual(t, *up1Pro1.BandwidthLimit, *updatedProject.BandwidthLimit)
 				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updatedStorageLimit, *updatedProject.UserSpecifiedStorageLimit)
+				require.Equal(t, updatedBandwidthLimit, *updatedProject.UserSpecifiedBandwidthLimit)
 
 				// Updating someone else project details should not work
 				updatedProject, err = service.UpdateProject(userCtx1, up2Pro1.ID, console.ProjectInfo{
@@ -844,7 +846,7 @@ func TestLockAccount(t *testing.T) {
 		for i := 1; i <= consoleConfig.LoginAttemptsWithoutPenalty; i++ {
 			token, err = service.Token(ctx, authUser)
 			require.Empty(t, token)
-			require.True(t, console.ErrLoginPassword.Has(err))
+			require.True(t, console.ErrLoginCredentials.Has(err))
 		}
 
 		lockedUser, err := service.GetUser(userCtx, user.ID)
@@ -972,6 +974,54 @@ func TestSessionExpiration(t *testing.T) {
 	})
 }
 
+func TestDeleteAllSessionsByUserIDExcept(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		// Session should be added to DB after token request
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.NoError(t, err)
+
+		_, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+		require.NoError(t, err)
+
+		sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
+		require.NoError(t, err)
+
+		// Session2 should be added to DB after token request
+		tokenInfo2, err := service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.NoError(t, err)
+
+		_, err = service.TokenAuth(ctx, tokenInfo2.Token, time.Now())
+		require.NoError(t, err)
+
+		sessionID2, err := uuid.FromBytes(tokenInfo2.Token.Payload)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID2)
+		require.NoError(t, err)
+
+		// Session2 should be removed from DB after calling DeleteAllSessionByUserIDExcept with Session1
+		err = service.DeleteAllSessionsByUserIDExcept(ctx, user.ID, sessionID)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID2)
+		require.ErrorIs(t, sql.ErrNoRows, err)
+	})
+}
+
 func TestPaymentsWalletPayments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -1003,9 +1053,9 @@ func TestPaymentsWalletPayments(t *testing.T) {
 				Timeout:   0,
 			}
 
-			createdAt, err := sat.DB.StripeCoinPayments().Transactions().Insert(ctx, tx)
+			createdAt, err := sat.DB.StripeCoinPayments().Transactions().TestInsert(ctx, tx)
 			require.NoError(t, err)
-			err = sat.DB.StripeCoinPayments().Transactions().LockRate(ctx, tx.ID, decimal.NewFromInt(1))
+			err = sat.DB.StripeCoinPayments().Transactions().TestLockRate(ctx, tx.ID, decimal.NewFromInt(1))
 			require.NoError(t, err)
 
 			tx.CreatedAt = createdAt.UTC()

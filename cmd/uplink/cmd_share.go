@@ -82,7 +82,7 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 	if c.public {
 		c.register = true
 
-		if c.ap.notAfter.IsImplicitZero() {
+		if c.ap.notAfter == nil {
 			fmt.Fprintf(clingy.Stdout(ctx), "It's not recommended to create a shared Access without an expiration date.\n")
 			fmt.Fprintf(clingy.Stdout(ctx), "If you wish to do so anyway, please run this command with --not-after=none.\n")
 			return nil
@@ -100,8 +100,8 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 	fmt.Fprintf(clingy.Stdout(ctx), "Upload    : %s\n", formatPermission(c.ap.AllowUpload()))
 	fmt.Fprintf(clingy.Stdout(ctx), "Lists     : %s\n", formatPermission(c.ap.AllowList()))
 	fmt.Fprintf(clingy.Stdout(ctx), "Deletes   : %s\n", formatPermission(c.ap.AllowDelete()))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore : %s\n", formatTimeRestriction(c.ap.notBefore))
-	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter  : %s\n", formatTimeRestriction(c.ap.notAfter.Date))
+	fmt.Fprintf(clingy.Stdout(ctx), "NotBefore : %s\n", formatTimeRestriction(c.ap.NotBefore()))
+	fmt.Fprintf(clingy.Stdout(ctx), "NotAfter  : %s\n", formatTimeRestriction(c.ap.NotAfter()))
 	fmt.Fprintf(clingy.Stdout(ctx), "Paths     : %s\n", formatPaths(c.ap.prefixes))
 	fmt.Fprintf(clingy.Stdout(ctx), "=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========\n")
 	fmt.Fprintf(clingy.Stdout(ctx), "Access    : %s\n", newAccessData)
@@ -115,7 +115,7 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintln(clingy.Stdout(ctx), "Public Access: ", c.public)
+		_, err = fmt.Fprintln(clingy.Stdout(ctx), "Public Access:", c.public)
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func DisplayGatewayCredentials(ctx context.Context, credentials edge.Credentials
 			return err
 		}
 	default: // plain text
-		_, err = fmt.Fprintf(clingy.Stdout(ctx), "========== CREDENTIALS ===================================================================\n"+
+		_, err = fmt.Fprintf(clingy.Stdout(ctx), "========== GATEWAY CREDENTIALS ===========================================================\n"+
 			"Access Key ID: %s\n"+
 			"Secret Key   : %s\n"+
 			"Endpoint     : %s\n",

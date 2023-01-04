@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/sender"
@@ -122,7 +123,6 @@ type DB interface {
 	StripeCoinPayments() stripecoinpayments.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
-	// SNOPayouts returns database for payouts.
 	// Wallets returns storjscan wallets database.
 	Wallets() storjscan.WalletsDB
 	// SNOPayouts returns database for payouts.
@@ -153,6 +153,8 @@ type Config struct {
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
+
+	Userinfo userinfo.Config
 
 	Reputation reputation.Config
 

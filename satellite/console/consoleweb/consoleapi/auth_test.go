@@ -293,7 +293,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
 		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "")
+		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, nil, "", "", "", "", "", "")
 		authController.DeleteAccount(rr, r)
 
 		//nolint:bodyclose
@@ -914,42 +914,4 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestEmailValidation(t *testing.T) {
-	invalidEmailAddresses := []string{
-		"test@t@t.test",
-		"test",
-		"test@!t.test",
-		"test@#test.test",
-		"test@$t.test",
-		"t%t.test",
-		"test@^test.test",
-		"test@&test.test",
-		"test@*test.test",
-		"test@(test.test",
-		"test@)test.test",
-		"test@=test.test",
-		"test@[test.test",
-		"test@]test.test",
-		"test@{test.test",
-		"test@}test.test",
-		"test@/test.test",
-		"test@\\test.test",
-		"test@|test.test",
-		"test@:test.test",
-		"test@;test.test",
-		"test@,test.test",
-		"test@\"test.test",
-		"test@'test.test",
-		"test@<test.test",
-		"test@>test.test",
-		"test@_test.test",
-		"test@?test.test",
-	}
-
-	for _, e := range invalidEmailAddresses {
-		result := consoleapi.ValidateEmail(e)
-		require.False(t, result)
-	}
 }

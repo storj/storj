@@ -1,6 +1,6 @@
 module storj.io/storj
 
-go 1.17
+go 1.18
 
 require (
 	github.com/alessio/shellescape v1.2.2
@@ -52,11 +52,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20221024150824-a2a5c611dacf
+	storj.io/common v0.0.0-20221223153333-f5b4455d9cbe
 	storj.io/drpc v0.0.32
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
-	storj.io/private v0.0.0-20221011183246-586e5f48357a
-	storj.io/uplink v1.9.1-0.20221103133433-65947dace243
+	storj.io/private v0.0.0-20221108123115-3a27297f0b78
+	storj.io/uplink v1.10.0
 )
 
 require (

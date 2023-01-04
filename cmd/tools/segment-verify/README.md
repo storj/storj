@@ -22,10 +22,16 @@ There are few parameters for controlling the verification itself:
 --verify.per-piece-timeout duration        duration to wait per piece download (default 800ms)
 # Just the regular dialing timeout.
 --verify.dial-timeout duration             how long to wait for a successful dial (default 2s)
+# This allows to specify the minimum node version that has the Exists endpoint.
+--verify.version-with-exists string        minimum storage node version with implemented Exists method (default "v1.69.2")
 ```
 
 ## Running the tool
-
+- by specifying range boundaries:
 ```
 segment-verify run range --low 00 --high ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff --config-dir ./satellite-config-dir
+```
+- by specifying buckets to be checked:
+```
+segment-verify run buckets --buckets-csv bucket.csv
 ```

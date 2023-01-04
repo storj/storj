@@ -67,7 +67,7 @@ build-binaries:
 build-storjup:
     RUN --mount=type=cache,target=/root/.cache/go-build \
         --mount=type=cache,target=/go/pkg/mod \
-        CGO_ENABLED=0 go install storj.io/storj-up@25258f9
+        CGO_ENABLED=0 go install storj.io/storj-up@main
     SAVE ARTIFACT /go/bin binaries AS LOCAL dist/up
 
 

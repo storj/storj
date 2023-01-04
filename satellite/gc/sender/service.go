@@ -164,6 +164,11 @@ func (service *Service) sendRetainRequest(ctx context.Context, retainInfo *inter
 		return Error.Wrap(err)
 	}
 
+	// avoid sending bloom filters to disqualified and exited nodes
+	if dossier.Disqualified != nil || dossier.ExitStatus.ExitSuccess {
+		return nil
+	}
+
 	if service.Config.RetainSendTimeout > 0 {
 		var cancel func()
 		ctx, cancel = context.WithTimeout(ctx, service.Config.RetainSendTimeout)

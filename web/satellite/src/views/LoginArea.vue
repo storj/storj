@@ -242,7 +242,6 @@ export default class Login extends Vue {
     public isDropdownShown = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
-    public readonly activatePath: string = RouteConfig.Activate.path;
 
     public $refs!: {
         recaptcha: VueRecaptcha;
@@ -438,7 +437,7 @@ export default class Login extends Vue {
 
             if (this.isMFARequired) {
                 if (error instanceof ErrorBadRequest || error instanceof ErrorUnauthorized) {
-                    await this.$notify.error(error.message);
+                    await this.$notify.error(error.message, null);
                 }
 
                 this.isMFAError = true;
@@ -452,7 +451,7 @@ export default class Login extends Vue {
                 return;
             }
 
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
             this.isLoading = false;
             return;
         }
@@ -680,6 +679,10 @@ export default class Login extends Vue {
                 margin-top: 30px;
                 font-size: 14px;
             }
+
+            &__footer-item:focus {
+                text-decoration: underline !important;
+            }
         }
     }
 
@@ -697,6 +700,10 @@ export default class Login extends Vue {
     .link {
         color: #376fff;
         font-family: 'font_medium', sans-serif;
+    }
+
+    .link:focus {
+        text-decoration: underline !important;
     }
 
     .info-box {

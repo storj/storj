@@ -4,60 +4,30 @@
 <template>
     <a
         class="share-button"
-        :href="link"
+        :href="item.link"
         target="_blank"
         rel="noopener noreferrer"
-        :aria-label="label"
+        :aria-label="item.label"
         :style="style"
     >
-        <component :is="images[label]" />
-        <span>{{ label }}</span>
+        <component :is="item.image" />
+        <span>{{ item.label }}</span>
     </a>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { VueConstructor } from 'vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
-import { ShareOptions } from '@/components/common/share/ShareContainer.vue';
+import { ShareButtonConfig } from '@/types/browser';
 
-import RedditIcon from '@/../static/images/objects/reddit.svg';
-import FacebookIcon from '@/../static/images/objects/facebook.svg';
-import TwitterIcon from '@/../static/images/objects/twitter.svg';
-import HackerNewsIcon from '@/../static/images/objects/hackerNews.svg';
-import LinkedInIcon from '@/../static/images/objects/linkedIn.svg';
-import TelegramIcon from '@/../static/images/objects/telegram.svg';
-import WhatsAppIcon from '@/../static/images/objects/whatsApp.svg';
-import EmailIcon from '@/../static/images/objects/email.svg';
+const props = defineProps<{ item: ShareButtonConfig }>();
 
-// @vue/component
-@Component
-export default class ShareButton extends Vue {
-    @Prop({ default: '' })
-    public readonly label: ShareOptions;
-    @Prop({ default: '' })
-    public readonly link: string;
-    @Prop({ default: '#000' })
-    public readonly color: string;
-
-    private readonly images: Record<string, VueConstructor<Vue>> = {
-        [ShareOptions.Reddit]: RedditIcon,
-        [ShareOptions.Facebook]: FacebookIcon,
-        [ShareOptions.Twitter]: TwitterIcon,
-        [ShareOptions.HackerNews]: HackerNewsIcon,
-        [ShareOptions.LinkedIn]: LinkedInIcon,
-        [ShareOptions.Telegram]: TelegramIcon,
-        [ShareOptions.WhatsApp]: WhatsAppIcon,
-        [ShareOptions.Email]: EmailIcon,
-    };
-
-    /**
-     * Returns share button background color.
-     */
-    public get style(): Record<string, string> {
-        return { 'background-color': this.color };
-    }
-}
+/**
+ * Returns share button background color.
+ */
+const style = computed((): Record<string, string> => {
+    return { 'background-color': props.item.color };
+});
 </script>
 
 <style scoped lang="scss">

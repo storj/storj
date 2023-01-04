@@ -31,6 +31,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
@@ -54,6 +55,7 @@ export default class EstimatedCostsAndCredits extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         } catch (error) {
             this.isDataFetching = false;
+            this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ESTIMATED_COSTS_AND_CREDITS);
             return;
         }
 
@@ -62,7 +64,7 @@ export default class EstimatedCostsAndCredits extends Vue {
 
             this.isDataFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ESTIMATED_COSTS_AND_CREDITS);
         }
     }
 

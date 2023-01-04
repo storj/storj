@@ -112,9 +112,9 @@
         <section class="info-area__chart-area">
             <section class="chart-container">
                 <div class="chart-container__title-area disk-space-title">
-                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                    <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ storageSummary }}*d</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ averageUsageBytes }}</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
                     <DiskSpaceChart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" :is-dark-mode="isDarkMode" />
                 </div>
@@ -330,8 +330,8 @@ export default class SNOContentFilling extends Vue {
      * storageSummary - amount of monthly disk space used from store.
      * @return string - formatted amount of monthly disk space used
      */
-    public get storageSummary(): string {
-        return Size.toBase10String(this.$store.state.node.storageSummary);
+    public get averageUsageBytes(): string {
+        return Size.toBase10String(this.$store.state.node.averageUsageBytes);
     }
 
     /**

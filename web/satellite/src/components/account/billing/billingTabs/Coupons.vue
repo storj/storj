@@ -52,7 +52,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
@@ -77,7 +77,7 @@ export default class Coupons extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
             this.isCouponFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
             this.isCouponFetching = false;
         }
     }

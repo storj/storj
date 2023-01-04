@@ -11,6 +11,3 @@ GOOS=js GOARCH=wasm go build -o ./static/wasm/access.wasm storj.io/storj/satelli
 
 # Compress wasm code using brotli
 brotli -k -f ./static/wasm/access.wasm
-
-# Allow execution of wasm_exec.js
-chmod +x ./static/wasm/wasm_exec.js

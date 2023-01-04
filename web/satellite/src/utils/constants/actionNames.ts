@@ -23,6 +23,7 @@ export const APP_STATE_ACTIONS = {
     SHOW_DELETE_PAYMENT_METHOD_POPUP: 'showDeletePaymentMethodPopup',
     CLOSE_DELETE_PAYMENT_METHOD_POPUP: 'closeDeletePaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
+    CLEAR: 'clearAppstate',
     CHANGE_STATE: 'changeFetchState',
     TOGGLE_PAYMENT_SELECTION: 'TOGGLE_PAYMENT_SELECTION',
     SET_SATELLITE_NAME: 'SET_SATELLITE_NAME',

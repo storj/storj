@@ -44,5 +44,5 @@ type DB interface {
 	// CountBuckets returns the number of buckets a project currently has
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
 	// IterateBucketLocations iterates through all buckets from some point with limit.
-	IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (err error)
+	IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (more bool, err error)
 }

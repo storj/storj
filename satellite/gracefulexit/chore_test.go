@@ -4,7 +4,6 @@
 package gracefulexit_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -17,10 +16,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestChore(t *testing.T) {
@@ -136,7 +133,7 @@ func TestChore(t *testing.T) {
 	})
 }
 
-func TestDurabilityRatio(t *testing.T) {
+func TestChoreDurabilityRatio(t *testing.T) {
 	const (
 		maximumInactiveTimeFrame = time.Second * 1
 		successThreshold         = 4
@@ -231,47 +228,4 @@ func TestDurabilityRatio(t *testing.T) {
 			require.NotNil(t, incomplete.RootPieceID)
 		}
 	})
-}
-
-func BenchmarkChore(b *testing.B) {
-	satellitedbtest.Bench(b, func(b *testing.B, db satellite.DB) {
-		gracefulexitdb := db.GracefulExit()
-		ctx := context.Background()
-
-		b.Run("BatchUpdateStats-100", func(b *testing.B) {
-			batch(ctx, b, gracefulexitdb, 100)
-		})
-		if !testing.Short() {
-			b.Run("BatchUpdateStats-250", func(b *testing.B) {
-				batch(ctx, b, gracefulexitdb, 250)
-			})
-			b.Run("BatchUpdateStats-500", func(b *testing.B) {
-				batch(ctx, b, gracefulexitdb, 500)
-			})
-			b.Run("BatchUpdateStats-1000", func(b *testing.B) {
-				batch(ctx, b, gracefulexitdb, 1000)
-			})
-			b.Run("BatchUpdateStats-5000", func(b *testing.B) {
-				batch(ctx, b, gracefulexitdb, 5000)
-			})
-		}
-	})
-}
-func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
-	for i := 0; i < b.N; i++ {
-		var transferQueueItems []gracefulexit.TransferQueueItem
-		for j := 0; j < size; j++ {
-			item := gracefulexit.TransferQueueItem{
-				NodeID:          testrand.NodeID(),
-				StreamID:        testrand.UUID(),
-				Position:        metabase.SegmentPosition{},
-				PieceNum:        0,
-				DurabilityRatio: 1.0,
-			}
-			transferQueueItems = append(transferQueueItems, item)
-		}
-		batchSize := 1000
-		err := db.Enqueue(ctx, transferQueueItems, batchSize)
-		require.NoError(b, err)
-	}
 }

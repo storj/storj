@@ -51,6 +51,9 @@ type Projects interface {
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
 	// UpdateBucketLimit is a method for updating projects bucket limit.
 	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+
+	// UpdateUsageLimits is a method for updating project's usage limits.
+	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -90,19 +93,21 @@ type Project struct {
 	ID       uuid.UUID `json:"id"`
 	PublicID uuid.UUID `json:"publicId"`
 
-	Name           string       `json:"name"`
-	Description    string       `json:"description"`
-	PartnerID      uuid.UUID    `json:"partnerId"`
-	UserAgent      []byte       `json:"userAgent"`
-	OwnerID        uuid.UUID    `json:"ownerId"`
-	RateLimit      *int         `json:"rateLimit"`
-	BurstLimit     *int         `json:"burstLimit"`
-	MaxBuckets     *int         `json:"maxBuckets"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	MemberCount    int          `json:"memberCount"`
-	StorageLimit   *memory.Size `json:"storageLimit"`
-	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
-	SegmentLimit   *int64       `json:"segmentLimit"`
+	Name                        string       `json:"name"`
+	Description                 string       `json:"description"`
+	PartnerID                   uuid.UUID    `json:"partnerId"`
+	UserAgent                   []byte       `json:"userAgent"`
+	OwnerID                     uuid.UUID    `json:"ownerId"`
+	RateLimit                   *int         `json:"rateLimit"`
+	BurstLimit                  *int         `json:"burstLimit"`
+	MaxBuckets                  *int         `json:"maxBuckets"`
+	CreatedAt                   time.Time    `json:"createdAt"`
+	MemberCount                 int          `json:"memberCount"`
+	StorageLimit                *memory.Size `json:"storageLimit"`
+	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
+	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64       `json:"segmentLimit"`
 }
 
 // ProjectInfo holds data needed to create/update Project.

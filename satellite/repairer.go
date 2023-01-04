@@ -218,6 +218,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Audit.Reporter = audit.NewReporter(
 			log.Named("reporter"),
 			peer.Reputation,
+			peer.Overlay,
 			containmentDB,
 			config.Audit.MaxRetriesStatDB,
 			int32(config.Audit.MaxReverifyCount))
@@ -239,8 +240,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			config.Checker.RepairOverrides,
-			config.Repairer.Timeout,
-			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Repairer,
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 

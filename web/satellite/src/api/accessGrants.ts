@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccessGrant,
     AccessGrantCursor,
@@ -143,10 +142,6 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
 
         if (response.ok || response.status === 204) {
             return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('can not delete access grant');

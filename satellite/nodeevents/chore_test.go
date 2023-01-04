@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
@@ -32,6 +35,20 @@ func (tn *TestNotifier) Notify(ctx context.Context, satellite string, events []n
 	n = append(n, events...)
 	tn.notifications[email] = n
 	return nil
+}
+
+type ErrorNotifier struct {
+	errCount int
+	errID    uuid.UUID
+}
+
+func (errN *ErrorNotifier) Notify(ctx context.Context, satellite string, events []nodeevents.NodeEvent) error {
+	if len(events) == 0 {
+		return errs.New("This shouldn't happen")
+	}
+	errN.errCount++
+	errN.errID = events[0].ID
+	return errs.New("test error")
 }
 
 func TestNodeEventsChore(t *testing.T) {
@@ -97,5 +114,106 @@ func TestNodeEventsChore(t *testing.T) {
 		}
 		require.True(t, foundEvent1)
 		require.True(t, foundEvent2)
+	})
+}
+
+func TestNodeEventsChoreFailedNotify(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		node0 := planet.StorageNodes[0]
+
+		chore := sat.NodeEvents.Chore
+		chore.Loop.Pause()
+
+		errN := &ErrorNotifier{}
+		chore.SetNotifier(errN)
+
+		// DQ nodes. Should create a node events in nodeevents DB.
+		require.NoError(t, sat.Overlay.Service.DisqualifyNode(ctx, node0.ID(), overlay.DisqualificationReasonUnknown))
+
+		// Now, set nowFn on chore to 5 minutes in the future to test that chore does notify for the events.
+		futureTime := func() time.Time {
+			return time.Now().Add(5 * time.Minute)
+		}
+		chore.SetNow(futureTime)
+
+		// Trigger chore and check that error occurred, that last_attempted has been updated, and email_sent is null
+		chore.Loop.TriggerWait()
+		require.Equal(t, 1, errN.errCount)
+
+		event, err := sat.DB.NodeEvents().GetByID(ctx, errN.errID)
+		require.NoError(t, err)
+		require.NotNil(t, event.LastAttempted)
+		require.Nil(t, event.EmailSent)
+	})
+}
+
+func TestNodeEventsChoreInvalidEmails(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SelectionWaitPeriod = 5 * time.Minute
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		// just a handful of emails, not exhaustive
+		emails := []string{
+			"",
+			"abc",
+			"abc.storj.test",
+			"abc@def@storj.test",
+			"abc\"@storj.test",
+			"abc@storj..test",
+			"abc @storj.test",
+
+			// one valid email as a control group
+			"abc@storj.test",
+		}
+
+		validEmail := emails[len(emails)-1]
+
+		chore := sat.NodeEvents.Chore
+		chore.Loop.Pause()
+
+		tn := &TestNotifier{
+			notifications: make(map[string][]nodeevents.NodeEvent),
+		}
+		chore.SetNotifier(tn)
+
+		// set nowFn on chore to 5 minutes in the future to test that chore will select node events.
+		futureTime := func() time.Time {
+			return time.Now().Add(5 * time.Minute)
+		}
+		chore.SetNow(futureTime)
+
+		event := nodeevents.Disqualified
+		for _, e := range emails {
+			_, err := sat.DB.NodeEvents().Insert(ctx, e, teststorj.NodeIDFromString("test"), event)
+			require.NoError(t, err)
+		}
+
+		chore.Loop.TriggerWait()
+
+		require.Len(t, tn.notifications, 1)
+		require.NotEmpty(t, tn.notifications[validEmail])
+
+		// Check that email_sent is not null for invalid emails, so they don't clog up the table
+		for _, e := range emails {
+			ne, err := sat.DB.NodeEvents().GetLatestByEmailAndEvent(ctx, e, event)
+			require.NoError(t, err)
+			require.NotNil(t, ne.EmailSent)
+		}
 	})
 }

@@ -78,9 +78,6 @@ type DB interface {
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
 
-	// TestMigrateToLatest is a fast migration with skipping test (not safe for production + old db state)
-	TestMigrateToLatest(ctx context.Context) error
-
 	// Close closes the database
 	Close() error
 
@@ -545,6 +542,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.RetainService,
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
+			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
 			peer.DB.Bandwidth(),

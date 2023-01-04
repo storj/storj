@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
@@ -68,6 +69,10 @@ type Admin struct {
 
 	REST struct {
 		Keys *restkeys.Service
+	}
+
+	FreezeAccounts struct {
+		Service *console.AccountFreezeService
 	}
 }
 
@@ -145,6 +150,16 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
 
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Payments.Service, err = stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -154,9 +169,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
 			pc.BonusRate)
 
 		if err != nil {
@@ -165,6 +179,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+		peer.FreezeAccounts.Service = console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
 	}
 
 	{ // setup admin endpoint
@@ -177,7 +192,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.Payments.Accounts, config.Console, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.FreezeAccounts.Service, peer.Payments.Accounts, config.Console, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,

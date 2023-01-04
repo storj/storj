@@ -33,7 +33,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -86,7 +86,7 @@ export default class DeleteBucketModal extends Vue {
             }
 
             const now = new Date();
-            const inOneDay = new Date(now.setDate(now.getDate() + 1));
+            const inOneHour = new Date(now.setHours(now.getHours() + 1));
 
             await this.worker.postMessage({
                 'type': 'SetPermission',
@@ -94,14 +94,14 @@ export default class DeleteBucketModal extends Vue {
                 'isUpload': false,
                 'isList': true,
                 'isDelete': true,
-                'notAfter': inOneDay.toISOString(),
-                'buckets': [],
+                'notAfter': inOneHour.toISOString(),
+                'buckets': [this.name],
                 'apiKey': this.apiKey,
             });
 
             const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
             if (grantEvent.data.error) {
-                await this.$notify.error(grantEvent.data.error);
+                await this.$notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
                 return;
             }
 
@@ -118,7 +118,7 @@ export default class DeleteBucketModal extends Vue {
 
             const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
             if (accessGrantEvent.data.error) {
-                await this.$notify.error(accessGrantEvent.data.error);
+                await this.$notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
                 return;
             }
 
@@ -130,7 +130,7 @@ export default class DeleteBucketModal extends Vue {
             this.analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
             await this.fetchBuckets();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
             return;
         } finally {
             this.isLoading = false;
@@ -146,7 +146,7 @@ export default class DeleteBucketModal extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
         }
     }
 
@@ -156,7 +156,7 @@ export default class DeleteBucketModal extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
         };
     }
 

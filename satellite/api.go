@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -48,7 +49,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/reputation"
@@ -108,6 +108,10 @@ type API struct {
 		Endpoint      *metainfo.Endpoint
 	}
 
+	Userinfo struct {
+		Endpoint *userinfo.Endpoint
+	}
+
 	Inspector struct {
 		Endpoint *inspector.Endpoint
 	}
@@ -135,7 +139,6 @@ type API struct {
 		StorjscanService *storjscan.Service
 		StorjscanClient  *storjscan.Client
 
-		Conversion    *stripecoinpayments.ConversionService
 		StripeService *stripecoinpayments.Service
 		StripeClient  stripecoinpayments.StripeClient
 	}
@@ -487,6 +490,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup userinfo.
+		if config.Userinfo.Enabled {
+
+			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
+				peer.Log.Named("userinfo:endpoint"),
+				peer.DB.Console().Users(),
+				peer.DB.Console().APIKeys(),
+				peer.DB.Console().Projects(),
+				config.Userinfo,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if err := pb.DRPCRegisterUserInfo(peer.Server.DRPC(), peer.Userinfo.Endpoint); err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "userinfo:endpoint",
+				Close: peer.Userinfo.Endpoint.Close,
+			})
+		} else {
+			peer.Log.Named("userinfo:endpoint").Info("disabled")
+		}
+	}
+
 	{ // setup inspector
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
@@ -513,6 +543,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
 
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Payments.StripeService, err = stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
@@ -522,9 +562,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
 			pc.BonusRate)
 
 		if err != nil {
@@ -533,16 +572,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.StripeClient = stripeClient
 		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
-		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
-			peer.Log.Named("payments.stripe:version"),
-			peer.Payments.StripeService,
-			pc.StripeCoinPayments.ConversionRatesCycleInterval)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Conversion.Run,
-			Close: peer.Payments.Conversion.Close,
-		})
 
 		peer.Payments.StorjscanClient = storjscan.NewClient(
 			pc.Storjscan.Endpoint,
@@ -602,11 +631,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		pricing := paymentsconfig.PricingValues{
-			StorageTBPrice: config.Payments.StorageTBPrice,
-			EgressTBPrice:  config.Payments.EgressTBPrice,
-			SegmentPrice:   config.Payments.SegmentPrice,
-		}
+		accountFreezeService := console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
@@ -617,9 +642,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
+			accountFreezeService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
-			pricing,
+			config.Payments.UsagePrice,
 			peer.URL(),
 		)
 

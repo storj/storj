@@ -1,16 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { InMemoryCache } from 'apollo-cache-inmemory';
-import ApolloClient from 'apollo-client/ApolloClient';
-import { ApolloLink } from 'apollo-link';
-import { setContext } from 'apollo-link-context';
-import { onError } from 'apollo-link-error';
-import { HttpLink } from 'apollo-link-http';
-import { ServerError } from 'apollo-link-http-common';
 import Vue from 'vue';
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, ServerError } from '@apollo/client/core';
+import { setContext } from '@apollo/client/link/context';
+import { onError } from '@apollo/client/link/error';
 
 import { AuthHttpApi } from '@/api/auth';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 /**
  * Satellite url.
@@ -36,19 +33,19 @@ const authLink = setContext((_, { headers }) => {
  */
 const errorLink = onError(({ graphQLErrors, networkError }) => {
     if (graphQLErrors?.length) {
-        Vue.prototype.$notify.error(graphQLErrors.join('\n'));
+        Vue.prototype.$notify.error(graphQLErrors.join('\n'), AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR);
     }
 
     if (networkError) {
         const nError = (networkError as ServerError);
         if (nError.statusCode === 401) {
             new AuthHttpApi().logout();
-            Vue.prototype.$notify.error('Session token expired');
+            Vue.prototype.$notify.error('Session token expired', AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
             setTimeout(() => {
                 window.location.href = window.location.origin + '/login';
-            }, 3000);
+            }, 2000);
         } else {
-            nError.result && Vue.prototype.$notify.error(nError.result.error);
+            nError.result && Vue.prototype.$notify.error(nError.result.error, AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR);
         }
     }
 

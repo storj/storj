@@ -119,6 +119,7 @@ import prettyBytes from 'pretty-bytes';
 
 import { BrowserFile } from '@/types/browser';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -140,7 +141,6 @@ export default class ObjectDetailsModal extends Vue {
     public objectMapUrl = '';
     public objectPreviewUrl = '';
     public previewAndMapFailed = false;
-
     public objectLink = '';
     public copyText = 'Copy Link';
 
@@ -286,7 +286,7 @@ export default class ObjectDetailsModal extends Vue {
             this.$store.dispatch('files/download', this.file);
             this.$notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
         } catch (error) {
-            this.$notify.error('Can not download your file');
+            this.$notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
         }
     }
 

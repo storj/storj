@@ -71,6 +71,10 @@ const (
 	eventCreditCardAddedFromBilling = "Credit Card Added From Billing"
 	eventStorjTokenAddedFromBilling = "Storj Token Added From Billing"
 	eventAddFundsClicked            = "Add Funds Clicked"
+	eventProjectMembersInviteSent   = "Project Members Invite Sent"
+	eventProjectMemberAdded         = "Project Member Added"
+	eventProjectMemberDeleted       = "Project Member Deleted"
+	eventError                      = "UI error occurred"
 )
 
 var (
@@ -120,7 +124,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		eventCopyToClipboardClicked, eventCreateAccessGrantClicked, eventCreateS3CredentialsClicked, eventKeysForCLIClicked,
 		eventSeePaymentsClicked, eventEditPaymentMethodClicked, eventUsageDetailedInfoClicked, eventAddNewPaymentMethodClicked,
 		eventApplyNewCouponClicked, eventCreditCardRemoved, eventCouponCodeApplied, eventInvoiceDownloaded, eventCreditCardAddedFromBilling,
-		eventStorjTokenAddedFromBilling, eventAddFundsClicked} {
+		eventStorjTokenAddedFromBilling, eventAddFundsClicked, eventProjectMembersInviteSent, eventError} {
 		service.clientEvents[name] = true
 	}
 
@@ -369,6 +373,24 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID, email str
 	})
 }
 
+// TrackErrorEvent sends an arbitrary error event associated with user ID to Segment.
+// It is used for tracking occurrences of client-side errors.
+func (service *Service) TrackErrorEvent(userID uuid.UUID, email string, source string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+	props.Set("source", source)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventError,
+		Properties: props,
+	})
+}
+
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
 func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, email, link string) {
@@ -465,6 +487,40 @@ func (service *Service) TrackStorjTokenAdded(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventStorjTokenAdded,
+		Properties: props,
+	})
+
+}
+
+// TrackProjectMemberAddition sends an "Project Member Added" event to Segment.
+func (service *Service) TrackProjectMemberAddition(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectMemberAdded,
+		Properties: props,
+	})
+
+}
+
+// TrackProjectMemberDeletion sends an "Project Member Deleted" event to Segment.
+func (service *Service) TrackProjectMemberDeletion(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventProjectMemberDeleted,
 		Properties: props,
 	})
 

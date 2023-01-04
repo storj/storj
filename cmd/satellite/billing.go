@@ -53,6 +53,16 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 	}
 
+	prices, err := pc.UsagePrice.ToModel()
+	if err != nil {
+		return nil, err
+	}
+
+	priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+	if err != nil {
+		return nil, err
+	}
+
 	return stripecoinpayments.NewService(
 		log.Named("payments.stripe:service"),
 		stripeClient,
@@ -62,9 +72,8 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		db.Billing(),
 		db.Console().Projects(),
 		db.ProjectAccounting(),
-		pc.StorageTBPrice,
-		pc.EgressTBPrice,
-		pc.SegmentPrice,
+		prices,
+		priceOverrides,
 		pc.BonusRate)
 }
 

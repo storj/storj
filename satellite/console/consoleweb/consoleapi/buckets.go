@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 )
 
@@ -68,5 +69,5 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (b *Buckets) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(b.log, w, status, err)
+	web.ServeJSONError(b.log, w, status, err)
 }

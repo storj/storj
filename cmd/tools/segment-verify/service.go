@@ -17,6 +17,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
@@ -31,11 +32,12 @@ type Metabase interface {
 	LatestNodesAliasMap(ctx context.Context) (*metabase.NodeAliasMap, error)
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	ListVerifySegments(ctx context.Context, opts metabase.ListVerifySegments) (result metabase.ListVerifySegmentsResult, err error)
+	ListBucketsStreamIDs(ctx context.Context, opts metabase.ListBucketsStreamIDs) (result metabase.ListBucketsStreamIDsResult, err error)
 }
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -55,16 +57,26 @@ type SegmentWriter interface {
 type ServiceConfig struct {
 	NotFoundPath      string `help:"segments not found on storage nodes" default:"segments-not-found.csv"`
 	RetryPath         string `help:"segments unable to check against satellite" default:"segments-retry.csv"`
+	ProblemPiecesPath string `help:"pieces that could not be fetched successfully" default:"problem-pieces.csv"`
 	PriorityNodesPath string `help:"list of priority node ID-s" default:""`
 	IgnoreNodesPath   string `help:"list of nodes to ignore" default:""`
 
-	Check       int `help:"how many storagenodes to query per segment" default:"3"`
+	Check       int `help:"how many storagenodes to query per segment (if 0, query all)" default:"3"`
 	BatchSize   int `help:"number of segments to process per batch" default:"10000"`
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
-	MaxOffline  int `help:"maximum number of offline in a sequence" default:"2"`
+	MaxOffline  int `help:"maximum number of offline in a sequence (if 0, no limit)" default:"2"`
+
+	OfflineStatusCacheTime time.Duration `help:"how long to cache a \"node offline\" status" default:"30m"`
 
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
+
+type pieceReporterFunc func(
+	ctx context.Context,
+	segment *metabase.VerifySegment,
+	nodeID storj.NodeID,
+	pieceNum int,
+	outcome audit.Outcome) error
 
 // Service implements segment verification logic.
 type Service struct {
@@ -78,11 +90,18 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap       *metabase.NodeAliasMap
-	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
-	priorityNodes  NodeAliasSet
-	onlineNodes    NodeAliasSet
-	offlineCount   map[metabase.NodeAlias]int
+	aliasMap        *metabase.NodeAliasMap
+	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	priorityNodes   NodeAliasSet
+	ignoreNodes     NodeAliasSet
+	offlineNodes    *nodeAliasExpiringSet
+	offlineCount    map[metabase.NodeAlias]int
+	bucketList      BucketList
+	nodesVersionMap map[metabase.NodeAlias]string
+
+	// this is a callback so that problematic pieces can be reported as they are found,
+	// rather than being kept in a list which might grow unreasonably large.
+	reportPiece pieceReporterFunc
 }
 
 // NewService returns a new service for verifying segments.
@@ -97,6 +116,12 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		return nil, errs.Combine(Error.Wrap(err), notFound.Close())
 	}
 
+	problemPieces, err := newPieceCSVWriter(config.ProblemPiecesPath)
+	if err != nil {
+		return nil, errs.Combine(Error.Wrap(err), retry.Close(), notFound.Close())
+	}
+	defer func() { _ = problemPieces.Close() }()
+
 	return &Service{
 		log:    log,
 		config: config,
@@ -108,10 +133,14 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		verifier: verifier,
 		overlay:  overlay,
 
-		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
-		priorityNodes:  NodeAliasSet{},
-		onlineNodes:    NodeAliasSet{},
-		offlineCount:   map[metabase.NodeAlias]int{},
+		aliasToNodeURL:  map[metabase.NodeAlias]storj.NodeURL{},
+		priorityNodes:   NodeAliasSet{},
+		ignoreNodes:     NodeAliasSet{},
+		offlineNodes:    newNodeAliasExpiringSet(config.OfflineStatusCacheTime),
+		offlineCount:    map[metabase.NodeAlias]int{},
+		nodesVersionMap: map[metabase.NodeAlias]string{},
+
+		reportPiece: problemPieces.Write,
 	}, nil
 }
 
@@ -152,7 +181,6 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 			ID:      node.ID,
 			Address: addr,
 		}
-		service.onlineNodes.Add(alias)
 	}
 
 	return nil
@@ -168,19 +196,18 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
-// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority and online nodes.
+// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority nodes.
 func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
 	if service.config.IgnoreNodesPath == "" {
 		return nil
 	}
 
-	ignoreNodes, err := service.parseNodeFile(service.config.IgnoreNodesPath)
+	service.ignoreNodes, err = service.parseNodeFile(service.config.IgnoreNodesPath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	service.onlineNodes.RemoveAll(ignoreNodes)
-	service.priorityNodes.RemoveAll(ignoreNodes)
+	service.priorityNodes.RemoveAll(service.ignoreNodes)
 
 	return nil
 }
@@ -214,6 +241,19 @@ func (service *Service) parseNodeFile(path string) (NodeAliasSet, error) {
 	}
 
 	return set, nil
+}
+
+// BucketList contains a list of buckets to check segments from.
+type BucketList struct {
+	Buckets []metabase.BucketLocation
+}
+
+// Add adds a bucket to the bucket list.
+func (list *BucketList) Add(projectID uuid.UUID, bucketName string) {
+	list.Buckets = append(list.Buckets, metabase.BucketLocation{
+		ProjectID:  projectID,
+		BucketName: bucketName,
+	})
 }
 
 // ProcessRange processes segments between low and high uuid.UUID with the specified batchSize.
@@ -300,6 +340,107 @@ func (service *Service) ProcessRange(ctx context.Context, low, high uuid.UUID) (
 	}
 }
 
+// ProcessBuckets processes segments in buckets with the specified batchSize.
+func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.BucketLocation) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	service.aliasMap = aliasMap
+
+	err = service.loadOnlineNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.loadPriorityNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = service.applyIgnoreNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var progress int64
+
+	cursorBucket := metabase.BucketLocation{}
+	cursorStreamID := uuid.UUID{}
+	cursorPosition := metabase.SegmentPosition{} // Convert to struct that contains the status.
+	segmentsData := make([]Segment, service.config.BatchSize)
+	segments := make([]*Segment, service.config.BatchSize)
+	for {
+
+		listStreamIDsResult, err := service.metabase.ListBucketsStreamIDs(ctx, metabase.ListBucketsStreamIDs{
+			BucketList: metabase.ListVerifyBucketList{
+				Buckets: service.bucketList.Buckets,
+			},
+			CursorBucket:   cursorBucket,
+			CursorStreamID: cursorStreamID,
+			Limit:          service.config.BatchSize,
+
+			AsOfSystemInterval: service.config.AsOfSystemInterval,
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for {
+			// TODO loop for this
+			result, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
+				StreamIDs:      listStreamIDsResult.StreamIDs,
+				CursorStreamID: cursorStreamID,
+				CursorPosition: cursorPosition,
+				Limit:          service.config.BatchSize,
+
+				AsOfSystemInterval: service.config.AsOfSystemInterval,
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// All done?
+			if len(result.Segments) == 0 {
+				break
+			}
+
+			segmentsData = segmentsData[:len(result.Segments)]
+			segments = segments[:len(result.Segments)]
+
+			last := &result.Segments[len(result.Segments)-1]
+			cursorStreamID, cursorPosition = last.StreamID, last.Position
+
+			for i := range segments {
+				segmentsData[i].VerifySegment = result.Segments[i]
+				segments[i] = &segmentsData[i]
+			}
+
+			service.log.Info("processing segments",
+				zap.Int64("progress", progress),
+				zap.Int("count", len(segments)),
+				zap.Stringer("first", segments[0].StreamID),
+				zap.Stringer("last", segments[len(segments)-1].StreamID),
+			)
+			progress += int64(len(segments))
+
+			// Process the data.
+			err = service.ProcessSegments(ctx, segments)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		if len(listStreamIDsResult.StreamIDs) == 0 {
+			return nil
+		}
+
+		cursorBucket = listStreamIDsResult.LastBucket
+		// TODO remove processed project_ids and bucket_names?
+	}
+}
+
 // ProcessSegments processes a collection of segments.
 func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -318,9 +459,7 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 	for _, segment := range segments {
 		if segment.Status.NotFound > 0 {
 			notFound = append(notFound, segment)
-		} else if segment.Status.Retry > 0 {
-			// TODO: should we do a smarter check here?
-			// e.g. if at least half did find, then consider it ok?
+		} else if (service.config.Check > 0 && segment.Status.Retry > 0) || segment.Status.Retry > 5 {
 			retry = append(retry, segment)
 		}
 	}

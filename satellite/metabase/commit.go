@@ -584,40 +584,38 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		versionsToDelete := []Version{}
-		if db.config.MultipleVersions {
-			if err := withRows(tx.QueryContext(ctx, `
-				SELECT version
-				FROM objects
-				WHERE
-					project_id   = $1 AND
-					bucket_name  = $2 AND
-					object_key   = $3 AND
-					status       = `+committedStatus,
-				opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
-				for rows.Next() {
-					var version Version
-					if err := rows.Scan(&version); err != nil {
-						return Error.New("failed to scan previous object: %w", err)
-					}
-
-					versionsToDelete = append(versionsToDelete, version)
+		if err := withRows(tx.QueryContext(ctx, `
+			SELECT version
+			FROM objects
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				status       = `+committedStatus,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var version Version
+				if err := rows.Scan(&version); err != nil {
+					return Error.New("failed to scan previous object: %w", err)
 				}
-				return nil
-			}); err != nil {
-				return Error.New("failed to find previous objects: %w", err)
-			}
 
-			if len(versionsToDelete) > 1 {
-				db.log.Warn("object with multiple committed versions were found!",
-					zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
-					zap.String("Object Key", string(opts.ObjectKey)))
-
-				mon.Meter("multiple_committed_versions").Mark(1)
+				versionsToDelete = append(versionsToDelete, version)
 			}
+			return nil
+		}); err != nil {
+			return Error.New("failed to find previous objects: %w", err)
+		}
 
-			if len(versionsToDelete) != 0 && opts.DisallowDelete {
-				return ErrPermissionDenied.New("no permissions to delete existing object")
-			}
+		if len(versionsToDelete) > 1 {
+			db.log.Warn("object with multiple committed versions were found!",
+				zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+				zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("deleted", len(versionsToDelete)))
+
+			mon.Meter("multiple_committed_versions").Mark(1)
+		}
+
+		if len(versionsToDelete) != 0 && opts.DisallowDelete {
+			return ErrPermissionDenied.New("no permissions to delete existing object")
 		}
 
 		err = tx.QueryRowContext(ctx, `

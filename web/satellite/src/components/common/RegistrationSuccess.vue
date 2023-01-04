@@ -50,115 +50,106 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { useNotify, useRoute } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        LogoIcon,
-        MailIcon,
-    },
-})
-export default class RegistrationSuccess extends Vue {
-    @Prop({ default: '' })
-    private readonly email: string;
-    @Prop({ default: true })
-    private readonly showManualActivationMsg: boolean;
+const props = withDefaults(defineProps<{
+    email: string;
+    showManualActivationMsg: boolean;
+}>(), {
+    email: '',
+    showManualActivationMsg: true,
+});
 
-    private secondsToWait = 30;
-    private intervalID: ReturnType<typeof setInterval>;
+const route = useRoute();
+const notify = useNotify();
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const auth: AuthHttpApi = new AuthHttpApi();
+const loginPath: string = RouteConfig.Login.path;
 
-    public readonly loginPath: string = RouteConfig.Login.path;
+const secondsToWait = ref<number>(30);
+const intervalId = ref<ReturnType<typeof setInterval>>();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Starts resend email button availability countdown.
-     */
-    public mounted(): void {
-        this.startResendEmailCountdown();
-    }
+const userEmail = computed((): string => {
+    return props.email || route.query.email.toString();
+});
 
-    /**
-     * Lifecycle hook before component destroying.
-     * Resets interval.
-     */
-    public beforeDestroy(): void {
-        if (this.intervalID) {
-            clearInterval(this.intervalID);
-        }
-    }
+/**
+ * Checks if page is inside iframe.
+ */
+const isInsideIframe = computed((): boolean => {
+    return window.self !== window.top;
+});
 
-    /**
-     * Gets email (either passed in as prop or via query param).
-     */
-    public get userEmail(): string {
-        return this.email || this.$route.query.email.toString();
-    }
+/**
+ * Returns the time left until the Resend Email button is enabled in mm:ss form.
+ */
+const timeToEnableResendEmailButton = computed((): string => {
+    return `${Math.floor(secondsToWait.value / 60).toString().padStart(2, '0')}:${(secondsToWait.value % 60).toString().padStart(2, '0')}`;
+});
 
-    /**
-     * Reloads page.
-     */
-    public onLogoClick(): void {
-        location.replace(RouteConfig.Register.path);
-    }
-
-    /**
-     * Checks if page is inside iframe.
-     */
-    public get isInsideIframe(): boolean {
-        return window.self !== window.top;
-    }
-
-    /**
-     * Returns the time left until the Resend Email button is enabled in mm:ss form.
-     */
-    public get timeToEnableResendEmailButton(): string {
-        return `${Math.floor(this.secondsToWait / 60).toString().padStart(2, '0')}:${(this.secondsToWait % 60).toString().padStart(2, '0')}`;
-    }
-
-    /**
-     * Resend email if interval timer is expired.
-     */
-    public async onResendEmailButtonClick(): Promise<void> {
-        const email = this.userEmail;
-        if (this.secondsToWait != 0 || !email) {
-            return;
-        }
-
-        try {
-            await this.auth.resendEmail(email);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        this.startResendEmailCountdown();
-    }
-
-    /**
-     * Resets timer blocking email resend button spamming.
-     */
-    private startResendEmailCountdown(): void {
-        this.secondsToWait = 30;
-
-        this.intervalID = setInterval(() => {
-            if (--this.secondsToWait <= 0) {
-                clearInterval(this.intervalID);
-            }
-        }, 1000);
-    }
+/**
+ * Reloads page.
+ */
+function onLogoClick(): void {
+    location.replace(RouteConfig.Register.path);
 }
+
+/**
+ * Resets timer blocking email resend button spamming.
+ */
+function startResendEmailCountdown(): void {
+    secondsToWait.value = 30;
+
+    intervalId.value = setInterval(() => {
+        if (--secondsToWait.value <= 0) {
+            clearInterval(intervalId.value);
+        }
+    }, 1000);
+}
+
+/**
+ * Resend email if interval timer is expired.
+ */
+async function onResendEmailButtonClick(): Promise<void> {
+    const email = userEmail.value;
+    if (secondsToWait.value != 0 || !email) {
+        return;
+    }
+
+    try {
+        await auth.resendEmail(email);
+    } catch (error) {
+        await notify.error(error.message, null);
+    }
+
+    startResendEmailCountdown();
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Starts resend email button availability countdown.
+ */
+onMounted(() => {
+    startResendEmailCountdown();
+});
+
+/**
+ * Lifecycle hook before component destroying.
+ * Resets interval.
+ */
+onBeforeUnmount(() => {
+    clearInterval(intervalId.value);
+});
 </script>
 
 <style scoped lang="scss">

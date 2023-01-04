@@ -67,6 +67,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -136,6 +137,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             this.nameError = error.message;
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
 
             return;
         }
@@ -144,6 +146,7 @@ export default class NewProjectPopup extends Vue {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
             this.isLoading = false;
 
             return;

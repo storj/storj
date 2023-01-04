@@ -147,7 +147,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected := []storj.Object{
+			expected := []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/album/söng3.mp3"},
 				{Path: "müsic/söng1.mp3"},
@@ -176,7 +176,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected = []storj.Object{
+			expected = []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/", IsPrefix: true},
 				{Path: "sample.😶"},
@@ -268,8 +268,8 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
-				Bucket:        []byte("testbucket"),
-				EncryptedPath: []byte(objects[0].ObjectKey),
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(objects[0].ObjectKey),
 			})
 			require.NoError(t, err)
 
@@ -283,7 +283,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 					ApiKey: apiKey.SerializeRaw(),
 				},
 				Bucket:                        getResp.Object.Bucket,
-				EncryptedObjectKey:            getResp.Object.EncryptedPath,
+				EncryptedObjectKey:            getResp.Object.EncryptedObjectKey,
 				Version:                       getResp.Object.Version,
 				StreamId:                      getResp.Object.StreamId,
 				EncryptedMetadataNonce:        testEncryptedMetadataNonce,
@@ -527,14 +527,14 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			require.Equal(t, committedObject.Version+1, pendingObject.Version)
 
 			getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-				Header:        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				Bucket:        []byte("testbucket"),
-				EncryptedPath: []byte(committedObject.ObjectKey),
-				Version:       int32(committedObject.Version),
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte("testbucket"),
+				EncryptedObjectKey: []byte(committedObject.ObjectKey),
+				Version:            int32(committedObject.Version),
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, getObjectResponse.Object.Bucket)
-			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.ObjectKey, getObjectResponse.Object.EncryptedObjectKey)
 			require.EqualValues(t, committedObject.Version, getObjectResponse.Object.Version)
 		})
 
@@ -568,7 +568,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.EqualValues(t, committedObject.BucketName, downloadObjectResponse.Object.Bucket)
-			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedPath)
+			require.EqualValues(t, committedObject.ObjectKey, downloadObjectResponse.Object.EncryptedObjectKey)
 			require.EqualValues(t, committedObject.Version, downloadObjectResponse.Object.Version)
 		})
 
@@ -694,7 +694,7 @@ func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected := []storj.Object{
+			expected := []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/album/söng3.mp3"},
 				{Path: "müsic/söng1.mp3"},
@@ -723,7 +723,7 @@ func TestEndpoint_Object_No_StorageNodes_TestListingQuery(t *testing.T) {
 			}
 			require.NoError(t, objects.Err())
 
-			expected = []storj.Object{
+			expected = []metaclient.Object{
 				{Path: "müsic"},
 				{Path: "müsic/", IsPrefix: true},
 				{Path: "sample.😶"},
@@ -900,9 +900,31 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			require.NoError(t, uplnk.CreateBucket(uplinkCtx, sat, bucketName))
 			require.NoError(t, uplnk.Upload(uplinkCtx, sat, bucketName, "jones", testrand.Bytes(20*memory.KB)))
+
+			project, err := uplnk.OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			// make a copy
+			_, err = project.CopyObject(ctx, bucketName, "jones", bucketName, "jones_copy", nil)
+			require.NoError(t, err)
+
 			ips, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
 			require.NoError(t, err)
 			require.True(t, len(ips) > 0)
+
+			copyIPs, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones_copy")
+			require.NoError(t, err)
+
+			sort.Slice(ips, func(i, j int) bool {
+				return bytes.Compare(ips[i], ips[j]) < 0
+			})
+			sort.Slice(copyIPs, func(i, j int) bool {
+				return bytes.Compare(copyIPs[i], copyIPs[j]) < 0
+			})
+
+			// verify that orignal and copy has the same results
+			require.Equal(t, ips, copyIPs)
 
 			// verify it's a real IP with valid host and port
 			for _, ip := range ips {
@@ -1582,8 +1604,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte(objects[0].ObjectKey),
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
 		})
 		require.NoError(t, err)
 
@@ -1594,7 +1616,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 				ApiKey: apiKey.SerializeRaw(),
 			},
 			Bucket:                getResp.Object.Bucket,
-			EncryptedObjectKey:    getResp.Object.EncryptedPath,
+			EncryptedObjectKey:    getResp.Object.EncryptedObjectKey,
 			NewBucket:             []byte("testbucket"),
 			NewEncryptedObjectKey: []byte("newencryptedkey"),
 		})
@@ -1662,8 +1684,8 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte("newobjectkey"),
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte("newobjectkey"),
 		})
 		require.NoError(t, err, objectsAfterCopy[1])
 		require.NotEqual(t, getResp.Object.StreamId, getCopyResp.Object.StreamId)
@@ -1925,10 +1947,10 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		validKey := randomEncryptedKey
 
 		getObjectResponse, err := satellite.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-			Header:        &pb.RequestHeader{ApiKey: apiKey},
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte(objects[0].ObjectKey),
-			Version:       int32(objects[0].Version),
+			Header:             &pb.RequestHeader{ApiKey: apiKey},
+			Bucket:             []byte("testbucket"),
+			EncryptedObjectKey: []byte(objects[0].ObjectKey),
+			Version:            int32(objects[0].Version),
 		})
 		require.NoError(t, err)
 
@@ -2045,6 +2067,12 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 			require.Equal(t, "object", iterator.Item().Key)
 			require.NoError(t, iterator.Err())
 
+			// upload multipleversions/object once again as we just moved it
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", expectedData)
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+
 			{ // server side copy
 				_, err = project.CopyObject(ctx, "multipleversions", "object", "multipleversions", "object_copy", nil)
 				require.NoError(t, err)
@@ -2081,6 +2109,9 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 			checkDownload("object", expectedData)
 
 			_, err = project.DeleteObject(ctx, "multipleversions", "object")
+			require.NoError(t, err)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object_moved")
 			require.NoError(t, err)
 
 			iterator = project.ListObjects(ctx, "multipleversions", nil)
@@ -2247,5 +2278,36 @@ func TestEndpoint_Object_CopyObject_MultipleVersions(t *testing.T) {
 		require.Equal(t, []string{
 			"objectA", "objectInline", "objectInlineCopy", "objectRemote",
 		}, items)
+	})
+}
+
+func TestEndpoint_Object_MoveObject_MultipleVersions(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MultipleVersions = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		// upload objectA twice to have to have version different than 1
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectB", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// move is not possible because we have committed object under target location
+		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
+		require.Error(t, err)
 	})
 }

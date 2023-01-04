@@ -26,7 +26,7 @@ import (
 	"storj.io/uplink"
 )
 
-func TestGarbageCollectionBloomFilters(t *testing.T) {
+func TestServiceGarbageCollectionBloomFilters(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 7,
@@ -143,7 +143,7 @@ func TestGarbageCollectionBloomFilters(t *testing.T) {
 	})
 }
 
-func TestGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) {
+func TestServiceGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,

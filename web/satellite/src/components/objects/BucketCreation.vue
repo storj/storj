@@ -29,7 +29,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
 import BucketCreationGeneratePassphrase from '@/components/objects/BucketCreationGeneratePassphrase.vue';
@@ -74,7 +74,7 @@ export default class BucketCreation extends Vue {
             try {
                 await this.createBucketAndNavigate();
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
             }
 
             this.isLoading = false;
@@ -98,7 +98,7 @@ export default class BucketCreation extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
         };
     }
 
@@ -114,8 +114,8 @@ export default class BucketCreation extends Vue {
             this.setWorker();
             await this.setAccess();
             await this.createBucketAndNavigate();
-        } catch (e) {
-            await this.$notify.error(e.message);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
         } finally {
             this.isLoading = false;
         }
@@ -135,7 +135,7 @@ export default class BucketCreation extends Vue {
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, this.FILE_BROWSER_AG_NAME);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
         }
     }
 
@@ -146,7 +146,7 @@ export default class BucketCreation extends Vue {
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, page);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
+            await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
         }
     }
 

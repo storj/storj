@@ -11,26 +11,26 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-// Custom checkbox component
-// @vue/component
-@Component
-export default class VCheckbox extends Vue {
-    @Prop({ default: false })
-    private readonly isCheckboxError: boolean;
-    @Prop({ default: '' })
-    private readonly label: string;
+const props = withDefaults(defineProps<{
+    isCheckboxError?: boolean;
+    label?: string;
+}>(), {
+    isCheckboxError: false,
+    label: '',
+});
 
-    private checked = false;
+const emit = defineEmits(['setData']);
 
-    /**
-     * Emits value to parent component.
-     */
-    public onChange(): void {
-        this.$emit('setData', this.checked);
-    }
+const checked = ref<boolean>(false);
+
+/**
+ * Emits value to parent component.
+ */
+function onChange(): void {
+    emit('setData', checked.value);
 }
 </script>
 

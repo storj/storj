@@ -38,18 +38,18 @@ func TestReverifyPiece(t *testing.T) {
 
 		// ensure ReverifyPiece tells us to remove the segment from the queue after a successful audit
 		for _, piece := range segment.Pieces {
-			keepInQueue := satellite.Audit.Verifier.ReverifyPiece(ctx, audit.PieceLocator{
+			outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 				NodeID:   piece.StorageNode,
 				PieceNum: int(piece.Number),
 			})
-			require.False(t, keepInQueue)
+			require.Equal(t, audit.OutcomeSuccess, outcome)
 		}
 	})
 }
 
-func TestDoReverifyPieceSucceeds(t *testing.T) {
+func TestReverifyPieceSucceeds(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
@@ -66,21 +66,20 @@ func TestDoReverifyPieceSucceeds(t *testing.T) {
 
 		segment := uploadSomeData(t, ctx, planet)
 
-		// ensure DoReverifyPiece succeeds on the new pieces we uploaded
+		// ensure ReverifyPiece succeeds on the new pieces we uploaded
 		for _, piece := range segment.Pieces {
-			outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+			outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 				NodeID:   piece.StorageNode,
 				PieceNum: int(piece.Number),
 			})
-			require.NoError(t, err)
 			require.Equal(t, audit.OutcomeSuccess, outcome)
 		}
 	})
 }
 
-func TestDoReverifyPieceWithNodeOffline(t *testing.T) {
+func TestReverifyPieceWithNodeOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
@@ -102,19 +101,18 @@ func TestDoReverifyPieceWithNodeOffline(t *testing.T) {
 		require.NotNil(t, offlineNode)
 		require.NoError(t, planet.StopPeer(offlineNode))
 
-		// see what happens when DoReverifyPiece tries to hit that node
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		// see what happens when ReverifyPiece tries to hit that node
+		outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   offlinePiece.StorageNode,
 			PieceNum: int(offlinePiece.Number),
 		})
-		require.NoError(t, err)
 		require.Equal(t, audit.OutcomeNodeOffline, outcome)
 	})
 }
 
-func TestDoReverifyPieceWithPieceMissing(t *testing.T) {
+func TestReverifyPieceWithPieceMissing(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 5,
@@ -138,14 +136,13 @@ func TestDoReverifyPieceWithPieceMissing(t *testing.T) {
 		err := missingPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), missingPieceID)
 		require.NoError(t, err)
 
-		// see what happens when DoReverifyPiece tries to hit that node
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		// see what happens when ReverifyPiece tries to hit that node
+		outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   missingPiece.StorageNode,
 			PieceNum: int(missingPiece.Number),
 		})
-		require.NoError(t, err)
 		require.Equal(t, audit.OutcomeFailure, outcome)
 	})
 }
@@ -175,13 +172,12 @@ func testReverifyRewrittenPiece(t *testing.T, mutator func(content []byte, heade
 
 		rewritePiece(t, ctx, node, satellite.ID(), pieceID, mutator)
 
-		outcome, err := satellite.Audit.Verifier.DoReverifyPiece(ctx, planet.Log().Named("reverifier"), audit.PieceLocator{
+		outcome, _ := satellite.Audit.Reverifier.ReverifyPiece(ctx, planet.Log().Named("reverifier"), &audit.PieceLocator{
 			StreamID: segment.StreamID,
 			Position: segment.Position,
 			NodeID:   pieceToRewrite.StorageNode,
 			PieceNum: int(pieceToRewrite.Number),
 		})
-		require.NoError(t, err)
 		require.Equal(t, expectedOutcome, outcome)
 	})
 }
@@ -190,34 +186,34 @@ func testReverifyRewrittenPiece(t *testing.T, mutator func(content []byte, heade
 // with new contents or a new piece header. Since the api for dealing with the
 // piece store may change over time, this test makes sure that we can even expect
 // the rewriting trick to work.
-func TestDoReverifyPieceWithRewrittenPiece(t *testing.T) {
+func TestReverifyPieceWithRewrittenPiece(t *testing.T) {
 	testReverifyRewrittenPiece(t, func(content []byte, header *pb.PieceHeader) {
 		// don't change anything; just write back original contents
 	}, audit.OutcomeSuccess)
 }
 
-func TestDoReverifyPieceWithCorruptedContent(t *testing.T) {
+func TestReverifyPieceWithCorruptedContent(t *testing.T) {
 	testReverifyRewrittenPiece(t, func(content []byte, header *pb.PieceHeader) {
 		// increment last byte of content
 		content[len(content)-1]++
 	}, audit.OutcomeFailure)
 }
 
-func TestDoReverifyPieceWithCorruptedHash(t *testing.T) {
+func TestReverifyPieceWithCorruptedHash(t *testing.T) {
 	testReverifyRewrittenPiece(t, func(content []byte, header *pb.PieceHeader) {
 		// change last byte of hash
 		header.Hash[len(header.Hash)-1]++
 	}, audit.OutcomeFailure)
 }
 
-func TestDoReverifyPieceWithInvalidHashSignature(t *testing.T) {
+func TestReverifyPieceWithInvalidHashSignature(t *testing.T) {
 	testReverifyRewrittenPiece(t, func(content []byte, header *pb.PieceHeader) {
 		// change last byte of signature on hash
 		header.Signature[len(header.Signature)-1]++
 	}, audit.OutcomeFailure)
 }
 
-func TestDoReverifyPieceWithInvalidOrderLimitSignature(t *testing.T) {
+func TestReverifyPieceWithInvalidOrderLimitSignature(t *testing.T) {
 	testReverifyRewrittenPiece(t, func(content []byte, header *pb.PieceHeader) {
 		// change last byte of signature on order limit signature
 		header.OrderLimit.SatelliteSignature[len(header.OrderLimit.SatelliteSignature)-1]++

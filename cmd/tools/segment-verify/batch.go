@@ -7,6 +7,8 @@ import (
 	"context"
 	"sort"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -38,7 +40,17 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 	// We assume that segment.AliasPieces is randomly ordered in terms of nodes.
 	for _, segment := range segments {
 		if len(segment.AliasPieces) < int(segment.Status.Retry) {
-			panic("segment contains too few pieces")
+			if service.config.Check == 0 {
+				// some pieces were removed in selectOnlinePieces. adjust the expected count.
+				segment.Status.Retry = int32(len(segment.AliasPieces))
+			} else {
+				service.log.Error("segment contains too few pieces. skipping segment",
+					zap.Int("num-pieces", len(segment.AliasPieces)),
+					zap.Int32("expected", segment.Status.Retry),
+					zap.Stringer("stream-id", segment.StreamID),
+					zap.Uint64("position", segment.Position.Encode()))
+				continue
+			}
 		}
 		for _, piece := range segment.AliasPieces[:segment.Status.Retry] {
 			enqueue(piece.Alias, segment)
@@ -106,14 +118,14 @@ func (service *Service) CreateBatches(ctx context.Context, segments []*Segment) 
 // selectOnlinePieces modifies slice such that it only contains online pieces.
 func (service *Service) selectOnlinePieces(segment *Segment) {
 	for i, x := range segment.AliasPieces {
-		if service.onlineNodes.Contains(x.Alias) {
+		if !service.offlineNodes.Contains(x.Alias) && !service.ignoreNodes.Contains(x.Alias) {
 			continue
 		}
 
 		// found an offline node, start removing
 		rs := segment.AliasPieces[:i]
 		for _, x := range segment.AliasPieces[i+1:] {
-			if service.onlineNodes.Contains(x.Alias) {
+			if !service.offlineNodes.Contains(x.Alias) && !service.ignoreNodes.Contains(x.Alias) {
 				rs = append(rs, x)
 			}
 		}

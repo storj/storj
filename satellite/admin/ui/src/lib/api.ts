@@ -379,6 +379,22 @@ Blank fields will not be updated.`,
 				func: async (email: string): Promise<null> => {
 					return this.fetch('DELETE', `users/${email}/mfa`) as Promise<null>;
 				}
+			},
+			{
+				name: 'freeze user',
+				desc: "insert user into account_freeze_events and set user's limits to zero",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'unfreeze user',
+				desc: "remove user from account_freeze_events and reset user's limits to what is stored in account_freeze_events",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/freeze`) as Promise<null>;
+				}
 			}
 		],
 		rest_api_keys: [
@@ -408,7 +424,7 @@ Blank fields will not be updated.`,
 
 	private readonly baseURL: string;
 
-	constructor(baseURL: string, private readonly authToken: string) {
+	constructor(baseURL: string, private readonly authToken: string = '') {
 		this.baseURL = baseURL.endsWith('/') ? baseURL.substring(0, baseURL.length - 1) : baseURL;
 	}
 
@@ -419,9 +435,11 @@ Blank fields will not be updated.`,
 		data?: Record<string, unknown>
 	): Promise<Record<string, unknown> | null> {
 		const url = this.apiURL(path, query);
-		const headers = new window.Headers({
-			Authorization: this.authToken
-		});
+		const headers = new window.Headers();
+
+		if (this.authToken) {
+			headers.set('Authorization', this.authToken);
+		}
 
 		let body: string;
 		if (data) {

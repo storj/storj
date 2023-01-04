@@ -36,7 +36,7 @@
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -68,9 +68,10 @@ export default class CreateAccessModal extends Vue {
     @Prop({ default: 'Default' })
     private readonly defaultType: string;
 
-    private accessGrantStep = 'create';
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+    public areBucketNamesFetching = true;
     public areKeysVisible = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     private readonly FIRST_PAGE = 1;
 
     /**
@@ -93,7 +94,7 @@ export default class CreateAccessModal extends Vue {
      */
     private passphrase = '';
     private accessName = '';
-    public areBucketNamesFetching = true;
+    private accessGrantStep = 'create';
 
     /**
      * Created Access Grant
@@ -117,7 +118,7 @@ export default class CreateAccessModal extends Vue {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
             this.areBucketNamesFetching = false;
         } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
         }
     }
 
@@ -149,7 +150,7 @@ export default class CreateAccessModal extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
         };
     }
 
@@ -174,6 +175,7 @@ export default class CreateAccessModal extends Vue {
             try {
                 await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
             } catch (error) {
+                this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
                 this.isLoading = false;
                 return;
             }
@@ -184,14 +186,14 @@ export default class CreateAccessModal extends Vue {
         try {
             cleanAPIKey = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.accessName);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
             return;
         }
 
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
 
             this.isLoading = false;
         }
@@ -213,7 +215,9 @@ export default class CreateAccessModal extends Vue {
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (grantEvent.data.error) {
-            throw new Error(grantEvent.data.error);
+            await this.$notify.error(grantEvent.data.error, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+            this.isLoading = false;
+            return;
         }
         this.restrictedKey = grantEvent.data.value;
 
@@ -232,7 +236,7 @@ export default class CreateAccessModal extends Vue {
 
         const accessEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
         if (accessEvent.data.error) {
-            await this.$notify.error(accessEvent.data.error);
+            await this.$notify.error(accessEvent.data.error, AnalyticsErrorEventSource.CREATE_AG_MODAL);
             this.isLoading = false;
             return;
         }
@@ -250,7 +254,7 @@ export default class CreateAccessModal extends Vue {
 
                 this.areKeysVisible = true;
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
             }
         } else {
             await this.analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);

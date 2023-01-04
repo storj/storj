@@ -31,6 +31,13 @@ export default class BaseChart extends Vue {
         chartContainer: HTMLElement;
     };
 
+    /**
+     * Rebuilds chart after type switch.
+     */
+    public mounted(): void {
+        this.rebuildChart();
+    }
+    
     @Watch('width')
     @Watch('isDarkMode')
     public rebuildChart(): void {

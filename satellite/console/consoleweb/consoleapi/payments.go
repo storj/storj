@@ -4,6 +4,7 @@
 package consoleapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
@@ -27,15 +29,17 @@ var (
 
 // Payments is an api controller that exposes all payment related functionality.
 type Payments struct {
-	log     *zap.Logger
-	service *console.Service
+	log                  *zap.Logger
+	service              *console.Service
+	accountFreezeService *console.AccountFreezeService
 }
 
 // NewPayments is a constructor for api payments controller.
-func NewPayments(log *zap.Logger, service *console.Service) *Payments {
+func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService) *Payments {
 	return &Payments{
-		log:     log,
-		service: service,
+		log:                  log,
+		service:              service,
+		accountFreezeService: accountFreezeService,
 	}
 }
 
@@ -127,6 +131,34 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// triggerAttemptPaymentIfFrozen checks if the account is frozen and if frozen, will trigger attempt to pay outstanding invoices.
+func (p *Payments) triggerAttemptPaymentIfFrozen(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	userID, err := p.service.GetUserID(ctx)
+	if err != nil {
+		return err
+	}
+
+	isFrozen, err := p.accountFreezeService.IsUserFrozen(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	if isFrozen {
+		err = p.service.Payments().AttemptPayOverdueInvoices(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = p.accountFreezeService.UnfreezeUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AddCreditCard is used to save new credit card and attach it to payment account.
 func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -148,6 +180,12 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = p.triggerAttemptPaymentIfFrozen(ctx)
+	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -202,6 +240,12 @@ func (p *Payments) MakeCreditCardDefault(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = p.triggerAttemptPaymentIfFrozen(ctx)
+	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -390,5 +434,5 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ServeJSONError(p.log, w, status, err)
+	web.ServeJSONError(p.log, w, status, err)
 }

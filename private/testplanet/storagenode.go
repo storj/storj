@@ -39,7 +39,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -169,6 +169,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			ReportCapacityThreshold: 100 * memory.MB,
 			DeleteQueueSize:         10000,
 			DeleteWorkers:           1,
+			ExistsCheckWorkers:      5,
 			Orders: orders.Config{
 				SenderInterval:  defaultInterval,
 				SenderTimeout:   10 * time.Minute,
@@ -226,8 +227,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	verisonInfo := planet.NewVersionInfo()
 
+	dbconfig := config.DatabaseConfig()
+	dbconfig.TestingDisableWAL = true
 	var db storagenode.DB
-	db, err = storagenodedb.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
+	db, err = storagenodedbtest.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +260,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
 	peer.Storage2.PieceDeleter.SetupTest()
 
-	err = db.TestMigrateToLatest(ctx)
+	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return nil, err
 	}

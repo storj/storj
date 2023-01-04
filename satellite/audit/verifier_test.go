@@ -37,14 +37,14 @@ import (
 // returned by the DownloadShares method contain no error if all shares were
 // downloaded successfully.
 func TestDownloadSharesHappyPath(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -52,9 +52,11 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -90,14 +92,14 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesOfflineNode(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -105,9 +107,11 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -151,14 +155,14 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesMissingPiece(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -166,9 +170,11 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -208,14 +214,14 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDialTimeout(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -223,9 +229,11 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -287,21 +295,21 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -309,9 +317,11 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -358,14 +368,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 }
 
 func TestVerifierHappyPath(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -373,9 +383,11 @@ func TestVerifierHappyPath(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -395,14 +407,14 @@ func TestVerifierHappyPath(t *testing.T) {
 }
 
 func TestVerifierExpired(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -410,9 +422,11 @@ func TestVerifierExpired(t *testing.T) {
 		err := ul.UploadWithExpiration(ctx, satellite, "testbucket", "test/path", testData, time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		// move time into the future so the segment is expired
@@ -432,15 +446,15 @@ func TestVerifierExpired(t *testing.T) {
 }
 
 func TestVerifierOfflineNode(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -448,9 +462,11 @@ func TestVerifierOfflineNode(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -475,14 +491,14 @@ func TestVerifierOfflineNode(t *testing.T) {
 }
 
 func TestVerifierMissingPiece(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -490,9 +506,11 @@ func TestVerifierMissingPiece(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -520,7 +538,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 }
 
 func TestVerifierNotEnoughPieces(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -528,12 +546,12 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -541,9 +559,11 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -587,14 +607,14 @@ func TestVerifierNotEnoughPieces(t *testing.T) {
 }
 
 func TestVerifierDialTimeout(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -602,9 +622,11 @@ func TestVerifierDialTimeout(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -650,14 +672,14 @@ func TestVerifierDialTimeout(t *testing.T) {
 }
 
 func TestVerifierDeletedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -665,9 +687,11 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		segment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		segment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		// delete the file
@@ -686,14 +710,14 @@ func TestVerifierDeletedSegment(t *testing.T) {
 }
 
 func TestVerifierModifiedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -701,9 +725,11 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		var segment metabase.Segment
@@ -737,14 +763,14 @@ func TestVerifierModifiedSegment(t *testing.T) {
 }
 
 func TestVerifierReplacedSegment(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -752,9 +778,11 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		segment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		segment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
@@ -775,14 +803,14 @@ func TestVerifierReplacedSegment(t *testing.T) {
 }
 
 func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -790,9 +818,11 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -823,7 +853,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 // TestVerifierSlowDownload checks that a node that times out while sending data to the
 // audit service gets put into containment mode.
 func TestVerifierSlowDownload(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -838,12 +868,12 @@ func TestVerifierSlowDownload(t *testing.T) {
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -851,9 +881,11 @@ func TestVerifierSlowDownload(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -875,14 +907,14 @@ func TestVerifierSlowDownload(t *testing.T) {
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.Unknown, 0)
 		require.Len(t, report.PendingAudits, 1)
-		assert.Equal(t, report.PendingAudits[0].NodeID, slowNode.ID())
+		assert.Equal(t, report.PendingAudits[0].Locator.NodeID, slowNode.ID())
 	})
 }
 
 // TestVerifierUnknownError checks that a node that returns an unknown error in response to an audit request
 // does not get marked as successful, failed, or contained.
 func TestVerifierUnknownError(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
@@ -890,12 +922,12 @@ func TestVerifierUnknownError(t *testing.T) {
 			},
 			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -903,9 +935,11 @@ func TestVerifierUnknownError(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
@@ -1105,4 +1139,53 @@ func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Plan
 
 	err = writer.Commit(ctx)
 	require.NoError(t, err)
+}
+
+func TestIdentifyContainedNodes(t *testing.T) {
+	testWithChoreAndObserver(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		pauseQueueing(satellite)
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
+		require.NoError(t, err)
+
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		// mark a node as contained
+		containedNode := segment.Pieces[0].StorageNode
+		containment := satellite.DB.Containment()
+		err = containment.Insert(ctx, &audit.PieceLocator{
+			StreamID: testrand.UUID(),
+			NodeID:   containedNode,
+		})
+		require.NoError(t, err)
+
+		gotContainedNodes, err := audits.Verifier.IdentifyContainedNodes(ctx, audit.Segment{
+			StreamID: segment.StreamID,
+			Position: segment.Position,
+		})
+		require.NoError(t, err)
+		require.Len(t, gotContainedNodes, 1)
+		_, ok := gotContainedNodes[containedNode]
+		require.True(t, ok, "expected node to be indicated as contained, but it was not")
+	})
 }

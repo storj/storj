@@ -39,6 +39,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = auditDQCutOff
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -56,10 +58,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 		require.Nil(t, dossier.Disqualified)
 
-		_, err = satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
+		satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
 			Successes: storj.NodeIDList{nodeID},
 		})
-		require.NoError(t, err)
 
 		reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -70,8 +71,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
-			require.NoError(t, err)
+			satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 
 			reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
 				require.NotNilf(t, reputationInfo.Disqualified,
-					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
+					"Not disqualified, but should have been (iteration %d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 

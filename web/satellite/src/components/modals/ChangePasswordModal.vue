@@ -68,7 +68,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -172,13 +172,14 @@ export default class ChangePasswordModal extends Vue {
         }
 
         if (hasError) {
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
             return;
         }
 
         try {
             await this.auth.changePassword(this.oldPassword, this.newPassword);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
 
             return;
         }
@@ -190,7 +191,7 @@ export default class ChangePasswordModal extends Vue {
                 this.$router.push(RouteConfig.Login.path);
             }, DELAY_BEFORE_REDIRECT);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
         }
 
         this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);

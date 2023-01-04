@@ -2165,6 +2165,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN last_software_update_email timestamp with time zone;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column last_attempted to node_events",
+				Version:     218,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_attempted timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create account_freeze_events table",
+				Version:     219,
+				Action: migrate.SQL{
+					`CREATE TABLE account_freeze_events (
+						user_id bytea NOT NULL,
+						event integer NOT NULL,
+						limits jsonb,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( user_id, event )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

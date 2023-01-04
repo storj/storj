@@ -15,88 +15,77 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { OnPageClickCallback } from '@/types/pagination';
 
 import PaginationRightIcon from '@/../static/images/common/tablePaginationArrowRight.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PaginationRightIcon,
-    },
-})
-export default class TablePagination extends Vue {
-    private currentPageNumber = 1;
-    public isLoading = false;
+const props = withDefaults(defineProps<{
+    totalPageCount?: number;
+    limit?: number;
+    totalItemsCount?: number;
+    onPageClickCallback?: OnPageClickCallback;
+}>(), {
+    totalPageCount: 0,
+    limit: 0,
+    totalItemsCount: 0,
+    onPageClickCallback: () => () => new Promise(() => false),
+});
 
-    @Prop({ default: 0 })
-    private readonly totalPageCount: number;
-    @Prop({ default: 0 })
-    private readonly limit: number;
-    @Prop({ default: 0 })
-    private readonly totalItemsCount: number;
-    @Prop({ default: () => () => new Promise(() => false) })
-    private readonly onPageClickCallback: OnPageClickCallback;
+const currentPageNumber = ref<number>(1);
+const isLoading = ref<boolean>(false);
 
-    public get label(): string {
-        const currentMaxPage = this.currentPageNumber * this.limit > this.totalItemsCount ?
-            this.totalItemsCount
-            : this.currentPageNumber * this.limit;
-        return `${this.currentPageNumber * this.limit - this.limit + 1} - ${currentMaxPage} of ${this.totalItemsCount}`;
+const label = computed((): string => {
+    const currentMaxPage = currentPageNumber.value * props.limit > props.totalItemsCount ?
+        props.totalItemsCount
+        : currentPageNumber.value * props.limit;
+    return `${currentPageNumber.value * props.limit - props.limit + 1} - ${currentMaxPage} of ${props.totalItemsCount}`;
+});
+
+const isFirstPage = computed((): boolean => {
+    return currentPageNumber.value === 1;
+});
+
+const isLastPage = computed((): boolean => {
+    return currentPageNumber.value === props.totalPageCount;
+});
+
+/**
+ * nextPage fires after 'next' arrow click.
+ */
+async function nextPage(): Promise<void> {
+    if (isLastPage.value || isLoading.value) {
+        return;
     }
 
-    /**
-     * Indicates if current page is first.
-     */
-    public get isFirstPage(): boolean {
-        return this.currentPageNumber === 1;
+    isLoading.value = true;
+    await props.onPageClickCallback(currentPageNumber.value + 1);
+    incrementCurrentPage();
+    isLoading.value = false;
+}
+
+/**
+ * prevPage fires after 'previous' arrow click.
+ */
+async function prevPage(): Promise<void> {
+    if (isFirstPage.value || isLoading.value) {
+        return;
     }
 
-    /**
-     * Indicates if current page is last.
-     */
-    public get isLastPage(): boolean {
-        return this.currentPageNumber === this.totalPageCount;
-    }
+    isLoading.value = true;
+    await props.onPageClickCallback(currentPageNumber.value - 1);
+    decrementCurrentPage();
+    isLoading.value = false;
+}
 
-    /**
-     * nextPage fires after 'next' arrow click.
-     */
-    public async nextPage(): Promise<void> {
-        if (this.isLastPage || this.isLoading) {
-            return;
-        }
+function incrementCurrentPage(): void {
+    currentPageNumber.value++;
+}
 
-        this.isLoading = true;
-        await this.onPageClickCallback(this.currentPageNumber + 1);
-        this.incrementCurrentPage();
-        this.isLoading = false;
-    }
-
-    /**
-     * prevPage fires after 'previous' arrow click.
-     */
-    public async prevPage(): Promise<void> {
-        if (this.isFirstPage || this.isLoading) {
-            return;
-        }
-
-        this.isLoading = true;
-        await this.onPageClickCallback(this.currentPageNumber - 1);
-        this.decrementCurrentPage();
-        this.isLoading = false;
-    }
-
-    private incrementCurrentPage(): void {
-        this.currentPageNumber++;
-    }
-
-    private decrementCurrentPage(): void {
-        this.currentPageNumber--;
-    }
+function decrementCurrentPage(): void {
+    currentPageNumber.value--;
 }
 </script>
 

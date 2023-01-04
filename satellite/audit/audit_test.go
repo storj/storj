@@ -25,14 +25,14 @@ import (
 // specified bucket are counted correctly for storage node audit bandwidth
 // usage and the storage nodes will be paid for that.
 func TestAuditOrderLimit(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		now := time.Now()
 
@@ -46,14 +46,12 @@ func TestAuditOrderLimit(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		queueSegment, err := queue.Next()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queueSegment, err := audits.VerifyQueue.Next(ctx)
 		require.NoError(t, err)
 		require.False(t, queueSegment.StreamID.IsZero())
-
-		_, err = audits.Verifier.Reverify(ctx, queueSegment)
-		require.NoError(t, err)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
@@ -81,14 +79,14 @@ func TestAuditOrderLimit(t *testing.T) {
 
 // Minimal test to verify that copies aren't audited.
 func TestAuditSkipsRemoteCopies(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -109,13 +107,14 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		_, err = project.CopyObject(ctx, "testbucket", "testobj1", "testbucket", "copy", nil)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.Equal(t, 2, queue.Size())
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
 
 		auditSegments := make([]audit.Segment, 0, 2)
 		for range originalSegments {
-			auditSegment, err := queue.Next()
+			auditSegment, err := queue.Next(ctx)
 			require.NoError(t, err)
 			auditSegments = append(auditSegments, auditSegment)
 		}
@@ -136,12 +135,13 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 		err = uplink.DeleteObject(ctx, satellite, "testbucket", "testobj2")
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue = audits.VerifyQueue
 
 		// verify that the copy is being audited
-		require.Equal(t, 1, queue.Size())
-		remainingSegment, err := queue.Next()
+		remainingSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
 
 		for _, originalSegment := range originalSegments {
@@ -152,14 +152,14 @@ func TestAuditSkipsRemoteCopies(t *testing.T) {
 
 // Minimal test to verify that inline objects are not audited even if they are copies.
 func TestAuditSkipsInlineCopies(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		uplink := planet.Uplinks[0]
 		testData := testrand.Bytes(1 * memory.KiB)
@@ -176,9 +176,12 @@ func TestAuditSkipsInlineCopies(t *testing.T) {
 		_, err = project.CopyObject(ctx, "testbucket", "testobj1", "testbucket", "copy", nil)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.Zero(t, queue.Size())
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		_, err = queue.Next(ctx)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 
 		// delete originals, keep 1 copy
 		err = uplink.DeleteObject(ctx, satellite, "testbucket", "testobj1")
@@ -186,9 +189,11 @@ func TestAuditSkipsInlineCopies(t *testing.T) {
 		err = uplink.DeleteObject(ctx, satellite, "testbucket", "testobj2")
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
 
-		require.Zero(t, queue.Size())
+		queue = audits.VerifyQueue
+		_, err = queue.Next(ctx)
+		require.Truef(t, audit.ErrEmptyQueue.Has(err), "unexpected error %v", err)
 	})
 }

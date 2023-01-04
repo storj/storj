@@ -4,6 +4,7 @@
 package coinpayments_test
 
 import (
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,10 +16,10 @@ import (
 func TestGetCheckoutURL(t *testing.T) {
 	expected := "example"
 
-	url := coinpayments.GetCheckoutURL(expected, "id")
+	link := coinpayments.GetCheckoutURL(expected, "id")
 
-	key, err := coinpayments.GetTransactionKeyFromURL(url)
+	u, err := url.Parse(link)
 	require.NoError(t, err)
 
-	assert.Equal(t, expected, key)
+	assert.Equal(t, expected, u.Query().Get("key"))
 }

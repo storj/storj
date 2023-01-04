@@ -7,21 +7,43 @@
             <LogoIcon class="forgot-area__logo-wrapper__logo" @click="onLogoClick" />
         </div>
         <div class="forgot-area__content-area">
+            <div v-if="isMessageShowing && isPasswordResetExpired" class="forgot-area__content-area__message-banner">
+                <div class="forgot-area__content-area__message-banner__content">
+                    <div class="forgot-area__content-area__message-banner__content__left">
+                        <InfoIcon class="forgot-area__content-area__message-banner__content__left__icon" />
+                        <span class="forgot-area__content-area__message-banner__content__left__message">
+                            The password reset link you clicked on has expired. Request a new link.
+                        </span>
+                    </div>
+                    <CloseIcon class="forgot-area__content-area__message-banner__content__right" @click="closeMessage" />
+                </div>
+            </div>
             <div class="forgot-area__content-area__container">
                 <div class="forgot-area__content-area__container__title-area">
                     <h1 class="forgot-area__content-area__container__title-area__title">Reset Password</h1>
                     <div class="forgot-area__expand" @click.stop="toggleDropdown">
-                        <span class="forgot-area__expand__value">{{ satelliteName }}</span>
+                        <button 
+                            id="resetDropdown"
+                            type="button"
+                            aria-haspopup="listbox"
+                            aria-roledescription="satellites-dropdown"
+                            :aria-expanded="isDropdownShown"
+                            class="forgot-area__expand__value"
+                        >
+                            {{ satelliteName }}
+                        </button>
                         <BottomArrowIcon />
-                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="forgot-area__expand__dropdown">
-                            <div class="forgot-area__expand__dropdown__item" @click.stop="closeDropdown">
+                        <ul v-if="isDropdownShown" v-click-outside="closeDropdown" role="listbox" tabindex="-1" class="forgot-area__expand__dropdown">
+                            <li class="forgot-area__expand__dropdown__item" @click.stop="closeDropdown">
                                 <SelectedCheckIcon />
                                 <span class="forgot-area__expand__dropdown__item__name">{{ satelliteName }}</span>
-                            </div>
-                            <a v-for="sat in partneredSatellites" :key="sat.id" class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
-                                {{ sat.name }}
-                            </a>
-                        </div>
+                            </li>
+                            <li v-for="sat in partneredSatellites" :key="sat.id">
+                                <a class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
+                                    {{ sat.name }}
+                                </a>
+                            </li>
+                        </ul>
                     </div>
                 </div>
                 <p class="forgot-area__content-area__container__message">If you’ve forgotten your account password, you can reset it here. Make sure you’re signing in to the right satellite.</p>
@@ -56,17 +78,17 @@
                     width="100%"
                     height="48px"
                     label="Reset Password"
-                    border-radius="50px"
+                    border-radius="8px"
                     :is-disabled="isLoading"
                     :on-press="onSendConfigurations"
                 >
                     Reset Password
                 </v-button>
-            </div>
-            <div class="forgot-area__content-area__login-container">
-                <router-link :to="loginPath" class="forgot-area__content-area__login-container__link">
-                    Back to Login
-                </router-link>
+                <div class="forgot-area__content-area__container__login-container">
+                    <router-link :to="loginPath" class="forgot-area__content-area__container__login-container__link">
+                        Back to Login
+                    </router-link>
+                </div>
             </div>
         </div>
     </div>
@@ -88,6 +110,8 @@ import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
@@ -99,6 +123,8 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
+        InfoIcon,
+        CloseIcon,
         VueRecaptcha,
         VueHcaptcha,
     },
@@ -108,6 +134,8 @@ export default class ForgotPassword extends Vue {
     private emailError = '';
     private captchaResponseToken = '';
     private isLoading = false;
+    private isPasswordResetExpired = false;
+    private isMessageShowing = true;
 
     private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
     private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
@@ -126,6 +154,17 @@ export default class ForgotPassword extends Vue {
     public $refs!: {
         captcha: VueRecaptcha | VueHcaptcha;
     };
+
+    public mounted(): void {
+        this.isPasswordResetExpired = this.$route.query.expired === 'true';
+    }
+
+    /**
+     * Close the expiry message banner.
+     */
+    public closeMessage() {
+        this.isMessageShowing = false;
+    }
 
     /**
      * Sets the email field to the given value.
@@ -176,13 +215,16 @@ export default class ForgotPassword extends Vue {
      */
     public onCaptchaError(): void {
         this.captchaResponseToken = '';
-        this.$notify.error('The captcha encountered an error. Please try again.');
+        this.$notify.error('The captcha encountered an error. Please try again.', null);
     }
 
     /**
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
+        let activeElement = document.activeElement;
+        if (activeElement && activeElement.id === 'resetDropdown') return;
+
         if (this.isLoading || !this.validateFields()) {
             return;
         }
@@ -192,13 +234,18 @@ export default class ForgotPassword extends Vue {
             return;
         }
 
+        if (this.isDropdownShown) {
+            this.isDropdownShown = false;
+            return;
+        }
+
         this.isLoading = true;
 
         try {
             await this.auth.forgotPassword(this.email, this.captchaResponseToken);
             await this.$notify.success('Please look for instructions in your email');
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, null);
         }
 
         this.$refs.captcha?.reset();
@@ -276,6 +323,8 @@ export default class ForgotPassword extends Vue {
                 margin-right: 10px;
                 font-family: 'font_regular', sans-serif;
                 font-weight: 700;
+                background: none;
+                border: none;
             }
 
             &__dropdown {
@@ -288,6 +337,7 @@ export default class ForgotPassword extends Vue {
                 box-shadow: 0 8px 34px rgb(161 173 185 / 41%);
                 border-radius: 6px;
                 min-width: 250px;
+                list-style-type: none;
 
                 &__item {
                     display: flex;
@@ -311,6 +361,10 @@ export default class ForgotPassword extends Vue {
                     &:hover {
                         background-color: #f2f2f6;
                     }
+                }
+
+                &__item:focus-visible {
+                    outline: -webkit-focus-ring-color auto 1px;
                 }
             }
         }
@@ -355,22 +409,57 @@ export default class ForgotPassword extends Vue {
                 &__button {
                     margin-top: 40px;
                 }
+
+                &__login-container {
+                    display: flex;
+                    justify-content: center;
+                    margin-top: 1.5rem;
+
+                    &__link {
+                        font-family: 'font_medium', sans-serif;
+                        text-decoration: none;
+                        font-size: 14px;
+                        line-height: 18px;
+                        color: #0149ff;
+                    }
+
+                    &__link:focus {
+                        text-decoration: underline !important;
+                    }
+                }
             }
 
-            &__login-container {
-                width: 100%;
-                align-items: center;
-                justify-content: center;
-                margin-top: 50px;
-                display: block;
-                text-align: center;
+            &__message-banner {
+                padding: 1.5rem;
+                border-radius: 0.6rem;
+                width: 570px;
+                margin-bottom: 2.5rem;
+                background-color: #ffe0e7;
+                border: 1px solid #ffc0cf;
+                box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
+                color: #000;
 
-                &__link {
-                    font-family: 'font_medium', sans-serif;
-                    text-decoration: none;
-                    font-size: 14px;
-                    line-height: 18px;
-                    color: #376fff;
+                &__content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+
+                    &__left {
+                        display: flex;
+                        align-items: center;
+                        justify-content: start;
+                        gap: 1.5rem;
+
+                        &__message {
+                            font-size: 0.95rem;
+                            line-height: 1.4px;
+                            margin: 0;
+                        }
+
+                        &__icon {
+                            fill: #ff458b;
+                        }
+                    }
                 }
             }
         }

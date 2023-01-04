@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/rewards"
@@ -53,6 +54,7 @@ type Auth struct {
 	ActivateAccountURL        string
 	SatelliteName             string
 	service                   *console.Service
+	accountFreezeService      *console.AccountFreezeService
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
@@ -60,7 +62,7 @@ type Auth struct {
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -73,6 +75,7 @@ func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice
 		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery/",
 		ActivateAccountURL:        externalAddress + "activation/",
 		service:                   service,
+		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
 		partners:                  partners,
@@ -103,7 +106,7 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	tokenInfo, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
 		if console.ErrMFAMissing.Has(err) {
-			serveCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
+			web.ServeCustomJSONError(a.log, w, http.StatusOK, err, a.getUserErrorMessage(err))
 		} else {
 			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 			a.serveJSONError(w, err)
@@ -124,6 +127,22 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getSessionID gets the session ID from the request.
+func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
+
+	tokenInfo, err := a.cookieAuth.GetToken(r)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	return sessionID, nil
+}
+
 // Logout removes auth cookie.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -131,19 +150,13 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	tokenInfo, err := a.cookieAuth.GetToken(r)
+	sessionID, err := a.getSessionID(r)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
-	if err != nil {
-		a.serveJSONError(w, err)
-		return
-	}
-
-	err = a.service.DeleteSession(ctx, id)
+	err = a.service.DeleteSession(ctx, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -206,7 +219,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	// trim leading and trailing spaces of email address.
 	registerData.Email = strings.TrimSpace(registerData.Email)
 
-	isValidEmail := ValidateEmail(registerData.Email)
+	isValidEmail := utils.ValidateEmail(registerData.Email)
 	if !isValidEmail {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
@@ -356,15 +369,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// ValidateEmail validates email to have correct form and syntax.
-func ValidateEmail(email string) bool {
-	// This regular expression was built according to RFC 5322 and then extended to include international characters.
-	re := regexp.MustCompile(`^(?:[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+(?:\.[a-z0-9\p{L}!#$%&'*+/=?^_{|}~\x60-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9\p{L}](?:[a-z0-9\p{L}-]*[a-z0-9\p{L}])?\.)+[a-z0-9\p{L}](?:[a-z\p{L}]*[a-z\p{L}])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9\p{L}-]*[a-z0-9\p{L}]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$`)
-	match := re.MatchString(email)
-
-	return match
-}
-
 // loadSession looks for a cookie for the session id.
 // this cookie is set from the reverse proxy if the user opts into cookies from Storj.
 func loadSession(req *http.Request) string {
@@ -373,6 +377,38 @@ func loadSession(req *http.Request) string {
 		return ""
 	}
 	return sessionCookie.Value
+}
+
+// IsAccountFrozen checks to see if an account is frozen.
+func (a *Auth) IsAccountFrozen(w http.ResponseWriter, r *http.Request) {
+	type FrozenResult struct {
+		Frozen bool `json:"frozen"`
+	}
+
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	userID, err := a.service.GetUserID(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	frozenBool, err := a.accountFreezeService.IsUserFrozen(ctx, userID)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(FrozenResult{
+		Frozen: frozenBool,
+	})
+	if err != nil {
+		a.log.Error("could not encode account status", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
 }
 
 // UpdateAccount updates user's full name and short name.
@@ -694,6 +730,24 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
 }
 
 // DisableUserMFA disables multi-factor authentication for the user.
@@ -713,6 +767,24 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now(), data.RecoveryCode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	consoleUser, err := console.GetUser(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DeleteAllSessionsByUserIDExcept(ctx, consoleUser.ID, sessionID)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -795,6 +867,22 @@ func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if console.ErrTokenExpiration.Has(err) {
+		w.WriteHeader(a.getStatusCode(err))
+		w.Header().Set("Content-Type", "application/json")
+
+		err = json.NewEncoder(w).Encode(map[string]string{
+			"error": a.getUserErrorMessage(err),
+			"code":  "token_expired",
+		})
+
+		if err != nil {
+			a.log.Error("password-reset-token expired: failed to write json response", zap.Error(ErrUtils.Wrap(err)))
+		}
+
+		return
+	}
+
 	if err != nil {
 		a.serveJSONError(w, err)
 	} else {
@@ -838,22 +926,20 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
+	web.ServeCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err):
+	case console.ErrValidation.Has(err), console.ErrCaptcha.Has(err), console.ErrMFAMissing.Has(err), console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err), console.ErrChangePassword.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err), console.ErrLoginPassword.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrTokenExpiration.Has(err), console.ErrRecoveryToken.Has(err), console.ErrLoginCredentials.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err), console.ErrMFAConflict.Has(err):
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
-	case console.ErrMFAPasscode.Has(err), console.ErrMFARecoveryCode.Has(err):
-		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}
@@ -878,14 +964,12 @@ func (a *Auth) getUserErrorMessage(err error) string {
 	case console.ErrMFAConflict.Has(err):
 		return "Expected either passcode or recovery code, but got both"
 	case console.ErrMFAPasscode.Has(err):
-		return "The MFA passcode is not valid or has expired. You have just used up one of your login attempts"
+		return "The MFA passcode is not valid or has expired"
 	case console.ErrMFARecoveryCode.Has(err):
-		return "The MFA recovery code is not valid or has been previously used. You have just used up one of your login attempts"
+		return "The MFA recovery code is not valid or has been previously used"
 	case console.ErrLoginCredentials.Has(err):
 		return "Your login credentials are incorrect, please try again"
-	case console.ErrLoginPassword.Has(err):
-		return "Your login credentials are incorrect. You have just used up one of your login attempts"
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrChangePassword.Has(err):
 		return err.Error()
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"

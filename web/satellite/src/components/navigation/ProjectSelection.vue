@@ -39,6 +39,10 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
+            <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+                <PassphraseIcon />
+                <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
+            </div>
             <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onProjectsLinkClick" @keyup.enter="onProjectsLinkClick">
                 <ManageIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Projects</p>
@@ -58,7 +62,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -66,13 +70,14 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 
 import VLoader from '@/components/common/VLoader.vue';
 
 import ProjectIcon from '@/../static/images/navigation/project.svg';
 import ArrowImage from '@/../static/images/navigation/arrowExpandRight.svg';
 import CheckmarkIcon from '@/../static/images/navigation/checkmark.svg';
+import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
@@ -82,6 +87,7 @@ import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
         ArrowImage,
         CheckmarkIcon,
         ProjectIcon,
+        PassphraseIcon,
         ManageIcon,
         CreateProjectIcon,
         VLoader,
@@ -121,8 +127,9 @@ export default class ProjectSelection extends Vue {
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            this.isLoading = false;
         } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        } finally {
             this.isLoading = false;
         }
     }
@@ -145,8 +152,11 @@ export default class ProjectSelection extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
+        if (this.isNewEncryptionPassphraseFlowEnabled || this.isBucketsView) {
+            this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
+        }
+
         if (this.isBucketsView) {
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
 
             return;
@@ -165,7 +175,7 @@ export default class ProjectSelection extends Vue {
                     this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE),
                 ]);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
 
             return;
@@ -175,7 +185,7 @@ export default class ProjectSelection extends Vue {
             try {
                 await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
 
             return;
@@ -185,7 +195,7 @@ export default class ProjectSelection extends Vue {
             try {
                 await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
             } catch (error) {
-                await this.$notify.error(error.message);
+                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
             }
         }
     }
@@ -253,6 +263,19 @@ export default class ProjectSelection extends Vue {
     }
 
     /**
+     * Toggles manage passphrase modal shown.
+     */
+    public onManagePassphraseClick(): void {
+        if (!this.isNewEncryptionPassphraseFlowEnabled) {
+            return;
+        }
+
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+
+        this.closeDropdown();
+    }
+
+    /**
      * Route to create project page.
      */
     public onCreateLinkClick(): void {
@@ -271,6 +294,13 @@ export default class ProjectSelection extends Vue {
         }
 
         this.closeDropdown();
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**

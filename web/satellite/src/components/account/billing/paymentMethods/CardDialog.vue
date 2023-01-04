@@ -12,6 +12,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const {
     CLEAR_CARDS_SELECTION,
@@ -39,7 +40,7 @@ export default class CardDialog extends Vue {
         try {
             await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_CC_DIALOG);
         }
     }
 
@@ -51,7 +52,7 @@ export default class CardDialog extends Vue {
             await this.$store.dispatch(REMOVE_CARD, this.cardId);
             await this.$notify.success('Credit card removed');
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_CC_DIALOG);
         }
     }
 }

@@ -57,7 +57,7 @@ func TestAuth(t *testing.T) {
 					"newPassword": user.password + "2",
 				}))
 
-			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			_ = body
 			//TODO: require.Contains(t, body, "password was incorrect")
 		}
@@ -84,6 +84,17 @@ func TestAuth(t *testing.T) {
 			var userIdentifier struct{ ID string }
 			require.NoError(test.t, json.Unmarshal([]byte(body), &userIdentifier))
 			require.NotEmpty(test.t, userIdentifier.ID)
+		}
+
+		{ // Get_FreezeStatus
+			resp, body := test.request(http.MethodGet, "/auth/account/freezestatus", nil)
+			require.Equal(test.t, http.StatusOK, resp.StatusCode)
+			require.Contains(test.t, body, "frozen")
+
+			var freezestatus struct{ Frozen bool }
+			require.NoError(test.t, json.Unmarshal([]byte(body), &freezestatus))
+			require.Equal(test.t, http.StatusOK, resp.StatusCode)
+			require.False(test.t, freezestatus.Frozen)
 		}
 
 		{ // Logout

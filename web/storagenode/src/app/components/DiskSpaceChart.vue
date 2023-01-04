@@ -31,10 +31,12 @@ import BaseChart from '@/app/components/BaseChart.vue';
  */
 class StampTooltip {
     public atRestTotal: string;
+    public atRestTotalBytes: string;
     public date: string;
 
     public constructor(stamp: Stamp) {
         this.atRestTotal = Size.toBase10String(stamp.atRestTotal);
+        this.atRestTotalBytes = Size.toBase10String(stamp.atRestTotalBytes);
         this.date = stamp.intervalStart.toUTCString().slice(0, 16);
     }
 }
@@ -58,7 +60,7 @@ export default class DiskSpaceChart extends BaseChart {
         }
 
         return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
-            return elem.atRestTotal;
+            return elem.atRestTotalBytes;
         }));
     }
 
@@ -70,7 +72,7 @@ export default class DiskSpaceChart extends BaseChart {
         const chartBorderWidth = 1;
 
         if (this.allStamps.length) {
-            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
+            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotalBytes));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
@@ -93,7 +95,7 @@ export default class DiskSpaceChart extends BaseChart {
         const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
         return `<div class='tooltip-body'>
-                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}</b></p>
+                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotalBytes}</b></p>
                     <p class='tooltip-body__footer'>${dataPoint.date}</p>
                 </div>`;
     }

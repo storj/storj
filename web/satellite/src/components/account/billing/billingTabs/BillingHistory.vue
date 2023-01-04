@@ -27,6 +27,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryItem from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
@@ -45,8 +46,7 @@ const {
     },
 })
 
-export default class BillingArea extends Vue {
-
+export default class BillingHistory extends Vue {
     mounted(): void {
         this.fetchHistory();
     }
@@ -55,7 +55,7 @@ export default class BillingArea extends Vue {
         try {
             await this.$store.dispatch(GET_PAYMENTS_HISTORY);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
         }
     }
 

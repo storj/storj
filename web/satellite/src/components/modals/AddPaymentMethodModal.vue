@@ -134,7 +134,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -183,7 +183,7 @@ export default class AddPaymentMethodModal extends Vue {
         try {
             await this.$refs.stripeCardInput.onSubmit();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         }
         this.isLoading = false;
     }
@@ -211,7 +211,7 @@ export default class AddPaymentMethodModal extends Vue {
             await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
 
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
         }
 
         this.isLoading = false;

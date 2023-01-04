@@ -17,62 +17,60 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
-import Resizable from '@/components/common/Resizable.vue';
+import { useResize } from '@/composables/resize';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CloseIcon,
-        InfoIcon,
-    },
-})
-export default class VBanner extends Resizable {
-    @Prop({ default: 'info' })
-    private readonly severity: 'info' | 'warning' | 'critical';
-    @Prop({ default: () => () => {} })
-    public readonly onClick: () => void;
-    @Prop({ default: () => {} })
-    private readonly dashboardRef: HTMLElement;
+const props = withDefaults(defineProps<{
+    severity?: 'info' | 'warning' | 'critical';
+    onClick?: () => void;
+    dashboardRef: HTMLElement;
+}>(), {
+    severity: 'info',
+    onClick: () => () => {},
+});
 
-    public isShown = true;
-    public bannerWidth = 0;
-    public resizeObserver?: ResizeObserver;
+const { isMobile } = useResize();
 
-    public mounted(): void {
-        this.resizeObserver = new ResizeObserver(this.onBannerResize);
+const isShown = ref<boolean>(true);
+const bannerWidth = ref<number>(0);
+let resizeObserver = reactive<ResizeObserver>();
 
-        if (this.dashboardRef) {
-            this.resizeObserver?.observe(this.dashboardRef);
-            this.onBannerResize();
-        }
-    }
+const bannerStyle = computed((): string => {
+    const margin = isMobile.value ? 30 : 60;
 
-    public beforeUnmount(): void {
-        this.resizeObserver?.unobserve(this.dashboardRef);
-    }
+    return `width: ${bannerWidth.value - margin}px`;
+});
 
-    @Watch('dashboardRef')
-    public setResizable(): void {
-        this.resizeObserver?.observe(this.dashboardRef);
-    }
-
-    @Watch('dashboardRef')
-    public onBannerResize(): void {
-        this.bannerWidth = this.dashboardRef.offsetWidth;
-    }
-
-    public get bannerStyle(): string {
-        const margin = this.isMobile ? 30 : 60;
-
-        return `width: ${this.bannerWidth - margin}px`;
-    }
+function onBannerResize(): void {
+    bannerWidth.value = props.dashboardRef.offsetWidth;
 }
+
+function setResizable(): void {
+    resizeObserver?.observe(props.dashboardRef);
+}
+
+onMounted((): void => {
+    resizeObserver = new ResizeObserver(onBannerResize);
+
+    if (props.dashboardRef) {
+        setResizable();
+        onBannerResize();
+    }
+});
+
+onUnmounted((): void => {
+    resizeObserver?.unobserve(props.dashboardRef);
+});
+
+watch(() => props.dashboardRef, () => {
+    setResizable();
+    onBannerResize();
+});
 </script>
 
 <style scoped lang="scss">
@@ -131,6 +129,8 @@ export default class VBanner extends Resizable {
     }
 
     &__close {
+        width: 15px;
+        height: 15px;
         margin-left: 2.375rem;
         cursor: pointer;
     }
@@ -147,6 +147,7 @@ export default class VBanner extends Resizable {
 .link {
     color: black;
     text-decoration: underline !important;
+    cursor: pointer;
 }
 
 @media screen and (max-width: 500px) {

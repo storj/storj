@@ -44,7 +44,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
@@ -96,7 +96,7 @@ export default class AGPermissions extends Vue {
 
             this.areBucketNamesFetching = false;
         } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
         }
 
         this.isLoading = false;
@@ -109,7 +109,7 @@ export default class AGPermissions extends Vue {
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
         };
     }
 
@@ -138,7 +138,7 @@ export default class AGPermissions extends Vue {
 
             await this.$notify.success('Restrictions were set successfully.');
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_PERMISSIONS_STEP);
             return;
         } finally {
             this.isLoading = false;

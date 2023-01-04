@@ -46,6 +46,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -114,7 +115,7 @@ export default class DisableMFAModal extends Vue {
 
             this.closeModal();
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.DISABLE_MFA_MODAL);
             this.isError = true;
         }
 

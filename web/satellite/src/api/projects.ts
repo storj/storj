@@ -2,7 +2,6 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     DataStamp,
     Project,
@@ -144,24 +143,21 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
         const response = await this.http.get(path);
 
-        if (response.ok) {
-            const limits = await response.json();
-
-            return new ProjectLimits(
-                limits.bandwidthLimit,
-                limits.bandwidthUsed,
-                limits.storageLimit,
-                limits.storageUsed,
-                limits.objectCount,
-                limits.segmentCount,
-            );
+        if (!response.ok) {
+            throw new Error('can not get usage limits');
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
+        const limits = await response.json();
 
-        throw new Error('can not get usage limits');
+        return new ProjectLimits(
+            limits.bandwidthLimit,
+            limits.bandwidthUsed,
+            limits.storageLimit,
+            limits.storageUsed,
+            limits.objectCount,
+            limits.segmentCount,
+        );
+
     }
 
     /**
@@ -173,22 +169,19 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const path = `${this.ROOT_PATH}/usage-limits`;
         const response = await this.http.get(path);
 
-        if (response.ok) {
-            const limits = await response.json();
+        if (!response.ok) {
+            throw new Error('can not get total usage limits');
 
-            return new ProjectLimits(
-                limits.bandwidthLimit,
-                limits.bandwidthUsed,
-                limits.storageLimit,
-                limits.storageUsed,
-            );
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
+        const limits = await response.json();
 
-        throw new Error('can not get total usage limits');
+        return new ProjectLimits(
+            limits.bandwidthLimit,
+            limits.bandwidthUsed,
+            limits.storageLimit,
+            limits.storageUsed,
+        );
     }
 
     /**
@@ -205,33 +198,30 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const path = `${this.ROOT_PATH}/${projectId}/daily-usage?from=${since}&to=${before}`;
         const response = await this.http.get(path);
 
-        if (response.ok) {
-            const usage = await response.json();
+        if (!response.ok) {
+            throw new Error('Can not get project daily usage');
 
-            return new ProjectsStorageBandwidthDaily(
-                usage.storageUsage.map(el => {
-                    const date = new Date(el.date);
-                    date.setHours(0, 0, 0, 0);
-                    return new DataStamp(el.value, date);
-                }),
-                usage.allocatedBandwidthUsage.map(el => {
-                    const date = new Date(el.date);
-                    date.setHours(0, 0, 0, 0);
-                    return new DataStamp(el.value, date);
-                }),
-                usage.settledBandwidthUsage.map(el => {
-                    const date = new Date(el.date);
-                    date.setHours(0, 0, 0, 0);
-                    return new DataStamp(el.value, date);
-                }),
-            );
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
+        const usage = await response.json();
 
-        throw new Error('Can not get project daily usage');
+        return new ProjectsStorageBandwidthDaily(
+            usage.storageUsage.map(el => {
+                const date = new Date(el.date);
+                date.setHours(0, 0, 0, 0);
+                return new DataStamp(el.value, date);
+            }),
+            usage.allocatedBandwidthUsage.map(el => {
+                const date = new Date(el.date);
+                date.setHours(0, 0, 0, 0);
+                return new DataStamp(el.value, date);
+            }),
+            usage.settledBandwidthUsage.map(el => {
+                const date = new Date(el.date);
+                date.setHours(0, 0, 0, 0);
+                return new DataStamp(el.value, date);
+            }),
+        );
     }
 
     public async getSalt(projectId: string): Promise<string> {
@@ -240,6 +230,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         if (response.ok) {
             return await response.json();
         }
+
         throw new Error('Can not get project salt');
     }
 
