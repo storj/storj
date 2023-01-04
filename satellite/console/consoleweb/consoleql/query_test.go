@@ -200,7 +200,7 @@ func TestGraphqlQuery(t *testing.T) {
 		// "query {project(id:\"%s\"){id,name,members(offset:0, limit:50){user{fullName,shortName,email}},apiKeys{name,id,createdAt,projectID}}}"
 		t.Run("Project query base info", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){id,name,description,createdAt}}",
+				"query {project(id:\"%s\"){id,name,publicId,description,createdAt}}",
 				createdProject.ID.String(),
 			)
 
@@ -210,6 +210,7 @@ func TestGraphqlQuery(t *testing.T) {
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
 
 			assert.Equal(t, createdProject.ID.String(), project[consoleql.FieldID])
+			assert.Equal(t, createdProject.PublicID.String(), project[consoleql.FieldPublicID])
 			assert.Equal(t, createdProject.Name, project[consoleql.FieldName])
 			assert.Equal(t, createdProject.Description, project[consoleql.FieldDescription])
 
@@ -392,7 +393,7 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("MyProjects query", func(t *testing.T) {
-			query := "query {myProjects{id,name,description,createdAt}}"
+			query := "query {myProjects{id,publicId,name,description,createdAt}}"
 
 			result := testQuery(t, query)
 
@@ -403,6 +404,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.PublicID.String(), actual[consoleql.FieldPublicID])
 				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
 				createdAt := time.Time{}
@@ -433,7 +435,7 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 		t.Run("OwnedProjects query", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
+				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, publicId, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
 				5,
 				1,
 			)
@@ -454,6 +456,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project, expectedNumMembers int) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.PublicID.String(), actual[consoleql.FieldPublicID])
 				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
 				createdAt := time.Time{}
