@@ -33,4 +33,8 @@ if [ "${SATELLITE_REPAIR:-}" = "true" ]; then
   exec ./satellite run repair $RUN_PARAMS "$@"
 fi
 
+if [ "${SATELLITE_AUDITOR:-}" = "true" ]; then
+  exec ./satellite run auditor $RUN_PARAMS "$@"
+fi
+
 exec ./satellite run $RUN_PARAMS "$@"
