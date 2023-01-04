@@ -85,6 +85,12 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 
 		info, err := service.GetNodeInfo(ctx, batch.Alias)
 		if err != nil {
+			if ErrNoSuchNode.Has(err) {
+				service.log.Error("will not verify batch; consider pieces lost",
+					zap.Int("alias", int(batch.Alias)),
+					zap.Error(err))
+				continue
+			}
 			return Error.Wrap(err)
 		}
 
@@ -134,7 +140,7 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 
 			nodeID, ok = service.aliasMap.Node(alias)
 			if !ok {
-				return storj.NodeURL{}, Error.Wrap(err)
+				return storj.NodeURL{}, ErrNoSuchNode.New("no node has alias %d", alias)
 			}
 		}
 
@@ -143,6 +149,9 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 			return storj.NodeURL{}, Error.Wrap(err)
 		}
 
+		if info.Disqualified != nil || info.ExitStatus.ExitFinishedAt != nil {
+			return storj.NodeURL{}, ErrNoSuchNode.New("node %s is no longer on the network", nodeID.String())
+		}
 		// TODO: single responsibility?
 		service.nodesVersionMap[alias] = info.Version.Version
 

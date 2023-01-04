@@ -28,6 +28,10 @@ import (
 // ErrNodeOffline is returned when it was not possible to contact a node or the node was not responding.
 var ErrNodeOffline = errs.Class("node offline")
 
+// ErrNoSuchNode is returned when a node has been disqualified or gracefully exited, or no known node
+// has the specified alias. Pieces associated with the given alias should be considered lost.
+var ErrNoSuchNode = errs.Class("no such node")
+
 var errWrongNodeVersion = errs.Class("wrong node version")
 
 // VerifierConfig contains configurations for operation.
