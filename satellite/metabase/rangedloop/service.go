@@ -178,6 +178,8 @@ func finishObservers(ctx context.Context, observerStates []observerState) (obser
 		observerDurations = append(observerDurations, observerDuration)
 	}
 
+	sendObserverDurations(observerDurations)
+
 	return observerDurations, nil
 }
 
