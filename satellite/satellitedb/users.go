@@ -351,13 +351,6 @@ func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, e
 			update.MfaRecoveryCodes = dbx.User_MfaRecoveryCodes(string(recoveryBytes))
 		}
 	}
-	if request.LastVerificationReminder != nil {
-		if *request.LastVerificationReminder == nil {
-			update.LastVerificationReminder = dbx.User_LastVerificationReminder_Null()
-		} else {
-			update.LastVerificationReminder = dbx.User_LastVerificationReminder(**request.LastVerificationReminder)
-		}
-	}
 	if request.FailedLoginCount != nil {
 		update.FailedLoginCount = dbx.User_FailedLoginCount(*request.FailedLoginCount)
 	}
@@ -452,10 +445,6 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.SignupPromoCode != nil {
 		result.SignupPromoCode = *user.SignupPromoCode
-	}
-
-	if user.LastVerificationReminder != nil {
-		result.LastVerificationReminder = *user.LastVerificationReminder
 	}
 
 	if user.FailedLoginCount != nil {

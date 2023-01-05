@@ -296,6 +296,12 @@ func migrateTest(t *testing.T, connStr string) {
 		conversionRates.RemoveColumn("rate_gob")
 	}
 
+	// TODO(lizzy): remove this check with the migration step to drop the column last_verification_reminders.
+	users, ok := finalSchema.FindTable("users")
+	if ok {
+		users.RemoveColumn("last_verification_reminder")
+	}
+
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }

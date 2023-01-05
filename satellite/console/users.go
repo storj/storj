@@ -182,8 +182,7 @@ type User struct {
 
 	SignupPromoCode string `json:"signupPromoCode"`
 
-	LastVerificationReminder time.Time `json:"lastVerificationReminder"`
-	VerificationReminders    int       `json:"verificationReminders"`
+	VerificationReminders int `json:"verificationReminders"`
 
 	FailedLoginCount       int       `json:"failedLoginCount"`
 	LoginLockoutExpiration time.Time `json:"loginLockoutExpiration"`
@@ -248,8 +247,6 @@ type UpdateUserRequest struct {
 	MFAEnabled       *bool
 	MFASecretKey     **string
 	MFARecoveryCodes *[]string
-
-	LastVerificationReminder **time.Time
 
 	// failed_login_count is nullable, but we don't really have a reason
 	// to set it to NULL, so it doesn't need to be a double pointer here.

@@ -70,20 +70,19 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		newInfo := console.User{
-			FullName:                 "updatedFullName",
-			ShortName:                "updatedShortName",
-			PasswordHash:             []byte("updatedPasswordHash"),
-			ProjectLimit:             1,
-			ProjectBandwidthLimit:    1,
-			ProjectStorageLimit:      1,
-			ProjectSegmentLimit:      1,
-			PaidTier:                 true,
-			MFAEnabled:               true,
-			MFASecretKey:             "secretKey",
-			MFARecoveryCodes:         []string{"code1", "code2"},
-			LastVerificationReminder: time.Now().Truncate(time.Second),
-			FailedLoginCount:         1,
-			LoginLockoutExpiration:   time.Now().Truncate(time.Second),
+			FullName:               "updatedFullName",
+			ShortName:              "updatedShortName",
+			PasswordHash:           []byte("updatedPasswordHash"),
+			ProjectLimit:           1,
+			ProjectBandwidthLimit:  1,
+			ProjectStorageLimit:    1,
+			ProjectSegmentLimit:    1,
+			PaidTier:               true,
+			MFAEnabled:             true,
+			MFASecretKey:           "secretKey",
+			MFARecoveryCodes:       []string{"code1", "code2"},
+			FailedLoginCount:       1,
+			LoginLockoutExpiration: time.Now().Truncate(time.Second),
 		}
 
 		require.NotEqual(t, u.FullName, newInfo.FullName)
@@ -97,7 +96,6 @@ func TestUpdateUser(t *testing.T) {
 		require.NotEqual(t, u.MFAEnabled, newInfo.MFAEnabled)
 		require.NotEqual(t, u.MFASecretKey, newInfo.MFASecretKey)
 		require.NotEqual(t, u.MFARecoveryCodes, newInfo.MFARecoveryCodes)
-		require.NotEqual(t, u.LastVerificationReminder, newInfo.LastVerificationReminder)
 		require.NotEqual(t, u.FailedLoginCount, newInfo.FailedLoginCount)
 		require.NotEqual(t, u.LoginLockoutExpiration, newInfo.LoginLockoutExpiration)
 
@@ -255,21 +253,6 @@ func TestUpdateUser(t *testing.T) {
 		require.NoError(t, err)
 
 		u.MFARecoveryCodes = newInfo.MFARecoveryCodes
-		require.Equal(t, u, updatedUser)
-
-		// update just last verification reminder
-		lastReminderPtr := &newInfo.LastVerificationReminder
-		updateReq = console.UpdateUserRequest{
-			LastVerificationReminder: &lastReminderPtr,
-		}
-
-		err = users.Update(ctx, id, updateReq)
-		require.NoError(t, err)
-
-		updatedUser, err = users.Get(ctx, id)
-		require.NoError(t, err)
-
-		u.LastVerificationReminder = newInfo.LastVerificationReminder
 		require.Equal(t, u, updatedUser)
 
 		// update just failed login count

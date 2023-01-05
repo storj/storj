@@ -144,15 +144,13 @@ func createGoroutineClosure(ctx context.Context, rangeProvider SegmentProvider, 
 		defer mon.Task()(&ctx)(&err)
 
 		return rangeProvider.Iterate(ctx, func(segments []segmentloop.Segment) error {
-			for _, state := range states {
-				start := time.Now()
-				err := state.rangeObserver.Process(ctx, segments)
-				if err != nil {
-					return err
-				}
-				state.duration += time.Since(start)
+			// check for cancellation every segment batch
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+				return processBatch(ctx, states, segments)
 			}
-			return nil
 		})
 	}
 }
@@ -211,4 +209,16 @@ func finishObserver(ctx context.Context, state observerState) (ObserverDuration,
 		Duration: duration,
 		Observer: state.observer,
 	}, state.observer.Finish(ctx)
+}
+
+func processBatch(ctx context.Context, states []*rangeObserverState, segments []segmentloop.Segment) (err error) {
+	for _, state := range states {
+		start := time.Now()
+		err := state.rangeObserver.Process(ctx, segments)
+		if err != nil {
+			return err
+		}
+		state.duration += time.Since(start)
+	}
+	return nil
 }

@@ -4,6 +4,7 @@
 package rangedloop_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -116,4 +117,35 @@ func TestLoopDuration(t *testing.T) {
 		expectedSleep := time.Duration(int64(nSegments) * int64(sleepIncrement))
 		require.Equal(t, expectedSleep, observerDuration.Duration.Round(sleepIncrement))
 	}
+}
+
+func TestLoopCancellation(t *testing.T) {
+	parallelism := 2
+	batchSize := 1
+	ctx, cancel := context.WithCancel(testcontext.NewWithTimeout(t, time.Second*10))
+
+	observers := []rangedloop.Observer{
+		&rangedlooptest.CountObserver{},
+		&rangedlooptest.CallbackObserver{
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				// cancel from inside the loop, when it is certain that the loop has started
+				cancel()
+				return nil
+			},
+		},
+	}
+
+	loopService := rangedloop.NewService(
+		zaptest.NewLogger(t),
+		rangedloop.Config{
+			BatchSize:   batchSize,
+			Parallelism: parallelism,
+		},
+		&rangedlooptest.InfiniteSegmentProvider{},
+		observers,
+	)
+
+	_, err := loopService.RunOnce(ctx)
+
+	require.ErrorIs(t, err, context.Canceled)
 }
