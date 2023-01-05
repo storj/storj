@@ -20,12 +20,6 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 
 	runCfg.Debug.Address = *process.DebugAddrFlag
 
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		log.Error("Failed to load identity.", zap.Error(err))
-		return errs.New("Failed to load identity: %+v", err)
-	}
-
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-rangedloop"})
 	if err != nil {
 		return errs.New("Error starting master database on satellite rangedloop: %+v", err)
@@ -42,7 +36,7 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, metabaseDB.Close())
 	}()
 
-	peer, err := satellite.NewRangedLoop(log, identity, db, metabaseDB, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.NewRangedLoop(log, db, metabaseDB, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}

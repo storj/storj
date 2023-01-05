@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
@@ -24,6 +25,7 @@ type Config struct {
 	Parallelism        int           `help:"how many chunks of segments to process in parallel" default:"2"`
 	BatchSize          int           `help:"how many items to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+	Interval           time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"10s"`
 }
 
 // Service iterates through all segments and calls the attached observers for every segment
@@ -34,6 +36,8 @@ type Service struct {
 	config    Config
 	provider  RangeSplitter
 	observers []Observer
+
+	Loop *sync2.Cycle
 }
 
 // NewService creates a new instance of the ranged loop service.
@@ -43,6 +47,7 @@ func NewService(log *zap.Logger, config Config, provider RangeSplitter, observer
 		config:    config,
 		provider:  provider,
 		observers: observers,
+		Loop:      sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -68,7 +73,10 @@ type ObserverDuration struct {
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for {
+	service.log.Info("ranged loop initialized")
+
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
+		service.log.Info("ranged loop started")
 		_, err := service.RunOnce(ctx)
 		if err != nil {
 			service.log.Error("ranged loop failure", zap.Error(err))
@@ -76,13 +84,17 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			if errs2.IsCanceled(err) {
 				return err
 			}
+
 			if ctx.Err() != nil {
 				return errs.Combine(err, ctx.Err())
 			}
 
 			mon.Event("rangedloop_error") //mon:locked
 		}
-	}
+
+		service.log.Info("ranged loop finished")
+		return nil
+	})
 }
 
 // RunOnce goes through one time and sends information to observers.
