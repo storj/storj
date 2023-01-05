@@ -83,8 +83,9 @@ type Service struct {
 	log    *zap.Logger
 	config ServiceConfig
 
-	notFound SegmentWriter
-	retry    SegmentWriter
+	notFound      SegmentWriter
+	retry         SegmentWriter
+	problemPieces *pieceCSVWriter
 
 	metabase Metabase
 	verifier Verifier
@@ -98,10 +99,6 @@ type Service struct {
 	offlineCount    map[metabase.NodeAlias]int
 	bucketList      BucketList
 	nodesVersionMap map[metabase.NodeAlias]string
-
-	// this is a callback so that problematic pieces can be reported as they are found,
-	// rather than being kept in a list which might grow unreasonably large.
-	reportPiece pieceReporterFunc
 }
 
 // NewService returns a new service for verifying segments.
@@ -120,14 +117,14 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 	if err != nil {
 		return nil, errs.Combine(Error.Wrap(err), retry.Close(), notFound.Close())
 	}
-	defer func() { _ = problemPieces.Close() }()
 
 	return &Service{
 		log:    log,
 		config: config,
 
-		notFound: notFound,
-		retry:    retry,
+		notFound:      notFound,
+		retry:         retry,
+		problemPieces: problemPieces,
 
 		metabase: metabaseDB,
 		verifier: verifier,
@@ -139,8 +136,6 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		offlineNodes:    newNodeAliasExpiringSet(config.OfflineStatusCacheTime),
 		offlineCount:    map[metabase.NodeAlias]int{},
 		nodesVersionMap: map[metabase.NodeAlias]string{},
-
-		reportPiece: problemPieces.Write,
 	}, nil
 }
 
@@ -149,6 +144,7 @@ func (service *Service) Close() error {
 	return Error.Wrap(errs.Combine(
 		service.notFound.Close(),
 		service.retry.Close(),
+		service.problemPieces.Close(),
 	))
 }
 

@@ -201,7 +201,7 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	verifier.reportPiece = service.reportPiece
+	verifier.reportPiece = service.problemPieces.Write
 	defer func() { err = errs.Combine(err, service.Close()) }()
 	if cmd.Name() == "range" {
 		return verifySegmentsRange(ctx, service, rangeCfg)
