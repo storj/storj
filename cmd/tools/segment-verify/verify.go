@@ -53,6 +53,8 @@ type NodeVerifier struct {
 	dialer rpc.Dialer
 	orders *orders.Service
 
+	// this is a callback so that problematic pieces can be reported as they are found,
+	// rather than being kept in a list which might grow unreasonably large.
 	reportPiece pieceReporterFunc
 
 	versionWithExists semver.Version
