@@ -57,10 +57,11 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
-	db       DB
-	payments payments.Accounts
-	buckets  *buckets.Service
-	restKeys *restkeys.Service
+	db             DB
+	payments       payments.Accounts
+	buckets        *buckets.Service
+	restKeys       *restkeys.Service
+	freezeAccounts *console.AccountFreezeService
 
 	nowFn func() time.Time
 
@@ -69,16 +70,17 @@ type Server struct {
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, accounts payments.Accounts, console consoleweb.Config, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, freezeAccounts *console.AccountFreezeService, accounts payments.Accounts, console consoleweb.Config, config Config) *Server {
 	server := &Server{
 		log: log,
 
 		listener: listener,
 
-		db:       db,
-		payments: accounts,
-		buckets:  buckets,
-		restKeys: restKeys,
+		db:             db,
+		payments:       accounts,
+		buckets:        buckets,
+		restKeys:       restKeys,
+		freezeAccounts: freezeAccounts,
 
 		nowFn: time.Now,
 
@@ -97,6 +99,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
 	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
 	api.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
+	api.HandleFunc("/users/{useremail}/freeze", server.freezeUser).Methods("PUT")
+	api.HandleFunc("/users/{useremail}/freeze", server.unfreezeUser).Methods("DELETE")
 	api.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
 	api.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
 	api.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")

@@ -39,6 +39,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = auditDQCutOff
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -82,7 +84,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
 				require.NotNilf(t, reputationInfo.Disqualified,
-					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
+					"Not disqualified, but should have been (iteration %d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 

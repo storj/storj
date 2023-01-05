@@ -14,13 +14,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/identity"
-	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
-	"storj.io/storj/satellite/metabase/rangedloop/rangedlooptest"
 	"storj.io/storj/satellite/metrics"
 )
 
@@ -28,12 +28,15 @@ import (
 //
 // architecture: Peer
 type RangedLoop struct {
-	Log      *zap.Logger
-	Identity *identity.FullIdentity
-	DB       DB
+	Log *zap.Logger
+	DB  DB
 
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
+
+	Audit struct {
+		Observer rangedloop.Observer
+	}
 
 	Debug struct {
 		Listener net.Listener
@@ -44,17 +47,24 @@ type RangedLoop struct {
 		Observer rangedloop.Observer
 	}
 
+	GracefulExit struct {
+		Observer rangedloop.Observer
+	}
+
+	GarbageCollectionBF struct {
+		Observer rangedloop.Observer
+	}
+
 	RangedLoop struct {
 		Service *rangedloop.Service
 	}
 }
 
 // NewRangedLoop creates a new satellite ranged loop process.
-func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (*RangedLoop, error) {
+func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (*RangedLoop, error) {
 	peer := &RangedLoop{
-		Log:      log,
-		Identity: full, // TODO: figure out if we need Identity here
-		DB:       db,
+		Log: log,
+		DB:  db,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
@@ -79,8 +89,25 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 		})
 	}
 
+	{ // setup audit observer
+		peer.Audit.Observer = audit.NewObserver(log.Named("audit"), db.VerifyQueue(), config.Audit)
+	}
+
 	{ // setup metrics observer
 		peer.Metrics.Observer = metrics.NewObserver()
+	}
+
+	{ // setup gracefulexit
+		peer.GracefulExit.Observer = gracefulexit.NewObserver(
+			peer.Log.Named("gracefulexit:observer"),
+			peer.DB.GracefulExit(),
+			peer.DB.OverlayCache(),
+			config.GracefulExit,
+		)
+	}
+
+	{ // setup garbage collection bloom filter observer
+		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
 	}
 
 	{ // setup ranged loop
@@ -88,14 +115,24 @@ func NewRangedLoop(log *zap.Logger, full *identity.FullIdentity, db DB, metabase
 			rangedloop.NewLiveCountObserver(),
 		}
 
-		// TODO: replace with real segment provider
-		segments := &rangedlooptest.RangeSplitter{}
+		if config.Audit.UseRangedLoop {
+			observers = append(observers, peer.Audit.Observer)
+		}
 
 		if config.Metrics.UseRangedLoop {
 			observers = append(observers, peer.Metrics.Observer)
 		}
 
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
+		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
+			observers = append(observers, peer.GracefulExit.Observer)
+		}
+
+		if config.GarbageCollectionBF.Enabled && config.GarbageCollectionBF.UseRangedLoop {
+			observers = append(observers, peer.GarbageCollectionBF.Observer)
+		}
+
+		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.BatchSize)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",
@@ -130,6 +167,3 @@ func (peer *RangedLoop) Close() error {
 		peer.Services.Close(),
 	)
 }
-
-// ID returns the peer ID.
-func (peer *RangedLoop) ID() storj.NodeID { return peer.Identity.ID }

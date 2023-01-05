@@ -2067,6 +2067,12 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 			require.Equal(t, "object", iterator.Item().Key)
 			require.NoError(t, iterator.Err())
 
+			// upload multipleversions/object once again as we just moved it
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "object", expectedData)
+			require.NoError(t, err)
+
+			checkDownload("object", expectedData)
+
 			{ // server side copy
 				_, err = project.CopyObject(ctx, "multipleversions", "object", "multipleversions", "object_copy", nil)
 				require.NoError(t, err)
@@ -2103,6 +2109,9 @@ func TestEndpoint_Object_MultipleVersions(t *testing.T) {
 			checkDownload("object", expectedData)
 
 			_, err = project.DeleteObject(ctx, "multipleversions", "object")
+			require.NoError(t, err)
+
+			_, err = project.DeleteObject(ctx, "multipleversions", "object_moved")
 			require.NoError(t, err)
 
 			iterator = project.ListObjects(ctx, "multipleversions", nil)
@@ -2269,5 +2278,36 @@ func TestEndpoint_Object_CopyObject_MultipleVersions(t *testing.T) {
 		require.Equal(t, []string{
 			"objectA", "objectInline", "objectInlineCopy", "objectRemote",
 		}, items)
+	})
+}
+
+func TestEndpoint_Object_MoveObject_MultipleVersions(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.MultipleVersions = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedDataA := testrand.Bytes(7 * memory.KiB)
+
+		// upload objectA twice to have to have version different than 1
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectA", expectedDataA)
+		require.NoError(t, err)
+
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "multipleversions", "objectB", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		// move is not possible because we have committed object under target location
+		err = project.MoveObject(ctx, "multipleversions", "objectA", "multipleversions", "objectB", nil)
+		require.Error(t, err)
 	})
 }

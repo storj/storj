@@ -35,9 +35,7 @@
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
 import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
@@ -46,54 +44,46 @@ import FolderIcon from '@/../static/images/objects/folder.svg';
 import BucketIcon from '@/../static/images/objects/bucketIcon.svg';
 import FileIcon from '@/../static/images/objects/file.svg';
 
-// @vue/component
-@Component({
-    components: {
-        MiddleTruncate,
-        VTableCheckbox,
-        BucketGuide,
-        BucketIcon,
-        FileIcon,
-        FolderIcon,
-    },
-})
-export default class TableItem extends Vue {
-    @Prop({ default: false })
-    public readonly selectDisabled: boolean;
-    @Prop({ default: false })
-    public readonly selected: boolean;
-    @Prop({ default: false })
-    public readonly selectable: boolean;
-    @Prop({ default: false })
-    public readonly showGuide: boolean;
-    @Prop({ default: 'none' })
-    private readonly tableType: string;
-    @Prop({ default: () => {} })
-    public readonly item: object;
-    @Prop({ default: null })
-    public readonly onClick: (data?: unknown) => void;
-    // click event for the first cell of this item.
-    @Prop({ default: null })
-    public readonly onPrimaryClick: (data?: unknown) => void;
-    @Prop({ default: null })
-    public readonly hideGuide: () => void;
+const props = withDefaults(defineProps<{
+    selectDisabled?: boolean;
+    selected?: boolean;
+    selectable?: boolean;
+    showGuide?: boolean;
+    tableType?: string;
+    item?: object;
+    onClick?: (data?: unknown) => void;
+    // event for the first cell of this item.
+    onPrimaryClick?: (data?: unknown) => void;
+    hideGuide?: () => void;
+}>(), {
+    selectDisabled: false,
+    selected: false,
+    selectable: false,
+    showGuide: false,
+    tableType: 'none',
+    item: () => ({}),
+    onClick: () => {},
+    onPrimaryClick: () => {},
+    hideGuide: () => {},
+});
 
-    public onChange(value: boolean): void {
-        this.$emit('selectChange', value);
-    }
+const emit = defineEmits(['selectChange']);
 
-    public showBucketGuide(index: number): boolean {
-        return (this.tableType.toLowerCase() === 'bucket') && (index === 0) && this.showGuide;
-    }
+function onChange(value: boolean): void {
+    emit('selectChange', value);
+}
 
-    public cellContentClicked(cellIndex: number, event: Event) {
-        if (cellIndex === 0 && this.onPrimaryClick) {
-            this.onPrimaryClick(event);
-            return;
-        }
-        // trigger default item onClick instead.
-        this.onClick();
+function showBucketGuide(index: number): boolean {
+    return (props.tableType.toLowerCase() === 'bucket') && (index === 0) && props.showGuide;
+}
+
+function cellContentClicked(cellIndex: number, event: Event) {
+    if (cellIndex === 0 && props.onPrimaryClick) {
+        props.onPrimaryClick(event);
+        return;
     }
+    // trigger default item onClick instead.
+    props.onClick();
 }
 </script>
 

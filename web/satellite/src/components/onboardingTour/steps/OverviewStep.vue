@@ -86,9 +86,9 @@ export default class OverviewStep extends Vue {
      * Redirects to next step (creating access grant).
      */
     public onUplinkCLIClick(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
         this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.CLIStep).with(RouteConfig.AGName).path);
+        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
     }
 
     /**

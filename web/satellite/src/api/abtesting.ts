@@ -1,7 +1,6 @@
 // Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { HttpClient } from '@/utils/httpClient';
 import { ABHitAction, ABTestApi, ABTestValues } from '@/types/abtesting';
 
@@ -27,10 +26,6 @@ export class ABHttpApi implements ABTestApi {
             return new ABTestValues(
                 abResponse.has_new_banner,
             );
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         // use default values on error

@@ -23,41 +23,36 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-    },
-})
-export default class VInfo extends Vue {
-    @Prop({ default: '' })
-    private readonly title: string;
-    @Prop({ default: '' })
-    private readonly buttonLabel: string;
-    @Prop({ default: () => () => false })
-    private readonly onButtonClick: () => unknown;
+const props = withDefaults(defineProps<{
+    title?: string;
+    buttonLabel?: string;
+    onButtonClick?: () => unknown;
+}>(), {
+    title: '',
+    buttonLabel: '',
+    onButtonClick: () => () => false,
+});
 
-    public isVisible = false;
+const isVisible = ref<boolean>(false);
 
-    /**
-     * Holds on button click logic.
-     */
-    public onClick(): void {
-        this.onButtonClick();
-        this.toggleVisibility();
-    }
+/**
+ * Toggles bubble visibility.
+ */
+function toggleVisibility(): void {
+    isVisible.value = !isVisible.value;
+}
 
-    /**
-     * Toggles bubble visibility.
-     */
-    public toggleVisibility(): void {
-        this.isVisible = !this.isVisible;
-    }
+/**
+ * Holds on button click logic.
+ */
+function onClick(): void {
+    props.onButtonClick();
+    toggleVisibility();
 }
 </script>
 

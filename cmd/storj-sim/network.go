@@ -54,6 +54,7 @@ const (
 	versioncontrolPeer  = 2
 	storagenodePeer     = 3
 	multinodePeer       = 5
+	rangedloopPeer      = 6
 
 	// Endpoints.
 	publicRPC  = 0
@@ -423,6 +424,20 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
+
+		rangedLoopProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-rangedloop/%d", i),
+			Executable: "satellite",
+			Directory:  filepath.Join(processes.Directory, "satellite", fmt.Sprint(i)),
+			Address:    "",
+		})
+		rangedLoopProcess.Arguments = withCommon(rangedLoopProcess.Directory, Arguments{
+			"run": {
+				"ranged-loop",
+				"--debug.addr", net.JoinHostPort(host, port(rangedloopPeer, i, debugCoreHTTP)),
+			},
+		})
+		rangedLoopProcess.WaitForExited(migrationProcess)
 
 		adminProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-admin/%d", i),

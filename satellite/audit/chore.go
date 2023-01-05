@@ -68,11 +68,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		// Add reservoir segments to queue in pseudorandom order.
 		for i := 0; i < chore.config.Slots; i++ {
 			for _, res := range collector.Reservoirs {
+				segments := res.Segments()
 				// Skip reservoir if no segment at this index.
-				if len(res.Segments) <= i {
+				if len(segments) <= i {
 					continue
 				}
-				segment := res.Segments[i]
+				segment := segments[i]
 				segmentKey := SegmentKey{
 					StreamID: segment.StreamID,
 					Position: segment.Position.Encode(),

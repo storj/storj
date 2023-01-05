@@ -93,7 +93,6 @@ type Config struct {
 	LinksharingURL                     string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled             bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard                bool               `help:"indicates if new project dashboard should be used" default:"true"`
-	NewAccessGrantFlow                 bool               `help:"indicates if new access grant flow should be used" default:"true"`
 	NewBillingScreen                   bool               `help:"indicates if new billing screens should be used" default:"true"`
 	GeneratedAPIEnabled                bool               `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL           string             `help:"optional url to external registration success page" default:""`
@@ -206,7 +205,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, listener net.Listener, stripePublicKey string, usagePrice paymentsconfig.ProjectUsagePrice, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, usagePrice paymentsconfig.ProjectUsagePrice, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -278,12 +277,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, partners, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.IsAccountFrozen))).Methods(http.MethodGet)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
@@ -304,7 +304,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		abRouter.Handle("/hit/{action}", server.withAuth(http.HandlerFunc(abController.SendHit))).Methods(http.MethodPost)
 	}
 
-	paymentController := consoleapi.NewPayments(logger, service)
+	paymentController := consoleapi.NewPayments(logger, service, accountFreezeService)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 	paymentsRouter.Use(server.withAuth)
 	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
@@ -466,7 +466,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		NewProjectDashboard                bool
 		DefaultPaidStorageLimit            memory.Size
 		DefaultPaidBandwidthLimit          memory.Size
-		NewAccessGrantFlow                 bool
 		NewBillingScreen                   bool
 		InactivityTimerEnabled             bool
 		InactivityTimerDuration            int
@@ -512,7 +511,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
 	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.NewProjectDashboard = server.config.NewProjectDashboard
-	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
 	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration

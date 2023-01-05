@@ -206,6 +206,12 @@ export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: Acc
                 state.permissionNotBefore = null;
                 state.permissionNotAfter = null;
                 state.gatewayCredentials = new EdgeCredentials();
+                state.isDownload = true;
+                state.isUpload = true;
+                state.isList = true;
+                state.isDelete = true;
+                state.accessGrantsWebWorker = null;
+                state.isAccessGrantsWebWorkerReady = false;
             },
         },
         actions: {

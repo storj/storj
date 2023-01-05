@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metabase"
 )
@@ -31,6 +30,7 @@ type Config struct {
 	Slots                     int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
 	VerificationPushBatchSize int           `help:"number of audit jobs to push at once to the verification queue" devDefault:"10" releaseDefault:"4096"`
 	WorkerConcurrency         int           `help:"number of workers to run audits on segments" default:"2"`
+	UseRangedLoop             bool          `help:"whether or not to use the ranged loop observer instead of the chore." default:"false" testDefault:"false"`
 
 	ReverifyWorkerConcurrency   int           `help:"number of workers to run reverify audits on pieces" default:"2"`
 	ReverificationRetryInterval time.Duration `help:"how long a single reverification job can take before it may be taken over by another worker" releaseDefault:"6h" devDefault:"10m"`
@@ -117,14 +117,12 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 
 	var errlist errs.Group
 
-	// First, attempt to reverify nodes for this segment that are in containment mode.
-	report, err := worker.verifier.Reverify(ctx, segment)
-	if err != nil {
-		errlist.Add(err)
-	}
-
-	worker.reporter.RecordAudits(ctx, report)
-
+	// First, remove nodes that are contained. We do not (currently)
+	// audit contained nodes for other pieces until we get an answer
+	// for the contained audit. (I suspect this could change without
+	// upsetting anything, but for now it's best to keep it the way
+	// it was. -thepaul)
+	skip, err := worker.verifier.IdentifyContainedNodes(ctx, segment)
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
 			// no need to add this error; Verify() will encounter it again
@@ -135,28 +133,16 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 		}
 	}
 
-	// Skip all reverified nodes in the next Verify step.
-	skip := make(map[storj.NodeID]bool)
-	for _, nodeID := range report.Successes {
-		skip[nodeID] = true
-	}
-	for _, nodeID := range report.Offlines {
-		skip[nodeID] = true
-	}
-	for _, nodeID := range report.Fails {
-		skip[nodeID] = true
-	}
-	for _, pending := range report.PendingAudits {
-		skip[pending.NodeID] = true
-	}
-	for _, nodeID := range report.Unknown {
-		skip[nodeID] = true
-	}
-
 	// Next, audit the remaining nodes that are not in containment mode.
-	report, err = worker.verifier.Verify(ctx, segment, skip)
+	report, err := worker.verifier.Verify(ctx, segment, skip)
 	if err != nil {
-		errlist.Add(err)
+		if metabase.ErrSegmentNotFound.Has(err) {
+			// no need to add this error; Verify() will encounter it again
+			// and will handle the verification job as appropriate.
+			err = nil
+		} else {
+			errlist.Add(err)
+		}
 	}
 
 	worker.reporter.RecordAudits(ctx, report)

@@ -4,6 +4,7 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
+            <div class="load" />
             <LoaderImage class="loading-icon" />
         </div>
         <div v-else class="dashboard__wrap">
@@ -45,10 +46,20 @@
             :initial-seconds="inactivityModalTime / 1000"
         />
         <v-banner
-            v-if="limitState.isShown && !isLoading"
+            v-if="isAccountFrozen && !isLoading && dashboardContent"
+            severity="critical"
+            :dashboard-ref="dashboardContent"
+        >
+            <template #text>
+                <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+            </template>
+        </v-banner>
+        <v-banner
+            v-if="limitState.isShown && !isLoading && dashboardContent"
             :severity="limitState.severity"
-            :on-click="() => isLimitModalShown = true"
-            :dashboard-ref="$refs.dashboardContent"
+            :on-click="() => setIsLimitModalShown(true)"
+            :dashboard-ref="dashboardContent"
         >
             <template #text>
                 <p class="medium">{{ limitState.label }}</p>
@@ -58,7 +69,7 @@
         <limit-warning-modal
             v-if="isLimitModalShown && !isLoading"
             :severity="limitState.severity"
-            :on-close="() => isLimitModalShown = false"
+            :on-close="() => setIsLimitModalShown(false)"
             :title="limitState.modalTitle"
             :on-upgrade="togglePMModal"
         />
@@ -66,8 +77,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -78,7 +89,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -90,6 +101,9 @@ import eventBus from '@/utils/eventBus';
 import { ABTestValues } from '@/types/abtesting';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -104,493 +118,540 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 
-import LoaderImage from '@/../static/images/common/loader.svg';
+import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
 const {
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        MobileNavigation,
-        AllModals,
-        NavigationArea,
-        LoaderImage,
-        PaidTierBar,
-        MFARecoveryCodeBar,
-        BetaSatBar,
-        ProjectInfoBar,
-        BillingNotification,
-        UpgradeNotification,
-        InactivityModal,
-        LimitWarningModal,
-        VBanner,
-    },
-})
-export default class DashboardArea extends Vue {
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const store = useStore();
+// TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
+const nativeRouter = useRouter();
+const notify = useNotify();
 
-    // Properties concerning session refreshing, inactivity notification, and automatic logout
-    private readonly resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
-    private readonly sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
-    private inactivityTimerId: ReturnType<typeof setTimeout> | null;
-    private inactivityModalShown = false;
-    private inactivityModalTime = 60000;
-    private ACTIVITY_REFRESH_TIME_LIMIT = 180000;
-    private sessionRefreshInterval: number = this.sessionDuration/2;
-    private sessionRefreshTimerId: ReturnType<typeof setTimeout> | null;
-    private isSessionActive = false;
-    private isSessionRefreshing = false;
-    public isLimitModalShown = false;
+const router = reactive(nativeRouter);
 
-    // Properties concerning the session timer popup used for debugging
-    private readonly debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
-    private debugTimerText = '';
-    private debugTimerId: ReturnType<typeof setTimeout> | null;
+const auth: AuthHttpApi = new AuthHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+const inactivityModalTime = 60000;
+const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
+const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
+const sessionRefreshInterval: number = sessionDuration / 2;
+const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
+// Minimum number of recovery codes before the recovery code warning bar is shown.
+const recoveryCodeWarningThreshold = 4;
 
-    // Minimum number of recovery codes before the recovery code warning bar is shown.
-    public recoveryCodeWarningThreshold = 4;
+const inactivityTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const sessionRefreshTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const debugTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const inactivityModalShown = ref<boolean>(false);
+const isSessionActive = ref<boolean>(false);
+const isSessionRefreshing = ref<boolean>(false);
+const isLimitModalShown = ref<boolean>(false);
+const debugTimerText = ref<string>('');
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const dashboardContent = ref<HTMLElement | null>(null);
 
-    /**
-     * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
-     */
-    public get limitState(): { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string } {
-        if (this.$store.state.usersModule.user.paidTier) return { isShown: false };
+/**
+ * Indicates if account was frozen due to billing issues.
+ */
+const isAccountFrozen = computed((): boolean => {
+    return store.state.usersModule.user.isFrozen;
+});
 
-        const EIGHTY_PERCENT = 80;
-        const HUNDRED_PERCENT = 100;
+/**
+ * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+ */
+const limitState = computed((): { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string } => {
+    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { isShown: false };
 
-        const result: { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string  } = { isShown: false, label: '' };
-        const { currentLimits } = this.$store.state.projectsModule;
+    const EIGHTY_PERCENT = 80;
+    const HUNDRED_PERCENT = 100;
 
-        const bandwidthUsedPercent = Math.round(currentLimits.bandwidthUsed * HUNDRED_PERCENT / currentLimits.bandwidthLimit);
-        const storageUsedPercent = Math.round(currentLimits.storageUsed * HUNDRED_PERCENT / currentLimits.storageLimit);
+    const result: { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string  } = { isShown: false, label: '' };
+    const { currentLimits } = store.state.projectsModule;
 
-        const isLimitHigh = bandwidthUsedPercent >= EIGHTY_PERCENT || storageUsedPercent >= EIGHTY_PERCENT;
-        const isLimitCritical = bandwidthUsedPercent === HUNDRED_PERCENT || storageUsedPercent === HUNDRED_PERCENT;
+    const bandwidthUsedPercent = Math.round(currentLimits.bandwidthUsed * HUNDRED_PERCENT / currentLimits.bandwidthLimit);
+    const storageUsedPercent = Math.round(currentLimits.storageUsed * HUNDRED_PERCENT / currentLimits.storageLimit);
 
-        if (isLimitHigh) {
-            result.isShown = true;
-            result.severity = isLimitCritical ? 'critical' : 'warning';
+    const isLimitHigh = bandwidthUsedPercent >= EIGHTY_PERCENT || storageUsedPercent >= EIGHTY_PERCENT;
+    const isLimitCritical = bandwidthUsedPercent === HUNDRED_PERCENT || storageUsedPercent === HUNDRED_PERCENT;
 
-            if (bandwidthUsedPercent > storageUsedPercent) {
-                result.label = bandwidthUsedPercent === HUNDRED_PERCENT ?
-                    'URGENT: You’ve reached the bandwidth limit for your project. Avoid any service interruptions.'
-                    : `You’ve used ${bandwidthUsedPercent}% of your bandwidth limit. Avoid interrupting your usage by upgrading account.`;
-                result.modalTitle = `You’ve used ${bandwidthUsedPercent}% of your free account bandwidth`;
-            } else if (bandwidthUsedPercent < storageUsedPercent) {
-                result.label = storageUsedPercent === HUNDRED_PERCENT ?
-                    'URGENT: You’ve reached the storage limit for your project. Avoid any service interruptions.'
-                    : `You’ve used ${storageUsedPercent}% of your storage limit. Avoid interrupting your usage by upgrading account.`;
-                result.modalTitle = `You’ve used ${storageUsedPercent}% of your free account storage`;
-            } else {
-                result.label = storageUsedPercent === HUNDRED_PERCENT && bandwidthUsedPercent === HUNDRED_PERCENT ?
-                    'URGENT: You’ve reached the storage and bandwidth limits for your project. Avoid any service interruptions.'
-                    : `You’ve used ${storageUsedPercent}% of your storage and ${bandwidthUsedPercent}% of bandwidth limit. Avoid interrupting your usage by upgrading account.`;
-                result.modalTitle = `You’ve used ${storageUsedPercent}% storage and ${bandwidthUsedPercent}%  of your free account bandwidth`;
-            }
-        }
+    if (isLimitHigh) {
+        result.isShown = true;
+        result.severity = isLimitCritical ? 'critical' : 'warning';
 
-        return result;
-    }
-
-    /**
-     * Subscribes to activity events to refresh session timers.
-     */
-    public created(): void {
-        eventBus.$on('upload_progress', () => {
-            this.resetSessionOnLogicRelatedActivity();
-        });
-    }
-
-    public beforeDestroy(): void {
-        eventBus.$off('upload_progress');
-    }
-
-    /**
-     * Lifecycle hook after initial render.
-     * Pre fetches user`s and project information.
-     */
-    public async mounted(): Promise<void> {
-        this.$store.subscribeAction((action) => {
-            if (action.type == USER_ACTIONS.CLEAR) this.clearSessionTimers();
-        });
-
-        if (LocalData.getBillingNotificationAcknowledged()) {
-            this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+        if (bandwidthUsedPercent > storageUsedPercent) {
+            result.label = bandwidthUsedPercent === HUNDRED_PERCENT ?
+                'URGENT: You’ve reached the bandwidth limit for your project. Avoid any service interruptions.'
+                : `You’ve used ${bandwidthUsedPercent}% of your bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+            result.modalTitle = `You’ve used ${bandwidthUsedPercent}% of your free account bandwidth`;
+        } else if (bandwidthUsedPercent < storageUsedPercent) {
+            result.label = storageUsedPercent === HUNDRED_PERCENT ?
+                'URGENT: You’ve reached the storage limit for your project. Avoid any service interruptions.'
+                : `You’ve used ${storageUsedPercent}% of your storage limit. Avoid interrupting your usage by upgrading account.`;
+            result.modalTitle = `You’ve used ${storageUsedPercent}% of your free account storage`;
         } else {
-            const unsub = this.$store.subscribe((action) => {
-                if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
-                    LocalData.setBillingNotificationAcknowledged();
-                    unsub();
-                }
-            });
+            result.label = storageUsedPercent === HUNDRED_PERCENT && bandwidthUsedPercent === HUNDRED_PERCENT ?
+                'URGENT: You’ve reached the storage and bandwidth limits for your project. Avoid any service interruptions.'
+                : `You’ve used ${storageUsedPercent}% of your storage and ${bandwidthUsedPercent}% of bandwidth limit. Avoid interrupting your usage by upgrading account.`;
+            result.modalTitle = `You’ve used ${storageUsedPercent}% storage and ${bandwidthUsedPercent}%  of your free account bandwidth`;
         }
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
-            await this.$store.dispatch(AB_TESTING_ACTIONS.FETCH);
-            this.setupSessionTimers();
-        } catch (error) {
-            this.$store.subscribeAction((action) => {
-                if (action.type == USER_ACTIONS.LOGIN) this.setupSessionTimers();
-            });
-
-            if (!(error instanceof ErrorUnauthorized)) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-            }
-
-            setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
-
-            return;
-        }
-
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
-        } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        }
-
-        try {
-            const couponType = await this.$store.dispatch(SETUP_ACCOUNT);
-            if (couponType === CouponType.NoCoupon) {
-                await this.$notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-            }
-
-            if (couponType === CouponType.SignupCoupon) {
-                await this.$notify.success(`The coupon code was added successfully`);
-            }
-        } catch (error) {
-            await this.$notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        }
-
-        try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-        }
-
-        let projects: Project[] = [];
-
-        try {
-            projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-        } catch (error) {
-            return;
-        }
-
-        if (!projects.length) {
-            try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-
-                this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-            } catch (error) {
-                this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-                return;
-            }
-
-            return;
-        }
-
-        this.selectProject(projects);
-
-        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
     }
 
-    /**
-     * Used to trigger session timer update while doing not UI-related work for a long time.
-     */
-    public async resetSessionOnLogicRelatedActivity(): Promise<void> {
-        const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+    return result;
+});
 
-        if (!isInactivityTimerEnabled) {
-            return;
+/**
+ * Indicates if navigation sidebar is hidden.
+ */
+const isNavigationHidden = computed((): boolean => {
+    return isOnboardingTour.value || isCreateProjectPage.value;
+});
+
+const abTestValues = computed((): ABTestValues => {
+    return store.state.abTestingModule.abTestValues;
+});
+
+/* whether the paid tier banner should be shown */
+const isPaidTierBannerShown = computed((): boolean => {
+    return !store.state.usersModule.user.paidTier && !isOnboardingTour.value;
+});
+
+/**
+ * Indicates if current route is projects list page.
+ */
+const isProjectListPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.ProjectsList.name;
+});
+
+/**
+ * Returns credit cards from store.
+ */
+const creditCards = computed((): CreditCard[] => {
+    return store.state.paymentsModule.creditCards;
+});
+
+/**
+ * Indicates if current route is onboarding tour.
+ */
+const isOnboardingTour = computed((): boolean => {
+    return router.history.current?.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/**
+ * Indicates if satellite is in beta.
+ */
+const isBetaSatellite = computed((): boolean => {
+    return store.state.appStateModule.isBetaSatellite;
+});
+
+/**
+ * Indicates if loading screen is active.
+ */
+const isLoading = computed((): boolean => {
+    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+});
+
+/**
+ * Indicates whether the MFA recovery code warning bar should be shown.
+ */
+const showMFARecoveryCodeBar = computed((): boolean => {
+    const user: User = store.getters.user;
+    return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
+});
+
+/**
+ * Indicates whether the billing relocation notification should be shown.
+ */
+const isBillingNotificationShown = computed((): boolean => {
+    return store.state.appStateModule.appState.isBillingNotificationShown;
+});
+
+/**
+ * Indicates if current route is create project page.
+ */
+const isCreateProjectPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.CreateProject.name;
+});
+
+/**
+ * Stores project to vuex store and browser's local storage.
+ * @param projectID - project id string
+ */
+function storeProject(projectID: string): void {
+    store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    LocalData.setSelectedProjectId(projectID);
+}
+
+/**
+ * Clears timers associated with session refreshing and inactivity.
+ */
+function clearSessionTimers(): void {
+    [inactivityTimerId.value, sessionRefreshTimerId.value, debugTimerId.value].forEach(id => {
+        if (id != null) clearTimeout(id);
+    });
+}
+
+/**
+ * Adds DOM event listeners and starts session timers.
+ */
+function setupSessionTimers(): void {
+    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+    if (isInactivityTimerEnabled === 'false') return;
+
+    const expiresAt = LocalData.getSessionExpirationDate();
+
+    if (expiresAt) {
+        resetActivityEvents.forEach((eventName: string) => {
+            document.addEventListener(eventName, onSessionActivity, false);
+        });
+
+        if (expiresAt.getTime() - sessionDuration + sessionRefreshInterval < Date.now()) {
+            refreshSession();
         }
 
+        restartSessionTimers();
+    }
+}
+
+/**
+ * Restarts timers associated with session refreshing and inactivity.
+ */
+function restartSessionTimers(): void {
+    sessionRefreshTimerId.value = setTimeout(async () => {
+        sessionRefreshTimerId.value = null;
+        if (isSessionActive.value) {
+            await refreshSession();
+        }
+    }, sessionRefreshInterval);
+
+    inactivityTimerId.value = setTimeout(() => {
+        if (isSessionActive.value) return;
+        inactivityModalShown.value = true;
+        inactivityTimerId.value = setTimeout(async () => {
+            await handleInactive();
+            await notify.notify('Your session was timed out.');
+        }, inactivityModalTime);
+    }, sessionDuration - inactivityModalTime);
+
+    if (!debugTimerShown) return;
+
+    const debugTimer = () => {
         const expiresAt = LocalData.getSessionExpirationDate();
 
         if (expiresAt) {
             const ms = Math.max(0, expiresAt.getTime() - Date.now());
+            const secs = Math.floor(ms/1000)%60;
 
-            // Isn't triggered when decent amount of session time is left.
-            if (ms < this.ACTIVITY_REFRESH_TIME_LIMIT) {
-                await this.refreshSession();
+            debugTimerText.value = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
+
+            if (ms > 1000) {
+                debugTimerId.value = setTimeout(debugTimer, 1000);
             }
         }
+    };
+
+    debugTimer();
+}
+
+/**
+ * Checks if stored project is in fetched projects array and selects it.
+ * Selects first fetched project if check is not successful.
+ * @param fetchedProjects - fetched projects array
+ */
+function selectProject(fetchedProjects: Project[]): void {
+    const storedProjectID = LocalData.getSelectedProjectId();
+    const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
+    if (storedProjectID && isProjectInFetchedProjects) {
+        storeProject(storedProjectID);
+
+        return;
     }
 
-    /**
-     * Generates new MFA recovery codes and toggles popup visibility.
-     */
-    public async generateNewMFARecoveryCodes(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFARecoveryModal();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    // Length of fetchedProjects array is checked before selectProject() function call.
+    storeProject(fetchedProjects[0].id);
+}
+
+/**
+ * Used to trigger session timer update while doing not UI-related work for a long time.
+ */
+async function resetSessionOnLogicRelatedActivity(): Promise<void> {
+    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+    if (!isInactivityTimerEnabled) {
+        return;
+    }
+
+    const expiresAt = LocalData.getSessionExpirationDate();
+
+    if (expiresAt) {
+        const ms = Math.max(0, expiresAt.getTime() - Date.now());
+
+        // Isn't triggered when decent amount of session time is left.
+        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
+            await refreshSession();
         }
-    }
-
-    /**
-     * Toggles MFA recovery modal visibility.
-     */
-    public toggleMFARecoveryModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
-    }
-
-    /**
-     * Opens add payment method modal.
-     */
-    public togglePMModal(): void {
-        this.isLimitModalShown = false;
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Disables session inactivity modal visibility.
-     */
-    public closeInactivityModal(): void {
-        this.inactivityModalShown = false;
-    }
-
-    /**
-     * Checks if stored project is in fetched projects array and selects it.
-     * Selects first fetched project if check is not successful.
-     * @param fetchedProjects - fetched projects array
-     */
-    private selectProject(fetchedProjects: Project[]): void {
-        const storedProjectID = LocalData.getSelectedProjectId();
-        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
-        if (storedProjectID && isProjectInFetchedProjects) {
-            this.storeProject(storedProjectID);
-
-            return;
-        }
-
-        // Length of fetchedProjects array is checked before selectProject() function call.
-        this.storeProject(fetchedProjects[0].id);
-    }
-
-    /**
-     * Stores project to vuex store and browser's local storage.
-     * @param projectID - project id string
-     */
-    private storeProject(projectID: string): void {
-        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
-    }
-
-    public get abTestValues(): ABTestValues {
-        return this.$store.state.abTestingModule.abTestValues;
-    }
-
-    /* whether the paid tier banner should be shown */
-    public get isPaidTierBannerShown(): boolean {
-        return !this.$store.state.usersModule.user.paidTier && !this.isOnboardingTour;
-    }
-
-    /**
-     * Indicates if current route is projects list page.
-     */
-    public get isProjectListPage(): boolean {
-        return this.$route.name === RouteConfig.ProjectsList.name;
-    }
-
-    /**
-     * Returns credit cards from store.
-     */
-    public get creditCards(): CreditCard[] {
-        return this.$store.state.paymentsModule.creditCards;
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
-     * Indicates if satellite is in beta.
-     */
-    public get isBetaSatellite(): boolean {
-        return this.$store.state.appStateModule.isBetaSatellite;
-    }
-
-    /**
-     * Indicates if loading screen is active.
-     */
-    public get isLoading(): boolean {
-        return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
-    }
-
-    /**
-     * Indicates whether the MFA recovery code warning bar should be shown.
-     */
-    public get showMFARecoveryCodeBar(): boolean {
-        const user: User = this.$store.getters.user;
-        return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
-    }
-
-    /**
-     * Indicates if navigation sidebar is hidden.
-     */
-    public get isNavigationHidden(): boolean {
-        return this.isOnboardingTour || this.isCreateProjectPage;
-    }
-
-    /**
-     * Indicates whether the billing relocation notification should be shown.
-     */
-    public get isBillingNotificationShown(): boolean {
-        return this.$store.state.appStateModule.appState.isBillingNotificationShown;
-    }
-
-    /**
-     * Indicates if current route is create project page.
-     */
-    private get isCreateProjectPage(): boolean {
-        return this.$route.name === RouteConfig.CreateProject.name;
-    }
-
-    /**
-     * Refreshes session and resets session timers.
-     */
-    private async refreshSession(): Promise<void> {
-        this.isSessionRefreshing = true;
-
-        try {
-            LocalData.setSessionExpirationDate(await this.auth.refreshSession());
-        } catch (error) {
-            await this.$notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-            await this.handleInactive();
-            this.isSessionRefreshing = false;
-            return;
-        }
-
-        this.clearSessionTimers();
-        this.restartSessionTimers();
-        this.inactivityModalShown = false;
-        this.isSessionActive = false;
-        this.isSessionRefreshing = false;
-    }
-
-    /**
-     * Performs logout and cleans event listeners and session timers.
-     */
-    private async handleInactive(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.Login.path);
-        await this.$router.push(RouteConfig.Login.path);
-
-        this.resetActivityEvents.forEach((eventName: string) => {
-            document.removeEventListener(eventName, this.onSessionActivity);
-        });
-        this.clearSessionTimers();
-        this.inactivityModalShown = false;
-
-        try {
-            await this.auth.logout();
-        } catch (error) {
-            if (error instanceof ErrorUnauthorized) return;
-
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-        }
-    }
-
-    /**
-     * Resets inactivity timer and refreshes session if necessary.
-     */
-    private async onSessionActivity(): Promise<void> {
-        if (this.inactivityModalShown || this.isSessionActive) return;
-
-        if (this.sessionRefreshTimerId == null && !this.isSessionRefreshing) {
-            await this.refreshSession();
-        }
-        this.isSessionActive = true;
-    }
-
-    /**
-     * Adds DOM event listeners and starts session timers.
-     */
-    private setupSessionTimers(): void {
-        const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-        if (isInactivityTimerEnabled === 'false') return;
-
-        const expiresAt = LocalData.getSessionExpirationDate();
-
-        if (expiresAt) {
-            this.resetActivityEvents.forEach((eventName: string) => {
-                document.addEventListener(eventName, this.onSessionActivity, false);
-            });
-
-            if (expiresAt.getTime() - this.sessionDuration + this.sessionRefreshInterval < Date.now()) {
-                this.refreshSession();
-            }
-
-            this.restartSessionTimers();
-        }
-    }
-
-    /**
-     * Restarts timers associated with session refreshing and inactivity.
-     */
-    private restartSessionTimers(): void {
-        this.sessionRefreshTimerId = setTimeout(async () => {
-            this.sessionRefreshTimerId = null;
-            if (this.isSessionActive) {
-                await this.refreshSession();
-            }
-        }, this.sessionRefreshInterval);
-
-        this.inactivityTimerId = setTimeout(() => {
-            if (this.isSessionActive) return;
-            this.inactivityModalShown = true;
-            this.inactivityTimerId = setTimeout(async () => {
-                this.handleInactive();
-                await this.$notify.notify('Your session was timed out.');
-            }, this.inactivityModalTime);
-        }, this.sessionDuration - this.inactivityModalTime);
-
-        if (!this.debugTimerShown) return;
-
-        const debugTimer = () => {
-            const expiresAt = LocalData.getSessionExpirationDate();
-
-            if (expiresAt) {
-                const ms = Math.max(0, expiresAt.getTime() - Date.now());
-                const secs = Math.floor(ms/1000)%60;
-
-                this.debugTimerText = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
-
-                if (ms > 1000) {
-                    this.debugTimerId = setTimeout(debugTimer, 1000);
-                }
-            }
-        };
-        debugTimer();
-    }
-
-    /**
-     * Clears timers associated with session refreshing and inactivity.
-     */
-    private clearSessionTimers(): void {
-        [this.inactivityTimerId, this.sessionRefreshTimerId, this.debugTimerId].forEach(id => {
-            if (id != null) clearTimeout(id);
-        });
     }
 }
+
+/**
+ * Refreshes session and resets session timers.
+ */
+async function refreshSession(): Promise<void> {
+    isSessionRefreshing.value = true;
+
+    try {
+        LocalData.setSessionExpirationDate(await auth.refreshSession());
+    } catch (error) {
+        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        await handleInactive();
+        isSessionRefreshing.value = false;
+        return;
+    }
+
+    clearSessionTimers();
+    restartSessionTimers();
+    inactivityModalShown.value = false;
+    isSessionActive.value = false;
+    isSessionRefreshing.value = false;
+}
+
+/**
+ * Performs logout and cleans event listeners and session timers.
+ */
+async function handleInactive(): Promise<void> {
+    await analytics.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
+
+    resetActivityEvents.forEach((eventName: string) => {
+        document.removeEventListener(eventName, onSessionActivity);
+    });
+    clearSessionTimers();
+    inactivityModalShown.value = false;
+
+    try {
+        await auth.logout();
+    } catch (error) {
+        if (error instanceof ErrorUnauthorized) return;
+
+        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+    }
+
+    await Promise.all([
+        store.dispatch(PM_ACTIONS.CLEAR),
+        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        store.dispatch(USER_ACTIONS.CLEAR),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        store.dispatch(BUCKET_ACTIONS.CLEAR),
+        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        store.dispatch('files/clear'),
+    ]);
+}
+
+function setIsLimitModalShown(value: boolean): void {
+    isLimitModalShown.value = value;
+}
+
+/**
+ * Toggles MFA recovery modal visibility.
+ */
+function toggleMFARecoveryModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
+}
+
+/**
+ * Generates new MFA recovery codes and toggles popup visibility.
+ */
+async function generateNewMFARecoveryCodes(): Promise<void> {
+    try {
+        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        toggleMFARecoveryModal();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+}
+
+/**
+ * Opens add payment method modal.
+ */
+function togglePMModal(): void {
+    isLimitModalShown.value = false;
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+}
+
+/**
+ * Disables session inactivity modal visibility.
+ */
+function closeInactivityModal(): void {
+    inactivityModalShown.value = false;
+}
+
+/**
+ * Redirects to Billing Page.
+ */
+async function redirectToBillingPage(): Promise<void> {
+    await router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingPaymentMethods)).path);
+}
+
+/**
+ * Resets inactivity timer and refreshes session if necessary.
+ */
+async function onSessionActivity(): Promise<void> {
+    if (inactivityModalShown.value || isSessionActive.value) return;
+
+    if (sessionRefreshTimerId.value === null && !isSessionRefreshing.value) {
+        await refreshSession();
+    }
+
+    isSessionActive.value = true;
+}
+
+/**
+ * Subscribes to activity events to refresh session timers.
+ */
+onBeforeMount(() => {
+    eventBus.$on('upload_progress', () => {
+        resetSessionOnLogicRelatedActivity();
+    });
+});
+
+/**
+ * Lifecycle hook after initial render.
+ * Pre fetches user`s and project information.
+ */
+onMounted(async () => {
+    store.subscribeAction((action) => {
+        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    });
+
+    if (LocalData.getBillingNotificationAcknowledged()) {
+        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+    } else {
+        const unsub = store.subscribe((action) => {
+            if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+                LocalData.setBillingNotificationAcknowledged();
+                unsub();
+            }
+        });
+    }
+
+    try {
+        await store.dispatch(USER_ACTIONS.GET);
+        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
+        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        setupSessionTimers();
+    } catch (error) {
+        store.subscribeAction((action) => {
+            if (action.type == USER_ACTIONS.LOGIN) setupSessionTimers();
+        });
+
+        if (!(error instanceof ErrorUnauthorized)) {
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        }
+
+        setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
+
+        return;
+    }
+
+    try {
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+    } catch (error) {
+        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    try {
+        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        if (couponType === CouponType.NoCoupon) {
+            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        }
+
+        if (couponType === CouponType.SignupCoupon) {
+            await notify.success(`The coupon code was added successfully`);
+        }
+    } catch (error) {
+        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    try {
+        await store.dispatch(GET_CREDIT_CARDS);
+    } catch (error) {
+        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    let projects: Project[] = [];
+
+    try {
+        projects = await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    } catch (error) {
+        return;
+    }
+
+    if (!projects.length) {
+        try {
+            await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+
+            await analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            return;
+        }
+
+        return;
+    }
+
+    selectProject(projects);
+
+    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+});
+
+onBeforeUnmount(() => {
+    eventBus.$off('upload_progress');
+});
 </script>
 
 <style scoped lang="scss">
+    @keyframes rotate {
+
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    .load {
+        width: 90px;
+        height: 90px;
+        margin: auto 0;
+        border: solid 3px var(--c-blue-3);
+        border-radius: 50%;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+        transition: all 0.5s ease-in;
+        animation-name: rotate;
+        animation-duration: 1.2s;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+    }
+
     .loading-overlay {
         display: flex;
         justify-content: center;
@@ -600,7 +661,7 @@ export default class DashboardArea extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgb(134 134 148 / 30%);
+        background-color: #fff;
         visibility: hidden;
         opacity: 0;
         transition: all 0.5s linear;
@@ -612,8 +673,12 @@ export default class DashboardArea extends Vue {
     }
 
     .loading-icon {
-        width: 100px;
-        height: 100px;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
     }
 
     .dashboard {

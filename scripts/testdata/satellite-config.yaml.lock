@@ -61,6 +61,9 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
+# whether or not to use the ranged loop observer instead of the chore.
+# audit.use-ranged-loop: false
+
 # number of audit jobs to push at once to the verification queue
 # audit.verification-push-batch-size: 4096
 
@@ -237,9 +240,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
-
-# indicates if new access grant flow should be used
-# console.new-access-grant-flow: true
 
 # indicates if new billing screens should be used
 # console.new-billing-screen: true
@@ -439,6 +439,9 @@ contact.external-address: ""
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
 
+# whether to use ranged loop instead of segment loop
+# garbage-collection-bf.use-ranged-loop: false
+
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 500
 
@@ -498,6 +501,9 @@ contact.external-address: ""
 
 # batch size (crdb specific) for deleting and adding items to the transfer queue
 # graceful-exit.transfer-queue-batch-size: 1000
+
+# whether or not to use the ranged loop observer instead of the chore.
+# graceful-exit.use-ranged-loop: false
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
@@ -826,8 +832,11 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # storjscan chore interval to query new payments for all satellite deposit wallets
 # payments.storjscan.interval: 1m0s
 
-# toogle autoadvance feature for invoice creation
+# toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# if set, skips the creation of empty invoices for customers with zero usage for the billing period
+# payments.stripe-coin-payments.skip-empty-invoices: true
 
 # stripe free tier coupon ID
 # payments.stripe-coin-payments.stripe-free-tier-coupon-id: ""
@@ -867,6 +876,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many items to query in a batch
 # ranged-loop.batch-size: 2500
+
+# how often to run the loop
+# ranged-loop.interval: 2h0m0s
 
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
@@ -1059,6 +1071,12 @@ server.private-address: 127.0.0.1:7778
 
 # how frequent to sample traces
 # tracing.sample: 0
+
+# A comma delimited list of peers (IDs/addresses) allowed to use this endpoint.
+# userinfo.allowed-peers: ""
+
+# Whether the private Userinfo rpc endpoint is enabled
+# userinfo.enabled: false
 
 # Interval to check the version
 # version.check-interval: 15m0s

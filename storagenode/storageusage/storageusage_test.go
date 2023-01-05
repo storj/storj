@@ -81,7 +81,8 @@ func TestStorageUsage(t *testing.T) {
 		})
 
 		t.Run("get daily", func(t *testing.T) {
-			res, err := storageUsageDB.GetDaily(ctx, satelliteID, time.Time{}, now)
+			from := now.AddDate(0, 0, -20)
+			res, err := storageUsageDB.GetDaily(ctx, satelliteID, from, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, res)
 
@@ -143,17 +144,17 @@ func TestEmptyStorageUsage(t *testing.T) {
 		})
 
 		t.Run("summary satellite", func(t *testing.T) {
-			summ, hourInterval, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
+			summ, averageUsageInBytes, err := storageUsageDB.SatelliteSummary(ctx, storj.NodeID{}, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
-			assert.Equal(t, zeroHourInterval, hourInterval)
+			assert.Equal(t, zeroHourInterval, averageUsageInBytes)
 		})
 
 		t.Run("summary", func(t *testing.T) {
-			summ, hourInterval, err := storageUsageDB.Summary(ctx, time.Time{}, now)
+			summ, averageUsageInBytes, err := storageUsageDB.Summary(ctx, time.Time{}, now)
 			assert.NoError(t, err)
 			assert.Equal(t, emptySummary, summ)
-			assert.Equal(t, zeroHourInterval, hourInterval)
+			assert.Equal(t, zeroHourInterval, averageUsageInBytes)
 		})
 	})
 }

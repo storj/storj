@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -105,6 +106,10 @@ type API struct {
 		Metabase      *metabase.DB
 		PieceDeletion *piecedeletion.Service
 		Endpoint      *metainfo.Endpoint
+	}
+
+	Userinfo struct {
+		Endpoint *userinfo.Endpoint
 	}
 
 	Inspector struct {
@@ -485,6 +490,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup userinfo.
+		if config.Userinfo.Enabled {
+
+			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
+				peer.Log.Named("userinfo:endpoint"),
+				peer.DB.Console().Users(),
+				peer.DB.Console().APIKeys(),
+				peer.DB.Console().Projects(),
+				config.Userinfo,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if err := pb.DRPCRegisterUserInfo(peer.Server.DRPC(), peer.Userinfo.Endpoint); err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "userinfo:endpoint",
+				Close: peer.Userinfo.Endpoint.Close,
+			})
+		} else {
+			peer.Log.Named("userinfo:endpoint").Info("disabled")
+		}
+	}
+
 	{ // setup inspector
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
@@ -599,6 +631,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		accountFreezeService := console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -608,6 +642,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
+			accountFreezeService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			config.Payments.UsagePrice,

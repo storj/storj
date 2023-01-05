@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gc/sender"
@@ -114,8 +115,6 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
-	// NewContainment is temporary and will replace Containment later in the commit chain.
-	NewContainment() audit.NewContainment
 	// Buckets returns the database to interact with buckets
 	Buckets() buckets.DB
 	// GracefulExit returns database for graceful exit
@@ -154,6 +153,8 @@ type Config struct {
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
+
+	Userinfo userinfo.Config
 
 	Reputation reputation.Config
 

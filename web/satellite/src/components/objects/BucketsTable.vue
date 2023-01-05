@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -211,6 +211,10 @@ function openBucket(bucketName: string): void {
 
     store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
 }
+
+onBeforeUnmount(() => {
+    store.dispatch(BUCKET_ACTIONS.SET_SEARCH, '');
+});
 </script>
 
 <style scoped lang="scss">

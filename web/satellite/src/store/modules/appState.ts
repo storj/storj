@@ -209,6 +209,37 @@ export const appStateModule = {
             state.appState.isChartsDatePickerShown = false;
             state.appState.isBucketNamesDropdownShown = false;
         },
+        [APP_STATE_MUTATIONS.CLEAR](state: State): void {
+            state.appState.isAddTeamMembersModalShown = false;
+            state.appState.isEditProfileModalShown = false;
+            state.appState.isChangePasswordModalShown = false;
+            state.appState.isUploadCancelPopupVisible = false;
+            state.appState.isSuccessfulPasswordResetShown = false;
+            state.appState.isCreateProjectPromptModalShown = false;
+            state.appState.isCreateProjectModalShown = false;
+            state.appState.isAddPMModalShown = false;
+            state.appState.isOpenBucketModalShown = false;
+            state.appState.isMFARecoveryModalShown = false;
+            state.appState.isEnableMFAModalShown = false;
+            state.appState.isDisableMFAModalShown = false;
+            state.appState.isAddTokenFundsModalShown = false;
+            state.appState.isShareBucketModalShown = false;
+            state.appState.isShareObjectModalShown = false;
+            state.appState.isDeleteBucketModalShown = false;
+            state.appState.isNewFolderModalShown = false;
+            state.appState.isCreateProjectPassphraseModalShown = false;
+            state.appState.isManageProjectPassphraseModalShown = false;
+            state.appState.isObjectDetailsModalShown = false;
+            state.appState.isAddCouponModalShown = false;
+            state.appState.isNewBillingAddCouponModalShown = false;
+            state.appState.onbAGStepBackRoute = '';
+            state.appState.onbAPIKeyStepBackRoute = '';
+            state.appState.onbCleanApiKey = '';
+            state.appState.onbApiKey = '';
+            state.appState.setDefaultPaymentMethodID = '';
+            state.appState.deletePaymentMethodID = '';
+            state.appState.onbSelectedOs = null;
+        },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
         },
@@ -377,6 +408,10 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+        },
+        [APP_STATE_ACTIONS.CLEAR]: function ({ commit }: AppContext): void {
+            commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            commit(APP_STATE_MUTATIONS.CLEAR);
         },
         [APP_STATE_ACTIONS.CHANGE_STATE]: function ({ commit }: AppContext, newFetchState: AppState): void {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);

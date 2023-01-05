@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -58,6 +59,7 @@ type Config struct {
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
 	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
 	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
+	ExistsCheckWorkers      int           `help:"how many workers to use to check if satellite pieces exists" default:"5"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
 	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
@@ -96,6 +98,7 @@ type Endpoint struct {
 	pingStats pingStatsSource
 
 	store        *pieces.Store
+	trashChore   *pieces.TrashChore
 	ordersStore  *orders.FileStore
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
@@ -105,7 +108,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -117,6 +120,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		pingStats: pingStats,
 
 		store:        store,
+		trashChore:   trashChore,
 		ordersStore:  ordersStore,
 		usage:        usage,
 		usedSerials:  usedSerials,
@@ -184,6 +188,71 @@ func (endpoint *Endpoint) DeletePieces(
 
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
+	}, nil
+}
+
+// Exists check if pieces from the list exists on storage node. Request will
+// accept only connections from trusted satellite and will check pieces only
+// for that satellite.
+func (endpoint *Endpoint) Exists(
+	ctx context.Context, req *pb.ExistsRequest,
+) (_ *pb.ExistsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "piecestore.exists called with untrusted ID")
+	}
+
+	if len(req.PieceIds) == 0 {
+		return &pb.ExistsResponse{}, nil
+	}
+
+	if endpoint.config.ExistsCheckWorkers < 1 {
+		endpoint.config.ExistsCheckWorkers = 1
+	}
+
+	limiter := sync2.NewLimiter(endpoint.config.ExistsCheckWorkers)
+	var mu sync.Mutex
+
+	missing := make([]uint32, 0, 100)
+
+	addMissing := func(index int) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		missing = append(missing, uint32(index))
+	}
+
+	for index, pieceID := range req.PieceIds {
+		index := index
+		pieceID := pieceID
+
+		ok := limiter.Go(ctx, func() {
+			_, err := endpoint.store.Stat(ctx, peer.ID, pieceID)
+			if err != nil {
+				if errs.Is(err, os.ErrNotExist) {
+					addMissing(index)
+				}
+				endpoint.log.Debug("failed to stat piece", zap.String("Piece ID", pieceID.String()), zap.String("Satellite ID", peer.ID.String()), zap.Error(err))
+				return
+			}
+		})
+		if !ok {
+			limiter.Wait()
+			return nil, rpcstatus.Wrap(rpcstatus.Canceled, ctx.Err())
+		}
+	}
+
+	limiter.Wait()
+
+	return &pb.ExistsResponse{
+		Missing: missing,
 	}, nil
 }
 
@@ -750,13 +819,10 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
 
-	endpoint.log.Info("restore trash started", zap.Stringer("Satellite ID", peer.ID))
-	err = endpoint.store.RestoreTrash(ctx, peer.ID)
+	err = endpoint.trashChore.StartRestore(ctx, peer.ID)
 	if err != nil {
-		endpoint.log.Error("restore trash failed", zap.Stringer("Satellite ID", peer.ID), zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "failed to start restore")
 	}
-	endpoint.log.Info("restore trash finished", zap.Stringer("Satellite ID", peer.ID))
 
 	return &pb.RestoreTrashResponse{}, nil
 }

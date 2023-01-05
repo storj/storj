@@ -43,7 +43,7 @@ func TestObserver(t *testing.T) {
 			rangedloop.Config{BatchSize: 2, Parallelism: 2},
 			&rangedlooptest.RangeSplitter{Segments: combineSegments(streams...)},
 			[]rangedloop.Observer{obs})
-		err := service.RunOnce(ctx)
+		_, err := service.RunOnce(ctx)
 		require.NoError(tb, err)
 		return obs.TestingMetrics()
 	}

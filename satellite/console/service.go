@@ -57,6 +57,7 @@ const (
 	emailNotFoundErrMsg                  = "There are no users with the specified email"
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your login credentials are incorrect, please try again"
+	changePasswordErrMsg                 = "Your old password is incorrect, please try again"
 	passwordTooShortErrMsg               = "Your password needs to be at least %d characters long"
 	passwordTooLongErrMsg                = "Your password must be no longer than %d characters"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
@@ -93,6 +94,9 @@ var (
 
 	// ErrLoginCredentials occurs when provided invalid login credentials.
 	ErrLoginCredentials = errs.Class("login credentials")
+
+	// ErrChangePassword occurs when provided old password is incorrect.
+	ErrChangePassword = errs.Class("change password")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -619,6 +623,23 @@ func (payment Payments) GetCoupon(ctx context.Context) (coupon *payments.Coupon,
 	}
 
 	return coupon, nil
+}
+
+// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
+func (payment Payments) AttemptPayOverdueInvoices(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "attempt to pay overdue invoices")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = payment.service.accounts.Invoices().AttemptPayOverdueInvoices(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
@@ -1306,7 +1327,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(pass))
 	if err != nil {
-		return ErrUnauthorized.New(credentialsErrMsg)
+		return ErrChangePassword.New(changePasswordErrMsg)
 	}
 
 	if err := ValidatePassword(newPass); err != nil {
@@ -1472,6 +1493,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1479,9 +1502,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -1538,6 +1561,8 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := memory.Size(newProjectLimits.Storage)
+		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
@@ -1545,9 +1570,9 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 				OwnerID:        user.ID,
 				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
-				StorageLimit:   &newProjectLimits.StorageLimit,
-				BandwidthLimit: &newProjectLimits.BandwidthLimit,
-				SegmentLimit:   &newProjectLimits.SegmentLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &newProjectLimits.Segment,
 			},
 		)
 		if err != nil {
@@ -2711,7 +2736,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
-func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UserProjectLimits, err error) {
+func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_ *UsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := s.store.Users().GetUserProjectLimits(ctx, userID)
@@ -2719,10 +2744,10 @@ func (s *Service) getUserProjectLimits(ctx context.Context, userID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	return &UserProjectLimits{
-		StorageLimit:   result.ProjectStorageLimit,
-		BandwidthLimit: result.ProjectBandwidthLimit,
-		SegmentLimit:   result.ProjectSegmentLimit,
+	return &UsageLimits{
+		Storage:   result.ProjectStorageLimit.Int64(),
+		Bandwidth: result.ProjectBandwidthLimit.Int64(),
+		Segment:   result.ProjectSegmentLimit,
 	}, nil
 }
 

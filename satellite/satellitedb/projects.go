@@ -323,7 +323,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 	}
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
-		SELECT id, name, description, owner_id, rate_limit, max_buckets, created_at,
+		SELECT id, public_id, name, description, owner_id, rate_limit, max_buckets, created_at,
 			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
 			FROM projects
 			WHERE owner_id = ?
@@ -348,7 +348,7 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 		}
 		var rateLimit, maxBuckets sql.NullInt32
 		nextProject := &console.Project{}
-		err = rows.Scan(&nextProject.ID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
+		err = rows.Scan(&nextProject.ID, &nextProject.PublicID, &nextProject.Name, &nextProject.Description, &nextProject.OwnerID, &rateLimit, &maxBuckets, &nextProject.CreatedAt, &nextProject.MemberCount)
 		if err != nil {
 			return console.ProjectsPage{}, err
 		}
@@ -454,4 +454,19 @@ func (projects *projects) GetMaxBuckets(ctx context.Context, id uuid.UUID) (maxB
 		return nil, err
 	}
 	return dbxRow.MaxBuckets, nil
+}
+
+// UpdateUsageLimits is a method for updating project's bandwidth, storage, and segment limits.
+func (projects *projects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits console.UsageLimits) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = projects.db.Update_Project_By_Id(ctx,
+		dbx.Project_Id(id[:]),
+		dbx.Project_Update_Fields{
+			BandwidthLimit: dbx.Project_BandwidthLimit(limits.Bandwidth),
+			UsageLimit:     dbx.Project_UsageLimit(limits.Storage),
+			SegmentLimit:   dbx.Project_SegmentLimit(limits.Segment),
+		},
+	)
+	return err
 }

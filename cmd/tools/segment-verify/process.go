@@ -83,24 +83,30 @@ func (service *Service) VerifyBatches(ctx context.Context, batches []*Batch) err
 	for _, batch := range batches {
 		batch := batch
 
-		nodeURL, err := service.convertAliasToNodeURL(ctx, batch.Alias)
+		info, err := service.GetNodeInfo(ctx, batch.Alias)
 		if err != nil {
+			if ErrNoSuchNode.Has(err) {
+				service.log.Error("will not verify batch; consider pieces lost",
+					zap.Int("alias", int(batch.Alias)),
+					zap.Error(err))
+				continue
+			}
 			return Error.Wrap(err)
 		}
 
 		ignoreThrottle := service.priorityNodes.Contains(batch.Alias)
 
 		limiter.Go(ctx, func() {
-			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, nodeURL, batch.Items, ignoreThrottle)
+			verifiedCount, err := service.verifier.Verify(ctx, batch.Alias, info.NodeURL, info.Version, batch.Items, ignoreThrottle)
 			if err != nil {
 				if ErrNodeOffline.Has(err) {
 					mu.Lock()
 					if verifiedCount == 0 {
-						service.onlineNodes.Remove(batch.Alias)
+						service.offlineNodes.Add(batch.Alias)
 					} else {
 						service.offlineCount[batch.Alias]++
 						if service.config.MaxOffline > 0 && service.offlineCount[batch.Alias] >= service.config.MaxOffline {
-							service.onlineNodes.Remove(batch.Alias)
+							service.offlineNodes.Add(batch.Alias)
 						}
 					}
 					mu.Unlock()
@@ -134,7 +140,7 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 
 			nodeID, ok = service.aliasMap.Node(alias)
 			if !ok {
-				return storj.NodeURL{}, Error.Wrap(err)
+				return storj.NodeURL{}, ErrNoSuchNode.New("no node has alias %d", alias)
 			}
 		}
 
@@ -142,6 +148,12 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 		if err != nil {
 			return storj.NodeURL{}, Error.Wrap(err)
 		}
+
+		if info.Disqualified != nil || info.ExitStatus.ExitFinishedAt != nil {
+			return storj.NodeURL{}, ErrNoSuchNode.New("node %s is no longer on the network", nodeID.String())
+		}
+		// TODO: single responsibility?
+		service.nodesVersionMap[alias] = info.Version.Version
 
 		nodeURL = storj.NodeURL{
 			ID:      info.Id,
@@ -151,4 +163,35 @@ func (service *Service) convertAliasToNodeURL(ctx context.Context, alias metabas
 		service.aliasToNodeURL[alias] = nodeURL
 	}
 	return nodeURL, nil
+}
+
+// NodeInfo contains node information.
+type NodeInfo struct {
+	Version string
+	NodeURL storj.NodeURL
+}
+
+// GetNodeInfo retrieves node information, using a cache if needed.
+func (service *Service) GetNodeInfo(ctx context.Context, alias metabase.NodeAlias) (NodeInfo, error) {
+	nodeURL, err := service.convertAliasToNodeURL(ctx, alias)
+	if err != nil {
+		return NodeInfo{}, Error.Wrap(err)
+	}
+
+	version, ok := service.nodesVersionMap[alias]
+
+	if !ok {
+		info, err := service.overlay.Get(ctx, nodeURL.ID)
+		if err != nil {
+			return NodeInfo{}, Error.Wrap(err)
+		}
+
+		service.nodesVersionMap[alias] = info.Version.Version
+		version = info.Version.Version
+	}
+
+	return NodeInfo{
+		NodeURL: nodeURL,
+		Version: version,
+	}, nil
 }

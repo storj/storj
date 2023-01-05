@@ -72,12 +72,6 @@ func TestService_Success(t *testing.T) {
 	err := os.WriteFile(config.PriorityNodesPath, []byte((storj.NodeID{1}).String()+"\n"), 0755)
 	require.NoError(t, err)
 
-	bucketListPath := ctx.File("buckets.csv")
-	err = os.WriteFile(bucketListPath, []byte(`
-	00000000000000000000000000000001,67616c617879
-	00000000000000000000000000000002,7368696e6f6269`), 0755)
-	require.NoError(t, err)
-
 	func() {
 		nodes := map[metabase.NodeAlias]storj.NodeID{}
 		for i := 1; i <= 0xFF; i++ {
@@ -101,10 +95,6 @@ func TestService_Success(t *testing.T) {
 
 		metabase := newMetabaseMock(nodes, segments...)
 		verifier := &verifierMock{allSuccess: true}
-
-		metabase.AddStreamIDToBucket(uuid.UUID{1}, "67616c617879", uuid.UUID{0x10, 0x10})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7368696e6f6269", uuid.UUID{0x20, 0x20})
-		metabase.AddStreamIDToBucket(uuid.UUID{2}, "7777777", uuid.UUID{0x30, 0x30})
 
 		service, err := segmentverify.NewService(log.Named("segment-verify"), metabase, verifier, metabase, config)
 		require.NoError(t, err)
@@ -481,7 +471,7 @@ type verifierMock struct {
 	processed map[storj.NodeID][]*segmentverify.Segment
 }
 
-func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, segments []*segmentverify.Segment, _ bool) (int, error) {
+func (v *verifierMock) Verify(ctx context.Context, alias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*segmentverify.Segment, _ bool) (int, error) {
 	v.mu.Lock()
 	if v.processed == nil {
 		v.processed = map[storj.NodeID][]*segmentverify.Segment{}

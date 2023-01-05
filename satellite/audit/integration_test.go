@@ -9,22 +9,30 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 )
 
 func TestChoreAndWorkerIntegration(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 
@@ -36,11 +44,12 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		audits.Chore.Loop.TriggerWait()
+		err := runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 
 		uniqueSegments := make(map[audit.Segment]struct{})
-		var err error
 		var segment audit.Segment
 		var segmentCount int
 		for {
@@ -59,7 +68,8 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		requireAuditQueueEmpty(ctx, t, audits.VerifyQueue)
 
 		// Repopulate the queue for the worker.
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
 
 		// Make sure the worker processes the audit queue.
 		audits.Worker.Loop.TriggerWait()

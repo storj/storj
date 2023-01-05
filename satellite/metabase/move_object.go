@@ -154,10 +154,53 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+		targetVersion := opts.Version
+
+		if db.config.MultipleVersions {
+			useNewVersion := false
+			highestVersion := Version(0)
+			err = withRows(tx.QueryContext(ctx, `
+			SELECT version, status
+			FROM objects
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3
+			ORDER BY version ASC
+			`, opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey))(func(rows tagsql.Rows) error {
+				for rows.Next() {
+					var status ObjectStatus
+					var version Version
+
+					err = rows.Scan(&version, &status)
+					if err != nil {
+						return Error.New("failed to scan objects: %w", err)
+					}
+
+					if status == Committed {
+						return ErrObjectAlreadyExists.New("")
+					} else if status == Pending && version == opts.Version {
+						useNewVersion = true
+					}
+					highestVersion = version
+				}
+
+				return nil
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			if useNewVersion {
+				targetVersion = highestVersion + 1
+			}
+		}
+
 		updateObjectsQuery := `
 			UPDATE objects SET
 				bucket_name = $1,
 				object_key = $2,
+				version = $9,
 				encrypted_metadata_encrypted_key = CASE WHEN objects.encrypted_metadata IS NOT NULL
 				THEN $3
 				ELSE objects.encrypted_metadata_encrypted_key
@@ -172,7 +215,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				object_key = $7 AND
 				version = $8
 			RETURNING
-				segment_count, 
+				segment_count,
 				objects.encrypted_metadata IS NOT NULL AND LENGTH(objects.encrypted_metadata) > 0 AS has_metadata,
 				stream_id
         `
@@ -181,7 +224,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		var hasMetadata bool
 		var streamID uuid.UUID
 
-		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version)
+		row := tx.QueryRowContext(ctx, updateObjectsQuery, []byte(opts.NewBucket), opts.NewEncryptedObjectKey, opts.NewEncryptedMetadataKey, opts.NewEncryptedMetadataKeyNonce, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, targetVersion)
 		if err = row.Scan(&segmentsCount, &hasMetadata, &streamID); err != nil {
 			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 				return Error.Wrap(ErrObjectAlreadyExists.New(""))

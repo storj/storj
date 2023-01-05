@@ -62,7 +62,6 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 		newDialer,
 		sat.Overlay.Service,
 		sat.DB.Containment(),
-		sat.DB.NewContainment(),
 		sat.Orders.Service,
 		sat.Identity,
 		sat.Config.Audit.MinBytesPerSecond,
@@ -73,14 +72,14 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 }
 
 func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]
 		audits := testSatellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(testSatellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -88,7 +87,9 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, testSatellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)
@@ -127,14 +128,14 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 }
 
 func TestGetSharePrefers(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		testSatellite := planet.Satellites[0]
 		audits := testSatellite.Audit
 
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(testSatellite)
 
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -142,7 +143,9 @@ func TestGetSharePrefers(t *testing.T) {
 		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
 		require.NoError(t, err)
 
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, testSatellite)
+		require.NoError(t, err)
+
 		queue := audits.VerifyQueue
 		queueSegment, err := queue.Next(ctx)
 		require.NoError(t, err)

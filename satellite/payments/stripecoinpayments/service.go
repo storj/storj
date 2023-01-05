@@ -45,8 +45,9 @@ type Config struct {
 	StripeSecretKey        string `help:"stripe API secret key" default:""`
 	StripePublicKey        string `help:"stripe API public key" default:""`
 	StripeFreeTierCouponID string `help:"stripe free tier coupon ID" default:""`
-	AutoAdvance            bool   `help:"toogle autoadvance feature for invoice creation" default:"false"`
+	AutoAdvance            bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
+	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
@@ -73,8 +74,9 @@ type Service struct {
 	// Stripe Extended Features
 	AutoAdvance bool
 
-	listingLimit int
-	nowFn        func() time.Time
+	listingLimit      int
+	skipEmptyInvoices bool
+	nowFn             func() time.Time
 }
 
 // ProjectUsagePriceModel represents price model for project usage.
@@ -100,6 +102,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		StripeFreeTierCouponID: config.StripeFreeTierCouponID,
 		AutoAdvance:            config.AutoAdvance,
 		listingLimit:           config.ListingLimit,
+		skipEmptyInvoices:      config.SkipEmptyInvoices,
 		nowFn:                  time.Now,
 	}, nil
 }
@@ -145,6 +148,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		numberOfCustomers += len(customersPage.Customers)
 
 		records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
 		if err != nil {
@@ -229,17 +233,20 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		return Error.New("allowed for past periods only")
 	}
 
-	projectRecords := 0
+	var totalRecords int
+	var totalSkipped int
+
 	recordsPage, err := service.db.ProjectRecords().ListUnapplied(ctx, 0, service.listingLimit, start, end)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	totalRecords += len(recordsPage.Records)
 
-	if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
+	skipped, err := service.applyProjectRecords(ctx, recordsPage.Records)
+	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	projectRecords += len(recordsPage.Records)
+	totalSkipped += skipped
 
 	for recordsPage.Next {
 		if err = ctx.Err(); err != nil {
@@ -251,15 +258,18 @@ func (service *Service) InvoiceApplyProjectRecords(ctx context.Context, period t
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		totalRecords += len(recordsPage.Records)
 
-		if err = service.applyProjectRecords(ctx, recordsPage.Records); err != nil {
+		skipped, err := service.applyProjectRecords(ctx, recordsPage.Records)
+		if err != nil {
 			return Error.Wrap(err)
 		}
-
-		projectRecords += len(recordsPage.Records)
+		totalSkipped += skipped
 	}
 
-	service.log.Info("Number of processed project records.", zap.Int("Project Records", projectRecords))
+	service.log.Info("Processed project records.",
+		zap.Int("Total", totalRecords),
+		zap.Int("Skipped", totalSkipped))
 	return nil
 }
 
@@ -428,19 +438,19 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 }
 
 // applyProjectRecords applies invoice intents as invoice line items to stripe customer.
-func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord) (err error) {
+func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord) (skipCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for _, record := range records {
 		if err = ctx.Err(); err != nil {
-			return errs.Wrap(err)
+			return 0, errs.Wrap(err)
 		}
 
 		proj, err := service.projectsDB.Get(ctx, record.ProjectID)
 		if err != nil {
 			// This should never happen, but be sure to log info to further troubleshoot before exiting.
 			service.log.Error("project ID for corresponding project record not found", zap.Stringer("Record ID", record.ID), zap.Stringer("Project ID", record.ProjectID))
-			return errs.Wrap(err)
+			return 0, errs.Wrap(err)
 		}
 
 		cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)
@@ -450,23 +460,29 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 				continue
 			}
 
-			return errs.Wrap(err)
+			return 0, errs.Wrap(err)
 		}
 
-		if err = service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {
-			return errs.Wrap(err)
+		if skipped, err := service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {
+			return 0, errs.Wrap(err)
+		} else if skipped {
+			skipCount++
 		}
 	}
 
-	return nil
+	return skipCount, nil
 }
 
-// createInvoiceItems consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord) (err error) {
+// createInvoiceItems creates invoice line items for stripe customer.
+func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
-		return err
+		return false, err
+	}
+
+	if service.skipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+		return true, nil
 	}
 
 	items := service.InvoiceItemsFromProjectRecord(projName, record)
@@ -477,11 +493,11 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 
 		_, err = service.stripeClient.InvoiceItems().New(item)
 		if err != nil {
-			return err
+			return false, err
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 // InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
@@ -786,4 +802,10 @@ func egressMBDecimal(egress int64) decimal.Decimal {
 // The result is rounded to the nearest whole number, but returned as Decimal for convenience.
 func segmentMonthDecimal(segments float64) decimal.Decimal {
 	return decimal.NewFromFloat(segments).Div(decimal.NewFromInt(hoursPerMonth)).Round(0)
+}
+
+// doesProjectRecordHaveNoUsage returns true if the given project record
+// represents a billing cycle where there was no usage.
+func doesProjectRecordHaveNoUsage(record ProjectRecord) bool {
+	return record.Storage == 0 && record.Egress == 0 && record.Segments == 0
 }

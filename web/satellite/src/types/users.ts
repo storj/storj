@@ -20,6 +20,14 @@ export interface UsersApi {
      */
     get(): Promise<User>;
     /**
+     * Fetches user frozen status.
+     *
+     * @returns boolean
+     * @throws Error
+     */
+    getFrozenStatus(): Promise<boolean>;
+
+    /**
      * Enable user's MFA.
      *
      * @throws Error
@@ -67,6 +75,7 @@ export class User {
         public haveSalesContact: boolean = false,
         public mfaRecoveryCodeCount: number = 0,
         public signupPromoCode: string = '',
+        public isFrozen: boolean = false,
     ) {}
 
     public getFullName(): string {

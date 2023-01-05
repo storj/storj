@@ -56,10 +56,15 @@
                     :on-press="closeModal"
                 />
                 <div class="modal__footer">
-                    <h2 class="modal__footer__title">Send only STORJ Tokens to this deposit address.</h2>
-                    <p class="modal__footer__msg">
-                        Sending coin or token other than STORJ Token may result in the loss of your deposit.
-                    </p>
+                    <h2 class="modal__footer__title">Send only STORJ tokens via Layer 1 transaction to this deposit address.</h2>
+                    <div class="modal__footer__msg">
+                        <p>
+                            Sending anything else than STORJ token will result in the loss of your deposit.
+                        </p>
+                        <p>
+                            Please note that zkSync transactions are not yet supported.
+                        </p>
+                    </div>
                 </div>
             </div>
         </template>

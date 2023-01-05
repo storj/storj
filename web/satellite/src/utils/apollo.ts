@@ -43,7 +43,7 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
             Vue.prototype.$notify.error('Session token expired', AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
             setTimeout(() => {
                 window.location.href = window.location.origin + '/login';
-            }, 3000);
+            }, 2000);
         } else {
             nError.result && Vue.prototype.$notify.error(nError.result.error, AnalyticsErrorEventSource.OVERALL_GRAPHQL_ERROR);
         }

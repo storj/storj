@@ -210,13 +210,10 @@ export default class BillingArea extends Vue {
                 color: var(--c-grey-6);
                 font-weight: 700;
                 font-family: sans-serif;
-                border: 1px solid var(--c-grey-3);
                 border-radius: 5px;
-                background-color: #fff;
                 height: 15px;
                 width: auto;
                 padding: 10px;
-                box-shadow: 0 0 3px rgb(0 0 0 / 8%);
             }
         }
 

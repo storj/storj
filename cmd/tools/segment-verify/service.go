@@ -37,7 +37,7 @@ type Metabase interface {
 
 // Verifier verifies a batch of segments.
 type Verifier interface {
-	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
+	Verify(ctx context.Context, nodeAlias metabase.NodeAlias, target storj.NodeURL, targetVersion string, segments []*Segment, ignoreThrottle bool) (verifiedCount int, err error)
 }
 
 // Overlay is used to fetch information about nodes.
@@ -66,6 +66,8 @@ type ServiceConfig struct {
 	Concurrency int `help:"number of concurrent verifiers" default:"1000"`
 	MaxOffline  int `help:"maximum number of offline in a sequence (if 0, no limit)" default:"2"`
 
+	OfflineStatusCacheTime time.Duration `help:"how long to cache a \"node offline\" status" default:"30m"`
+
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
@@ -88,12 +90,14 @@ type Service struct {
 	verifier Verifier
 	overlay  Overlay
 
-	aliasMap       *metabase.NodeAliasMap
-	aliasToNodeURL map[metabase.NodeAlias]storj.NodeURL
-	priorityNodes  NodeAliasSet
-	onlineNodes    NodeAliasSet
-	offlineCount   map[metabase.NodeAlias]int
-	bucketList     BucketList
+	aliasMap        *metabase.NodeAliasMap
+	aliasToNodeURL  map[metabase.NodeAlias]storj.NodeURL
+	priorityNodes   NodeAliasSet
+	ignoreNodes     NodeAliasSet
+	offlineNodes    *nodeAliasExpiringSet
+	offlineCount    map[metabase.NodeAlias]int
+	bucketList      BucketList
+	nodesVersionMap map[metabase.NodeAlias]string
 
 	// this is a callback so that problematic pieces can be reported as they are found,
 	// rather than being kept in a list which might grow unreasonably large.
@@ -129,10 +133,12 @@ func NewService(log *zap.Logger, metabaseDB Metabase, verifier Verifier, overlay
 		verifier: verifier,
 		overlay:  overlay,
 
-		aliasToNodeURL: map[metabase.NodeAlias]storj.NodeURL{},
-		priorityNodes:  NodeAliasSet{},
-		onlineNodes:    NodeAliasSet{},
-		offlineCount:   map[metabase.NodeAlias]int{},
+		aliasToNodeURL:  map[metabase.NodeAlias]storj.NodeURL{},
+		priorityNodes:   NodeAliasSet{},
+		ignoreNodes:     NodeAliasSet{},
+		offlineNodes:    newNodeAliasExpiringSet(config.OfflineStatusCacheTime),
+		offlineCount:    map[metabase.NodeAlias]int{},
+		nodesVersionMap: map[metabase.NodeAlias]string{},
 
 		reportPiece: problemPieces.Write,
 	}, nil
@@ -175,7 +181,6 @@ func (service *Service) loadOnlineNodes(ctx context.Context) (err error) {
 			ID:      node.ID,
 			Address: addr,
 		}
-		service.onlineNodes.Add(alias)
 	}
 
 	return nil
@@ -191,19 +196,18 @@ func (service *Service) loadPriorityNodes(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
-// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority and online nodes.
+// applyIgnoreNodes loads the list of nodes to ignore completely and modifies priority nodes.
 func (service *Service) applyIgnoreNodes(ctx context.Context) (err error) {
 	if service.config.IgnoreNodesPath == "" {
 		return nil
 	}
 
-	ignoreNodes, err := service.parseNodeFile(service.config.IgnoreNodesPath)
+	service.ignoreNodes, err = service.parseNodeFile(service.config.IgnoreNodesPath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	service.onlineNodes.RemoveAll(ignoreNodes)
-	service.priorityNodes.RemoveAll(ignoreNodes)
+	service.priorityNodes.RemoveAll(service.ignoreNodes)
 
 	return nil
 }
@@ -455,9 +459,7 @@ func (service *Service) ProcessSegments(ctx context.Context, segments []*Segment
 	for _, segment := range segments {
 		if segment.Status.NotFound > 0 {
 			notFound = append(notFound, segment)
-		} else if segment.Status.Retry > 0 {
-			// TODO: should we do a smarter check here?
-			// e.g. if at least half did find, then consider it ok?
+		} else if (service.config.Check > 0 && segment.Status.Retry > 0) || segment.Status.Retry > 5 {
 			retry = append(retry, segment)
 		}
 	}
