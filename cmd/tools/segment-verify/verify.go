@@ -293,6 +293,11 @@ func (service *NodeVerifier) VerifyWithExists(ctx context.Context, alias metabas
 		}
 	}
 
+	// this is maybe too generous, since Exists should be faster than asking for pieces one by one,
+	// but seems like a good first try
+	ctx, cancel := context.WithTimeout(ctx, service.config.PerPieceTimeout*time.Duration(len(segments)))
+	defer cancel()
+
 	err = service.verifySegmentsWithExists(ctx, client, alias, target, segments)
 	if err != nil {
 		// we could not do the verification, for a reason that implies we won't be able
