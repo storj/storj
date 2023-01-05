@@ -77,6 +77,14 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, salt)
 
+				// Getting project salt with publicID should work
+				salt1, err := service.GetSalt(userCtx1, up1Pro1.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, salt1)
+
+				// project.PublicID salt should be the same as project.ID salt
+				require.Equal(t, salt, salt1)
+
 				// Getting project salt as a non-member should not work
 				salt, err = service.GetSalt(userCtx1, up2Pro1.ID)
 				require.Error(t, err)
@@ -249,6 +257,51 @@ func TestService(t *testing.T) {
 				err = service.DeleteProject(userCtx2, up2Pro1.ID)
 				require.Error(t, err)
 				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
+			})
+
+			t.Run("GetProjectUsageLimits", func(t *testing.T) {
+				bandwidthLimit := sat.Config.Console.UsageLimits.Bandwidth.Free
+				storageLimit := sat.Config.Console.UsageLimits.Storage.Free
+
+				limits1, err := service.GetProjectUsageLimits(userCtx2, up2Pro1.ID)
+				require.NoError(t, err)
+				require.NotNil(t, limits1)
+
+				// Get usage limits with publicID
+				limits2, err := service.GetProjectUsageLimits(userCtx2, up2Pro1.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+
+				// limits gotten by ID and publicID should be the same
+				require.Equal(t, storageLimit.Int64(), limits1.StorageLimit)
+				require.Equal(t, bandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Equal(t, storageLimit.Int64(), limits2.StorageLimit)
+				require.Equal(t, bandwidthLimit.Int64(), limits2.BandwidthLimit)
+
+				// update project's limits
+				updatedStorageLimit := memory.Size(100) + memory.TB
+				updatedBandwidthLimit := memory.Size(100) + memory.TB
+				up2Pro1.StorageLimit = new(memory.Size)
+				*up2Pro1.StorageLimit = updatedStorageLimit
+				up2Pro1.BandwidthLimit = new(memory.Size)
+				*up2Pro1.BandwidthLimit = updatedBandwidthLimit
+				err = sat.DB.Console().Projects().Update(ctx, up2Pro1)
+				require.NoError(t, err)
+
+				limits1, err = service.GetProjectUsageLimits(userCtx2, up2Pro1.ID)
+				require.NoError(t, err)
+				require.NotNil(t, limits1)
+
+				// Get usage limits with publicID
+				limits2, err = service.GetProjectUsageLimits(userCtx2, up2Pro1.PublicID)
+				require.NoError(t, err)
+				require.NotNil(t, limits2)
+
+				// limits gotten by ID and publicID should be the same
+				require.Equal(t, updatedStorageLimit.Int64(), limits1.StorageLimit)
+				require.Equal(t, updatedBandwidthLimit.Int64(), limits1.BandwidthLimit)
+				require.Equal(t, updatedStorageLimit.Int64(), limits2.StorageLimit)
+				require.Equal(t, updatedBandwidthLimit.Int64(), limits2.BandwidthLimit)
 			})
 
 			t.Run("ChangeEmail", func(t *testing.T) {

@@ -1402,6 +1402,7 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 }
 
 // GetSalt is a method for querying project salt by id.
+// id may be project.ID or project.PublicID.
 func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project salt", zap.String("projectID", projectID.String()))
@@ -1409,11 +1410,12 @@ func (s *Service) GetSalt(ctx context.Context, projectID uuid.UUID) (salt []byte
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return s.store.Projects().GetSalt(ctx, projectID)
+	return s.store.Projects().GetSalt(ctx, isMember.project.ID)
 }
 
 // GetUsersProjects is a method for querying all projects.
@@ -2500,6 +2502,7 @@ func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, projectID u
 }
 
 // GetDailyProjectUsage returns daily usage by project ID.
+// ID here may be project.ID or project.PublicID.
 func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ *accounting.ProjectDailyUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2508,12 +2511,12 @@ func (s *Service) GetDailyProjectUsage(ctx context.Context, projectID uuid.UUID,
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	usage, err := s.projectAccounting.GetProjectDailyUsageByDateRange(ctx, projectID, from, to, s.config.AsOfSystemTimeDuration)
+	usage, err := s.projectAccounting.GetProjectDailyUsageByDateRange(ctx, isMember.project.ID, from, to, s.config.AsOfSystemTimeDuration)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2533,17 +2536,17 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, isMember.project.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, projectID)
+	prObjectsSegments, err := s.projectAccounting.GetProjectObjectsSegments(ctx, isMember.project.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
