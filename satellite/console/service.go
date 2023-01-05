@@ -69,6 +69,7 @@ const (
 	activationTokenExpiredErrMsg = "This activation token has expired, please request another one"
 	usedRegTokenErrMsg           = "This registration token has already been used"
 	projLimitErrMsg              = "Sorry, project creation is limited for your account. Please contact support!"
+	projNameErrMsg               = "The new project must have a name you haven't used before!"
 )
 
 var (
@@ -119,6 +120,9 @@ var (
 
 	// ErrRecoveryToken describes account recovery token errors.
 	ErrRecoveryToken = errs.Class("recovery token")
+
+	// ErrProjName is error that occurs with reused project names.
+	ErrProjName = errs.Class("project name")
 )
 
 // Service is handling accounts related logic.
@@ -1489,6 +1493,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
+	passesNameCheck, err := s.checkProjectName(ctx, projectInfo, user.ID)
+	if err != nil || !passesNameCheck {
+		return nil, ErrProjName.Wrap(err)
+	}
+
 	newProjectLimits, err := s.getUserProjectLimits(ctx, user.ID)
 	if err != nil {
 		return nil, ErrProjLimit.Wrap(err)
@@ -1695,7 +1704,14 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
 	project := isMember.project
+	if updatedProject.Name != project.Name {
+		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, user.ID)
+		if err != nil || !passesNameCheck {
+			return nil, ErrProjName.Wrap(err)
+		}
+	}
 	project.Name = updatedProject.Name
 	project.Description = updatedProject.Description
 
@@ -2774,6 +2790,25 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 	}
 
 	return len(projects), nil
+}
+
+// checkProjectName is used to check if user has used project name before.
+func (s *Service) checkProjectName(ctx context.Context, projectInfo ProjectInfo, userID uuid.UUID) (passesNameCheck bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	passesCheck := true
+
+	projects, err := s.store.Projects().GetOwn(ctx, userID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	for _, project := range projects {
+		if project.Name == projectInfo.Name {
+			return false, ErrProjName.New(projNameErrMsg)
+		}
+	}
+
+	return passesCheck, nil
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.

@@ -91,6 +91,15 @@ func TestService(t *testing.T) {
 				require.Nil(t, salt)
 			})
 
+			t.Run("CreateProject", func(t *testing.T) {
+				// Creating a project with a previously used name should fail
+				createdProject, err := service.CreateProject(userCtx1, console.ProjectInfo{
+					Name: up1Pro1.Name,
+				})
+				require.Error(t, err)
+				require.Nil(t, createdProject)
+			})
+
 			t.Run("UpdateProject", func(t *testing.T) {
 				updatedName := "newName"
 				updatedDescription := "newDescription"
@@ -188,6 +197,13 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.StorageLimit, *project.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
+
+				// attempting to update a project with a previously used name should fail
+				updatedProject, err = service.UpdateProject(userCtx1, up2Pro1.ID, console.ProjectInfo{
+					Name: up1Pro1.Name,
+				})
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {

@@ -133,7 +133,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		require.NoError(t, usersDB.UpdateUserProjectLimits(ctx, user.ID, userLimits))
 
 		proj1Limits := randUsageLimits()
-		proj1, err := sat.AddProject(ctx, user.ID, "")
+		proj1, err := sat.AddProject(ctx, user.ID, "project1")
 		require.NoError(t, err)
 		require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj1.ID, proj1Limits))
 
@@ -143,7 +143,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 			require.NoError(t, service.FreezeUser(ctx, user.ID))
 
 			proj2Limits := randUsageLimits()
-			proj2, err := sat.AddProject(ctx, user.ID, "")
+			proj2, err := sat.AddProject(ctx, user.ID, "project2")
 			require.NoError(t, err)
 			require.NoError(t, projectsDB.UpdateUsageLimits(ctx, proj2.ID, proj2Limits))
 
