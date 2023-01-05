@@ -264,12 +264,13 @@ export default class CardComponent extends Vue {
     &__default-area {
         grid-row: 1;
         grid-column: 2;
-        width: 58px;
-        height: 24px;
+        width: 42px;
+        height: 18px;
         background: var(--c-blue-1);
         border: 1px solid var(--c-blue-2);
         border-radius: 4px;
         justify-self: end;
+        padding: 3px 8px;
     }
 
     &__default-text {
@@ -279,8 +280,6 @@ export default class CardComponent extends Vue {
         font-size: 12px;
         line-height: 20px;
         color: var(--c-blue-4);
-        margin-left: 8px;
-        margin-top: 3px;
     }
 
     &__dots-container {
