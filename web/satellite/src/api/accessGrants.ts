@@ -137,7 +137,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&projectID=${projectID}`;
+        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&publicID=${projectID}`;
         const response = await this.client.delete(path);
 
         if (response.ok || response.status === 204) {

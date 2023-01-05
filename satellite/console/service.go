@@ -2249,6 +2249,7 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 }
 
 // DeleteAPIKeyByNameAndProjectID deletes api key by name and project ID.
+// ID here may be project.publicID or project.ID.
 func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2257,12 +2258,12 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 		return Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
 	if err != nil {
 		return ErrNoAPIKey.New(apiKeyWithNameDoesntExistErrMsg)
 	}
@@ -2802,11 +2803,17 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 }
 
 // isProjectMember checks if the user is a member of given project.
+// projectID can be either private ID or public ID (project.ID/project.PublicID).
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (_ isProjectMember, err error) {
 	defer mon.Task()(&ctx)(&err)
-	project, err := s.store.Projects().Get(ctx, projectID)
+	var project *Project
+	project, err = s.store.Projects().GetByPublicID(ctx, projectID)
 	if err != nil {
-		return isProjectMember{}, Error.Wrap(err)
+		tempError := err
+		project, err = s.store.Projects().Get(ctx, projectID)
+		if err != nil {
+			return isProjectMember{}, Error.Wrap(errs.Combine(tempError, err))
+		}
 	}
 
 	memberships, err := s.store.ProjectMembers().GetByMemberID(ctx, userID)
@@ -2814,7 +2821,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		return isProjectMember{}, Error.Wrap(err)
 	}
 
-	membership, ok := findMembershipByProjectID(memberships, projectID)
+	membership, ok := findMembershipByProjectID(memberships, project.ID)
 	if ok {
 		return isProjectMember{
 			project:    project,

@@ -325,6 +325,22 @@ func TestService(t *testing.T) {
 				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
 				require.Error(t, err)
 				require.Nil(t, info)
+
+				// test deleting by project.publicID
+				createdKey, err = sat.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+				require.NoError(t, err)
+
+				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
+				require.NoError(t, err)
+				require.NotNil(t, info)
+
+				// deleting by project.publicID
+				err = service.DeleteAPIKeyByNameAndProjectID(userCtx2, apikey.Name, up2Pro1.PublicID)
+				require.NoError(t, err)
+
+				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
+				require.Error(t, err)
+				require.Nil(t, info)
 			})
 		})
 }
