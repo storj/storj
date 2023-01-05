@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 
@@ -150,7 +151,7 @@ func (service *NodeVerifier) Verify(ctx context.Context, alias metabase.NodeAlia
 			return i, Error.Wrap(err)
 		}
 		switch outcome {
-		case audit.OutcomeNodeOffline:
+		case audit.OutcomeNodeOffline, audit.OutcomeTimedOut:
 			_ = client.Close()
 			client = nil
 		case audit.OutcomeFailure:
@@ -219,10 +220,13 @@ func (service *NodeVerifier) verifySegment(ctx context.Context, client *piecesto
 
 	err = errs.Combine(errClose, errRead)
 	if err != nil {
-		logger.Error("stream read failed", zap.Error(err))
 		if errs2.IsRPC(err, rpcstatus.NotFound) {
 			logger.Info("segment not found", zap.Error(err))
 			return audit.OutcomeFailure, nil
+		}
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			logger.Info("failed to get timely response when asking for piece", zap.Error(err))
+			return audit.OutcomeTimedOut, nil
 		}
 
 		logger.Error("read/close failed", zap.Error(err))
