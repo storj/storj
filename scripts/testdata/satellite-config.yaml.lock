@@ -1021,6 +1021,12 @@ server.private-address: 127.0.0.1:7778
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
 # server.revocation-dburl: bolt://testdata/revocations.db
 
+# enable support for tcp fast open experiment
+# server.tcp-fast-open: true
+
+# the size of the tcp fast open queue
+# server.tcp-fast-open-queue: 256
+
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 

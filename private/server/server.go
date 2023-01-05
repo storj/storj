@@ -47,6 +47,9 @@ type Config struct {
 
 	DisableTCP      bool `help:"disable TCP listener on a server" internal:"true"`
 	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
+
+	TCPFastOpen      bool `help:"enable support for tcp fast open experiment" default:"true"`
+	TCPFastOpenQueue int  `help:"the size of the tcp fast open queue" default:"256"`
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -123,10 +126,22 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 		done: make(chan struct{}),
 	}
 
+	listenConfig := net.ListenConfig{}
+	if config.TCPFastOpen {
+		tryInitFastOpen(log)
+		listenConfig.Control = func(network, address string, c syscall.RawConn) error {
+			var internalErr error
+			err := c.Control(func(fd uintptr) {
+				internalErr = setTCPFastOpen(fd, config.TCPFastOpenQueue)
+			})
+			return errs.Combine(err, internalErr)
+		}
+	}
+
 	for retry := 0; ; retry++ {
 		addr := config.Address
 		if !config.DisableTCP {
-			publicTCPListener, err := net.Listen("tcp", addr)
+			publicTCPListener, err := listenConfig.Listen(context.Background(), "tcp", addr)
 			if err != nil {
 				return nil, err
 			}
