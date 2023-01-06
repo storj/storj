@@ -1,7 +1,18 @@
 #!/bin/sh
+set -ueo pipefail
 
-dbx schema -d pgx -d pgxcockroach satellitedb.dbx .
-dbx golang -d pgx -d pgxcockroach -p dbx -t templates satellitedb.dbx .
+FILES=()
+for f in *.dbx
+do
+  if [ "$f" == "satellitedb.dbx" ] ; then
+    continue;
+  fi
+  args+=(-i "$f")
+done
+FILES="${args[@]}"
+
+dbx schema -d pgx -d pgxcockroach $FILES satellitedb.dbx .
+dbx golang -d pgx -d pgxcockroach -p dbx -t templates $FILES satellitedb.dbx .
 ( printf '%s\n' '//lint:file-ignore U1000,ST1012 generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go.tmp satellitedb.dbx.go
 gofmt -r "*sql.Tx -> tagsql.Tx" -w satellitedb.dbx.go
 gofmt -r "*sql.Rows -> tagsql.Rows" -w satellitedb.dbx.go

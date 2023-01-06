@@ -1,0 +1,199 @@
+//--- satellite console ---//
+
+model user (
+    key id
+
+    field id                 blob
+    field email              text      ( updatable )
+    field normalized_email   text      ( updatable )
+    field full_name          text      ( updatable )
+    field short_name         text      ( updatable, nullable )
+    field password_hash      blob      ( updatable )
+
+    field status                   int       ( updatable, autoinsert )
+    field partner_id               blob      ( nullable )
+    field user_agent               blob      ( nullable )
+    field created_at               timestamp ( autoinsert )
+    field project_limit            int       ( updatable, default 0 )
+    field project_bandwidth_limit  int64     ( updatable, default 0 )
+    field project_storage_limit    int64     ( updatable, default 0 )
+    field project_segment_limit    int64     ( updatable, default 0 )
+    field paid_tier                bool      ( updatable, default false )
+
+    field position           text      ( updatable, nullable )
+    field company_name       text      ( updatable, nullable )
+    field company_size       int       ( updatable, nullable )
+    field working_on         text      ( updatable, nullable )
+    field is_professional    bool      ( updatable, default false )
+    field employee_count     text      ( updatable, nullable )
+    field have_sales_contact bool      ( updatable, default false )
+
+    field mfa_enabled        bool      ( updatable, default false )
+    field mfa_secret_key     text      ( updatable, nullable )
+    field mfa_recovery_codes text      ( updatable, nullable )
+
+    field signup_promo_code  text      ( updatable, nullable )
+
+    field verification_reminders int ( updatable, default 0 )
+
+    field failed_login_count int ( updatable, nullable )
+    field login_lockout_expiration timestamp ( updatable, nullable )
+
+    field signup_captcha     float64    ( nullable )
+)
+
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
+read all (
+    select user
+    where user.normalized_email = ?
+)
+read one (
+    select user
+    where user.normalized_email = ?
+    where user.status != 0
+)
+read one (
+    select user
+    where user.id = ?
+)
+read one (
+    select user.project_limit
+    where user.id = ?
+)
+read one (
+    select user.paid_tier
+    where user.id = ?
+)
+
+read one (
+    select user.project_storage_limit user.project_bandwidth_limit user.project_segment_limit
+    where user.id = ?
+)
+
+model webapp_session (
+    key id
+    index ( fields user_id )
+
+    field id         blob
+    field user_id    blob
+    field ip_address text
+    field user_agent text
+    field status     int       ( updatable, autoinsert )
+    field expires_at timestamp ( updatable )
+)
+
+create webapp_session ( )
+update webapp_session ( where webapp_session.id = ? )
+delete webapp_session ( where webapp_session.id = ? )
+delete webapp_session ( where webapp_session.user_id = ? )
+
+read all (
+    select webapp_session
+    where webapp_session.user_id = ?
+)
+read one (
+    select webapp_session
+    where webapp_session.id = ?
+)
+
+//--- satellite registration token for Vanguard release (temporary table) ---//
+
+model registration_token (
+    key secret
+    unique owner_id
+
+    field secret        blob
+    field owner_id      blob       ( updatable, nullable )
+
+    field project_limit int
+
+    field created_at    timestamp  ( autoinsert )
+)
+
+create registration_token ( )
+read one (
+    select registration_token
+    where  registration_token.secret = ?
+)
+read one (
+    select registration_token
+    where  registration_token.owner_id = ?
+)
+update registration_token ( where registration_token.secret = ? )
+
+//--- satellite reset password token ---//
+
+model reset_password_token (
+    key    secret
+    unique owner_id
+
+    field secret blob
+    field owner_id blob        ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create reset_password_token ( )
+read one (
+    select reset_password_token
+    where reset_password_token.secret = ?
+)
+read one (
+    select reset_password_token
+    where reset_password_token.owner_id = ?
+)
+delete reset_password_token ( where reset_password_token.secret = ? )
+
+//--- user credit table ---//
+
+model user_credit (
+    key id
+    unique id offer_id
+    index (
+        name credits_earned_user_id_offer_id
+        fields id offer_id
+        unique
+    )
+
+    field id serial
+
+    field user_id     user.id  cascade
+    field offer_id    offer.id restrict
+    field referred_by user.id  setnull  ( nullable )
+    field type        text
+
+    field credits_earned_in_cents int
+    field credits_used_in_cents   int ( updatable, autoinsert )
+
+    field expires_at timestamp ( updatable )
+    field created_at timestamp ( autoinsert )
+)
+
+//-- Account Freeze Events --//
+model account_freeze_event (
+    key user_id event
+
+    field user_id blob
+    field event int // enum indicating the type of event
+    field limits json ( nullable, updatable )
+    field created_at timestamp ( default current_timestamp )
+)
+
+create account_freeze_event( replace )
+
+read one (
+    select account_freeze_event
+    where account_freeze_event.user_id = ?
+    where account_freeze_event.event = ?
+)
+
+update account_freeze_event (
+    where account_freeze_event.user_id = ?
+    where account_freeze_event.event = ?
+)
+
+delete account_freeze_event ( where account_freeze_event.user_id = ? )
+

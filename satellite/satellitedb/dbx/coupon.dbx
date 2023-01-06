@@ -1,0 +1,116 @@
+model coupon_code (
+    key    id
+    unique name
+
+    field id              blob
+    field name            text
+    field amount          int64
+    field description     text
+    field type            int
+    field billing_periods int64 ( nullable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon_code ()
+delete coupon_code (
+    where coupon_code.name = ?
+)
+read one (
+    select coupon_code
+    where coupon_code.name = ?
+)
+
+model coupon (
+    key id
+
+    field id               blob
+    field user_id          blob
+    field amount           int64
+    field description      text
+    field type             int
+    field status           int   ( updatable )
+    field duration         int64
+    field billing_periods  int64 ( nullable )
+    field coupon_code_name text  ( nullable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon ()
+update coupon (
+    where coupon.id = ?
+)
+delete coupon (
+    where coupon.id = ?
+)
+read one (
+    select coupon
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read limitoffset (
+    select coupon
+    where coupon.created_at <= ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+model coupon_usage (
+    key coupon_id period
+
+    field coupon_id  blob
+    field amount     int64
+    field status     int       ( updatable )
+    field period     timestamp
+)
+create coupon_usage ()
+read limitoffset (
+    select coupon_usage
+    where coupon_usage.period = ?
+    where coupon_usage.status = 0
+)
+update coupon_usage (
+    where coupon_usage.coupon_id = ?
+    where coupon_usage.period = ?
+)
+
+//--- offer table ---//
+
+model offer (
+    key id
+
+    field id    serial
+    field name text ( updatable )
+    field description text ( updatable )
+
+    field award_credit_in_cents int ( updatable, default 0 )
+    field invitee_credit_in_cents int ( updatable, default 0 )
+
+    field award_credit_duration_days int ( updatable, nullable )
+    field invitee_credit_duration_days int ( updatable, nullable )
+
+    field redeemable_cap int ( updatable, nullable )
+
+    field expires_at timestamp ( updatable )
+    field created_at timestamp ( autoinsert )
+
+    // status corresponds to the values of rewards.OfferStatus
+    field status int ( updatable )
+    // type corresponds to the values of rewards.OfferType
+    field type int ( updatable )
+)

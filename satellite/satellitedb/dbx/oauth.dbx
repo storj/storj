@@ -1,0 +1,103 @@
+// oauth_client stores information about known clients developed against stroj.
+model oauth_client (
+    key id
+
+    index ( fields user_id )
+
+    field id                blob
+    field encrypted_secret  blob ( updatable ) // encrypted
+    field redirect_url      text ( updatable )
+    field user_id           blob
+    field app_name          text ( updatable )
+    field app_logo_url      text ( updatable )
+)
+
+create oauth_client (
+	noreturn
+)
+
+read one (
+    select oauth_client
+    where oauth_client.id = ?
+)
+
+update oauth_client (
+    where oauth_client.id = ?
+    noreturn
+)
+
+delete oauth_client (
+    where oauth_client.id = ?
+)
+
+// oauth_code are single use tokens that are handed off to the third party applications.
+// they're exchanged for an access_token (and maybe a refresh_token).
+// they can only be claimed once.
+model oauth_code (
+    key code
+
+    index ( fields user_id )
+    index ( fields client_id )
+
+    field client_id     blob
+    field user_id       blob
+    field scope         text
+    field redirect_url  text
+
+    field challenge         text
+    field challenge_method  text
+
+    field code              text
+    field created_at        timestamp
+    field expires_at        timestamp
+    field claimed_at        timestamp ( nullable, updatable )
+)
+
+create oauth_code (
+	noreturn
+)
+
+read one (
+    select oauth_code
+    where oauth_code.code = ?
+    where oauth_code.claimed_at = null
+)
+
+update oauth_code (
+    where oauth_code.code       = ?
+    where oauth_code.claimed_at = null
+    noreturn
+)
+
+// oauth_token can be an access or refresh token
+model oauth_token (
+    key token
+
+    index ( fields user_id )
+    index ( fields client_id )
+
+    field client_id     blob
+    field user_id       blob
+    field scope         text
+
+    field kind          int     // access or refresh
+    field token         blob    // encrypted macaroon
+    field created_at    timestamp
+    field expires_at    timestamp ( updatable )
+)
+
+create oauth_token (
+	noreturn
+)
+
+read one (
+    select oauth_token
+    where oauth_token.kind = ?
+    where oauth_token.token = ?
+)
+
+update oauth_token (
+	where oauth_token.token = ?
+	where oauth_token.kind = ?
+	noreturn
+)

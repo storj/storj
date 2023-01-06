@@ -1,0 +1,158 @@
+
+//--- projects ---//
+
+model project (
+    key id
+
+    index (
+        name projects_public_id_index
+        fields public_id
+    )
+
+    field id                                blob
+    field public_id                         blob      ( nullable )
+
+    field name                              text      ( updatable )
+    field description                       text      ( updatable )
+    field usage_limit                       int64     ( nullable, updatable )
+    field bandwidth_limit                   int64     ( nullable, updatable )
+    field user_specified_usage_limit        int64     ( nullable, updatable )
+    field user_specified_bandwidth_limit    int64     ( nullable, updatable )
+    field segment_limit                     int64     ( nullable, updatable, default 1000000)
+    field rate_limit                        int       ( nullable, updatable )
+    field burst_limit                       int       ( nullable, updatable )
+    field max_buckets                       int       ( nullable, updatable )
+    field partner_id                        blob      ( nullable )
+    field user_agent                        blob      ( nullable )
+    field owner_id                          blob
+    field salt                              blob      ( nullable )
+
+    field created_at                        timestamp ( autoinsert )
+)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
+read one (
+    select project.salt
+    where project.id = ?
+)
+read one (
+    select project
+    where project.public_id = ?
+)
+read one (
+    select project
+    where project.id = ?
+)
+read one (
+    select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.segment_limit
+    where  project.id = ?
+)
+read one (
+    select project.max_buckets
+    where project.id = ?
+)
+read one (
+    select project.bandwidth_limit project.usage_limit project.segment_limit
+    where  project.id = ?
+)
+
+read all (
+    select project
+)
+read all (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
+read all (
+    select project
+    where project.owner_id = ?
+    orderby asc project.created_at
+)
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
+    orderby asc project.name
+)
+
+read limitoffset (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
+
+model project_member (
+    key member_id project_id
+
+    field member_id            user.id      cascade
+    field project_id           project.id   cascade
+
+    field created_at           timestamp ( autoinsert )
+)
+
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
+read all (
+    select project_member
+    where project_member.member_id = ?
+)
+
+model api_key (
+    key    id
+    unique head
+    unique name project_id
+
+    field  id          blob
+    field  project_id  project.id cascade
+    field  head        blob
+    field  name        text       (updatable)
+    field  secret      blob
+    field  partner_id  blob       (nullable)
+    field  user_agent  blob       (nullable)
+    field  created_at  timestamp  (autoinsert)
+)
+
+create api_key ( )
+update api_key (
+    where api_key.id = ?
+    noreturn
+)
+delete api_key ( where api_key.id = ? )
+
+read one (
+    select api_key
+    where api_key.id = ?
+)
+read one (
+    select api_key
+    where api_key.head = ?
+)
+read one (
+    select api_key
+    where api_key.name = ?
+    where api_key.project_id = ?
+)
