@@ -5,6 +5,7 @@ package rangedloop_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -105,7 +106,7 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		createSegment(ctx, t, db, u)
 	}
 
-	provider := rangedloop.NewMetabaseRangeSplitter(db, in.batchSize)
+	provider := rangedloop.NewMetabaseRangeSplitter(db, -1*time.Microsecond, in.batchSize)
 	ranges, err := provider.CreateRanges(in.nRanges, in.batchSize)
 	require.NoError(t, err)
 
