@@ -111,7 +111,9 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	}
 
 	{ // setup ranged loop
-		var observers []rangedloop.Observer
+		observers := []rangedloop.Observer{
+			rangedloop.NewLiveCountObserver(),
+		}
 
 		if config.Audit.UseRangedLoop {
 			observers = append(observers, peer.Audit.Observer)
