@@ -172,9 +172,11 @@ type uplinkMultiWriteHandle struct {
 	info     uplink.UploadInfo
 	metadata uplink.CustomMetadata
 
-	mu   sync.Mutex
-	tail bool
-	part uint32
+	mu        sync.Mutex
+	tail      bool
+	part      uint32
+	commitErr *error
+	abortErr  *error
 }
 
 func newUplinkMultiWriteHandle(project *uplink.Project, bucket string, info uplink.UploadInfo, metadata uplink.CustomMetadata) *uplinkMultiWriteHandle {
@@ -190,6 +192,13 @@ func (u *uplinkMultiWriteHandle) NextPart(ctx context.Context, length int64) (Wr
 	part, err := func() (uint32, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
+
+		switch {
+		case u.abortErr != nil:
+			return 0, errs.New("cannot make part after multipart write has been aborted")
+		case u.commitErr != nil:
+			return 0, errs.New("cannot make part after multipart write has been committed")
+		}
 
 		if u.tail {
 			return 0, errs.New("unable to make part after tail part")
@@ -216,14 +225,37 @@ func (u *uplinkMultiWriteHandle) NextPart(ctx context.Context, length int64) (Wr
 }
 
 func (u *uplinkMultiWriteHandle) Commit(ctx context.Context) error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	switch {
+	case u.abortErr != nil:
+		return errs.New("cannot commit an aborted multipart write")
+	case u.commitErr != nil:
+		return *u.commitErr
+	}
+
 	_, err := u.project.CommitUpload(ctx, u.bucket, u.info.Key, u.info.UploadID, &uplink.CommitUploadOptions{
 		CustomMetadata: u.metadata,
 	})
+	u.commitErr = &err
 	return err
 }
 
 func (u *uplinkMultiWriteHandle) Abort(ctx context.Context) error {
-	return u.project.AbortUpload(ctx, u.bucket, u.info.Key, u.info.UploadID)
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	switch {
+	case u.abortErr != nil:
+		return *u.abortErr
+	case u.commitErr != nil:
+		return errs.New("cannot abort a committed multipart write")
+	}
+
+	err := u.project.AbortUpload(ctx, u.bucket, u.info.Key, u.info.UploadID)
+	u.abortErr = &err
+	return err
 }
 
 // uplinkWriteHandle implements writeHandle for *uplink.Uploads.
