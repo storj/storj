@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -1612,7 +1613,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 		return Error.Wrap(err)
 	}
 
-	_, err = s.isProjectOwner(ctx, user.ID, projectID)
+	_, _, err = s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1643,13 +1644,19 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		}
 	}
 
-	_, err = s.isProjectOwner(ctx, user.ID, projectID)
+	_, p, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrUnauthorized.Has(err) {
+			status = http.StatusUnauthorized
+		}
 		return api.HTTPError{
-			Status: http.StatusUnauthorized,
+			Status: status,
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	projectID = p.ID
 
 	err = s.checkProjectCanBeDeleted(ctx, user, projectID)
 	if err != nil {
@@ -1766,7 +1773,6 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			Err:    Error.Wrap(err),
 		}
 	}
-
 	err = ValidateNameAndDescription(projectInfo.Name, projectInfo.Description)
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1915,9 +1921,12 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+	var isMember isProjectMember
+	if isMember, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
 		return Error.Wrap(err)
 	}
+
+	projectID = isMember.project.ID
 
 	var userIDs []uuid.UUID
 	var userErr errs.Group
@@ -1930,7 +1939,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 			continue
 		}
 
-		isOwner, err := s.isProjectOwner(ctx, user.ID, projectID)
+		isOwner, _, err := s.isProjectOwner(ctx, user.ID, projectID)
 		if isOwner {
 			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
 		}
@@ -2045,7 +2054,7 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	projectID, err := uuid.FromString(requestInfo.ProjectID)
+	reqProjectID, err := uuid.FromString(requestInfo.ProjectID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusBadRequest,
@@ -2053,13 +2062,15 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	projectID := isMember.project.ID
 
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, requestInfo.Name, projectID)
 	if err == nil {
@@ -2100,6 +2111,9 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
+	info.ProjectID = reqProjectID
 
 	return &CreateAPIKeyResponse{
 		Key:     key.Serialize(),
@@ -2279,18 +2293,20 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 }
 
 // GetAPIKeys returns paged api key list for given Project.
-func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
+func (s *Service) GetAPIKeys(ctx context.Context, reqProjectID uuid.UUID, cursor APIKeyCursor) (page *APIKeyPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get api keys", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get api keys", zap.String("projectID", reqProjectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
+
+	projectID := isMember.project.ID
 
 	if cursor.Limit > maxLimit {
 		cursor.Limit = maxLimit
@@ -2301,7 +2317,14 @@ func (s *Service) GetAPIKeys(ctx context.Context, projectID uuid.UUID, cursor AP
 		return nil, Error.Wrap(err)
 	}
 
-	return
+	// if project ID from request is public ID, replace api key's project IDs with public ID
+	if projectID != reqProjectID {
+		for i := range page.APIKeys {
+			page.APIKeys[i].ProjectID = reqProjectID
+		}
+	}
+
+	return page, err
 }
 
 // CreateRESTKey creates a satellite rest key.
@@ -2438,11 +2461,11 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 }
 
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
-func (s *Service) GenGetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
+func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", reqProjectID.String()))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -2450,13 +2473,15 @@ func (s *Service) GenGetBucketUsageRollups(ctx context.Context, projectID uuid.U
 		}
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	projectID := isMember.project.ID
 
 	rollups, err = s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
 	if err != nil {
@@ -2466,15 +2491,22 @@ func (s *Service) GenGetBucketUsageRollups(ctx context.Context, projectID uuid.U
 		}
 	}
 
-	return
+	// if project ID from request is public ID, replace rollup's project ID with public ID
+	if reqProjectID != projectID {
+		for i := range rollups {
+			rollups[i].ProjectID = reqProjectID
+		}
+	}
+
+	return rollups, httpError
 }
 
 // GenGetSingleBucketUsageRollup retrieves usage rollup for single bucket of particular project for a given period for generated api.
-func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (rollup *accounting.BucketUsageRollup, httpError api.HTTPError) {
+func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, reqProjectID uuid.UUID, bucket string, since, before time.Time) (rollup *accounting.BucketUsageRollup, httpError api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get single bucket usage rollup", zap.String("projectID", projectID.String()))
+	user, err := s.getUserAndAuditLog(ctx, "get single bucket usage rollup", zap.String("projectID", reqProjectID.String()))
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -2482,13 +2514,15 @@ func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, projectID u
 		}
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, reqProjectID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	projectID := isMember.project.ID
 
 	rollup, err = s.projectAccounting.GetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
 	if err != nil {
@@ -2498,7 +2532,10 @@ func (s *Service) GenGetSingleBucketUsageRollup(ctx context.Context, projectID u
 		}
 	}
 
-	return
+	// make sure to replace rollup project ID with reqProjectID in case it is the public ID
+	rollup.ProjectID = reqProjectID
+
+	return rollup, httpError
 }
 
 // GetDailyProjectUsage returns daily usage by project ID.
@@ -2791,18 +2828,26 @@ type isProjectMember struct {
 }
 
 // isProjectOwner checks if the user is an owner of a project.
-func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, err error) {
+func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (isOwner bool, project *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
-	project, err := s.store.Projects().Get(ctx, projectID)
+
+	project, err = s.store.Projects().GetByPublicID(ctx, projectID)
 	if err != nil {
-		return false, err
+		if errors.Is(err, sql.ErrNoRows) {
+			project, err = s.store.Projects().Get(ctx, projectID)
+			if err != nil {
+				return false, nil, Error.Wrap(err)
+			}
+		} else {
+			return false, nil, Error.Wrap(err)
+		}
 	}
 
 	if project.OwnerID != userID {
-		return false, ErrUnauthorized.New(unauthorizedErrMsg)
+		return false, nil, ErrUnauthorized.New(unauthorizedErrMsg)
 	}
 
-	return true, nil
+	return true, project, nil
 }
 
 // isProjectMember checks if the user is a member of given project.
