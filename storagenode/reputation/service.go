@@ -41,6 +41,24 @@ func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.Node
 		return err
 	}
 
+	report := []zap.Field{
+		zap.Stringer("Satellite ID", satelliteID),
+		zap.Int64("Total Audits", stats.Audit.TotalCount),
+		zap.Int64("Successful Audits", stats.Audit.SuccessCount),
+		zap.Float64("Audit Score", stats.Audit.Score),
+		zap.Float64("Online Score", stats.OnlineScore),
+		zap.Float64("Suspension Score", stats.Audit.UnknownScore),
+		zap.Float64("Audit Score Delta", stats.Audit.Score-rep.Audit.Score),
+		zap.Float64("Online Score Delta", stats.OnlineScore-rep.OnlineScore),
+		zap.Float64("Suspension Score Delta", stats.Audit.UnknownScore-rep.Audit.UnknownScore),
+	}
+
+	if stats.Audit.Score < rep.Audit.Score || stats.OnlineScore < rep.OnlineScore || stats.Audit.UnknownScore < rep.Audit.UnknownScore {
+		s.log.Warn("node scores worsened", report...)
+	} else {
+		s.log.Info("node scores updated", report...)
+	}
+
 	err = s.db.Store(ctx, stats)
 	if err != nil {
 		return err
