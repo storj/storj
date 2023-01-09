@@ -210,7 +210,8 @@ import {
     ProjectFields, ProjectLimits,
 } from '@/types/projects';
 import { MetaUtils } from '@/utils/meta';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -237,6 +238,8 @@ export default class EditProjectDetails extends Vue {
     public descriptionLength: number = MAX_DESCRIPTION_LENGTH;
     public storageLimitValue = 0;
     public bandwidthLimitValue = 0;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Returns selected project from store.
@@ -512,6 +515,7 @@ export default class EditProjectDetails extends Vue {
         }
 
         this.toggleNameEditing();
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_NAME_UPDATED);
         await this.$notify.success('Project name updated successfully!');
     }
 
@@ -528,6 +532,7 @@ export default class EditProjectDetails extends Vue {
         }
 
         this.toggleDescriptionEditing();
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_DESCRIPTION_UPDATED);
         await this.$notify.success('Project description updated successfully!');
     }
 
@@ -552,6 +557,7 @@ export default class EditProjectDetails extends Vue {
         }
 
         this.toggleStorageLimitEditing();
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_STORAGE_LIMIT_UPDATED);
         await this.$notify.success('Project storage limit updated successfully!');
     }
 
@@ -576,6 +582,7 @@ export default class EditProjectDetails extends Vue {
         }
 
         this.toggleBandwidthLimitEditing();
+        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_BANDWIDTH_LIMIT_UPDATED);
         await this.$notify.success('Project bandwidth limit updated successfully!');
     }
 
