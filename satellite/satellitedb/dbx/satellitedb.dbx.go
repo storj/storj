@@ -18,8 +18,6 @@ import (
 	"unicode"
 
 	"github.com/jackc/pgconn"
-	_ "github.com/jackc/pgx/v4/stdlib"
-
 	"storj.io/private/tagsql"
 )
 
