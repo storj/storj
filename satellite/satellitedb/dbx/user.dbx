@@ -147,31 +147,6 @@ read one (
 )
 delete reset_password_token ( where reset_password_token.secret = ? )
 
-//--- user credit table ---//
-
-model user_credit (
-    key id
-    unique id offer_id
-    index (
-        name credits_earned_user_id_offer_id
-        fields id offer_id
-        unique
-    )
-
-    field id serial
-
-    field user_id     user.id  cascade
-    field offer_id    offer.id restrict
-    field referred_by user.id  setnull  ( nullable )
-    field type        text
-
-    field credits_earned_in_cents int
-    field credits_used_in_cents   int ( updatable, autoinsert )
-
-    field expires_at timestamp ( updatable )
-    field created_at timestamp ( autoinsert )
-)
-
 //-- Account Freeze Events --//
 model account_freeze_event (
     key user_id event
