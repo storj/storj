@@ -148,6 +148,8 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 		return Error.New("expected partial type %T but got %T", repPartial, partial)
 	}
 
+	observer.statsCollector.combineCollectors(repPartial.statsCollector)
+
 	if err := repPartial.repairQueue.Flush(ctx); err != nil {
 		return Error.Wrap(err)
 	}
@@ -214,7 +216,7 @@ func newRangedLoopCheckerPartial(observer *RangedLoopObserver) rangedloop.Partia
 	return &repairPartial{
 		repairQueue:      observer.createInsertBuffer(),
 		nodestate:        observer.nodestate,
-		statsCollector:   observer.statsCollector,
+		statsCollector:   newStatsCollector(),
 		repairOverrides:  observer.repairOverrides,
 		nodeFailureRate:  observer.nodeFailureRate,
 		getNodesEstimate: observer.getNodesEstimate,
