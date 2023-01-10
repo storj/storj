@@ -3,14 +3,14 @@ model bucket_metainfo (
 	key    id
 	unique project_id name
 
-	// id is an uuid for the bucket.
+	// id is an UUID for the bucket.
 	field id             blob
 	// project_id is the project the bucket belongs to.
 	field project_id     project.id restrict
 	// name is a unique name inside the project.
 	// it's a alphanumeric string similar to domain names.
 	field name           blob
-	// partner_id is an uuid that refers to rewards.PartnersStaticDB.
+	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
 	// deprecated: use user_agent instead.
 	// note: this field is duplicated in value_attribution.project_id.
 	field partner_id     blob   (nullable, updatable)
@@ -135,14 +135,14 @@ read count (
 model value_attribution (
 	key project_id bucket_name
 
-	// project_id is an uuid that refers to project.id.
+	// project_id is an UUID that refers to project.id.
 	// note: this field is duplicated in bucket_metainfo.project_id.
 	field project_id	blob
 	// bucket_name refers to bucket_metainfo.name.
 	// This does not use the id, because we need the attribution to last
 	// beyond the lifetime of bucket_metainfo row.
 	field bucket_name	blob
-	// partner_id is an uuid that refers to rewards.PartnersStaticDB.
+	// partner_id is an UUID that refers to rewards.PartnersStaticDB.
 	// deprecated: use user_agent instead.
 	// note: this field is duplicated in bucket_metainfo.project_id.
 	field partner_id	blob
