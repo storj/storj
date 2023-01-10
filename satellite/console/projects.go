@@ -54,6 +54,13 @@ type Projects interface {
 
 	// UpdateUsageLimits is a method for updating project's usage limits.
 	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
+
+	// TestGetSalt returns the value (whether null or hashed project ID) from project's salt column in db.
+	TestGetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+
+	// TestNullifySalt is a temporary method for nullifying the salt column
+	// for testing a migration tool (TODO lizzy delete after migration).
+	TestNullifySalt(ctx context.Context, id uuid.UUID) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
