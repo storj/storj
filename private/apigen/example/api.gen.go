@@ -60,13 +60,6 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	idParam := r.URL.Query().Get("id")
 	if idParam == "" {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'id' can't be empty"))
@@ -100,6 +93,13 @@ func (h *TestAPIHandler) handleGenTestAPI(w http.ResponseWriter, r *http.Request
 	payload := struct{ Content string }{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
