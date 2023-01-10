@@ -59,8 +59,6 @@ func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, ov
 		nodeFailureRate:      config.NodeFailureRate,
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
 
-		TotalStats: aggregateStats{},
-
 		counter1: mon.Counter("rl_remote_segments_over_threshold_1"),
 		counter2: mon.Counter("rl_remote_segments_over_threshold_2"),
 		counter3: mon.Counter("rl_remote_segments_over_threshold_3"),
@@ -139,7 +137,7 @@ func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Ti
 
 // Fork creates a Partial to process a chunk of all the segments.
 func (observer *RangedLoopObserver) Fork(ctx context.Context) (rangedloop.Partial, error) {
-	return NewRangedLoopCheckerPartial(observer), nil
+	return newRangedLoopCheckerPartial(observer), nil
 }
 
 // Join is called after the chunk for Partial is done.
@@ -210,14 +208,13 @@ type repairPartial struct {
 	lastStreamID     uuid.UUID
 }
 
-// NewRangedLoopCheckerPartial creates new checker partial instance.
-func NewRangedLoopCheckerPartial(observer *RangedLoopObserver) rangedloop.Partial {
+// newRangedLoopCheckerPartial creates new checker partial instance.
+func newRangedLoopCheckerPartial(observer *RangedLoopObserver) rangedloop.Partial {
 	// we can only share thread-safe objects.
 	return &repairPartial{
 		repairQueue:      observer.createInsertBuffer(),
 		nodestate:        observer.nodestate,
-		statsCollector:   newStatsCollector(),
-		monStats:         aggregateStats{},
+		statsCollector:   observer.statsCollector,
 		repairOverrides:  observer.repairOverrides,
 		nodeFailureRate:  observer.nodeFailureRate,
 		getNodesEstimate: observer.getNodesEstimate,
