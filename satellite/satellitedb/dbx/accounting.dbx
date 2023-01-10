@@ -92,14 +92,6 @@ read paged (
     where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
-model project_bandwidth_rollup (
-	key    project_id interval_month
-
-	field project_id       blob
-	field interval_month   date
-	field egress_allocated uint64 ( updatable )
-)
-
 model project_bandwidth_daily_rollup (
 	key    project_id interval_day
 

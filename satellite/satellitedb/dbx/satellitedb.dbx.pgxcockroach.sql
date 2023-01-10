@@ -239,12 +239,6 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 );
-CREATE TABLE project_bandwidth_rollups (
-	project_id bytea NOT NULL,
-	interval_month date NOT NULL,
-	egress_allocated bigint NOT NULL,
-	PRIMARY KEY ( project_id, interval_month )
-);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,

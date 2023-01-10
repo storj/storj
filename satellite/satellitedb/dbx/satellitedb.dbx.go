@@ -557,12 +557,6 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 );
-CREATE TABLE project_bandwidth_rollups (
-	project_id bytea NOT NULL,
-	interval_month date NOT NULL,
-	egress_allocated bigint NOT NULL,
-	PRIMARY KEY ( project_id, interval_month )
-);
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -1219,12 +1213,6 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled bigint NOT NULL,
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
-);
-CREATE TABLE project_bandwidth_rollups (
-	project_id bytea NOT NULL,
-	interval_month date NOT NULL,
-	egress_allocated bigint NOT NULL,
-	PRIMARY KEY ( project_id, interval_month )
 );
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
@@ -6021,76 +6009,6 @@ func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() interface{} {
 }
 
 func (ProjectBandwidthDailyRollup_EgressDead_Field) _Column() string { return "egress_dead" }
-
-type ProjectBandwidthRollup struct {
-	ProjectId       []byte
-	IntervalMonth   time.Time
-	EgressAllocated uint64
-}
-
-func (ProjectBandwidthRollup) _Table() string { return "project_bandwidth_rollups" }
-
-type ProjectBandwidthRollup_Update_Fields struct {
-	EgressAllocated ProjectBandwidthRollup_EgressAllocated_Field
-}
-
-type ProjectBandwidthRollup_ProjectId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ProjectBandwidthRollup_ProjectId(v []byte) ProjectBandwidthRollup_ProjectId_Field {
-	return ProjectBandwidthRollup_ProjectId_Field{_set: true, _value: v}
-}
-
-func (f ProjectBandwidthRollup_ProjectId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectBandwidthRollup_ProjectId_Field) _Column() string { return "project_id" }
-
-type ProjectBandwidthRollup_IntervalMonth_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func ProjectBandwidthRollup_IntervalMonth(v time.Time) ProjectBandwidthRollup_IntervalMonth_Field {
-	v = toDate(v)
-	return ProjectBandwidthRollup_IntervalMonth_Field{_set: true, _value: v}
-}
-
-func (f ProjectBandwidthRollup_IntervalMonth_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectBandwidthRollup_IntervalMonth_Field) _Column() string { return "interval_month" }
-
-type ProjectBandwidthRollup_EgressAllocated_Field struct {
-	_set   bool
-	_null  bool
-	_value uint64
-}
-
-func ProjectBandwidthRollup_EgressAllocated(v uint64) ProjectBandwidthRollup_EgressAllocated_Field {
-	return ProjectBandwidthRollup_EgressAllocated_Field{_set: true, _value: v}
-}
-
-func (f ProjectBandwidthRollup_EgressAllocated_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ProjectBandwidthRollup_EgressAllocated_Field) _Column() string { return "egress_allocated" }
 
 type RegistrationToken struct {
 	Secret       []byte
@@ -18817,16 +18735,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26181,16 +26089,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
