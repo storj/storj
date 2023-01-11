@@ -92,37 +92,6 @@ CREATE TABLE coinpayments_transactions (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE coupons (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	description text NOT NULL,
-	type integer NOT NULL,
-	status integer NOT NULL,
-	duration bigint NOT NULL,
-	billing_periods bigint,
-	coupon_code_name text,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE coupon_codes (
-	id bytea NOT NULL,
-	name text NOT NULL,
-	amount bigint NOT NULL,
-	description text NOT NULL,
-	type integer NOT NULL,
-	billing_periods bigint,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( name )
-);
-CREATE TABLE coupon_usages (
-	coupon_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	status integer NOT NULL,
-	period timestamp with time zone NOT NULL,
-	PRIMARY KEY ( coupon_id, period )
-);
 CREATE TABLE graceful_exit_progress (
 	node_id bytea NOT NULL,
 	bytes_transferred bigint NOT NULL,
@@ -234,21 +203,6 @@ CREATE TABLE oauth_tokens (
 	created_at timestamp with time zone NOT NULL,
 	expires_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( token )
-);
-CREATE TABLE offers (
-	id serial NOT NULL,
-	name text NOT NULL,
-	description text NOT NULL,
-	award_credit_in_cents integer NOT NULL DEFAULT 0,
-	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
-	award_credit_duration_days integer,
-	invitee_credit_duration_days integer,
-	redeemable_cap integer,
-	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	status integer NOT NULL,
-	type integer NOT NULL,
-	PRIMARY KEY ( id )
 );
 CREATE TABLE peer_identities (
 	node_id bytea NOT NULL,
@@ -580,19 +534,6 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
-CREATE TABLE user_credits (
-	id serial NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	offer_id integer NOT NULL REFERENCES offers( id ),
-	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
-	type text NOT NULL,
-	credits_earned_in_cents integer NOT NULL,
-	credits_used_in_cents integer NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( id, offer_id )
-);
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
 CREATE INDEX billing_transactions_timestamp_index ON billing_transactions ( timestamp ) ;
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
@@ -623,4 +564,3 @@ CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_ta
 CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index ) ;
 CREATE INDEX storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address ) ;
 CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;
-CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;

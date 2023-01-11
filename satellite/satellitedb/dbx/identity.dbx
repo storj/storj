@@ -1,0 +1,33 @@
+//--- peer_identity ---//
+
+model peer_identity (
+    key node_id
+
+    field node_id            blob
+    field leaf_serial_number blob (updatable)
+    field chain              blob (updatable) // x509 ASN.1 DER content
+    field updated_at         timestamp ( autoinsert, autoupdate )
+)
+
+create peer_identity ( noreturn )
+update peer_identity (
+	where  peer_identity.node_id = ?
+	noreturn
+)
+
+read one (
+    select peer_identity
+    where  peer_identity.node_id = ?
+)
+read one (
+    select peer_identity.leaf_serial_number
+    where  peer_identity.node_id = ?
+)
+
+model revocation (
+    key revoked
+    field revoked blob
+    field api_key_id blob
+)
+
+create revocation ( noreturn )

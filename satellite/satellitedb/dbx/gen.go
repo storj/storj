@@ -16,7 +16,7 @@ import (
 	"storj.io/private/tagsql"
 )
 
-//go:generate sh gen.sh
+//go:generate go run ./gen
 
 var mon = monkit.Package()
 
