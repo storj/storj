@@ -135,6 +135,86 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	}, nil
 }
 
+// ExchangeSegmentPieceOrders begins segment uploading.
+func (endpoint *Endpoint) ExchangeSegmentPieceOrders(ctx context.Context, req *pb.SegmentExchangePieceOrdersRequest) (resp *pb.SegmentExchangePieceOrdersResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        segmentID.StreamId.Bucket,
+		EncryptedPath: segmentID.StreamId.EncryptedObjectKey,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(req.PieceNumbers) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "piece numbers to exchange cannot be empty")
+	}
+
+	pieceNumberSet := make(map[int32]struct{}, len(req.PieceNumbers))
+	for _, pieceNumber := range req.PieceNumbers {
+		if pieceNumber < 0 || int(pieceNumber) >= len(segmentID.OriginalOrderLimits) {
+			endpoint.log.Debug("piece number is out of range",
+				zap.Int32("piece number", pieceNumber),
+				zap.Int("redundancy total", len(segmentID.OriginalOrderLimits)),
+				zap.Stringer("Segment ID", req.SegmentId),
+			)
+			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d must be within range [0,%d]", pieceNumber, len(segmentID.OriginalOrderLimits)-1)
+		}
+		if _, ok := pieceNumberSet[pieceNumber]; ok {
+			endpoint.log.Debug("piece number is duplicated",
+				zap.Int32("piece number", pieceNumber),
+				zap.Stringer("Segment ID", req.SegmentId),
+			)
+			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d is duplicated", pieceNumber)
+		}
+		pieceNumberSet[pieceNumber] = struct{}{}
+	}
+
+	// Find a new set of storage nodes, excluding any already represented in
+	// the current list of order limits.
+	// TODO: It's possible that a node gets reused across multiple calls to ExchangeSegmentPieceOrders.
+	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	for _, orderLimit := range segmentID.OriginalOrderLimits {
+		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
+	}
+	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
+		RequestedCount: len(req.PieceNumbers),
+		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
+		ExcludedIDs:    excludedIDs,
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	addressedLimits, err := endpoint.orders.ExchangePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.PieceNumbers)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	segmentID.OriginalOrderLimits = addressedLimits
+
+	amendedSegmentID, err := endpoint.packSegmentID(ctx, segmentID)
+
+	endpoint.log.Info("Segment Upload Piece Order Exchange", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
+
+	return &pb.SegmentExchangePieceOrdersResponse{
+		SegmentId:       amendedSegmentID,
+		AddressedLimits: addressedLimits,
+	}, nil
+}
+
 // CommitSegment commits segment after uploading.
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

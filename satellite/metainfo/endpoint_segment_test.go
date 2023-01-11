@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/rpc/rpctest"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -28,14 +30,8 @@ func TestExpirationTimeSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "my-bucket-name")
-		require.NoError(t, err)
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
+		bucket := createTestBucket(ctx, t, planet)
+		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		for i, r := range []struct {
 			expirationDate time.Time
@@ -59,7 +55,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 			_, err := metainfoClient.BeginObject(ctx, metaclient.BeginObjectParams{
-				Bucket:             []byte("my-bucket-name"),
+				Bucket:             []byte(bucket.Name),
 				EncryptedObjectKey: []byte("path" + strconv.Itoa(i)),
 				ExpiresAt:          r.expirationDate,
 				EncryptionParameters: storj.EncryptionParameters{
@@ -80,10 +76,6 @@ func TestInlineSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		buckets := planet.Satellites[0].API.Buckets.Service
-
 		// TODO maybe split into separate cases
 		// Test:
 		// * create bucket
@@ -95,16 +87,8 @@ func TestInlineSegment(t *testing.T) {
 		// * download segments
 		// * delete segments and object
 
-		bucket := storj.Bucket{
-			Name:      "inline-segments-bucket",
-			ProjectID: planet.Uplinks[0].Projects[0].ID,
-		}
-		_, err := buckets.CreateBucket(ctx, bucket)
-		require.NoError(t, err)
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
+		bucket := createTestBucket(ctx, t, planet)
+		metainfoClient := createMetainfoClient(ctx, t, planet)
 
 		params := metaclient.BeginObjectParams{
 			Bucket:             []byte(bucket.Name),
@@ -410,16 +394,11 @@ func TestCommitSegment_Validation(t *testing.T) {
 			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(client.Close)
-
-		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket")
-		require.NoError(t, err)
+		bucket := createTestBucket(ctx, t, planet)
+		client := createMetainfoClient(ctx, t, planet)
 
 		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
-			Bucket:             []byte("testbucket"),
+			Bucket:             []byte(bucket.Name),
 			EncryptedObjectKey: []byte("a/b/testobject"),
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
@@ -580,4 +559,177 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 	})
+}
+
+func TestExchangePieceOrders(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucket := createTestBucket(ctx, t, planet)
+		metainfoClient := createMetainfoClient(ctx, t, planet)
+
+		params := metaclient.BeginObjectParams{
+			Bucket:             []byte(bucket.Name),
+			EncryptedObjectKey: []byte("encrypted-path"),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+		}
+
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		beginSegmentResp, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
+			StreamID:      beginObjectResp.StreamID,
+			Position:      metaclient.SegmentPosition{},
+			MaxOrderLimit: 1024,
+		})
+		require.NoError(t, err)
+
+		// This call should fail, since there will not be enough unique nodes
+		// available to replace all of the piece orders.
+		_, err = metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+			SegmentID:    beginSegmentResp.SegmentID,
+			PieceNumbers: []int{0, 1, 2, 3, 4, 5, 6},
+		})
+		rpctest.RequireStatus(t, err, rpcstatus.Internal, "metaclient: not enough nodes: not enough nodes: requested from cache 7, found 2")
+
+		// This exchange should succeed.
+		exchangeSegmentPieceOrdersResp, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+			SegmentID:    beginSegmentResp.SegmentID,
+			PieceNumbers: []int{0, 2},
+		})
+		require.NoError(t, err)
+
+		makeResult := func(i int) *pb.SegmentPieceUploadResult {
+			limit := exchangeSegmentPieceOrdersResp.Limits[i].Limit
+			node := planet.FindNode(limit.StorageNodeId)
+			require.NotNil(t, node, "failed to locate node to sign hash for piece %d", i)
+			signer := signing.SignerFromFullIdentity(node.Identity)
+			hash, err := signing.SignPieceHash(ctx, signer, &pb.PieceHash{
+				PieceSize: 512,
+				PieceId:   limit.PieceId,
+				Timestamp: time.Now(),
+			})
+			require.NoError(t, err)
+			return &pb.SegmentPieceUploadResult{
+				PieceNum: int32(i),
+				NodeId:   limit.StorageNodeId,
+				Hash:     hash,
+			}
+		}
+
+		// Commit with only 6 successful uploads, otherwise, the original
+		// limits will still be valid. We want to test that the exchange
+		// replaced the order limits.
+		commitSegmentParams := metaclient.CommitSegmentParams{
+			SegmentID:         beginSegmentResp.SegmentID,
+			PlainSize:         512,
+			SizeEncryptedData: 512,
+			Encryption: metaclient.SegmentEncryption{
+				EncryptedKey: testrand.Bytes(256),
+			},
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				makeResult(0),
+				makeResult(1),
+				makeResult(2),
+				makeResult(3),
+				makeResult(4),
+				makeResult(5),
+			},
+		}
+
+		// This call should fail since we are not using the segment ID
+		// augmented by ExchangeSegmentPieceOrders
+		err = metainfoClient.CommitSegment(ctx, commitSegmentParams)
+		rpctest.RequireStatusContains(t, err, rpcstatus.InvalidArgument, "metaclient: Number of valid pieces (4) is less than the success threshold (6).")
+
+		// This call should succeed.
+		commitSegmentParams.SegmentID = exchangeSegmentPieceOrdersResp.SegmentID
+		err = metainfoClient.CommitSegment(ctx, commitSegmentParams)
+		require.NoError(t, err)
+	})
+}
+
+func TestExchangePieceOrders_Validation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucket := createTestBucket(ctx, t, planet)
+		metainfoClient := createMetainfoClient(ctx, t, planet)
+
+		params := metaclient.BeginObjectParams{
+			Bucket:             []byte(bucket.Name),
+			EncryptedObjectKey: []byte("encrypted-path"),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+		}
+
+		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		beginSegmentResp, err := metainfoClient.BeginSegment(ctx, metaclient.BeginSegmentParams{
+			StreamID:      beginObjectResp.StreamID,
+			Position:      metaclient.SegmentPosition{},
+			MaxOrderLimit: 1024,
+		})
+		require.NoError(t, err)
+
+		t.Run("piece numbers is empty", func(t *testing.T) {
+			_, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+				SegmentID:    beginSegmentResp.SegmentID,
+				PieceNumbers: nil,
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, "metaclient: piece numbers to exchange cannot be empty")
+		})
+		t.Run("piece numbers are less than zero", func(t *testing.T) {
+			_, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+				SegmentID:    beginSegmentResp.SegmentID,
+				PieceNumbers: []int{-1},
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, "metaclient: piece number -1 must be within range [0,7]")
+		})
+		t.Run("piece numbers are larger than expected", func(t *testing.T) {
+			_, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+				SegmentID:    beginSegmentResp.SegmentID,
+				PieceNumbers: []int{len(beginSegmentResp.Limits)},
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, "metaclient: piece number 8 must be within range [0,7]")
+		})
+		t.Run("piece numbers are duplicate", func(t *testing.T) {
+			_, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+				SegmentID:    beginSegmentResp.SegmentID,
+				PieceNumbers: []int{0, 0},
+			})
+			rpctest.RequireStatus(t, err, rpcstatus.InvalidArgument, "metaclient: piece number 0 is duplicated")
+		})
+
+		t.Run("success", func(t *testing.T) {
+			_, err := metainfoClient.ExchangeSegmentPieceOrders(ctx, metaclient.ExchangeSegmentPieceOrdersParams{
+				SegmentID:    beginSegmentResp.SegmentID,
+				PieceNumbers: []int{0, 1},
+			})
+			require.NoError(t, err)
+		})
+	})
+}
+
+func createTestBucket(ctx context.Context, tb testing.TB, planet *testplanet.Planet) storj.Bucket {
+	bucket, err := planet.Satellites[0].API.Buckets.Service.CreateBucket(ctx, storj.Bucket{
+		Name:      "test",
+		ProjectID: planet.Uplinks[0].Projects[0].ID,
+	})
+	require.NoError(tb, err)
+	return bucket
+}
+
+func createMetainfoClient(ctx *testcontext.Context, tb testing.TB, planet *testplanet.Planet) *metaclient.Client {
+	apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+	metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+	require.NoError(tb, err)
+	tb.Cleanup(func() { ctx.Check(metainfoClient.Close) })
+	return metainfoClient
 }
