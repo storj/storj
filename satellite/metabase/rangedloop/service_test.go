@@ -5,7 +5,9 @@ package rangedloop_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -148,4 +150,212 @@ func TestLoopCancellation(t *testing.T) {
 	_, err := loopService.RunOnce(ctx)
 
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestLoopContinuesAfterObserverError(t *testing.T) {
+	parallelism := 2
+	batchSize := 1
+	segments := make([]segmentloop.Segment, 2)
+
+	numOnStartCalls := 0
+	numOnForkCalls := 0
+	numOnProcessCalls := int32(0)
+	numOnJoinCalls := 0
+	numOnFinishCalls := 0
+
+	incNumOnProcessCalls := func() {
+		atomic.AddInt32(&numOnProcessCalls, 1)
+	}
+
+	// first and last observer emit no error
+	// other observers emit an error at different stages
+	observers := []rangedloop.Observer{
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				incNumOnProcessCalls()
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				numOnJoinCalls++
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				numOnFinishCalls++
+				return nil
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return errors.New("Test OnStart error")
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				require.Fail(t, "OnFork should not be called")
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				require.Fail(t, "OnProcess should not be called")
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				require.Fail(t, "OnJoin should not be called")
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				require.Fail(t, "OnFinish should not be called")
+				return nil
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, errors.New("Test OnFork error")
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				require.Fail(t, "OnProcess should not be called")
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				require.Fail(t, "OnJoin should not be called")
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				require.Fail(t, "OnFinish should not be called")
+				return nil
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				incNumOnProcessCalls()
+				return errors.New("Test OnProcess error")
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				require.Fail(t, "OnJoin should not be called")
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				require.Fail(t, "OnFinish should not be called")
+				return nil
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				incNumOnProcessCalls()
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				numOnJoinCalls++
+				return errors.New("Test OnJoin error")
+			},
+			OnFinish: func(ctx context.Context) error {
+				require.Fail(t, "OnFinish should not be called")
+				return nil
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				incNumOnProcessCalls()
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				numOnJoinCalls++
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				numOnFinishCalls++
+				return errors.New("Test OnFinish error")
+			},
+		},
+		&rangedlooptest.CallbackObserver{
+			OnStart: func(ctx context.Context, t time.Time) error {
+				numOnStartCalls++
+				return nil
+			},
+			OnFork: func(ctx context.Context) (rangedloop.Partial, error) {
+				numOnForkCalls++
+				return nil, nil
+			},
+			OnProcess: func(ctx context.Context, segments []segmentloop.Segment) error {
+				incNumOnProcessCalls()
+				return nil
+			},
+			OnJoin: func(ctx context.Context, partial rangedloop.Partial) error {
+				numOnJoinCalls++
+				return nil
+			},
+			OnFinish: func(ctx context.Context) error {
+				numOnFinishCalls++
+				return nil
+			},
+		},
+	}
+
+	loopService := rangedloop.NewService(
+		zaptest.NewLogger(t),
+		rangedloop.Config{
+			BatchSize:   batchSize,
+			Parallelism: parallelism,
+		},
+		&rangedlooptest.RangeSplitter{
+			Segments: segments,
+		},
+		observers,
+	)
+
+	observerDurations, err := loopService.RunOnce(testcontext.New(t))
+	require.NoError(t, err)
+	require.Len(t, observerDurations, len(observers))
+
+	require.EqualValues(t, 7, numOnStartCalls)
+	require.EqualValues(t, 6*parallelism, numOnForkCalls)
+	require.EqualValues(t, 5*parallelism-1, numOnProcessCalls)
+	require.EqualValues(t, 4*parallelism-1, numOnJoinCalls)
+	require.EqualValues(t, 3, numOnFinishCalls)
+
+	// success observer should have the duration reported
+	require.Greater(t, observerDurations[0].Duration, time.Duration(0))
+	require.Greater(t, observerDurations[6].Duration, time.Duration(0))
+
+	// error observers should have sentinel duration reported
+	require.Equal(t, observerDurations[1].Duration, -1*time.Second)
+	require.Equal(t, observerDurations[2].Duration, -1*time.Second)
+	require.Equal(t, observerDurations[3].Duration, -1*time.Second)
+	require.Equal(t, observerDurations[4].Duration, -1*time.Second)
+	require.Equal(t, observerDurations[5].Duration, -1*time.Second)
 }
