@@ -235,10 +235,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 	}
 
 	for pieceNum, node := range nodes {
-		address := node.Address.Address
-		if node.LastIPPort != "" {
-			address = node.LastIPPort
-		}
+		address := storageNodeAddress(node)
 		_, err := signer.Sign(ctx, storj.NodeURL{ID: node.ID, Address: address}, int32(pieceNum))
 		if err != nil {
 			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
@@ -246,6 +243,36 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 	}
 
 	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
+}
+
+// ReplacePutOrderLimits replaces order limits for uploading pieces to nodes.
+func (service *Service) ReplacePutOrderLimits(ctx context.Context, rootPieceID storj.PieceID, addressedLimits []*pb.AddressedOrderLimit, nodes []*overlay.SelectedNode, pieceNumbers []int32) (_ []*pb.AddressedOrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pieceIDDeriver := rootPieceID.Deriver()
+
+	newAddressedLimits := make([]*pb.AddressedOrderLimit, len(addressedLimits))
+	copy(newAddressedLimits, addressedLimits)
+
+	for i, pieceNumber := range pieceNumbers {
+		if pieceNumber < 0 || int(pieceNumber) >= len(addressedLimits) {
+			return nil, Error.New("invalid piece number %d", pieceNumber)
+		}
+
+		// TODO: clone?
+		newAddressedLimit := *addressedLimits[pieceNumber].Limit
+		newAddressedLimit.StorageNodeId = nodes[i].ID
+		newAddressedLimit.PieceId = pieceIDDeriver.Derive(nodes[i].ID, pieceNumber)
+		newAddressedLimit.SatelliteSignature = nil
+
+		newAddressedLimits[pieceNumber].Limit, err = signing.SignOrderLimit(ctx, service.satellite, &newAddressedLimit)
+		if err != nil {
+			return nil, ErrSigner.Wrap(err)
+		}
+		newAddressedLimits[pieceNumber].StorageNodeAddress.Address = storageNodeAddress(nodes[i])
+	}
+
+	return newAddressedLimits, nil
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
@@ -576,4 +603,12 @@ func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.Orde
 		}
 	}
 	return key.DecryptMetadata(order.SerialNumber, order.EncryptedMetadata)
+}
+
+func storageNodeAddress(node *overlay.SelectedNode) string {
+	address := node.Address.Address
+	if node.LastIPPort != "" {
+		address = node.LastIPPort
+	}
+	return address
 }

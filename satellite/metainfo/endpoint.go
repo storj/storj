@@ -242,6 +242,10 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *internalpb.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(segmentID) == 0 {
+		return nil, errs.New("segment ID missing")
+	}
+
 	satSegmentID := &internalpb.SegmentID{}
 	err = pb.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
