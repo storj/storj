@@ -107,11 +107,12 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 					SELECT
 						root_piece_id,
 						remote_alias_pieces
-					FROM segments
+					FROM segments as segments
+					LEFT JOIN segment_copies as copies
+					ON copies.ancestor_stream_id = segments.stream_id
 					WHERE
-						stream_id = (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
-						AND position IN (SELECT position FROM UNNEST($2::INT8[]) as position)
-					ORDER BY stream_id, position ASC
+						copies.stream_id = $1 AND segments.position IN (SELECT position FROM UNNEST($2::INT8[]) as position)
+					ORDER BY segments.stream_id, segments.position ASC
 				`, opts.StreamID, pgutil.Int8Array(copiesPositions)))(func(rows tagsql.Rows) error {
 
 				for rows.Next() {
