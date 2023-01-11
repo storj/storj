@@ -61,6 +61,9 @@ type bandwidthRollupKey struct {
 func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO I wanted to remove this implementation but it looks it's heavily used in tests
+	// we should do cleanup as a separate change (Michal)
+
 	return pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 
@@ -235,17 +238,21 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 
 		bucketRUMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
 
+		// TODO reorg code to make clear what we are inserting/updating to
+		// bucket_bandwidth_rollups and project_bandwidth_daily_rollups
+
 		inlineSlice := make([]int64, 0, len(bucketRUMap))
-		allocatedSlice := make([]int64, 0, len(bucketRUMap))
 		settledSlice := make([]int64, 0, len(bucketRUMap))
 		bucketNames := make([][]byte, 0, len(bucketRUMap))
 		projectIDs := make([]uuid.UUID, 0, len(bucketRUMap))
 		intervalStartSlice := make([]time.Time, 0, len(bucketRUMap))
 		actionSlice := make([]int32, 0, len(bucketRUMap))
 
+		// allocated must be not-null so lets keep slice until we will change DB schema
+		emptyAllocatedSlice := make([]int64, len(bucketRUMap))
+
 		for rollupInfo, usage := range bucketRUMap {
 			inlineSlice = append(inlineSlice, usage.Inline)
-			allocatedSlice = append(allocatedSlice, usage.Allocated)
 			settledSlice = append(settledSlice, usage.Settled)
 			bucketNames = append(bucketNames, []byte(rollupInfo.BucketName))
 			projectIDs = append(projectIDs, rollupInfo.ProjectID)
@@ -264,12 +271,11 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 			unnest($5::int4[]), unnest($6::bigint[]), unnest($7::bigint[]), unnest($8::bigint[])
 		ON CONFLICT(bucket_name, project_id, interval_start, action)
 		DO UPDATE SET
-			allocated = bucket_bandwidth_rollups.allocated + EXCLUDED.allocated,
 			inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
 			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled`,
 			pgutil.ByteaArray(bucketNames), pgutil.UUIDArray(projectIDs), pgutil.TimestampTZArray(intervalStartSlice),
 			defaultIntervalSeconds,
-			pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
+			pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
 		if err != nil {
 			db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 		}
@@ -278,7 +284,7 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 
 		projectIDs = make([]uuid.UUID, 0, len(projectRUMap))
 		intervalStartSlice = make([]time.Time, 0, len(projectRUMap))
-		allocatedSlice = make([]int64, 0, len(projectRUMap))
+		allocatedSlice := make([]int64, 0, len(projectRUMap))
 		settledSlice = make([]int64, 0, len(projectRUMap))
 		deadSlice := make([]int64, 0, len(projectRUMap))
 

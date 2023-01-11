@@ -245,10 +245,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 		}
 	}
 
-	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
-		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
 }
 
@@ -437,10 +433,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 
-	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
-
 	return limits, signer.PrivateKey, cachedNodesInfo, nil
 }
 
@@ -510,10 +502,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 		}
 	}
 
-	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	return limits, signer.PrivateKey, nil
 }
 
@@ -545,10 +533,6 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 	nodeURL := storj.NodeURL{ID: nodeID, Address: address}
 	limit, err = signer.Sign(ctx, nodeURL, pieceNum)
 	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 

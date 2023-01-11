@@ -25,11 +25,8 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-// unfortunately, in GB is apparently the only way we can get this data, so we need to
-// arrange for the test to produce a total value that won't lose too much precision
-// in the conversion to GB.
-func getTotalBandwidthInGB(ctx context.Context, accountingDB accounting.ProjectAccounting, projectID uuid.UUID, since time.Time) (int64, error) {
-	total, err := accountingDB.GetAllocatedBandwidthTotal(ctx, projectID, since.Add(-time.Hour))
+func getSettledBandwidth(ctx context.Context, accountingDB accounting.ProjectAccounting, projectID uuid.UUID, since time.Time) (int64, error) {
+	total, err := accountingDB.GetProjectSettledBandwidthTotal(ctx, projectID, since.Add(-time.Hour))
 	if err != nil {
 		return 0, err
 	}
@@ -49,16 +46,19 @@ func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 
 		accountingDB := db.ProjectAccounting()
 
+		expectedTotal := int64(0)
 		// use different bucketName for each write, so they don't get aggregated yet
 		for i := 0; i < useBatchSize-1; i++ {
 			bucketName := fmt.Sprintf("my_files_%d", i)
-			err := rwc.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, startTime)
+			err := rwc.UpdateBucketBandwidthSettle(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, startTime)
 			require.NoError(t, err)
 
 			// check that nothing was actually written since it should just be stored
-			total, err := getTotalBandwidthInGB(ctx, accountingDB, projectID, startTime)
+			total, err := getSettledBandwidth(ctx, accountingDB, projectID, startTime)
 			require.NoError(t, err)
-			require.Equal(t, int64(0), total)
+			require.Zero(t, total)
+
+			expectedTotal += amount
 		}
 
 		whenDone := rwc.OnNextFlush()
@@ -74,9 +74,9 @@ func TestRollupsWriteCacheBatchLimitReached(t *testing.T) {
 			t.Fatal(ctx.Err())
 		}
 
-		total, err := getTotalBandwidthInGB(ctx, accountingDB, projectID, startTime)
+		total, err := getSettledBandwidth(ctx, accountingDB, projectID, startTime)
 		require.NoError(t, err)
-		require.Equal(t, amount*int64(useBatchSize), total)
+		require.Equal(t, expectedTotal, total)
 	})
 }
 
@@ -97,16 +97,18 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 			accountingDB := planet.Satellites[0].DB.ProjectAccounting()
 			ordersDB := planet.Satellites[0].Orders.DB
 
-			// use different pieceAction for each write, so they don't get aggregated yet
+			expectedTotal := int64(0)
 			for i := 0; i < useBatchSize-1; i++ {
 				bucketName := fmt.Sprintf("my_files_%d", i)
-				err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, startTime)
+				err := ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, startTime)
 				require.NoError(t, err)
 
 				// check that nothing was actually written
-				total, err := getTotalBandwidthInGB(ctx, accountingDB, projectID, startTime)
+				total, err := getSettledBandwidth(ctx, accountingDB, projectID, startTime)
 				require.NoError(t, err)
-				require.Equal(t, int64(0), total)
+				require.Zero(t, total)
+
+				expectedTotal += amount
 			}
 
 			rwc := ordersDB.(*orders.RollupsWriteCache)
@@ -122,9 +124,9 @@ func TestRollupsWriteCacheBatchChore(t *testing.T) {
 				t.Fatal(ctx.Err())
 			}
 
-			total, err := getTotalBandwidthInGB(ctx, accountingDB, projectID, startTime)
+			total, err := getSettledBandwidth(ctx, accountingDB, projectID, startTime)
 			require.NoError(t, err)
-			require.Equal(t, amount*int64(useBatchSize-1), total)
+			require.Equal(t, expectedTotal, total)
 		},
 	)
 }
@@ -149,7 +151,7 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			bucketName := []byte("testbucketname")
 			amount := (memory.MB * 500).Int64()
 			intervalStart := time.Now()
-			err := ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
+			err := ordersDB.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
 			require.NoError(t, err)
 			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, 0, intervalStart)
 			require.NoError(t, err)
@@ -171,8 +173,8 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 				IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 			}
 			expectedCacheDataAllocated := orders.CacheData{
-				Inline:    0,
-				Allocated: amount,
+				Inline:    amount,
+				Allocated: 0,
 				Settled:   0,
 			}
 			expectedCacheDataSettled := orders.CacheData{
@@ -186,7 +188,7 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			// setup: add another item to the cache but with a different projectID
 			projectID2 := testrand.UUID()
 			amount2 := (memory.MB * 10).Int64()
-			err = ordersDB.UpdateBucketBandwidthAllocation(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, intervalStart)
+			err = ordersDB.UpdateBucketBandwidthInline(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, intervalStart)
 			require.NoError(t, err)
 			err = ordersDB.UpdateBucketBandwidthSettle(ctx, projectID2, bucketName, pb.PieceAction_GET, amount2, 0, intervalStart)
 			require.NoError(t, err)
@@ -202,8 +204,8 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 				IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 			}
 			expectedData := orders.CacheData{
-				Inline:    0,
-				Allocated: amount2,
+				Inline:    amount2,
+				Allocated: 0,
 				Settled:   amount2,
 			}
 			require.Equal(t, projectMap2[expectedKey], expectedData)

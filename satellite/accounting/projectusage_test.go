@@ -396,7 +396,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 	})
 }
 
-func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
+func createBucketSettleBandwidthRollupsForPast4Days(ctx *testcontext.Context, satelliteDB satellite.DB, projectID uuid.UUID) (int64, error) {
 	var expectedSum int64
 	ordersDB := satelliteDB.Orders()
 	amount := int64(1000)
@@ -416,20 +416,8 @@ func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satellit
 			intervalStart = now
 		}
 
-		err := ordersDB.UpdateBucketBandwidthAllocation(ctx,
-			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
-		)
-		if err != nil {
-			return expectedSum, err
-		}
-		err = ordersDB.UpdateBucketBandwidthSettle(ctx,
+		err := ordersDB.UpdateBucketBandwidthSettle(ctx,
 			projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, intervalStart,
-		)
-		if err != nil {
-			return expectedSum, err
-		}
-		err = ordersDB.UpdateBucketBandwidthInline(ctx,
-			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
@@ -439,19 +427,19 @@ func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satellit
 	return expectedSum, nil
 }
 
-func TestProjectBandwidthTotal(t *testing.T) {
+func TestGetProjectSettledBandwidthTotal(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		pdb := db.ProjectAccounting()
 		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketBandwidthRollupsForPast4Days(ctx, db, projectID)
+		expectedTotal, err := createBucketSettleBandwidthRollupsForPast4Days(ctx, db, projectID)
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
 		since := time.Now().AddDate(0, -1, 0)
 
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, since)
+		actualBandwidthTotal, err := pdb.GetProjectSettledBandwidthTotal(ctx, projectID, since)
 		require.NoError(t, err)
 		require.Equal(t, expectedTotal, actualBandwidthTotal)
 	})
