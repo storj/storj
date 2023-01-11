@@ -10,34 +10,23 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 )
 
-func sendObserverDurations(observerDurations []ObserverDuration) {
-	initCompletedObserverStats()
-	completedObserverStatsInstance.setObserverDurations(observerDurations)
-}
+var (
+	completedObserverStatsInstance         completedObserverStats
+	completedObserverStatsInstanceInitOnce sync.Once
+)
 
-// completedObserverStatsInstance is initialized once
-// so that hopefully there is never more than once object instance per satellite process
-// and statistics of different object instances don't clobber each other.
-var completedObserverStatsInstance *completedObserverStats
+func sendObserverDurations(observerDurations []ObserverDuration) {
+	completedObserverStatsInstance.setObserverDurations(observerDurations)
+	completedObserverStatsInstanceInitOnce.Do(func() {
+		mon.Chain(&completedObserverStatsInstance)
+	})
+}
 
 // Implements monkit.StatSource.
 // Reports the duration per observer from the last completed run of the ranged segment loop.
 type completedObserverStats struct {
 	mu                sync.Mutex
 	observerDurations []ObserverDuration
-}
-
-func initCompletedObserverStats() {
-	if completedObserverStatsInstance != nil {
-		return
-	}
-
-	completedObserverStatsInstance = &completedObserverStats{
-		observerDurations: []ObserverDuration{},
-	}
-
-	// wire statistics up with monkit
-	mon.Chain(completedObserverStatsInstance)
 }
 
 // Stats implements monkit.StatSource to send the observer durations every time monkit is polled externally.
