@@ -2187,6 +2187,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop tables related to coupons, offers, and credits",
+				Version:     220,
+				Action: migrate.SQL{
+					`DROP TABLE user_credits;`,
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupon_codes;`,
+					`DROP TABLE coupons;`,
+					`DROP TABLE offers;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
