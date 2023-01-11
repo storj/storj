@@ -32,7 +32,6 @@ type RangedLoopObserver struct {
 	logger               *zap.Logger
 	repairQueue          queue.RepairQueue
 	nodestate            *ReliabilityCache
-	statsCollector       *statsCollector
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
@@ -54,7 +53,6 @@ func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, ov
 
 		repairQueue:          repairQueue,
 		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		statsCollector:       newStatsCollector(),
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
@@ -148,7 +146,7 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 		return Error.New("expected partial type %T but got %T", repPartial, partial)
 	}
 
-	observer.statsCollector.combineCollectors(repPartial.statsCollector)
+	repPartial.statsCollector.collectAggregates()
 
 	if err := repPartial.repairQueue.Flush(ctx); err != nil {
 		return Error.Wrap(err)
@@ -178,7 +176,7 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	observer.statsCollector.collectAggregates()
+
 	mon.IntVal("remote_files_checked").Observe(observer.TotalStats.objectsChecked)                               //mon:locked
 	mon.IntVal("remote_segments_checked").Observe(observer.TotalStats.remoteSegmentsChecked)                     //mon:locked
 	mon.IntVal("remote_segments_failed_to_check").Observe(observer.TotalStats.remoteSegmentsFailedToCheck)       //mon:locked

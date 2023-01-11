@@ -46,13 +46,6 @@ func (collector *statsCollector) collectAggregates() {
 	}
 }
 
-// combineCollectors fills stats of original statsCollector with stats of addition collector.
-func (collector *statsCollector) combineCollectors(addition *statsCollector) {
-	for scheme, stats := range addition.stats {
-		collector.stats[scheme] = stats
-	}
-}
-
 // stats is used for collecting and reporting checker metrics.
 //
 // add any new metrics tagged with rs_scheme to this struct and set them
