@@ -31,8 +31,8 @@ type MetabaseSegmentProvider struct {
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
-func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, batchSize int) MetabaseRangeSplitter {
-	return MetabaseRangeSplitter{
+func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
+	return &MetabaseRangeSplitter{
 		db:                 db,
 		asOfSystemInterval: asOfSystemInterval,
 		batchSize:          batchSize,

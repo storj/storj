@@ -498,10 +498,11 @@ func TestRangedLoopObserver(t *testing.T) {
 			{5, 5},
 		} {
 			observer := planet.Satellites[0].Repair.Observer
+			config := planet.Satellites[0].Config
 			service := rangedloop.NewService(planet.Log(), rangedloop.Config{
 				Parallelism: tc.Parallelism,
 				BatchSize:   tc.BatchSize,
-			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
+			}, rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize), []rangedloop.Observer{observer})
 			_, err = service.RunOnce(ctx)
 			require.NoError(t, err)
 
