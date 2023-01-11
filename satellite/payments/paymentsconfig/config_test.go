@@ -4,6 +4,7 @@
 package paymentsconfig_test
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -96,6 +97,147 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 				require.Equal(t, price.EgressMBCents, model.EgressMBCents)
 				require.Equal(t, price.SegmentMonthCents, model.SegmentMonthCents)
 			}
+		})
+	}
+}
+
+func TestPackagePlans(t *testing.T) {
+	type packages map[string]paymentsconfig.PackagePlan
+
+	cases := []struct {
+		testID               string
+		configValue          string
+		expectedPackagePlans packages
+	}{
+		{
+			testID:               "empty",
+			configValue:          "",
+			expectedPackagePlans: packages{},
+		},
+		{
+			testID:      "missing couponID and price",
+			configValue: "partner",
+		},
+		{
+			testID:      "missing partner",
+			configValue: ":abc123,100",
+		}, {
+			testID:      "empty coupon ID",
+			configValue: "partner:,1",
+		}, {
+			testID:      "empty price",
+			configValue: "partner:abc123,",
+		},
+		{
+			testID:      "too few values",
+			configValue: "partner:abc123",
+		},
+		{
+			testID:      "too many values",
+			configValue: "partner:abc123,100,200",
+		},
+		{
+			testID:      "single package plan",
+			configValue: "partner1:abc123,100",
+			expectedPackagePlans: packages{
+				"partner1": paymentsconfig.PackagePlan{
+					CouponID: "abc123",
+					Price:    100,
+				},
+			},
+		},
+		{
+			testID:      "multiple package plans",
+			configValue: "partner1:abc123,100;partner2:321bca,200",
+			expectedPackagePlans: packages{
+				"partner1": paymentsconfig.PackagePlan{
+					CouponID: "abc123",
+					Price:    100,
+				},
+				"partner2": paymentsconfig.PackagePlan{
+					CouponID: "321bca",
+					Price:    200,
+				},
+			},
+		},
+	}
+
+	for _, c := range cases {
+		c := c
+		t.Run(c.testID, func(t *testing.T) {
+			packagePlans := paymentsconfig.PackagePlans{}
+			err := packagePlans.Set(c.configValue)
+			if c.expectedPackagePlans == nil {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			strParts := strings.Split(packagePlans.String(), ";")
+			sort.Strings(strParts)
+			require.Equal(t, c.configValue, strings.Join(strParts, ";"))
+
+			for k, v := range c.expectedPackagePlans {
+				p, err := packagePlans.Get([]byte(k))
+				require.NoError(t, err)
+				require.Equal(t, v, p)
+			}
+		})
+	}
+}
+
+func TestPackagePlansGet(t *testing.T) {
+	partner := "partnerName1"
+	coupon := "abc123"
+	price := int64(100)
+	configStr := fmt.Sprintf("%s:%s,%d", partner, coupon, price)
+
+	packagePlans := paymentsconfig.PackagePlans{}
+	require.NoError(t, packagePlans.Set(configStr))
+
+	cases := []struct {
+		testID     string
+		userAgent  []byte
+		shouldPass bool
+	}{
+		{
+			testID:     "user agent matches partner",
+			userAgent:  []byte(partner),
+			shouldPass: true,
+		},
+		{
+			testID:     "partner is first entry of user agent",
+			userAgent:  []byte(partner + "/0.1.2"),
+			shouldPass: true,
+		},
+		{
+			testID:     "partner is not first entry of user agent",
+			userAgent:  []byte("app2/1.2.3 " + partner + "/1.2.3"),
+			shouldPass: true,
+		},
+		{
+			testID:     "partner is a prefix of user agent, but not equal",
+			userAgent:  []byte("partnerName12/1.2.3"),
+			shouldPass: false,
+		},
+		{
+			testID:     "partner does not exist in user agent",
+			userAgent:  []byte("partnerName2/1.2.3"),
+			shouldPass: false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.testID, func(t *testing.T) {
+			p, err := packagePlans.Get(c.userAgent)
+			if c.shouldPass {
+				require.NoError(t, err)
+				require.Equal(t, coupon, p.CouponID)
+				require.Equal(t, price, p.Price)
+			} else {
+				require.Error(t, err)
+				require.Empty(t, p)
+			}
+
 		})
 	}
 }

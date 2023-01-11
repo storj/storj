@@ -5,12 +5,14 @@ package paymentsconfig
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/shopspring/decimal"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/useragent"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -33,6 +35,7 @@ type Config struct {
 	NodeAuditBandwidthPrice  int64                      `help:"price node receive for storing TB of audit in cents" default:"1000"`
 	NodeDiskSpacePrice       int64                      `help:"price node receive for storing disk space in cents/TB" default:"150"`
 	UsagePriceOverrides      ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment"`
+	PackagePlans             PackagePlans               `help:"semicolon-separated partner package plans in the format partner:couponID,price. Price is in cents USD."`
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.
@@ -149,4 +152,92 @@ func (p ProjectUsagePriceOverrides) ToModels() (map[string]payments.ProjectUsage
 		models[partner] = model
 	}
 	return models, nil
+}
+
+// PackagePlan is an amount to charge a user one time in exchange for a coupon of greater value.
+// Price is in cents USD.
+type PackagePlan struct {
+	CouponID string
+	Price    int64
+}
+
+// PackagePlans contains one time prices for partners.
+type PackagePlans struct {
+	packages map[string]PackagePlan
+}
+
+// Type returns the type of the pflag.Value.
+func (PackagePlans) Type() string { return "paymentsconfig.PackagePlans" }
+
+// String returns the string representation of the package plans.
+func (p *PackagePlans) String() string {
+	if p == nil {
+		return ""
+	}
+	var s strings.Builder
+	left := len(p.packages)
+	for partner, pkg := range p.packages {
+		s.WriteString(fmt.Sprintf("%s:%s,%d", partner, pkg.CouponID, pkg.Price))
+		left--
+		if left > 0 {
+			s.WriteRune(';')
+		}
+	}
+	return s.String()
+}
+
+// Set sets the list of pricing plans to the parsed string.
+func (p *PackagePlans) Set(s string) error {
+	packages := make(map[string]PackagePlan)
+	for _, packagePlansStr := range strings.Split(s, ";") {
+		if packagePlansStr == "" {
+			continue
+		}
+
+		info := strings.Split(packagePlansStr, ":")
+		if len(info) != 2 {
+			return Error.New("Invalid package plan (expected format partner:couponID,price got %s)", packagePlansStr)
+		}
+
+		partner := strings.TrimSpace(info[0])
+		if len(partner) == 0 {
+			return Error.New("Package plan partner must not be empty")
+		}
+
+		packageStr := info[1]
+		pkg := strings.Split(packageStr, ",")
+		if len(pkg) != 2 || pkg[0] == "" {
+			return Error.New("Invalid package (expected format couponID,price got %s)", packageStr)
+		}
+
+		if _, err := decimal.NewFromString(pkg[1]); err != nil {
+			return Error.New("Invalid price (%s)", err)
+		}
+
+		cents, err := strconv.Atoi(pkg[1])
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		packages[info[0]] = PackagePlan{
+			CouponID: pkg[0],
+			Price:    int64(cents),
+		}
+	}
+	p.packages = packages
+	return nil
+}
+
+// Get a package plan by user agent.
+func (p *PackagePlans) Get(userAgent []byte) (pkg PackagePlan, err error) {
+	entries, err := useragent.ParseEntries(userAgent)
+	if err != nil {
+		return PackagePlan{}, Error.Wrap(err)
+	}
+	for _, entry := range entries {
+		if pkg, ok := p.packages[entry.Product]; ok {
+			return pkg, nil
+		}
+	}
+	return PackagePlan{}, errs.New("no matching partner for (%s)", userAgent)
 }
