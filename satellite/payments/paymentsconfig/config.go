@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -41,8 +42,8 @@ type ProjectUsagePrice struct {
 	Segment   string `help:"price user should pay for segments stored on network per month in dollars/segment" default:"0.0000088" testDefault:"0.0000022"`
 }
 
-// ToModel returns the stripecoinpayments.ProjectUsagePriceModel representation of the project usage price.
-func (p ProjectUsagePrice) ToModel() (model stripecoinpayments.ProjectUsagePriceModel, err error) {
+// ToModel returns the payments.ProjectUsagePriceModel representation of the project usage price.
+func (p ProjectUsagePrice) ToModel() (model payments.ProjectUsagePriceModel, err error) {
 	storageTBMonthDollars, err := decimal.NewFromString(p.StorageTB)
 	if err != nil {
 		return model, Error.Wrap(err)
@@ -57,7 +58,7 @@ func (p ProjectUsagePrice) ToModel() (model stripecoinpayments.ProjectUsagePrice
 	}
 
 	// Shift is to change the precision from TB dollars to MB cents
-	return stripecoinpayments.ProjectUsagePriceModel{
+	return payments.ProjectUsagePriceModel{
 		StorageMBMonthCents: storageTBMonthDollars.Shift(-6).Shift(2),
 		EgressMBCents:       egressTBDollars.Shift(-6).Shift(2),
 		SegmentMonthCents:   segmentMonthDollars.Shift(2),
@@ -132,9 +133,14 @@ func (p *ProjectUsagePriceOverrides) Set(s string) error {
 	return nil
 }
 
+// SetMap sets the internal mapping between partners and project usage prices.
+func (p *ProjectUsagePriceOverrides) SetMap(overrides map[string]ProjectUsagePrice) {
+	p.overrideMap = overrides
+}
+
 // ToModels returns the price overrides represented as a mapping between partners and project usage price models.
-func (p ProjectUsagePriceOverrides) ToModels() (map[string]stripecoinpayments.ProjectUsagePriceModel, error) {
-	models := make(map[string]stripecoinpayments.ProjectUsagePriceModel)
+func (p ProjectUsagePriceOverrides) ToModels() (map[string]payments.ProjectUsagePriceModel, error) {
+	models := make(map[string]payments.ProjectUsagePriceModel)
 	for partner, prices := range p.overrideMap {
 		model, err := prices.ToModel()
 		if err != nil {

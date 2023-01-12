@@ -11,12 +11,12 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 func TestProjectUsagePriceOverrides(t *testing.T) {
-	type Prices map[string]stripecoinpayments.ProjectUsagePriceModel
+	type Prices map[string]payments.ProjectUsagePriceModel
 
 	cases := []struct {
 		testID        string
@@ -41,7 +41,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			configValue: "partner:1,2,3",
 			expectedModel: Prices{
 				// Shift is to change the precision from TB dollars to MB cents
-				"partner": stripecoinpayments.ProjectUsagePriceModel{
+				"partner": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
@@ -57,12 +57,12 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			testID:      "multiple price overrides",
 			configValue: "partner1:1,2,3;partner2:4,5,6",
 			expectedModel: Prices{
-				"partner1": stripecoinpayments.ProjectUsagePriceModel{
+				"partner1": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
 				},
-				"partner2": stripecoinpayments.ProjectUsagePriceModel{
+				"partner2": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(4).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(5).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(6).Shift(2),

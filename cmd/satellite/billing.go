@@ -71,6 +71,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		db.Wallets(),
 		db.Billing(),
 		db.Console().Projects(),
+		db.Console().Users(),
 		db.ProjectAccounting(),
 		prices,
 		priceOverrides,

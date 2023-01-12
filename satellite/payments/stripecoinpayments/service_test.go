@@ -5,6 +5,7 @@ package stripecoinpayments_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -25,7 +26,9 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -273,7 +276,8 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 				Segments: tc.Segments,
 			}
 
-			items := satellite.API.Payments.StripeService.InvoiceItemsFromProjectRecord("project name", record)
+			pricing := satellite.API.Payments.Accounts.GetProjectUsagePriceModel(nil)
+			items := satellite.API.Payments.StripeService.InvoiceItemsFromProjectRecord("project name", record, pricing)
 
 			require.Equal(t, tc.StorageQuantity, *items[0].Quantity)
 			require.Equal(t, expectedStoragePrice, *items[0].UnitAmountDecimal)
@@ -488,4 +492,90 @@ func generateProjectStorage(ctx context.Context, tb testing.TB, db satellite.DB,
 
 	err = db.ProjectAccounting().SaveTallies(ctx, end, tallies)
 	require.NoError(tb, err)
+}
+
+func TestProjectUsagePrice(t *testing.T) {
+	var (
+		defaultPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB: "1",
+			EgressTB:  "2",
+			Segment:   "3",
+		}
+		partnerName  = "partner"
+		partnerPrice = paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "5",
+			Segment:   "6",
+		}
+	)
+	defaultModel, err := defaultPrice.ToModel()
+	require.NoError(t, err)
+	partnerModel, err := partnerPrice.ToModel()
+	require.NoError(t, err)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.UsagePrice = defaultPrice
+				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
+					partnerName: partnerPrice,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		// pick a specific date so that it doesn't fail if it's the last day of the month
+		// keep month + 1 because user needs to be created before calculation
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		sat.API.Payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+
+		for i, tt := range []struct {
+			name          string
+			userAgent     []byte
+			expectedPrice payments.ProjectUsagePriceModel
+		}{
+			{"default pricing", nil, defaultModel},
+			{"default pricing - user agent is not valid partner ID", []byte("invalid/v0.0"), defaultModel},
+			{"partner pricing - user agent is partner ID", []byte(partnerName), partnerModel},
+			{"partner pricing - user agent includes partner ID", []byte("invalid/v0.0 " + partnerName + " invalid/v0.0"), partnerModel},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName:  "Test User",
+					Email:     fmt.Sprintf("user%d@mail.test", i),
+					UserAgent: tt.userAgent,
+				}, 1)
+				require.NoError(t, err)
+
+				project, err := sat.AddProject(ctx, user.ID, "testproject")
+				require.NoError(t, err)
+
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+					pb.PieceAction_GET, memory.TB.Int64(), 0, period)
+				require.NoError(t, err)
+
+				err = sat.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+				require.NoError(t, err)
+
+				err = sat.API.Payments.StripeService.InvoiceApplyProjectRecords(ctx, period)
+				require.NoError(t, err)
+
+				cusID, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+				require.NoError(t, err)
+
+				items := getCustomerInvoiceItems(sat.API.Payments.StripeClient, cusID)
+				require.Len(t, items, 3)
+				storage, _ := tt.expectedPrice.StorageMBMonthCents.Float64()
+				require.Equal(t, storage, items[0].UnitAmountDecimal)
+				egress, _ := tt.expectedPrice.EgressMBCents.Float64()
+				require.Equal(t, egress, items[1].UnitAmountDecimal)
+				segment, _ := tt.expectedPrice.SegmentMonthCents.Float64()
+				require.Equal(t, segment, items[2].UnitAmountDecimal)
+			})
+		}
+	})
 }
