@@ -143,7 +143,7 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 
 	// open metabase
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), satelliteCfg.Metainfo.DatabaseURL,
-		satelliteCfg.Config.Metainfo.Metabase("satellite-core"))
+		satelliteCfg.Config.Metainfo.Metabase("segment-verify"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -190,7 +190,7 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 		return Error.Wrap(err)
 	}
 
-	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, db.Orders(), satelliteCfg.Orders)
+	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, orders.NewNoopDB(), satelliteCfg.Orders)
 	if err != nil {
 		return Error.Wrap(err)
 	}

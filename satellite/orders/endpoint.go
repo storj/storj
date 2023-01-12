@@ -50,6 +50,46 @@ type DB interface {
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
 
+type noopDB struct {
+}
+
+func (noopDB) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	return nil
+}
+
+func (noopDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) error {
+	return nil
+}
+
+func (noopDB) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	return nil
+}
+
+func (noopDB) UpdateBandwidthBatch(ctx context.Context, rollups []BucketBandwidthRollup) error {
+	return nil
+}
+
+func (noopDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+	return nil
+}
+
+func (noopDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Context, storageNodeID storj.NodeID, actionAmounts map[int32]int64, window time.Time) (status pb.SettlementWithWindowResponse_Status, alreadyProcessed bool, err error) {
+	return pb.SettlementWithWindowResponse_ACCEPTED, false, nil
+}
+
+func (noopDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error) {
+	return 0, nil
+}
+
+func (noopDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error) {
+	return 0, nil
+}
+
+// NewNoopDB creates noop orders DB.
+func NewNoopDB() DB {
+	return &noopDB{}
+}
+
 // SerialDeleteOptions are option when deleting from serial tables.
 type SerialDeleteOptions struct {
 	BatchSize int
