@@ -42,7 +42,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -134,8 +133,6 @@ type Server struct {
 
 	stripePublicKey string
 
-	usagePrice paymentsconfig.ProjectUsagePrice
-
 	schema graphql.Schema
 
 	templatesCache *templates
@@ -205,7 +202,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, usagePrice paymentsconfig.ProjectUsagePrice, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -219,7 +216,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:           nodeURL,
-		usagePrice:        usagePrice,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -320,6 +316,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
@@ -452,9 +449,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		FileBrowserFlowDisabled            bool
 		LinksharingURL                     string
 		PathwayOverviewEnabled             bool
-		StorageTBPrice                     string
-		EgressTBPrice                      string
-		SegmentPrice                       string
 		RegistrationRecaptchaEnabled       bool
 		RegistrationRecaptchaSiteKey       string
 		RegistrationHcaptchaEnabled        bool
@@ -499,9 +493,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
 	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
 	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
-	data.StorageTBPrice = server.usagePrice.StorageTB
-	data.EgressTBPrice = server.usagePrice.EgressTB
-	data.SegmentPrice = server.usagePrice.Segment
 	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
 	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
 	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled

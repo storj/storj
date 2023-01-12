@@ -646,7 +646,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			accountFreezeService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
-			config.Payments.UsagePrice,
 			peer.URL(),
 		)
 

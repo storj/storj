@@ -8,6 +8,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
+    ProjectUsagePriceModel,
     TokenDeposit,
     NativePaymentHistoryItem,
     Wallet,
@@ -33,6 +34,10 @@ export class PaymentsMock implements PaymentsApi {
 
     projectsUsageAndCharges(): Promise<ProjectUsageAndCharges[]> {
         return Promise.resolve([]);
+    }
+
+    projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+        return Promise.resolve(new ProjectUsagePriceModel('1', '1', '1'));
     }
 
     addCreditCard(_token: string): Promise<void> {

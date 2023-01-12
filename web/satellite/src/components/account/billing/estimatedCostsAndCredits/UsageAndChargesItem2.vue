@@ -54,11 +54,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { ProjectUsageAndCharges } from '@/types/payments';
+import { ProjectUsageAndCharges, ProjectUsagePriceModel } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { MetaUtils } from '@/utils/meta';
+import { decimalShift } from '@/utils/strings';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -81,9 +81,10 @@ export default class UsageAndChargesItem2 extends Vue {
     private readonly HOURS_IN_MONTH: number = 720;
 
     /**
-     * GB_IN_TB constant shows amount of GBs in one TB.
+     * CENTS_MB_TO_DOLLARS_GB_SHIFT constant represents how many places to the left
+     * a decimal point must be shifted to convert from cents/MB to dollars/GB.
      */
-    private readonly GB_IN_TB = 1000;
+    private readonly CENTS_MB_TO_DOLLARS_GB_SHIFT = -1;
 
     public paymentMethod = 'test';
 
@@ -133,22 +134,29 @@ export default class UsageAndChargesItem2 extends Vue {
     /**
      * Returns storage price per GB.
      */
-    public get storagePrice(): number {
-        return parseInt(MetaUtils.getMetaContent('storage-tb-price')) / this.GB_IN_TB;
+    public get storagePrice(): string {
+        return decimalShift(this.priceModel.storageMBMonthCents, this.CENTS_MB_TO_DOLLARS_GB_SHIFT);
     }
 
     /**
      * Returns egress price per GB.
      */
-    public get egressPrice(): number {
-        return parseInt(MetaUtils.getMetaContent('egress-tb-price')) / this.GB_IN_TB;
+    public get egressPrice(): string {
+        return decimalShift(this.priceModel.egressMBCents, this.CENTS_MB_TO_DOLLARS_GB_SHIFT);
     }
 
     /**
      * Returns segment price.
      */
     public get segmentPrice(): string {
-        return MetaUtils.getMetaContent('segment-price');
+        return decimalShift(this.priceModel.segmentMonthCents, 2);
+    }
+
+    /**
+     * Returns project usage price model from store.
+     */
+    private get priceModel(): ProjectUsagePriceModel {
+        return this.$store.state.paymentsModule.usagePriceModel;
     }
 
     /**
