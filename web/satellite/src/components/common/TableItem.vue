@@ -53,8 +53,8 @@ const props = withDefaults(defineProps<{
     item?: object;
     onClick?: (data?: unknown) => void;
     // event for the first cell of this item.
-    onPrimaryClick?: (data?: unknown) => void;
     hideGuide?: () => void;
+    onPrimaryClick: (data?: unknown) => void;
 }>(), {
     selectDisabled: false,
     selected: false,
@@ -63,7 +63,6 @@ const props = withDefaults(defineProps<{
     tableType: 'none',
     item: () => ({}),
     onClick: () => {},
-    onPrimaryClick: () => {},
     hideGuide: () => {},
 });
 
