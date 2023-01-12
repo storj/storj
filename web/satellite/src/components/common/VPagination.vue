@@ -34,6 +34,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 
 import { OnPageClickCallback, Page } from '@/types/pagination';
+import { useLoading } from '@/composables/useLoading';
 
 import PagesBlock from '@/components/common/PagesBlock.vue';
 
@@ -44,14 +45,16 @@ const MAX_PAGES_PER_BLOCK = 3;
 const MAX_PAGES_OFF_BLOCKS = 6;
 
 const props = withDefaults(defineProps<{
-    onPageClickCallback: OnPageClickCallback;
+    onPageClickCallback?: OnPageClickCallback;
     totalPageCount?: number;
 }>(), {
     totalPageCount: 0,
+    onPageClickCallback: () => () => {},
 });
 
+const { withLoading } = useLoading();
+
 const currentPageNumber = ref<number>(1);
-const isLoading = ref<boolean>(false);
 const pagesArray = ref<Page[]>([]);
 const firstBlockPages = ref<Page[]>([]);
 const middleBlockPages = ref<Page[]>([]);
@@ -169,45 +172,41 @@ function setCurrentPage(pageNumber: number): void {
  * onPageClick fires after concrete page click.
  */
 async function onPageClick(page: number): Promise<void> {
-    if (isLoading.value) {
-        return;
-    }
-
-    isLoading.value = true;
-    await props.onPageClickCallback(page);
-    setCurrentPage(page);
-    reorganizePageBlocks();
-    isLoading.value = false;
+    await withLoading(async () => {
+        await props.onPageClickCallback(page);
+        setCurrentPage(page);
+        reorganizePageBlocks();
+    });
 }
 
 /**
  * nextPage fires after 'next' arrow click.
  */
 async function nextPage(): Promise<void> {
-    if (isLastPage || isLoading.value) {
-        return;
-    }
+    await withLoading(async () => {
+        if (isLastPage) {
+            return;
+        }
 
-    isLoading.value = true;
-    await props.onPageClickCallback(currentPageNumber.value + 1);
-    incrementCurrentPage();
-    reorganizePageBlocks();
-    isLoading.value = false;
+        await props.onPageClickCallback(currentPageNumber.value + 1);
+        incrementCurrentPage();
+        reorganizePageBlocks();
+    });
 }
 
 /**
  * prevPage fires after 'previous' arrow click.
  */
 async function prevPage(): Promise<void> {
-    if (isFirstPage || isLoading.value) {
-        return;
-    }
+    await withLoading(async () => {
+        if (isFirstPage) {
+            return;
+        }
 
-    isLoading.value = true;
-    await props.onPageClickCallback(currentPageNumber.value - 1);
-    decrementCurrentPage();
-    reorganizePageBlocks();
-    isLoading.value = false;
+        await props.onPageClickCallback(currentPageNumber.value - 1);
+        decrementCurrentPage();
+        reorganizePageBlocks();
+    });
 }
 
 /**

@@ -82,13 +82,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
+import { useLoading } from '@/composables/useLoading';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -96,110 +98,93 @@ import ChangePasswordIcon from '@/../static/images/account/profile/changePasswor
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
 
-// @vue/component
-@Component({
-    components: {
-        EditIcon,
-        ChangePasswordIcon,
-        EmailIcon,
-        VButton,
-    },
-})
-export default class SettingsArea extends Vue {
-    public isLoading = false;
+const store = useStore();
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
-    /**
-     * Lifecycle hook after initial render where user info is fetching.
-     */
-    public mounted(): void {
-        this.$store.dispatch(USER_ACTIONS.GET);
-    }
+/**
+ * Returns user info from store.
+ */
+const user = computed((): User => {
+    return store.getters.user;
+});
 
-    /**
-     * Generates user's MFA secret and opens popup.
-     */
-    public async enableMFA(): Promise<void> {
-        if (this.isLoading) return;
+/**
+ * Returns first letter of user name.
+ */
+const avatarLetter = computed((): string => {
+    return store.getters.userName.slice(0, 1).toUpperCase();
+});
 
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
-            this.toggleEnableMFAModal();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
-        }
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Toggles generate new MFA recovery codes popup visibility.
-     */
-    public async generateNewMFARecoveryCodes(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesModal();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
-        }
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Toggles enable MFA modal visibility.
-     */
-    public toggleEnableMFAModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles disable MFA modal visibility.
-     */
-    public toggleDisableMFAModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles MFA recovery codes modal visibility.
-     */
-    public toggleMFACodesModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
-    }
-
-    /**
-     * Opens change password popup.
-     */
-    public toggleChangePasswordModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
-    }
-
-    /**
-     * Opens edit account info modal.
-     */
-    public toggleEditProfileModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN);
-    }
-
-    /**
-     * Returns user info from store.
-     */
-    public get user(): User {
-        return this.$store.getters.user;
-    }
-
-    /**
-     * Returns first letter of user name.
-     */
-    public get avatarLetter(): string {
-        return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
+/**
+ * Toggles enable MFA modal visibility.
+ */
+function toggleEnableMFAModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN);
 }
+
+/**
+ * Toggles disable MFA modal visibility.
+ */
+function toggleDisableMFAModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
+}
+
+/**
+ * Toggles MFA recovery codes modal visibility.
+ */
+function toggleMFACodesModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
+}
+
+/**
+ * Opens change password popup.
+ */
+function toggleChangePasswordModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
+}
+
+/**
+ * Opens edit account info modal.
+ */
+function toggleEditProfileModal(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN);
+}
+
+/**
+ * Generates user's MFA secret and opens popup.
+ */
+async function enableMFA(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            toggleEnableMFAModal();
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        }
+    });
+}
+
+/**
+ * Toggles generate new MFA recovery codes popup visibility.
+ */
+async function generateNewMFARecoveryCodes(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            toggleMFACodesModal();
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        }
+    });
+}
+
+/**
+ * Lifecycle hook after initial render where user info is fetching.
+ */
+onMounted(() => {
+    store.dispatch(USER_ACTIONS.GET);
+});
 </script>
 
 <style scoped lang="scss">

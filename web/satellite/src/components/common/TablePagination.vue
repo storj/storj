@@ -19,8 +19,11 @@
 import { computed, ref } from 'vue';
 
 import { OnPageClickCallback } from '@/types/pagination';
+import { useLoading } from '@/composables/useLoading';
 
 import PaginationRightIcon from '@/../static/images/common/tablePaginationArrowRight.svg';
+
+const { withLoading } = useLoading();
 
 const props = withDefaults(defineProps<{
     totalPageCount?: number;
@@ -35,7 +38,6 @@ const props = withDefaults(defineProps<{
 });
 
 const currentPageNumber = ref<number>(1);
-const isLoading = ref<boolean>(false);
 
 const label = computed((): string => {
     const currentMaxPage = currentPageNumber.value * props.limit > props.totalItemsCount ?
@@ -56,28 +58,28 @@ const isLastPage = computed((): boolean => {
  * nextPage fires after 'next' arrow click.
  */
 async function nextPage(): Promise<void> {
-    if (isLastPage.value || isLoading.value) {
-        return;
-    }
+    await withLoading(async () => {
+        if (isLastPage.value) {
+            return;
+        }
 
-    isLoading.value = true;
-    await props.onPageClickCallback(currentPageNumber.value + 1);
-    incrementCurrentPage();
-    isLoading.value = false;
+        await props.onPageClickCallback(currentPageNumber.value + 1);
+        incrementCurrentPage();
+    });
 }
 
 /**
  * prevPage fires after 'previous' arrow click.
  */
 async function prevPage(): Promise<void> {
-    if (isFirstPage.value || isLoading.value) {
-        return;
-    }
+    await withLoading(async () => {
+        if (isFirstPage.value) {
+            return;
+        }
 
-    isLoading.value = true;
-    await props.onPageClickCallback(currentPageNumber.value - 1);
-    decrementCurrentPage();
-    isLoading.value = false;
+        await props.onPageClickCallback(currentPageNumber.value - 1);
+        decrementCurrentPage();
+    });
 }
 
 function incrementCurrentPage(): void {
