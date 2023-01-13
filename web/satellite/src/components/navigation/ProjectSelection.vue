@@ -335,12 +335,12 @@ export default class ProjectSelection extends Vue {
                 display: flex;
                 align-items: center;
                 max-width: calc(100% - 16px);
+                color: var(--c-grey-6);
 
                 &__name {
                     max-width: calc(100% - 24px - 16px);
                     font-size: 14px;
                     line-height: 20px;
-                    color: var(--c-grey-6);
                     margin-left: 24px;
                     white-space: nowrap;
                     overflow: hidden;
@@ -520,7 +520,7 @@ export default class ProjectSelection extends Vue {
                 }
 
                 &__placeholder {
-                    display: none;
+                    display: block;
                     margin: 10px 0 0;
                     font-family: 'font_medium', sans-serif;
                     font-size: 9px;

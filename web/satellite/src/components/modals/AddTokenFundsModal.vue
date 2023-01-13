@@ -140,7 +140,7 @@ export default class AddTokenFundsModal extends Vue {
 
 <style scoped lang="scss">
     .modal {
-        width: 546px;
+        width: 560px;
         padding: 48px 0 0;
         display: flex;
         align-items: center;
@@ -220,7 +220,7 @@ export default class AddTokenFundsModal extends Vue {
             margin: 8px 0 15px;
 
             &__value {
-                font-size: 14px;
+                font-size: 13px;
                 line-height: 20px;
                 color: #000;
                 white-space: nowrap;

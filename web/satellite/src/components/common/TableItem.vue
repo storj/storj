@@ -54,7 +54,7 @@ const props = withDefaults(defineProps<{
     onClick?: (data?: unknown) => void;
     // event for the first cell of this item.
     hideGuide?: () => void;
-    onPrimaryClick: (data?: unknown) => void;
+    onPrimaryClick?: (data?: unknown) => void;
 }>(), {
     selectDisabled: false,
     selected: false,
@@ -64,6 +64,7 @@ const props = withDefaults(defineProps<{
     item: () => ({}),
     onClick: () => {},
     hideGuide: () => {},
+    onPrimaryClick: null,
 });
 
 const emit = defineEmits(['selectChange']);
