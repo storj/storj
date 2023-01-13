@@ -558,8 +558,7 @@ project.
 
 ### TCP Fast Open
 
- * https://review.dev.storj.io/c/storj/common/+/9252 (common/socket: enable tcp_fastopen_connect)
- * https://review.dev.storj.io/c/storj/storj/+/9251 (private/server: support tcp_fastopen)
+ * https://github.com/storj/storj/blob/main/docs/blueprints/tcp-fastopen.md
 
 ### Separated UDP address support
 
