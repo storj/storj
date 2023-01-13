@@ -23,6 +23,7 @@
         <NewBillingAddCouponCodeModal v-if="isNewBillingAddCouponModal" />
         <CreateProjectPassphraseModal v-if="isCreateProjectPassphraseModal" />
         <ManageProjectPassphraseModal v-if="isManageProjectPassphraseModal" />
+        <CreateBucketModal v-if="isCreateBucketModal" />
     </div>
 </template>
 
@@ -31,6 +32,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
+import CreateBucketModal from '@/components/modals/CreateBucketModal.vue';
 import AddPaymentMethodModal from '@/components/modals/AddPaymentMethodModal.vue';
 import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
 import MFARecoveryCodesModal from '@/components/modals/MFARecoveryCodesModal.vue';
@@ -58,6 +60,7 @@ import ManageProjectPassphraseModal from '@/components/modals/manageProjectPassp
         DeleteBucketModal,
         CreateProjectPromptModal,
         CreateProjectModal,
+        CreateBucketModal,
         AddPaymentMethodModal,
         OpenBucketModal,
         MFARecoveryCodesModal,
@@ -215,6 +218,13 @@ export default class AllModals extends Vue {
      */
     public get isManageProjectPassphraseModal(): boolean {
         return this.$store.state.appStateModule.appState.isManageProjectPassphraseModalShown;
+    }
+
+    /**
+     * Indicates if create bucket modal is shown.
+     */
+    public get isCreateBucketModal(): boolean {
+        return this.$store.state.appStateModule.appState.isCreateBucketModalShown;
     }
 }
 </script>

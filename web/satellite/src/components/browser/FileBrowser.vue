@@ -711,6 +711,7 @@ async function goToBuckets(): Promise<void> {
         font-size: 2rem;
         font-weight: 500;
         line-height: 1.2;
+        word-break: break-all;
 
         @media screen and (max-width: 768px) {
             margin-bottom: 0.5rem;

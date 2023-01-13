@@ -5,10 +5,26 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
-                <WhitePlusIcon class="new-bucket-button__icon" />
-                <p class="new-bucket-button__label">New Bucket</p>
-            </div>
+            <template v-if="isNewEncryptionPassphraseFlowEnabled">
+                <VButton
+                    v-if="promptForPassphrase"
+                    label="Set Encryption Passphrase ->"
+                    width="234px"
+                    height="40px"
+                    font-size="14px"
+                    :on-press="onSetClick"
+                />
+                <div v-else class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+                    <WhitePlusIcon class="buckets-view-button__icon" />
+                    <p class="buckets-view-button__label">New Bucket</p>
+                </div>
+            </template>
+            <template v-else>
+                <div class="buckets-view-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                    <WhitePlusIcon class="buckets-view-button__icon" />
+                    <p class="buckets-view-button__label">New Bucket</p>
+                </div>
+            </template>
         </div>
 
         <div class="buckets-view__divider" />
@@ -28,9 +44,11 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 
@@ -40,6 +58,7 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
         WhitePlusIcon,
         BucketsTable,
         EncryptionBanner,
+        VButton,
     },
 })
 export default class BucketsView extends Vue {
@@ -103,6 +122,20 @@ export default class BucketsView extends Vue {
     }
 
     /**
+     * Toggles create project passphrase modal visibility.
+     */
+    public onSetClick(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    }
+
+    /**
+     * Toggles create bucket modal visibility.
+     */
+    public onCreateBucketClick(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+    }
+
+    /**
      * Starts bucket creation flow.
      */
     public onNewBucketButtonClick(): void {
@@ -126,6 +159,20 @@ export default class BucketsView extends Vue {
     }
 
     /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
+
+    /**
+     * Indicates if user should be prompt for passphrase.
+     */
+    public get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
+    }
+
+    /**
      * Returns selected project id from store.
      */
     private get selectedProjectID(): string {
@@ -135,7 +182,7 @@ export default class BucketsView extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .new-bucket-button {
+    .buckets-view-button {
         padding: 0 15px;
         height: 40px;
         display: flex;
@@ -174,6 +221,7 @@ export default class BucketsView extends Vue {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
 
             &__title {
                 font-family: 'font_medium', sans-serif;

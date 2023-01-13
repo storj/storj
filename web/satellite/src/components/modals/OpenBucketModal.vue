@@ -5,18 +5,28 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <Icon />
-                <h1 class="modal__title">Open a Bucket</h1>
-                <p class="modal__info">
-                    To open a bucket and view your files, please enter the encryption passphrase you saved upon creating this bucket.
-                </p>
-                <VInput
-                    class="modal__input"
-                    label="Bucket Name"
-                    :init-value="bucketName"
-                    role-description="bucket"
-                    :disabled="true"
-                />
+                <template v-if="isNewEncryptionPassphraseFlowEnabled">
+                    <OpenBucketIcon />
+                    <h1 class="modal__title">Enter your encryption passphrase</h1>
+                    <p class="modal__info">
+                        To open a bucket and view your encrypted files, <br>please enter your encryption passphrase.
+                    </p>
+                </template>
+                <template v-else>
+                    <Icon />
+                    <h1 class="modal__title">Open a Bucket</h1>
+                    <p class="modal__info">
+                        To open a bucket and view your files, please enter the encryption passphrase you saved upon
+                        creating this bucket.
+                    </p>
+                    <VInput
+                        class="modal__input"
+                        label="Bucket Name"
+                        :init-value="bucketName"
+                        role-description="bucket"
+                        :disabled="true"
+                    />
+                </template>
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
@@ -64,14 +74,16 @@ import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import Icon from '@/../static/images/objects/openBucket.svg';
+import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
 
 // @vue/component
 @Component({
     components: {
         VInput,
         VModal,
-        Icon,
         VButton,
+        Icon,
+        OpenBucketIcon,
     },
 })
 export default class OpenBucketModal extends Vue {

@@ -7,33 +7,39 @@
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
-        <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
-        <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
-            Your
-            <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
-            are stored in
-            <span class="project-dashboard__subtitle__value">{{ limits.segmentCount }} segments</span>
-            around the world
-        </p>
-        <template v-if="!isDataFetching && !limits.objectCount">
-            <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
-                Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
+        <DashboardFunctionalHeader
+            v-if="isNewEncryptionPassphraseFlowEnabled"
+            :loading="isDataFetching || areBucketsFetching"
+        />
+        <template v-else>
+            <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
+            <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
+                Your
+                <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
+                are stored in
+                <span class="project-dashboard__subtitle__value">{{ limits.segmentCount }} segments</span>
+                around the world
             </p>
-        </template>
-        <p class="project-dashboard__limits">
-            <span class="project-dashboard__limits--bold">Storage Limit</span>
-            per month: {{ limits.storageLimit | bytesToBase10String }} |
-            <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
-            per month: {{ limits.bandwidthLimit | bytesToBase10String }}
-        </p>
-        <template v-if="!isDataFetching && !limits.objectCount">
-            <VButton
-                class="project-dashboard__upload-button"
-                label="Upload"
-                width="100px"
-                height="40px"
-                :on-press="onUploadClick"
-            />
+            <template v-if="!isDataFetching && !limits.objectCount">
+                <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
+                    Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
+                </p>
+            </template>
+            <p class="project-dashboard__limits">
+                <span class="project-dashboard__limits--bold">Storage Limit</span>
+                per month: {{ limits.storageLimit | bytesToBase10String }} |
+                <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
+                per month: {{ limits.bandwidthLimit | bytesToBase10String }}
+            </p>
+            <template v-if="!isDataFetching && !limits.objectCount">
+                <VButton
+                    class="project-dashboard__upload-button"
+                    label="Upload"
+                    width="100px"
+                    height="40px"
+                    :on-press="onUploadClick"
+                />
+            </template>
         </template>
         <div class="project-dashboard__stats-header">
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
@@ -195,6 +201,7 @@ import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
 import StorageChart from '@/components/project/newProjectDashboard/StorageChart.vue';
 import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthChart.vue';
+import DashboardFunctionalHeader from '@/components/project/newProjectDashboard/DashboardFunctionalHeader.vue';
 import VButton from '@/components/common/VButton.vue';
 import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
 import VInfo from '@/components/common/VInfo.vue';
@@ -218,6 +225,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         InfoIcon,
         BucketsTable,
         EncryptionBanner,
+        DashboardFunctionalHeader,
     },
 })
 export default class NewProjectDashboard extends Vue {
@@ -354,13 +362,6 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
-     * Opens add payment method modal.
-     */
-    public togglePMModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
@@ -428,6 +429,13 @@ export default class NewProjectDashboard extends Vue {
      */
     public get chartsBeforeDate(): Date {
         return this.$store.state.projectsModule.chartDataBefore;
+    }
+
+    /**
+     * Indicates if new encryption passphrase flow is enabled.
+     */
+    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
+        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**
