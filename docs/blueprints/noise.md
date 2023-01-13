@@ -68,6 +68,10 @@ unclear). This means that our long tail cancelation has to wait for more nodes,
 which makes us more susceptible to slowness. So overall, QUIC has worse long
 tail variability, and is slower at higher percentiles.
 
+It is currently not enabled by default.
+We still intend to use QUIC or UDP more generally, but perhaps we can do
+something else sooner.
+
 ### Do we need the TLS handshake?
 
 QUIC eliminates one handshake by combining the TCP and TLS handshakes, but the
@@ -297,32 +301,23 @@ to be represented efficiently (not base58) as a pb.Node protobuf, and
 human-readable as a NodeURL. There should be a lossless conversion routine that
 converts a pb.Node to a NodeURL and back again.
 
-I'd also suggest that we should rename NodeURL to something else since we're
-abusing URI syntax at best.
+At some future point, I'd also suggest that we should rename NodeURL to
+something else since we're abusing URI syntax at best, but for now let's
+stick with the NodeURL name to reduce churn.
 
-This all implies some cleaned up types. Let's rename everything to be a NodeLoc.
+This all implies some cleaned up types. Here's the new protobuf version of a
+NodeURL:
 
 ```
-message NodeLoc {
+message NodeURL {
   // the node id, not encoded
   bytes id = 1;
 
-  // the TCP address for TCP-based communication with the node. The TCP address
-  // is required. See the note at the bottom of this design doc about IPv6.
+  // the address for communication with the node. This address must support
+  // IPv4 TCP connections (and should support IPv4 UDP connections).
   // Address here implies a host/port pair joined via net.JoinHostPort style
   // logic.
-  string tcp_address = 2;
-
-  // the UDP address for UDP-based communication with the node. this isn't
-  // necessarily the same and we're currently forcing it to be! we could decide
-  // that a missing udp_address either the TCP address should be used or means
-  // UDP is unsupported.
-  // Address here implies a host/port pair joined via net.JoinHostPort style
-  // logic.
-  // Note: this may be worth saving for later entirely. Alternatively, this
-  // could just be a port and we could force the host to be the same as
-  // tcp_address.
-  string udp_address = 3;
+  string address = 2;
 
   // noise settings. If provided, the node may support noise handshakes instead
   // of TLS over TCP or UDP.
@@ -331,8 +326,8 @@ message NodeLoc {
     NOISE_IK_25519_CHACHAPOLY_BLAKE2B = 1;
     NOISE_IK_25519_AESGCM_BLAKE2B = 2;
   }
-  NoiseProtocol noise_proto = 4; // this is explicitly not a set.
-  bytes noise_pk = 5;
+  NoiseProtocol noise_proto = 3; // this is explicitly not a set.
+  bytes noise_pk = 4;
 }
 
 // This type is a note signed by a node that this public key is what they are
@@ -362,26 +357,27 @@ managed those issues with requiring recent versions on all nodes instead. That
 said, it may still make sense to have a list of supported protocols in the
 Node structure.
 
-A `NodeLoc` can be serialized like an old NodeURL as follows:
+A `pb.NodeURL` can be serialized into a string NodeURL as follows:
 
 ```
-base58nodeid@tcp_address?udp=udp_address&noise_proto=1&noise_pk=base58_noise_public_key
+base58nodeid@address?noise_proto=1&noise_pk=base58_noise_public_key
 ```
 
 This should be backwards compatible with existing serialized NodeURLs. We should
 evaluate if this format is parsable by existing NodeURL parsing code (assuming
 it throws away query parameters).
 
-AddressedOrderLimits should return filled in *pb.NodeLoc.
+AddressedOrderLimits should return filled in *pb.NodeURL.
 
 ### Changes to the RPC client code
 
-Dialing to a node should take this new NodeLoc structure, along with whether the request is replay-attack safe.
+Dialing to a node should take this new NodeURL structure, along with whether the
+request is replay-attack safe.
 
 ```
-DialNode(ctx context.Context, node *pb.NodeLoc, replay_safe bool) (Conn, error)
-Validate(node *pb.NodeLoc, attestation *pb.NoiseKeyAttestation) (error)
-ValidateSession(node *pb.NodeLoc, attestation *pb.NoiseSessionAttestation) (error)
+DialNode(ctx context.Context, node *pb.NodeURL, replay_safe bool) (Conn, error)
+Validate(node *pb.NodeURL, attestation *pb.NoiseKeyAttestation) (error)
+ValidateSession(node *pb.NodeURL, attestation *pb.NoiseSessionAttestation) (error)
 ```
 
 (If `replay_safe` is false, Noise_IK should not be used).
@@ -408,20 +404,20 @@ unconfigurable dialer type that dials with common/socket's BackgroundDialer.
 Going forward, you should be able to ask an RPC dialer pool to:
 
 ```
-DialNode(ctx context.Context, node *pb.NodeLoc, replay_safe bool) (Conn, error)
+DialNode(ctx context.Context, node *pb.NodeURL, replay_safe bool) (Conn, error)
 ```
 
 and get back a valid Conn. The logic inside DialNode should:
 
 1) Consider the QUIC rollout state from common/rpc/quic_rollout.go. If QUIC is
    enabled, we should use that. QUIC should be disabled.
-2) If QUIC is disabled, but replay_safe is true and the pb.NodeLoc has Noise
+2) If QUIC is disabled, but replay_safe is true and the pb.NodeURL has Noise
    information, the dial should happen over TCP over Noise.
 3) Otherwise the dial should happen over TCP over TLS
 
 The RPC pool needs to keep track of QUIC, TLS, and Noise connections separately.
 In particular, Noise connections should be identified by the Noise public key
-and Noise protocol from the pb.NodeLoc Noise protocol enum.
+and Noise protocol from the pb.NodeURL Noise protocol enum.
 
 Possibly useful commits:
  * https://review.dev.storj.io/c/storj/common/+/9219
@@ -465,9 +461,15 @@ Possibly useful commits:
 
 On contact checkin, the Satellite should check for Noise information and
 validate a NoiseSessionAttestation. If the NoiseSessionAttestation is valid, the
-Satellite should persist the *pb.NodeLoc information in the nodes table.
+Satellite should persist the *pb.NodeURL information.
 
-The upload and download selection caches should retrieve the *pb.NodeLoc
+Note that a Node may submit a DNS hostname as opposed to a specific IP address.
+Because we don't want uplinks to stress their local DNS resolution, the
+Satellite should perform and cache the DNS resolution of recursive A and AAAA
+lookups for any hostname here. Uplinks should not expect DNS resolution for
+NodeURLs.
+
+The upload and download selection caches should retrieve the *pb.NodeURL
 information and add them to the AddressedOrderLimit structs that are sent to
 Uplinks.
 
@@ -479,7 +481,7 @@ Possibly useful commits:
 
 ### Changes to the Uplink
 
-Uplinks should be extended to use the *pb.NodeLoc from the AddressedOrderLimits
+Uplinks should be extended to use the *pb.NodeURL from the AddressedOrderLimits
 and use the rpc Dialing that uses those.
 
 Our existing piecestore Download protocol sends two separate requests before the
@@ -546,7 +548,7 @@ that I have NIH.
 ### github.com/jtolio/noiseconn
 
 To get my proof of concept working, I wrote a library that is a useful
-net.Conn wrapper that uses Noise. github.com/jtolio/noiseconn has good 
+net.Conn wrapper that uses Noise. github.com/jtolio/noiseconn has good
 performance and has been tested as part of the proof of concept for this
 project.
 
@@ -558,6 +560,18 @@ project.
 
  * https://review.dev.storj.io/c/storj/common/+/9252 (common/socket: enable tcp_fastopen_connect)
  * https://review.dev.storj.io/c/storj/storj/+/9251 (private/server: support tcp_fastopen)
+
+### Separated UDP address support
+
+Cleaning up NodeURL is an opportunity to add more clarity around UDP addressing.
+Here are some thoughts:
+
+* We could have the pb.NodeURL structure maintain a separate UDP address in
+  addition to the TCP address in there, or perhaps just a separate port. There's
+  no strict requirement that a node use the same port for UDP and TCP, though
+  of course that is what we currently require. Changes to pb.NodeURL are the
+  right place to add this support, but it should likely not be part of this
+  blueprint.
 
 ### IPv6 support
 
@@ -576,16 +590,21 @@ Here are some thoughts:
 * For IPv6 support, we could either have the NodeURL list the IPv6 address in
   addition to the IPv4 address, much like the potential additional UDP
   information, or we could require that IPv6 node operators get a DNS entry
-  that has both A and AAAA records.
+  that has both A and AAAA records, and then the Satellite fills in the
+  appropriate address in returned *pb.NodeURLs included in AddressedLimitOrders,
+  based on what the Uplink requested.
 
-## Open issues
+Again, probably not part of this blueprint.
+
+## Open issues for future work
 
  * We need to double check that uploads and downloads are replay attack safe
    and make them so if not. Order serial numbers should protect against this.
  * We should evaluate what other commands are replay attack safe.
    Exists, RestoreTrash, Retain, and DeletePieces do not have serial checking,
    but are only made by Satellites. We may want to ensure these methods are
-   not available over Noise_IK.
+   not available over Noise_IK. DeletePieces is likely the only performance
+   sensitive call here to consider.
  * We should have RPC clients keep a cache of Noise public key attestations.
    We won't have the Satellite public key initially, but perhaps if an RPC
    client has spoken with a Satellite before, the Satellite could have provided
