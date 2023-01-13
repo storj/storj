@@ -26,6 +26,33 @@ func newStatsCollector() *statsCollector {
 	}
 }
 
+func (collector *statsCollector) aggregateStats(bstats map[string]*batchStats) {
+	for rs, batchStats := range bstats {
+		stats, ok := collector.stats[rs]
+		if !ok {
+			collector.stats[rs] = newStats(rs)
+			collector.stats[rs].iterationAggregates = &batchStats.aggregateStats
+		} else {
+			stats.iterationAggregates.objectsLost = append(collector.stats[rs].iterationAggregates.objectsLost, batchStats.objectsLost...)
+			stats.iterationAggregates.objectsChecked += batchStats.objectsChecked
+			stats.iterationAggregates.remoteSegmentsChecked += batchStats.remoteSegmentsChecked
+			stats.iterationAggregates.remoteSegmentsLost += batchStats.remoteSegmentsLost
+			stats.iterationAggregates.remoteSegmentsNeedingRepair += batchStats.newRemoteSegmentsNeedingRepair
+			stats.iterationAggregates.remoteSegmentsFailedToCheck += batchStats.remoteSegmentsFailedToCheck
+			stats.iterationAggregates.newRemoteSegmentsNeedingRepair += batchStats.remoteSegmentsNeedingRepair
+		}
+
+		rsStats := collector.stats[rs]
+		rsStats.segmentHealthyCount.Observe(batchStats.segmentHealthyCount)
+		rsStats.segmentTotalCount.Observe(batchStats.segmentTotalCount)
+		rsStats.segmentAge.Observe(batchStats.segmentAge)
+		rsStats.segmentHealth.Observe(batchStats.segmentHealth)
+		rsStats.injuredSegmentHealth.Observe(batchStats.injuredSegmentHealth)
+		rsStats.segmentTimeUntilIrreparable.Observe(batchStats.segmentTimeUntilIrreparable)
+		rsStats.segmentsBelowMinReq.Inc(batchStats.segmentsBelowMinReq)
+	}
+}
+
 func (collector *statsCollector) getStatsByRS(rs string) *stats {
 	stats, ok := collector.stats[rs]
 	if !ok {
@@ -90,6 +117,19 @@ type aggregateStats struct {
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
+}
+
+// batchStats tallies data over single batch ranged loop run.
+type batchStats struct {
+	aggregateStats
+
+	segmentHealthyCount         int64
+	segmentTotalCount           int64
+	segmentAge                  int64
+	segmentHealth               float64
+	injuredSegmentHealth        float64
+	segmentTimeUntilIrreparable int64
+	segmentsBelowMinReq         int64
 }
 
 // Compare total stats with given data, used for tests.

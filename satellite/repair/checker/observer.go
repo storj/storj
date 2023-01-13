@@ -32,6 +32,7 @@ type RangedLoopObserver struct {
 	logger               *zap.Logger
 	repairQueue          queue.RepairQueue
 	nodestate            *ReliabilityCache
+	statsCollector       *statsCollector
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
@@ -55,6 +56,7 @@ func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, ov
 		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
+		statsCollector:       newStatsCollector(),
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
 
 		counter1: mon.Counter("rl_remote_segments_over_threshold_1"),
@@ -146,25 +148,12 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 		return Error.New("expected partial type %T but got %T", repPartial, partial)
 	}
 
-	repPartial.statsCollector.collectAggregates()
-
 	if err := repPartial.repairQueue.Flush(ctx); err != nil {
 		return Error.Wrap(err)
 	}
 
-	observer.TotalStats.objectsLost = append(observer.TotalStats.objectsLost, repPartial.monStats.objectsLost...)
-	observer.TotalStats.newRemoteSegmentsNeedingRepair += repPartial.monStats.newRemoteSegmentsNeedingRepair
-	observer.TotalStats.remoteSegmentsChecked += repPartial.monStats.remoteSegmentsChecked
-	observer.TotalStats.remoteSegmentsLost += repPartial.monStats.remoteSegmentsLost
-	observer.TotalStats.remoteSegmentsFailedToCheck += repPartial.monStats.remoteSegmentsFailedToCheck
-	observer.TotalStats.remoteSegmentsNeedingRepair += repPartial.monStats.remoteSegmentsNeedingRepair
-	observer.TotalStats.objectsChecked += repPartial.monStats.objectsChecked
-
-	observer.counter1.Inc(repPartial.monStats.remoteSegmentsOverThreshold[0]) //mon:locked
-	observer.counter2.Inc(repPartial.monStats.remoteSegmentsOverThreshold[1]) //mon:locked
-	observer.counter3.Inc(repPartial.monStats.remoteSegmentsOverThreshold[2]) //mon:locked
-	observer.counter4.Inc(repPartial.monStats.remoteSegmentsOverThreshold[3]) //mon:locked
-	observer.counter5.Inc(repPartial.monStats.remoteSegmentsOverThreshold[4]) //mon:locked
+	observer.combineStats(repPartial.monStats)
+	observer.statsCollector.aggregateStats(repPartial.statsCollector)
 
 	return nil
 }
@@ -176,6 +165,8 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	observer.statsCollector.collectAggregates()
 
 	mon.IntVal("remote_files_checked").Observe(observer.TotalStats.objectsChecked)                               //mon:locked
 	mon.IntVal("remote_segments_checked").Observe(observer.TotalStats.remoteSegmentsChecked)                     //mon:locked
@@ -193,14 +184,31 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	return nil
 }
 
+// combineStats combines observer's tally stats with partial's.
+func (observer *RangedLoopObserver) combineStats(stats aggregateStats) {
+	observer.TotalStats.objectsLost = append(observer.TotalStats.objectsLost, stats.objectsLost...)
+	observer.TotalStats.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
+	observer.TotalStats.remoteSegmentsChecked += stats.remoteSegmentsChecked
+	observer.TotalStats.remoteSegmentsLost += stats.remoteSegmentsLost
+	observer.TotalStats.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck
+	observer.TotalStats.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
+	observer.TotalStats.objectsChecked += stats.objectsChecked
+
+	observer.counter1.Inc(stats.remoteSegmentsOverThreshold[0]) //mon:locked
+	observer.counter2.Inc(stats.remoteSegmentsOverThreshold[1]) //mon:locked
+	observer.counter3.Inc(stats.remoteSegmentsOverThreshold[2]) //mon:locked
+	observer.counter4.Inc(stats.remoteSegmentsOverThreshold[3]) //mon:locked
+	observer.counter5.Inc(stats.remoteSegmentsOverThreshold[4]) //mon:locked
+}
+
 // repairPartial implements the ranged loop Partial interface.
 //
 // architecture: Observer
 type repairPartial struct {
 	repairQueue      *queue.InsertBuffer
 	nodestate        *ReliabilityCache
-	statsCollector   *statsCollector
-	monStats         aggregateStats // TODO(cam): once we verify statsCollector reports data correctly, remove this
+	statsCollector   map[string]*batchStats
+	monStats         aggregateStats
 	repairOverrides  RepairOverridesMap
 	nodeFailureRate  float64
 	getNodesEstimate func(ctx context.Context) (int, error)
@@ -214,7 +222,7 @@ func newRangedLoopCheckerPartial(observer *RangedLoopObserver) rangedloop.Partia
 	return &repairPartial{
 		repairQueue:      observer.createInsertBuffer(),
 		nodestate:        observer.nodestate,
-		statsCollector:   newStatsCollector(),
+		statsCollector:   make(map[string]*batchStats),
 		repairOverrides:  observer.repairOverrides,
 		nodeFailureRate:  observer.nodeFailureRate,
 		getNodesEstimate: observer.getNodesEstimate,
@@ -222,9 +230,15 @@ func newRangedLoopCheckerPartial(observer *RangedLoopObserver) rangedloop.Partia
 	}
 }
 
-func (rp *repairPartial) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
+func (rp *repairPartial) getStatsByRS(redundancy storj.RedundancyScheme) *batchStats {
 	rsString := getRSString(rp.loadRedundancy(redundancy))
-	return rp.statsCollector.getStatsByRS(rsString)
+
+	stats, ok := rp.statsCollector[rsString]
+	if !ok {
+		stats = &batchStats{}
+		rp.statsCollector[rsString] = stats
+	}
+	return stats
 }
 
 func (rp *repairPartial) loadRedundancy(redundancy storj.RedundancyScheme) (int, int, int, int) {
@@ -257,16 +271,15 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 		stats := rp.getStatsByRS(segment.Redundancy)
 		if rp.lastStreamID.Compare(segment.StreamID) != 0 {
 			rp.lastStreamID = segment.StreamID
-			stats.iterationAggregates.objectsChecked++
+			stats.objectsChecked++
 			rp.monStats.objectsChecked++
 		}
 
 		rp.monStats.remoteSegmentsChecked++
-		stats.iterationAggregates.remoteSegmentsChecked++
+		stats.remoteSegmentsChecked++
 
 		// ensure we get values, even if only zero values, so that redash can have an alert based on this
 		mon.Counter("checker_segments_below_min_req").Inc(0) //mon:locked
-		stats.segmentsBelowMinReq.Inc(0)
 		pieces := segment.Pieces
 		if len(pieces) == 0 {
 			rp.log.Debug("no pieces on remote segment")
@@ -281,34 +294,34 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 		missingPieces, err := rp.nodestate.MissingPieces(ctx, segment.CreatedAt, segment.Pieces)
 		if err != nil {
 			rp.monStats.remoteSegmentsFailedToCheck++
-			stats.iterationAggregates.remoteSegmentsFailedToCheck++
+			stats.remoteSegmentsFailedToCheck++
 			errors = errs.Combine(errors, Error.New("error getting missing pieces"), err)
 		}
 
 		numHealthy := len(pieces) - len(missingPieces)
 		mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces))) //mon:locked
-		stats.segmentTotalCount.Observe(int64(len(pieces)))
+		stats.segmentTotalCount += int64(len(pieces))
 
 		mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //mon:locked
-		stats.segmentHealthyCount.Observe(int64(numHealthy))
+		stats.segmentHealthyCount += int64(numHealthy)
 
 		segmentAge := time.Since(segment.CreatedAt)
 		mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
-		stats.segmentAge.Observe(int64(segmentAge.Seconds()))
+		stats.segmentAge += int64(segmentAge.Seconds())
 
 		required, repairThreshold, successThreshold, _ := rp.loadRedundancy(segment.Redundancy)
 		segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, rp.nodeFailureRate)
 		mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
-		stats.segmentHealth.Observe(segmentHealth)
+		stats.segmentHealth += segmentHealth
 
 		// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 		// minimum required pieces in redundancy
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 		if numHealthy <= repairThreshold && numHealthy < successThreshold {
 			mon.FloatVal("checker_injured_segment_health").Observe(segmentHealth) //mon:locked
-			stats.injuredSegmentHealth.Observe(segmentHealth)
+			stats.injuredSegmentHealth += segmentHealth
 			rp.monStats.remoteSegmentsNeedingRepair++
-			stats.iterationAggregates.remoteSegmentsNeedingRepair++
+			stats.remoteSegmentsNeedingRepair++
 			err := rp.repairQueue.Insert(ctx, &queue.InjuredSegment{
 				StreamID:      segment.StreamID,
 				Position:      segment.Position,
@@ -318,7 +331,7 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 				// Counters are increased after the queue has determined
 				// that the segment wasn't already queued for repair.
 				rp.monStats.newRemoteSegmentsNeedingRepair++
-				stats.iterationAggregates.newRemoteSegmentsNeedingRepair++
+				stats.newRemoteSegmentsNeedingRepair++
 			})
 			if err != nil {
 				rp.log.Error("error adding injured segment to queue", zap.Error(err))
@@ -331,8 +344,8 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 					rp.monStats.objectsLost = append(rp.monStats.objectsLost, segment.StreamID)
 				}
 
-				if !containsStreamID(stats.iterationAggregates.objectsLost, segment.StreamID) {
-					stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, segment.StreamID)
+				if !containsStreamID(stats.objectsLost, segment.StreamID) {
+					stats.objectsLost = append(stats.objectsLost, segment.StreamID)
 				}
 
 				repairedAt := time.Time{}
@@ -348,13 +361,13 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 				}
 
 				mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
-				stats.segmentTimeUntilIrreparable.Observe(int64(segmentAge.Seconds()))
+				stats.segmentTimeUntilIrreparable += int64(segmentAge.Seconds())
 
 				rp.monStats.remoteSegmentsLost++
-				stats.iterationAggregates.remoteSegmentsLost++
+				stats.remoteSegmentsLost++
 
 				mon.Counter("checker_segments_below_min_req").Inc(1) //mon:locked
-				stats.segmentsBelowMinReq.Inc(1)
+				stats.segmentsBelowMinReq++
 
 				var unhealthyNodes []string
 				for _, p := range missingPieces {
@@ -374,12 +387,12 @@ func (rp *repairPartial) Process(ctx context.Context, segments []segmentloop.Seg
 					}
 				}
 			}
-			if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.iterationAggregates.remoteSegmentsOverThreshold)) {
+			if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(stats.remoteSegmentsOverThreshold)) {
 				// record metrics for segments right above repair threshold
 				// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
-				for i := range stats.iterationAggregates.remoteSegmentsOverThreshold {
+				for i := range stats.remoteSegmentsOverThreshold {
 					if numHealthy == (repairThreshold + i + 1) {
-						stats.iterationAggregates.remoteSegmentsOverThreshold[i]++
+						stats.remoteSegmentsOverThreshold[i]++
 						break
 					}
 				}
