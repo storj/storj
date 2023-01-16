@@ -394,6 +394,9 @@ func TestRepairObserver(t *testing.T) {
 		}
 
 		observer := planet.Satellites[0].Repair.Observer
+		err = observer.Start(ctx, time.Now())
+		require.NoError(t, err)
+
 		p, err := observer.Fork(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, p)

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -32,19 +31,12 @@ type RangedLoopObserver struct {
 	logger               *zap.Logger
 	repairQueue          queue.RepairQueue
 	nodestate            *ReliabilityCache
-	statsCollector       *statsCollector
+	statsCollector       map[string]*batchStats
 	repairOverrides      RepairOverridesMap
 	nodeFailureRate      float64
 	repairQueueBatchSize int
 	startTime            time.Time
 	TotalStats           aggregateStats
-
-	// Remote segments over threshold counters, to avoid panics during parallel Processing.
-	counter1 *monkit.Counter
-	counter2 *monkit.Counter
-	counter3 *monkit.Counter
-	counter4 *monkit.Counter
-	counter5 *monkit.Counter
 }
 
 // NewRangedLoopObserver creates new checker observer instance.
@@ -56,14 +48,7 @@ func NewRangedLoopObserver(logger *zap.Logger, repairQueue queue.RepairQueue, ov
 		nodestate:            NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		repairOverrides:      config.RepairOverrides.GetMap(),
 		nodeFailureRate:      config.NodeFailureRate,
-		statsCollector:       newStatsCollector(),
 		repairQueueBatchSize: config.RepairQueueInsertBatchSize,
-
-		counter1: mon.Counter("rl_remote_segments_over_threshold_1"),
-		counter2: mon.Counter("rl_remote_segments_over_threshold_2"),
-		counter3: mon.Counter("rl_remote_segments_over_threshold_3"),
-		counter4: mon.Counter("rl_remote_segments_over_threshold_4"),
-		counter5: mon.Counter("rl_remote_segments_over_threshold_5"),
 	}
 }
 
@@ -124,14 +109,10 @@ func (observer *RangedLoopObserver) TestingCompareInjuredSegmentIDs(ctx context.
 
 // Start starts parallel segments loop.
 func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Time) error {
-	observer.counter1.Reset() // reset counter values before new ranged loop run
-	observer.counter2.Reset()
-	observer.counter3.Reset()
-	observer.counter4.Reset()
-	observer.counter5.Reset()
-
 	observer.TotalStats = aggregateStats{}
+	observer.statsCollector = make(map[string]*batchStats)
 	observer.startTime = startTime
+
 	return nil
 }
 
@@ -153,7 +134,7 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 	}
 
 	observer.combineStats(repPartial.monStats)
-	observer.statsCollector.aggregateStats(repPartial.statsCollector)
+	observer.aggregateStats(repPartial.statsCollector)
 
 	return nil
 }
@@ -166,7 +147,9 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
-	observer.statsCollector.collectAggregates()
+	statCollector := newStatsCollector()
+	statCollector.aggregateStats(observer.statsCollector)
+	statCollector.collectAggregates()
 
 	mon.IntVal("remote_files_checked").Observe(observer.TotalStats.objectsChecked)                               //mon:locked
 	mon.IntVal("remote_segments_checked").Observe(observer.TotalStats.remoteSegmentsChecked)                     //mon:locked
@@ -175,6 +158,11 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 	mon.IntVal("new_remote_segments_needing_repair").Observe(observer.TotalStats.newRemoteSegmentsNeedingRepair) //mon:locked
 	mon.IntVal("remote_segments_lost").Observe(observer.TotalStats.remoteSegmentsLost)                           //mon:locked
 	mon.IntVal("remote_files_lost").Observe(int64(len(observer.TotalStats.objectsLost)))                         //mon:locked
+	mon.IntVal("remote_segments_over_threshold_1").Observe(observer.TotalStats.remoteSegmentsOverThreshold[0])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_2").Observe(observer.TotalStats.remoteSegmentsOverThreshold[1])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.TotalStats.remoteSegmentsOverThreshold[2])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.TotalStats.remoteSegmentsOverThreshold[3])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.TotalStats.remoteSegmentsOverThreshold[4])   //mon:locked
 	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)                                    //mon:locked
 	allUnhealthy := observer.TotalStats.remoteSegmentsNeedingRepair + observer.TotalStats.remoteSegmentsFailedToCheck
 	allChecked := observer.TotalStats.remoteSegmentsChecked
@@ -193,12 +181,41 @@ func (observer *RangedLoopObserver) combineStats(stats aggregateStats) {
 	observer.TotalStats.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck
 	observer.TotalStats.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
 	observer.TotalStats.objectsChecked += stats.objectsChecked
+	observer.TotalStats.remoteSegmentsOverThreshold[0] += stats.remoteSegmentsOverThreshold[0] //mon:locked
+	observer.TotalStats.remoteSegmentsOverThreshold[1] += stats.remoteSegmentsOverThreshold[1] //mon:locked
+	observer.TotalStats.remoteSegmentsOverThreshold[2] += stats.remoteSegmentsOverThreshold[2] //mon:locked
+	observer.TotalStats.remoteSegmentsOverThreshold[3] += stats.remoteSegmentsOverThreshold[3] //mon:locked
+	observer.TotalStats.remoteSegmentsOverThreshold[4] += stats.remoteSegmentsOverThreshold[4] //mon:locked
+}
 
-	observer.counter1.Inc(stats.remoteSegmentsOverThreshold[0]) //mon:locked
-	observer.counter2.Inc(stats.remoteSegmentsOverThreshold[1]) //mon:locked
-	observer.counter3.Inc(stats.remoteSegmentsOverThreshold[2]) //mon:locked
-	observer.counter4.Inc(stats.remoteSegmentsOverThreshold[3]) //mon:locked
-	observer.counter5.Inc(stats.remoteSegmentsOverThreshold[4]) //mon:locked
+// aggregateStats combines observer's tally stats split by RS with partial's.
+func (observer *RangedLoopObserver) aggregateStats(partialStats map[string]*batchStats) {
+	for rs, batchStats := range partialStats {
+		stats, exists := observer.statsCollector[rs]
+		if exists {
+			stats.objectsLost = append(stats.objectsLost, batchStats.objectsLost...)
+			stats.objectsChecked += batchStats.objectsChecked
+			stats.remoteSegmentsChecked += batchStats.remoteSegmentsChecked
+			stats.remoteSegmentsLost += batchStats.remoteSegmentsLost
+			stats.remoteSegmentsNeedingRepair += batchStats.newRemoteSegmentsNeedingRepair
+			stats.remoteSegmentsFailedToCheck += batchStats.remoteSegmentsFailedToCheck
+			stats.newRemoteSegmentsNeedingRepair += batchStats.remoteSegmentsNeedingRepair
+			stats.segmentHealthyCount += batchStats.segmentHealthyCount
+			stats.segmentTotalCount += batchStats.segmentTotalCount
+			stats.segmentAge += batchStats.segmentAge
+			stats.segmentHealth += batchStats.segmentHealth
+			stats.injuredSegmentHealth += batchStats.injuredSegmentHealth
+			stats.segmentTimeUntilIrreparable += batchStats.segmentTimeUntilIrreparable
+			stats.segmentsBelowMinReq += batchStats.segmentsBelowMinReq
+			stats.remoteSegmentsOverThreshold[0] += batchStats.remoteSegmentsOverThreshold[0]
+			stats.remoteSegmentsOverThreshold[1] += batchStats.remoteSegmentsOverThreshold[1]
+			stats.remoteSegmentsOverThreshold[2] += batchStats.remoteSegmentsOverThreshold[2]
+			stats.remoteSegmentsOverThreshold[3] += batchStats.remoteSegmentsOverThreshold[3]
+			stats.remoteSegmentsOverThreshold[4] += batchStats.remoteSegmentsOverThreshold[4]
+		} else {
+			observer.statsCollector[rs] = batchStats
+		}
+	}
 }
 
 // repairPartial implements the ranged loop Partial interface.

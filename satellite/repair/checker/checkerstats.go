@@ -29,10 +29,7 @@ func newStatsCollector() *statsCollector {
 func (collector *statsCollector) aggregateStats(bstats map[string]*batchStats) {
 	for rs, batchStats := range bstats {
 		stats, ok := collector.stats[rs]
-		if !ok {
-			collector.stats[rs] = newStats(rs)
-			collector.stats[rs].iterationAggregates = &batchStats.aggregateStats
-		} else {
+		if ok {
 			stats.iterationAggregates.objectsLost = append(collector.stats[rs].iterationAggregates.objectsLost, batchStats.objectsLost...)
 			stats.iterationAggregates.objectsChecked += batchStats.objectsChecked
 			stats.iterationAggregates.remoteSegmentsChecked += batchStats.remoteSegmentsChecked
@@ -40,6 +37,14 @@ func (collector *statsCollector) aggregateStats(bstats map[string]*batchStats) {
 			stats.iterationAggregates.remoteSegmentsNeedingRepair += batchStats.newRemoteSegmentsNeedingRepair
 			stats.iterationAggregates.remoteSegmentsFailedToCheck += batchStats.remoteSegmentsFailedToCheck
 			stats.iterationAggregates.newRemoteSegmentsNeedingRepair += batchStats.remoteSegmentsNeedingRepair
+			stats.iterationAggregates.remoteSegmentsOverThreshold[0] += batchStats.remoteSegmentsOverThreshold[0]
+			stats.iterationAggregates.remoteSegmentsOverThreshold[1] += batchStats.remoteSegmentsOverThreshold[1]
+			stats.iterationAggregates.remoteSegmentsOverThreshold[2] += batchStats.remoteSegmentsOverThreshold[2]
+			stats.iterationAggregates.remoteSegmentsOverThreshold[3] += batchStats.remoteSegmentsOverThreshold[3]
+			stats.iterationAggregates.remoteSegmentsOverThreshold[4] += batchStats.remoteSegmentsOverThreshold[4]
+		} else {
+			collector.stats[rs] = newStats(rs)
+			collector.stats[rs].iterationAggregates = &batchStats.aggregateStats
 		}
 
 		rsStats := collector.stats[rs]
