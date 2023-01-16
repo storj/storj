@@ -286,6 +286,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 			err = storageRows.Scan(&day, &amount)
 			if err != nil {
+				storageRows.Close()
 				return err
 			}
 
@@ -312,7 +313,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			})
 		}
 
-		defer func() { storageRows.Close() }()
+		storageRows.Close()
 		err = storageRows.Err()
 		if err != nil {
 			return err
@@ -330,6 +331,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 			err = bandwidthRows.Scan(&day, &settled, &allocated)
 			if err != nil {
+				bandwidthRows.Close()
 				return err
 			}
 
@@ -344,7 +346,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			})
 		}
 
-		defer func() { bandwidthRows.Close() }()
+		bandwidthRows.Close()
 		err = bandwidthRows.Err()
 		if err != nil {
 			return err
