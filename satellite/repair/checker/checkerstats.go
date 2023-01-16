@@ -30,7 +30,7 @@ func (collector *statsCollector) aggregateStats(bstats map[string]*batchStats) {
 	for rs, batchStats := range bstats {
 		stats, ok := collector.stats[rs]
 		if ok {
-			stats.iterationAggregates.objectsLost = append(collector.stats[rs].iterationAggregates.objectsLost, batchStats.objectsLost...)
+			stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, batchStats.objectsLost...)
 			stats.iterationAggregates.objectsChecked += batchStats.objectsChecked
 			stats.iterationAggregates.remoteSegmentsChecked += batchStats.remoteSegmentsChecked
 			stats.iterationAggregates.remoteSegmentsLost += batchStats.remoteSegmentsLost
