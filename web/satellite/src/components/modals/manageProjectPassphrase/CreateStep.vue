@@ -10,7 +10,7 @@
         </p>
         <div class="create-step__buttons">
             <VButton
-                label="Cancel"
+                label="Back"
                 width="100%"
                 height="48px"
                 :is-white="true"
@@ -77,7 +77,6 @@ function onNext(): void {
         align-items: center;
         justify-content: center;
         column-gap: 33px;
-        margin-top: 20px;
         width: 100%;
 
         @media screen and (max-width: 530px) {
