@@ -133,6 +133,7 @@ export default class BillingArea extends Vue {
 
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
 
             this.isDataFetching = false;
         } catch (error) {

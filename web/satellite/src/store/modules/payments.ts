@@ -11,6 +11,7 @@ import {
     PaymentsHistoryItemStatus,
     PaymentsHistoryItemType,
     ProjectUsageAndCharges,
+    ProjectUsagePriceModel,
     NativePaymentHistoryItem,
     Wallet,
 } from '@/types/payments';
@@ -27,6 +28,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_PAYMENTS_HISTORY: 'SET_PAYMENTS_HISTORY',
     SET_NATIVE_PAYMENTS_HISTORY: 'SET_NATIVE_PAYMENTS_HISTORY',
     SET_PROJECT_USAGE_AND_CHARGES: 'SET_PROJECT_USAGE_AND_CHARGES',
+    SET_PROJECT_USAGE_PRICE_MODEL: 'SET_PROJECT_USAGE_PRICE_MODEL',
     SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
@@ -51,6 +53,7 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
+    GET_PROJECT_USAGE_PRICE_MODEL: 'getProjectUsagePriceModel',
     APPLY_COUPON_CODE: 'applyCouponCode',
     GET_COUPON: `getCoupon`,
 };
@@ -66,6 +69,7 @@ const {
     SET_PAYMENTS_HISTORY,
     SET_NATIVE_PAYMENTS_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
+    SET_PROJECT_USAGE_PRICE_MODEL: SET_PROJECT_USAGE_PRICE_MODEL,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
     SET_COUPON,
@@ -87,6 +91,7 @@ const {
     GET_NATIVE_PAYMENTS_HISTORY,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
+    GET_PROJECT_USAGE_PRICE_MODEL: GET_PROJECT_USAGE_PRICE_MODEL,
     APPLY_COUPON_CODE,
     GET_COUPON,
 } = PAYMENTS_ACTIONS;
@@ -100,6 +105,7 @@ export class PaymentsState {
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
+    public usagePriceModel: ProjectUsagePriceModel = new ProjectUsagePriceModel();
     public priceSummary = 0;
     public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
@@ -175,6 +181,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, usageAndCharges: ProjectUsageAndCharges[]): void {
                 state.usageAndCharges = usageAndCharges;
             },
+            [SET_PROJECT_USAGE_PRICE_MODEL](state: PaymentsState, model: ProjectUsagePriceModel): void {
+                state.usagePriceModel = model;
+            },
             [SET_PRICE_SUMMARY](state: PaymentsState, charges: ProjectUsageAndCharges[]): void {
                 if (charges.length === 0) {
                     state.priceSummary = 0;
@@ -209,6 +218,7 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 state.paymentsHistory = [];
                 state.nativePaymentsHistory = [];
                 state.usageAndCharges = [];
+                state.usagePriceModel = new ProjectUsagePriceModel();
                 state.priceSummary = 0;
                 state.priceSummaryForSelectedProject = 0;
                 state.startDate = new Date();
@@ -301,6 +311,10 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
+            },
+            [GET_PROJECT_USAGE_PRICE_MODEL]: async function({ commit }: PaymentsContext): Promise<void> {
+                const model: ProjectUsagePriceModel = await api.projectUsagePriceModel();
+                commit(SET_PROJECT_USAGE_PRICE_MODEL, model);
             },
             [APPLY_COUPON_CODE]: async function({ commit }: PaymentsContext, code: string): Promise<void> {
                 const coupon = await api.applyCouponCode(code);

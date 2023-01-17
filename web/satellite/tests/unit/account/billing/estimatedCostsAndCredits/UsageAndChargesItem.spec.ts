@@ -7,11 +7,10 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import { PaymentsMock } from '../../../mock/api/payments';
 import { ProjectsApiMock } from '../../../mock/api/projects';
 
-import { makePaymentsModule } from '@/store/modules/payments';
+import { makePaymentsModule, PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { MetaUtils } from '@/utils/meta';
 
 import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
@@ -34,8 +33,7 @@ describe('UsageAndChargesItem', (): void => {
     projectsApi.setMockProjects([project]);
     const date = new Date(Date.UTC(1970, 1, 1));
     const projectCharge = new ProjectUsageAndCharges(date, date, 100, 100, 100, 'id', 100, 100, 100);
-
-    MetaUtils.getMetaContent = jest.fn().mockReturnValue('1');
+    store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
 
     it('renders correctly', (): void => {
         const wrapper = shallowMount(UsageAndChargesItem, {

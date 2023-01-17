@@ -26,6 +26,11 @@ export interface PaymentsApi {
     projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
 
     /**
+     * projectUsagePriceModel returns the project usage price model for the user.
+     */
+     projectUsagePriceModel(): Promise<ProjectUsagePriceModel>;
+
+    /**
      * Add credit card
      * @param token - stripe token used to add a credit card as a payment method
      * @throws Error
@@ -408,4 +413,15 @@ export class TokenAmount {
     public get value(): number {
         return Number.parseFloat(this._value);
     }
+}
+
+/**
+ * ProjectUsagePriceModel represents price model for project usage.
+ */
+export class ProjectUsagePriceModel {
+    public constructor(
+        public readonly storageMBMonthCents: string = '',
+        public readonly egressMBCents: string = '',
+        public readonly segmentMonthCents: string = '',
+    ) { }
 }

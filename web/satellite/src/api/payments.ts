@@ -10,6 +10,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
+    ProjectUsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
@@ -95,6 +96,25 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return [];
+    }
+
+    /**
+     * projectUsagePriceModel returns usage and how much money current user will be charged for each project which he owns.
+     */
+    public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+        const path = `${this.ROOT_PATH}/pricing`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('cannot get project usage price model');
+        }
+
+        const model = await response.json();
+        if (model) {
+            return new ProjectUsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+        }
+
+        return new ProjectUsagePriceModel();
     }
 
     /**

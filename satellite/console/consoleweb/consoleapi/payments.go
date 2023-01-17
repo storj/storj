@@ -432,6 +432,30 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetProjectUsagePriceModel returns the project usage price model for the user.
+func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	pricing, err := p.service.Payments().GetProjectUsagePriceModel(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(p.log, w, status, err)

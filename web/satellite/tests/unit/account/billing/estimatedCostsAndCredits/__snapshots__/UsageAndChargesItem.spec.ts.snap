@@ -26,9 +26,9 @@ exports[`UsageAndChargesItem toggling dropdown works correctly 1`] = `
     <div class="usage-charges-item-container__detailed-info-container__info-header"><span class="resource-header">RESOURCE</span> <span class="period-header">PERIOD</span> <span class="usage-header">USAGE</span> <span class="cost-header">COST</span></div>
     <div class="usage-charges-item-container__detailed-info-container__content-area">
       <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-        <p>Storage ($0.001 per Gigabyte-Month)</p>
-        <p>Egress ($0.001 per GB)</p>
-        <p>Segments ($1 per Segment-Month)</p>
+        <p>Storage ($10 per Gigabyte-Month)</p>
+        <p>Egress ($10 per GB)</p>
+        <p>Segments ($0.01 per Segment-Month)</p>
       </div>
       <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
         <p>Feb 1 - Feb 1</p>
