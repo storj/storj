@@ -61,11 +61,12 @@ type Service struct {
 	billingDB billing.TransactionsDB
 
 	projectsDB   console.Projects
+	usersDB      console.Users
 	usageDB      accounting.ProjectAccounting
 	stripeClient StripeClient
 
-	usagePrices         ProjectUsagePriceModel
-	usagePriceOverrides map[string]ProjectUsagePriceModel
+	usagePrices         payments.ProjectUsagePriceModel
+	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
@@ -79,21 +80,15 @@ type Service struct {
 	nowFn             func() time.Time
 }
 
-// ProjectUsagePriceModel represents price model for project usage.
-type ProjectUsagePriceModel struct {
-	StorageMBMonthCents decimal.Decimal
-	EgressMBCents       decimal.Decimal
-	SegmentMonthCents   decimal.Decimal
-}
-
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, usagePrices ProjectUsagePriceModel, usagePriceOverrides map[string]ProjectUsagePriceModel, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, bonusRate int64) (*Service, error) {
 	return &Service{
 		log:                    log,
 		db:                     db,
 		walletsDB:              walletsDB,
 		billingDB:              billingDB,
 		projectsDB:             projectsDB,
+		usersDB:                usersDB,
 		usageDB:                usageDB,
 		stripeClient:           stripeClient,
 		usagePrices:            usagePrices,
@@ -463,7 +458,14 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 			return 0, errs.Wrap(err)
 		}
 
-		if skipped, err := service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {
+		owner, err := service.usersDB.Get(ctx, proj.OwnerID)
+		if err != nil {
+			service.log.Error("Owner does not exist for project.", zap.Stringer("Owner ID", proj.OwnerID), zap.Stringer("Project ID", record.ProjectID))
+			return 0, errs.Wrap(err)
+		}
+
+		pricing := service.Accounts().GetProjectUsagePriceModel(owner.UserAgent)
+		if skipped, err := service.createInvoiceItems(ctx, cusID, proj.Name, record, pricing); err != nil {
 			return 0, errs.Wrap(err)
 		} else if skipped {
 			skipCount++
@@ -474,7 +476,7 @@ func (service *Service) applyProjectRecords(ctx context.Context, records []Proje
 }
 
 // createInvoiceItems creates invoice line items for stripe customer.
-func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord) (skipped bool, err error) {
+func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName string, record ProjectRecord, priceModel payments.ProjectUsagePriceModel) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err = service.db.ProjectRecords().Consume(ctx, record.ID); err != nil {
@@ -485,7 +487,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return true, nil
 	}
 
-	items := service.InvoiceItemsFromProjectRecord(projName, record)
+	items := service.InvoiceItemsFromProjectRecord(projName, record, priceModel)
 	for _, item := range items {
 		item.Currency = stripe.String(string(stripe.CurrencyUSD))
 		item.Customer = stripe.String(cusID)
@@ -501,25 +503,25 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 }
 
 // InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
-func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
+func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord, priceModel payments.ProjectUsagePriceModel) (result []*stripe.InvoiceItemParams) {
 	projectItem := &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Storage (MB-Month)", projName))
 	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
-	storagePrice, _ := service.usagePrices.StorageMBMonthCents.Float64()
+	storagePrice, _ := priceModel.StorageMBMonthCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 	result = append(result, projectItem)
 
 	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
 	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
-	egressPrice, _ := service.usagePrices.EgressMBCents.Float64()
+	egressPrice, _ := priceModel.EgressMBCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 	result = append(result, projectItem)
 
 	projectItem = &stripe.InvoiceItemParams{}
 	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Fee (Segment-Month)", projName))
 	projectItem.Quantity = stripe.Int64(segmentMonthDecimal(record.Segments).IntPart())
-	segmentPrice, _ := service.usagePrices.SegmentMonthCents.Float64()
+	segmentPrice, _ := priceModel.SegmentMonthCents.Float64()
 	projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
 	result = append(result, projectItem)
 	service.log.Info("invoice items", zap.Any("result", result))
@@ -772,11 +774,11 @@ func (price projectUsagePrice) TotalInt64() int64 {
 }
 
 // calculateProjectUsagePrice calculate project usage price.
-func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64) projectUsagePrice {
+func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64, pricing payments.ProjectUsagePriceModel) projectUsagePrice {
 	return projectUsagePrice{
-		Storage:  service.usagePrices.StorageMBMonthCents.Mul(storageMBMonthDecimal(storage)).Round(0),
-		Egress:   service.usagePrices.EgressMBCents.Mul(egressMBDecimal(egress)).Round(0),
-		Segments: service.usagePrices.SegmentMonthCents.Mul(segmentMonthDecimal(segments)).Round(0),
+		Storage:  pricing.StorageMBMonthCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:   pricing.EgressMBCents.Mul(egressMBDecimal(egress)).Round(0),
+		Segments: pricing.SegmentMonthCents.Mul(segmentMonthDecimal(segments)).Round(0),
 	}
 }
 

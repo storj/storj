@@ -10,6 +10,7 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
 )
@@ -119,13 +120,19 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 		return nil, Error.Wrap(err)
 	}
 
+	user, err := accounts.service.usersDB.Get(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	for _, project := range projects {
 		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, since, before)
 		if err != nil {
 			return charges, Error.Wrap(err)
 		}
 
-		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount)
+		pricing := accounts.GetProjectUsagePriceModel(user.UserAgent)
+		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, pricing)
 
 		charges = append(charges, payments.ProjectCharge{
 			ProjectUsage: *usage,
@@ -138,6 +145,25 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	return charges, nil
+}
+
+// GetProjectUsagePriceModel returns the project usage price model for a user agent.
+// If the user agent is malformed or does not contain a valid partner ID, the default
+// price model is returned.
+func (accounts *accounts) GetProjectUsagePriceModel(userAgent []byte) payments.ProjectUsagePriceModel {
+	if userAgent == nil {
+		return accounts.service.usagePrices
+	}
+	entries, err := useragent.ParseEntries(userAgent)
+	if err != nil {
+		return accounts.service.usagePrices
+	}
+	for _, entry := range entries {
+		if override, ok := accounts.service.usagePriceOverrides[entry.Product]; ok {
+			return override
+		}
+	}
+	return accounts.service.usagePrices
 }
 
 // CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
