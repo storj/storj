@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 )
@@ -179,4 +181,54 @@ func outcomeString(outcome audit.Outcome) string {
 		return "TIMED_OUT"
 	}
 	return fmt.Sprintf("(unexpected outcome code %d)", outcome)
+}
+
+// SegmentCSVSource reads from a CSV file that has segment_id,position as the first two columns
+// (such as, for example, the segments-retry.csv and segments-not-found.csv output files).
+type SegmentCSVSource struct {
+	csvFile   io.ReadCloser
+	csvReader *csv.Reader
+}
+
+// OpenSegmentCSVFile opens a CSV file for reading. The CSV file should have segment_id,position
+// as the first two columns.
+func OpenSegmentCSVFile(path string) (_ *SegmentCSVSource, err error) {
+	csvFile, err := os.Open(path)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	csvReader := csv.NewReader(csvFile)
+	return &SegmentCSVSource{
+		csvFile:   csvFile,
+		csvReader: csvReader,
+	}, nil
+}
+
+// Close closes a SegmentCSVSource.
+func (s *SegmentCSVSource) Close() error {
+	return s.csvFile.Close()
+}
+
+// Next returns the next segment from the CSV file. If there are no more, it
+// returns (nil, io.EOF).
+func (s *SegmentCSVSource) Next() (*Segment, error) {
+	entry, err := s.csvReader.Read()
+	if err != nil {
+		return nil, err
+	}
+	segmentUUID, err := uuid.FromString(entry[0])
+	if err != nil {
+		return nil, Error.New("segment-id encoding: %w", err)
+	}
+	positionEncoded, err := strconv.ParseUint(entry[1], 10, 64)
+	if err != nil {
+		return nil, Error.New("position encoding: %w", err)
+	}
+	return &Segment{
+		VerifySegment: metabase.VerifySegment{
+			StreamID: segmentUUID,
+			Position: metabase.SegmentPositionFromEncoded(positionEncoded),
+		},
+	}, nil
 }

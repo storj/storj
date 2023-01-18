@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -434,6 +436,35 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 
 		cursorBucket = listStreamIDsResult.LastBucket
 		// TODO remove processed project_ids and bucket_names?
+	}
+}
+
+// ProcessSegmentsFromCSV processes all segments from the specified CSV source, in
+// batches of config.BatchSize.
+func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSource *SegmentCSVSource) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segments := make([]*Segment, 0, service.config.BatchSize)
+	exhausted := false
+	for {
+		segments = segments[:0]
+		for n := 0; n < service.config.BatchSize; n++ {
+			seg, err := segmentSource.Next()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					exhausted = true
+					break
+				}
+				return Error.New("could not read csv: %w", err)
+			}
+			segments = append(segments, seg)
+		}
+		if err := service.ProcessSegments(ctx, segments); err != nil {
+			return Error.Wrap(err)
+		}
+		if exhausted {
+			return nil
+		}
 	}
 }
 

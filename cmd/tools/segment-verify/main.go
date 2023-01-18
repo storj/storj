@@ -60,6 +60,12 @@ var (
 		RunE:  verifySegments,
 	}
 
+	readCSVCmd = &cobra.Command{
+		Use:   "read-csv",
+		Short: "runs the command on segments from an input CSV file",
+		RunE:  verifySegments,
+	}
+
 	summarizeCmd = &cobra.Command{
 		Use:   "summarize-log",
 		Short: "summarizes verification log",
@@ -76,6 +82,7 @@ var (
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
 	bucketsCfg   BucketConfig
+	readCSVCfg   ReadCSVConfig
 	nodeCheckCfg NodeCheckConfig
 
 	confDir     string
@@ -94,6 +101,7 @@ func init() {
 	rootCmd.AddCommand(nodeCheckCmd)
 	runCmd.AddCommand(rangeCmd)
 	runCmd.AddCommand(bucketsCmd)
+	runCmd.AddCommand(readCSVCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
@@ -101,6 +109,8 @@ func init() {
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &bucketsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(readCSVCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(readCSVCmd, &readCSVCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	process.Bind(nodeCheckCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeCheckCmd, &nodeCheckCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -121,6 +131,14 @@ type BucketConfig struct {
 	Verify  VerifierConfig
 
 	BucketsCSV string `help:"csv file of project_id,bucket_name of buckets to verify" default:""`
+}
+
+// ReadCSVConfig defines configuration for verifying existence of specific segments.
+type ReadCSVConfig struct {
+	Service ServiceConfig
+	Verify  VerifierConfig
+
+	InputFile string `help:"csv file of segment_id,position for segments to verify"`
 }
 
 func verifySegments(cmd *cobra.Command, args []string) error {
@@ -203,11 +221,13 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 	}
 	verifier.reportPiece = service.problemPieces.Write
 	defer func() { err = errs.Combine(err, service.Close()) }()
-	if cmd.Name() == "range" {
+	switch cmd.Name() {
+	case "range":
 		return verifySegmentsRange(ctx, service, rangeCfg)
-	}
-	if cmd.Name() == "buckets" {
+	case "buckets":
 		return verifySegmentsBuckets(ctx, service, bucketsCfg)
+	case "read-csv":
+		return verifySegmentsCSV(ctx, service, readCSVCfg)
 	}
 	return errors.New("unknown commnand: " + cmd.Name())
 }
@@ -245,6 +265,19 @@ func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg Buck
 		return Error.Wrap(err)
 	}
 	return service.ProcessBuckets(ctx, bucketList.Buckets)
+}
+
+func verifySegmentsCSV(ctx context.Context, service *Service, readCSVCfg ReadCSVConfig) (err error) {
+	if readCSVCfg.InputFile == "" {
+		return Error.New("input CSV file not provided")
+	}
+
+	segmentSource, err := OpenSegmentCSVFile(readCSVCfg.InputFile)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, segmentSource.Close()) }()
+	return service.ProcessSegmentsFromCSV(ctx, segmentSource)
 }
 
 func main() {
