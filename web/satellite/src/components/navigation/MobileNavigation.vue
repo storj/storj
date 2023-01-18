@@ -561,14 +561,14 @@ export default class MobileNavigation extends Vue {
             height: 4rem;
 
             &__logo {
-                width: 187px;
-                max-width: 187px;
-                height: 32px;
-                max-height: 32px;
+                width: 211px;
+                max-width: 211px;
+                height: 37px;
+                max-height: 37px;
 
                 svg {
-                    width: 187px;
-                    height: 32px;
+                    width: 211px;
+                    height: 37px;
                 }
             }
         }

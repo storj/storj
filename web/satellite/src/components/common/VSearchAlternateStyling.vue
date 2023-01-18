@@ -63,6 +63,10 @@ async function processSearchQuery(): Promise<void> {
         background-repeat: no-repeat;
         background-size: 22px 22px;
         background-position: top 16px left 16px;
+
+        @media screen and (max-width: 1150px) {
+            width: 100%;
+        }
     }
 
     ::placeholder {
