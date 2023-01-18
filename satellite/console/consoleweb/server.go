@@ -97,7 +97,7 @@ type Config struct {
 	OptionalSignupSuccessURL           string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                        string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled         bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
-	NewEncryptionPassphraseFlowEnabled bool               `help:"indicates if new encryption passphrase flow is enabled" default:"false"`
+	NewEncryptionPassphraseFlowEnabled bool               `help:"indicates if new encryption passphrase flow is enabled" default:"true"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
