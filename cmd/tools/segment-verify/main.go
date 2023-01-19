@@ -213,23 +213,45 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 		return Error.Wrap(err)
 	}
 
+	var (
+		verifyConfig  VerifierConfig
+		serviceConfig ServiceConfig
+		commandFunc   func(ctx context.Context, service *Service) error
+	)
+	switch cmd.Name() {
+	case "range":
+		verifyConfig = rangeCfg.Verify
+		serviceConfig = rangeCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsRange(ctx, service, rangeCfg)
+		}
+	case "buckets":
+		verifyConfig = bucketsCfg.Verify
+		serviceConfig = bucketsCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsBuckets(ctx, service, bucketsCfg)
+		}
+	case "read-csv":
+		verifyConfig = readCSVCfg.Verify
+		serviceConfig = readCSVCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsCSV(ctx, service, readCSVCfg)
+		}
+	default:
+		return errors.New("unknown command: " + cmd.Name())
+	}
+
 	// setup verifier
-	verifier := NewVerifier(log.Named("verifier"), dialer, ordersService, rangeCfg.Verify)
-	service, err := NewService(log.Named("service"), metabaseDB, verifier, overlay, rangeCfg.Service)
+	verifier := NewVerifier(log.Named("verifier"), dialer, ordersService, verifyConfig)
+	service, err := NewService(log.Named("service"), metabaseDB, verifier, overlay, serviceConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	verifier.reportPiece = service.problemPieces.Write
 	defer func() { err = errs.Combine(err, service.Close()) }()
-	switch cmd.Name() {
-	case "range":
-		return verifySegmentsRange(ctx, service, rangeCfg)
-	case "buckets":
-		return verifySegmentsBuckets(ctx, service, bucketsCfg)
-	case "read-csv":
-		return verifySegmentsCSV(ctx, service, readCSVCfg)
-	}
-	return errors.New("unknown commnand: " + cmd.Name())
+
+	log.Debug("starting", zap.Any("config", service.config), zap.String("command", cmd.Name()))
+	return commandFunc(ctx, service)
 }
 
 func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeConfig) error {

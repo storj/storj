@@ -212,7 +212,7 @@ func (s *SegmentCSVSource) Close() error {
 
 // Next returns the next segment from the CSV file. If there are no more, it
 // returns (nil, io.EOF).
-func (s *SegmentCSVSource) Next() (*Segment, error) {
+func (s *SegmentCSVSource) Next() (*metabase.GetSegmentByPosition, error) {
 	entry, err := s.csvReader.Read()
 	if err != nil {
 		return nil, err
@@ -225,10 +225,8 @@ func (s *SegmentCSVSource) Next() (*Segment, error) {
 	if err != nil {
 		return nil, Error.New("position encoding: %w", err)
 	}
-	return &Segment{
-		VerifySegment: metabase.VerifySegment{
-			StreamID: segmentUUID,
-			Position: metabase.SegmentPositionFromEncoded(positionEncoded),
-		},
+	return &metabase.GetSegmentByPosition{
+		StreamID: segmentUUID,
+		Position: metabase.SegmentPositionFromEncoded(positionEncoded),
 	}, nil
 }
