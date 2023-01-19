@@ -46,107 +46,102 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VLoader from '@/components/common/VLoader.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VLoader,
-    },
-})
-export default class Coupons extends Vue {
-    public isCouponFetching = true;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
+const notify = useNotify();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches coupon.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
-            this.isCouponFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
-            this.isCouponFetching = false;
-        }
+const isCouponFetching = ref<boolean>(true);
+
+/**
+ * Returns the coupon applied to the user's account.
+ */
+const coupon = computed((): Coupon | null => {
+    return store.state.paymentsModule.coupon;
+});
+
+/**
+ * Returns the expiration date of the coupon.
+ */
+const expiration = computed((): string => {
+    if (!coupon.value) {
+        return '';
     }
 
-    /**
-     * Opens Add Coupon modal.
-     */
-    public toggleCreateModal(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_BILLING_ADD_COUPON_MODAL_SHOWN);
+    if (coupon.value?.expiresAt) {
+        return 'Expires ' + coupon.value?.expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    } else {
+        return 'Unknown expiration';
+    }
+});
+
+/**
+ * Returns the whether the coupon is active or not.
+ */
+const status = computed((): string => {
+    if (!coupon.value) {
+        return '';
     }
 
-    /**
-     * Returns the coupon applied to the user's account.
-     */
-    public get coupon(): Coupon | null {
-        return this.$store.state.paymentsModule.coupon;
+    const today = new Date();
+    if ((coupon.value.duration === 'forever' || coupon.value.duration === 'once') || (coupon.value.expiresAt && today.getTime() < coupon.value.expiresAt.getTime())) {
+        return 'active';
+    } else {
+        return 'inactive';
+    }
+});
+
+/**
+ * Returns the whether the coupon is active or not.
+ */
+const expirationHelper = computed((): string => {
+    if (!coupon.value) {
+        return '';
     }
 
-    /**
-     * Returns the expiration date of the coupon.
-     */
-    public get expiration(): string {
-        if (!this.coupon) {
-            return '';
-        }
-
-        if (this.coupon.expiresAt) {
-            return 'Expires ' + this.coupon.expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-        } else {
-            return 'Unknown expiration';
-        }
+    switch (coupon.value.duration) {
+    case 'once':
+        return 'Expires after first use';
+    case 'forever':
+        return 'No expiration';
+    default:
+        return expiration.value;
     }
+});
 
-    /**
-     * Returns the whether the coupon is active or not.
-     */
-    public get status(): string {
-        if (!this.coupon) {
-            return '';
-        }
-
-        const today = new Date();
-        if ((this.coupon.duration === 'forever' || this.coupon.duration === 'once') || (this.coupon.expiresAt && today.getTime() < this.coupon.expiresAt.getTime())) {
-            return 'active';
-        } else {
-            return 'inactive';
-        }
-    }
-
-    /**
-     * Returns the whether the coupon is active or not.
-     */
-    public get expirationHelper(): string {
-        if (!this.coupon) {
-            return '';
-        }
-
-        switch (this.coupon.duration) {
-        case 'once':
-            return 'Expires after first use';
-        case 'forever':
-            return 'No expiration';
-        default:
-            return this.expiration;
-        }
-    }
-
+/**
+ * Opens Add Coupon modal.
+ */
+function toggleCreateModal(): void {
+    analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_BILLING_ADD_COUPON_MODAL_SHOWN);
 }
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches coupon.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
+    }
+
+    isCouponFetching.value = false;
+});
 </script>
 
 <style scoped lang="scss">
