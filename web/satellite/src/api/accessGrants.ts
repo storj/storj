@@ -30,7 +30,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const query =
             `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
                 project (
-                    id: $projectId,
+                    publicId: $projectId,
                 ) {
                     apiKeys (
                         cursor: {
@@ -82,7 +82,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const query =
             `mutation($projectId: String!, $name: String!) {
                 createAPIKey(
-                    projectID: $projectId,
+                    publicId: $projectId,
                     name: $name
                 ) {
                     key,

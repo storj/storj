@@ -22,7 +22,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
     public async get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage> {
         const query =
             `query($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {
-                project(id: $projectId) {
+                project(publicId: $projectId) {
                     bucketUsages(before: $before, cursor: {
                         limit: $limit, search: $search, page: $page
                     }) {

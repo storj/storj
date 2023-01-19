@@ -1383,6 +1383,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 }
 
 // GetProject is a method for querying project by id.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project", zap.String("projectID", projectID.String()))
@@ -1390,14 +1391,12 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	p, err = s.store.Projects().Get(ctx, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	p = isMember.project
 
 	return
 }
@@ -1681,6 +1680,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 }
 
 // UpdateProject is a method for updating project name and description by id.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1728,7 +1728,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
 		}
 
-		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -1736,7 +1736,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.New("cannot set storage limit below current usage")
 		}
 
-		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -1883,6 +1883,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 // AddProjectMembers adds users by email to given project.
 // Email addresses not belonging to a user are ignored.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "add project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
@@ -1890,7 +1891,8 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -1908,7 +1910,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
-			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, projectID); err != nil {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
 				return err
 			}
 		}
@@ -1924,6 +1926,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 }
 
 // DeleteProjectMembers removes users by email from given project.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
@@ -2007,6 +2010,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 }
 
 // CreateAPIKey creates new api key.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2015,12 +2019,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
 	if err == nil {
 		return nil, nil, ErrValidation.New(apiKeyWithNameExistsErrMsg)
 	}
@@ -2037,7 +2041,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	apikey := APIKeyInfo{
 		Name:      name,
-		ProjectID: projectID,
+		ProjectID: isMember.project.ID,
 		Secret:    secret,
 		UserAgent: user.UserAgent,
 	}

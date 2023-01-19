@@ -6,7 +6,6 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
 )
@@ -31,18 +30,22 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID, _ := p.Args[FieldID].(string)
 
-					id, err := uuid.FromString(inputID)
+					projectID, err := getProjectID(p)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.GetProject(p.Context, id)
+					project, err := service.GetProject(p.Context, projectID)
 					if err != nil {
 						return nil, err
 					}
