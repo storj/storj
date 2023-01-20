@@ -339,7 +339,12 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('Can not get wallet');
+            switch (response.status) {
+            case 404:
+                return new Wallet();
+            default:
+                throw new Error('Can not get wallet');
+            }
         }
 
         const wallet = await response.json();
@@ -347,7 +352,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             return new Wallet(wallet.address, wallet.balance);
         }
 
-        return new Wallet();
+        throw new Error('Can not get wallet');
     }
 
     /**
