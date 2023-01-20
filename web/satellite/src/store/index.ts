@@ -132,7 +132,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        next(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
 
         return;
     }

@@ -32,6 +32,7 @@ import NewBillingAddCouponCodeModal from '@/components/modals/NewBillingAddCoupo
 import CreateProjectPassphraseModal from '@/components/modals/createProjectPassphrase/CreateProjectPassphraseModal.vue';
 import ManageProjectPassphraseModal from '@/components/modals/manageProjectPassphrase/ManageProjectPassphraseModal.vue';
 import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
+import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
 
 // @vue/component
 @Component({
@@ -58,6 +59,7 @@ import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
         NewFolderModal,
         AddCouponCodeModal,
         NewBillingAddCouponCodeModal,
+        PricingPlanModal,
     },
 })
 export default class AllModals extends Vue {

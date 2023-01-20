@@ -46,6 +46,7 @@ type FrontendConfig struct {
 	PasswordMinimumLength           int                   `json:"passwordMinimumLength"`
 	PasswordMaximumLength           int                   `json:"passwordMaximumLength"`
 	ABTestingEnabled                bool                  `json:"abTestingEnabled"`
+	PricingPackagesEnabled          bool                  `json:"pricingPackagesEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

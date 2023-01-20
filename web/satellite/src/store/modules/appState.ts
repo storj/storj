@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { OnboardingOS, PartneredSatellite } from '@/types/common';
+import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/common';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -22,6 +22,7 @@ class ViewsState {
         public setDefaultPaymentMethodID = '',
         public deletePaymentMethodID = '',
         public onbSelectedOs: OnboardingOS | null = null,
+        public selectedPricingPlan: PricingPlanInfo | null = null,
         public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined,
         public activeDropdown = 'none',
         // activeModal could be of VueConstructor type or Object (for composition api components).
@@ -72,6 +73,7 @@ export const appStateModule = {
             state.appState.deletePaymentMethodID = '';
             state.appState.onbSelectedOs = null;
             state.appState.managePassphraseStep = undefined;
+            state.appState.selectedPricingPlan = null;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -111,6 +113,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_ONB_OS](state: State, os: OnboardingOS): void {
             state.appState.onbSelectedOs = os;
+        },
+        [APP_STATE_MUTATIONS.SET_PRICING_PLAN](state: State, plan: PricingPlanInfo): void {
+            state.appState.selectedPricingPlan = plan;
         },
         [APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP](state: State, step: ManageProjectPassphraseStep | undefined): void {
             state.appState.managePassphraseStep = step;

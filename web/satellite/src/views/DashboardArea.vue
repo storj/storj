@@ -683,8 +683,10 @@ onMounted(async () => {
         try {
             await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
-            await analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            await analytics.pageVisit(onboardingPath);
+            await router.push(onboardingPath);
 
             await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         } catch (error) {

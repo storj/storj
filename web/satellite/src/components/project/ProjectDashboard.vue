@@ -51,8 +51,10 @@ export default class ProjectDashboard extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            this.analytics.pageVisit(onboardingPath);
+            await this.$router.push(onboardingPath);
 
             return;
         }

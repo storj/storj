@@ -26,6 +26,7 @@ import BucketsView from '@/components/objects/BucketsView.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import PricingPlanStep from '@/components/onboardingTour/steps/PricingPlanStep.vue';
 import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
@@ -112,6 +113,7 @@ export abstract class RouteConfig {
     public static NewCreateAccessModal = new NavigationLink('new-create-access-modal', 'New Create Access Modal');
 
     // onboarding tour child paths
+    public static PricingPlanStep = new NavigationLink('pricing', 'Pricing Plan');
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static OnbCLIStep = new NavigationLink('cli', 'Onboarding CLI');
     public static AGName = new NavigationLink('ag-name', 'Onboarding AG Name');
@@ -126,6 +128,8 @@ export abstract class RouteConfig {
     public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
 
+    public static FirstOnboardingStep = this.OverviewStep;
+
     // objects child paths.
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
@@ -136,6 +140,10 @@ export abstract class RouteConfig {
 const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
 if (isNewProjectDashboard) {
     RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard;
+}
+
+if (MetaUtils.getMetaContent('pricing-packages-enabled') === 'true') {
+    RouteConfig.FirstOnboardingStep = RouteConfig.PricingPlanStep;
 }
 
 export const notProjectRelatedRoutes = [
@@ -281,6 +289,11 @@ export const router = new Router({
                     name: RouteConfig.OnboardingTour.name,
                     component: OnboardingTourArea,
                     children: [
+                        {
+                            path: RouteConfig.PricingPlanStep.path,
+                            name: RouteConfig.PricingPlanStep.name,
+                            component: PricingPlanStep,
+                        },
                         {
                             path: RouteConfig.OverviewStep.path,
                             name: RouteConfig.OverviewStep.name,

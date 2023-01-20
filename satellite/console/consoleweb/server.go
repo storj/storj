@@ -483,6 +483,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordMinimumLength           int
 		PasswordMaximumLength           int
 		ABTestingEnabled                bool
+		PricingPackagesEnabled          bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -526,6 +527,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
+	data.PricingPackagesEnabled = server.config.PricingPackagesEnabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

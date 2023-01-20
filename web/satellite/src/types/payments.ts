@@ -104,6 +104,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     claimWallet(): Promise<Wallet>;
+
+    /**
+     * Purchases the pricing package associated with the user's partner.
+     *
+     * @param token - the Stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
+    purchasePricingPackage(token: string): Promise<void>;
 }
 
 export class AccountBalance {

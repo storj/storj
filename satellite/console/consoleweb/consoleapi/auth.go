@@ -437,7 +437,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		FullName             string    `json:"fullName"`
 		ShortName            string    `json:"shortName"`
 		Email                string    `json:"email"`
-		UserAgent            []byte    `json:"userAgent"`
+		Partner              string    `json:"partner"`
 		ProjectLimit         int       `json:"projectLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
 		Position             string    `json:"position"`
@@ -460,7 +460,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
-	user.UserAgent = consoleUser.UserAgent
+	if consoleUser.UserAgent != nil {
+		user.Partner = string(consoleUser.UserAgent)
+	}
 	user.ProjectLimit = consoleUser.ProjectLimit
 	user.IsProfessional = consoleUser.IsProfessional
 	user.CompanyName = consoleUser.CompanyName

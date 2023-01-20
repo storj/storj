@@ -219,8 +219,10 @@ export default class NewProjectDashboard extends Vue {
         this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
 
         if (!this.$store.getters.selectedProject.id) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            this.analytics.pageVisit(onboardingPath);
+            await this.$router.push(onboardingPath);
 
             return;
         }
@@ -624,10 +626,6 @@ export default class NewProjectDashboard extends Vue {
     }
 
     .new-project-button {
-
-        svg {
-            margin-right: 9px;
-        }
 
         &:hover svg :deep(path) {
             fill: #fff;
