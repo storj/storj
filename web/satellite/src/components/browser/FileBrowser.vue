@@ -81,6 +81,7 @@
                                     :is-white="true"
                                     font-size="14px"
                                     width="130px"
+                                    :on-press="toggleFolderCreationModal"
                                 />
                             </div>
                             <bucket-settings-nav class="new-folder-button" :bucket-name="bucket" />
