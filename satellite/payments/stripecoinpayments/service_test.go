@@ -579,3 +579,55 @@ func TestProjectUsagePrice(t *testing.T) {
 		}
 	})
 }
+
+func TestPayInvoicesSkipDue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		cus1 := "cus_1"
+		cus2 := "cus_2"
+		amount := int64(100)
+		curr := string(stripe.CurrencyUSD)
+		due := time.Now().Add(14 * 24 * time.Hour).Unix()
+
+		_, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Amount:   &amount,
+			Currency: &curr,
+			Customer: &cus1,
+		})
+		require.NoError(t, err)
+		_, err = satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Amount:   &amount,
+			Currency: &curr,
+			Customer: &cus2,
+		})
+		require.NoError(t, err)
+
+		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Customer: &cus1,
+		})
+		require.NoError(t, err)
+		invWithDue, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Customer: &cus2,
+			DueDate:  &due,
+		})
+		require.NoError(t, err)
+
+		err = satellite.API.Payments.StripeService.PayInvoices(ctx, time.Time{})
+		require.NoError(t, err)
+
+		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		for iter.Next() {
+			i := iter.Invoice()
+			if i.ID == inv.ID {
+				require.Equal(t, stripe.InvoiceStatusPaid, i.Status)
+			}
+			// when due date is set invoice should not be paid
+			if i.ID == invWithDue.ID {
+				require.Equal(t, stripe.InvoiceStatus(""), i.Status)
+			}
+		}
+	})
+}
