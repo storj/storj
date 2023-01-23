@@ -16,6 +16,7 @@
                         Total Estimated Charges
                         <img
                             src="@/../static/images/common/smallGreyWhiteInfo.png"
+                            alt="info icon"
                             @mouseenter="showChargesTooltip = true"
                             @mouseleave="showChargesTooltip = false"
                         >
@@ -83,8 +84,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
@@ -93,6 +94,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -101,97 +103,87 @@ import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstima
 import AvailableBalanceIcon from '@/../static/images/account/billing/availableBalanceIcon.svg';
 import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
-// @vue/component
-@Component({
-    components: {
-        EstimatedChargesIcon,
-        AvailableBalanceIcon,
-        UsageAndChargesItem2,
-        CalendarIcon,
-        VButton,
-    },
-})
-export default class BillingArea extends Vue {
-    public showChargesTooltip = false;
-    public isDataFetching = true;
-    public currentDate = '';
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches projects and usage rollup.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
-            this.isDataFetching = false;
-            return;
-        }
+const showChargesTooltip = ref<boolean>(false);
+const isDataFetching = ref<boolean>(true);
+const currentDate = ref<string>('');
 
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+/**
+ * Returns account balance from store.
+ */
+const balance = computed((): AccountBalance => {
+    return store.state.paymentsModule.balance;
+});
 
-            this.isDataFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
-            this.isDataFetching = false;
-        }
+/**
+ * Returns whether the user's STORJ balance is empty.
+ */
+const hasZeroCoins = computed((): boolean => {
+    return balance.value.coins === 0;
+});
 
-        const rawDate = new Date();
-        let currentYear = rawDate.getFullYear();
-        this.currentDate = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
-    }
+/**
+ * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+ */
+const projectUsageAndCharges = computed((): ProjectUsageAndCharges[] => {
+    return store.state.paymentsModule.usageAndCharges;
+});
 
-    /**
-     * Returns account balance from store.
-     */
-    public get balance(): AccountBalance {
-        return this.$store.state.paymentsModule.balance;
-    }
+/**
+ * priceSummary returns price summary of usages for all the projects.
+ */
+const priceSummary = computed((): number => {
+    return store.state.paymentsModule.priceSummary;
+});
 
-    /**
-     * Returns whether the user's STORJ balance is empty.
-     */
-    public get hasZeroCoins(): boolean {
-        return this.balance.coins === 0;
-    }
-
-    /**
-     * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
-     */
-    public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
-        return this.$store.state.paymentsModule.usageAndCharges;
-    }
-
-    /**
-     * priceSummary returns price summary of usages for all the projects.
-     */
-    public get priceSummary(): number {
-        return this.$store.state.paymentsModule.priceSummary;
-    }
-
-    public routeToBillingHistory(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
-    }
-
-    public routeToPaymentMethods(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
-    }
-
-    public balanceClicked(): void {
-        this.$router.push({
-            name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
-            params: { action: this.hasZeroCoins ? 'add tokens' : 'token history' },
-        });
-    }
-
+function routeToBillingHistory(): void {
+    analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
 }
+
+function routeToPaymentMethods(): void {
+    analytics.eventTriggered(AnalyticsEvent.EDIT_PAYMENT_METHOD_CLICKED);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path);
+}
+
+function balanceClicked(): void {
+    router.push({
+        name: RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).name,
+        params: { action: hasZeroCoins.value ? 'add tokens' : 'token history' },
+    });
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches projects and usage rollup.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+        isDataFetching.value = false;
+        return;
+    }
+
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
+    }
+
+    isDataFetching.value = false;
+
+    const rawDate = new Date();
+    let currentYear = rawDate.getFullYear();
+    currentDate.value = `${SHORT_MONTHS_NAMES[rawDate.getMonth()]} ${currentYear}`;
+});
 </script>
 
 <style scoped lang="scss">
