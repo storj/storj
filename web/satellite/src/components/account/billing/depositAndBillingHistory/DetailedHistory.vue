@@ -29,7 +29,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';

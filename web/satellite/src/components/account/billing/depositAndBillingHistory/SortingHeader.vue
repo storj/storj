@@ -21,13 +21,7 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-// @vue/component
-@Component
-export default class SortingHeader extends Vue {}
-</script>
+<script setup lang="ts"></script>
 
 <style scoped lang="scss">
     .sort-header-container {

@@ -6,8 +6,8 @@ import { DirectiveBinding } from 'vue/types/options';
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../../../mock/api/projects';
-import { PaymentsMock } from '../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../../mock/api/projects';
+import { PaymentsMock } from '../../../../mock/api/payments';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
