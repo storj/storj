@@ -24,14 +24,15 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
@@ -39,63 +40,60 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import BackImage from '@/../static/images/account/billing/back.svg';
 
-// @vue/component
-@Component({
-    components: {
-        PaymentsItem,
-        SortingHeader,
-        BackImage,
-        VLoader,
-    },
-})
-export default class DetailedHistory extends Vue {
-    public isDataFetching = true;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches payments history.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
+const nativeRoute = useRoute();
 
-            this.isDataFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENTS_HISTORY);
-        }
-    }
+const isDataFetching = ref<boolean>(true);
 
-    /**
-     * Returns list of history items depending on route name.
-     */
-    public get historyItems(): PaymentsHistoryItem[] {
-        if (this.isBillingHistory) {
-            return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-                return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
-            });
-        }
+const route = reactive(nativeRoute);
 
-        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+/**
+ * Indicates if current route is billing history page.
+ */
+const isBillingHistory = computed((): boolean => {
+    return route.name === RouteConfig.BillingHistory.name;
+});
+
+/**
+ * Returns list of history items depending on route name.
+ */
+const historyItems = computed((): PaymentsHistoryItem[] => {
+    if (isBillingHistory.value) {
+        return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+            return item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge;
         });
     }
 
-    /**
-     * Indicates if current route is billing history page.
-     */
-    public get isBillingHistory(): boolean {
-        return this.$route.name === RouteConfig.BillingHistory.name;
-    }
+    return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+        return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+    });
+});
 
-    /**
-     * Replaces location to root billing route.
-     */
-    public onBackToBillingClick(): void {
-        this.analytics.pageVisit(RouteConfig.Billing.path);
-        this.$router.push(RouteConfig.Billing.path);
-    }
+/**
+ * Replaces location to root billing route.
+ */
+function onBackToBillingClick(): void {
+    analytics.pageVisit(RouteConfig.Billing.path);
+    router.push(RouteConfig.Billing.path);
 }
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches payments history.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+
+        isDataFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENTS_HISTORY);
+    }
+});
 </script>
 
 <style scoped lang="scss">

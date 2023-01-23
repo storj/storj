@@ -11,7 +11,7 @@ import { router } from '@/router';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 
@@ -23,10 +23,10 @@ const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsHttpApi();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const notificationsModule = makeNotificationsModule();
-const itemInvoice = new PaymentsHistoryItem('testId', 'Invoice', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Invoice);
-const itemCharge = new PaymentsHistoryItem('testId1', 'Charge', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Charge);
-const itemTransaction = new PaymentsHistoryItem('testId2', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
-const itemTransaction1 = new PaymentsHistoryItem('testId3', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
+const itemInvoice = new PaymentsHistoryItem('testId', 'Invoice', 500, 500, PaymentsHistoryItemStatus.Paid, 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Invoice);
+const itemCharge = new PaymentsHistoryItem('testId1', 'Charge', 500, 500, PaymentsHistoryItemStatus.Paid, 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Charge);
+const itemTransaction = new PaymentsHistoryItem('testId2', 'Transaction', 500, 500, PaymentsHistoryItemStatus.Paid, 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
+const itemTransaction1 = new PaymentsHistoryItem('testId3', 'Transaction', 500, 500, PaymentsHistoryItemStatus.Paid, 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
 const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', false);
 
 localVue.use(Vuex);

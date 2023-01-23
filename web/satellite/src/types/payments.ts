@@ -149,7 +149,7 @@ export class PaymentsHistoryItem {
         public readonly description: string = '',
         public readonly amount: number = 0,
         public readonly received: number = 0,
-        public readonly status: string = '',
+        public readonly status: PaymentsHistoryItemStatus = PaymentsHistoryItemStatus.Pending,
         public readonly link: string = '',
         public readonly start: Date = new Date(),
         public readonly end: Date = new Date(),

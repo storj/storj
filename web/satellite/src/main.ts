@@ -87,6 +87,13 @@ Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
     return `${Size.toBase10String(amountInBytes)}`;
 });
 
+/**
+ * Adds leading zero to number if it is less than 10.
+ */
+Vue.filter('leadingZero', (value: number): string => {
+    return value <= 9 ? `0${value}` : `${value}`;
+});
+
 new Vue({
     router,
     store,

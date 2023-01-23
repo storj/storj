@@ -4,7 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
+import { PaymentsMock } from '../../../../mock/api/payments';
 
 import { appStateModule } from '@/store/modules/appState';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
