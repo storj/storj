@@ -754,8 +754,8 @@ func TestAuth_Register_NameSpecialChars(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		inputName := "The website has been changed to https://evil.com/login.html - Enter Login Details,"
-		filteredName := "The website has been changed to https---evil-com-login-html - Enter Login Details,"
+		inputName := "The website has been changed to https://evil.com/login.html<> - Enter Login ' \" Details,"
+		filteredName := "The website has been changed to https---evil-com-login-html\\u0026lt;\\u0026gt; - Enter Login \\u0026#39; \\u0026#34; Details,"
 		email := "user@mail.test"
 		registerData := struct {
 			FullName  string `json:"fullName"`
