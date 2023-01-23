@@ -296,3 +296,41 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 	}
 	return nil
 }
+
+// MigrateGob migrates gob encoded Group to protobuf encoded Group.
+func (authDB *DB) MigrateGob(ctx context.Context, progress func(userID string)) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = authDB.db.Iterate(ctx, storage.IterateOptions{
+		Recurse: true,
+	}, func(ctx context.Context, it storage.Iterator) error {
+		var item storage.ListItem
+
+		for it.Next(ctx, &item) {
+			if !isGobEncoded(item.Value) {
+				continue
+			}
+			if progress != nil {
+				progress(string(item.Key))
+			}
+
+			var group Group
+			if err := group.Unmarshal(item.Value); err != nil {
+				return ErrDBInternal.New("unmarshal failed key=%q: %w", item.Key, err)
+			}
+
+			newValue, err := group.Marshal()
+			if err != nil {
+				return ErrDBInternal.New("re-marshal failed key=%q: %w", item.Key, err)
+			}
+
+			err = authDB.db.CompareAndSwap(ctx, item.Key, item.Value, newValue)
+			if err != nil {
+				return ErrDBInternal.New("updating %q failed: %w", item.Key, err)
+			}
+		}
+
+		return nil
+	})
+
+	return ErrDBInternal.Wrap(err)
+}

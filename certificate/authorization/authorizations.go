@@ -127,9 +127,13 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+func isGobEncoded(data []byte) bool {
+	return bytes.HasPrefix(data, []byte{0x14, 0xff, 0xb3, 0x2, 0x1, 0x1, 0x5, 0x47, 0x72})
+}
+
 // Unmarshal deserializes a set of authorizations.
 func (group *Group) Unmarshal(data []byte) error {
-	if bytes.HasPrefix(data, []byte{0x14, 0xff, 0xb3, 0x2, 0x1, 0x1, 0x5, 0x47, 0x72}) {
+	if isGobEncoded(data) {
 		decoder := gob.NewDecoder(bytes.NewBuffer(data))
 		if err := decoder.Decode(group); err != nil {
 			return Error.Wrap(err)

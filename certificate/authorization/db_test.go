@@ -20,6 +20,7 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
 	"storj.io/storj/certificate/certificatepb"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/storage"
 )
 
@@ -413,4 +414,40 @@ func newTestAuthDB(t *testing.T, ctx *testcontext.Context) *DB {
 	db, err := OpenDB(ctx, dbURL, false)
 	require.NoError(t, err)
 	return db
+}
+
+func TestMigrateGob_Redis(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	server, err := testredis.Start(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(server.Close)
+
+	db, err := OpenDB(ctx, "redis://"+server.Addr()+"?db=1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(db.Close)
+
+	require.NoError(t, db.db.Put(ctx, storage.Key("gob"), expectedGroupDataGob))
+	require.NoError(t, db.db.Put(ctx, storage.Key("pb"), expectedGroupDataProto))
+
+	count := 0
+	err = db.MigrateGob(ctx, func(userID string) {
+		count++
+		t.Log("migrating", userID)
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+
+	data, err := db.db.Get(ctx, storage.Key("gob"))
+	require.NoError(t, err)
+	require.False(t, isGobEncoded(data))
+	require.Equal(t, expectedGroupDataProto, []byte(data))
+
+	data, err = db.db.Get(ctx, storage.Key("pb"))
+	require.NoError(t, err)
+	require.Equal(t, expectedGroupDataProto, []byte(data))
 }
