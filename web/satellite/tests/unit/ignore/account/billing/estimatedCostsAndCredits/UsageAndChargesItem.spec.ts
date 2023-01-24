@@ -4,8 +4,8 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { PaymentsMock } from '../../../mock/api/payments';
-import { ProjectsApiMock } from '../../../mock/api/projects';
+import { PaymentsMock } from '../../../../mock/api/payments';
+import { ProjectsApiMock } from '../../../../mock/api/projects';
 
 import { makePaymentsModule, PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
