@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -135,7 +136,7 @@ func (db *tempMasterDB) DebugGetDBHandle() tagsql.DB {
 }
 
 // CreateMasterDB creates a new satellite database for testing.
-func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db satellite.DB, err error) {
+func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, applicationName string) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -152,13 +153,13 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 		tempDB.Cleanup = func(d tagsql.DB) error { return nil }
 	}
 
-	return CreateMasterDBOnTopOf(ctx, log, tempDB)
+	return CreateMasterDBOnTopOf(ctx, log, tempDB, applicationName)
 }
 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
-func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-satellitdb-test"})
+func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase, applicationName string) (db satellite.DB, err error) {
+	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{ApplicationName: applicationName})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
@@ -210,7 +211,9 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				t.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)
 			}
 
-			db, err := CreateMasterDB(ctx, zaptest.NewLogger(t), t.Name(), "T", 0, dbInfo.MasterDB)
+			logger := zaptest.NewLogger(t)
+			applicationName := "satellite-satellitedb-test-" + pgutil.CreateRandomTestingSchemaName(6)
+			db, err := CreateMasterDB(ctx, logger, t.Name(), "T", 0, dbInfo.MasterDB, applicationName)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -226,7 +229,28 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				t.Fatal(err)
 			}
 
+			var fullScansBefore []string
+			tempMasterDB, ok := db.(*tempMasterDB)
+			if ok {
+				fullScansBefore, err = fullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			test(ctx, t, db)
+
+			if ok {
+				fullScansAfter, err := fullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				diff := cmp.Diff(fullScansBefore, fullScansAfter)
+				if diff != "" {
+					logger.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
+				}
+			}
 		})
 	}
 }
@@ -244,7 +268,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
 
-			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB)
+			db, err := CreateMasterDB(ctx, zap.NewNop(), b.Name(), "X", 0, dbInfo.MasterDB, "satellite-satellitedb-bench")
 			if err != nil {
 				b.Fatal(err)
 			}
@@ -264,4 +288,47 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 			bench(b, db)
 		})
 	}
+}
+
+func fullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
+	if implementation.String() != "cockroach" {
+		return nil, nil
+	}
+
+	rows, err := db.QueryContext(ctx,
+		"SELECT key FROM crdb_internal.node_statement_statistics WHERE full_scan = TRUE AND application_name = $1 ORDER BY count DESC",
+		applicationName,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	result := map[string]struct{}{}
+	for rows.Next() {
+		var query string
+		err := rows.Scan(&query)
+		if err != nil {
+			return nil, err
+		}
+
+		// find smarter way to ignore known full table scan queries
+		if !strings.Contains(strings.ToUpper(query), "WHERE") {
+			continue
+		}
+
+		result[query] = struct{}{}
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	for query := range result {
+		queries = append(queries, query)
+	}
+
+	return queries, nil
 }

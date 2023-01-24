@@ -139,7 +139,7 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 			tempDB, err := tempdb.OpenUnique(ctx, satelliteDB.MasterDB.URL, schema)
 			require.NoError(t, err)
 
-			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB)
+			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, "migrate-public-ids")
 			require.NoError(t, err)
 			defer ctx.Check(db.Close)
 
