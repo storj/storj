@@ -110,8 +110,7 @@ func createNodes(ctx *testcontext.Context, t *testing.T, db satellite.DB) []stor
 		err := db.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
 			NodeID: id,
 			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   "127.0.0.1:1234",
+				Address: "127.0.0.1:1234",
 			},
 			Version: &pb.NodeVersion{
 				Version: "1.12.1",

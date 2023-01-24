@@ -293,8 +293,7 @@ func (node *SelectedNode) Clone() *SelectedNode {
 	return &SelectedNode{
 		ID: node.ID,
 		Address: &pb.NodeAddress{
-			Transport: node.Address.Transport,
-			Address:   node.Address.Address,
+			Address: node.Address.Address,
 		},
 		LastNet:    node.LastNet,
 		LastIPPort: node.LastIPPort,

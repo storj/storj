@@ -212,8 +212,7 @@ func TestDBDisqualifyNode(t *testing.T) {
 				checkIn := overlay.NodeCheckInInfo{
 					NodeID: testcase.NodeID,
 					Address: &pb.NodeAddress{
-						Transport: 1,
-						Address:   "127.0.0.1:0",
+						Address: "127.0.0.1:0",
 					},
 					IsUp: true,
 					Version: &pb.NodeVersion{
