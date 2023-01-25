@@ -10,7 +10,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.0
 	go.uber.org/zap v1.17.0
-	storj.io/common v0.0.0-20230124141033-6d40840eac7d
+	storj.io/common v0.0.0-20230125172029-ac90a56db6dd
 	storj.io/gateway-mt v1.18.1-0.20211210081136-cada9a567d31
 	storj.io/private v0.0.0-20221108123115-3a27297f0b78
 	storj.io/storj v0.12.1-0.20221125175451-ef4b564b82f7
@@ -228,5 +228,5 @@ require (
 	storj.io/gateway v1.4.1 // indirect
 	storj.io/minio v0.0.0-20211007171754-df6c27823c8a // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
-	storj.io/uplink v1.10.0 // indirect
+	storj.io/uplink v1.10.1-0.20230125195524-beab4fa36cf1 // indirect
 )
