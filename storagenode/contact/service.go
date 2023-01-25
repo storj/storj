@@ -201,7 +201,7 @@ func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.N
 	node := service.Local()
 	_, err = pb.NewDRPCNodeClient(conn).PingMe(ctx, &pb.PingMeRequest{
 		Address:   node.Address,
-		Transport: pb.NodeTransport_QUIC_GRPC,
+		Transport: pb.NodeTransport_QUIC_RPC,
 	})
 	if err != nil {
 		return errPingSatellite.Wrap(err)

@@ -15,12 +15,12 @@
 
         <div class="payment-methods-container__card-container__info-area__info-container">
             <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image" class="payment-methods-container__card-container__info-area__info-container__image">
-            {{ creditCard.last4 }}
+            {{ props.creditCard.last4 }}
         </div>
         <div class="payment-methods-container__card-container__info-area__expire-container">
-            {{ creditCard.expMonth }}/{{ creditCard.expYear }}
+            {{ props.creditCard.expMonth }}/{{ props.creditCard.expYear }}
         </div>
-        <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-area">
+        <div v-if="props.creditCard.isDefault" class="payment-methods-container__card-container__default-area">
             <div class="payment-methods-container__card-container__default-text">Default</div>
         </div>
         <div class="payment-methods-container__card-container__function-buttons">
@@ -31,14 +31,12 @@
     </div>
 </template>
 
-<script lang="ts">
-import Vue, { VueConstructor } from 'vue';
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-
-import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
+import { useStore } from '@/utils/hooks';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
 import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
@@ -49,63 +47,43 @@ import MastercardIcon from '@/../static/images/payments/cardIcons/smallmastercar
 import UnionPayIcon from '@/../static/images/payments/cardIcons/smallunionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
 
-const {
-    TOGGLE_CARD_SELECTION,
-} = PAYMENTS_ACTIONS;
+const icons = {
+    'jcb': JCBIcon,
+    'diners': DinersIcon,
+    'mastercard': MastercardIcon,
+    'amex': AmericanExpressIcon,
+    'discover': DiscoverIcon,
+    'unionpay': UnionPayIcon,
+    'visa': VisaIcon,
+};
 
-// @vue/component
-@Component({
-    components: {
-        CardDialog,
-        JCBIcon,
-        DinersIcon,
-        MastercardIcon,
-        AmericanExpressIcon,
-        DiscoverIcon,
-        UnionPayIcon,
-        VisaIcon,
-        DefaultIcon,
-    },
-})
-export default class CardComponent extends Vue {
-    @Prop({ default: () => new CreditCard() })
-    private readonly creditCard: CreditCard;
-    public isEditPaymentMethodsModalOpen = false;
+const props = withDefaults(defineProps<{
+    creditCard?: CreditCard;
+}>(), {
+    creditCard: () => new CreditCard(),
+});
 
-    public edit(): void {
-        this.$emit('edit', this.creditCard);
-    }
+const store = useStore();
 
-    public remove(): void {
-        this.$emit('remove', this.creditCard);
-    }
-    public get cardIcon(): VueConstructor<Vue> {
-        switch (this.creditCard.brand) {
-        case 'jcb':
-            return JCBIcon;
-        case 'diners':
-            return DinersIcon;
-        case 'mastercard':
-            return MastercardIcon;
-        case 'amex':
-            return AmericanExpressIcon;
-        case 'discover':
-            return DiscoverIcon;
-        case 'unionpay':
-            return UnionPayIcon;
-        case 'visa':
-            return VisaIcon;
-        default:
-            return DefaultIcon;
-        }
-    }
+const emit = defineEmits(['edit', 'remove']);
 
-    /**
-     * Toggle card selection dialog.
-     */
-    public toggleSelection(): void {
-        this.$store.dispatch(TOGGLE_CARD_SELECTION, this.creditCard.id);
-    }
+const cardIcon = computed(() => {
+    return icons[props.creditCard.brand] || DefaultIcon;
+});
+
+function edit(): void {
+    emit('edit', props.creditCard);
+}
+
+function remove(): void {
+    emit('remove', props.creditCard);
+}
+
+/**
+ * Toggle card selection dialog.
+ */
+function toggleSelection(): void {
+    store.dispatch(PAYMENTS_ACTIONS.TOGGLE_CARD_SELECTION, props.creditCard.id);
 }
 </script>
 

@@ -387,13 +387,16 @@ export default class AccessGrants extends Vue {
         flex-direction: column;
         align-items: flex-start;
         justify-content: center;
-        padding: 10px 28px;
+        padding: 25px 28px;
         width: 300px;
-        height: 220px;
         background: #fff;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
         border-radius: 10px;
         min-width: 175px;
+
+        @media screen and (max-width: 930px) {
+            width: 100%;
+        }
     }
 
     .access-grants {
@@ -440,11 +443,14 @@ export default class AccessGrants extends Vue {
             &__cli-credentials {
                 @include grant-flow-card;
 
-                @media screen and (max-width: 448px) {
-                    height: auto;
+                @media screen and (max-width: 370px) {
+
+                    .access-grants__flows-area__button-container {
+                        flex-direction: column;
+                        align-items: flex-start;
+                    }
 
                     .access-grants__flows-area__create-button {
-                        padding: 20px 10px;
                         margin: 8px 0 0;
                     }
                 }
@@ -493,6 +499,11 @@ export default class AccessGrants extends Vue {
         }
 
         .access-grants-items {
+            padding-bottom: 55px;
+
+            @media screen and (max-width: 1150px) {
+                margin-top: -45px;
+            }
 
             &__content {
                 margin-top: 20px;

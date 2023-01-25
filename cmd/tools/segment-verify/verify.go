@@ -333,6 +333,10 @@ func (service *NodeVerifier) verifySegmentsWithExists(ctx context.Context, clien
 		return Error.Wrap(err)
 	}
 
+	service.log.Debug("Exists response",
+		zap.Int("request-count", len(pieceIds)),
+		zap.Int("missing-count", len(response.Missing)))
+
 	if len(response.Missing) == 0 {
 		for i := range segments {
 			segments[i].Status.MarkFound()

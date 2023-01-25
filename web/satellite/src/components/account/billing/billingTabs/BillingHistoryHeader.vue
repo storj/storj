@@ -2,23 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <fragment>
+    <v-fragment>
         <th class="align-left">DATE</th>
         <th class="align-left">STATUS</th>
         <th class="align-left">AMOUNT</th>
         <th class="align-left">DOWNLOAD</th>
-    </fragment>
+    </v-fragment>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { Fragment } from 'vue-fragment';
-
-// @vue/component
-@Component({
-    components: {
-        Fragment,
-    },
-})
-export default class BillingHistoryHeader extends Vue {}
+<script setup lang="ts">
+import { Fragment as VFragment } from 'vue-fragment';
 </script>

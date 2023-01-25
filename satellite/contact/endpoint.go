@@ -105,8 +105,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Address:   req.Address,
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address: req.Address,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
@@ -210,14 +209,14 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	switch req.Transport {
 
-	case pb.NodeTransport_QUIC_GRPC:
+	case pb.NodeTransport_QUIC_RPC:
 		err = endpoint.service.pingNodeQUIC(ctx, nodeURL)
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)
 		}
 		return &pb.PingMeResponse{}, nil
 
-	case pb.NodeTransport_TCP_TLS_GRPC:
+	case pb.NodeTransport_TCP_TLS_RPC:
 		client, err := dialNodeURL(ctx, endpoint.service.dialer, nodeURL)
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)

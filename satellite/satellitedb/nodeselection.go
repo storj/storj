@@ -145,7 +145,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var isNew bool
 

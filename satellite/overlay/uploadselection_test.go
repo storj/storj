@@ -93,8 +93,7 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 		n := overlay.NodeCheckInInfo{
 			NodeID: storj.NodeID{byte(i)},
 			Address: &pb.NodeAddress{
-				Address:   addr,
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address: addr,
 			},
 			LastNet:    subnet,
 			LastIPPort: addr,

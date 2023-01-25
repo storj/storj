@@ -745,6 +745,13 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
+		if stripeInvoice.DueDate > 0 {
+			service.log.Info("Skipping invoice marked for manual payment",
+				zap.String("id", stripeInvoice.ID),
+				zap.String("number", stripeInvoice.Number),
+				zap.String("customer", stripeInvoice.Customer.ID))
+			continue
+		}
 
 		params := &stripe.InvoicePayParams{}
 		_, err = service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
