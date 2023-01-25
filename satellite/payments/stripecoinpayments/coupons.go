@@ -23,6 +23,41 @@ type coupons struct {
 	service *Service
 }
 
+// ApplyFreeTierCoupon applies the default free tier coupon to the account.
+func (coupons *coupons) ApplyFreeTierCoupon(ctx context.Context, userID uuid.UUID) (_ *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
+		Coupon: stripe.String(coupons.service.StripeFreeTierCouponID),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return stripeDiscountToPaymentsCoupon(customer.Discount)
+}
+
+// ApplyCoupon applies the coupon to account if it exists.
+func (coupons *coupons) ApplyCoupon(ctx context.Context, userID uuid.UUID, couponID string) (_ *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{Coupon: stripe.String(couponID)})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return stripeDiscountToPaymentsCoupon(customer.Discount)
+}
+
 // ApplyCouponCode attempts to apply a coupon code to the user via Stripe.
 func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (_ *payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID, couponCode)(&err)
@@ -40,7 +75,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 				return nil, err
 			}
 			if coupon != nil && coupon.ID == plan.CouponID {
-				return nil, ErrCouponConflict.New("coupon for partner '%s' should not be replaced", partner)
+				return nil, payments.ErrCouponConflict.New("coupon for partner '%s' should not be replaced", partner)
 			}
 		}
 	}
@@ -49,7 +84,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 		Code: stripe.String(couponCode),
 	})
 	if !promoCodeIter.Next() {
-		return nil, ErrInvalidCoupon.New("Invalid coupon code")
+		return nil, payments.ErrInvalidCoupon.New("Invalid coupon code")
 	}
 	promoCode := promoCodeIter.PromotionCode()
 

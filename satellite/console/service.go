@@ -592,6 +592,39 @@ func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID u
 	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
 }
 
+// ApplyCoupon applies a coupon to an account based on couponID.
+func (payment Payments) ApplyCoupon(ctx context.Context, couponID string) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "apply coupon")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupon, err = payment.service.accounts.Coupons().ApplyCoupon(ctx, user.ID, couponID)
+	if err != nil {
+		return coupon, Error.Wrap(err)
+	}
+	return coupon, nil
+}
+
+// ApplyFreeTierCoupon applies the default free tier coupon to an account.
+func (payment Payments) ApplyFreeTierCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupon, err = payment.service.accounts.Coupons().ApplyFreeTierCoupon(ctx, user.ID)
+	if err != nil {
+		return coupon, Error.Wrap(err)
+	}
+
+	return coupon, nil
+}
+
 // ApplyCouponCode applies a coupon code to a Stripe customer
 // and returns the coupon corresponding to the code.
 func (payment Payments) ApplyCouponCode(ctx context.Context, couponCode string) (coupon *payments.Coupon, err error) {

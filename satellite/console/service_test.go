@@ -37,6 +37,11 @@ import (
 func TestService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+			},
+		},
 	},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			sat := planet.Satellites[0]
@@ -415,6 +420,52 @@ func TestService(t *testing.T) {
 				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
 				require.Error(t, err)
 				require.Nil(t, info)
+			})
+			t.Run("ApplyFreeTierCoupon", func(t *testing.T) {
+				// testplanet applies the free tier coupon first, so we need to change it in order
+				// to verify that ApplyFreeTierCoupon really works.
+				freeTier := sat.Config.Payments.StripeCoinPayments.StripeFreeTierCouponID
+				coupon3, err := service.Payments().ApplyCoupon(userCtx1, stripecoinpayments.MockCouponID3)
+				require.NoError(t, err)
+				require.NotNil(t, coupon3)
+				require.NotEqual(t, freeTier, coupon3.ID)
+
+				coupon, err := service.Payments().ApplyFreeTierCoupon(userCtx1)
+				require.NoError(t, err)
+				require.NotNil(t, coupon)
+				require.Equal(t, freeTier, coupon.ID)
+
+				coupon, err = sat.API.Payments.Accounts.Coupons().GetByUserID(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Equal(t, freeTier, coupon.ID)
+
+			})
+			t.Run("ApplyFreeTierCoupon fails with unknown user", func(t *testing.T) {
+				coupon, err := service.Payments().ApplyFreeTierCoupon(ctx)
+				require.Error(t, err)
+				require.Nil(t, coupon)
+			})
+			t.Run("ApplyCoupon", func(t *testing.T) {
+				id := stripecoinpayments.MockCouponID2
+				coupon, err := service.Payments().ApplyCoupon(userCtx2, id)
+				require.NoError(t, err)
+				require.NotNil(t, coupon)
+				require.Equal(t, id, coupon.ID)
+
+				coupon, err = sat.API.Payments.Accounts.Coupons().GetByUserID(ctx, up2Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Equal(t, id, coupon.ID)
+			})
+			t.Run("ApplyCoupon fails with unknown user", func(t *testing.T) {
+				id := stripecoinpayments.MockCouponID2
+				coupon, err := service.Payments().ApplyCoupon(ctx, id)
+				require.Error(t, err)
+				require.Nil(t, coupon)
+			})
+			t.Run("ApplyCoupon fails with unknown coupon ID", func(t *testing.T) {
+				coupon, err := service.Payments().ApplyCoupon(userCtx2, "unknown_coupon_id")
+				require.Error(t, err)
+				require.Nil(t, coupon)
 			})
 		})
 }

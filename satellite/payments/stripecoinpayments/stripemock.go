@@ -25,6 +25,15 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+const (
+	// MockCouponID1 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID1 = "c1"
+	// MockCouponID2 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID2 = "c2"
+	// MockCouponID3 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID3 = "c3"
+)
+
 // mocks synchronized map for caching mockStripeClient.
 //
 // The satellite has a Core part and API part which mostly duplicate each
@@ -49,7 +58,7 @@ var (
 				AmountOff: 500,
 				Currency:  stripe.CurrencyUSD,
 				Name:      "Test Promo Code 1",
-				ID:        "c1",
+				ID:        MockCouponID1,
 			},
 		},
 		"promo2": {
@@ -57,7 +66,16 @@ var (
 			Coupon: &stripe.Coupon{
 				PercentOff: 50,
 				Name:       "Test Promo Code 2",
-				ID:         "c2",
+				ID:         MockCouponID2,
+			},
+		},
+		"promo3": {
+			ID: "p3",
+			Coupon: &stripe.Coupon{
+				AmountOff: 100,
+				Currency:  stripe.CurrencyUSD,
+				Name:      "Test Promo Code 3",
+				ID:        MockCouponID3,
 			},
 		},
 	}
@@ -65,9 +83,10 @@ var (
 		"p1": testPromoCodes["promo1"],
 		"p2": testPromoCodes["promo2"],
 	}
-	couponIDs = map[string]*stripe.Coupon{
-		"c1": testPromoCodes["promo1"].Coupon,
-		"c2": testPromoCodes["promo2"].Coupon,
+	mockCoupons = map[string]*stripe.Coupon{
+		MockCouponID1: testPromoCodes["promo1"].Coupon,
+		MockCouponID2: testPromoCodes["promo2"].Coupon,
+		MockCouponID3: testPromoCodes["promo3"].Coupon,
 	}
 )
 
@@ -139,6 +158,7 @@ func (m *mockStripeClient) Customers() StripeCustomers {
 		customersDB: m.customersDB,
 		usersDB:     m.usersDB,
 		state:       m.customers,
+		coupons:     mockCoupons,
 	}
 }
 
@@ -174,6 +194,7 @@ type mockCustomers struct {
 	customersDB CustomersDB
 	usersDB     console.Users
 	state       *mockCustomersState
+	coupons     map[string]*stripe.Coupon
 }
 
 type mockCustomersState struct {
@@ -252,8 +273,12 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
 
-	if params.Coupon != nil {
-		customer.Discount = &stripe.Discount{Coupon: couponIDs[*params.Coupon]}
+	if params.Coupon != nil && *params.Coupon != "" {
+		c, ok := m.coupons[*params.Coupon]
+		if !ok {
+			return nil, &stripe.Error{}
+		}
+		customer.Discount = &stripe.Discount{Coupon: mockCoupons[c.ID]}
 	}
 
 	mocks.Lock()
@@ -304,7 +329,11 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
 	if params.Coupon != nil {
-		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: *params.Coupon}}
+		c, ok := m.coupons[*params.Coupon]
+		if !ok {
+			return nil, &stripe.Error{}
+		}
+		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: c.ID}}
 	}
 
 	// TODO update customer with more params as necessary
