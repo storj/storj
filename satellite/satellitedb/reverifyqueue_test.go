@@ -5,11 +5,13 @@ package satellitedb_test
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -52,6 +54,8 @@ func TestReverifyQueue(t *testing.T) {
 		err = reverifyQueue.Insert(ctx, locator2)
 		require.NoError(t, err)
 
+		checkGetAllContainedNodes(ctx, t, reverifyQueue, locator1.NodeID, locator2.NodeID)
+
 		job1, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
 		require.Equal(t, *locator1, job1.Locator)
@@ -61,6 +65,8 @@ func TestReverifyQueue(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, *locator2, job2.Locator)
 		require.EqualValues(t, 1, job2.ReverifyCount)
+
+		checkGetAllContainedNodes(ctx, t, reverifyQueue, locator1.NodeID, locator2.NodeID)
 
 		require.Truef(t, job1.InsertedAt.Before(job2.InsertedAt), "job1 [%s] should have an earlier insertion time than job2 [%s]", job1.InsertedAt, job2.InsertedAt)
 
@@ -81,15 +87,20 @@ func TestReverifyQueue(t *testing.T) {
 		require.Equal(t, *locator1, job3.Locator)
 		require.EqualValues(t, 2, job3.ReverifyCount)
 
+		checkGetAllContainedNodes(ctx, t, reverifyQueue, locator1.NodeID, locator2.NodeID)
+
 		wasDeleted, err := reverifyQueue.Remove(ctx, locator1)
 		require.NoError(t, err)
 		require.True(t, wasDeleted)
+		checkGetAllContainedNodes(ctx, t, reverifyQueue, locator2.NodeID)
 		wasDeleted, err = reverifyQueue.Remove(ctx, locator2)
 		require.NoError(t, err)
 		require.True(t, wasDeleted)
+		checkGetAllContainedNodes(ctx, t, reverifyQueue)
 		wasDeleted, err = reverifyQueue.Remove(ctx, locator1)
 		require.NoError(t, err)
 		require.False(t, wasDeleted)
+		checkGetAllContainedNodes(ctx, t, reverifyQueue)
 
 		_, err = reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
@@ -149,4 +160,18 @@ func TestReverifyQueueGetByNodeID(t *testing.T) {
 		require.Truef(t, audit.ErrContainedNotFound.Has(err), "expected ErrContainedNotFound error but got %+v", err)
 		require.Nil(t, job3)
 	})
+}
+
+// checkGetAllContainedNodes checks that the GetAllContainedNodes method works as expected
+// in a particular situation.
+func checkGetAllContainedNodes(ctx context.Context, t testing.TB, reverifyQueue audit.ReverifyQueue, expectedIDs ...storj.NodeID) {
+	containedNodes, err := reverifyQueue.GetAllContainedNodes(ctx)
+	require.NoError(t, err)
+	sort.Slice(containedNodes, func(i, j int) bool {
+		return containedNodes[i].Compare(containedNodes[j]) < 0
+	})
+	sort.Slice(expectedIDs, func(i, j int) bool {
+		return expectedIDs[i].Compare(expectedIDs[j]) < 0
+	})
+	require.Equal(t, expectedIDs, containedNodes)
 }
