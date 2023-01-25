@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
+	"github.com/zeebo/assert"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
