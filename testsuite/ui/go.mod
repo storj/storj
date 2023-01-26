@@ -32,7 +32,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/calebcase/tmpfile v1.0.3 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/cheggaaa/pb v1.0.29 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
@@ -58,7 +58,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-oauth2/oauth2/v4 v4.4.2 // indirect
 	github.com/go-ole/go-ole v1.2.4 // indirect
-	github.com/go-redis/redis/v8 v8.11.5 // indirect
+	github.com/go-redis/redis/v8 v8.7.1 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -192,6 +192,9 @@ require (
 	github.com/zeebo/mwc v0.0.4 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.etcd.io/etcd v0.0.0-20201125193152-8a03d2e9614b // indirect
+	go.opentelemetry.io/otel v0.18.0 // indirect
+	go.opentelemetry.io/otel/metric v0.18.0 // indirect
+	go.opentelemetry.io/otel/trace v0.18.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
