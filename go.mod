@@ -10,7 +10,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
-	github.com/go-redis/redis/v8 v8.7.1
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0
@@ -66,7 +66,7 @@ require (
 	github.com/apache/thrift v0.12.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cheekybits/genny v1.0.0 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -120,9 +120,6 @@ require (
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
 	go.opencensus.io v0.22.2 // indirect
-	go.opentelemetry.io/otel v0.18.0 // indirect
-	go.opentelemetry.io/otel/metric v0.18.0 // indirect
-	go.opentelemetry.io/otel/trace v0.18.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
