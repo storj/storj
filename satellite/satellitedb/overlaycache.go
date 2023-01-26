@@ -1507,6 +1507,33 @@ func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.No
 	return Error.Wrap(err)
 }
 
+// SetAllContainedNodes updates the contained field for all nodes, as necessary.
+// containedNodes is expected to be a set of all nodes that should be contained.
+// All nodes which are in this set but do not already have a non-NULL contained
+// field will be updated to be contained as of the current time, and all nodes
+// which are not in this set but are contained in the table will be updated to
+// have a NULL contained field.
+func (cache *overlaycache) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateQuery := `
+		WITH should_be AS (
+			SELECT nodes.id, EXISTS (SELECT 1 FROM unnest($1::BYTEA[]) sb(i) WHERE sb.i = id) AS contained
+			FROM nodes
+		)
+		UPDATE nodes n SET contained =
+		    CASE WHEN should_be.contained
+		        THEN current_timestamp
+		        ELSE NULL
+		    END
+		FROM should_be
+		WHERE n.id = should_be.id
+			AND (n.contained IS NOT NULL) != should_be.contained
+	`
+	_, err = cache.db.DB.ExecContext(ctx, updateQuery, pgutil.NodeIDArray(containedNodes))
+	return Error.Wrap(err)
+}
+
 var (
 	// ErrVetting is the error class for the following test methods.
 	ErrVetting = errs.Class("vetting")

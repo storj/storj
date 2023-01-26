@@ -78,6 +78,8 @@ type DB interface {
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 	// SetNodeContained updates the contained field for the node record.
 	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
+	// SetAllContainedNodes updates the contained field for all nodes, as necessary.
+	SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
