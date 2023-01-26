@@ -37,6 +37,9 @@
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
+# how often to run the containment-sync chore
+# audit.containment-sync-chore-interval: 2h0m0s
+
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 

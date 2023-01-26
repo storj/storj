@@ -34,6 +34,8 @@ type Config struct {
 
 	ReverifyWorkerConcurrency   int           `help:"number of workers to run reverify audits on pieces" default:"2"`
 	ReverificationRetryInterval time.Duration `help:"how long a single reverification job can take before it may be taken over by another worker" releaseDefault:"6h" devDefault:"10m"`
+
+	ContainmentSyncChoreInterval time.Duration `help:"how often to run the containment-sync chore" releaseDefault:"2h" devDefault:"2m" testDefault:"$TESTINTERVAL"`
 }
 
 // Worker contains information for populating audit queue and processing audits.
