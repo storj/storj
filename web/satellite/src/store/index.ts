@@ -26,6 +26,7 @@ import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
 import { ABTestingState, makeABTestingModule } from '@/store/modules/abTesting';
 import { ABHttpApi } from '@/api/abtesting';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 Vue.use(Vuex);
 
@@ -99,7 +100,13 @@ export default store;
   store and the router. Many of the tests require router, however, this implementation
   relies on store state for the routing behavior.
 */
-router.beforeEach(async (to, _, next) => {
+router.beforeEach(async (to, from, next) => {
+    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.Login.name) {
+        if (store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled) {
+            store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+        }
+    }
+
     if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;

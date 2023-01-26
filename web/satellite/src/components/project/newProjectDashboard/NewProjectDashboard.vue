@@ -264,8 +264,18 @@ export default class NewProjectDashboard extends Vue {
             const past = new Date();
             past.setDate(past.getDate() - 30);
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+            if (this.isNewEncryptionPassphraseFlowEnabled && this.hasJustLoggedIn) {
+                if (this.limits.objectCount > 0) {
+                    this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+                } else {
+                    this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+                }
+
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+            }
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
@@ -436,6 +446,13 @@ export default class NewProjectDashboard extends Vue {
      */
     public get isNewEncryptionPassphraseFlowEnabled(): boolean {
         return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    }
+
+    /**
+     * Indicates if user has just logged in.
+     */
+    public get hasJustLoggedIn(): boolean {
+        return this.$store.state.appStateModule.appState.hasJustLoggedIn;
     }
 
     /**

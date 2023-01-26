@@ -101,7 +101,13 @@ export default class BucketsView extends Vue {
 
             if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
                 this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                if (this.isNewEncryptionPassphraseFlowEnabled) {
+                    if (!this.promptForPassphrase) {
+                        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+                    }
+                } else {
+                    await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+                }
             }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);

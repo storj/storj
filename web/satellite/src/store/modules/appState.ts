@@ -34,6 +34,7 @@ class ViewsState {
         public isCreateBucketModalShown = false,
         public isAddPMModalShown = false,
         public isOpenBucketModalShown = false,
+        public isEnterPassphraseModalShown = false,
         public isMFARecoveryModalShown = false,
         public isEnableMFAModalShown = false,
         public isDisableMFAModalShown = false,
@@ -48,6 +49,7 @@ class ViewsState {
         public isAddCouponModalShown = false,
         public isNewBillingAddCouponModalShown = false,
         public isBillingNotificationShown = true,
+        public hasJustLoggedIn = false,
 
         public onbAGStepBackRoute = '',
         public onbAPIKeyStepBackRoute = '',
@@ -146,6 +148,12 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isOpenBucketModalShown = !state.appState.isOpenBucketModalShown;
         },
+        [APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN](state: State): void {
+            state.appState.isEnterPassphraseModalShown = !state.appState.isEnterPassphraseModalShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: State): void {
+            state.appState.hasJustLoggedIn = !state.appState.hasJustLoggedIn;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
             state.appState.isCreateProjectPassphraseModalShown = !state.appState.isCreateProjectPassphraseModalShown;
         },
@@ -234,6 +242,8 @@ export const appStateModule = {
             state.appState.isCreateProjectPassphraseModalShown = false;
             state.appState.isManageProjectPassphraseModalShown = false;
             state.appState.isObjectDetailsModalShown = false;
+            state.appState.isEnterPassphraseModalShown = false;
+            state.appState.hasJustLoggedIn = false;
             state.appState.isAddCouponModalShown = false;
             state.appState.isNewBillingAddCouponModalShown = false;
             state.appState.onbAGStepBackRoute = '';
