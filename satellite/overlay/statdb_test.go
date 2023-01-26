@@ -54,7 +54,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
 				NodeID:      tt.nodeID,
-				Address:     &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:     &pb.NodeAddress{Address: addr},
 				LastIPPort:  addr,
 				LastNet:     lastNet,
 				Version:     &pb.NodeVersion{Version: "v1.0.0"},
@@ -138,7 +138,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		lastNet := "127.0.1"
 		d := overlay.NodeCheckInInfo{
 			NodeID:     nodeID,
-			Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+			Address:    &pb.NodeAddress{Address: addr},
 			LastIPPort: addr,
 			LastNet:    lastNet,
 			Version:    &pb.NodeVersion{Version: "v1.0.0"},

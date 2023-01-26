@@ -271,7 +271,7 @@ func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeI
 	nodes := make(map[storj.NodeID]*overlay.SelectedNode)
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
 		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
@@ -325,7 +325,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
 	for rows.Next() {
 		var node overlay.NodeReputation
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
 		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
@@ -1099,8 +1099,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Node: pb.Node{
 			Id: id,
 			Address: &pb.NodeAddress{
-				Address:   info.Address,
-				Transport: pb.NodeTransport(info.Protocol),
+				Address: info.Address,
 			},
 		},
 		Type: pb.NodeType(info.Type),
@@ -1304,7 +1303,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			END
 		WHERE id = $1
 	`, // args $1 - $4
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC,
 		// args $5 - $7
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $8
@@ -1416,7 +1415,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END;
 			`,
 		// args $1 - $5
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC, int(pb.NodeType_STORAGE),
 		// args $6 - $8
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $9
@@ -1543,7 +1542,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
 		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)

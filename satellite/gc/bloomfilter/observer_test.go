@@ -82,7 +82,7 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 			// service instantiated for the testplanet.
 			rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 			segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
-			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, &segments,
+			rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 				[]rangedloop.Observer{observer})
 
 			_, err = rangedLoop.RunOnce(ctx)
@@ -200,7 +200,7 @@ func TestObserverGarbageCollectionBloomFilters_AllowNotEmptyBucket(t *testing.T)
 		// service instantiated for the testplanet.
 		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
 		segments := rangedloop.NewMetabaseRangeSplitter(planet.Satellites[0].Metabase.DB, rangedloopConfig.AsOfSystemInterval, rangedloopConfig.BatchSize)
-		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, &segments,
+		rangedLoop := rangedloop.NewService(zap.NewNop(), planet.Satellites[0].Config.RangedLoop, segments,
 			[]rangedloop.Observer{observer})
 
 		_, err = rangedLoop.RunOnce(ctx)

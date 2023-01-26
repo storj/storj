@@ -33,8 +33,9 @@ import (
 )
 
 type external struct {
-	interactive bool // controls if interactive input is allowed
-	quic        bool // if set, use the quic transport
+	interactive bool  // controls if interactive input is allowed
+	analytics   *bool // enables sending analytics
+	quic        bool  // if set, use the quic transport
 
 	dirs struct {
 		loaded  bool   // true if Setup has been called
@@ -142,6 +143,12 @@ func (ex *external) Setup(f clingy.Flags) {
 		clingy.Advanced,
 	).(string)
 
+	ex.analytics = f.Flag(
+		"analytics", "Whether to send usage information to Storj", nil,
+		clingy.Transform(strconv.ParseBool), clingy.Optional, clingy.Boolean,
+		clingy.Advanced,
+	).(*bool)
+
 	ex.dirs.loaded = true
 }
 
@@ -184,6 +191,9 @@ func (ex *external) Dynamic(name string) (vals []string, err error) {
 }
 
 func (ex *external) analyticsEnabled() bool {
+	if ex.analytics != nil {
+		return *ex.analytics
+	}
 	// N.B.: saveInitialConfig prompts the user if they want analytics enabled.
 	// In the past, even after prompting for this, we did not write out their
 	// answer in the config. Instead, what has historically happened is that
@@ -229,7 +239,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		return err
 	}
 	if !ex.config.loaded {
-		if err = saveInitialConfig(ctx, ex); err != nil {
+		if err = saveInitialConfig(ctx, ex, ex.interactive, ex.analytics); err != nil {
 			return err
 		}
 	}

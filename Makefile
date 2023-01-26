@@ -296,7 +296,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image storagenode-image versioncontrol-image ## Build multinode, satellite, storagenode, and versioncontrol Docker images
+images: multinode-image satellite-image uplink-image storagenode-image versioncontrol-image ## Build multinode, satellite, storagenode, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
@@ -309,6 +309,17 @@ multinode-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64
 	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/multinode/Dockerfile .
+
+.PHONY: uplink-image
+uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink-cli Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		-f cmd/uplink/Dockerfile .
 
 .PHONY: satellite-image
 satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image

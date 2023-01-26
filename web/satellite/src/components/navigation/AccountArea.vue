@@ -134,15 +134,6 @@ export default class AccountArea extends Vue {
         this.analytics.pageVisit(RouteConfig.Login.path);
         await this.$router.push(RouteConfig.Login.path);
 
-        try {
-            this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-            await this.auth.logout();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
-
-            return;
-        }
-
         await Promise.all([
             this.$store.dispatch(PM_ACTIONS.CLEAR),
             this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
@@ -158,7 +149,12 @@ export default class AccountArea extends Vue {
             this.$store.dispatch('files/clear'),
         ]);
 
-        LocalData.removeUserId();
+        try {
+            this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+            await this.auth.logout();
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_ACCOUNT_AREA);
+        }
     }
 
     /**

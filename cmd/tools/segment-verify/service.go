@@ -444,12 +444,21 @@ func (service *Service) ProcessBuckets(ctx context.Context, buckets []metabase.B
 func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSource *SegmentCSVSource) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segments := make([]*Segment, 0, service.config.BatchSize)
+	aliasMap, err := service.metabase.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	service.aliasMap = aliasMap
+	service.log.Debug("got aliasMap", zap.Int("length", service.aliasMap.Size()))
+
+	streamIDs := make([]uuid.UUID, 0, service.config.BatchSize)
 	exhausted := false
+	segmentsData := make([]Segment, service.config.BatchSize)
+	segments := make([]*Segment, service.config.BatchSize)
 	for {
-		segments = segments[:0]
+		streamIDs = streamIDs[:0]
 		for n := 0; n < service.config.BatchSize; n++ {
-			seg, err := segmentSource.Next()
+			streamIDAndPosition, err := segmentSource.Next()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					exhausted = true
@@ -457,11 +466,39 @@ func (service *Service) ProcessSegmentsFromCSV(ctx context.Context, segmentSourc
 				}
 				return Error.New("could not read csv: %w", err)
 			}
-			segments = append(segments, seg)
+			streamIDs = append(streamIDs, streamIDAndPosition.StreamID)
 		}
-		if err := service.ProcessSegments(ctx, segments); err != nil {
-			return Error.Wrap(err)
+		var cursorStreamID uuid.UUID
+		var cursorPosition metabase.SegmentPosition
+		for {
+			verifySegments, err := service.metabase.ListVerifySegments(ctx, metabase.ListVerifySegments{
+				CursorStreamID:     cursorStreamID,
+				CursorPosition:     cursorPosition,
+				StreamIDs:          streamIDs,
+				Limit:              service.config.BatchSize,
+				AsOfSystemInterval: service.config.AsOfSystemInterval,
+			})
+			segmentsData = segmentsData[:len(verifySegments.Segments)]
+			segments = segments[:len(verifySegments.Segments)]
+			if err != nil {
+				return Error.New("could not query metabase: %w", err)
+			}
+			for n, verifySegment := range verifySegments.Segments {
+				segmentsData[n].VerifySegment = verifySegment
+				segments[n] = &segmentsData[n]
+			}
+
+			if err := service.ProcessSegments(ctx, segments); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if len(verifySegments.Segments) < service.config.BatchSize {
+				break
+			}
+			last := &verifySegments.Segments[len(verifySegments.Segments)-1]
+			cursorStreamID, cursorPosition = last.StreamID, last.Position
 		}
+
 		if exhausted {
 			return nil
 		}

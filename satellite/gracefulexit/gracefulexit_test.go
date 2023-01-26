@@ -372,7 +372,7 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 
 		info := overlay.NodeCheckInInfo{
 			NodeID:     nodeID,
-			Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+			Address:    &pb.NodeAddress{Address: addr},
 			LastIPPort: addr,
 			LastNet:    lastNet,
 			Version:    &pb.NodeVersion{Version: "v1.0.0"},
@@ -416,7 +416,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 		for i := 0; i < numNonExitedNodes; i++ {
 			info := overlay.NodeCheckInInfo{
 				NodeID:     generateNodeIDFromPostiveInt(t, i),
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
@@ -442,7 +442,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 
 			info := overlay.NodeCheckInInfo{
 				NodeID:     nodeID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},

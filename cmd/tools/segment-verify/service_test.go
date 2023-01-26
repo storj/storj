@@ -340,8 +340,7 @@ func (db *metabaseMock) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.
 		Node: pb.Node{
 			Id: nodeID,
 			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   fmt.Sprintf("nodeid:%v", nodeID),
+				Address: fmt.Sprintf("nodeid:%v", nodeID),
 			},
 		},
 	}, nil
@@ -353,8 +352,7 @@ func (db *metabaseMock) SelectAllStorageNodesDownload(ctx context.Context, onlin
 		xs = append(xs, &overlay.SelectedNode{
 			ID: nodeID,
 			Address: &pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   fmt.Sprintf("nodeid:%v", nodeID),
+				Address: fmt.Sprintf("nodeid:%v", nodeID),
 			},
 			LastNet:     "nodeid",
 			LastIPPort:  fmt.Sprintf("nodeid:%v", nodeID),

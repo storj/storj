@@ -90,6 +90,22 @@ type aggregateStats struct {
 	remoteSegmentsOverThreshold [5]int64
 }
 
+func (a *aggregateStats) combine(stats aggregateStats) {
+	a.objectsChecked += stats.objectsChecked
+	a.remoteSegmentsChecked += stats.remoteSegmentsChecked
+	a.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
+	a.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
+	a.remoteSegmentsLost += stats.remoteSegmentsLost
+	a.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck
+	a.objectsLost = append(a.objectsLost, stats.objectsLost...)
+
+	a.remoteSegmentsOverThreshold[0] += stats.remoteSegmentsOverThreshold[0]
+	a.remoteSegmentsOverThreshold[1] += stats.remoteSegmentsOverThreshold[1]
+	a.remoteSegmentsOverThreshold[2] += stats.remoteSegmentsOverThreshold[2]
+	a.remoteSegmentsOverThreshold[3] += stats.remoteSegmentsOverThreshold[3]
+	a.remoteSegmentsOverThreshold[4] += stats.remoteSegmentsOverThreshold[4]
+}
+
 func newStats(rs string) *stats {
 	return &stats{
 		iterationAggregates:             new(aggregateStats),

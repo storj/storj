@@ -20,7 +20,7 @@ type TransactionStatus string
 var ErrInsufficientFunds = errs.New("Insufficient funds for this transaction")
 
 // ErrNoWallet represents err when there is no wallet in the DB.
-var ErrNoWallet = errs.New("no wallet in the database")
+var ErrNoWallet = errs.New("wallet does not exists")
 
 // ErrNoTransactions represents err when there is no billing transactions in the DB.
 var ErrNoTransactions = errs.New("no transactions in the database")

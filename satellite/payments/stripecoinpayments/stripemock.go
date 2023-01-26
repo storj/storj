@@ -444,7 +444,16 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
 	}
 
-	invoice := &stripe.Invoice{ID: "in_" + string(testrand.RandAlphaNumeric(25))}
+	due := int64(0)
+	if params.DueDate != nil {
+		due = *params.DueDate
+	}
+
+	invoice := &stripe.Invoice{
+		ID:       "in_" + string(testrand.RandAlphaNumeric(25)),
+		Customer: &stripe.Customer{ID: *params.Customer},
+		DueDate:  due,
+	}
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
 	for _, item := range items {
 		if item.Invoice == nil {
@@ -500,6 +509,14 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 }
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for i, invoice := range invoices {
+			if invoice.ID == id {
+				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
+				return invoice, nil
+			}
+		}
+	}
 	return nil, nil
 }
 

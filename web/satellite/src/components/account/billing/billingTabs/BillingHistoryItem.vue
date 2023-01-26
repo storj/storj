@@ -18,7 +18,7 @@
                 </p>
             </div>
         </th>
-        <fragment>
+        <v-fragment>
             <th class="align-left data tablet-laptop">
                 <p class="date">
                     <span><Calendar /></span>
@@ -39,43 +39,36 @@
             <th class="align-left data tablet-laptop">
                 <a :href="item.link" download>Invoice PDF</a>
             </th>
-        </fragment>
+        </v-fragment>
     </tr>
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
-import { Fragment } from 'vue-fragment';
+<script setup lang="ts">
+import { Fragment as VFragment } from 'vue-fragment';
 
 import { PaymentsHistoryItem } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-
-import Resizable from '@/components/common/Resizable.vue';
+import { useResize } from '@/composables/resize';
 
 import CheckIcon from '@/../static/images/billing/check-green-circle.svg';
 import Calendar from '@/../static/images/billing/calendar.svg';
 
-// @vue/component
-@Component({
-    components: {
-        Calendar,
-        CheckIcon,
-        Fragment,
-    },
-})
-export default class BillingHistoryItem extends Resizable {
-    @Prop({ default: new PaymentsHistoryItem('', '', 0, 0, '', '', new Date(), new Date(), 0, 0) })
-    private readonly item: PaymentsHistoryItem;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const props = withDefaults(defineProps<{
+    item: PaymentsHistoryItem;
+}>(), {
+    item: () => new PaymentsHistoryItem('', '', 0, 0, '', '', new Date(), new Date(), 0, 0),
+});
 
-    public downloadInvoice() {
-        this.analytics.eventTriggered(AnalyticsEvent.INVOICE_DOWNLOADED);
+const { isMobile, isTablet } = useResize();
 
-        if (this.isMobile || this.isTablet)
-            window.open(this.item.link, '_blank', 'noreferrer');
-    }
+function downloadInvoice() {
+    analytics.eventTriggered(AnalyticsEvent.INVOICE_DOWNLOADED);
+
+    if (isMobile || isTablet)
+        window.open(props.item.link, '_blank', 'noreferrer');
 }
 </script>
 

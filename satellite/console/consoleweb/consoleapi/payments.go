@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -372,6 +373,10 @@ func (p *Payments) GetWallet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if errs.Is(err, billing.ErrNoWallet) {
+			p.serveJSONError(w, http.StatusNotFound, err)
 			return
 		}
 

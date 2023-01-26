@@ -185,7 +185,7 @@ func TestRandomizedSelection(t *testing.T) {
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
 				NodeID:     newID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
@@ -289,8 +289,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 			n := overlay.NodeCheckInInfo{
 				NodeID: newID,
 				Address: &pb.NodeAddress{
-					Address:   address,
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address: address,
 				},
 				LastNet:    lastNet,
 				LastIPPort: address,
@@ -538,8 +537,7 @@ func TestUpdateCheckIn(t *testing.T) {
 			Node: pb.Node{
 				Id: nodeID,
 				Address: &pb.NodeAddress{
-					Address:   info.Address.GetAddress(),
-					Transport: pb.NodeTransport_TCP_TLS_GRPC,
+					Address: info.Address.GetAddress(),
 				},
 			},
 			Type: pb.NodeType_STORAGE,
@@ -684,7 +682,7 @@ func TestSuspendedSelection(t *testing.T) {
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
 				NodeID:     newID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
