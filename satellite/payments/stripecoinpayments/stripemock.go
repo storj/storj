@@ -32,6 +32,14 @@ const (
 	MockCouponID2 = "c2"
 	// MockCouponID3 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
 	MockCouponID3 = "c3"
+
+	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
+	// mockPaymentMethods.New to return an error.
+	TestPaymentMethodsNewFailure = "test_payment_methods_new_failure"
+
+	// TestPaymentMethodsAttachFailure can be passed to creditCards.Add as the cardToken arg to cause
+	// mockPaymentMethods.Attach to return an error.
+	TestPaymentMethodsAttachFailure = "test_payment_methods_attach_failure"
 )
 
 // mocks synchronized map for caching mockStripeClient.
@@ -395,8 +403,18 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
+	id := fmt.Sprintf("pm_card_%s", randID)
+	if params.Card.Token != nil {
+		switch *params.Card.Token {
+		case TestPaymentMethodsNewFailure:
+			return nil, &stripe.Error{}
+		case TestPaymentMethodsAttachFailure:
+			id = TestPaymentMethodsAttachFailure
+		}
+	}
+
 	newMethod := &stripe.PaymentMethod{
-		ID: fmt.Sprintf("pm_card_%s", randID),
+		ID: id,
 		Card: &stripe.PaymentMethodCard{
 			ExpMonth:    12,
 			ExpYear:     2050,
@@ -422,6 +440,9 @@ func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttac
 	var method *stripe.PaymentMethod
 	for _, candidate := range m.unattached {
 		if candidate.ID == id {
+			if id == TestPaymentMethodsAttachFailure {
+				return nil, &stripe.Error{}
+			}
 			method = candidate
 		}
 	}

@@ -96,6 +96,50 @@ func TestService(t *testing.T) {
 				require.Nil(t, salt)
 			})
 
+			t.Run("AddCreditCard fails when payments.CreditCards.Add returns error", func(t *testing.T) {
+				// user should be in free tier
+				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.False(t, user.PaidTier)
+				// get context
+				userCtx1, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				// stripecoinpayments.TestPaymentMethodsAttachFailure triggers the underlying mock stripe client to return an error
+				// when attaching a payment method to a customer.
+				require.Error(t, service.Payments().AddCreditCard(userCtx1, stripecoinpayments.TestPaymentMethodsAttachFailure))
+
+				// user still in free tier
+				user, err = service.GetUser(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.False(t, user.PaidTier)
+
+				cards, err := service.Payments().ListCreditCards(userCtx1)
+				require.NoError(t, err)
+				require.Len(t, cards, 0)
+			})
+
+			t.Run("AddCreditCard", func(t *testing.T) {
+				// user should be in free tier
+				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.False(t, user.PaidTier)
+				// get context
+				userCtx1, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+				// add a credit card to put the user in the paid tier
+				err = service.Payments().AddCreditCard(userCtx1, "test-cc-token")
+				require.NoError(t, err)
+				// user should be in paid tier
+				user, err = service.GetUser(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.True(t, user.PaidTier)
+
+				cards, err := service.Payments().ListCreditCards(userCtx1)
+				require.NoError(t, err)
+				require.Len(t, cards, 1)
+			})
+
 			t.Run("CreateProject", func(t *testing.T) {
 				// Creating a project with a previously used name should fail
 				createdProject, err := service.CreateProject(userCtx1, console.ProjectInfo{
@@ -111,18 +155,10 @@ func TestService(t *testing.T) {
 				updatedStorageLimit := memory.Size(100)
 				updatedBandwidthLimit := memory.Size(100)
 
-				// user should be in free tier
 				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
 				require.NoError(t, err)
-				require.False(t, user.PaidTier)
-				// get context
+
 				userCtx1, err := sat.UserContext(ctx, user.ID)
-				require.NoError(t, err)
-				// add a credit card to put the user in the paid tier
-				err = service.Payments().AddCreditCard(userCtx1, "test-cc-token")
-				require.NoError(t, err)
-				// update auth ctx
-				userCtx1, err = sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 
 				// Updating own project should work
