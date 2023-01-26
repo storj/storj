@@ -3089,7 +3089,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	}, nil
 }
 
-// Purchase makes a purchase of `price` amount with payment method with id of `paymentMethodID`.
+// Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
 func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

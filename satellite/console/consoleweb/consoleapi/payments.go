@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 var (
@@ -33,14 +35,16 @@ type Payments struct {
 	log                  *zap.Logger
 	service              *console.Service
 	accountFreezeService *console.AccountFreezeService
+	packagePlans         paymentsconfig.PackagePlans
 }
 
 // NewPayments is a constructor for api payments controller.
-func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService) *Payments {
+func NewPayments(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, packagePlans paymentsconfig.PackagePlans) *Payments {
 	return &Payments{
 		log:                  log,
 		service:              service,
 		accountFreezeService: accountFreezeService,
+		packagePlans:         packagePlans,
 	}
 }
 
@@ -460,6 +464,56 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 
 	if err = json.NewEncoder(w).Encode(pricing); err != nil {
 		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// PurchasePackage purchases one of the configured paymentsconfig.PackagePlans.
+func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	token := string(bodyBytes)
+
+	u, err := console.GetUser(ctx)
+	if err != nil {
+		p.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	pkg, err := p.packagePlans.Get(u.UserAgent)
+	if err != nil {
+		p.serveJSONError(w, http.StatusNotFound, err)
+		return
+	}
+
+	_, err = p.service.Payments().ApplyCoupon(ctx, pkg.CouponID)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	card, err := p.service.Payments().AddCreditCard(ctx, token)
+	if err != nil {
+		switch {
+		case console.ErrUnauthorized.Has(err):
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+		default:
+			p.serveJSONError(w, http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	err = p.service.Payments().Purchase(ctx, pkg.Price, fmt.Sprintf("%s package plan", string(u.UserAgent)), card.ID)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 }
 

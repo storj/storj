@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 const (
@@ -98,6 +99,7 @@ type Config struct {
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	NativeTokenPaymentsEnabled      bool       `help:"indicates if storj native token payments system is enabled" default:"false"`
+	PricingPackagesEnabled          bool       `help:"whether to allow purchasing pricing packages" default:"false" devDefault:"true"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -131,6 +133,8 @@ type Server struct {
 	nodeURL           storj.NodeURL
 
 	stripePublicKey string
+
+	packagePlans paymentsconfig.PackagePlans
 
 	schema graphql.Schema
 
@@ -201,7 +205,7 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL, packagePlans paymentsconfig.PackagePlans) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
@@ -214,6 +218,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		ipRateLimiter:     web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter: NewUserIDRateLimiter(config.RateLimit, logger),
 		nodeURL:           nodeURL,
+		packagePlans:      packagePlans,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -299,7 +304,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		abRouter.Handle("/hit/{action}", server.withAuth(http.HandlerFunc(abController.SendHit))).Methods(http.MethodPost)
 	}
 
-	paymentController := consoleapi.NewPayments(logger, service, accountFreezeService)
+	paymentController := consoleapi.NewPayments(logger, service, accountFreezeService, packagePlans)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 	paymentsRouter.Use(server.withAuth)
 	paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost)
@@ -316,6 +321,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.Handle("/coupon/apply", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.ApplyCouponCode))).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet)
+	if config.PricingPackagesEnabled {
+		paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost)
+	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
