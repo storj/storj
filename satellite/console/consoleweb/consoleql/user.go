@@ -24,8 +24,6 @@ const (
 	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp.
 	FieldCreatedAt = "createdAt"
-	// FieldPartnerID is a field name for partnerID.
-	FieldPartnerID = "partnerId"
 )
 
 // base graphql config for user.
@@ -47,9 +45,6 @@ func baseUserConfig() graphql.ObjectConfig {
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
-			},
-			FieldPartnerID: &graphql.Field{
-				Type: graphql.String,
 			},
 		},
 	}
@@ -76,9 +71,6 @@ func graphqlUserInput() *graphql.InputObject {
 				Type: graphql.String,
 			},
 			FieldPassword: &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
-			FieldPartnerID: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 		},

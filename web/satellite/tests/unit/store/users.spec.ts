@@ -88,7 +88,6 @@ describe('actions', () => {
         expect(store.state.user.fullName).toBe('');
         expect(store.state.user.shortName).toBe('');
         expect(store.state.user.email).toBe('');
-        expect(store.state.user.partnerId).toBe('');
         expect(store.state.user.id).toBe('');
     });
 

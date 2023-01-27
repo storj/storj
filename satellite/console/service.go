@@ -38,7 +38,6 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/rewards"
 )
 
 var mon = monkit.Package()
@@ -135,7 +134,6 @@ type Service struct {
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
-	partners                   *rewards.PartnersService
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -208,7 +206,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -244,7 +242,6 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectAccounting:          projectAccounting,
 		projectUsage:               projectUsage,
 		buckets:                    buckets,
-		partners:                   partners,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
 		billing:                    billing,
@@ -1220,7 +1217,6 @@ func (s *Service) GenGetUser(ctx context.Context) (*ResponseUser, api.HTTPError)
 		FullName:             user.FullName,
 		ShortName:            user.ShortName,
 		Email:                user.Email,
-		PartnerID:            user.PartnerID,
 		UserAgent:            user.UserAgent,
 		ProjectLimit:         user.ProjectLimit,
 		IsProfessional:       user.IsProfessional,
@@ -1512,7 +1508,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        user.ID,
-				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
 				StorageLimit:   &storageLimit,
 				BandwidthLimit: &bandwidthLimit,
@@ -1580,7 +1575,6 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        user.ID,
-				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
 				StorageLimit:   &storageLimit,
 				BandwidthLimit: &bandwidthLimit,
@@ -2045,7 +2039,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-		PartnerID: user.PartnerID,
 		UserAgent: user.UserAgent,
 	}
 
@@ -2116,7 +2109,6 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		Name:      requestInfo.Name,
 		ProjectID: projectID,
 		Secret:    secret,
-		PartnerID: user.PartnerID,
 		UserAgent: user.UserAgent,
 	}
 

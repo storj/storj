@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/rewards"
 )
 
 func TestGraphqlQuery(t *testing.T) {
@@ -36,11 +35,6 @@ func TestGraphqlQuery(t *testing.T) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		log := zaptest.NewLogger(t)
-
-		partnersService := rewards.NewPartnersService(
-			log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
 
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
@@ -96,7 +90,6 @@ func TestGraphqlQuery(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
-			partnersService,
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,

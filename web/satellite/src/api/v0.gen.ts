@@ -6,7 +6,6 @@ import { HttpClient } from '@/utils/httpClient';
 class APIKeyInfo {
     id: string;
     projectId: string;
-    partnerId: string;
     userAgent: string;
     name: string;
     createdAt: string;
@@ -53,7 +52,6 @@ class Project {
     publicId: string;
     name: string;
     description: string;
-    partnerId: string;
     userAgent: string;
     ownerId: string;
     rateLimit: number;
@@ -63,6 +61,8 @@ class Project {
     memberCount: number;
     storageLimit: string;
     bandwidthLimit: string;
+    userSpecifiedStorageLimit: string;
+    userSpecifiedBandwidthLimit: string;
     segmentLimit: number;
 }
 
@@ -79,7 +79,6 @@ class ResponseUser {
     fullName: string;
     shortName: string;
     email: string;
-    partnerId: string;
     userAgent: string;
     projectLimit: number;
     isProfessional: boolean;

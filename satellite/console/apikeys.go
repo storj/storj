@@ -53,7 +53,6 @@ type CreateAPIKeyResponse struct {
 type APIKeyInfo struct {
 	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"projectId"`
-	PartnerID uuid.UUID `json:"partnerId"`
 	UserAgent []byte    `json:"userAgent"`
 	Name      string    `json:"name"`
 	Head      []byte    `json:"-"`

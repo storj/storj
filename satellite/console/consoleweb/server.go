@@ -42,7 +42,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/oidc"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -120,7 +119,6 @@ type Server struct {
 	config      Config
 	service     *console.Service
 	mailService *mailservice.Service
-	partners    *rewards.PartnersService
 	analytics   *analytics.Service
 	abTesting   *abtesting.Service
 
@@ -202,14 +200,13 @@ func (a *apiAuth) RemoveAuthCookie(w http.ResponseWriter) {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, oidcService *oidc.Service, mailService *mailservice.Service, analytics *analytics.Service, abTesting *abtesting.Service, accountFreezeService *console.AccountFreezeService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:               logger,
 		config:            config,
 		listener:          listener,
 		service:           service,
 		mailService:       mailService,
-		partners:          partners,
 		analytics:         analytics,
 		abTesting:         abTesting,
 		stripePublicKey:   stripePublicKey,
@@ -273,7 +270,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.withAuth(http.HandlerFunc(usageLimitsController.DailyUsage)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, partners, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)

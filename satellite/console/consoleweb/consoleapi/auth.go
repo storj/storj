@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 var (
@@ -59,11 +58,10 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
-	partners                  *rewards.PartnersService
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -79,7 +77,6 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
-		partners:                  partners,
 		analytics:                 analytics,
 	}
 }
@@ -199,7 +196,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		ShortName        string `json:"shortName"`
 		Email            string `json:"email"`
 		Partner          string `json:"partner"`
-		PartnerID        string `json:"partnerId"`
 		UserAgent        []byte `json:"userAgent"`
 		Password         string `json:"password"`
 		SecretInput      string `json:"secret"`
@@ -283,12 +279,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		if registerData.Partner != "" {
 			registerData.UserAgent = []byte(registerData.Partner)
-			info, err := a.partners.ByName(ctx, registerData.Partner)
-			if err != nil {
-				a.log.Warn("Invalid partner name", zap.String("Partner name", registerData.Partner), zap.String("User email", registerData.Email), zap.Error(err))
-			} else {
-				registerData.PartnerID = info.ID
-			}
 		}
 
 		ip, err := web.GetRequestIP(r)
@@ -302,7 +292,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				FullName:         registerData.FullName,
 				ShortName:        registerData.ShortName,
 				Email:            registerData.Email,
-				PartnerID:        registerData.PartnerID,
 				UserAgent:        registerData.UserAgent,
 				Password:         registerData.Password,
 				IsProfessional:   registerData.IsProfessional,
@@ -453,7 +442,6 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		FullName             string    `json:"fullName"`
 		ShortName            string    `json:"shortName"`
 		Email                string    `json:"email"`
-		PartnerID            uuid.UUID `json:"partnerId"`
 		UserAgent            []byte    `json:"userAgent"`
 		ProjectLimit         int       `json:"projectLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
@@ -476,7 +464,6 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
-	user.PartnerID = consoleUser.PartnerID
 	user.UserAgent = consoleUser.UserAgent
 	user.ProjectLimit = consoleUser.ProjectLimit
 	user.IsProfessional = consoleUser.IsProfessional

@@ -293,7 +293,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
 		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, nil, "", "", "", "", "", "")
+		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "")
 		authController.DeleteAccount(rr, r)
 
 		//nolint:bodyclose

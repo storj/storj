@@ -74,7 +74,7 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.user_agent, ak.created_at
+		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at
 		FROM api_keys ak
 		WHERE ak.project_id = ?
 		AND lower(ak.name) LIKE ?
@@ -97,14 +97,12 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	var apiKeys []console.APIKeyInfo
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
-		var partnerID uuid.NullUUID
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &partnerID, &ak.UserAgent, &ak.CreatedAt)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
 
-		ak.PartnerID = partnerID.UUID
 		apiKeys = append(apiKeys, ak)
 	}
 
@@ -176,10 +174,6 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 	}
 
 	optional := dbx.ApiKey_Create_Fields{}
-	if !info.PartnerID.IsZero() {
-		optional.PartnerId = dbx.ApiKey_PartnerId(info.PartnerID[:])
-	}
-
 	if info.UserAgent != nil {
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
 	}
@@ -240,13 +234,6 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 		CreatedAt: key.CreatedAt,
 		Head:      key.Head,
 		Secret:    key.Secret,
-	}
-
-	if key.PartnerId != nil {
-		result.PartnerID, err = uuid.FromBytes(key.PartnerId)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if key.UserAgent != nil {

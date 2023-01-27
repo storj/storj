@@ -150,9 +150,6 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 	}
-	if !user.PartnerID.IsZero() {
-		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
-	}
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
 	}
@@ -402,13 +399,6 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
-	}
-
-	if user.PartnerId != nil {
-		result.PartnerID, err = uuid.FromBytes(user.PartnerId)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if user.UserAgent != nil {

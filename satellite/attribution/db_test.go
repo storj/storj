@@ -30,7 +30,6 @@ const (
 
 type AttributionTestData struct {
 	name       string
-	partnerID  uuid.UUID
 	userAgent  []byte
 	projectID  uuid.UUID
 	bucketName []byte
@@ -70,14 +69,13 @@ func TestDB(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		attributionDB := db.Attribution()
 		project1, project2 := testrand.UUID(), testrand.UUID()
-		partner1, partner2 := testrand.UUID(), testrand.UUID()
 		agent1, agent2 := []byte("agent1"), []byte("agent2")
 
 		infos := []*attribution.Info{
-			{project1, []byte("alpha"), partner1, agent1, time.Time{}},
-			{project1, []byte("beta"), partner2, agent2, time.Time{}},
-			{project2, []byte("alpha"), partner2, agent2, time.Time{}},
-			{project2, []byte("beta"), partner1, agent1, time.Time{}},
+			{project1, []byte("alpha"), agent1, time.Time{}},
+			{project1, []byte("beta"), agent2, time.Time{}},
+			{project2, []byte("alpha"), agent2, time.Time{}},
+			{project2, []byte("beta"), agent1, time.Time{}},
 		}
 
 		for _, info := range infos {
@@ -91,7 +89,6 @@ func TestDB(t *testing.T) {
 		for _, info := range infos {
 			got, err := attributionDB.Get(ctx, info.ProjectID, info.BucketName)
 			require.NoError(t, err)
-			assert.Equal(t, info.PartnerID, got.PartnerID)
 			assert.Equal(t, info.UserAgent, got.UserAgent)
 		}
 	})
@@ -102,14 +99,12 @@ func TestQueryAttribution(t *testing.T) {
 		now := time.Now()
 
 		projectID := testrand.UUID()
-		partnerID := testrand.UUID()
 		userAgent := []byte("agent1")
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
 				name:       "new partnerID, userAgent, projectID, alpha",
-				partnerID:  testrand.UUID(),
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -124,7 +119,6 @@ func TestQueryAttribution(t *testing.T) {
 			},
 			{
 				name:       "partnerID, userAgent, new projectID, alpha",
-				partnerID:  partnerID,
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -139,7 +133,6 @@ func TestQueryAttribution(t *testing.T) {
 			},
 			{
 				name:       "new partnerID, userAgent, projectID, beta",
-				partnerID:  testrand.UUID(),
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -154,7 +147,6 @@ func TestQueryAttribution(t *testing.T) {
 			},
 			{
 				name:       "partnerID, userAgent new projectID, beta",
-				partnerID:  partnerID,
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -171,7 +163,7 @@ func TestQueryAttribution(t *testing.T) {
 		for _, td := range testData {
 			td := td
 			td.init()
-			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -189,14 +181,12 @@ func TestQueryAllAttribution(t *testing.T) {
 		now := time.Now()
 
 		projectID := testrand.UUID()
-		partnerID := testrand.UUID()
 		userAgent := []byte("agent1")
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
 				name:       "new partnerID, userAgent, projectID, alpha",
-				partnerID:  testrand.UUID(),
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -211,7 +201,6 @@ func TestQueryAllAttribution(t *testing.T) {
 			},
 			{
 				name:       "partnerID, userAgent, new projectID, alpha",
-				partnerID:  partnerID,
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -226,7 +215,6 @@ func TestQueryAllAttribution(t *testing.T) {
 			},
 			{
 				name:       "new partnerID, userAgent, projectID, beta",
-				partnerID:  testrand.UUID(),
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -241,7 +229,6 @@ func TestQueryAllAttribution(t *testing.T) {
 			},
 			{
 				name:       "partnerID, userAgent new projectID, beta",
-				partnerID:  partnerID,
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -259,7 +246,7 @@ func TestQueryAllAttribution(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 			for i := 0; i < td.hoursOfData; i++ {
@@ -280,14 +267,13 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 		now := time.Now()
 
 		projectID := testrand.UUID()
-		partnerID := testrand.UUID()
 		userAgent := []byte("agent1")
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name:       "new partnerID, userAgent, projectID, alpha",
-				partnerID:  testrand.UUID(),
+				name: "new partnerID, userAgent, projectID, alpha",
+
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -301,8 +287,8 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent, new projectID, alpha",
-				partnerID:  partnerID,
+				name: "partnerID, userAgent, new projectID, alpha",
+
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -316,8 +302,8 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, userAgent, projectID, beta",
-				partnerID:  testrand.UUID(),
+				name: "new partnerID, userAgent, projectID, beta",
+
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -331,8 +317,8 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent new projectID, beta",
-				partnerID:  partnerID,
+				name: "partnerID, userAgent new projectID, beta",
+
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -350,7 +336,7 @@ func TestQueryAllAttributionNoStorage(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -368,14 +354,13 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 		now := time.Now()
 
 		projectID := testrand.UUID()
-		partnerID := testrand.UUID()
 		userAgent := []byte("agent1")
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
-				name:       "new partnerID, userAgent, projectID, alpha",
-				partnerID:  testrand.UUID(),
+				name: "new partnerID, userAgent, projectID, alpha",
+
 				userAgent:  []byte("agent2"),
 				projectID:  projectID,
 				bucketName: alphaBucket,
@@ -389,8 +374,8 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent, new projectID, alpha",
-				partnerID:  partnerID,
+				name: "partnerID, userAgent, new projectID, alpha",
+
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
@@ -404,8 +389,8 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, userAgent, projectID, beta",
-				partnerID:  testrand.UUID(),
+				name: "new partnerID, userAgent, projectID, beta",
+
 				userAgent:  []byte("agent3"),
 				projectID:  projectID,
 				bucketName: betaBucket,
@@ -419,8 +404,8 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, userAgent new projectID, beta",
-				partnerID:  partnerID,
+				name: "partnerID, userAgent new projectID, beta",
+
 				userAgent:  userAgent,
 				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
@@ -438,7 +423,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 			td := td
 			td.init()
 
-			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, td.userAgent, time.Time{}}
+			info := attribution.Info{td.projectID, td.bucketName, td.userAgent, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
 
@@ -452,7 +437,7 @@ func TestQueryAllAttributionNoBW(t *testing.T) {
 }
 
 func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *AttributionTestData) {
-	results, err := attributionDB.QueryAttribution(ctx, testData.partnerID, testData.userAgent, testData.start, testData.end)
+	results, err := attributionDB.QueryAttribution(ctx, testData.userAgent, testData.start, testData.end)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
@@ -466,7 +451,6 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 		}
 		count++
 
-		assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
 		assert.Equal(t, testData.userAgent, r.UserAgent, testData.name)
 		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
 		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
@@ -492,7 +476,6 @@ func verifyAllData(ctx *testcontext.Context, t *testing.T, attributionDB attribu
 			}
 			count++
 
-			assert.Equal(t, tt.partnerID[:], r.PartnerID, tt.name)
 			assert.Equal(t, tt.userAgent, r.UserAgent, tt.name)
 			assert.Equal(t, tt.projectID[:], r.ProjectID, tt.name)
 			assert.Equal(t, tt.bucketName, r.BucketName, tt.name)

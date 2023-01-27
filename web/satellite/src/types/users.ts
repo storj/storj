@@ -63,7 +63,6 @@ export class User {
         public shortName: string = '',
         public email: string = '',
         public partner: string = '',
-        public partnerId: string = '',
         public password: string = '',
         public projectLimit: number = 0,
         public paidTier: boolean = false,

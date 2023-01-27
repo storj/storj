@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -66,7 +65,6 @@ type Endpoint struct {
 	orders               *orders.Service
 	overlay              *overlay.Service
 	attributions         attribution.DB
-	partners             *rewards.PartnersService
 	pointerVerification  *pointerverification.Service
 	projectUsage         *accounting.Service
 	projects             console.Projects
@@ -83,7 +81,7 @@ type Endpoint struct {
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase.DB,
 	deletePieces *piecedeletion.Service, orders *orders.Service, cache *overlay.Service,
-	attributions attribution.DB, partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
+	attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
@@ -113,7 +111,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
-		partners:            partners,
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
