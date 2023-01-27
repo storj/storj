@@ -6,11 +6,7 @@ package authorization
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
-	"encoding/gob"
 	"fmt"
 	"strconv"
 	"strings"
@@ -80,12 +76,6 @@ type Claim struct {
 	SignedChainBytes [][]byte
 }
 
-func init() {
-	gob.Register(&ecdsa.PublicKey{})
-	gob.Register(&rsa.PublicKey{})
-	gob.Register(elliptic.P256())
-}
-
 // NewAuthorization creates a new, unclaimed authorization with a random token value.
 func NewAuthorization(userID string) (*Authorization, error) {
 	token := Token{UserID: userID}
@@ -127,20 +117,8 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
-func isGobEncoded(data []byte) bool {
-	return bytes.HasPrefix(data, []byte{0x14, 0xff, 0xb3, 0x2, 0x1, 0x1, 0x5, 0x47, 0x72})
-}
-
 // Unmarshal deserializes a set of authorizations.
 func (group *Group) Unmarshal(data []byte) error {
-	if isGobEncoded(data) {
-		decoder := gob.NewDecoder(bytes.NewBuffer(data))
-		if err := decoder.Decode(group); err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
-	}
-
 	msg := &certificatepb.AuthorizationGroup{}
 	if err := pb.Unmarshal(data, msg); err != nil {
 		return Error.Wrap(err)

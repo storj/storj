@@ -237,13 +237,6 @@ func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, f
 	return store.IterateWithoutLookupLimit(ctx, opts, fn)
 }
 
-// IterateUnordered iterates over all data, however, does not guarantee ordering.
-// It only guarantees all items are iterated at least once.
-func (store *Client) IterateUnordered(ctx context.Context, fn func(context.Context, storage.Iterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return store.IterateWithoutLookupLimit(ctx, storage.IterateOptions{}, fn)
-}
-
 // IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
 func (store *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)

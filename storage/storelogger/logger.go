@@ -100,26 +100,6 @@ func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, f
 	})
 }
 
-// IterateUnordered iterates over all data, however, does not guarantee ordering.
-// It only guarantees all items are iterated at least once.
-func (store *Logger) IterateUnordered(ctx context.Context, fn func(context.Context, storage.Iterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("IterateUnordered")
-	return store.store.IterateUnordered(ctx, func(ctx context.Context, it storage.Iterator) error {
-		return fn(ctx, storage.IteratorFunc(func(ctx context.Context, item *storage.ListItem) bool {
-			ok := it.Next(ctx, item)
-			if ok {
-				store.log.Debug("  ",
-					zap.ByteString("key", item.Key),
-					zap.Int("value length", len(item.Value)),
-					zap.Binary("truncated value", truncate(item.Value)),
-				)
-			}
-			return ok
-		}))
-	})
-}
-
 // IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
 func (store *Logger) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
