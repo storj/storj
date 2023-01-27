@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -303,8 +304,9 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 5, len(objects))
 
+		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
-			ctx.Go(func() error {
+			errgroup.Go(func() error {
 				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 					Bucket:    root.Location().Bucket(),
 					BatchSize: 2,
@@ -315,8 +317,7 @@ func TestDeleteBucketObjectsParallel(t *testing.T) {
 				return err
 			})
 		}
-
-		ctx.Wait()
+		require.NoError(t, errgroup.Wait())
 
 		metabasetest.Verify{}.Check(ctx, t, db)
 	})

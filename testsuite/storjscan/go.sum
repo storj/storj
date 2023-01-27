@@ -1266,8 +1266,8 @@ storj.io/monkit-jaeger v0.0.0-20220726162929-c3a9898b5bca/go.mod h1:iK+dmHZZXQlW
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 h1:SVuEocEhZfFc13J1AmlVLitdGXTVrvmbzN4Z9C9Ms40=
 storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41/go.mod h1:iK+dmHZZXQlW7ahKdNSOo+raMk5BDL2wbD62FIeXLWs=
 storj.io/private v0.0.0-20220823161836-79135887c9be/go.mod h1:GbCItLcLLzsrMClBAa2aaj8xlawtHXWrqhr3D1I3NPM=
-storj.io/private v0.0.0-20221108123115-3a27297f0b78 h1:kHJEx5AAASp+zGaBPwBJyqZ5zFkde6nLyELGlxdZmiM=
-storj.io/private v0.0.0-20221108123115-3a27297f0b78/go.mod h1:hc63X333SVJ3UrOxXpGN4VnwqnmbWgAHln3wYJ8AroI=
+storj.io/private v0.0.0-20230123202745-d3e63b336444 h1:qwjIC8HoYGH8H5jYWhxPVUqKK2y3lWSnKZiPtWb08GA=
+storj.io/private v0.0.0-20230123202745-d3e63b336444/go.mod h1:hc63X333SVJ3UrOxXpGN4VnwqnmbWgAHln3wYJ8AroI=
 storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0 h1:pSfGf9E9OlUd17W7LSpL4tTONIyFji6dz8I2iTDd8BY=
 storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0/go.mod h1:5nLgAOl1KTDVyqORAhvrp+167PtShEuS1L3pJgXPjwo=
 storj.io/uplink v1.10.1-0.20230125195524-beab4fa36cf1 h1:UrnuA+dMgn3e9c8k15a1hyN2W+IqqBrt+cXJGV6+7qk=

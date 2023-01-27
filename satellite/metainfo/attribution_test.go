@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -365,9 +366,10 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 		project, err := config.OpenProject(ctx, planet.Uplinks[0].Access[satellite.ID()])
 		require.NoError(t, err)
 
+		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
 			i := i
-			ctx.Go(func() error {
+			errgroup.Go(func() error {
 				upload, err := project.UploadObject(ctx, "attr-bucket", "key"+strconv.Itoa(i), nil)
 				require.NoError(t, err)
 
@@ -380,7 +382,7 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 			})
 		}
 
-		ctx.Wait()
+		require.NoError(t, errgroup.Wait())
 
 		attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, planet.Uplinks[0].Projects[0].ID, []byte("attr-bucket"))
 		require.NoError(t, err)
