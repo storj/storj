@@ -1175,6 +1175,7 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		LastContactFailure: dbNode.LastContactFailure,
 		OfflineUnderReview: dbNode.UnderReview,
 		Status: overlay.ReputationStatus{
+			Email:                 dbNode.Email,
 			VettedAt:              dbNode.VettedAt,
 			Disqualified:          dbNode.Disqualified,
 			UnknownAuditSuspended: dbNode.UnknownAuditSuspended,

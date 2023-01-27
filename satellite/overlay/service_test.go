@@ -555,6 +555,9 @@ func TestUpdateCheckIn(t *testing.T) {
 				Timestamp:  time.Time{},
 				Release:    false,
 			},
+			Reputation: overlay.NodeStats{
+				Status: overlay.ReputationStatus{Email: expectedEmail},
+			},
 			Contained:    false,
 			Disqualified: nil,
 			PieceCount:   0,
