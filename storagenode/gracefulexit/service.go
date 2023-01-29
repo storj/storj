@@ -5,6 +5,7 @@ package gracefulexit
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -118,6 +119,9 @@ func (c *Service) deleteSatellitePieces(ctx context.Context, satelliteID storj.N
 	err = c.store.WalkSatellitePieces(ctx, satelliteID, func(piece pieces.StoredPieceAccess) error {
 		err := c.store.Delete(ctx, satelliteID, piece.PieceID())
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
 			logger.Error("failed to delete piece",
 				zap.Stringer("Piece ID", piece.PieceID()), zap.Error(err))
 			// but continue

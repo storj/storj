@@ -24,6 +24,9 @@ import (
 var (
 	// Error is the default filestore error class.
 	Error = errs.Class("filestore error")
+	// ErrIsDir is the error returned when we encounter a directory named like a blob file
+	// while traversing a blob namespace.
+	ErrIsDir = Error.New("file is a directory")
 
 	mon = monkit.Package()
 
