@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -212,86 +211,4 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			require.Equal(t, len(projectMap2), 3)
 		},
 	)
-}
-
-func TestSortRollups(t *testing.T) {
-	rollups := []orders.BucketBandwidthRollup{
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET, // GET is 2
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{2},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "b",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET_AUDIT,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-	}
-
-	expRollups := []orders.BucketBandwidthRollup{
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET, // GET is 2
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET_AUDIT,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{2},
-			BucketName: "a",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-		{
-			ProjectID:  uuid.UUID{1},
-			BucketName: "b",
-			Action:     pb.PieceAction_GET,
-			Inline:     1,
-			Allocated:  2,
-		},
-	}
-
-	assert.NotEqual(t, expRollups, rollups)
-	orders.SortBucketBandwidthRollups(rollups)
-	assert.Equal(t, expRollups, rollups)
 }

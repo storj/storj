@@ -134,29 +134,6 @@ type BucketBandwidthRollup struct {
 	Dead          int64
 }
 
-// SortBucketBandwidthRollups sorts the rollups.
-func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
-	sort.SliceStable(rollups, func(i, j int) bool {
-		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
-		switch {
-		case rollups[i].BucketName < rollups[j].BucketName:
-			return true
-		case rollups[i].BucketName > rollups[j].BucketName:
-			return false
-		case uuidCompare == -1:
-			return true
-		case uuidCompare == 1:
-			return false
-		case rollups[i].Action < rollups[j].Action:
-			return true
-		case rollups[i].Action > rollups[j].Action:
-			return false
-		default:
-			return false
-		}
-	})
-}
-
 // StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
 	NodeID    storj.NodeID
@@ -275,9 +252,8 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	log.Debug("SettlementWithWindow")
 
 	type bandwidthAmount struct {
-		Settled   int64
-		Allocated int64
-		Dead      int64
+		Settled int64
+		Dead    int64
 	}
 
 	storagenodeSettled := map[int32]int64{}
@@ -377,9 +353,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			action:     orderLimit.Action,
 		}
 		bucketSettled[currentBucketIDAction] = bandwidthAmount{
-			Settled:   bucketSettled[currentBucketIDAction].Settled + order.Amount,
-			Allocated: bucketSettled[currentBucketIDAction].Allocated + orderLimit.Limit,
-			Dead:      bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+			Settled: bucketSettled[currentBucketIDAction].Settled + order.Amount,
+			Dead:    bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+			// we are not collecting Allocated bandwidth as it won't be stored with UpdateBucketBandwidthSettle
 		}
 	}
 

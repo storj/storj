@@ -4,10 +4,12 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"reflect"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -50,6 +52,7 @@ type bandwidth struct {
 	Inline    int64
 	Dead      int64
 }
+
 type bandwidthRollupKey struct {
 	BucketName    string
 	ProjectID     uuid.UUID
@@ -234,12 +237,10 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 			return nil
 		}
 
-		orders.SortBucketBandwidthRollups(rollups)
-
-		bucketRUMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
-
 		// TODO reorg code to make clear what we are inserting/updating to
 		// bucket_bandwidth_rollups and project_bandwidth_daily_rollups
+
+		bucketRUMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
 
 		inlineSlice := make([]int64, 0, len(bucketRUMap))
 		settledSlice := make([]int64, 0, len(bucketRUMap))
@@ -248,36 +249,48 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		intervalStartSlice := make([]time.Time, 0, len(bucketRUMap))
 		actionSlice := make([]int32, 0, len(bucketRUMap))
 
-		// allocated must be not-null so lets keep slice until we will change DB schema
-		emptyAllocatedSlice := make([]int64, len(bucketRUMap))
-
-		for rollupInfo, usage := range bucketRUMap {
-			inlineSlice = append(inlineSlice, usage.Inline)
-			settledSlice = append(settledSlice, usage.Settled)
-			bucketNames = append(bucketNames, []byte(rollupInfo.BucketName))
-			projectIDs = append(projectIDs, rollupInfo.ProjectID)
-			intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
-			actionSlice = append(actionSlice, int32(rollupInfo.Action))
+		bucketRUMapKeys := make([]bandwidthRollupKey, 0, len(bucketRUMap))
+		for key := range bucketRUMap {
+			bucketRUMapKeys = append(bucketRUMapKeys, key)
 		}
 
-		_, err = tx.Tx.ExecContext(ctx, `
-		INSERT INTO bucket_bandwidth_rollups (
-			bucket_name, project_id,
-			interval_start, interval_seconds,
-			action, inline, allocated, settled)
-		SELECT
-			unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::timestamptz[]),
-			$4,
-			unnest($5::int4[]), unnest($6::bigint[]), unnest($7::bigint[]), unnest($8::bigint[])
-		ON CONFLICT(bucket_name, project_id, interval_start, action)
-		DO UPDATE SET
-			inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
-			settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled`,
-			pgutil.ByteaArray(bucketNames), pgutil.UUIDArray(projectIDs), pgutil.TimestampTZArray(intervalStartSlice),
-			defaultIntervalSeconds,
-			pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
-		if err != nil {
-			db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+		sortBandwidthRollupKeys(bucketRUMapKeys)
+
+		for _, rollupInfo := range bucketRUMapKeys {
+			usage := bucketRUMap[rollupInfo]
+			if usage.Inline != 0 || usage.Settled != 0 {
+				inlineSlice = append(inlineSlice, usage.Inline)
+				settledSlice = append(settledSlice, usage.Settled)
+				bucketNames = append(bucketNames, []byte(rollupInfo.BucketName))
+				projectIDs = append(projectIDs, rollupInfo.ProjectID)
+				intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
+				actionSlice = append(actionSlice, int32(rollupInfo.Action))
+			}
+		}
+
+		// allocated must be not-null so lets keep slice until we will change DB schema
+		emptyAllocatedSlice := make([]int64, len(projectIDs))
+
+		if len(projectIDs) > 0 {
+			_, err = tx.Tx.ExecContext(ctx, `
+				INSERT INTO bucket_bandwidth_rollups (
+					bucket_name, project_id,
+					interval_start, interval_seconds,
+					action, inline, allocated, settled)
+				SELECT
+					unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::timestamptz[]),
+					$4,
+					unnest($5::int4[]), unnest($6::bigint[]), unnest($7::bigint[]), unnest($8::bigint[])
+				ON CONFLICT(bucket_name, project_id, interval_start, action)
+				DO UPDATE SET
+					inline = bucket_bandwidth_rollups.inline + EXCLUDED.inline,
+					settled = bucket_bandwidth_rollups.settled + EXCLUDED.settled
+			`, pgutil.ByteaArray(bucketNames), pgutil.UUIDArray(projectIDs), pgutil.TimestampTZArray(intervalStartSlice),
+				defaultIntervalSeconds,
+				pgutil.Int4Array(actionSlice), pgutil.Int8Array(inlineSlice), pgutil.Int8Array(emptyAllocatedSlice), pgutil.Int8Array(settledSlice))
+			if err != nil {
+				db.db.log.Error("Bucket bandwidth rollup batch flush failed.", zap.Error(err))
+			}
 		}
 
 		projectRUMap := rollupBandwidth(rollups, toDailyInterval, getProjectRollupKey)
@@ -288,14 +301,23 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 		settledSlice = make([]int64, 0, len(projectRUMap))
 		deadSlice := make([]int64, 0, len(projectRUMap))
 
-		for rollupInfo, usage := range projectRUMap {
-			if rollupInfo.Action == pb.PieceAction_GET {
-				allocatedSlice = append(allocatedSlice, usage.Allocated)
-				settledSlice = append(settledSlice, usage.Settled)
-				deadSlice = append(deadSlice, usage.Dead)
-				projectIDs = append(projectIDs, rollupInfo.ProjectID)
-				intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
+		projectRUMapKeys := make([]bandwidthRollupKey, 0, len(projectRUMap))
+		for key := range projectRUMap {
+			if key.Action == pb.PieceAction_GET {
+				projectRUMapKeys = append(projectRUMapKeys, key)
 			}
+		}
+
+		sortBandwidthRollupKeys(projectRUMapKeys)
+
+		for _, rollupInfo := range projectRUMapKeys {
+			usage := projectRUMap[rollupInfo]
+			projectIDs = append(projectIDs, rollupInfo.ProjectID)
+			intervalStartSlice = append(intervalStartSlice, time.Unix(rollupInfo.IntervalStart, 0))
+
+			allocatedSlice = append(allocatedSlice, usage.Allocated)
+			settledSlice = append(settledSlice, usage.Settled)
+			deadSlice = append(deadSlice, usage.Dead)
 		}
 
 		if len(projectIDs) > 0 {
@@ -458,4 +480,30 @@ func getProjectRollupKey(rollup orders.BucketBandwidthRollup, toInterval func(ti
 		IntervalStart: toInterval(rollup.IntervalStart),
 		Action:        rollup.Action,
 	}
+}
+
+func sortBandwidthRollupKeys(bandwidthRollupKeys []bandwidthRollupKey) {
+	sort.SliceStable(bandwidthRollupKeys, func(i, j int) bool {
+		uuidCompare := bytes.Compare(bandwidthRollupKeys[i].ProjectID[:], bandwidthRollupKeys[j].ProjectID[:])
+		switch {
+		case bandwidthRollupKeys[i].BucketName < bandwidthRollupKeys[j].BucketName:
+			return true
+		case bandwidthRollupKeys[i].BucketName > bandwidthRollupKeys[j].BucketName:
+			return false
+		case uuidCompare == -1:
+			return true
+		case uuidCompare == 1:
+			return false
+		case bandwidthRollupKeys[i].IntervalStart < bandwidthRollupKeys[j].IntervalStart:
+			return true
+		case bandwidthRollupKeys[i].IntervalStart > bandwidthRollupKeys[j].IntervalStart:
+			return false
+		case bandwidthRollupKeys[i].Action < bandwidthRollupKeys[j].Action:
+			return true
+		case bandwidthRollupKeys[i].Action > bandwidthRollupKeys[j].Action:
+			return false
+		default:
+			return false
+		}
+	})
 }
