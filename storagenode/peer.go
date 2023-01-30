@@ -23,7 +23,6 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
@@ -541,7 +540,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
-			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,

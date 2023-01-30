@@ -93,7 +93,7 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	signer    signing.Signer
+	ident     *identity.FullIdentity
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
@@ -110,12 +110,12 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		signer:    signer,
+		ident:     ident,
 		trust:     trust,
 		monitor:   monitor,
 		retain:    retain,
@@ -498,7 +498,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				}
 			}
 
-			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
+			storageNodeHash, err := signing.SignPieceHash(ctx, signing.SignerFromFullIdentity(endpoint.ident), &pb.PieceHash{
 				PieceId:       limit.PieceId,
 				Hash:          calculatedHash,
 				HashAlgorithm: hashAlgorithm,
@@ -510,7 +510,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			}
 
 			closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				return stream.SendAndClose(&pb.PieceUploadResponse{Done: storageNodeHash})
+				return stream.SendAndClose(&pb.PieceUploadResponse{
+					Done:          storageNodeHash,
+					NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
 			})
 			if errs.Is(closeErr, io.EOF) {
 				closeErr = nil
