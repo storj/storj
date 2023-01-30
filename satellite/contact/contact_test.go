@@ -124,7 +124,8 @@ func TestSatellitePingMeEndpoint(t *testing.T) {
 		}
 		peerCtx := rpcpeer.NewContext(ctx, &peer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.PingMe(peerCtx, &pb.PingMeRequest{
-			Address: nodeInfo.Address,
+			Address:   nodeInfo.Address,
+			Transport: pb.NodeTransport_TCP_TLS_RPC,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
@@ -149,7 +150,8 @@ func TestSatellitePingMeEndpoint_QUIC(t *testing.T) {
 		}
 		peerCtx := rpcpeer.NewContext(ctx, &peer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.PingMe(peerCtx, &pb.PingMeRequest{
-			Address: nodeInfo.Address,
+			Address:   nodeInfo.Address,
+			Transport: pb.NodeTransport_QUIC_RPC,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
