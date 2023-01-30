@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base32"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -871,6 +872,12 @@ func (info *blobInfo) Stat(ctx context.Context) (os.FileInfo, error) {
 	if info.fileInfo == nil {
 		fileInfo, err := os.Lstat(info.path)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, err
+			}
+			if isLowLevelCorruptionError(err) {
+				return nil, &CorruptDataError{path: info.path, error: err}
+			}
 			return nil, err
 		}
 		if fileInfo.Mode().IsDir() {
@@ -883,4 +890,28 @@ func (info *blobInfo) Stat(ctx context.Context) (os.FileInfo, error) {
 
 func (info *blobInfo) FullPath(ctx context.Context) (string, error) {
 	return info.path, nil
+}
+
+// CorruptDataError represents a filesystem or disk error which indicates data corruption.
+//
+// We use a custom error type here so that we can add explanatory information and wrap the original
+// error at the same time.
+type CorruptDataError struct {
+	path  string
+	error error
+}
+
+// Unwrap unwraps the error.
+func (cde CorruptDataError) Unwrap() error {
+	return cde.error
+}
+
+// Path returns the path at which the error was encountered.
+func (cde CorruptDataError) Path() string {
+	return cde.path
+}
+
+// Error returns an error string describing the condition.
+func (cde CorruptDataError) Error() string {
+	return fmt.Sprintf("unrecoverable error accessing data on the storage file system (path=%v; error=%v). This is most likely due to disk bad sectors or a corrupted file system. Check your disk for bad sectors and integrity", cde.path, cde.error)
 }

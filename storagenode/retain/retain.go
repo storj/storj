@@ -398,6 +398,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 				// piece was deleted while we were scanning.
 				return nil
 			}
+
 			piecesSkipped++
 			s.log.Warn("failed to determine mtime of blob", zap.Error(err))
 			// but continue iterating.
