@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ErrorConflict } from './errors/ErrorConflict';
 import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 import {
@@ -274,8 +273,6 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         if (!response.ok) {
             switch (response.status) {
-            case 409:
-                throw new ErrorConflict('You currently have an active coupon. Please try again when your coupon is no longer active, or contact Support for further help.');
             case 429:
                 throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
             default:

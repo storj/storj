@@ -102,7 +102,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 }
 
 func TestPackagePlans(t *testing.T) {
-	type packages map[string]payments.PackagePlan
+	type packages map[string]paymentsconfig.PackagePlan
 
 	cases := []struct {
 		testID               string
@@ -140,7 +140,7 @@ func TestPackagePlans(t *testing.T) {
 			testID:      "single package plan",
 			configValue: "partner1:abc123,100",
 			expectedPackagePlans: packages{
-				"partner1": payments.PackagePlan{
+				"partner1": paymentsconfig.PackagePlan{
 					CouponID: "abc123",
 					Price:    100,
 				},
@@ -150,11 +150,11 @@ func TestPackagePlans(t *testing.T) {
 			testID:      "multiple package plans",
 			configValue: "partner1:abc123,100;partner2:321bca,200",
 			expectedPackagePlans: packages{
-				"partner1": payments.PackagePlan{
+				"partner1": paymentsconfig.PackagePlan{
 					CouponID: "abc123",
 					Price:    100,
 				},
-				"partner2": payments.PackagePlan{
+				"partner2": paymentsconfig.PackagePlan{
 					CouponID: "321bca",
 					Price:    200,
 				},

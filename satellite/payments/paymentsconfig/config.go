@@ -154,9 +154,16 @@ func (p ProjectUsagePriceOverrides) ToModels() (map[string]payments.ProjectUsage
 	return models, nil
 }
 
+// PackagePlan is an amount to charge a user one time in exchange for a coupon of greater value.
+// Price is in cents USD.
+type PackagePlan struct {
+	CouponID string
+	Price    int64
+}
+
 // PackagePlans contains one time prices for partners.
 type PackagePlans struct {
-	Packages map[string]payments.PackagePlan
+	packages map[string]PackagePlan
 }
 
 // Type returns the type of the pflag.Value.
@@ -168,8 +175,8 @@ func (p *PackagePlans) String() string {
 		return ""
 	}
 	var s strings.Builder
-	left := len(p.Packages)
-	for partner, pkg := range p.Packages {
+	left := len(p.packages)
+	for partner, pkg := range p.packages {
 		s.WriteString(fmt.Sprintf("%s:%s,%d", partner, pkg.CouponID, pkg.Price))
 		left--
 		if left > 0 {
@@ -181,7 +188,7 @@ func (p *PackagePlans) String() string {
 
 // Set sets the list of pricing plans to the parsed string.
 func (p *PackagePlans) Set(s string) error {
-	packages := make(map[string]payments.PackagePlan)
+	packages := make(map[string]PackagePlan)
 	for _, packagePlansStr := range strings.Split(s, ";") {
 		if packagePlansStr == "" {
 			continue
@@ -212,25 +219,25 @@ func (p *PackagePlans) Set(s string) error {
 			return Error.Wrap(err)
 		}
 
-		packages[info[0]] = payments.PackagePlan{
+		packages[info[0]] = PackagePlan{
 			CouponID: pkg[0],
 			Price:    int64(cents),
 		}
 	}
-	p.Packages = packages
+	p.packages = packages
 	return nil
 }
 
 // Get a package plan by user agent.
-func (p *PackagePlans) Get(userAgent []byte) (pkg payments.PackagePlan, err error) {
+func (p *PackagePlans) Get(userAgent []byte) (pkg PackagePlan, err error) {
 	entries, err := useragent.ParseEntries(userAgent)
 	if err != nil {
-		return payments.PackagePlan{}, Error.Wrap(err)
+		return PackagePlan{}, Error.Wrap(err)
 	}
 	for _, entry := range entries {
-		if pkg, ok := p.Packages[entry.Product]; ok {
+		if pkg, ok := p.packages[entry.Product]; ok {
 			return pkg, nil
 		}
 	}
-	return payments.PackagePlan{}, errs.New("no matching partner for (%s)", userAgent)
+	return PackagePlan{}, errs.New("no matching partner for (%s)", userAgent)
 }

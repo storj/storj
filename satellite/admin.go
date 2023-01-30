@@ -168,11 +168,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.Wallets(),
 			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
-			peer.DB.Console().Users(),
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
-			pc.PackagePlans.Packages,
 			pc.BonusRate)
 
 		if err != nil {
