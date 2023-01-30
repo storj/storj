@@ -92,9 +92,11 @@ func TestGraphqlMutation(t *testing.T) {
 			db.Wallets(),
 			db.Billing(),
 			db.Console().Projects(),
+			db.Console().Users(),
 			db.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 		require.NoError(t, err)
 

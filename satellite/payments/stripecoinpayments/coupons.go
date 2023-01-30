@@ -27,6 +27,24 @@ type coupons struct {
 func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (_ *payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID, couponCode)(&err)
 
+	user, err := coupons.service.usersDB.Get(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if user.UserAgent != nil {
+		partner := string(user.UserAgent)
+		if plan, ok := coupons.service.packagePlans[partner]; ok {
+			coupon, err := coupons.GetByUserID(ctx, userID)
+			if err != nil {
+				return nil, err
+			}
+			if coupon != nil && coupon.ID == plan.CouponID {
+				return nil, ErrCouponConflict.New("coupon for partner '%s' should not be replaced", partner)
+			}
+		}
+	}
+
 	promoCodeIter := coupons.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
 		Code: stripe.String(couponCode),
 	})
@@ -92,7 +110,7 @@ func stripeDiscountToPaymentsCoupon(dc *stripe.Discount) (coupon *payments.Coupo
 	}
 
 	coupon = &payments.Coupon{
-		ID:         dc.ID,
+		ID:         dc.Coupon.ID,
 		Name:       dc.Coupon.Name,
 		AmountOff:  dc.Coupon.AmountOff,
 		PercentOff: dc.Coupon.PercentOff,

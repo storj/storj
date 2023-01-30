@@ -324,11 +324,13 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 
 	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
+		status := http.StatusInternalServerError
 		if stripecoinpayments.ErrInvalidCoupon.Has(err) {
-			p.serveJSONError(w, http.StatusBadRequest, err)
-			return
+			status = http.StatusBadRequest
+		} else if stripecoinpayments.ErrCouponConflict.Has(err) {
+			status = http.StatusConflict
 		}
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(w, status, err)
 		return
 	}
 

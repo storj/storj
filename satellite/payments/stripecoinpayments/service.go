@@ -35,6 +35,9 @@ var (
 	// ErrInvalidCoupon defines invalid coupon code error.
 	ErrInvalidCoupon = errs.Class("invalid coupon code")
 
+	// ErrCouponConflict occurs when attempting to replace a protected coupon.
+	ErrCouponConflict = errs.Class("coupon conflict")
+
 	mon = monkit.Package()
 )
 
@@ -62,11 +65,13 @@ type Service struct {
 	billingDB billing.TransactionsDB
 
 	projectsDB   console.Projects
+	usersDB      console.Users
 	usageDB      accounting.ProjectAccounting
 	stripeClient StripeClient
 
 	usagePrices         payments.ProjectUsagePriceModel
 	usagePriceOverrides map[string]payments.ProjectUsagePriceModel
+	packagePlans        map[string]payments.PackagePlan
 	partnerNames        []string
 	// BonusRate amount of percents
 	BonusRate int64
@@ -82,7 +87,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, bonusRate int64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users, usageDB accounting.ProjectAccounting, usagePrices payments.ProjectUsagePriceModel, usagePriceOverrides map[string]payments.ProjectUsagePriceModel, packagePlans map[string]payments.PackagePlan, bonusRate int64) (*Service, error) {
 	var partners []string
 	for partner := range usagePriceOverrides {
 		partners = append(partners, partner)
@@ -94,10 +99,12 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		walletsDB:              walletsDB,
 		billingDB:              billingDB,
 		projectsDB:             projectsDB,
+		usersDB:                usersDB,
 		usageDB:                usageDB,
 		stripeClient:           stripeClient,
 		usagePrices:            usagePrices,
 		usagePriceOverrides:    usagePriceOverrides,
+		packagePlans:           packagePlans,
 		partnerNames:           partners,
 		BonusRate:              bonusRate,
 		StripeFreeTierCouponID: config.StripeFreeTierCouponID,
