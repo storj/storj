@@ -159,12 +159,12 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 	var err error
 	planet.directory, err = os.MkdirTemp("", "planet")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	planet.whitelistPath = whitelistPath
 
