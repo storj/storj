@@ -7,40 +7,7 @@
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
-        <DashboardFunctionalHeader
-            v-if="isNewEncryptionPassphraseFlowEnabled"
-            :loading="isDataFetching || areBucketsFetching"
-        />
-        <template v-else>
-            <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
-            <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
-                Your
-                <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
-                are stored in
-                <span class="project-dashboard__subtitle__value">{{ limits.segmentCount }} segments</span>
-                around the world
-            </p>
-            <template v-if="!isDataFetching && !limits.objectCount">
-                <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
-                    Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
-                </p>
-            </template>
-            <p class="project-dashboard__limits">
-                <span class="project-dashboard__limits--bold">Storage Limit</span>
-                per month: {{ limits.storageLimit | bytesToBase10String }} |
-                <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
-                per month: {{ limits.bandwidthLimit | bytesToBase10String }}
-            </p>
-            <template v-if="!isDataFetching && !limits.objectCount">
-                <VButton
-                    class="project-dashboard__upload-button"
-                    label="Upload"
-                    width="100px"
-                    height="40px"
-                    :on-press="onUploadClick"
-                />
-            </template>
-        </template>
+        <DashboardFunctionalHeader :loading="isDataFetching || areBucketsFetching" />
         <div class="project-dashboard__stats-header">
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
             <div class="project-dashboard__stats-header__buttons">
@@ -265,7 +232,7 @@ export default class NewProjectDashboard extends Vue {
             past.setDate(past.getDate() - 30);
 
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            if (this.isNewEncryptionPassphraseFlowEnabled && this.hasJustLoggedIn) {
+            if (this.hasJustLoggedIn) {
                 if (this.limits.objectCount > 0) {
                     this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
                 } else {
@@ -330,14 +297,6 @@ export default class NewProjectDashboard extends Vue {
     public onCreateProjectClick(): void {
         this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
-    }
-
-    /**
-     * Holds on upload button click logic.
-     */
-    public onUploadClick(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.path);
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
 
     /**
@@ -442,13 +401,6 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
-    }
-
-    /**
      * Indicates if user has just logged in.
      */
     public get hasJustLoggedIn(): boolean {
@@ -479,19 +431,6 @@ export default class NewProjectDashboard extends Vue {
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
 
-        &__limits {
-            font-size: 14px;
-            margin-top: 11px;
-
-            &--bold {
-                font-family: 'font_bold', sans-serif;
-            }
-        }
-
-        &__loader {
-            display: inline-block;
-        }
-
         &__title {
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
@@ -504,25 +443,6 @@ export default class NewProjectDashboard extends Vue {
             line-height: 20px;
             color: #384b65;
             margin: 10px 0 64px;
-        }
-
-        &__subtitle {
-            font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 36px;
-            letter-spacing: -0.02em;
-            color: #000;
-            max-width: 365px;
-
-            &__value {
-                text-decoration: underline;
-                text-underline-position: under;
-                text-decoration-color: var(--c-green-3);
-            }
-        }
-
-        &__upload-button {
-            margin-top: 16px;
         }
 
         &__stats-header {

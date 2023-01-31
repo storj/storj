@@ -102,9 +102,7 @@ export default store;
 */
 router.beforeEach(async (to, from, next) => {
     if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.Login.name) {
-        if (store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled) {
-            store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
-        }
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
     if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {

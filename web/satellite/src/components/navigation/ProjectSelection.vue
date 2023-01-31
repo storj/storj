@@ -39,7 +39,7 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
@@ -152,11 +152,8 @@ export default class ProjectSelection extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
-        if (this.isNewEncryptionPassphraseFlowEnabled || this.isBucketsView) {
-            this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        }
-
         if (this.isBucketsView) {
+            this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
 
             return;
@@ -266,10 +263,6 @@ export default class ProjectSelection extends Vue {
      * Toggles manage passphrase modal shown.
      */
     public onManagePassphraseClick(): void {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
 
         this.closeDropdown();
@@ -294,13 +287,6 @@ export default class ProjectSelection extends Vue {
         }
 
         this.closeDropdown();
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**

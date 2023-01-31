@@ -68,35 +68,34 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL                     string             `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                     string             `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
-	LetUsKnowURL                       string             `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                                string             `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                      string             `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator                  string             `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL              string             `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
-	AccountActivationRedirectURL       string             `help:"url link for account activation redirect" default:""`
-	PartneredSatellites                console.Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
-	GeneralRequestURL                  string             `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL    string             `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL       string             `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
-	IsBetaSatellite                    bool               `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL           string             `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL            string             `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                   string             `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeBillingUIEnabled         bool               `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
-	CouponCodeSignupUIEnabled          bool               `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled            bool               `help:"indicates if file browser flow is disabled" default:"false"`
-	CSPEnabled                         bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                     string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
-	PathwayOverviewEnabled             bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard                bool               `help:"indicates if new project dashboard should be used" default:"true"`
-	NewBillingScreen                   bool               `help:"indicates if new billing screens should be used" default:"true"`
-	GeneratedAPIEnabled                bool               `help:"indicates if generated console api should be used" default:"false"`
-	OptionalSignupSuccessURL           string             `help:"optional url to external registration success page" default:""`
-	HomepageURL                        string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
-	NativeTokenPaymentsEnabled         bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
-	NewEncryptionPassphraseFlowEnabled bool               `help:"indicates if new encryption passphrase flow is enabled" default:"true"`
+	ContactInfoURL                  string             `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string             `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	LetUsKnowURL                    string             `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string             `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string             `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string             `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string             `help:"url link to terms and conditions page" default:"https://www.storj.io/terms-of-service/"`
+	AccountActivationRedirectURL    string             `help:"url link for account activation redirect" default:""`
+	PartneredSatellites             console.Satellites `help:"names and addresses of partnered satellites in JSON list format" default:"[{\"name\":\"US1\",\"address\":\"https://us1.storj.io\"},{\"name\":\"EU1\",\"address\":\"https://eu1.storj.io\"},{\"name\":\"AP1\",\"address\":\"https://ap1.storj.io\"}]"`
+	GeneralRequestURL               string             `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string             `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string             `help:"url link for gateway credentials requests" default:"https://auth.storjshare.io" devDefault:"http://localhost:8000"`
+	IsBetaSatellite                 bool               `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string             `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string             `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string             `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeBillingUIEnabled      bool               `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool               `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
+	FileBrowserFlowDisabled         bool               `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                      bool               `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string             `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
+	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
+	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"true"`
+	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
+	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
+	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
+	NativeTokenPaymentsEnabled      bool               `help:"indicates if storj native token payments system is enabled" default:"false"`
 
 	OauthCodeExpiry         time.Duration `help:"how long oauth authorization codes are issued for" default:"10m"`
 	OauthAccessTokenExpiry  time.Duration `help:"how long oauth access tokens are issued for" default:"24h"`
@@ -428,46 +427,45 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		ExternalAddress                    string
-		SatelliteName                      string
-		SatelliteNodeURL                   string
-		StripePublicKey                    string
-		PartneredSatellites                string
-		DefaultProjectLimit                int
-		GeneralRequestURL                  string
-		ProjectLimitsIncreaseRequestURL    string
-		GatewayCredentialsRequestURL       string
-		IsBetaSatellite                    bool
-		BetaSatelliteFeedbackURL           string
-		BetaSatelliteSupportURL            string
-		DocumentationURL                   string
-		CouponCodeBillingUIEnabled         bool
-		CouponCodeSignupUIEnabled          bool
-		FileBrowserFlowDisabled            bool
-		LinksharingURL                     string
-		PathwayOverviewEnabled             bool
-		RegistrationRecaptchaEnabled       bool
-		RegistrationRecaptchaSiteKey       string
-		RegistrationHcaptchaEnabled        bool
-		RegistrationHcaptchaSiteKey        string
-		LoginRecaptchaEnabled              bool
-		LoginRecaptchaSiteKey              string
-		LoginHcaptchaEnabled               bool
-		LoginHcaptchaSiteKey               string
-		NewProjectDashboard                bool
-		DefaultPaidStorageLimit            memory.Size
-		DefaultPaidBandwidthLimit          memory.Size
-		NewBillingScreen                   bool
-		InactivityTimerEnabled             bool
-		InactivityTimerDuration            int
-		InactivityTimerViewerEnabled       bool
-		OptionalSignupSuccessURL           string
-		HomepageURL                        string
-		NativeTokenPaymentsEnabled         bool
-		NewEncryptionPassphraseFlowEnabled bool
-		PasswordMinimumLength              int
-		PasswordMaximumLength              int
-		ABTestingEnabled                   bool
+		ExternalAddress                 string
+		SatelliteName                   string
+		SatelliteNodeURL                string
+		StripePublicKey                 string
+		PartneredSatellites             string
+		DefaultProjectLimit             int
+		GeneralRequestURL               string
+		ProjectLimitsIncreaseRequestURL string
+		GatewayCredentialsRequestURL    string
+		IsBetaSatellite                 bool
+		BetaSatelliteFeedbackURL        string
+		BetaSatelliteSupportURL         string
+		DocumentationURL                string
+		CouponCodeBillingUIEnabled      bool
+		CouponCodeSignupUIEnabled       bool
+		FileBrowserFlowDisabled         bool
+		LinksharingURL                  string
+		PathwayOverviewEnabled          bool
+		RegistrationRecaptchaEnabled    bool
+		RegistrationRecaptchaSiteKey    string
+		RegistrationHcaptchaEnabled     bool
+		RegistrationHcaptchaSiteKey     string
+		LoginRecaptchaEnabled           bool
+		LoginRecaptchaSiteKey           string
+		LoginHcaptchaEnabled            bool
+		LoginHcaptchaSiteKey            string
+		NewProjectDashboard             bool
+		DefaultPaidStorageLimit         memory.Size
+		DefaultPaidBandwidthLimit       memory.Size
+		NewBillingScreen                bool
+		InactivityTimerEnabled          bool
+		InactivityTimerDuration         int
+		InactivityTimerViewerEnabled    bool
+		OptionalSignupSuccessURL        string
+		HomepageURL                     string
+		NativeTokenPaymentsEnabled      bool
+		PasswordMinimumLength           int
+		PasswordMaximumLength           int
+		ABTestingEnabled                bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -506,7 +504,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
 	data.HomepageURL = server.config.HomepageURL
 	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
-	data.NewEncryptionPassphraseFlowEnabled = server.config.NewEncryptionPassphraseFlowEnabled
 	data.PasswordMinimumLength = console.PasswordMinimumLength
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled

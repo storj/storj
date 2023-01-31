@@ -11,8 +11,7 @@
                 <p class="medium">Do you know a bucket can have multiple passphrases?</p>
                 <p>
                     If you don’t see the objects you’re looking for,
-                    <span v-if="isNewEncryptionPassphraseFlowEnabled" class="link" @click="toggleManagePassphrase">try opening the bucket again</span>
-                    <router-link v-else class="link" :to="bucketsManagementPath">try opening the bucket again</router-link>
+                    <span class="link" @click="toggleManagePassphrase">try opening the bucket again</span>
                     with a different passphrase.
                 </p>
             </template>
@@ -51,8 +50,6 @@ export default class UploadFile extends Vue {
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public readonly bucketsManagementPath: string = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
-
     /**
      * Lifecycle hook after vue instance was created.
      * Initiates file browser.
@@ -75,10 +72,6 @@ export default class UploadFile extends Vue {
 
     @Watch('edgeCredentials.secretKey')
     public async reinit(): Promise<void> {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
         if (!this.edgeCredentials.secretKey) {
             await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
             return;
@@ -256,13 +249,6 @@ export default class UploadFile extends Vue {
      */
     private get edgeCredentials(): EdgeCredentials {
         return this.$store.state.objectsModule.gatewayCredentials;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

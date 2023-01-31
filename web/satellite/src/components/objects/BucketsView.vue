@@ -5,26 +5,18 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <template v-if="isNewEncryptionPassphraseFlowEnabled">
-                <VButton
-                    v-if="promptForPassphrase"
-                    label="Set Encryption Passphrase ->"
-                    width="234px"
-                    height="40px"
-                    font-size="14px"
-                    :on-press="onSetClick"
-                />
-                <div v-else class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
-                    <WhitePlusIcon class="buckets-view-button__icon" />
-                    <p class="buckets-view-button__label">New Bucket</p>
-                </div>
-            </template>
-            <template v-else>
-                <div class="buckets-view-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
-                    <WhitePlusIcon class="buckets-view-button__icon" />
-                    <p class="buckets-view-button__label">New Bucket</p>
-                </div>
-            </template>
+            <VButton
+                v-if="promptForPassphrase"
+                label="Set Encryption Passphrase ->"
+                width="234px"
+                height="40px"
+                font-size="14px"
+                :on-press="onSetClick"
+            />
+            <div v-else class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+                <WhitePlusIcon class="buckets-view-button__icon" />
+                <p class="buckets-view-button__label">New Bucket</p>
+            </div>
         </div>
 
         <div class="buckets-view__divider" />
@@ -99,15 +91,8 @@ export default class BucketsView extends Vue {
                 return;
             }
 
-            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
-                this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                if (this.isNewEncryptionPassphraseFlowEnabled) {
-                    if (!this.promptForPassphrase) {
-                        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
-                    }
-                } else {
-                    await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                }
+            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated && !this.promptForPassphrase) {
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
             }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
@@ -142,14 +127,6 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Starts bucket creation flow.
-     */
-    public onNewBucketButtonClick(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    }
-
-    /**
      * Hides server-side encryption banner.
      */
     public hideBanner(): void {
@@ -162,13 +139,6 @@ export default class BucketsView extends Vue {
      */
     public get bucketsPage(): BucketPage {
         return this.$store.state.bucketUsageModule.page;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**

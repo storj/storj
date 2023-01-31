@@ -5,28 +5,11 @@
     <VModal :on-close="closeModal">
         <template #content>
             <div class="modal">
-                <template v-if="isNewEncryptionPassphraseFlowEnabled">
-                    <OpenBucketIcon />
-                    <h1 class="modal__title">Enter your encryption passphrase</h1>
-                    <p class="modal__info">
-                        To open a bucket and view your encrypted files, <br>please enter your encryption passphrase.
-                    </p>
-                </template>
-                <template v-else>
-                    <Icon />
-                    <h1 class="modal__title">Open a Bucket</h1>
-                    <p class="modal__info">
-                        To open a bucket and view your files, please enter the encryption passphrase you saved upon
-                        creating this bucket.
-                    </p>
-                    <VInput
-                        class="modal__input"
-                        label="Bucket Name"
-                        :init-value="bucketName"
-                        role-description="bucket"
-                        :disabled="true"
-                    />
-                </template>
+                <OpenBucketIcon />
+                <h1 class="modal__title">Enter your encryption passphrase</h1>
+                <p class="modal__info">
+                    To open a bucket and view your encrypted files, <br>please enter your encryption passphrase.
+                </p>
                 <VInput
                     label="Encryption Passphrase"
                     placeholder="Enter a passphrase here"
@@ -73,7 +56,6 @@ import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
-import Icon from '@/../static/images/objects/openBucket.svg';
 import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
 
 // @vue/component
@@ -82,7 +64,6 @@ import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
         VInput,
         VModal,
         VButton,
-        Icon,
         OpenBucketIcon,
     },
 })
@@ -144,11 +125,6 @@ export default class OpenBucketModal extends Vue {
         const now = new Date();
         const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
-        let bucketsCaveat: string[] = [];
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            bucketsCaveat = this.bucketName ? [this.bucketName] : [];
-        }
-
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
@@ -156,7 +132,7 @@ export default class OpenBucketModal extends Vue {
             'isList': true,
             'isDelete': true,
             'notAfter': inThreeDays.toISOString(),
-            'buckets': bucketsCaveat,
+            'buckets': [],
             'apiKey': this.apiKey,
         });
 
@@ -185,11 +161,8 @@ export default class OpenBucketModal extends Vue {
 
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-
-        if (this.isNewEncryptionPassphraseFlowEnabled) {
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-        }
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
     }
 
     /**
@@ -234,13 +207,6 @@ export default class OpenBucketModal extends Vue {
     private get apiKey(): string {
         return this.$store.state.objectsModule.apiKey;
     }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
-    }
 }
 </script>
 
@@ -271,10 +237,6 @@ export default class OpenBucketModal extends Vue {
             text-align: center;
             color: #354049;
             margin-bottom: 32px;
-        }
-
-        &__input {
-            margin-bottom: 21px;
         }
 
         &__buttons {

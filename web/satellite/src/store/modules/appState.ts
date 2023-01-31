@@ -70,7 +70,6 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
-        public isNewEncryptionPassphraseFlowEnabled = false,
     ){}
 }
 
@@ -272,9 +271,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
             state.isNewProjectDashboard = isNewProjectDashboard;
         },
-        [APP_STATE_MUTATIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS](state: State, isNewEncryptionPassphraseFlowEnabled: boolean): void {
-            state.isNewEncryptionPassphraseFlowEnabled = isNewEncryptionPassphraseFlowEnabled;
-        },
         [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
             state.appState.onbAGStepBackRoute = backRoute;
         },
@@ -441,9 +437,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
-        },
-        [APP_STATE_ACTIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS]: function ({ commit }: AppContext, isNewEncryptionPassphraseFlowEnabled: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_ENCRYPTION_PASSPHRASE_FLOW_STATUS, isNewEncryptionPassphraseFlowEnabled);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

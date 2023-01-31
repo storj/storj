@@ -19,28 +19,19 @@
             <EmptyBucketIcon class="buckets-table__no-buckets-area__image" />
             <CreateBucketIcon class="buckets-table__no-buckets-area__small-image" />
             <h4 class="buckets-table__no-buckets-area__title">There are no buckets in this project</h4>
-            <template v-if="isNewEncryptionPassphraseFlowEnabled">
-                <template v-if="promptForPassphrase">
-                    <p class="buckets-table__no-buckets-area__body">Set an encryption passphrase to start uploading files.</p>
-                    <VButton
-                        label="Set Encryption Passphrase ->"
-                        width="234px"
-                        height="40px"
-                        font-size="14px"
-                        :on-press="onSetClick"
-                    />
-                </template>
-                <template v-else>
-                    <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-                    <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
-                        <WhitePlusIcon class="new-bucket-button__icon" />
-                        <p class="new-bucket-button__label">New Bucket</p>
-                    </div>
-                </template>
+            <template v-if="promptForPassphrase">
+                <p class="buckets-table__no-buckets-area__body">Set an encryption passphrase to start uploading files.</p>
+                <VButton
+                    label="Set Encryption Passphrase ->"
+                    width="234px"
+                    height="40px"
+                    font-size="14px"
+                    :on-press="onSetClick"
+                />
             </template>
             <template v-else>
                 <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-                <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+                <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
                     <WhitePlusIcon class="new-bucket-button__icon" />
                     <p class="new-bucket-button__label">New Bucket</p>
                 </div>
@@ -165,13 +156,6 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
- * Indicates if new encryption passphrase flow is enabled.
- */
-const isNewEncryptionPassphraseFlowEnabled = computed((): boolean => {
-    return store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
-});
-
-/**
  * Toggles set passphrase modal visibility.
  */
 function onSetClick() {
@@ -183,14 +167,6 @@ function onSetClick() {
  */
 function onCreateBucketClick(): void {
     store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
-}
-
-/**
- * Starts bucket creation flow.
- */
-function onNewBucketButtonClick(): void {
-    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
 }
 
 /**
@@ -240,7 +216,7 @@ function openDropdown(key: number): void {
  */
 function openBucket(bucketName: string): void {
     store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-    if (isNewEncryptionPassphraseFlowEnabled.value && !promptForPassphrase.value) {
+    if (!promptForPassphrase.value) {
         analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
