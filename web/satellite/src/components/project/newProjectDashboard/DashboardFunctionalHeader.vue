@@ -10,7 +10,7 @@
             height="100px"
         />
         <template v-else>
-            <template v-if="promptForPassphrase">
+            <template v-if="promptForPassphrase && !bucketWasCreated">
                 <p class="dashboard-header__subtitle">
                     Set an encryption passphrase <br>to start uploading files.
                 </p>
@@ -22,7 +22,7 @@
                     :on-press="onSetClick"
                 />
             </template>
-            <template v-else-if="!promptForPassphrase && !bucketsPage.buckets.length && !bucketsPage.search">
+            <template v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsPage.buckets.length && !bucketsPage.search">
                 <p class="dashboard-header__subtitle">
                     Create a bucket to start <br>uploading data in your project.
                 </p>
@@ -67,6 +67,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -85,6 +86,18 @@ const router = useRouter();
  */
 const promptForPassphrase = computed((): boolean => {
     return store.state.objectsModule.promptForPassphrase;
+});
+
+/**
+ * Indicates if bucket was created.
+ */
+const bucketWasCreated = computed((): boolean => {
+    const status = LocalData.getBucketWasCreatedStatus();
+    if (status !== null) {
+        return status;
+    }
+
+    return false;
 });
 
 /**

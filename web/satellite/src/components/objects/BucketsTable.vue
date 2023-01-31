@@ -19,23 +19,11 @@
             <EmptyBucketIcon class="buckets-table__no-buckets-area__image" />
             <CreateBucketIcon class="buckets-table__no-buckets-area__small-image" />
             <h4 class="buckets-table__no-buckets-area__title">There are no buckets in this project</h4>
-            <template v-if="promptForPassphrase">
-                <p class="buckets-table__no-buckets-area__body">Set an encryption passphrase to start uploading files.</p>
-                <VButton
-                    label="Set Encryption Passphrase ->"
-                    width="234px"
-                    height="40px"
-                    font-size="14px"
-                    :on-press="onSetClick"
-                />
-            </template>
-            <template v-else>
-                <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-                <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
-                    <WhitePlusIcon class="new-bucket-button__icon" />
-                    <p class="new-bucket-button__label">New Bucket</p>
-                </div>
-            </template>
+            <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
+            </div>
         </div>
 
         <div v-if="isNoSearchResultsShown" class="buckets-table__empty-search">

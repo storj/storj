@@ -150,6 +150,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { computed } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -235,6 +236,9 @@ export default class NewProjectDashboard extends Vue {
             if (this.hasJustLoggedIn) {
                 if (this.limits.objectCount > 0) {
                     this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+                    if (!this.bucketWasCreated) {
+                        LocalData.setBucketWasCreatedStatus();
+                    }
                 } else {
                     this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
                 }
@@ -405,6 +409,18 @@ export default class NewProjectDashboard extends Vue {
      */
     public get hasJustLoggedIn(): boolean {
         return this.$store.state.appStateModule.appState.hasJustLoggedIn;
+    }
+
+    /**
+     * Indicates if bucket was created.
+     */
+    private get bucketWasCreated(): boolean {
+        const status = LocalData.getBucketWasCreatedStatus();
+        if (status !== null) {
+            return status;
+        }
+
+        return false;
     }
 
     /**

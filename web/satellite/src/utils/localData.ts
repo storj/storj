@@ -6,6 +6,7 @@
  */
 export class LocalData {
     private static selectedProjectId = 'selectedProjectId';
+    private static bucketWasCreated = 'bucketWasCreated';
     private static demoBucketCreated = 'demoBucketCreated';
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
@@ -34,6 +35,17 @@ export class LocalData {
 
     public static setDemoBucketCreatedStatus(): void {
         localStorage.setItem(LocalData.demoBucketCreated, 'true');
+    }
+
+    public static setBucketWasCreatedStatus(): void {
+        localStorage.setItem(LocalData.bucketWasCreated, 'true');
+    }
+
+    public static getBucketWasCreatedStatus(): boolean | null {
+        const status = localStorage.getItem(LocalData.bucketWasCreated);
+        if (!status) return null;
+
+        return JSON.parse(status);
     }
 
     /**

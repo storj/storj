@@ -5,15 +5,7 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <VButton
-                v-if="promptForPassphrase"
-                label="Set Encryption Passphrase ->"
-                width="234px"
-                height="40px"
-                font-size="14px"
-                :on-press="onSetClick"
-            />
-            <div v-else class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+            <div class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
                 <WhitePlusIcon class="buckets-view-button__icon" />
                 <p class="buckets-view-button__label">New Bucket</p>
             </div>
@@ -29,7 +21,6 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -40,7 +31,6 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
-import VButton from '@/components/common/VButton.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 
@@ -50,7 +40,6 @@ import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
         WhitePlusIcon,
         BucketsTable,
         EncryptionBanner,
-        VButton,
     },
 })
 export default class BucketsView extends Vue {
@@ -110,13 +99,6 @@ export default class BucketsView extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
         }
-    }
-
-    /**
-     * Toggles create project passphrase modal visibility.
-     */
-    public onSetClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
     }
 
     /**
