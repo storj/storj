@@ -70,7 +70,7 @@ func TestStorageUsage(t *testing.T) {
 		averageBySatellite[satellite] = satelliteUsageBytes / float64(len(expectedDailyStamps[satellite]))
 	}
 
-	averageUsage = totalUsageBytes / totalStamps
+	averageUsage = totalUsageBytes / float64(len(expectedDailyStampsTotals))
 
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		storageUsageDB := db.StorageUsage()
