@@ -105,6 +105,14 @@ router.beforeEach(async (to, from, next) => {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
+    // On very first login we try to redirect user to project dashboard
+    // but since there is no project we then redirect user to onboarding flow.
+    // That's why we toggle this flag here back to false not show create project passphrase modal again
+    // if user clicks 'Continue in web'.
+    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+    }
+
     if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;

@@ -69,6 +69,7 @@ import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -152,6 +153,9 @@ export default class CreateProjectModal extends Vue {
 
         this.isLoading = false;
         this.closeModal();
+
+        this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
 
         this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);
