@@ -9,10 +9,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const tcpFastOpen = 0x17
+const tcpFastOpenServer = 15
 
 func setTCPFastOpen(fd uintptr, queue int) error {
-	return syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_TCP, tcpFastOpen, queue)
+	return syscall.SetsockoptInt(syscall.Handle(fd), syscall.IPPROTO_TCP, tcpFastOpenServer, 1)
 }
 
 func tryInitFastOpen(*zap.Logger) {}
