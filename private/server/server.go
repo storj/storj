@@ -130,11 +130,12 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 	if config.TCPFastOpen {
 		tryInitFastOpen(log)
 		listenConfig.Control = func(network, address string, c syscall.RawConn) error {
-			var internalErr error
-			err := c.Control(func(fd uintptr) {
-				internalErr = setTCPFastOpen(fd, config.TCPFastOpenQueue)
+			return c.Control(func(fd uintptr) {
+				err := setTCPFastOpen(fd, config.TCPFastOpenQueue)
+				if err != nil {
+					log.Sugar().Infof("failed to set tcp fast open for this socket: %v", err)
+				}
 			})
-			return errs.Combine(err, internalErr)
 		}
 	}
 
