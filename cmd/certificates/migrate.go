@@ -35,7 +35,7 @@ func cmdMigrate(cmd *cobra.Command, args []string) error {
 	count := 0
 	return authorizationDB.MigrateGob(ctx, func(userID string) {
 		if count%100 == 0 {
-			log.Info("progress", zap.String("user", userID), zap.Int("count", count))
+			log.Info("progress", zap.String("last", userID), zap.Int("total-processed-count", count))
 		}
 		count++
 	})

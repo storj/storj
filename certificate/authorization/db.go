@@ -300,9 +300,7 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 // MigrateGob migrates gob encoded Group to protobuf encoded Group.
 func (authDB *DB) MigrateGob(ctx context.Context, progress func(userID string)) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.db.Iterate(ctx, storage.IterateOptions{
-		Recurse: true,
-	}, func(ctx context.Context, it storage.Iterator) error {
+	err = authDB.db.IterateUnordered(ctx, func(ctx context.Context, it storage.Iterator) error {
 		var item storage.ListItem
 
 		for it.Next(ctx, &item) {

@@ -72,6 +72,9 @@ type KeyValueStore interface {
 	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts.
 	Iterate(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
+	// IterateUnordered iterates over all data, however, does not guarantee ordering.
+	// It only guarantees all items are iterated at least once.
+	IterateUnordered(ctx context.Context, fn func(context.Context, Iterator) error) error
 	// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
 	IterateWithoutLookupLimit(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
 	// CompareAndSwap atomically compares and swaps oldValue with newValue.

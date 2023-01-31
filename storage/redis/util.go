@@ -8,6 +8,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/go-redis/redis/v8"
+
 	"storj.io/storj/storage"
 )
 
@@ -73,5 +75,31 @@ func (it *StaticIterator) Next(ctx context.Context, item *storage.ListItem) bool
 	}
 	*item = it.Items[it.Index]
 	it.Index++
+	return true
+}
+
+// ScanIterator iterates over scan command items.
+type ScanIterator struct {
+	db *redis.Client
+	it *redis.ScanIterator
+}
+
+// Next returns the next item from the iterator.
+func (it *ScanIterator) Next(ctx context.Context, item *storage.ListItem) bool {
+	ok := it.it.Next(ctx)
+	if !ok {
+		return false
+	}
+
+	key := it.it.Val()
+	value, err := it.db.Get(ctx, key).Bytes()
+	if err != nil {
+		return false
+	}
+
+	item.Key = storage.Key(key)
+	item.Value = storage.Value(value)
+	item.IsPrefix = false
+
 	return true
 }
