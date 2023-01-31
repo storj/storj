@@ -90,20 +90,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			authController := consoleapi.NewAuth(chore.log, nil, nil, nil, nil, nil, "", chore.address, "", "", "", "")
 
 			link := authController.ActivateAccountURL + "?token=" + token
-			userName := u.ShortName
-			if u.ShortName == "" {
-				userName = u.FullName
-			}
 
 			// blocking send allows us to verify that links are clicked in tests.
 			if chore.useBlockingSend {
 				err = chore.mailService.SendRendered(
 					ctx,
-					[]post.Address{{Address: u.Email, Name: userName}},
+					[]post.Address{{Address: u.Email}},
 					&console.AccountActivationEmail{
 						ActivationLink: link,
 						Origin:         authController.ExternalAddress,
-						UserName:       userName,
 					},
 				)
 				if err != nil {
@@ -113,11 +108,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			} else {
 				chore.mailService.SendRenderedAsync(
 					ctx,
-					[]post.Address{{Address: u.Email, Name: userName}},
+					[]post.Address{{Address: u.Email}},
 					&console.AccountActivationEmail{
 						ActivationLink: link,
 						Origin:         authController.ExternalAddress,
-						UserName:       userName,
 					},
 				)
 			}

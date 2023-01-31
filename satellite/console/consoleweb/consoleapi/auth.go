@@ -349,18 +349,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link := a.ActivateAccountURL + "?token=" + token
-	userName := user.ShortName
-	if user.ShortName == "" {
-		userName = user.FullName
-	}
 
 	a.mailService.SendRenderedAsync(
 		ctx,
-		[]post.Address{{Address: user.Email, Name: userName}},
+		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
-			UserName:       userName,
 		},
 	)
 }
@@ -684,24 +679,18 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userName := user.ShortName
-	if user.ShortName == "" {
-		userName = user.FullName
-	}
-
 	link := a.ActivateAccountURL + "?token=" + token
 	contactInfoURL := a.ContactInfoURL
 	termsAndConditionsURL := a.TermsAndConditionsURL
 
 	a.mailService.SendRenderedAsync(
 		ctx,
-		[]post.Address{{Address: user.Email, Name: userName}},
+		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
 			ContactInfoURL:        contactInfoURL,
-			UserName:              userName,
 		},
 	)
 }
