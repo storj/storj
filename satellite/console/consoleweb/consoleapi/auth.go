@@ -6,9 +6,7 @@ package consoleapi
 import (
 	"encoding/json"
 	"errors"
-	"html/template"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -205,14 +203,6 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.RemoveTokenCookie(w)
 }
 
-// replaceSpecialCharacters replaces characters that could be used to represent a url or html.
-func replaceSpecialCharacters(s string) string {
-	re := regexp.MustCompile(`[\/:\.]`)
-	s = template.HTMLEscapeString(s)
-	s = template.JSEscapeString(s)
-	return re.ReplaceAllString(s, "-")
-}
-
 // Register creates new user, sends activation e-mail.
 // If a user with the given e-mail address already exists, a password reset e-mail is sent instead.
 func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
@@ -266,14 +256,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Invalid email.")))
 		return
 	}
-
-	// remove special characters from submitted info so that malicious link or code cannot be injected anywhere.
-	registerData.FullName = replaceSpecialCharacters(registerData.FullName)
-	registerData.ShortName = replaceSpecialCharacters(registerData.ShortName)
-	registerData.Partner = replaceSpecialCharacters(registerData.Partner)
-	registerData.Position = replaceSpecialCharacters(registerData.Position)
-	registerData.CompanyName = replaceSpecialCharacters(registerData.CompanyName)
-	registerData.EmployeeCount = replaceSpecialCharacters(registerData.EmployeeCount)
 
 	if len([]rune(registerData.Partner)) > 100 {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
@@ -464,8 +446,6 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
-	updatedInfo.FullName = replaceSpecialCharacters(updatedInfo.FullName)
-	updatedInfo.ShortName = replaceSpecialCharacters(updatedInfo.ShortName)
 
 	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
 		a.serveJSONError(w, err)
