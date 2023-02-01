@@ -373,15 +373,15 @@ function toggleTooltipHover(type, action): void {
     if (tooltipHover.value === '' && action === 'over') {
         tooltipHover.value = type;
         return;
-    } else if (tooltipHover === type && action === 'leave') {
+    } else if (tooltipHover.value === type && action === 'leave') {
         tooltipVisibilityTimer.value = setTimeout(() => {
             tooltipHover.value = '';
-        },750);
+        }, 750);
         return;
     } else if (tooltipHover.value === type && action === 'over') {
         tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
         return;
-    } else if (tooltipHover !== type) {
+    } else if (tooltipHover.value !== type) {
         tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
         tooltipHover.value = type;
     }
