@@ -303,6 +303,15 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
 
+		// user can do only two actions which are important for bucket bandwidth usage
+		userAction := orderLimit.Action == pb.PieceAction_PUT || orderLimit.Action == pb.PieceAction_GET
+
+		// don't store anything else than user actions in bucket_bandwidth_rollups table. amounts for other
+		// actions will be stored in storagenode_bandwidth_rollups.
+		if !userAction {
+			continue
+		}
+
 		metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
 		if err != nil {
 			log.Debug("decrypt order metadata err:", zap.Error(err))
@@ -332,13 +341,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			continue
 		}
 
-		satelliteAction := orderLimit.Action == pb.PieceAction_GET_AUDIT ||
-			orderLimit.Action == pb.PieceAction_GET_REPAIR ||
-			orderLimit.Action == pb.PieceAction_PUT_REPAIR
-
 		// log error only for orders created by users, for satellite actions order limits are created
 		// without bucket name and project ID because segments loop doesn't have access to it
-		if !satelliteAction && (bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero()) {
+		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Warn("decrypt order: bucketName or projectID not set",
 				zap.String("bucketName", bucketInfo.BucketName),
 				zap.String("projectID", bucketInfo.ProjectID.String()),
