@@ -354,10 +354,14 @@ function toggleAllPermission(type): void {
     if (checkedPermissions[type]) {
         checkedPermissions[type] = false;
         allPermissionsClicked.value = false;
+        selectedPermissions.value = selectedPermissions.value.filter(t => t !== type);
     } else {
         checkedPermissions[type] = true;
+        selectedPermissions.value.push(type);
+
         if (checkedPermissions.Read && checkedPermissions.Write && checkedPermissions.List && checkedPermissions.Delete) {
             allPermissionsClicked.value = true;
+            selectedPermissions.value = permissionsList.value;
         }
     }
 }
