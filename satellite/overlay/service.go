@@ -703,7 +703,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		if v.Compare(min) == -1 {
 			node.VersionBelowMin = true
 			if oldInfo.LastSoftwareUpdateEmail == nil ||
-				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(time.Now()) {
+				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(timestamp) {
 				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
 				if err != nil {
 					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))
