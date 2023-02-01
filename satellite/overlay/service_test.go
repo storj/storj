@@ -1027,26 +1027,69 @@ func TestUpdateCheckInBelowMinVersionEvent(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.SendNodeEmails = true
-				config.Overlay.Node.MinimumVersion = "v2.0.0"
+				// testplanet storagenode default version is "v0.0.1".
+				// set this as minimum version so storagenode doesn't start below it.
+				config.Overlay.Node.MinimumVersion = "v0.0.1"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].Overlay.Service
 		node := planet.StorageNodes[0]
 		node.Contact.Chore.Pause(ctx)
+		email := node.Config.Operator.Email
 
-		// Set version to above minimum because we have no control over initial testplanet check in and it
-		// fails the test due to wait period between version update emails
-		checkInInfo := getNodeInfo(node.ID())
-		checkInInfo.Version = &pb.NodeVersion{Version: "v2.0.0"}
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
-		checkInInfo.Version = &pb.NodeVersion{Version: "v1.0.0"}
-		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, time.Now()))
+		getNE := func() nodeevents.NodeEvent {
+			ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, email, nodeevents.BelowMinVersion)
+			require.NoError(t, err)
+			require.Equal(t, node.ID(), ne.NodeID)
+			require.Equal(t, email, ne.Email)
+			require.Equal(t, nodeevents.BelowMinVersion, ne.Event)
+			return ne
+		}
 
-		ne, err := planet.Satellites[0].DB.NodeEvents().GetLatestByEmailAndEvent(ctx, checkInInfo.Operator.Email, nodeevents.BelowMinVersion)
+		nd, err := service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, node.ID(), ne.NodeID)
-		require.Equal(t, checkInInfo.Operator.Email, ne.Email)
-		require.Equal(t, nodeevents.BelowMinVersion, ne.Event)
+		require.Nil(t, nd.LastSoftwareUpdateEmail)
+
+		// Set version below minimum
+		now := time.Now()
+		checkInInfo := getNodeInfo(node.ID())
+		checkInInfo.Operator.Email = email
+
+		checkInInfo.Version = &pb.NodeVersion{Version: "v0.0.0"}
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now))
+
+		nd, err = service.Get(ctx, node.ID())
+		require.NoError(t, err)
+
+		lastEmail := nd.LastSoftwareUpdateEmail
+		require.NotNil(t, lastEmail)
+
+		// check that software update node event was inserted into nodeevents.DB
+		ne0 := getNE()
+		require.True(t, ne0.CreatedAt.After(now))
+
+		// check in again and check that another email wasn't sent
+		now = now.Add(24 * time.Hour)
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now))
+
+		nd, err = service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, lastEmail, nd.LastSoftwareUpdateEmail)
+
+		// a node event should not have been inserted, so should be the same as the last node event
+		ne1 := getNE()
+		require.Equal(t, ne1.CreatedAt, ne0.CreatedAt)
+
+		// check in again after cooldown period has passed and check that email was sent
+		require.NoError(t, service.UpdateCheckIn(ctx, checkInInfo, now.Add(planet.Satellites[0].Config.Overlay.NodeSoftwareUpdateEmailCooldown)))
+
+		nd, err = service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.NotNil(t, nd.LastSoftwareUpdateEmail)
+		require.True(t, nd.LastSoftwareUpdateEmail.After(*lastEmail))
+
+		ne2 := getNE()
+		require.True(t, ne2.CreatedAt.After(ne1.CreatedAt))
 	})
 }

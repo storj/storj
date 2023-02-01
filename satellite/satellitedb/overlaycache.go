@@ -1297,6 +1297,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			last_software_update_email = CASE
 				WHEN $19::bool IS TRUE THEN $15::timestamptz
 				WHEN $20::bool IS FALSE THEN NULL
+				ELSE nodes.last_software_update_email
 			END,
 			last_offline_email = CASE WHEN $8::bool IS TRUE
 				THEN NULL
@@ -1409,6 +1410,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_software_update_email = CASE
 					WHEN $20::bool IS TRUE THEN $16::timestamptz
 					WHEN $21::bool IS FALSE THEN NULL
+					ELSE nodes.last_software_update_email
 				END,
 				last_offline_email = CASE WHEN $9::bool IS TRUE
 					THEN NULL
