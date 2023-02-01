@@ -5,13 +5,14 @@ package server_test
 
 import (
 	"context"
+	"net"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/errs2"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/rpc"
 	_ "storj.io/common/rpc/quic"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
@@ -51,12 +53,28 @@ func TestServer(t *testing.T) {
 		require.NoError(t, instance.Close())
 	}()
 
-	serverCtx, serverCancel := context.WithTimeout(ctx, time.Second)
+	serverCtx, serverCancel := context.WithCancel(ctx)
 	defer serverCancel()
 
-	err = instance.Run(serverCtx)
-	err = errs2.IgnoreCanceled(err)
-	require.NoError(t, err)
+	require.Empty(t, sync2.Concurrently(
+		func() error {
+			err = instance.Run(serverCtx)
+			return errs2.IgnoreCanceled(err)
+		},
+		func() (err error) {
+			defer serverCancel()
+
+			dialer := net.Dialer{}
+			conn, err := dialer.DialContext(ctx, "tcp", instance.PrivateAddr().String())
+			if err != nil {
+				return errs.Wrap(err)
+			}
+			defer func() { err = errs.Combine(err, conn.Close()) }()
+
+			_, err = conn.Write([]byte{1})
+			return errs.Wrap(err)
+		},
+	))
 }
 
 func TestHybridConnector_Basic(t *testing.T) {
