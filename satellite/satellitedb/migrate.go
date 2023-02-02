@@ -2216,6 +2216,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN noise_public_key bytea;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for interval_day column for project_bandwidth_daily_rollup",
+				Version:     223,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

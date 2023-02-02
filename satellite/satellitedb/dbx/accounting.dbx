@@ -94,6 +94,10 @@ read paged (
 
 model project_bandwidth_daily_rollup (
 	key    project_id interval_day
+	index (
+		name project_bandwidth_daily_rollup_interval_day_index
+		fields interval_day
+	)
 
 	field project_id       blob
 	field interval_day     date

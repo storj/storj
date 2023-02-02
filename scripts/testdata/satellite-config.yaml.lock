@@ -860,7 +860,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.usage-price.storage-tb: "4"
 
 # how often to remove unused project bandwidth rollups
-# project-bw-cleanup.interval: 168h0m0s
+# project-bw-cleanup.interval: 24h0m0s
 
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
