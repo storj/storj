@@ -4,6 +4,7 @@
 package main_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"strings"
@@ -28,14 +29,8 @@ import (
 // Test salt column is updated correctly.
 func TestGenerateMissingSaltTest(t *testing.T) {
 	t.Parallel()
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
 
-	var n int
-	var projectsIDs []uuid.UUID
-	var test2Salt uuid.UUID
-	var salt2 []byte
-	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB, conn *pgx.Conn, log *zap.Logger) {
+	prepare := func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB, conn *pgx.Conn, log *zap.Logger) (projectsIDs []uuid.UUID, shouldUpdate int) {
 		myProject1, err := db.Console().Projects().Insert(ctx, &console.Project{
 			Name:        "test1",
 			Description: "test1",
@@ -48,7 +43,7 @@ func TestGenerateMissingSaltTest(t *testing.T) {
 		salt1, err := db.Console().Projects().TestGetSalt(ctx, myProject1.ID)
 		require.NoError(t, err)
 		require.Equal(t, len(salt1), 0)
-		n++
+		shouldUpdate++
 
 		// Project "test2" should have a populated salt column and should not get updated.
 		myProject2, err := db.Console().Projects().Insert(ctx, &console.Project{
@@ -58,35 +53,31 @@ func TestGenerateMissingSaltTest(t *testing.T) {
 		})
 		require.NoError(t, err)
 		projectsIDs = append(projectsIDs, myProject2.ID)
-		test2Salt = myProject2.ID
-		salt2, err = db.Console().Projects().TestGetSalt(ctx, myProject2.ID)
+		salt2, err := db.Console().Projects().TestGetSalt(ctx, myProject2.ID)
 		require.NoError(t, err)
 		require.NotNil(t, salt2)
+
+		return projectsIDs, shouldUpdate
 	}
 
-	check := func(t *testing.T, ctx context.Context, db satellite.DB) {
+	check := func(t *testing.T, ctx context.Context, db satellite.DB, projectsIDs []uuid.UUID, shouldUpdate int) {
 		var updated int
-		var checkedNotUpdate bool
+		var notUpdated int
 
 		for _, p := range projectsIDs {
 			saltdb, err := db.Console().Projects().TestGetSalt(ctx, p)
 			require.NoError(t, err)
 			idHash := sha256.Sum256(p[:])
 			salt := idHash[:]
-			// The insert method creates a new uuid rather than the hashed project id for the salt column.
-			// Test 2 was not updated, so the salt column will not match the hashed project id.
-			if p == test2Salt {
-				require.NotEqual(t, salt, saltdb)
-				checkedNotUpdate = true
-				require.Equal(t, salt2, saltdb)
-			} else {
-				require.Equal(t, salt, saltdb)
+			// if the salt column is the hashed project ID, it means we migrated that row
+			if bytes.Equal(salt, saltdb) {
 				updated++
+			} else {
+				notUpdated++
 			}
 		}
-		require.Equal(t, n, updated)
-		require.True(t, checkedNotUpdate)
-		n = 0
+		require.Equal(t, shouldUpdate, updated)
+		require.Equal(t, len(projectsIDs)-shouldUpdate, notUpdated)
 	}
 
 	test(t, prepare, migrator.GenerateMissingSalt, check, &migrator.Config{
@@ -94,18 +85,19 @@ func TestGenerateMissingSaltTest(t *testing.T) {
 	})
 }
 
-func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB, conn *pgx.Conn, log *zap.Logger),
+func test(t *testing.T,
+	prepare func(t *testing.T, ctx *testcontext.Context, rawDB *dbutil.TempDatabase, db satellite.DB, conn *pgx.Conn, log *zap.Logger) (projectsIDs []uuid.UUID, shouldUpdate int),
 	migrate func(ctx context.Context, log *zap.Logger, conn *pgx.Conn, config migrator.Config) (err error),
-	check func(t *testing.T, ctx context.Context, db satellite.DB), config *migrator.Config) {
-
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	check func(t *testing.T, ctx context.Context, db satellite.DB, projectsIDs []uuid.UUID, shouldUpdate int), config *migrator.Config) {
 
 	log := zaptest.NewLogger(t)
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			t.Parallel()
+			ctx := testcontext.New(t)
+
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
 
@@ -123,15 +115,16 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 
 			conn, err := pgx.Connect(ctx, mConnStr)
 			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, conn.Close(ctx))
+			}()
 
-			prepare(t, ctx, tempDB, db, conn, log)
+			projectsIDs, shouldUpdate := prepare(t, ctx, tempDB, db, conn, log)
 
 			err = migrate(ctx, log, conn, *config)
 			require.NoError(t, err)
 
-			require.NoError(t, err)
-
-			check(t, ctx, db)
+			check(t, ctx, db, projectsIDs, shouldUpdate)
 		})
 	}
 }
