@@ -197,6 +197,50 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	sendJSONData(w, http.StatusOK, data)
 }
 
+func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+	user.PasswordHash = nil
+
+	var limits struct {
+		Storage   int64 `json:"storage"`
+		Bandwidth int64 `json:"bandwidth"`
+		Segment   int64 `json:"maxSegments"`
+	}
+
+	limits.Storage = user.ProjectStorageLimit
+	limits.Bandwidth = user.ProjectBandwidthLimit
+	limits.Segment = user.ProjectSegmentLimit
+
+	data, err := json.Marshal(limits)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
 func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -285,6 +329,90 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
+}
+
+// updateLimits updates user limits and all project limits for that user (future and existing).
+func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type User struct {
+		console.User
+	}
+
+	var input User
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	updateRequest := console.UpdateUserRequest{}
+
+	if input.ProjectStorageLimit > 0 {
+		updateRequest.ProjectStorageLimit = &input.ProjectStorageLimit
+	}
+	if input.ProjectBandwidthLimit > 0 {
+		updateRequest.ProjectBandwidthLimit = &input.ProjectBandwidthLimit
+	}
+	if input.ProjectSegmentLimit > 0 {
+		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
+	}
+
+	userLimits := console.UsageLimits{
+		Storage:   *updateRequest.ProjectStorageLimit,
+		Bandwidth: *updateRequest.ProjectBandwidthLimit,
+		Segment:   *updateRequest.ProjectSegmentLimit,
+	}
+
+	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, userLimits)
+	if err != nil {
+		sendJSONError(w, "failed to update user limits",
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects",
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	for _, p := range userProjects {
+		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, userLimits)
+		if err != nil {
+			sendJSONError(w, "failed to update project limits",
+				err.Error(), http.StatusInternalServerError)
+		}
+	}
+
 }
 
 func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
