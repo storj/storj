@@ -200,6 +200,8 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 		err = pb.DRPCRegisterPiecestore(server.DRPC(), &piecestoreMock{})
 		require.NoError(t, err)
+		err = pb.DRPCRegisterReplaySafePiecestore(server.ReplaySafeDRPC(), &piecestoreMock{})
+		require.NoError(t, err)
 
 		defer ctx.Check(server.Close)
 
