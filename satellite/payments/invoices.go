@@ -27,6 +27,10 @@ const (
 //
 // architecture: Service
 type Invoices interface {
+	// Create creates an invoice with price and description.
+	Create(ctx context.Context, userID uuid.UUID, price int64, desc string) (*Invoice, error)
+	// Pay pays an invoice.
+	Pay(ctx context.Context, invoiceID, paymentMethodID string) (*Invoice, error)
 	// List returns a list of invoices for a given payment account.
 	List(ctx context.Context, userID uuid.UUID) ([]Invoice, error)
 	// ListWithDiscounts returns a list of invoices and coupon usages for a given payment account.

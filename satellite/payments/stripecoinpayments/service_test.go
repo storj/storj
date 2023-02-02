@@ -675,7 +675,7 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 			}
 			// when due date is set invoice should not be paid
 			if i.ID == invWithDue.ID {
-				require.Equal(t, stripe.InvoiceStatus(""), i.Status)
+				require.Equal(t, stripe.InvoiceStatusDraft, i.Status)
 			}
 		}
 	})

@@ -122,6 +122,9 @@ var (
 
 	// ErrProjName is error that occurs with reused project names.
 	ErrProjName = errs.Class("project name")
+
+	// ErrPurchaseDesc is error that occurs when something is wrong with Purchase description.
+	ErrPurchaseDesc = errs.Class("purchase description")
 )
 
 // Service is handling accounts related logic.
@@ -3084,6 +3087,52 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	return WalletPayments{
 		Payments: paymentInfos,
 	}, nil
+}
+
+// Purchase makes a purchase of `price` amount with payment method with id of `paymentMethodID`.
+func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if desc == "" {
+		return ErrPurchaseDesc.New("description cannot be empty")
+	}
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	invoices, err := payment.service.accounts.Invoices().List(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// check for any previously created unpaid invoice with the same description.
+	// If draft, delete it and create new and pay. If open, pay it and don't create new.
+	for _, inv := range invoices {
+		if inv.Description == desc {
+			if inv.Status == payments.InvoiceStatusDraft {
+				_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			} else if inv.Status == payments.InvoiceStatusOpen {
+				_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+				return Error.Wrap(err)
+			}
+		}
+	}
+
+	inv, err := payment.service.accounts.Invoices().Create(ctx, user.ID, price, desc)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // GetProjectUsagePriceModel returns the project usage price model for the user.

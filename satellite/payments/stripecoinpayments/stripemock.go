@@ -33,6 +33,14 @@ const (
 	// MockCouponID3 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
 	MockCouponID3 = "c3"
 
+	// MockInvoicesNewFailure can be passed to mockInvoices.New as `desc` argument to cause it to return
+	// an error.
+	MockInvoicesNewFailure = "mock_invoices_new_failure"
+
+	// MockInvoicesPayFailure can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
+	// an error.
+	MockInvoicesPayFailure = "mock_invoices_pay_failure"
+
 	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
 	// mockPaymentMethods.New to return an error.
 	TestPaymentMethodsNewFailure = "test_payment_methods_new_failure"
@@ -491,7 +499,9 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 
 	items, ok := m.invoiceItems.items[*params.Customer]
 	if !ok || len(items) == 0 {
-		return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+		if params.PendingInvoiceItemsBehavior == nil || *params.PendingInvoiceItemsBehavior != "exclude" {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+		}
 	}
 
 	due := int64(0)
@@ -499,11 +509,22 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
-	invoice := &stripe.Invoice{
-		ID:       "in_" + string(testrand.RandAlphaNumeric(25)),
-		Customer: &stripe.Customer{ID: *params.Customer},
-		DueDate:  due,
+	var desc string
+	if params.Description != nil {
+		if *params.Description == MockInvoicesNewFailure {
+			return nil, &stripe.Error{}
+		}
+		desc = *params.Description
 	}
+
+	invoice := &stripe.Invoice{
+		ID:          "in_" + string(testrand.RandAlphaNumeric(25)),
+		Customer:    &stripe.Customer{ID: *params.Customer},
+		DueDate:     due,
+		Status:      stripe.InvoiceStatusDraft,
+		Description: desc,
+	}
+
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
 	for _, item := range items {
 		if item.Invoice == nil {
@@ -562,12 +583,18 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 	for _, invoices := range m.invoices {
 		for i, invoice := range invoices {
 			if invoice.ID == id {
+				if params.PaymentMethod != nil {
+					if *params.PaymentMethod == MockInvoicesPayFailure {
+						invoice.Status = stripe.InvoiceStatusOpen
+						return invoice, &stripe.Error{}
+					}
+				}
 				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
 				return invoice, nil
 			}
 		}
 	}
-	return nil, nil
+	return nil, &stripe.Error{}
 }
 
 func (m *mockInvoices) Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
@@ -609,6 +636,9 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	}
 	if params.UnitAmountDecimal != nil {
 		item.UnitAmountDecimal = *params.UnitAmountDecimal
+	}
+	if params.Amount != nil {
+		item.Amount = *params.Amount
 	}
 	m.items[*params.Customer] = append(m.items[*params.Customer], item)
 

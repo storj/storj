@@ -1297,6 +1297,155 @@ func TestPaymentsWalletPayments(t *testing.T) {
 	})
 }
 
+func TestPaymentsPurchase(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := sat.API.Console.Service.Payments()
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		testDesc := "testDescription"
+		testPaymentMethod := "testPaymentMethod"
+
+		tests := []struct {
+			name          string
+			purchaseDesc  string
+			paymentMethod string
+			shouldErr     bool
+			ctx           context.Context
+		}{
+			{
+				"Purchase returns error with unknown user",
+				testDesc,
+				testPaymentMethod,
+				true,
+				ctx,
+			},
+			{
+				"Purchase returns error when underlying payments.Invoices.New returns error",
+				stripecoinpayments.MockInvoicesNewFailure,
+				testPaymentMethod,
+				true,
+				userCtx,
+			},
+			{
+				"Purchase returns error when underlying payments.Invoices.Pay returns error",
+				testDesc,
+				stripecoinpayments.MockInvoicesPayFailure,
+				true,
+				userCtx,
+			},
+			{
+				"Purchase success",
+				testDesc,
+				testPaymentMethod,
+				false,
+				userCtx,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				err := p.Purchase(tt.ctx, 1000, tt.purchaseDesc, tt.paymentMethod)
+				if tt.shouldErr {
+					require.NotNil(t, err)
+				} else {
+					require.Nil(t, err)
+				}
+			})
+		}
+
+	})
+}
+
+func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := sat.API.Console.Service.Payments()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		testDesc := "testDescription"
+		testPaymentMethod := "testPaymentMethod"
+
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 0)
+
+		// test purchase with draft invoice
+		inv, err := sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, testDesc)
+		require.NoError(t, err)
+		require.Equal(t, payments.InvoiceStatusDraft, inv.Status)
+
+		draftInv := inv.ID
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 1)
+		require.Equal(t, draftInv, invs[0].ID)
+
+		require.NoError(t, p.Purchase(userCtx, 1000, testDesc, testPaymentMethod))
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 1)
+		require.NotEqual(t, draftInv, invs[0].ID)
+		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
+
+		// test purchase with open invoice
+		inv, err = sat.API.Payments.StripeService.Accounts().Invoices().Create(ctx, user.ID, 1000, testDesc)
+		require.NoError(t, err)
+
+		openInv := inv.ID
+
+		// attempting to pay a draft invoice changes it to open if payment fails
+		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripecoinpayments.MockInvoicesPayFailure)
+		require.Error(t, err)
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 2)
+		var foundInv bool
+		for _, inv := range invs {
+			if inv.ID == openInv {
+				foundInv = true
+				require.Equal(t, payments.InvoiceStatusOpen, inv.Status)
+			}
+		}
+		require.True(t, foundInv)
+
+		require.NoError(t, p.Purchase(userCtx, 1000, testDesc, testPaymentMethod))
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 2)
+		foundInv = false
+		for _, inv := range invs {
+			if inv.ID == openInv {
+				foundInv = true
+				require.Equal(t, payments.InvoiceStatusPaid, inv.Status)
+			}
+		}
+		require.True(t, foundInv)
+	})
+}
+
 func TestServiceGenMethods(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
