@@ -8,12 +8,17 @@ import (
 	"runtime/pprof"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/grant"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/uplink"
@@ -57,6 +62,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
 				defer ctx.Cleanup()
 
+				planetConfig.applicationName = "testplanet" + pgutil.CreateRandomTestingSchemaName(6)
 				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
 				if err != nil {
 					t.Fatalf("%+v", err)
@@ -66,7 +72,33 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				planet.Start(ctx)
 				provisionUplinks(ctx, t, planet)
 
+				var rawDB tagsql.DB
+				var queriesBefore []string
+				if len(planet.Satellites) > 0 && satelliteDB.Name == "Cockroach" {
+					db := planet.Satellites[0].DB
+					// not perfect but didn't find better way to do this
+					rawDB = db.(interface{ DebugGetDBHandle() tagsql.DB }).DebugGetDBHandle()
+
+					var err error
+					queriesBefore, err = satellitedbtest.FullTableScanQueries(ctx, rawDB, dbutil.Cockroach, planetConfig.applicationName)
+					if err != nil {
+						t.Fatalf("%+v", err)
+					}
+				}
+
 				test(t, ctx, planet)
+
+				if rawDB != nil {
+					queriesAfter, err := satellitedbtest.FullTableScanQueries(context2.WithoutCancellation(ctx), rawDB, dbutil.Cockroach, planetConfig.applicationName)
+					if err != nil {
+						t.Fatalf("%+v", err)
+					}
+
+					diff := cmp.Diff(queriesBefore, queriesAfter)
+					if diff != "" {
+						log.Sugar().Warnf("FULL TABLE SCAN DETECTED\n%s", diff)
+					}
+				}
 			})
 		})
 	}
@@ -106,6 +138,7 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				ctx := testcontext.NewWithContextAndTimeout(parent, b, timeout)
 				defer ctx.Cleanup()
 
+				planetConfig.applicationName = "testplanet-bench"
 				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
 				if err != nil {
 					b.Fatalf("%+v", err)

@@ -356,7 +356,7 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 		var err error
 
 		pprof.Do(ctx, pprof.Labels("peer", prefix), func(ctx context.Context) {
-			system, err = planet.newSatellite(ctx, prefix, index, log, databases)
+			system, err = planet.newSatellite(ctx, prefix, index, log, databases, planet.config.applicationName)
 		})
 		if err != nil {
 			return nil, errs.Wrap(err)
@@ -370,7 +370,7 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 	return satellites, nil
 }
 
-func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases) (_ *Satellite, err error) {
+func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases, applicationName string) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storageDir := filepath.Join(planet.directory, prefix)
@@ -383,7 +383,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, "satellite-testplanet-test")
+	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, applicationName)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

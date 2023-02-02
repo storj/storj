@@ -63,6 +63,8 @@ type Config struct {
 	Host        string
 	NonParallel bool
 	Timeout     time.Duration
+
+	applicationName string
 }
 
 // DatabaseConfig defines connection strings for database.
@@ -141,6 +143,10 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 			hosts := strings.Split(hostlist, ";")
 			config.Host = hosts[testrand.Intn(len(hosts))]
 		}
+	}
+
+	if config.applicationName == "" {
+		config.applicationName = "testplanet"
 	}
 
 	planet := &Planet{

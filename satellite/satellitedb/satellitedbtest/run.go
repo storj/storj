@@ -232,7 +232,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 			var fullScansBefore []string
 			tempMasterDB, ok := db.(*tempMasterDB)
 			if ok {
-				fullScansBefore, err = fullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
+				fullScansBefore, err = FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -241,7 +241,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 			test(ctx, t, db)
 
 			if ok {
-				fullScansAfter, err := fullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
+				fullScansAfter, err := FullTableScanQueries(ctx, tempMasterDB.tempDB.DB, tempMasterDB.tempDB.Implementation, applicationName)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -290,7 +290,8 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 	}
 }
 
-func fullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
+// FullTableScanQueries is a helper method to list all queries which performed full table scan recently. It works only for cockroach db.
+func FullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
 	if implementation.String() != "cockroach" {
 		return nil, nil
 	}
