@@ -40,6 +40,7 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 			defer ctx.Cleanup()
 
 			// generate unique application name to filter out full table scan queries from other tests executions
+			config := config
 			config.ApplicationName += pgutil.CreateRandomTestingSchemaName(6)
 			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, dbinfo.MetabaseDB, config)
 			if err != nil {
