@@ -19,5 +19,6 @@ type RangeSplitter interface {
 
 // SegmentProvider iterates through a range of segments.
 type SegmentProvider interface {
+	Range() UUIDRange
 	Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error
 }
