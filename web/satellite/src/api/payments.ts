@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorConflict } from './errors/ErrorConflict';
 import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 import {
@@ -10,6 +11,7 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
+    ProjectUsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
     Wallet,
@@ -95,6 +97,25 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         return [];
+    }
+
+    /**
+     * projectUsagePriceModel returns usage and how much money current user will be charged for each project which he owns.
+     */
+    public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+        const path = `${this.ROOT_PATH}/pricing`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('cannot get project usage price model');
+        }
+
+        const model = await response.json();
+        if (model) {
+            return new ProjectUsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+        }
+
+        return new ProjectUsagePriceModel();
     }
 
     /**
@@ -253,6 +274,8 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         if (!response.ok) {
             switch (response.status) {
+            case 409:
+                throw new ErrorConflict('You currently have an active coupon. Please try again when your coupon is no longer active, or contact Support for further help.');
             case 429:
                 throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
             default:
@@ -319,7 +342,12 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            throw new Error('Can not get wallet');
+            switch (response.status) {
+            case 404:
+                return new Wallet();
+            default:
+                throw new Error('Can not get wallet');
+            }
         }
 
         const wallet = await response.json();
@@ -327,7 +355,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             return new Wallet(wallet.address, wallet.balance);
         }
 
-        return new Wallet();
+        throw new Error('Can not get wallet');
     }
 
     /**

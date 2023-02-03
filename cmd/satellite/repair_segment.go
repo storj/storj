@@ -21,7 +21,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
@@ -61,7 +60,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-segment-repairer"})
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-repair-segment"})
 	if err != nil {
 		return errs.New("Error starting master database: %+v", err)
 	}
@@ -86,11 +85,6 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), runCfg.Orders.FlushBatchSize)
-	defer func() {
-		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
-	}()
-
 	config := runCfg
 
 	tlsOptions, err := tlsopts.NewOptions(identity, config.Server.Config, revocationDB)
@@ -110,7 +104,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		log.Named("orders"),
 		signing.SignerFromFullIdentity(identity),
 		overlay,
-		db.Orders(),
+		orders.NewNoopDB(),
 		config.Orders,
 	)
 	if err != nil {

@@ -11,7 +11,6 @@ type AccountActivationEmail struct {
 	ActivationLink        string
 	ContactInfoURL        string
 	TermsAndConditionsURL string
-	UserName              string
 }
 
 // Template returns email template name.
@@ -41,7 +40,7 @@ func (*ForgotPasswordEmail) Subject() string { return "Password recovery request
 type ProjectInvitationEmail struct {
 	Origin                string
 	UserName              string
-	ProjectName           string
+	InviterEmail          string
 	SignInLink            string
 	LetUsKnowURL          string
 	ContactInfoURL        string
@@ -53,7 +52,7 @@ func (*ProjectInvitationEmail) Template() string { return "Invite" }
 
 // Subject gets email subject.
 func (email *ProjectInvitationEmail) Subject() string {
-	return "You were invited to join the Project " + email.ProjectName
+	return "You were invited to join a project on Storj"
 }
 
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.

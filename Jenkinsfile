@@ -152,13 +152,7 @@ node('node') {
 
     slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
-    mail from: 'builds@storj.io',
-      replyTo: 'builds@storj.io',
-      to: 'builds@storj.io',
-      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
-      body: "Project build log: ${env.BUILD_URL}"
-
-      throw err
+    throw err
 
   }
   finally {

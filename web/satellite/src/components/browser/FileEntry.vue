@@ -161,7 +161,8 @@ const dropdownOpen = computed((): boolean => {
  */
 const link = computed((): string => {
     const browserRoot = store.state.files.browserRoot;
-    const pathAndKey = store.state.files.path + props.file.Key;
+    const uriParts = (store.state.files.path + props.file.Key).split('/');
+    const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
     return pathAndKey.length > 0
         ? browserRoot + pathAndKey + '/'
         : browserRoot;

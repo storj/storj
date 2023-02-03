@@ -437,7 +437,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			expectedRawObjects := []metabase.RawObject{}
 
-			for _, expectedVersion := range []metabase.Version{1, 2, 3, 11} {
+			for _, expectedVersion := range []metabase.Version{1} {
 				objStream := metabasetest.RandObjectStream()
 				objStream.Version = expectedVersion
 
@@ -458,6 +458,7 @@ func TestFinishCopyObject(t *testing.T) {
 				expectedCopyObject := originalObj
 				expectedCopyObject.ObjectKey = copyStream.ObjectKey
 				expectedCopyObject.StreamID = copyStream.StreamID
+				expectedCopyObject.Version = metabase.DefaultVersion // it will always copy into first available version
 				expectedCopyObject.EncryptedMetadataEncryptedKey = testrand.Bytes(32)
 				expectedCopyObject.EncryptedMetadataNonce = metadataNonce.Bytes()
 
@@ -799,6 +800,7 @@ func TestFinishCopyObject(t *testing.T) {
 
 			// expected object at the location which was previously the original object
 			copyBackObj := originalObj
+			copyBackObj.Version++ // copy is placed into first available version
 			copyBackObj.StreamID = opts.NewStreamID
 
 			for i := 0; i < 4; i++ {
@@ -875,6 +877,7 @@ func TestFinishCopyObject(t *testing.T) {
 			}.Run(ctx, t, db)
 
 			copyBackObj := originalObj
+			copyBackObj.Version++ // copy is placed into first available version
 			copyBackObj.StreamID = copyBackObjStream.StreamID
 
 			for i := 0; i < 4; i++ {

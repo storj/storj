@@ -71,7 +71,6 @@ type CreateUser struct {
 	FullName         string `json:"fullName"`
 	ShortName        string `json:"shortName"`
 	Email            string `json:"email"`
-	PartnerID        string `json:"partnerId"`
 	UserAgent        []byte `json:"userAgent"`
 	Password         string `json:"password"`
 	IsProfessional   bool   `json:"isProfessional"`
@@ -92,19 +91,12 @@ func (user *CreateUser) IsValid() error {
 
 	errgrp.Add(
 		ValidateFullName(user.FullName),
-		ValidatePassword(user.Password),
+		ValidateNewPassword(user.Password),
 	)
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)
 	errgrp.Add(err)
-
-	if user.PartnerID != "" {
-		_, err := uuid.FromString(user.PartnerID)
-		if err != nil {
-			errgrp.Add(err)
-		}
-	}
 
 	return ErrValidation.Wrap(errgrp.Err())
 }
@@ -156,7 +148,6 @@ type User struct {
 	PasswordHash []byte `json:"passwordHash"`
 
 	Status    UserStatus `json:"status"`
-	PartnerID uuid.UUID  `json:"partnerId"`
 	UserAgent []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
@@ -195,7 +186,6 @@ type ResponseUser struct {
 	FullName             string    `json:"fullName"`
 	ShortName            string    `json:"shortName"`
 	Email                string    `json:"email"`
-	PartnerID            uuid.UUID `json:"partnerId"`
 	UserAgent            []byte    `json:"userAgent"`
 	ProjectLimit         int       `json:"projectLimit"`
 	IsProfessional       bool      `json:"isProfessional"`

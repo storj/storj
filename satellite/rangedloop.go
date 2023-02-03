@@ -16,12 +16,16 @@ import (
 
 	"storj.io/private/debug"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
 )
 
 // RangedLoop is the satellite ranged loop process.
@@ -47,6 +51,18 @@ type RangedLoop struct {
 		Observer rangedloop.Observer
 	}
 
+	Mail struct {
+		Service *mailservice.Service
+	}
+
+	Overlay struct {
+		Service *overlay.Service
+	}
+
+	Repair struct {
+		Observer rangedloop.Observer
+	}
+
 	GracefulExit struct {
 		Observer rangedloop.Observer
 	}
@@ -55,13 +71,17 @@ type RangedLoop struct {
 		Observer rangedloop.Observer
 	}
 
+	Accounting struct {
+		NodeTallyObserver *nodetally.RangedLoopObserver
+	}
+
 	RangedLoop struct {
 		Service *rangedloop.Service
 	}
 }
 
 // NewRangedLoop creates a new satellite ranged loop process.
-func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (*RangedLoop, error) {
+func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Config, atomicLogLevel *zap.AtomicLevel) (_ *RangedLoop, err error) {
 	peer := &RangedLoop{
 		Log: log,
 		DB:  db,
@@ -106,6 +126,45 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 		)
 	}
 
+	{ // setup node tally observer
+		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
+			log.Named("accounting:nodetally"),
+			db.StoragenodeAccounting())
+	}
+
+	{ // setup mail service
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
+	{ // setup overlay
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), peer.Mail.Service, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
+			Close: peer.Overlay.Service.Close,
+		})
+	}
+
+	{ // setup repair
+		peer.Repair.Observer = checker.NewRangedLoopObserver(
+			peer.Log.Named("repair:checker"),
+			peer.DB.RepairQueue(),
+			peer.Overlay.Service,
+			config.Checker,
+		)
+	}
+
 	{ // setup garbage collection bloom filter observer
 		peer.GarbageCollectionBF.Observer = bloomfilter.NewObserver(log.Named("gc-bf"), config.GarbageCollectionBF, db.OverlayCache())
 	}
@@ -123,6 +182,10 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, peer.Metrics.Observer)
 		}
 
+		if config.Tally.UseRangedLoop {
+			observers = append(observers, peer.Accounting.NodeTallyObserver)
+		}
+
 		if config.GracefulExit.Enabled && config.GracefulExit.UseRangedLoop {
 			observers = append(observers, peer.GracefulExit.Observer)
 		}
@@ -131,8 +194,12 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 			observers = append(observers, peer.GarbageCollectionBF.Observer)
 		}
 
-		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.BatchSize)
-		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, &segments, observers)
+		if config.Repairer.UseRangedLoop {
+			observers = append(observers, peer.Repair.Observer)
+		}
+
+		segments := rangedloop.NewMetabaseRangeSplitter(metabaseDB, config.RangedLoop.AsOfSystemInterval, config.RangedLoop.BatchSize)
+		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "rangeloop",

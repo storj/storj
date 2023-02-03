@@ -19,7 +19,7 @@
         />
         <div class="switch-step__buttons">
             <VButton
-                label="Cancel"
+                label="Back"
                 width="100%"
                 height="48px"
                 :is-white="true"

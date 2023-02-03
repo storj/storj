@@ -91,6 +91,15 @@ func TestService(t *testing.T) {
 				require.Nil(t, salt)
 			})
 
+			t.Run("CreateProject", func(t *testing.T) {
+				// Creating a project with a previously used name should fail
+				createdProject, err := service.CreateProject(userCtx1, console.ProjectInfo{
+					Name: up1Pro1.Name,
+				})
+				require.Error(t, err)
+				require.Nil(t, createdProject)
+			})
+
 			t.Run("UpdateProject", func(t *testing.T) {
 				updatedName := "newName"
 				updatedDescription := "newDescription"
@@ -188,6 +197,13 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, updateInfo.StorageLimit, *project.StorageLimit)
 				require.Equal(t, updateInfo.BandwidthLimit, *project.BandwidthLimit)
+
+				// attempting to update a project with a previously used name should fail
+				updatedProject, err = service.UpdateProject(userCtx1, up2Pro1.ID, console.ProjectInfo{
+					Name: up1Pro1.Name,
+				})
+				require.Error(t, err)
+				require.Nil(t, updatedProject)
 			})
 
 			t.Run("AddProjectMembers", func(t *testing.T) {
@@ -1186,5 +1202,118 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		walletPayments, err := sat.API.Console.Service.Payments().WalletPayments(reqCtx)
 		require.NoError(t, err)
 		require.Equal(t, expected, walletPayments.Payments)
+	})
+}
+
+func TestServiceGenMethods(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		s := sat.API.Console.Service
+		u0 := planet.Uplinks[0]
+		u1 := planet.Uplinks[1]
+		user0Ctx, err := sat.UserContext(ctx, u0.Projects[0].Owner.ID)
+		require.NoError(t, err)
+		user1Ctx, err := sat.UserContext(ctx, u1.Projects[0].Owner.ID)
+		require.NoError(t, err)
+
+		p0ID := u0.Projects[0].ID
+		p, err := s.GetProject(user1Ctx, u1.Projects[0].ID)
+		require.NoError(t, err)
+		p1PublicID := p.PublicID
+
+		for _, tt := range []struct {
+			name   string
+			ID     uuid.UUID
+			ctx    context.Context
+			uplink *testplanet.Uplink
+		}{
+			{"projectID", p0ID, user0Ctx, u0},
+			{"publicID", p1PublicID, user1Ctx, u1},
+		} {
+
+			t.Run("GenUpdateProject with "+tt.name, func(t *testing.T) {
+				updatedName := "name " + tt.name
+				updatedDescription := "desc " + tt.name
+				updatedStorageLimit := memory.Size(100)
+				updatedBandwidthLimit := memory.Size(100)
+
+				info := console.ProjectInfo{
+					Name:           updatedName,
+					Description:    updatedDescription,
+					StorageLimit:   updatedStorageLimit,
+					BandwidthLimit: updatedBandwidthLimit,
+				}
+				updatedProject, err := s.GenUpdateProject(tt.ctx, tt.ID, info)
+				require.NoError(t, err.Err)
+				if tt.name == "projectID" {
+					require.Equal(t, tt.ID, updatedProject.ID)
+				} else {
+					require.Equal(t, tt.ID, updatedProject.PublicID)
+				}
+				require.Equal(t, info.Name, updatedProject.Name)
+				require.Equal(t, info.Description, updatedProject.Description)
+			})
+			t.Run("GenCreateAPIKey with "+tt.name, func(t *testing.T) {
+				request := console.CreateAPIKeyRequest{
+					ProjectID: tt.ID.String(),
+					Name:      tt.name + " Key",
+				}
+				apiKey, err := s.GenCreateAPIKey(tt.ctx, request)
+				require.NoError(t, err.Err)
+				require.Equal(t, tt.ID, apiKey.KeyInfo.ProjectID)
+				require.Equal(t, request.Name, apiKey.KeyInfo.Name)
+			})
+			t.Run("GenGetAPIKeys with "+tt.name, func(t *testing.T) {
+				apiKeys, err := s.GenGetAPIKeys(tt.ctx, tt.ID, "", 10, 1, 0, 0)
+				require.NoError(t, err.Err)
+				require.NotEmpty(t, apiKeys)
+				for _, key := range apiKeys.APIKeys {
+					require.Equal(t, tt.ID, key.ProjectID)
+				}
+			})
+
+			bucket := "testbucket"
+			require.NoError(t, tt.uplink.CreateBucket(tt.ctx, sat, bucket))
+			require.NoError(t, tt.uplink.Upload(tt.ctx, sat, bucket, "helloworld.txt", []byte("hello world")))
+			sat.Accounting.Tally.Loop.TriggerWait()
+
+			t.Run("GenGetSingleBucketUsageRollup with "+tt.name, func(t *testing.T) {
+				rollup, err := s.GenGetSingleBucketUsageRollup(tt.ctx, tt.ID, bucket, time.Now().Add(-24*time.Hour), time.Now())
+				require.NoError(t, err.Err)
+				require.NotNil(t, rollup)
+				require.Equal(t, tt.ID, rollup.ProjectID)
+			})
+			t.Run("GenGetBucketUsageRollups with "+tt.name, func(t *testing.T) {
+				rollups, err := s.GenGetBucketUsageRollups(tt.ctx, tt.ID, time.Now().Add(-24*time.Hour), time.Now())
+				require.NoError(t, err.Err)
+				require.NotEmpty(t, rollups)
+				for _, r := range rollups {
+					require.Equal(t, tt.ID, r.ProjectID)
+				}
+			})
+
+			// create empty project for easy deletion
+			p, err := s.CreateProject(tt.ctx, console.ProjectInfo{
+				Name:        "foo",
+				Description: "bar",
+			})
+			require.NoError(t, err)
+
+			t.Run("GenDeleteProject with "+tt.name, func(t *testing.T) {
+				var id uuid.UUID
+				if tt.name == "projectID" {
+					id = p.ID
+				} else {
+					id = p.PublicID
+				}
+				httpErr := s.GenDeleteProject(tt.ctx, id)
+				require.NoError(t, httpErr.Err)
+				p, err := s.GetProject(ctx, id)
+				require.Error(t, err)
+				require.Nil(t, p)
+			})
+		}
 	})
 }

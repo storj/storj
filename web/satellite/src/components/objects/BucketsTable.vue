@@ -17,9 +17,10 @@
         />
         <div v-if="isEmptyStateShown" class="buckets-table__no-buckets-area">
             <EmptyBucketIcon class="buckets-table__no-buckets-area__image" />
+            <CreateBucketIcon class="buckets-table__no-buckets-area__small-image" />
             <h4 class="buckets-table__no-buckets-area__title">There are no buckets in this project</h4>
             <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
                 <WhitePlusIcon class="new-bucket-button__icon" />
                 <p class="new-bucket-button__label">New Bucket</p>
             </div>
@@ -79,10 +80,12 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
+import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
 const props = withDefaults(defineProps<{
     isLoading?: boolean,
@@ -141,18 +144,17 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
- * Indicates if new encryption passphrase flow is enabled.
+ * Toggles set passphrase modal visibility.
  */
-const isNewEncryptionPassphraseFlowEnabled = computed((): boolean => {
-    return store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
-});
+function onSetClick() {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+}
 
 /**
- * Starts bucket creation flow.
+ * Toggles create bucket modal visibility.
  */
-function onNewBucketButtonClick(): void {
-    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+function onCreateBucketClick(): void {
+    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
 }
 
 /**
@@ -202,7 +204,7 @@ function openDropdown(key: number): void {
  */
 function openBucket(bucketName: string): void {
     store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-    if (isNewEncryptionPassphraseFlowEnabled.value && !promptForPassphrase.value) {
+    if (!promptForPassphrase.value) {
         analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
@@ -235,14 +237,27 @@ onBeforeUnmount(() => {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 80px 0;
-            width: 100%;
+            padding: 80px 20px;
+            width: calc(100% - 40px);
             box-shadow: 0 0 32px rgb(0 0 0 / 4%);
             background-color: #fff;
             border-radius: 20px;
 
             &__image {
                 margin-bottom: 60px;
+
+                @media screen and (max-width: 600px) {
+                    display: none;
+                }
+            }
+
+            &__small-image {
+                display: none;
+                margin-bottom: 60px;
+
+                @media screen and (max-width: 600px) {
+                    display: block;
+                }
             }
 
             &__title {
@@ -251,6 +266,7 @@ onBeforeUnmount(() => {
                 font-size: 18px;
                 line-height: 16px;
                 margin-bottom: 17px;
+                text-align: center;
             }
 
             &__body {
@@ -259,6 +275,7 @@ onBeforeUnmount(() => {
                 font-size: 16px;
                 line-height: 24px;
                 margin-bottom: 24px;
+                text-align: center;
             }
         }
 

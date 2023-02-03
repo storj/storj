@@ -78,7 +78,7 @@ func (chore *TrashChore) Run(ctx context.Context) (err error) {
 				}
 				defer func() { <-limiter }()
 
-				chore.log.Info("restore trash started", zap.Stringer("Satellite ID", satellite))
+				chore.log.Info("emptying trash started", zap.Stringer("Satellite ID", satellite))
 				trashedBefore := time.Now().Add(-chore.trashExpiryInterval)
 				err := chore.store.EmptyTrash(ctx, satellite, trashedBefore)
 				if err != nil {

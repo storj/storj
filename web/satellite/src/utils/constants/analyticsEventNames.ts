@@ -54,6 +54,10 @@ export enum AnalyticsEvent {
     ADD_FUNDS_CLICKED = 'Add Funds Clicked',
     PROJECT_MEMBERS_INVITE_SENT = 'Project Members Invite Sent',
     UI_ERROR = 'UI error occurred',
+    PROJECT_NAME_UPDATED = 'Project Name Updated',
+    PROJECT_DESCRIPTION_UPDATED = 'Project Description Updated',
+    PROJECT_STORAGE_LIMIT_UPDATED = 'Project Storage Limit Updated',
+    PROJECT_BANDWIDTH_LIMIT_UPDATED = 'Project Bandwidth Limit Updated',
 }
 
 export enum AnalyticsErrorEventSource {

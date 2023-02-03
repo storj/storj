@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/storj/private/nodeoperator"
+	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -85,6 +86,18 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		ID:      nodeID,
 		Address: req.Address,
 	}
+
+	var noiseInfo *pb.NoiseInfo
+	if req.NoiseKeyAttestation != nil {
+		if err := server.ValidateNoiseKeyAttestation(ctx, req.NoiseKeyAttestation); err == nil {
+			noiseInfo = &pb.NoiseInfo{
+				Proto:     req.NoiseKeyAttestation.NoiseProto,
+				PublicKey: req.NoiseKeyAttestation.NoisePublicKey,
+			}
+			nodeurl.NoiseInfo = noiseInfo.Convert()
+		}
+	}
+
 	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
 		return nil, endpoint.checkPingRPCErr(err, nodeurl)
@@ -106,7 +119,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
 			Address:   req.Address,
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			NoiseInfo: noiseInfo,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
@@ -210,14 +223,14 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 
 	switch req.Transport {
 
-	case pb.NodeTransport_QUIC_GRPC:
+	case pb.NodeTransport_QUIC_RPC:
 		err = endpoint.service.pingNodeQUIC(ctx, nodeURL)
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)
 		}
 		return &pb.PingMeResponse{}, nil
 
-	case pb.NodeTransport_TCP_TLS_GRPC:
+	case pb.NodeTransport_TCP_TLS_RPC:
 		client, err := dialNodeURL(ctx, endpoint.service.dialer, nodeURL)
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)

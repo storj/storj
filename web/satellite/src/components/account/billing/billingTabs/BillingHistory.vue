@@ -22,49 +22,38 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
 import BillingHistoryItem from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
 import VTable from '@/components/common/VTable.vue';
 
-const {
-    GET_PAYMENTS_HISTORY,
-} = PAYMENTS_ACTIONS;
+const store = useStore();
+const notify = useNotify();
 
-// @vue/component
-@Component({
-    components: {
-        BillingHistoryItem,
-        VTable,
-        BillingHistoryHeader,
-    },
-})
-
-export default class BillingHistory extends Vue {
-    mounted(): void {
-        this.fetchHistory();
-    }
-
-    public async fetchHistory(): Promise<void> {
-        try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
-        }
-    }
-
-    public get historyItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.status !== 'draft' && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
-        });
+async function fetchHistory(): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
     }
 }
+
+const historyItems = computed((): PaymentsHistoryItem[] => {
+    return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+        return item.status !== 'draft' && item.status !== '' && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
+    });
+});
+
+onMounted(() => {
+    fetchHistory();
+});
 </script>
 
 <style scoped lang="scss">

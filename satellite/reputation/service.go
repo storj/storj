@@ -115,6 +115,16 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, rep
 		return err
 	}
 
+	// There are some cases where the caller did not get updated reputation-status information.
+	// (Usually this means the node was offline and we skipped creating an order limit for it.)
+	if reputation.Email == "" {
+		dossier, err := service.overlay.Get(ctx, nodeID)
+		if err != nil {
+			return err
+		}
+		reputation = dossier.Reputation.Status
+	}
+
 	// only update node if its health status has changed, or it's a newly vetted
 	// node.
 	// this prevents the need to require caller of ApplyAudit() to always know

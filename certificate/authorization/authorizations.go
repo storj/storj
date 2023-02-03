@@ -5,6 +5,7 @@ package authorization
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -20,6 +21,7 @@ import (
 
 	"storj.io/common/base58"
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/storj/certificate/certificatepb"
 )
@@ -125,25 +127,88 @@ func ParseToken(tokenString string) (*Token, error) {
 	return t, nil
 }
 
+func isGobEncoded(data []byte) bool {
+	return bytes.HasPrefix(data, []byte{0x14, 0xff, 0xb3, 0x2, 0x1, 0x1, 0x5, 0x47, 0x72})
+}
+
 // Unmarshal deserializes a set of authorizations.
 func (group *Group) Unmarshal(data []byte) error {
-	decoder := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := decoder.Decode(group); err != nil {
+	if isGobEncoded(data) {
+		decoder := gob.NewDecoder(bytes.NewBuffer(data))
+		if err := decoder.Decode(group); err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	}
+
+	msg := &certificatepb.AuthorizationGroup{}
+	if err := pb.Unmarshal(data, msg); err != nil {
 		return Error.Wrap(err)
 	}
+	*group = []*Authorization{}
+	for _, auth := range msg.Authorizations {
+		res := &Authorization{}
+		*group = append(*group, res)
+
+		if auth.Token != nil {
+			var tokendata [tokenDataLength]byte
+			copy(tokendata[:], auth.Token.Data)
+			res.Token = Token{
+				UserID: string(auth.Token.UserId),
+				Data:   tokendata,
+			}
+		}
+		if auth.Claim != nil {
+			pi, err := identity.DecodePeerIdentity(context.Background(), auth.Claim.Identity)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			if len(pi.RestChain) == 0 {
+				pi.RestChain = nil
+			}
+
+			res.Claim = &Claim{
+				Addr:             string(auth.Claim.Addr),
+				Timestamp:        auth.Claim.Timestamp,
+				Identity:         pi,
+				SignedChainBytes: auth.Claim.SignedChainBytes,
+			}
+		}
+	}
+
 	return nil
 }
 
 // Marshal serializes a set of authorizations.
 func (group Group) Marshal() ([]byte, error) {
-	data := new(bytes.Buffer)
-	encoder := gob.NewEncoder(data)
-	err := encoder.Encode(group)
+	msg := &certificatepb.AuthorizationGroup{}
+	for _, auth := range group {
+		token := &certificatepb.Token{
+			UserId: []byte(auth.Token.UserID),
+			Data:   append([]byte{}, auth.Token.Data[:]...),
+		}
+		var claim *certificatepb.Claim
+		if auth.Claim != nil {
+			claim = &certificatepb.Claim{
+				Addr:             []byte(auth.Claim.Addr),
+				Timestamp:        auth.Claim.Timestamp,
+				Identity:         identity.EncodePeerIdentity(auth.Claim.Identity),
+				SignedChainBytes: auth.Claim.SignedChainBytes,
+			}
+		}
+
+		msg.Authorizations = append(msg.Authorizations, &certificatepb.Authorization{
+			Token: token,
+			Claim: claim,
+		})
+	}
+
+	encoded, err := pb.Marshal(msg)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return data.Bytes(), nil
+	return encoded, nil
 }
 
 // GroupByClaimed separates a group of authorizations into a group of claimed

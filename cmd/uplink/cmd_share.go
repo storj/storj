@@ -204,7 +204,7 @@ func RegisterAccess(ctx context.Context, access *uplink.Access, authService stri
 
 	if strings.HasPrefix(authService, "insecure://") {
 		authService = strings.TrimPrefix(authService, "insecure://")
-		edgeConfig.InsecureSkipVerify = true
+		edgeConfig.InsecureUnencryptedConnection = true
 	}
 	// preserve compatibility with previous https service
 	authService = strings.TrimPrefix(authService, "https://")

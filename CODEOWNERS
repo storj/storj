@@ -7,11 +7,11 @@
 
 /satellite/analytics/ @mobyvb @wilfred-asomanii
 /satellite/console/ @mobyvb @cam-a
-/satellite/gracefulexit/ @mniewrzal @Fadila82 @Qweder93 @Erikvv
-/satellite/metabase/ @mniewrzal @Fadila82 @Qweder93 @Erikvv
-/satellite/metainfo/ @mniewrzal @Fadila82 @Qweder93 @Erikvv
+/satellite/gracefulexit/ @mniewrzal
+/satellite/metabase/ @mniewrzal
+/satellite/metainfo/ @mniewrzal
 /satellite/payments/stripecoinpayments/ @mobyvb
-/satellite/repair/ @mniewrzal @Fadila82 @Qweder93 @Erikvv
+/satellite/repair/ @mniewrzal
 
 /storagenode/ @profclems
 

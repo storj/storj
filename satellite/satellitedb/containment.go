@@ -56,3 +56,9 @@ func (containment *containment) Delete(ctx context.Context, pendingJob *audit.Pi
 	}
 	return isDeleted, nodeStillContained, audit.ContainError.Wrap(err)
 }
+
+func (containment *containment) GetAllContainedNodes(ctx context.Context) (nodes []pb.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return containment.reverifyQueue.GetAllContainedNodes(ctx)
+}

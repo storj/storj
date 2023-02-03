@@ -244,9 +244,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if new billing screens should be used
 # console.new-billing-screen: true
 
-# indicates if new encryption passphrase flow is enabled
-# console.new-encryption-passphrase-flow-enabled: false
-
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: true
 
@@ -596,7 +593,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.min-remote-segment-size: 1.2 KiB
 
 # feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: false
+# metainfo.multiple-versions: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -811,6 +808,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
+# semicolon-separated partner package plans in the format partner:couponID,price. Price is in cents USD.
+# payments.package-plans: ""
+
 # payments provider to use
 # payments.provider: ""
 
@@ -860,7 +860,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.usage-price.storage-tb: "4"
 
 # how often to remove unused project bandwidth rollups
-# project-bw-cleanup.interval: 168h0m0s
+# project-bw-cleanup.interval: 24h0m0s
 
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
@@ -909,6 +909,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
+
+# whether to use ranged loop instead of segment loop
+# repairer.use-ranged-loop: false
 
 # the number of times a node has been audited to not be considered a New Node
 # reputation.audit-count: 100
@@ -1015,6 +1018,12 @@ server.private-address: 127.0.0.1:7778
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
 # server.revocation-dburl: bolt://testdata/revocations.db
 
+# enable support for tcp fast open experiment
+# server.tcp-fast-open: true
+
+# the size of the tcp fast open queue
+# server.tcp-fast-open-queue: 256
+
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
@@ -1047,6 +1056,9 @@ server.private-address: 127.0.0.1:7778
 
 # flag to switch between calculating bucket tallies using objects loop or custom query
 # tally.use-objects-loop: false
+
+# flag whether to use ranged loop instead of segment loop
+# tally.use-ranged-loop: false
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

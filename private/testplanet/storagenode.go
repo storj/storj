@@ -76,7 +76,7 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 	for _, u := range whitelistedSatellites {
 		source, err := trust.NewStaticURLSource(u.String())
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		sources = append(sources, source)
 	}
@@ -93,7 +93,7 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 			system, err = planet.newStorageNode(ctx, prefix, index, count, log, sources)
 		})
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
@@ -108,12 +108,12 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	identity, err := planet.NewIdentity()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	config := storagenode.Config{
@@ -232,17 +232,17 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	var db storagenode.DB
 	db, err = storagenodedbtest.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if err := db.Pieces().CreateVerificationFile(ctx, identity.ID); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if planet.config.Reconfigure.StorageNodeDB != nil {
 		db, err = planet.config.Reconfigure.StorageNodeDB(index, db, planet.log)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 	}
 
@@ -254,7 +254,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo, nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
@@ -262,7 +262,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, db)
 

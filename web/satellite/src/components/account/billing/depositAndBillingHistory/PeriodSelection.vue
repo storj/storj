@@ -28,130 +28,124 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import SelectedIcon from '@/../static/images/account/billing/selected.svg';
 import ExpandIcon from '@/../static/images/common/BlueExpand.svg';
 import HideIcon from '@/../static/images/common/BlueHide.svg';
 
-// @vue/component
-@Component({
-    components: {
-        DatePickerIcon,
-        HideIcon,
-        ExpandIcon,
-        SelectedIcon,
-    },
-})
+const periodOptions: string[] = [
+    'Current Billing Period',
+    'Previous Billing Period',
+];
 
-export default class PeriodSelection extends Vue {
-    public readonly periodOptions: string[] = [
-        'Current Billing Period',
-        'Previous Billing Period',
-    ];
-    public currentOption: string = this.periodOptions[0];
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
+const router = useRouter();
+const notify = useNotify();
 
-    /**
-     * Indicates if periods dropdown is shown.
-     */
-    public get isDropdownShown(): Date {
-        return this.$store.state.appStateModule.appState.isPeriodsDropdownShown;
+const currentOption = ref<string>(periodOptions[0]);
+
+/**
+ * Indicates if periods dropdown is shown.
+ */
+const isDropdownShown = computed((): Date => {
+    return store.state.appStateModule.appState.isPeriodsDropdownShown;
+});
+
+/**
+ * Returns start date of billing period from store.
+ */
+const startDate = computed((): Date => {
+    return store.state.paymentsModule.startDate;
+});
+
+/**
+ * Returns end date of billing period from store.
+ */
+const endDate = computed((): Date => {
+    return store.state.paymentsModule.endDate;
+});
+
+/**
+ * Indicates if option is selected.
+ * @param option - option string.
+ */
+function isOptionSelected(option: string): boolean {
+    return option === currentOption.value;
+}
+
+/**
+ * Closes dropdown.
+ */
+function closeDropdown(): void {
+    if (!isDropdownShown.value) return;
+
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+}
+
+/**
+ * Toggles dropdown visibility.
+ */
+function toggleDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN);
+}
+
+/**
+ * Holds logic to redirect user to billing history page.
+ */
+function redirect(): void {
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
+    router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
+}
+
+/**
+ * Sets billing state to previous billing period.
+ */
+async function onPreviousPeriodClick(): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
+    } catch (error) {
+        await notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
+    }
+}
+
+/**
+ * Sets billing state to current billing period.
+ */
+async function onCurrentPeriodClick(): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+    } catch (error) {
+        await notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
+    }
+}
+
+/**
+ * Holds logic for select option click.
+ * @param option - option string.
+ */
+async function select(option: string): Promise<void> {
+    if (option === periodOptions[0]) {
+        await onCurrentPeriodClick();
     }
 
-    /**
-     * Returns start date of billing period from store.
-     */
-    public get startDate(): Date {
-        return this.$store.state.paymentsModule.startDate;
+    if (option === periodOptions[1]) {
+        await onPreviousPeriodClick();
     }
 
-    /**
-     * Returns end date of billing period from store.
-     */
-    public get endDate(): Date {
-        return this.$store.state.paymentsModule.endDate;
-    }
-
-    /**
-     * Indicates if option is selected.
-     * @param option - option string.
-     */
-    public isOptionSelected(option: string): boolean {
-        return option === this.currentOption;
-    }
-
-    /**
-     * Holds logic for select option click.
-     * @param option - option string.
-     */
-    public async select(option: string): Promise<void> {
-        if (option === this.periodOptions[0]) {
-            await this.onCurrentPeriodClick();
-        }
-
-        if (option === this.periodOptions[1]) {
-            await this.onPreviousPeriodClick();
-        }
-
-        this.currentOption = option;
-        this.closeDropdown();
-    }
-
-    /**
-     * Closes dropdown.
-     */
-    public closeDropdown(): void {
-        if (!this.isDropdownShown) return;
-
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Toggles dropdown visibility.
-     */
-    public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN);
-    }
-
-    /**
-     * Holds logic to redirect user to billing history page.
-     */
-    public redirect(): void {
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
-        this.$router.push(RouteConfig.Account.with(RouteConfig.BillingHistory).path);
-    }
-
-    /**
-     * Sets billing state to previous billing period.
-     */
-    public async onPreviousPeriodClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
-        }
-    }
-
-    /**
-     * Sets billing state to current billing period.
-     */
-    public async onCurrentPeriodClick(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project charges. ${error.message}`, AnalyticsErrorEventSource.BILLING_PERIODS_SELECTION);
-        }
-    }
+    currentOption.value = option;
+    closeDropdown();
 }
 </script>
 

@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -427,20 +427,6 @@ async function handleInactive(): Promise<void> {
     await analytics.pageVisit(RouteConfig.Login.path);
     await router.push(RouteConfig.Login.path);
 
-    resetActivityEvents.forEach((eventName: string) => {
-        document.removeEventListener(eventName, onSessionActivity);
-    });
-    clearSessionTimers();
-    inactivityModalShown.value = false;
-
-    try {
-        await auth.logout();
-    } catch (error) {
-        if (error instanceof ErrorUnauthorized) return;
-
-        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
-    }
-
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
@@ -455,6 +441,20 @@ async function handleInactive(): Promise<void> {
         store.dispatch(AB_TESTING_ACTIONS.RESET),
         store.dispatch('files/clear'),
     ]);
+
+    resetActivityEvents.forEach((eventName: string) => {
+        document.removeEventListener(eventName, onSessionActivity);
+    });
+    clearSessionTimers();
+    inactivityModalShown.value = false;
+
+    try {
+        await auth.logout();
+    } catch (error) {
+        if (error instanceof ErrorUnauthorized) return;
+
+        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+    }
 }
 
 function setIsLimitModalShown(value: boolean): void {

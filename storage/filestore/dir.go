@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base32"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -424,17 +425,20 @@ func (dir *Dir) ReplaceTrashnow(trashnow func() time.Time) {
 
 // RestoreTrash moves every piece in the trash folder back into blobsdir.
 func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestored [][]byte, err error) {
+	var errorsEncountered errs.Group
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
 		blobsBasePath, err := dir.blobToBasePath(info.BlobRef())
 		if err != nil {
-			return err
+			errorsEncountered.Add(err)
+			return nil
 		}
 
 		blobsVerPath := blobPathForFormatVersion(blobsBasePath, info.StorageFormatVersion())
 
 		trashBasePath, err := dir.refToDirPath(info.BlobRef(), dir.trashdir())
 		if err != nil {
-			return err
+			errorsEncountered.Add(err)
+			return nil
 		}
 
 		trashVerPath := blobPathForFormatVersion(trashBasePath, info.StorageFormatVersion())
@@ -442,7 +446,8 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 		// ensure the dirs exist for blobs path
 		err = os.MkdirAll(filepath.Dir(blobsVerPath), dirPermission)
 		if err != nil && !os.IsExist(err) {
-			return err
+			errorsEncountered.Add(err)
+			return nil
 		}
 
 		// move back to blobsdir
@@ -454,13 +459,15 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 			return nil
 		}
 		if err != nil {
-			return err
+			errorsEncountered.Add(err)
+			return nil
 		}
 
 		keysRestored = append(keysRestored, info.BlobRef().Key)
 		return nil
 	})
-	return keysRestored, err
+	errorsEncountered.Add(err)
+	return keysRestored, errorsEncountered.Err()
 }
 
 // EmptyTrash walks the trash files for the given namespace and deletes any
@@ -468,27 +475,33 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 // Trash is called.
 func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
+	var errorsEncountered errs.Group
 	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(blobInfo storage.BlobInfo) error {
 		fileInfo, err := blobInfo.Stat(ctx)
 		if err != nil {
-			return err
+			if os.IsNotExist(err) {
+				return nil
+			}
+			if !errors.Is(err, ErrIsDir) {
+				errorsEncountered.Add(Error.New("%s: %s", fileInfo.Name(), err))
+			}
+			return nil
 		}
 
 		mtime := fileInfo.ModTime()
 		if mtime.Before(trashedBefore) {
 			err = dir.deleteWithStorageFormatInPath(ctx, dir.trashdir(), blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
 			if err != nil {
-				return err
+				errorsEncountered.Add(err)
+				return nil
 			}
 			deletedKeys = append(deletedKeys, blobInfo.BlobRef().Key)
 			bytesEmptied += fileInfo.Size()
 		}
 		return nil
 	})
-	if err != nil {
-		return 0, nil, err
-	}
-	return bytesEmptied, deletedKeys, nil
+	errorsEncountered.Add(err)
+	return bytesEmptied, deletedKeys, errorsEncountered.Err()
 }
 
 // iterateStorageFormatVersions executes f for all storage format versions,
@@ -735,8 +748,8 @@ func (dir *Dir) walkNamespaceInPath(ctx context.Context, namespace []byte, path 
 	}
 }
 
-func decodeBlobInfo(namespace []byte, keyPrefix, keyDir string, keyInfo os.FileInfo) (info storage.BlobInfo, ok bool) {
-	blobFileName := keyInfo.Name()
+func decodeBlobInfo(namespace []byte, keyPrefix, keyDir, name string) (info storage.BlobInfo, ok bool) {
+	blobFileName := name
 	encodedKey := keyPrefix + blobFileName
 	formatVer := FormatV0
 	if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
@@ -751,7 +764,7 @@ func decodeBlobInfo(namespace []byte, keyPrefix, keyDir string, keyInfo os.FileI
 		Namespace: namespace,
 		Key:       key,
 	}
-	return newBlobInfo(ref, filepath.Join(keyDir, blobFileName), keyInfo, formatVer), true
+	return newBlobInfo(ref, filepath.Join(keyDir, blobFileName), nil, formatVer), true
 }
 
 func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []byte, nsDir, keyPrefix string, walkFunc func(storage.BlobInfo) error) (err error) {
@@ -777,25 +790,7 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 			return err
 		}
 		for _, name := range names {
-			info, err := os.Lstat(keyDir + "/" + name)
-			if err != nil {
-				if os.IsNotExist(err) {
-					continue
-				}
-
-				// convert to lowercase the perr.Op because Go reports inconsistently
-				// "lstat" in Linux and "Lstat" in Windows
-				var perr *os.PathError
-				if errors.As(err, &perr) && strings.ToLower(perr.Op) == "lstat" {
-					log.Error("Unable to read the disk, please verify the disk is not corrupt")
-				}
-
-				return errs.Wrap(err)
-			}
-			if info.Mode().IsDir() {
-				continue
-			}
-			blobInfo, ok := decodeBlobInfo(namespace, keyPrefix, keyDir, info)
+			blobInfo, ok := decodeBlobInfo(namespace, keyPrefix, keyDir, name)
 			if !ok {
 				continue
 			}
@@ -874,9 +869,49 @@ func (info *blobInfo) StorageFormatVersion() storage.FormatVersion {
 }
 
 func (info *blobInfo) Stat(ctx context.Context) (os.FileInfo, error) {
+	if info.fileInfo == nil {
+		fileInfo, err := os.Lstat(info.path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, err
+			}
+			if isLowLevelCorruptionError(err) {
+				return nil, &CorruptDataError{path: info.path, error: err}
+			}
+			return nil, err
+		}
+		if fileInfo.Mode().IsDir() {
+			return fileInfo, ErrIsDir
+		}
+		info.fileInfo = fileInfo
+	}
 	return info.fileInfo, nil
 }
 
 func (info *blobInfo) FullPath(ctx context.Context) (string, error) {
 	return info.path, nil
+}
+
+// CorruptDataError represents a filesystem or disk error which indicates data corruption.
+//
+// We use a custom error type here so that we can add explanatory information and wrap the original
+// error at the same time.
+type CorruptDataError struct {
+	path  string
+	error error
+}
+
+// Unwrap unwraps the error.
+func (cde CorruptDataError) Unwrap() error {
+	return cde.error
+}
+
+// Path returns the path at which the error was encountered.
+func (cde CorruptDataError) Path() string {
+	return cde.path
+}
+
+// Error returns an error string describing the condition.
+func (cde CorruptDataError) Error() string {
+	return fmt.Sprintf("unrecoverable error accessing data on the storage file system (path=%v; error=%v). This is most likely due to disk bad sectors or a corrupted file system. Check your disk for bad sectors and integrity", cde.path, cde.error)
 }

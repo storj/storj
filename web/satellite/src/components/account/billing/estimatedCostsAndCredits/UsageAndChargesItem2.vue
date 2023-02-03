@@ -51,124 +51,128 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
-import { ProjectUsageAndCharges } from '@/types/payments';
+import { ProjectUsageAndCharges, ProjectUsagePriceModel } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { MetaUtils } from '@/utils/meta';
+import { decimalShift } from '@/utils/strings';
+import { useStore } from '@/utils/hooks';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
-// @vue/component
-@Component({
-    components: {
-        GreyChevron,
-    },
-})
-export default class UsageAndChargesItem2 extends Vue {
+/**
+ * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
+ */
+const HOURS_IN_MONTH = 720;
+
+/**
+ * CENTS_MB_TO_DOLLARS_GB_SHIFT constant represents how many places to the left
+ * a decimal point must be shifted to convert from cents/MB to dollars/GB.
+ */
+const CENTS_MB_TO_DOLLARS_GB_SHIFT = -1;
+
+const props = withDefaults(defineProps<{
     /**
      * item represents usage and charges of current project by period.
      */
-    @Prop({ default: () => new ProjectUsageAndCharges() })
-    private readonly item: ProjectUsageAndCharges;
+    item?: ProjectUsageAndCharges;
+}>(), {
+    item: () => new ProjectUsageAndCharges(),
+});
 
-    /**
-     * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
-     */
-    private readonly HOURS_IN_MONTH: number = 720;
+const store = useStore();
 
-    /**
-     * GB_IN_TB constant shows amount of GBs in one TB.
-     */
-    private readonly GB_IN_TB = 1000;
+/**
+ * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
+ */
+const isDetailedInfoShown = ref<boolean>(false);
 
-    public paymentMethod = 'test';
+/**
+ * projectName returns project name.
+ */
+const projectName = computed((): string => {
+    const projects: Project[] = store.state.projectsModule.projects;
+    const project: Project = projects.find(project => project.id === props.item.projectId);
 
-    /**
-     * projectName returns project name.
-     */
-    public get projectName(): string {
-        const projects: Project[] = this.$store.state.projectsModule.projects;
-        const project: Project | undefined = projects.find(project => project.id === this.item.projectId);
+    return project?.name || '';
+});
 
-        return project ? project.name : '';
-    }
+/**
+ * Returns string of date range.
+ */
+const period = computed((): string => {
+    const since = `${SHORT_MONTHS_NAMES[props.item.since.getUTCMonth()]} ${props.item.since.getUTCDate()}`;
+    const before = `${SHORT_MONTHS_NAMES[props.item.before.getUTCMonth()]} ${props.item.before.getUTCDate()}`;
 
-    /**
-     * Returns string of date range.
-     */
-    public get period(): string {
-        const since = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
-        const before = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
+    return `${since} - ${before}`;
+});
 
-        return `${since} - ${before}`;
-    }
+/**
+ * Returns project usage price model from store.
+ */
+const priceModel = computed((): ProjectUsagePriceModel => {
+    return store.state.paymentsModule.usagePriceModel;
+});
 
-    /**
-     * Returns string of egress amount and dimension.
-     */
-    public get egressAmountAndDimension(): string {
-        return `${this.egressFormatted.formattedBytes} ${this.egressFormatted.label}`;
-    }
+/**
+ * Returns formatted egress depending on amount of bytes.
+ */
+const egressFormatted = computed((): Size => {
+    return new Size(props.item.egress, 2);
+});
 
-    /**
-     * Returns formatted storage used in GB x month dimension.
-     */
-    public get storageFormatted(): string {
-        const bytesInGB = 1000000000;
+/**
+ * Returns formatted storage used in GB x month dimension.
+ */
+const storageFormatted = computed((): string => {
+    const bytesInGB = 1000000000;
 
-        return (this.item.storage / this.HOURS_IN_MONTH / bytesInGB).toFixed(2);
-    }
+    return (props.item.storage / HOURS_IN_MONTH / bytesInGB).toFixed(2);
+});
 
-    /**
-     * Returns formatted segment count in segment x month dimension.
-     */
-    public get segmentCountFormatted(): string {
-        return (this.item.segmentCount / this.HOURS_IN_MONTH).toFixed(2);
-    }
+/**
+ * Returns formatted segment count in segment x month dimension.
+ */
+const segmentCountFormatted = computed((): string => {
+    return (props.item.segmentCount / HOURS_IN_MONTH).toFixed(2);
+});
 
-    /**
-     * Returns storage price per GB.
-     */
-    public get storagePrice(): number {
-        return parseInt(MetaUtils.getMetaContent('storage-tb-price')) / this.GB_IN_TB;
-    }
+/**
+ * Returns storage price per GB.
+ */
+const storagePrice = computed((): string => {
+    return decimalShift(priceModel.value.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT);
+});
 
-    /**
-     * Returns egress price per GB.
-     */
-    public get egressPrice(): number {
-        return parseInt(MetaUtils.getMetaContent('egress-tb-price')) / this.GB_IN_TB;
-    }
+/**
+ * Returns egress price per GB.
+ */
+const egressPrice = computed((): string => {
+    return decimalShift(priceModel.value.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT);
+});
 
-    /**
-     * Returns segment price.
-     */
-    public get segmentPrice(): string {
-        return MetaUtils.getMetaContent('segment-price');
-    }
+/**
+ * Returns segment price.
+ */
+const segmentPrice = computed((): string => {
+    return decimalShift(priceModel.value.segmentMonthCents, 2);
+});
 
-    /**
-     * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
-     */
-    public isDetailedInfoShown = false;
+/**
+ * Returns string of egress amount and dimension.
+ */
+const egressAmountAndDimension = computed((): string => {
+    return `${egressFormatted.value.formattedBytes} ${egressFormatted.value.label}`;
+});
 
-    /**
-     * toggleDetailedInfo expands an area with detailed information about project charges.
-     */
-    public toggleDetailedInfo(): void {
-        this.isDetailedInfoShown = !this.isDetailedInfoShown;
-    }
-
-    /**
-     * Returns formatted egress depending on amount of bytes.
-     */
-    private get egressFormatted(): Size {
-        return new Size(this.item.egress, 2);
-    }
+/**
+ * toggleDetailedInfo expands an area with detailed information about project charges.
+ */
+function toggleDetailedInfo(): void {
+    isDetailedInfoShown.value = !isDetailedInfoShown.value;
 }
 </script>
 

@@ -127,15 +127,14 @@
                     </label>
                     <Chevron :class="`permissions-chevron-${showAllPermissions.position}`" @click="togglePermissions" />
                 </div>
-                <div v-if="showAllPermissions.show === true">
-                    <div v-for="(item, key) in permissionsList" :key="key" class="create-access__fragment__wrap__permission">
+                <div v-if="showAllPermissions.show">
+                    <div v-for="item in permissionsList" :key="item" class="create-access__fragment__wrap__permission">
                         <label class="checkmark-container">
                             <input
                                 :id="`permissions__${item}-check`"
-                                v-model="selectedPermissions"
                                 type="checkbox"
                                 :value="item"
-                                :checked="checkedPermissions.item"
+                                :checked="checkedPermissions[item]"
                                 @click="toggleAllPermission(item)"
                             >
                             <span class="checkmark" />
@@ -208,13 +207,14 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, onMounted, reactive, ref } from 'vue';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
@@ -240,181 +240,168 @@ type Permissions = {
     Delete: boolean
 }
 
-// @vue/component
-@Component({
-    components: {
-        Chevron,
-        TypesIcon,
-        NameIcon,
-        PermissionsIcon,
-        BucketsSelection,
-        BucketsIcon,
-        BucketNameBullet,
-        DateIcon,
-        DurationSelection,
-        VButton,
-    },
-})
+const props = withDefaults(defineProps<{ checkedType?: string; }>(), { checkedType: '' });
 
-export default class CreateForm extends Vue {
-    @Prop({ default: '' })
-    private checkedType: string;
+const emit = defineEmits(['close-modal', 'propagateInfo', 'encrypt']);
 
-    private checkedTypes: string[] = [];
-    private accessName = '';
-    private selectedPermissions : string[] = [];
-    private allPermissionsClicked = false;
-    private permissionsList: string[] = ['Read','Write','List','Delete'];
-    private checkedPermissions: Permissions = { Read: false, Write: false, List: false, Delete: false };
-    private accessGrantList = this.accessGrantsList;
-    private addDateSelected = false;
+const store = useStore();
+const notify = useNotify();
 
-    public tooltipHover = '';
-    public tooltipVisibilityTimer;
-    public showAllPermissions: ShowPermissions = { show: false, position: 'up' };
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const checkedTypes = ref<string[]>([]);
+const accessName = ref<string>('');
+const selectedPermissions = ref<string[]>([]);
+const allPermissionsClicked = ref<boolean>(false);
+const permissionsList = ref<string[]>(['Read','Write','List','Delete']);
+const addDateSelected = ref<boolean>(false);
+const tooltipHover = ref<string>('');
+const tooltipVisibilityTimer = ref<ReturnType<typeof setTimeout> | null>();
 
-    public mounted(): void {
-        this.showAllPermissions = { show: false, position: 'up' };
-    }
+let checkedPermissions = reactive<Permissions>({ Read: false, Write: false, List: false, Delete: false });
+let showAllPermissions = reactive<ShowPermissions>({ show: false, position: 'up' });
 
-    public beforeMount(): void {
-        if (this.checkedType) this.checkedTypes = [this.checkedType];
-    }
+const accessGrantsList = computed((): AccessGrant[] => {
+    return store.state.accessGrantsModule.page.accessGrants;
+});
 
-    public onCloseClick(): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.$emit('close-modal');
-    }
+/**
+ * Retrieves selected buckets for bucket bullets.
+ */
+const selectedBucketNames = computed((): string[] => {
+    return store.state.accessGrantsModule.selectedBucketNames;
+});
 
-    /*
-    *  Whether some type of access is selected
-    * */
-    public getIsChecked(type: string): boolean {
-        return this.checkedTypes.includes(type);
-    }
-
-    /*
-    *  Add/Removed checked/unchecked access types from this.checkedTypes
-    * */
-    public checkChanged(event: { target: {checked: boolean} }, type: string): void {
-        const isSelected = event.target.checked;
-        if (type === 'api') {
-            if (isSelected) {
-                this.checkedTypes = ['api'];
-            } else {
-                this.checkedTypes = this.checkedTypes.filter(t => t !== 'api');
-            }
-        } else {
-            if (isSelected) {
-                this.checkedTypes = this.checkedTypes.filter(t => t !== 'api');
-                this.checkedTypes.push(type);
-            } else {
-                this.checkedTypes = this.checkedTypes.filter(t => t !== type);
-            }
-        }
-    }
-
-    /**
-     * Retrieves selected buckets for bucket bullets.
-     */
-    public get selectedBucketNames(): string[] {
-        return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * propagates selected info to parent on flow progression.
-     */
-    public propagateInfo(): void {
-        if (!this.checkedTypes.length)
-            return;
-        const payloadObject  = {
-            'checkedType': this.checkedTypes.join(','),
-            'accessName': this.accessName,
-            'selectedPermissions': this.selectedPermissions,
-        };
-
-        this.$emit('propagateInfo', payloadObject, this.checkedTypes.join(','));
-    }
-
-    /**
-     * Toggles permissions list visibility.
-     */
-    public togglePermissions(): void {
-        this.showAllPermissions.show = !this.showAllPermissions.show;
-        this.showAllPermissions.position = this.showAllPermissions.show ? 'up' : 'down';
-    }
-
-    public get accessGrantsList(): AccessGrant[] {
-        return this.$store.state.accessGrantsModule.page.accessGrants;
-    }
-
-    public encryptClickAction(): void {
-        let mappedList = this.accessGrantList.map((key) => (key.name));
-        if (mappedList.includes(this.accessName)) {
-            this.$notify.error(`validation: An API Key with this name already exists in this project, please use a different name`, AnalyticsErrorEventSource.CREATE_AG_FORM);
-            return;
-        } else if (!this.checkedTypes.includes('api')) {
-            // emit event here
-            this.propagateInfo();
-            this.$emit('encrypt');
-        }
-        this.analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
-    }
-
-    public toggleAllPermission(type): void {
-        if (type === 'all' && !this.allPermissionsClicked) {
-            this.allPermissionsClicked = true;
-            this.selectedPermissions = this.permissionsList;
-            this.checkedPermissions = { Read: true, Write: true, List: true, Delete: true };
-            return;
-        } else if (type === 'all' && this.allPermissionsClicked) {
-            this.allPermissionsClicked = false;
-            this.selectedPermissions = [];
-            this.checkedPermissions = { Read: false, Write: false, List: false, Delete: false };
-            return;
-        } else if (this.checkedPermissions[type]) {
-            this.checkedPermissions[type] = false;
-            this.allPermissionsClicked = false;
-            return;
-        } else {
-            this.checkedPermissions[type] = true;
-            if (this.checkedPermissions.Read && this.checkedPermissions.Write && this.checkedPermissions.List && this.checkedPermissions.Delete) {
-                this.allPermissionsClicked = true;
-            }
-        }
-    }
-
-    /**
-     * Toggles tooltip visibility.
-     */
-    public toggleTooltipHover(type, action): void {
-        if (this.tooltipHover === '' && action === 'over') {
-            this.tooltipHover = type;
-            return;
-        } else if (this.tooltipHover === type && action === 'leave') {
-            this.tooltipVisibilityTimer = setTimeout(() => {
-                this.tooltipHover = '';
-            },750);
-            return;
-        } else if (this.tooltipHover === type && action === 'over') {
-            clearTimeout(this.tooltipVisibilityTimer);
-            return;
-        } else if (this.tooltipHover !== type) {
-            clearTimeout(this.tooltipVisibilityTimer);
-            this.tooltipHover = type;
-        }
-    }
-
-    /**
-     * Sends "trackPageVisit" event to segment and opens link.
-     */
-    public trackPageVisit(link: string): void {
-        this.analytics.pageVisit(link);
-    }
-
+function onCloseClick(): void {
+    store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+    emit('close-modal');
 }
+
+/**
+ * Whether some type of access is selected
+ * @param type
+ */
+function getIsChecked(type: string): boolean {
+    return checkedTypes.value.includes(type);
+}
+
+function checkChanged(event: { target: { checked: boolean } }, type: string): void {
+    const isSelected = event.target.checked;
+    if (type === 'api') {
+        if (isSelected) {
+            checkedTypes.value = ['api'];
+        } else {
+            checkedTypes.value = checkedTypes.value.filter(t => t !== 'api');
+        }
+    } else {
+        if (isSelected) {
+            checkedTypes.value = checkedTypes.value.filter(t => t !== 'api');
+            checkedTypes.value.push(type);
+        } else {
+            checkedTypes.value = checkedTypes.value.filter(t => t !== type);
+        }
+    }
+}
+
+/**
+ * propagates selected info to parent on flow progression.
+ */
+function propagateInfo(): void {
+    if (!checkedTypes.value.length) return;
+
+    const payloadObject  = {
+        'checkedType': checkedTypes.value.join(','),
+        'accessName': accessName.value,
+        'selectedPermissions': selectedPermissions.value,
+    };
+
+    emit('propagateInfo', payloadObject, checkedTypes.value.join(','));
+}
+
+/**
+ * Toggles permissions list visibility.
+ */
+function togglePermissions(): void {
+    showAllPermissions.show = !showAllPermissions.show;
+    showAllPermissions.position = showAllPermissions.show ? 'up' : 'down';
+}
+
+function encryptClickAction(): void {
+    let mappedList = accessGrantsList.value.map((key) => (key.name));
+    if (mappedList.includes(accessName.value)) {
+        notify.error(`validation: An API Key with this name already exists in this project, please use a different name`, AnalyticsErrorEventSource.CREATE_AG_FORM);
+        return;
+    } else if (!checkedTypes.value.includes('api')) {
+        // emit event here
+        propagateInfo();
+        emit('encrypt');
+    }
+    analytics.eventTriggered(AnalyticsEvent.ENCRYPT_MY_ACCESS_CLICKED);
+}
+
+function toggleAllPermission(type): void {
+    if (type === 'all') {
+        allPermissionsClicked.value = !allPermissionsClicked.value;
+        selectedPermissions.value = allPermissionsClicked.value ? permissionsList.value : [];
+
+        for (const permission in checkedPermissions) {
+            checkedPermissions[permission] = allPermissionsClicked.value;
+        }
+
+        return;
+    }
+
+    if (checkedPermissions[type]) {
+        checkedPermissions[type] = false;
+        allPermissionsClicked.value = false;
+        selectedPermissions.value = selectedPermissions.value.filter(t => t !== type);
+    } else {
+        checkedPermissions[type] = true;
+        selectedPermissions.value.push(type);
+
+        if (checkedPermissions.Read && checkedPermissions.Write && checkedPermissions.List && checkedPermissions.Delete) {
+            allPermissionsClicked.value = true;
+            selectedPermissions.value = permissionsList.value;
+        }
+    }
+}
+
+/**
+ * Toggles tooltip visibility.
+ */
+function toggleTooltipHover(type, action): void {
+    if (tooltipHover.value === '' && action === 'over') {
+        tooltipHover.value = type;
+        return;
+    } else if (tooltipHover.value === type && action === 'leave') {
+        tooltipVisibilityTimer.value = setTimeout(() => {
+            tooltipHover.value = '';
+        }, 750);
+        return;
+    } else if (tooltipHover.value === type && action === 'over') {
+        tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
+        return;
+    } else if (tooltipHover.value !== type) {
+        tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
+        tooltipHover.value = type;
+    }
+}
+
+/**
+ * Sends "trackPageVisit" event to segment and opens link.
+ */
+function trackPageVisit(link: string): void {
+    analytics.pageVisit(link);
+}
+
+onMounted(() => {
+    showAllPermissions.show = false;
+    showAllPermissions.position = 'down';
+});
+
+onBeforeMount(() => {
+    if (props.checkedType) checkedTypes.value = [props.checkedType];
+});
 </script>
 
 <style scoped lang="scss">

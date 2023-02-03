@@ -27,9 +27,7 @@ type StoragenodeAccounting struct {
 // SaveTallies records raw tallies of at rest data to the database.
 func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if len(nodeData) == 0 {
-		return Error.New("In SaveTallies with empty nodeData")
-	}
+
 	var nodeIDs []storj.NodeID
 	var totals []float64
 	for id, total := range nodeData {
@@ -50,11 +48,9 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 		if err != nil {
 			return err
 		}
-		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+		return tx.ReplaceNoReturn_AccountingTimestamps(ctx,
 			dbx.AccountingTimestamps_Name(accounting.LastAtRestTally),
-			dbx.AccountingTimestamps_Update_Fields{
-				Value: dbx.AccountingTimestamps_Value(latestTally),
-			},
+			dbx.AccountingTimestamps_Value(latestTally),
 		)
 	})
 	return Error.Wrap(err)
@@ -349,7 +345,7 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
-			return tx.CreateNoReturn_AccountingTimestamps(ctx,
+			return tx.ReplaceNoReturn_AccountingTimestamps(ctx,
 				dbx.AccountingTimestamps_Name(timestampType),
 				dbx.AccountingTimestamps_Value(lastTally),
 			)

@@ -147,7 +147,18 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 		err := cache.DB.UpdateBandwidthBatch(ctx, rollups)
 		if err != nil {
 			mon.Event("rollups_write_cache_flush_lost")
-			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed", zap.Error(err))
+
+			// With error log only GET bandwidth because it's what we care most as we charge users for this.
+			var settled int64
+			var inline int64
+			for _, rollup := range rollups {
+				if rollup.Action == pb.PieceAction_GET {
+					settled += rollup.Settled
+					inline += rollup.Inline
+				}
+			}
+
+			cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed", zap.Int64("settled", settled), zap.Int64("inline", inline), zap.Error(err))
 		}
 	}
 
@@ -176,12 +187,18 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 		IntervalStart: time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), intervalStart.Hour(), 0, 0, 0, intervalStart.Location()).Unix(),
 	}
 
-	// pevent unbounded memory memory growth if we're not flushing fast enough
+	// prevent unbounded memory growth if we're not flushing fast enough
 	// to keep up with incoming writes.
 	data, ok := cache.pendingRollups[key]
 	if !ok && len(cache.pendingRollups) >= cache.batchSize {
 		mon.Event("rollups_write_cache_update_lost")
-		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand")
+		cache.log.Error("MONEY LOST! Flushing too slow to keep up with demand",
+			zap.Stringer("ProjectID", projectID),
+			zap.Stringer("Action", action),
+			zap.Int64("Allocated", allocated),
+			zap.Int64("Inline", inline),
+			zap.Int64("Settled", settled),
+		)
 	} else {
 
 		data.Allocated += allocated

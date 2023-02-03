@@ -2187,6 +2187,43 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop tables related to coupons, offers, and credits",
+				Version:     220,
+				Action: migrate.SQL{
+					`DROP TABLE user_credits;`,
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupon_codes;`,
+					`DROP TABLE coupons;`,
+					`DROP TABLE offers;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop project_bandwidth_rollups table",
+				Version:     221,
+				Action: migrate.SQL{
+					`DROP TABLE project_bandwidth_rollups`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add noise columns to nodes table",
+				Version:     222,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN noise_proto integer;`,
+					`ALTER TABLE nodes ADD COLUMN noise_public_key bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for interval_day column for project_bandwidth_daily_rollup",
+				Version:     223,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

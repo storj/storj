@@ -47,7 +47,7 @@
                                 <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                             </div>
                         </div>
-                        <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+                        <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                             <PassphraseIcon />
                             <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
                         </div>
@@ -346,18 +346,7 @@ export default class MobileNavigation extends Vue {
      * Toggles manage passphrase modal shown.
      */
     public onManagePassphraseClick(): void {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**
@@ -486,28 +475,27 @@ export default class MobileNavigation extends Vue {
         this.analytics.pageVisit(RouteConfig.Login.path);
         await this.$router.push(RouteConfig.Login.path);
 
+        await Promise.all([
+            this.$store.dispatch(PM_ACTIONS.CLEAR),
+            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(USER_ACTIONS.CLEAR),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
+            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
+            this.$store.dispatch(APP_STATE_ACTIONS.CLEAR),
+            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
+            this.$store.dispatch('files/clear'),
+        ]);
+
         try {
             this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
             await this.auth.logout();
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
-
-            return;
         }
-
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(USER_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
-        await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO);
-        await this.$store.dispatch(AB_TESTING_ACTIONS.RESET);
-
-        LocalData.removeUserId();
     }
 
     /**
@@ -561,14 +549,14 @@ export default class MobileNavigation extends Vue {
             height: 4rem;
 
             &__logo {
-                width: 187px;
-                max-width: 187px;
-                height: 32px;
-                max-height: 32px;
+                width: 211px;
+                max-width: 211px;
+                height: 37px;
+                max-height: 37px;
 
                 svg {
-                    width: 187px;
-                    height: 32px;
+                    width: 211px;
+                    height: 37px;
                 }
             }
         }

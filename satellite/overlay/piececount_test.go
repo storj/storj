@@ -40,7 +40,7 @@ func TestDB_PieceCounts(t *testing.T) {
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
 				NodeID:     node.ID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
@@ -101,7 +101,7 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 			i++
 			d := overlay.NodeCheckInInfo{
 				NodeID:     nodeID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},

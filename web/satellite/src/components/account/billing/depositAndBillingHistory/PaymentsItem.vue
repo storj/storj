@@ -5,10 +5,7 @@
     <div class="container">
         <PaymentsHistoryItemDate
             class="container__item date"
-            :start="billingItem.start"
-            :expiration="billingItem.end"
-            :type="billingItem.type"
-            :status="billingItem.status"
+            :billing-item="billingItem"
         />
         <p class="container__item description">{{ billingItem.description }}</p>
         <p class="container__item status">{{ billingItem.formattedStatus }}</p>
@@ -32,23 +29,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { PaymentsHistoryItem } from '@/types/payments';
 
 import PaymentsHistoryItemDate from '@/components/account/billing/depositAndBillingHistory/PaymentsHistoryItemDate.vue';
 
-// @vue/component
-@Component({
-    components: {
-        PaymentsHistoryItemDate,
-    },
-})
-export default class PaymentsItem extends Vue {
-    @Prop({ default: () => new PaymentsHistoryItem() })
-    private readonly billingItem: PaymentsHistoryItem;
-}
+const props = withDefaults(defineProps<{
+    billingItem?: PaymentsHistoryItem;
+}>(), {
+    billingItem: () => new PaymentsHistoryItem(),
+});
 </script>
 
 <style scoped lang="scss">

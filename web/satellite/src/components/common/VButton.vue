@@ -19,6 +19,7 @@
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
             <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
@@ -32,6 +33,7 @@ import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+import FolderIcon from '@/../static/images/objects/newFolder.svg';
 
 const props = withDefaults(defineProps<{
     label?: string;
@@ -230,6 +232,7 @@ const style = computed(() => {
                 :deep(path),
                 :deep(rect) {
                     stroke: white;
+                    fill: white;
                 }
 
                 .label {

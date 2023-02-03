@@ -645,6 +645,9 @@ func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.
 	err = store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 		pieceTotal, pieceContentSize, statErr := access.Size(ctx)
 		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				return nil
+			}
 			store.log.Error("failed to stat", zap.Error(statErr), zap.Stringer("Piece ID", access.PieceID()), zap.Stringer("Satellite ID", satelliteID))
 			// keep iterating; we want a best effort total here.
 			return nil
@@ -678,6 +681,9 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
 			pieceTotal, pieceContentSize, err := access.Size(ctx)
 			if err != nil {
+				if os.IsNotExist(err) {
+					return nil
+				}
 				return err
 			}
 			satPiecesTotal += pieceTotal

@@ -82,6 +82,7 @@
         >
             <div class="encrypt__footer-container__buttons">
                 <v-button
+                    v-clipboard:copy="passphrase"
                     :label="isPassphraseCopied ? 'Copied' : 'Copy to clipboard'"
                     height="50px"
                     :is-transparent="!isPassphraseCopied"
@@ -111,11 +112,12 @@
             </div>
             <div v-if="isPassphraseDownloaded || isPassphraseCopied" :class="`encrypt__footer-container__acknowledgement-container ${acknowledgementCheck ? 'blue-background' : ''}`">
                 <input
+                    id="acknowledgement"
                     v-model="acknowledgementCheck"
                     type="checkbox"
                     class="encrypt__footer-container__acknowledgement-container__check"
                 >
-                <div class="encrypt__footer-container__acknowledgement-container__text">I understand that Storj does not know or store my encryption passphrase. If I lose it, I won't be able to recover files.</div>
+                <label for="acknowledgement" class="encrypt__footer-container__acknowledgement-container__text">I understand that Storj does not know or store my encryption passphrase. If I lose it, I won't be able to recover files.</label>
             </div>
             <div
                 v-if="isPassphraseDownloaded || isPassphraseCopied"
@@ -142,13 +144,14 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Watch } from 'vue-property-decorator';
+<script setup lang="ts">
 import { generateMnemonic } from 'bip39';
+import { ref, watch } from 'vue';
 
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -157,75 +160,64 @@ import DownloadIcon from '@/../static/images/common/download.svg';
 import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
 
-// @vue/component
-@Component({
-    components: {
-        AccessKeyIcon,
-        CopyIcon,
-        DownloadIcon,
-        ThumbPrintIcon,
-        VButton,
-    },
-})
+const notify = useNotify();
 
-export default class EncryptForm extends Vue {
-    private encryptSelect = 'create';
-    private isPassphraseCopied = false;
-    private isPassphraseDownloaded = false;
-    private passphrase = '';
-    private acknowledgementCheck = false;
-    public currentDate = new Date().toISOString();
+const emit = defineEmits(['apply-passphrase', 'create-access', 'close-modal', 'backAction']);
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const encryptSelect = ref<'create' | 'generate'>('create');
+const isPassphraseCopied = ref<boolean>(false);
+const isPassphraseDownloaded = ref<boolean>(false);
+const acknowledgementCheck = ref<boolean>(false);
+const passphrase = ref<string>('');
 
-    @Watch('passphrase')
-    public applyPassphrase(): void {
-        this.$emit('apply-passphrase', this.passphrase);
-    }
+const currentDate = new Date().toISOString();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public createAccessGrant(): void {
-        this.$emit('create-access');
-    }
+function createAccessGrant(): void {
+    emit('create-access');
+}
 
-    public onCloseClick(): void {
-        this.$emit('close-modal');
-    }
+function onCloseClick(): void {
+    emit('close-modal');
+}
 
-    public onRadioInput(): void {
-        this.isPassphraseCopied = false;
-        this.isPassphraseDownloaded = false;
-        this.passphrase = '';
+function onRadioInput(): void {
+    isPassphraseCopied.value = false;
+    isPassphraseDownloaded.value = false;
+    passphrase.value = '';
 
-        if (this.encryptSelect === 'generate') {
-            this.passphrase = generateMnemonic();
-        }
-    }
-
-    public backAction(): void {
-        this.$emit('backAction');
-    }
-
-    public resetSavedStatus(): void {
-        this.isPassphraseCopied = false;
-        this.isPassphraseDownloaded = false;
-    }
-
-    public onCopyPassphraseClick(): void {
-        this.$copyText(this.passphrase);
-        this.isPassphraseCopied = true;
-        this.analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
-        this.$notify.success(`Passphrase was copied successfully`);
-    }
-
-    /**
-     * Downloads passphrase to .txt file
-     */
-    public downloadPassphrase(): void {
-        this.isPassphraseDownloaded = true;
-        Download.file(this.passphrase, `passphrase-${this.currentDate}.txt`);
-        this.analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+    if (encryptSelect.value === 'generate') {
+        passphrase.value = generateMnemonic();
     }
 }
+
+function backAction(): void {
+    emit('backAction');
+}
+
+function resetSavedStatus(): void {
+    isPassphraseCopied.value = false;
+    isPassphraseDownloaded.value = false;
+}
+
+function onCopyPassphraseClick(): void {
+    isPassphraseCopied.value = true;
+    analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
+    notify.success(`Passphrase was copied successfully`);
+}
+
+/**
+ * Downloads passphrase to .txt file
+ */
+function downloadPassphrase(): void {
+    isPassphraseDownloaded.value = true;
+    Download.file(passphrase.value, `passphrase-${currentDate}.txt`);
+    analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
+}
+
+watch(passphrase, (newPassphrase) => {
+    emit('apply-passphrase', newPassphrase);
+});
 </script>
 
 <style scoped lang="scss">

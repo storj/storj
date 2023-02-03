@@ -38,20 +38,20 @@ func TestDelete(t *testing.T) {
 		}
 
 		requireTableCount("nodes", 5)
-		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01'", 4)
+		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01 00:00:00+00'", 4)
 		requireTableCount("storagenode_paystubs", 5)
 		requireTableCount("peer_identities", 5)
 		requireTableCount("node_api_versions", 5)
 
 		err := nodecleanup.DeleteFromTables(ctx, zaptest.NewLogger(t), raw, nodecleanup.Config{
 			Limit:         2,
-			CreatedAt:     "2022-09-01",
+			CreatedAt:     "2022-09-01 00:00:00+00",
 			MaxIterations: -1,
 		})
 		require.NoError(t, err)
 
 		requireTableCount("nodes", 1)
-		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01'", 0)
+		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01 00:00:00+00'", 0)
 		requireTableCount("storagenode_paystubs", 1)
 		requireTableCount("peer_identities", 1)
 		requireTableCount("node_api_versions", 1)
@@ -89,20 +89,20 @@ func TestLargeDelete(t *testing.T) {
 		}
 
 		requireTableCount("nodes", valid+problematic)
-		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01'", problematic)
+		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01 00:00:00+00'", problematic)
 		requireTableCount("storagenode_paystubs", valid+problematic)
 		requireTableCount("peer_identities", valid+problematic)
 		requireTableCount("node_api_versions", valid+problematic)
 
 		err := nodecleanup.DeleteFromTables(ctx, zaptest.NewLogger(t), raw, nodecleanup.Config{
 			Limit:         1000,
-			CreatedAt:     "2022-09-01",
+			CreatedAt:     "2022-09-01 00:00:00+00",
 			MaxIterations: -1,
 		})
 		require.NoError(t, err)
 
 		requireTableCount("nodes", valid)
-		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01'", 0)
+		requireTableCount("nodes WHERE last_contact_success = '0001-01-01 00:00:00+00' AND created_at <= '2022-09-01 00:00:00+00'", 0)
 		requireTableCount("storagenode_paystubs", valid)
 		requireTableCount("peer_identities", valid)
 		requireTableCount("node_api_versions", valid)

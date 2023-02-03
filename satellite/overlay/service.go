@@ -290,12 +290,10 @@ type NodeReputation struct {
 
 // Clone returns a deep clone of the selected node.
 func (node *SelectedNode) Clone() *SelectedNode {
+	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
 	return &SelectedNode{
-		ID: node.ID,
-		Address: &pb.NodeAddress{
-			Transport: node.Address.Transport,
-			Address:   node.Address.Address,
-		},
+		ID:         copy.Id,
+		Address:    copy.Address,
 		LastNet:    node.LastNet,
 		LastIPPort: node.LastIPPort,
 	}
@@ -666,8 +664,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	dbStale := lastContact.Add(service.config.NodeCheckInWaitPeriod).Before(timestamp) ||
 		(node.IsUp && lastUp.Before(lastDown)) || (!node.IsUp && lastDown.Before(lastUp))
 
-	addrChanged := ((node.Address == nil) != (oldInfo.Address == nil)) ||
-		(oldInfo.Address != nil && node.Address != nil && oldInfo.Address.Address != node.Address.Address)
+	addrChanged := !pb.AddressEqual(node.Address, oldInfo.Address)
 
 	walletChanged := (node.Operator == nil && oldInfo.Operator.Wallet != "") ||
 		(node.Operator != nil && oldInfo.Operator.Wallet != node.Operator.Wallet)
@@ -704,7 +701,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		if v.Compare(min) == -1 {
 			node.VersionBelowMin = true
 			if oldInfo.LastSoftwareUpdateEmail == nil ||
-				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(time.Now()) {
+				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(timestamp) {
 				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
 				if err != nil {
 					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))

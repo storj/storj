@@ -126,16 +126,16 @@ func (h *ProjectManagementHandler) handleGenCreateProject(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
+	payload := console.ProjectInfo{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
 		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	payload := console.ProjectInfo{}
-	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -158,13 +158,6 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
@@ -180,6 +173,13 @@ func (h *ProjectManagementHandler) handleGenUpdateProject(w http.ResponseWriter,
 	payload := console.ProjectInfo{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -202,13 +202,6 @@ func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter,
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
@@ -218,6 +211,13 @@ func (h *ProjectManagementHandler) handleGenDeleteProject(w http.ResponseWriter,
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 
@@ -259,13 +259,6 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
 
 	projectIDParam := r.URL.Query().Get("projectID")
 	if projectIDParam == "" {
@@ -309,6 +302,13 @@ func (h *ProjectManagementHandler) handleGenGetSingleBucketUsageRollup(w http.Re
 		return
 	}
 
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
 	retVal, httpErr := h.service.GenGetSingleBucketUsageRollup(ctx, projectID, bucket, since, before)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -327,13 +327,6 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
 
 	projectIDParam := r.URL.Query().Get("projectID")
 	if projectIDParam == "" {
@@ -371,6 +364,13 @@ func (h *ProjectManagementHandler) handleGenGetBucketUsageRollups(w http.Respons
 		return
 	}
 
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
 	retVal, httpErr := h.service.GenGetBucketUsageRollups(ctx, projectID, since, before)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -389,13 +389,6 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
-
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
 
 	search := r.URL.Query().Get("search")
 	if search == "" {
@@ -467,6 +460,13 @@ func (h *ProjectManagementHandler) handleGenGetAPIKeys(w http.ResponseWriter, r 
 		return
 	}
 
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
 	retVal, httpErr := h.service.GenGetAPIKeys(ctx, projectID, search, limit, page, order, orderDirection)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -486,16 +486,16 @@ func (h *APIKeyManagementHandler) handleGenCreateAPIKey(w http.ResponseWriter, r
 
 	w.Header().Set("Content-Type", "application/json")
 
+	payload := console.CreateAPIKeyRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
 	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
 	if err != nil {
 		h.auth.RemoveAuthCookie(w)
 		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
-	payload := console.CreateAPIKeyRequest{}
-	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -518,13 +518,6 @@ func (h *APIKeyManagementHandler) handleGenDeleteAPIKey(w http.ResponseWriter, r
 
 	w.Header().Set("Content-Type", "application/json")
 
-	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
-	if err != nil {
-		h.auth.RemoveAuthCookie(w)
-		api.ServeError(h.log, w, http.StatusUnauthorized, err)
-		return
-	}
-
 	idParam, ok := mux.Vars(r)["id"]
 	if !ok {
 		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing id route param"))
@@ -534,6 +527,13 @@ func (h *APIKeyManagementHandler) handleGenDeleteAPIKey(w http.ResponseWriter, r
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
 		return
 	}
 

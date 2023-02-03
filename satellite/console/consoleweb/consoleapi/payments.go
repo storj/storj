@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -323,11 +324,13 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 
 	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
+		status := http.StatusInternalServerError
 		if stripecoinpayments.ErrInvalidCoupon.Has(err) {
-			p.serveJSONError(w, http.StatusBadRequest, err)
-			return
+			status = http.StatusBadRequest
+		} else if stripecoinpayments.ErrCouponConflict.Has(err) {
+			status = http.StatusConflict
 		}
-		p.serveJSONError(w, http.StatusInternalServerError, err)
+		p.serveJSONError(w, status, err)
 		return
 	}
 
@@ -372,6 +375,10 @@ func (p *Payments) GetWallet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if errs.Is(err, billing.ErrNoWallet) {
+			p.serveJSONError(w, http.StatusNotFound, err)
 			return
 		}
 
@@ -429,6 +436,30 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.NewEncoder(w).Encode(walletPayments); err != nil {
 		p.log.Error("failed to encode payments", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// GetProjectUsagePriceModel returns the project usage price model for the user.
+func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	pricing, err := p.service.Payments().GetProjectUsagePriceModel(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(pricing); err != nil {
+		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

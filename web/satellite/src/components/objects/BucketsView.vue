@@ -5,9 +5,9 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title" aria-roledescription="title">Buckets</h1>
-            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
-                <WhitePlusIcon class="new-bucket-button__icon" />
-                <p class="new-bucket-button__label">New Bucket</p>
+            <div class="buckets-view-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+                <WhitePlusIcon class="buckets-view-button__icon" />
+                <p class="buckets-view-button__label">New Bucket</p>
             </div>
         </div>
 
@@ -21,13 +21,13 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
@@ -80,9 +80,8 @@ export default class BucketsView extends Vue {
                 return;
             }
 
-            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated) {
-                this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-                await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+            if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated && !this.promptForPassphrase) {
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
             }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
@@ -103,11 +102,10 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Starts bucket creation flow.
+     * Toggles create bucket modal visibility.
      */
-    public onNewBucketButtonClick(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-        this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+    public onCreateBucketClick(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
     }
 
     /**
@@ -126,6 +124,13 @@ export default class BucketsView extends Vue {
     }
 
     /**
+     * Indicates if user should be prompt for passphrase.
+     */
+    public get promptForPassphrase(): boolean {
+        return this.$store.state.objectsModule.promptForPassphrase;
+    }
+
+    /**
      * Returns selected project id from store.
      */
     private get selectedProjectID(): string {
@@ -135,7 +140,7 @@ export default class BucketsView extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .new-bucket-button {
+    .buckets-view-button {
         padding: 0 15px;
         height: 40px;
         display: flex;
@@ -174,6 +179,7 @@ export default class BucketsView extends Vue {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
 
             &__title {
                 font-family: 'font_medium', sans-serif;

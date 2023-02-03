@@ -16,23 +16,26 @@ import (
 type MetabaseRangeSplitter struct {
 	db *metabase.DB
 
-	batchSize int
+	asOfSystemInterval time.Duration
+	batchSize          int
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
 type MetabaseSegmentProvider struct {
 	db *metabase.DB
 
-	uuidRange      UUIDRange
-	asOfSystemTime time.Time
-	batchSize      int
+	uuidRange          UUIDRange
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
+	batchSize          int
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
-func NewMetabaseRangeSplitter(db *metabase.DB, batchSize int) MetabaseRangeSplitter {
-	return MetabaseRangeSplitter{
-		db:        db,
-		batchSize: batchSize,
+func NewMetabaseRangeSplitter(db *metabase.DB, asOfSystemInterval time.Duration, batchSize int) *MetabaseRangeSplitter {
+	return &MetabaseRangeSplitter{
+		db:                 db,
+		asOfSystemInterval: asOfSystemInterval,
+		batchSize:          batchSize,
 	}
 }
 
@@ -48,10 +51,11 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 	rangeProviders := []SegmentProvider{}
 	for _, uuidRange := range uuidRanges {
 		rangeProviders = append(rangeProviders, &MetabaseSegmentProvider{
-			db:             provider.db,
-			uuidRange:      uuidRange,
-			asOfSystemTime: asOfSystemTime,
-			batchSize:      batchSize,
+			db:                 provider.db,
+			uuidRange:          uuidRange,
+			asOfSystemTime:     asOfSystemTime,
+			asOfSystemInterval: provider.asOfSystemInterval,
+			batchSize:          batchSize,
 		})
 	}
 
@@ -71,10 +75,11 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 	}
 
 	return provider.db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-		BatchSize:      provider.batchSize,
-		AsOfSystemTime: provider.asOfSystemTime,
-		StartStreamID:  startStreamID,
-		EndStreamID:    endStreamID,
+		BatchSize:          provider.batchSize,
+		AsOfSystemTime:     provider.asOfSystemTime,
+		AsOfSystemInterval: provider.asOfSystemInterval,
+		StartStreamID:      startStreamID,
+		EndStreamID:        endStreamID,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]segmentloop.Segment, 0, provider.batchSize)
 

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
@@ -238,6 +239,10 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 			if !wasSuccessful {
 				return rpcstatus.Error(rpcstatus.Canceled, "graceful exit processing interrupted (node should reconnect and continue)")
 			}
+
+			// ignore cancelled context which was triggered to finish loop but we still need to do some DB operations
+			ctx = context2.WithoutCancellation(ctx)
+
 			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())

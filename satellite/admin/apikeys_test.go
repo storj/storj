@@ -206,7 +206,6 @@ func TestApiKeysList(t *testing.T) {
 			ID        string `json:"id"`
 			ProjectID string `json:"projectId"`
 			Name      string `json:"name"`
-			PartnerID string `json:"partnerID"`
 			CreatedAt string `json:"createdAt"`
 		}
 		require.NoError(t, json.Unmarshal(body, &apiKeys))
@@ -216,14 +215,12 @@ func TestApiKeysList(t *testing.T) {
 			assert.NotEmpty(t, a.ID, "API key ID")
 			assert.Equal(t, "first", a.Name, "API key name")
 			assert.Equal(t, project.ID.String(), a.ProjectID, "API key project ID")
-			assert.Equal(t, uuid.UUID{}.String(), a.PartnerID, "API key partner ID")
 			assert.NotEmpty(t, a.CreatedAt, "API key created at")
 
 			a = apiKeys[1]
 			assert.NotEmpty(t, a.ID, "API key ID")
 			assert.Equal(t, "second", a.Name, "API key name")
 			assert.Equal(t, project.ID.String(), a.ProjectID, "API key project ID")
-			assert.Equal(t, uuid.UUID{}.String(), a.PartnerID, "API key partner ID")
 			assert.NotEmpty(t, a.CreatedAt, "API key created at")
 		}
 
@@ -241,7 +238,6 @@ func TestApiKeysList(t *testing.T) {
 			assert.NotEmpty(t, a.ID, "API key ID")
 			assert.Equal(t, "first", a.Name, "API key name")
 			assert.Equal(t, project.ID.String(), a.ProjectID, "API key project ID")
-			assert.Equal(t, uuid.UUID{}.String(), a.PartnerID, "API key partner ID")
 			assert.NotEmpty(t, a.CreatedAt, "API key created at")
 		}
 

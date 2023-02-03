@@ -1,0 +1,25 @@
+//--- repairqueue ---//
+
+model repair_queue (
+	table repair_queue
+
+	key stream_id position
+
+	field stream_id blob
+	field position uint64
+	field attempted_at timestamp (updatable, nullable)
+	field updated_at timestamp ( updatable, default current_timestamp )
+	field inserted_at timestamp ( default current_timestamp )
+	field segment_health float64 (default 1)
+
+	index (
+		fields updated_at
+	)
+
+	index (
+		name repair_queue_num_healthy_pieces_attempted_at_index
+		fields segment_health attempted_at
+	)
+)
+
+delete repair_queue ( where repair_queue.updated_at < ? )

@@ -134,6 +134,13 @@ pipeline {
                 sh 'protolock status'
 
                 sh './scripts/check-package-lock.sh'
+
+                dir("testsuite/ui") {
+                    sh 'go vet ./...'
+                }
+                dir("testsuite/storjscan") {
+                    sh 'go vet ./...'
+                }
             }
         }
 
@@ -162,11 +169,19 @@ pipeline {
                 sh 'use-ports -from 1024 -to 10000 &'
 
                 sh 'go test -tags noembed -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+
+                sh 'cockroach sql --insecure --host=localhost:26256 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256256.txt'
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256257.txt'
+                sh 'cockroach sql --insecure --host=localhost:26258 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256258.txt'
+                sh 'cockroach sql --insecure --host=localhost:26259 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256259.txt'
+                sh 'cockroach sql --insecure --host=localhost:26260 -e \'WITH full_scans AS (SHOW FULL TABLE SCANS) SELECT query FROM full_scans GROUP BY query\' > .build/fts_node_256260.txt'
+                sh 'cat .build/fts_node_256256.txt .build/fts_node_256257.txt .build/fts_node_256258.txt .build/fts_node_256259.txt .build/fts_node_256260.txt| sort | uniq > .build/full_table_scan.txt'
             }
 
             post {
                 always {
                     archiveArtifacts artifacts: '.build/tests.json'
+                    archiveArtifacts artifacts: '.build/full_table_scan.txt'
                     sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
                     junit '.build/tests.xml'
 

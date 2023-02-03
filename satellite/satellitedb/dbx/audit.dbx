@@ -1,0 +1,54 @@
+//--- auditing ---//
+
+model verification_audits (
+    key inserted_at stream_id position
+
+    field inserted_at    timestamp ( default current_timestamp )
+    field stream_id      blob
+    field position       uint64
+    field expires_at     timestamp (nullable)
+    field encrypted_size int
+)
+
+model reverification_audits (
+    key node_id stream_id position
+
+    field node_id        blob
+    field stream_id      blob
+    field position       uint64
+    field piece_num      int
+    field inserted_at    timestamp ( default current_timestamp )
+    field last_attempt   timestamp ( updatable, nullable )
+    field reverify_count int64     ( updatable, default 0 )
+
+    index ( fields inserted_at )
+)
+
+read first (
+    select reverification_audits
+    where reverification_audits.node_id = ?
+    orderby ( asc reverification_audits.stream_id, asc reverification_audits.position )
+)
+
+create reverification_audits ()
+
+delete reverification_audits (
+    where reverification_audits.node_id = ?
+    where reverification_audits.stream_id = ?
+    where reverification_audits.position = ?
+)
+
+//--- containment ---//
+
+model segment_pending_audits (
+    key node_id
+
+    field node_id             blob
+    field stream_id           blob
+    field position            uint64
+    field piece_id            blob
+    field stripe_index        int64
+    field share_size          int64
+    field expected_share_hash blob
+    field reverify_count      int64 ( updatable )
+)

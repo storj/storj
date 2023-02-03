@@ -60,6 +60,12 @@ var (
 		RunE:  verifySegments,
 	}
 
+	readCSVCmd = &cobra.Command{
+		Use:   "read-csv",
+		Short: "runs the command on segments from an input CSV file",
+		RunE:  verifySegments,
+	}
+
 	summarizeCmd = &cobra.Command{
 		Use:   "summarize-log",
 		Short: "summarizes verification log",
@@ -76,6 +82,7 @@ var (
 	satelliteCfg Satellite
 	rangeCfg     RangeConfig
 	bucketsCfg   BucketConfig
+	readCSVCfg   ReadCSVConfig
 	nodeCheckCfg NodeCheckConfig
 
 	confDir     string
@@ -94,6 +101,7 @@ func init() {
 	rootCmd.AddCommand(nodeCheckCmd)
 	runCmd.AddCommand(rangeCmd)
 	runCmd.AddCommand(bucketsCmd)
+	runCmd.AddCommand(readCSVCmd)
 
 	process.Bind(runCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
@@ -101,6 +109,8 @@ func init() {
 	process.Bind(rangeCmd, &rangeCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(bucketsCmd, &bucketsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(readCSVCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(readCSVCmd, &readCSVCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	process.Bind(nodeCheckCmd, &satelliteCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeCheckCmd, &nodeCheckCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -123,6 +133,14 @@ type BucketConfig struct {
 	BucketsCSV string `help:"csv file of project_id,bucket_name of buckets to verify" default:""`
 }
 
+// ReadCSVConfig defines configuration for verifying existence of specific segments.
+type ReadCSVConfig struct {
+	Service ServiceConfig
+	Verify  VerifierConfig
+
+	InputFile string `help:"csv file of segment_id,position for segments to verify"`
+}
+
 func verifySegments(cmd *cobra.Command, args []string) error {
 
 	ctx, _ := process.Ctx(cmd)
@@ -143,7 +161,7 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 
 	// open metabase
 	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), satelliteCfg.Metainfo.DatabaseURL,
-		satelliteCfg.Config.Metainfo.Metabase("satellite-core"))
+		satelliteCfg.Config.Metainfo.Metabase("segment-verify"))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -190,26 +208,50 @@ func verifySegments(cmd *cobra.Command, args []string) error {
 		return Error.Wrap(err)
 	}
 
-	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, db.Orders(), satelliteCfg.Orders)
+	ordersService, err := orders.NewService(log.Named("orders"), signing.SignerFromFullIdentity(identity), overlay, orders.NewNoopDB(), satelliteCfg.Orders)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
+	var (
+		verifyConfig  VerifierConfig
+		serviceConfig ServiceConfig
+		commandFunc   func(ctx context.Context, service *Service) error
+	)
+	switch cmd.Name() {
+	case "range":
+		verifyConfig = rangeCfg.Verify
+		serviceConfig = rangeCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsRange(ctx, service, rangeCfg)
+		}
+	case "buckets":
+		verifyConfig = bucketsCfg.Verify
+		serviceConfig = bucketsCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsBuckets(ctx, service, bucketsCfg)
+		}
+	case "read-csv":
+		verifyConfig = readCSVCfg.Verify
+		serviceConfig = readCSVCfg.Service
+		commandFunc = func(ctx context.Context, service *Service) error {
+			return verifySegmentsCSV(ctx, service, readCSVCfg)
+		}
+	default:
+		return errors.New("unknown command: " + cmd.Name())
+	}
+
 	// setup verifier
-	verifier := NewVerifier(log.Named("verifier"), dialer, ordersService, rangeCfg.Verify)
-	service, err := NewService(log.Named("service"), metabaseDB, verifier, overlay, rangeCfg.Service)
+	verifier := NewVerifier(log.Named("verifier"), dialer, ordersService, verifyConfig)
+	service, err := NewService(log.Named("service"), metabaseDB, verifier, overlay, serviceConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	verifier.reportPiece = service.problemPieces.Write
 	defer func() { err = errs.Combine(err, service.Close()) }()
-	if cmd.Name() == "range" {
-		return verifySegmentsRange(ctx, service, rangeCfg)
-	}
-	if cmd.Name() == "buckets" {
-		return verifySegmentsBuckets(ctx, service, bucketsCfg)
-	}
-	return errors.New("unknown commnand: " + cmd.Name())
+
+	log.Debug("starting", zap.Any("config", service.config), zap.String("command", cmd.Name()))
+	return commandFunc(ctx, service)
 }
 
 func verifySegmentsRange(ctx context.Context, service *Service, rangeCfg RangeConfig) error {
@@ -245,6 +287,19 @@ func verifySegmentsBuckets(ctx context.Context, service *Service, bucketCfg Buck
 		return Error.Wrap(err)
 	}
 	return service.ProcessBuckets(ctx, bucketList.Buckets)
+}
+
+func verifySegmentsCSV(ctx context.Context, service *Service, readCSVCfg ReadCSVConfig) (err error) {
+	if readCSVCfg.InputFile == "" {
+		return Error.New("input CSV file not provided")
+	}
+
+	segmentSource, err := OpenSegmentCSVFile(readCSVCfg.InputFile)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, segmentSource.Close()) }()
+	return service.ProcessSegmentsFromCSV(ctx, segmentSource)
 }
 
 func main() {

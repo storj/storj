@@ -95,11 +95,12 @@ export default class OverviewStep extends Vue {
      * Redirects to buckets page.
      */
     public onUploadInBrowserClick(): void {
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
-        this.analytics.pageVisit(RouteConfig.Buckets.path);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
     }
 
+    /**
+     * Returns satellite name.
+     */
     private get satelliteName(): string {
         return this.$store.state.appStateModule.satelliteName;
     }

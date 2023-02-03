@@ -39,7 +39,7 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
@@ -152,9 +152,8 @@ export default class ProjectSelection extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
-        if (this.isNewEncryptionPassphraseFlowEnabled || this.isBucketsView) {
-            this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        }
+        this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
+        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
 
         if (this.isBucketsView) {
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
@@ -266,10 +265,6 @@ export default class ProjectSelection extends Vue {
      * Toggles manage passphrase modal shown.
      */
     public onManagePassphraseClick(): void {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
         this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
 
         this.closeDropdown();
@@ -294,13 +289,6 @@ export default class ProjectSelection extends Vue {
         }
 
         this.closeDropdown();
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**
@@ -335,12 +323,12 @@ export default class ProjectSelection extends Vue {
                 display: flex;
                 align-items: center;
                 max-width: calc(100% - 16px);
+                color: var(--c-grey-6);
 
                 &__name {
                     max-width: calc(100% - 24px - 16px);
                     font-size: 14px;
                     line-height: 20px;
-                    color: var(--c-grey-6);
                     margin-left: 24px;
                     white-space: nowrap;
                     overflow: hidden;
@@ -520,7 +508,7 @@ export default class ProjectSelection extends Vue {
                 }
 
                 &__placeholder {
-                    display: none;
+                    display: block;
                     margin: 10px 0 0;
                     font-family: 'font_medium', sans-serif;
                     font-size: 9px;

@@ -186,6 +186,14 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("w.Header().Set(\"Content-Type\", \"application/json\")")
 			pf("")
 
+			if err := handleParams(pf, i, endpoint.PathParams, endpoint.QueryParams); err != nil {
+				return nil, err
+			}
+
+			if endpoint.Request != nil {
+				handleBody(pf, endpoint.Request)
+			}
+
 			if !endpoint.NoCookieAuth || !endpoint.NoAPIAuth {
 				pf("ctx, err = h.auth.IsAuthenticated(ctx, r, %v, %v)", !endpoint.NoCookieAuth, !endpoint.NoAPIAuth)
 				pf("if err != nil {")
@@ -196,14 +204,6 @@ func (a *API) generateGo() ([]byte, error) {
 				pf("return")
 				pf("}")
 				pf("")
-			}
-
-			if err := handleParams(pf, i, endpoint.PathParams, endpoint.QueryParams); err != nil {
-				return nil, err
-			}
-
-			if endpoint.Request != nil {
-				handleBody(pf, endpoint.Request)
 			}
 
 			var methodFormat string

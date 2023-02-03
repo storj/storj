@@ -60,7 +60,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -68,6 +68,7 @@ import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { RouteConfig } from '@/router';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -94,6 +95,8 @@ const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 const store = useStore();
 const notify = useNotify();
+const route = useRoute();
+const router = useRouter();
 
 const selectedOption = ref<CreatePassphraseOption>(CreatePassphraseOption.Generate);
 const activeStep = ref<CreateProjectPassphraseStep>(CreateProjectPassphraseStep.SelectMode);
@@ -299,6 +302,10 @@ async function onContinue(): Promise<void> {
     }
 
     if (activeStep.value === CreateProjectPassphraseStep.Success) {
+        if (route?.name === RouteConfig.OverviewStep.name) {
+            router.push(RouteConfig.ProjectDashboard.path);
+        }
+
         closeModal();
     }
 }

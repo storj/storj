@@ -139,6 +139,11 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					inviter, err := console.GetUser(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
 					pID, _ := p.Args[FieldProjectID].(string)
 					emails, _ := p.Args[FieldEmail].([]interface{})
 
@@ -182,7 +187,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							&console.ProjectInvitationEmail{
 								Origin:                origin,
 								UserName:              userName,
-								ProjectName:           project.Name,
+								InviterEmail:          inviter.Email,
 								SignInLink:            signIn,
 								LetUsKnowURL:          letUsKnowURL,
 								TermsAndConditionsURL: termsAndConditionsURL,

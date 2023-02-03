@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -83,7 +84,6 @@ func TestBucketAttribution(t *testing.T) {
 			user1, err := satellite.AddUser(ctx, console.CreateUser{
 				FullName:  "Test User " + strconv.Itoa(i),
 				Email:     "user@test" + strconv.Itoa(i),
-				PartnerID: "",
 				UserAgent: tt.signupPartner,
 			}, 1)
 			require.NoError(t, err, errTag)
@@ -160,7 +160,6 @@ func TestQueryAttribution(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName:  "user@test",
 			Email:     "user@test",
-			PartnerID: "",
 			UserAgent: []byte(userAgent),
 		}, 1)
 		require.NoError(t, err)
@@ -227,12 +226,10 @@ func TestQueryAttribution(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, usage.Egress)
 
-			partner, _ := planet.Satellites[0].API.Marketing.PartnersService.ByName(ctx, "")
-
 			userAgent := []byte("Minio")
 			require.NoError(t, err)
 
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, userAgent, before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, userAgent, before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].ByteHours)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
@@ -311,17 +308,13 @@ func TestAttributionReport(t *testing.T) {
 			require.NoError(t, err)
 			require.NotZero(t, usage.Egress)
 
-			partner, _ := planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
-
-			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, []byte(zenkoStr), before, after)
+			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, []byte(zenkoStr), before, after)
 			require.NoError(t, err)
 			require.NotZero(t, rows[0].ByteHours)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 
 			// Minio should have no attribution because bucket was created by Zenko
-			partner, _ = planet.Satellites[0].API.Marketing.PartnersService.ByUserAgent(ctx, "")
-
-			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, []byte(minioStr), before, after)
+			rows, err = planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, []byte(minioStr), before, after)
 			require.NoError(t, err)
 			require.Empty(t, rows)
 
@@ -365,9 +358,10 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 		project, err := config.OpenProject(ctx, planet.Uplinks[0].Access[satellite.ID()])
 		require.NoError(t, err)
 
+		var errgroup errgroup.Group
 		for i := 0; i < 3; i++ {
 			i := i
-			ctx.Go(func() error {
+			errgroup.Go(func() error {
 				upload, err := project.UploadObject(ctx, "attr-bucket", "key"+strconv.Itoa(i), nil)
 				require.NoError(t, err)
 
@@ -380,7 +374,7 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 			})
 		}
 
-		ctx.Wait()
+		require.NoError(t, errgroup.Wait())
 
 		attributionInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, planet.Uplinks[0].Projects[0].ID, []byte("attr-bucket"))
 		require.NoError(t, err)

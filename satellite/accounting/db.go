@@ -209,8 +209,8 @@ type ProjectAccounting interface {
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
-	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
-	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
+	// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
+	GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
 	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int, asOfSystemInterval time.Duration) (int64, error)
 	// GetProjectDailyBandwidth returns bandwidth (allocated and settled) for the specified day.
@@ -236,6 +236,9 @@ type ProjectAccounting interface {
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
+	// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
+	// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+	GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]ProjectUsage, err error)
 	// GetProjectObjectsSegments returns project objects and segments for specified period of time.
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.

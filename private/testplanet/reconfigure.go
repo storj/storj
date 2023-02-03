@@ -113,10 +113,10 @@ var MaxObjectKeyLength = func(maxObjectKeyLength int) func(log *zap.Logger, inde
 // tcp connections.
 var DisableTCP = Reconfigure{
 	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-		config.Server.DisableTCPTLS = true
+		config.Server.DisableTCP = true
 	},
 	StorageNode: func(index int, config *storagenode.Config) {
-		config.Server.DisableTCPTLS = true
+		config.Server.DisableTCP = true
 	},
 }
 

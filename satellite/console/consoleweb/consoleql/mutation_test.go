@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/rewards"
 )
 
 // discardSender discard sending of an actual email.
@@ -52,11 +51,6 @@ func TestGraphqlMutation(t *testing.T) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		log := zaptest.NewLogger(t)
-
-		partnersService := rewards.NewPartnersService(
-			log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
 
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
@@ -98,9 +92,11 @@ func TestGraphqlMutation(t *testing.T) {
 			db.Wallets(),
 			db.Billing(),
 			db.Console().Projects(),
+			db.Console().Users(),
 			db.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 		require.NoError(t, err)
 
@@ -111,7 +107,6 @@ func TestGraphqlMutation(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
-			partnersService,
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,
@@ -241,7 +236,7 @@ func TestGraphqlMutation(t *testing.T) {
 
 		project, err := service.GetProject(userCtx, projectID)
 		require.NoError(t, err)
-		require.Equal(t, rootUser.PartnerID, project.PartnerID)
+		require.Equal(t, rootUser.UserAgent, project.UserAgent)
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
@@ -344,7 +339,7 @@ func TestGraphqlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID}}}",
 				project.ID.String(),
 				keyName,
 			)
@@ -362,7 +357,6 @@ func TestGraphqlMutation(t *testing.T) {
 
 			assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
-			assert.Equal(t, rootUser.PartnerID.String(), keyInfo[consoleql.FieldPartnerID])
 
 			keyID = keyInfo[consoleql.FieldID].(string)
 		})

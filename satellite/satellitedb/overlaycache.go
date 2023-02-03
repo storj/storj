@@ -57,7 +57,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, vetted_at, country_code
+		SELECT id, address, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
@@ -101,13 +101,15 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode)
+		var noise noiseScanner
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
@@ -139,7 +141,7 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port
+		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key
 			FROM nodes
 			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
@@ -162,13 +164,15 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 		nodes = append(nodes, &node)
 	}
 	return nodes, Error.Wrap(rows.Err())
@@ -255,7 +259,7 @@ func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeI
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port
+		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key
 		FROM nodes
 		`+cache.db.impl.AsOfSystemInterval(asOf.Interval())+`
 		WHERE id = any($1::bytea[])
@@ -271,16 +275,18 @@ func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeI
 	nodes := make(map[storj.NodeID]*overlay.SelectedNode)
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		nodes[node.ID] = &node
 	}
@@ -309,7 +315,7 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, email, last_ip_port, vetted_at,
+		SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, vetted_at,
 			unknown_audit_suspended, offline_suspended
 		FROM nodes
 		WHERE id = any($1::bytea[])
@@ -325,16 +331,18 @@ func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nod
 	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
 	for rows.Next() {
 		var node overlay.NodeReputation
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		nodes[node.ID] = &node
 	}
@@ -599,7 +607,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 
 	// get online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id, last_net, last_ip_port, address, protocol
+		SELECT id, last_net, last_ip_port, address, protocol, noise_proto, noise_public_key
 			FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
@@ -616,7 +624,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 
 	for rows.Next() {
 		row := &dbx.Node{}
-		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
+		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol, &row.NoiseProto, &row.NoisePublicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -1089,6 +1097,14 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		return nil, err
 	}
 
+	var noiseInfo *pb.NoiseInfo
+	if info.NoiseProto != nil && len(info.NoisePublicKey) > 0 {
+		noiseInfo = &pb.NoiseInfo{
+			Proto:     pb.NoiseProtocol(*info.NoiseProto),
+			PublicKey: info.NoisePublicKey,
+		}
+	}
+
 	exitStatus := overlay.ExitStatus{NodeID: id}
 	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
 	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
@@ -1100,7 +1116,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Id: id,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
-				Transport: pb.NodeTransport(info.Protocol),
+				NoiseInfo: noiseInfo,
 			},
 		},
 		Type: pb.NodeType(info.Type),
@@ -1176,6 +1192,7 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		LastContactFailure: dbNode.LastContactFailure,
 		OfflineUnderReview: dbNode.UnderReview,
 		Status: overlay.ReputationStatus{
+			Email:                 dbNode.Email,
 			VettedAt:              dbNode.VettedAt,
 			Disqualified:          dbNode.Disqualified,
 			UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
@@ -1271,6 +1288,16 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 }
 
 func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
+		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
+	}
+
 	// First try the fast path.
 	var res sql.Result
 	res, err = cache.db.ExecContext(ctx, `
@@ -1294,9 +1321,12 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			last_ip_port=$16,
 			wallet_features=$17,
 			country_code=$18,
+			noise_proto=$21,
+			noise_public_key=$22,
 			last_software_update_email = CASE
 				WHEN $19::bool IS TRUE THEN $15::timestamptz
 				WHEN $20::bool IS FALSE THEN NULL
+				ELSE nodes.last_software_update_email
 			END,
 			last_offline_email = CASE WHEN $8::bool IS TRUE
 				THEN NULL
@@ -1304,7 +1334,7 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 			END
 		WHERE id = $1
 	`, // args $1 - $4
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC,
 		// args $5 - $7
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $8
@@ -1321,6 +1351,8 @@ func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node o
 		node.CountryCode.String(),
 		// args $19 - $20
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $21 - $22
+		noiseProto, noisePublicKey,
 	)
 
 	if err != nil {
@@ -1359,6 +1391,16 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return nil
 	}
 
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
+		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
+	}
+
 	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
@@ -1367,9 +1409,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_success,
 				last_contact_failure,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port,
-				wallet_features,
-				country_code
+				last_ip_port, wallet_features, country_code,
+				noise_proto, noise_public_key
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1381,9 +1422,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$10, $11, $12, $13, $14, $15,
-				$17,
-				$18,
-				$19
+				$17, $18, $19,
+				$22, $23
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1406,9 +1446,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_ip_port=$17,
 				wallet_features=$18,
 				country_code=$19,
+				noise_proto=$22,
+				noise_public_key=$23,
 				last_software_update_email = CASE
 					WHEN $20::bool IS TRUE THEN $16::timestamptz
 					WHEN $21::bool IS FALSE THEN NULL
+					ELSE nodes.last_software_update_email
 				END,
 				last_offline_email = CASE WHEN $9::bool IS TRUE
 					THEN NULL
@@ -1416,7 +1459,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END;
 			`,
 		// args $1 - $5
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC, int(pb.NodeType_STORAGE),
 		// args $6 - $8
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $9
@@ -1425,14 +1468,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $16
 		timestamp,
-		// args $17
-		node.LastIPPort,
-		// args $18,
-		walletFeatures,
-		// args $19,
-		node.CountryCode.String(),
+		// args $17 - $19
+		node.LastIPPort, walletFeatures, node.CountryCode.String(),
 		// args $20 - $21
 		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $22 - $23
+		noiseProto, noisePublicKey,
 	)
 	if err != nil {
 		return Error.Wrap(err)
@@ -1532,7 +1573,7 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 	var rows tagsql.Rows
 	// 2018-04-06 is the date of the first storj v3 commit.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port
+		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key
 		FROM nodes
 		WHERE last_contact_success >= timestamp '2018-04-06'
 	`))
@@ -1543,16 +1584,18 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		err = cb(ctx, &node)
 		if err != nil {
@@ -1595,4 +1638,19 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 
 func (cache *overlaycache) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
 	return cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
+}
+
+type noiseScanner struct {
+	Proto     sql.NullInt32
+	PublicKey []byte
+}
+
+func (n *noiseScanner) Convert() *pb.NoiseInfo {
+	if !n.Proto.Valid || len(n.PublicKey) == 0 {
+		return nil
+	}
+	return &pb.NoiseInfo{
+		Proto:     pb.NoiseProtocol(n.Proto.Int32),
+		PublicKey: n.PublicKey,
+	}
 }
