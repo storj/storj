@@ -172,3 +172,19 @@ update account_freeze_event (
 
 delete account_freeze_event ( where account_freeze_event.user_id = ? )
 
+//-- User Settings --//
+model user_settings (
+    key user_id
+
+    field user_id blob
+    field session_minutes uint ( nullable, updatable )
+)
+
+create user_settings ( noreturn )
+
+read one (
+    select user_settings
+    where user_settings.user_id = ?
+)
+
+update user_settings ( where user_settings.user_id = ? )

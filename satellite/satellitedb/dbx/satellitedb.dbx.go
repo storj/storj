@@ -777,6 +777,11 @@ CREATE TABLE users (
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
@@ -1436,6 +1441,11 @@ CREATE TABLE users (
 	login_lockout_expiration timestamp with time zone,
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
@@ -9944,6 +9954,74 @@ func (f User_SignupCaptcha_Field) value() interface{} {
 
 func (User_SignupCaptcha_Field) _Column() string { return "signup_captcha" }
 
+type UserSettings struct {
+	UserId         []byte
+	SessionMinutes *uint
+}
+
+func (UserSettings) _Table() string { return "user_settings" }
+
+type UserSettings_Create_Fields struct {
+	SessionMinutes UserSettings_SessionMinutes_Field
+}
+
+type UserSettings_Update_Fields struct {
+	SessionMinutes UserSettings_SessionMinutes_Field
+}
+
+type UserSettings_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserSettings_UserId(v []byte) UserSettings_UserId_Field {
+	return UserSettings_UserId_Field{_set: true, _value: v}
+}
+
+func (f UserSettings_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_UserId_Field) _Column() string { return "user_id" }
+
+type UserSettings_SessionMinutes_Field struct {
+	_set   bool
+	_null  bool
+	_value *uint
+}
+
+func UserSettings_SessionMinutes(v uint) UserSettings_SessionMinutes_Field {
+	return UserSettings_SessionMinutes_Field{_set: true, _value: &v}
+}
+
+func UserSettings_SessionMinutes_Raw(v *uint) UserSettings_SessionMinutes_Field {
+	if v == nil {
+		return UserSettings_SessionMinutes_Null()
+	}
+	return UserSettings_SessionMinutes(*v)
+}
+
+func UserSettings_SessionMinutes_Null() UserSettings_SessionMinutes_Field {
+	return UserSettings_SessionMinutes_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_SessionMinutes_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_SessionMinutes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_SessionMinutes_Field) _Column() string { return "session_minutes" }
+
 type ValueAttribution struct {
 	ProjectId   []byte
 	BucketName  []byte
@@ -12964,6 +13042,30 @@ func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return account_freeze_event, nil
+
+}
+
+func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := user_settings_user_id.value()
+	__session_minutes_val := optional.SessionMinutes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __session_minutes_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -16184,6 +16286,28 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 
 }
 
+func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_settings_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	if err != nil {
+		return (*UserSettings)(nil), obj.makeErr(err)
+	}
+	return user_settings, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -18128,6 +18252,47 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 	return account_freeze_event, nil
 }
 
+func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SessionMinutes._set {
+		__values = append(__values, update.SessionMinutes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_settings_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_settings, nil
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -18669,6 +18834,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_settings;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20380,6 +20555,30 @@ func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return account_freeze_event, nil
+
+}
+
+func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := user_settings_user_id.value()
+	__session_minutes_val := optional.SessionMinutes.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __session_minutes_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
 
 }
 
@@ -23600,6 +23799,28 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 
 }
 
+func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_settings_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	if err != nil {
+		return (*UserSettings)(nil), obj.makeErr(err)
+	}
+	return user_settings, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -25544,6 +25765,47 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 	return account_freeze_event, nil
 }
 
+func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SessionMinutes._set {
+		__values = append(__values, update.SessionMinutes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_settings_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_settings, nil
+}
+
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -26085,6 +26347,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_settings;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -26882,6 +27154,18 @@ func (rx *Rx) CreateNoReturn_StorjscanWallet(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_StorjscanWallet(ctx, storjscan_wallet_user_id, storjscan_wallet_wallet_address)
+
+}
+
+func (rx *Rx) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_UserSettings(ctx, user_settings_user_id, optional)
 
 }
 
@@ -27820,6 +28104,16 @@ func (rx *Rx) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context
 	return tx.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx, stripecoinpayments_tx_conversion_rate_tx_id)
 }
 
+func (rx *Rx) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_UserSettings_By_UserId(ctx, user_settings_user_id)
+}
+
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
@@ -28392,6 +28686,17 @@ func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Co
 	return tx.Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx, stripecoinpayments_invoice_project_record_id, update)
 }
 
+func (rx *Rx) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_UserSettings_By_UserId(ctx, user_settings_user_id, update)
+}
+
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -28572,6 +28877,11 @@ type Methods interface {
 	CreateNoReturn_StorjscanWallet(ctx context.Context,
 		storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+		err error)
+
+	CreateNoReturn_UserSettings(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field,
+		optional UserSettings_Create_Fields) (
 		err error)
 
 	Create_ApiKey(ctx context.Context,
@@ -28998,6 +29308,10 @@ type Methods interface {
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
+	Get_UserSettings_By_UserId(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field) (
+		user_settings *UserSettings, err error)
+
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
@@ -29271,6 +29585,11 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 		update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Update_UserSettings_By_UserId(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field,
+		update UserSettings_Update_Fields) (
+		user_settings *UserSettings, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

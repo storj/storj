@@ -2224,6 +2224,18 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create user_settings table",
+				Version:     224,
+				Action: migrate.SQL{
+					`CREATE TABLE user_settings (
+						user_id bytea NOT NULL,
+						session_minutes integer,
+						PRIMARY KEY ( user_id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

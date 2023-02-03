@@ -47,6 +47,10 @@ type Users interface {
 	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 	// GetUserPaidTier is a method to gather whether the specified user is on the Paid Tier or not.
 	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
+	// GetSettings is a method for returning a user's set of configurations.
+	GetSettings(ctx context.Context, userID uuid.UUID) (*UserSettings, error)
+	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
+	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }
 
 // UserInfo holds User updatable data.
@@ -243,4 +247,15 @@ type UpdateUserRequest struct {
 	FailedLoginCount *int
 
 	LoginLockoutExpiration **time.Time
+}
+
+// UserSettings contains configurations for a user.
+type UserSettings struct {
+	SessionDuration *time.Duration `json:"sessionDuration"`
+}
+
+// UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
+type UpsertUserSettingsRequest struct {
+	// The DB stores this value with minute granularity. Finer time units are ignored.
+	SessionDuration **time.Duration
 }
