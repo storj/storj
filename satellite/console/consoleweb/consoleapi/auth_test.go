@@ -884,8 +884,8 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 		}{
 			{"Length below minimum must be rejected", 5, false},
 			{"Length as minimum must be accepted", 6, true},
-			{"Length as maximum must be accepted", 128, true},
-			{"Length above maximum must be rejected", 129, false},
+			{"Length as maximum must be accepted", 72, true},
+			{"Length above maximum must be rejected", 73, false},
 		} {
 			tt := tt
 			t.Run(tt.Name, func(t *testing.T) {

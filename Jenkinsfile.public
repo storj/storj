@@ -62,7 +62,7 @@ pipeline {
                         sh './web/multinode/build.sh'
                     }
                 }
-                
+
                 stage('satellite/admin/ui') {
                     steps {
                         sh './satellite/admin/ui/build.sh'

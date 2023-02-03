@@ -91,7 +91,7 @@ func (user *CreateUser) IsValid() error {
 
 	errgrp.Add(
 		ValidateFullName(user.FullName),
-		ValidatePassword(user.Password),
+		ValidateNewPassword(user.Password),
 	)
 
 	// validate email

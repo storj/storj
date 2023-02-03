@@ -947,7 +947,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		}
 	}
 
-	if err := ValidatePassword(password); err != nil {
+	if err := ValidateNewPassword(password); err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
@@ -1331,7 +1331,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return ErrChangePassword.New(changePasswordErrMsg)
 	}
 
-	if err := ValidatePassword(newPass); err != nil {
+	if err := ValidateNewPassword(newPass); err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
