@@ -291,13 +291,10 @@ func hasReputationChanged(updated Info, current overlay.ReputationStatus, now ti
 }
 
 // statusChanged determines if the two given statuses are different.
+// a status is considered "different" if it went from nil to not-nil, or not-nil to nil.
+// if not-nil and the only difference is the time, this is considered "not changed".
 func statusChanged(s1, s2 *time.Time) bool {
-	if s1 == nil && s2 == nil {
-		return false
-	} else if s1 != nil && s2 != nil {
-		return !s1.Equal(*s2)
-	}
-	return true
+	return (s1 == nil && s2 != nil) || (s1 != nil && s2 == nil)
 }
 
 // UpdateRequestToMutations transforms an UpdateRequest into the equivalent
