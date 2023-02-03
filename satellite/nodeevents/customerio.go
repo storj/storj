@@ -69,8 +69,13 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 	}
 
 	var nodeIDs string
+	idsMap := make(map[string]struct{})
 	for _, e := range events {
-		nodeIDs = nodeIDs + e.NodeID.String() + ","
+		idStr := e.NodeID.String()
+		if _, ok := idsMap[idStr]; !ok {
+			idsMap[idStr] = struct{}{}
+			nodeIDs = nodeIDs + idStr + ","
+		}
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
 

@@ -28,8 +28,13 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	if len(events) == 0 {
 		return nil
 	}
+	idsMap := make(map[string]struct{})
 	for _, e := range events {
-		nodeIDs = nodeIDs + e.NodeID.String() + ","
+		idStr := e.NodeID.String()
+		if _, ok := idsMap[idStr]; !ok {
+			idsMap[idStr] = struct{}{}
+			nodeIDs = nodeIDs + idStr + ","
+		}
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
 
