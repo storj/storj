@@ -30,10 +30,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { useNotify, useStore } from '@/utils/hooks';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 
 import VModal from '@/components/common/VModal.vue';
 import ManageOptionsStep from '@/components/modals/manageProjectPassphrase/ManageOptionsStep.vue';
@@ -43,17 +44,17 @@ import ClearStep from '@/components/modals/manageProjectPassphrase/ClearStep.vue
 
 import LockIcon from '@/../static/images/projectPassphrase/lock.svg';
 
-enum ManageProjectPassphraseStep {
-    ManageOptions = 'ManageOptions',
-    Create = 'Create',
-    Switch = 'Switch',
-    Clear = 'Clear',
-}
-
 const store = useStore();
 const notify = useNotify();
 
-const activeStep = ref<ManageProjectPassphraseStep>(ManageProjectPassphraseStep.ManageOptions);
+/**
+ * Returns step from store.
+ */
+const storedStep = computed((): ManageProjectPassphraseStep | undefined => {
+    return store.state.appStateModule.appState.managePassphraseStep;
+});
+
+const activeStep = ref<ManageProjectPassphraseStep>(storedStep.value || ManageProjectPassphraseStep.ManageOptions);
 
 /**
  * Sets flow to create step.
@@ -89,6 +90,10 @@ function setManageOptions(): void {
 function closeModal(): void {
     store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
 }
+
+onMounted(() => {
+    store.commit(APP_STATE_MUTATIONS.CLEAR_MANAGE_PASSPHRASE_STEP);
+});
 </script>
 
 <style scoped lang="scss">

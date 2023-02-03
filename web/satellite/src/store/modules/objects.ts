@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { Bucket } from 'aws-sdk/clients/s3';
+import S3, { Bucket, ObjectList } from 'aws-sdk/clients/s3';
 
 import { EdgeCredentials } from '@/types/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -21,6 +21,7 @@ export const OBJECTS_ACTIONS = {
     CREATE_BUCKET: 'createBucket',
     CREATE_BUCKET_WITH_NO_PASSPHRASE: 'createBucketWithNoPassphrase',
     DELETE_BUCKET: 'deleteBucket',
+    LIST_OBJECTS: 'listObjects',
     CHECK_ONGOING_UPLOADS: 'checkOngoingUploads',
 };
 
@@ -232,6 +233,19 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 await ctx.state.s3ClientForDelete.deleteBucket({
                     Bucket: name,
                 }).promise();
+            },
+            listObjects: async function(ctx, name: string): Promise<S3.ObjectList> {
+                const response =  await ctx.state.s3Client.listObjects({
+                    Bucket: name,
+                    Delimiter: '/',
+                    Prefix: '',
+                }).promise();
+
+                if (!response.Contents) {
+                    return [];
+                }
+
+                return response.Contents;
             },
             clearObjects: function({ commit }: ObjectsContext): void {
                 commit(CLEAR);

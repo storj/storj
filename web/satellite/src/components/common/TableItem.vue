@@ -18,6 +18,7 @@
                 <p v-for="str in val" :key="str" class="array-val">{{ str }}</p>
             </div>
             <div v-else class="table-item">
+                <TableLockedIcon v-if="(tableType.toLowerCase() === 'locked') && (index === 0)" class="item-icon" />
                 <BucketIcon v-if="(tableType.toLowerCase() === 'bucket') && (index === 0)" class="item-icon" />
                 <FileIcon v-else-if="(tableType.toLowerCase() === 'file') && (index === 0)" class="item-icon" />
                 <FolderIcon v-else-if="(tableType.toLowerCase() === 'folder') && (index === 0)" class="item-icon" />
@@ -40,6 +41,7 @@ import VTableCheckbox from '@/components/common/VTableCheckbox.vue';
 import BucketGuide from '@/components/objects/BucketGuide.vue';
 import MiddleTruncate from '@/components/browser/MiddleTruncate.vue';
 
+import TableLockedIcon from '@/../static/images/browser/tableLocked.svg';
 import FolderIcon from '@/../static/images/objects/folder.svg';
 import BucketIcon from '@/../static/images/objects/bucketIcon.svg';
 import FileIcon from '@/../static/images/objects/file.svg';

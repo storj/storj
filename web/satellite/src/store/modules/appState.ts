@@ -5,6 +5,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
+import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 
 // Object that contains all states of views
 class ViewsState {
@@ -58,6 +59,7 @@ class ViewsState {
         public setDefaultPaymentMethodID = '',
         public deletePaymentMethodID = '',
         public onbSelectedOs: OnboardingOS | null = null,
+        public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined,
     ) {}
 }
 
@@ -157,8 +159,15 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
             state.appState.isCreateProjectPassphraseModalShown = !state.appState.isCreateProjectPassphraseModalShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State): void {
+        [APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN](state: State, step?: ManageProjectPassphraseStep): void {
+            if (step) {
+                state.appState.managePassphraseStep = step;
+            }
+
             state.appState.isManageProjectPassphraseModalShown = !state.appState.isManageProjectPassphraseModalShown;
+        },
+        [APP_STATE_MUTATIONS.CLEAR_MANAGE_PASSPHRASE_STEP](state: State): void {
+            state.appState.managePassphraseStep = undefined;
         },
         [APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN](state: State): void {
             state.appState.isCreateBucketModalShown = !state.appState.isCreateBucketModalShown;
@@ -253,6 +262,7 @@ export const appStateModule = {
             state.appState.setDefaultPaymentMethodID = '';
             state.appState.deletePaymentMethodID = '';
             state.appState.onbSelectedOs = null;
+            state.appState.managePassphraseStep = undefined;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;

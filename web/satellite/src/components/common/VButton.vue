@@ -42,6 +42,7 @@ const props = withDefaults(defineProps<{
     fontSize?: string;
     borderRadius?: string;
     icon?: string;
+    isOrange?: boolean;
     isWhite?: boolean;
     isSolidDelete?: boolean;
     isTransparent?: boolean;
@@ -60,6 +61,7 @@ const props = withDefaults(defineProps<{
     fontSize: '16px',
     borderRadius: '6px',
     icon: 'none',
+    isOrange: false,
     isWhite: false,
     isSolidDelete: false,
     isTransparent: false,
@@ -77,6 +79,8 @@ const containerClassName = computed((): string => {
     if (props.isDisabled) return 'container disabled';
 
     if (props.isWhite) return 'container white';
+
+    if (props.isOrange) return 'container orange';
 
     if (props.isSolidDelete) return 'container solid-red';
 
@@ -189,6 +193,11 @@ const style = computed(() => {
         }
     }
 
+    .orange {
+        background-color: #ff8a00 !important;
+        border: 2px solid #ff8a00 !important;
+    }
+
     .container {
         display: flex;
         align-items: center;
@@ -260,6 +269,11 @@ const style = computed(() => {
                 .label {
                     color: #eb5757 !important;
                 }
+            }
+
+            &.orange {
+                background-color: #c16900 !important;
+                border-color: #c16900 !important;
             }
 
             &.disabled {
