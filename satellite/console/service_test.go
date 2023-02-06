@@ -107,7 +107,8 @@ func TestService(t *testing.T) {
 
 				// stripecoinpayments.TestPaymentMethodsAttachFailure triggers the underlying mock stripe client to return an error
 				// when attaching a payment method to a customer.
-				require.Error(t, service.Payments().AddCreditCard(userCtx1, stripecoinpayments.TestPaymentMethodsAttachFailure))
+				_, err = service.Payments().AddCreditCard(userCtx1, stripecoinpayments.TestPaymentMethodsAttachFailure)
+				require.Error(t, err)
 
 				// user still in free tier
 				user, err = service.GetUser(ctx, up1Pro1.OwnerID)
@@ -128,8 +129,9 @@ func TestService(t *testing.T) {
 				userCtx1, err := sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 				// add a credit card to put the user in the paid tier
-				err = service.Payments().AddCreditCard(userCtx1, "test-cc-token")
+				card, err := service.Payments().AddCreditCard(userCtx1, "test-cc-token")
 				require.NoError(t, err)
+				require.NotEmpty(t, card)
 				// user should be in paid tier
 				user, err = service.GetUser(ctx, up1Pro1.OwnerID)
 				require.NoError(t, err)
@@ -553,7 +555,7 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 
 		// add a credit card to the user
-		err = service.Payments().AddCreditCard(userCtx, "test-cc-token")
+		_, err = service.Payments().AddCreditCard(userCtx, "test-cc-token")
 		require.NoError(t, err)
 
 		// expect user to be in paid tier

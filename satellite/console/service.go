@@ -331,17 +331,17 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
-func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	err = payment.service.accounts.CreditCards().Add(ctx, user.ID, creditCardToken)
+	card, err = payment.service.accounts.CreditCards().Add(ctx, user.ID, creditCardToken)
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
@@ -355,12 +355,12 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 			payment.service.config.UsageLimits.Project.Paid,
 		)
 		if err != nil {
-			return Error.Wrap(err)
+			return payments.CreditCard{}, Error.Wrap(err)
 		}
 
 		projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
 		if err != nil {
-			return Error.Wrap(err)
+			return payments.CreditCard{}, Error.Wrap(err)
 		}
 		for _, project := range projects {
 			if project.StorageLimit == nil || *project.StorageLimit < payment.service.config.UsageLimits.Storage.Paid {
@@ -376,12 +376,12 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 			}
 			err = payment.service.store.Projects().Update(ctx, &project)
 			if err != nil {
-				return Error.Wrap(err)
+				return payments.CreditCard{}, Error.Wrap(err)
 			}
 		}
 	}
 
-	return nil
+	return card, nil
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.

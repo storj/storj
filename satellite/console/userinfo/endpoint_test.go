@@ -130,7 +130,7 @@ func TestEndpointGet(t *testing.T) {
 				userCtx, err := sat.UserContext(ctx, user.ID)
 				require.NoError(t, err)
 				// add a credit card to put the user in the paid tier.
-				err = sat.API.Console.Service.Payments().AddCreditCard(userCtx, "test-cc-token")
+				_, err = sat.API.Console.Service.Payments().AddCreditCard(userCtx, "test-cc-token")
 				require.NoError(t, err)
 
 				// get user info again

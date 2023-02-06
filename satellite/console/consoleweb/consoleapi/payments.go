@@ -174,7 +174,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	token := string(bodyBytes)
 
-	err = p.service.Payments().AddCreditCard(ctx, token)
+	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)

@@ -63,11 +63,13 @@ func TestCreditCards_Add(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, u.ID, tt.cardToken)
+				card, err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, u.ID, tt.cardToken)
 				if tt.shouldErr {
 					require.Error(t, err)
+					require.Empty(t, card)
 				} else {
 					require.NoError(t, err)
+					require.NotEmpty(t, card)
 				}
 
 				cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, u.ID)
@@ -90,10 +92,10 @@ func TestCreditCards_Remove(t *testing.T) {
 		satellite := planet.Satellites[0]
 		userID := planet.Uplinks[0].Projects[0].Owner.ID
 
-		err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test")
+		_, err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test")
 		require.NoError(t, err)
 
-		err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test2")
+		_, err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test2")
 		require.NoError(t, err)
 
 		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, userID)
@@ -120,10 +122,10 @@ func TestCreditCards_RemoveAll(t *testing.T) {
 		satellite := planet.Satellites[0]
 		userID := planet.Uplinks[0].Projects[0].Owner.ID
 
-		err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test")
+		_, err := satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test")
 		require.NoError(t, err)
 
-		err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test2")
+		_, err = satellite.API.Payments.Accounts.CreditCards().Add(ctx, userID, "test2")
 		require.NoError(t, err)
 
 		cards, err := satellite.API.Payments.Accounts.CreditCards().List(ctx, userID)
