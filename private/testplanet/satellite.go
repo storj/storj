@@ -528,7 +528,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	err = db.TestingMigrateToLatest(ctx)
+	err = db.Testing().TestMigrateToLatest(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

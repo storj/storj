@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
@@ -86,7 +87,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -98,7 +104,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 					ProjectFields: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(types.projectInput),
@@ -113,8 +124,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					inputID := p.Args[FieldID].(string)
-					projectID, err := uuid.FromString(inputID)
+					projectID, err := getProjectID(p)
 					if err != nil {
 						return nil, err
 					}
@@ -132,7 +142,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
@@ -144,10 +159,9 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					pID, _ := p.Args[FieldProjectID].(string)
 					emails, _ := p.Args[FieldEmail].([]interface{})
 
-					projectID, err := uuid.FromString(pID)
+					projectID, err := getProjectID(p)
 					if err != nil {
 						return nil, err
 					}
@@ -162,7 +176,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					users, err := service.AddProjectMembers(p.Context, projectID, userEmails)
+					users, err := service.AddProjectMembers(p.Context, project.ID, userEmails)
 					if err != nil {
 						return nil, err
 					}
@@ -204,17 +218,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Type: types.project,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 					FieldEmail: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.NewList(graphql.String)),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					pID, _ := p.Args[FieldProjectID].(string)
 					emails, _ := p.Args[FieldEmail].([]interface{})
 
-					projectID, err := uuid.FromString(pID)
+					projectID, err := getProjectID(p)
 					if err != nil {
 						return nil, err
 					}
@@ -242,17 +260,21 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Type: types.createAPIKey,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+						Type:         graphql.String,
+						DefaultValue: "",
+					},
+					FieldPublicID: &graphql.ArgumentConfig{
+						Type:         graphql.String,
+						DefaultValue: "",
 					},
 					FieldName: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectIDField, _ := p.Args[FieldProjectID].(string)
 					name, _ := p.Args[FieldName].(string)
 
-					projectID, err := uuid.FromString(projectIDField)
+					projectID, err := getProjectID(p)
 					if err != nil {
 						return nil, err
 					}
@@ -327,4 +349,30 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 			},
 		},
 	})
+}
+
+func getProjectID(p graphql.ResolveParams) (projectID uuid.UUID, err error) {
+	inputID, _ := p.Args[FieldID].(string)
+	inputProjectID, _ := p.Args[FieldProjectID].(string)
+	inputPublicID, _ := p.Args[FieldPublicID].(string)
+
+	if inputID != "" {
+		projectID, err = uuid.FromString(inputID)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+	} else if inputProjectID != "" {
+		projectID, err = uuid.FromString(inputProjectID)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+	} else if inputPublicID != "" {
+		projectID, err = uuid.FromString(inputPublicID)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+	} else {
+		return uuid.UUID{}, errs.New("Project ID was not provided.")
+	}
+	return projectID, nil
 }

@@ -33,7 +33,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                         name: $name,
                         description: $description,
                     }
-                ) {id}
+                ) {publicId}
             }`;
 
         const variables = {
@@ -43,7 +43,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const response = await this.mutate(query, variables);
 
-        return new Project(response.data.createProject.id, variables.name, variables.description, '', projectFields.ownerId);
+        return new Project(response.data.createProject.publicId, variables.name, variables.description, '', projectFields.ownerId);
     }
 
     /**
@@ -56,7 +56,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const query = `query {
             myProjects{
                 name
-                id
+                publicId
                 description
                 createdAt
                 ownerId
@@ -65,9 +65,9 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const response = await this.query(query);
 
-        return response.data.myProjects.map((project: Project) => {
+        return response.data.myProjects.map((project: Project & {publicId: string}) => {
             return new Project(
-                project.id,
+                project.publicId,
                 project.name,
                 project.description,
                 project.createdAt,
@@ -89,7 +89,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const query =
             `mutation($projectId: String!, $name: String!, $description: String!, $storageLimit: String!, $bandwidthLimit: String!) {
                 updateProject(
-                    id: $projectId,
+                    publicId: $projectId,
                     projectFields: {
                         name: $name,
                         description: $description,
@@ -122,7 +122,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         const query =
             `mutation($projectId: String!) {
                 deleteProject(
-                    id: $projectId
+                    publicId: $projectId
                 ) {name}
             }`;
 
@@ -245,7 +245,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             `query($limit: Int!, $page: Int!) {
                 ownedProjects( cursor: { limit: $limit, page: $page } ) {
                     projects {
-                        id,
+                        publicId,
                         name,
                         ownerId,
                         description,
@@ -282,7 +282,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         const projects: Project[] = page.projects.map(key =>
             new Project(
-                key.id,
+                key.publicId,
                 key.name,
                 key.description,
                 key.createdAt,

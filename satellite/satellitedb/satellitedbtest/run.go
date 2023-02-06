@@ -129,12 +129,6 @@ func (db *tempMasterDB) Close() error {
 	return errs.Combine(db.DB.Close(), db.tempDB.Close())
 }
 
-// DebugGetDBHandle exposes a handle to the raw database object. This is intended
-// only for testing purposes and is temporary.
-func (db *tempMasterDB) DebugGetDBHandle() tagsql.DB {
-	return db.tempDB.DB
-}
-
 // CreateMasterDB creates a new satellite database for testing.
 func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database, applicationName string) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
@@ -224,7 +218,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 				}
 			}()
 
-			err = db.TestingMigrateToLatest(ctx)
+			err = db.Testing().TestMigrateToLatest(ctx)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -292,7 +286,7 @@ func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 
 // FullTableScanQueries is a helper method to list all queries which performed full table scan recently. It works only for cockroach db.
 func FullTableScanQueries(ctx context.Context, db tagsql.DB, implementation dbutil.Implementation, applicationName string) (queries []string, err error) {
-	if implementation.String() != "cockroach" {
+	if implementation != dbutil.Cockroach {
 		return nil, nil
 	}
 

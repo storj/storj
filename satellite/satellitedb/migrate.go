@@ -63,7 +63,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
@@ -83,8 +83,8 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	}
 }
 
-// TestingMigrateToLatest is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
+// TestMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -113,14 +113,14 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 
 		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
 
-		testMigration := db.TestPostgresMigration()
+		testMigration := db.TestMigration()
 		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
@@ -134,7 +134,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		return migration.ValidateVersions(ctx, db.log)
 
 	default:
@@ -142,13 +142,13 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// TestPostgresMigration returns steps needed for migrating test postgres database.
-func (db *satelliteDB) TestPostgresMigration() *migrate.Migration {
+// TestMigration returns steps needed for migrating test postgres database.
+func (db *satelliteDB) TestMigration() *migrate.Migration {
 	return db.testMigration()
 }
 
-// PostgresMigration returns steps needed for migrating postgres database.
-func (db *satelliteDB) PostgresMigration() *migrate.Migration {
+// ProductionMigration returns steps needed for migrating postgres database.
+func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{

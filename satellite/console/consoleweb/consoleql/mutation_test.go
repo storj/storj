@@ -286,14 +286,31 @@ func TestGraphqlMutation(t *testing.T) {
 			user2.Email = "u2@mail.test"
 		})
 
-		t.Run("Add project members mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
-				project.ID.String(),
-				user1.Email,
-				user2.Email,
-			)
+		regTokenUser3, err := service.CreateRegToken(ctx, 1)
+		require.NoError(t, err)
 
+		user3, err := service.CreateUser(userCtx, console.CreateUser{
+			FullName: "User3",
+			Email:    "u3@mail.test",
+			Password: "123a123",
+		}, regTokenUser3.Secret)
+		require.NoError(t, err)
+
+		t.Run("Activation", func(t *testing.T) {
+			activationToken3, err := service.GenerateActivationToken(
+				ctx,
+				user3.ID,
+				"u3@mail.test",
+			)
+			require.NoError(t, err)
+
+			_, err = service.ActivateAccount(ctx, activationToken3)
+			require.NoError(t, err)
+
+			user3.Email = "u3@mail.test"
+		})
+
+		testAdd := func(query string, expectedMembers int) {
 			result, err := testQuery(t, query)
 			require.NoError(t, err)
 
@@ -306,15 +323,48 @@ func TestGraphqlMutation(t *testing.T) {
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
 			assert.Equal(t, project.PublicID.String(), proj[consoleql.FieldPublicID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, len(projectMembers))
+			assert.Equal(t, expectedMembers, len(projectMembers))
+		}
+
+		t.Run("Add project members mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				project.ID.String(),
+				user1.Email,
+				user2.Email,
+			)
+
+			testAdd(query, 3)
+		})
+
+		t.Run("Add project members mutation with publicId", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(publicId:\"%s\",email:[\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				project.PublicID.String(),
+				user3.Email,
+			)
+
+			testAdd(query, 4)
+		})
+
+		t.Run("Fail add project members mutation without ID", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				user1.Email,
+				user2.Email,
+			)
+
+			_, err = testQuery(t, query)
+			require.Error(t, err)
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
+				user3.Email,
 			)
 
 			result, err := testQuery(t, query)
@@ -392,16 +442,7 @@ func TestGraphqlMutation(t *testing.T) {
 		const StorageLimit = "100"
 		const BandwidthLimit = "100"
 
-		t.Run("Update project mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
-				project.ID.String(),
-				testName,
-				testDescription,
-				StorageLimit,
-				BandwidthLimit,
-			)
-
+		testUpdate := func(query string) {
 			result, err := testQuery(t, query)
 			require.NoError(t, err)
 
@@ -412,6 +453,45 @@ func TestGraphqlMutation(t *testing.T) {
 			assert.Equal(t, project.PublicID.String(), proj[consoleql.FieldPublicID])
 			assert.Equal(t, testName, proj[consoleql.FieldName])
 			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
+		}
+
+		t.Run("Update project mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				project.ID.String(),
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			testUpdate(query)
+		})
+
+		t.Run("Update project mutation with publicId", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(publicId:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				project.PublicID.String(),
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			testUpdate(query)
+		})
+
+		t.Run("Fail update project mutation without ID", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			_, err := testQuery(t, query)
+			require.Error(t, err)
 		})
 
 		t.Run("Delete project mutation", func(t *testing.T) {

@@ -108,7 +108,7 @@ func test(t *testing.T,
 			require.NoError(t, err)
 			defer ctx.Check(db.Close)
 
-			err = db.TestingMigrateToLatest(ctx)
+			err = db.Testing().TestMigrateToLatest(ctx)
 			require.NoError(t, err)
 
 			mConnStr := strings.Replace(tempDB.ConnStr, "cockroach", "postgres", 1)
