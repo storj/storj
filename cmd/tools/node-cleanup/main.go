@@ -21,7 +21,6 @@ import (
 	"storj.io/private/process"
 	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 var mon = monkit.Package()
@@ -103,10 +102,7 @@ func Delete(ctx context.Context, log *zap.Logger, config Config) (err error) {
 		return errs.New("database version not correct: %w", err)
 	}
 
-	// TODO: ensure this works
-	raw := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-
-	return DeleteFromTables(ctx, log, raw.DB, config)
+	return DeleteFromTables(ctx, log, db.Testing().RawDB(), config)
 }
 
 var maxNodeID = (func() storj.NodeID {
