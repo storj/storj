@@ -612,17 +612,46 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 			_, err = project.CreateBucket(ctx, bucketName)
 			require.NoError(t, err)
 
-			for _, options := range []uplink.ListUploadsOptions{
-				{System: false, Custom: false},
-				{System: true, Custom: false},
-				{System: true, Custom: true},
-				{System: false, Custom: true},
+			for _, tt := range []struct {
+				expires time.Time
+				options uplink.ListUploadsOptions
+			}{
+				{
+					options: uplink.ListUploadsOptions{System: false, Custom: false},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: true, Custom: false},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: true, Custom: true},
+				},
+				{
+					options: uplink.ListUploadsOptions{System: false, Custom: true},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: false, Custom: false},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: true, Custom: false},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: true, Custom: true},
+				},
+				{
+					expires: time.Now().Add(24 * time.Hour),
+					options: uplink.ListUploadsOptions{System: false, Custom: true},
+				},
 			} {
-				t.Run(fmt.Sprintf("system:%v;custom:%v", options.System, options.Custom), func(t *testing.T) {
-					uploadInfo, err := project.BeginUpload(ctx, bucketName, "multipart-object", nil)
+				t.Run(fmt.Sprintf("expires:%v;system:%v;custom:%v", !tt.expires.IsZero(), tt.options.System, tt.options.Custom), func(t *testing.T) {
+					uploadInfo, err := project.BeginUpload(ctx, bucketName, "multipart-object", &uplink.UploadOptions{
+						Expires: tt.expires,
+					})
 					require.NoError(t, err)
 
-					iterator := project.ListUploads(ctx, bucketName, &options)
+					iterator := project.ListUploads(ctx, bucketName, &tt.options)
 					require.True(t, iterator.Next())
 					require.Equal(t, uploadInfo.UploadID, iterator.Item().UploadID)
 
