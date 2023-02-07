@@ -15,19 +15,39 @@
                     class="dashboard__wrap__main-area__content-wrap"
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <UpgradeNotification
-                        v-if="isPaidTierBannerShown && abTestValues.hasNewUpgradeBanner"
-                        :open-add-p-m-modal="togglePMModal"
-                    />
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <div class="bars">
                             <BetaSatBar v-if="isBetaSatellite" />
-                            <PaidTierBar
-                                v-if="isPaidTierBannerShown && !abTestValues.hasNewUpgradeBanner"
-                                :open-add-p-m-modal="togglePMModal"
-                            />
                             <ProjectInfoBar v-if="isProjectListPage" />
                             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+
+                            <UpgradeNotification
+                                v-if="isPaidTierBannerShown"
+                                :open-add-p-m-modal="togglePMModal"
+                            />
+
+                            <v-banner
+                                v-if="isAccountFrozen && !isLoading && dashboardContent"
+                                severity="critical"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                                    <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                                </template>
+                            </v-banner>
+
+                            <v-banner
+                                v-if="limitState.isShown && !isLoading && dashboardContent"
+                                :severity="limitState.severity"
+                                :on-click="() => setIsLimitModalShown(true)"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">{{ limitState.label }}</p>
+                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                </template>
+                            </v-banner>
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                     </div>
@@ -45,27 +65,6 @@
             :on-close="closeInactivityModal"
             :initial-seconds="inactivityModalTime / 1000"
         />
-        <v-banner
-            v-if="isAccountFrozen && !isLoading && dashboardContent"
-            severity="critical"
-            :dashboard-ref="dashboardContent"
-        >
-            <template #text>
-                <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
-                <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
-            </template>
-        </v-banner>
-        <v-banner
-            v-if="limitState.isShown && !isLoading && dashboardContent"
-            :severity="limitState.severity"
-            :on-click="() => setIsLimitModalShown(true)"
-            :dashboard-ref="dashboardContent"
-        >
-            <template #text>
-                <p class="medium">{{ limitState.label }}</p>
-                <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
-            </template>
-        </v-banner>
         <limit-warning-modal
             v-if="isLimitModalShown && !isLoading"
             :severity="limitState.severity"
@@ -98,7 +97,6 @@ import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import eventBus from '@/utils/eventBus';
-import { ABTestValues } from '@/types/abtesting';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -111,7 +109,6 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
-import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
 import AllModals from '@/components/modals/AllModals.vue';
 import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
@@ -211,13 +208,20 @@ const isNavigationHidden = computed((): boolean => {
     return isOnboardingTour.value || isCreateProjectPage.value;
 });
 
-const abTestValues = computed((): ABTestValues => {
-    return store.state.abTestingModule.abTestValues;
-});
-
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !store.state.usersModule.user.paidTier && !isOnboardingTour.value;
+    return !store.state.usersModule.user.paidTier
+        && !isOnboardingTour.value
+        && joinedWhileAgo.value
+        && isDashboardPage.value;
+});
+
+/* whether the user joined more than 7 days ago */
+const joinedWhileAgo = computed((): boolean => {
+    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    if (!createdAt) return true; // true so we can show the banner regardless
+    const millisPerDay = 24 * 60 * 60 * 1000;
+    return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
 });
 
 /**
@@ -275,6 +279,13 @@ const isBillingNotificationShown = computed((): boolean => {
  */
 const isCreateProjectPage = computed((): boolean => {
     return router.history.current?.name === RouteConfig.CreateProject.name;
+});
+
+/**
+ * Indicates if current route is the dashboard page.
+ */
+const isDashboardPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.NewProjectDashboard.name;
 });
 
 /**
@@ -634,6 +645,10 @@ onBeforeUnmount(() => {
         to {
             transform: rotate(360deg);
         }
+    }
+
+    :deep(.notification-wrap) {
+        margin-top: 1rem;
     }
 
     .load {

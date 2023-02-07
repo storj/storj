@@ -447,6 +447,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		PaidTier             bool      `json:"paidTier"`
 		MFAEnabled           bool      `json:"isMFAEnabled"`
 		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
+		CreatedAt            time.Time `json:"createdAt"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -469,6 +470,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.PaidTier = consoleUser.PaidTier
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
+	user.CreatedAt = consoleUser.CreatedAt
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

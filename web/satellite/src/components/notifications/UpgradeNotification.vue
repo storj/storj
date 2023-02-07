@@ -3,15 +3,16 @@
 
 <template>
     <div v-if="isBannerShowing" class="notification-wrap">
-        <div class="notification-wrap__content">
-            <div class="notification-wrap__content__left">
-                <SunnyIcon class="notification-wrap__content__left__icon" />
-                <p>Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum. 150GB free included.</p>
-            </div>
-            <div class="notification-wrap__content__right">
-                <a @click="openBanner">Upgrade Now</a>
-                <CloseIcon class="notification-wrap__content__right__close" @click="onCloseClick" />
-            </div>
+        <div class="notification-wrap__left">
+            <SunnyIcon class="notification-wrap__left__icon" />
+            <p>
+                Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum.
+                150GB free included.
+            </p>
+        </div>
+        <div class="notification-wrap__right">
+            <a @click="openBanner">Upgrade Now</a>
+            <CloseIcon class="notification-wrap__right__close" @click="onCloseClick" />
         </div>
     </div>
 </template>
@@ -58,56 +59,48 @@ export default class UpgradeNotification extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .notification-wrap {
-        position: relative;
+.notification-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.375rem;
+    margin: 0 3rem;
+    font-family: 'font_regular', sans-serif;
+    font-size: 1rem;
+    background-color: var(--c-white);
+    border: 1px solid var(--c-blue-2);
+    border-radius: 10px;
+    box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
 
-        &__content {
-            position: absolute;
-            left: 40px;
-            right: 44px;
-            top: 5px;
-            z-index: 9999;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px;
-            font-family: 'font_regular', sans-serif;
-            font-size: 14px;
-            background-color: #fff;
-            border: 1px solid #d8dee3;
-            border-radius: 16px;
-            box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
+    @media screen and (max-width: 800px) {
+        margin: 0 1.5rem;
+    }
 
-            &__left {
-                display: flex;
-                align-items: center;
+    &__left {
+        display: flex;
+        align-items: center;
 
-                & b {
-                    font-family: 'font_medium', sans-serif;
-                }
-
-                &__icon {
-                    flex-shrink: 0;
-                    margin-right: 16px;
-                }
-            }
-
-            &__right {
-                display: flex;
-                align-items: center;
-                flex-shrink: 0;
-                margin-left: 16px;
-
-                & a {
-                    color: black;
-                    text-decoration: underline !important;
-                }
-
-                &__close {
-                    margin-left: 16px;
-                    cursor: pointer;
-                }
-            }
+        &__icon {
+            flex-shrink: 0;
+            margin-right: 1.375rem;
         }
     }
+
+    &__right {
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+        margin-left: 16px;
+
+        & a {
+            color: var(--c-black);
+            text-decoration: underline !important;
+        }
+
+        &__close {
+            margin-left: 16px;
+            cursor: pointer;
+        }
+    }
+}
 </style>
