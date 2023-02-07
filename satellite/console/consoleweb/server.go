@@ -92,6 +92,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"true"`
+	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"false"`
 	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
@@ -457,6 +458,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
 		NewBillingScreen                bool
+		NewAccessGrantFlow              bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDuration         int
 		InactivityTimerViewerEnabled    bool
@@ -507,6 +509,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PasswordMinimumLength = console.PasswordMinimumLength
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled
+	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

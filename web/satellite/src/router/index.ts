@@ -9,6 +9,7 @@ import { MetaUtils } from '@/utils/meta';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
+import CreateAccessGrantFlow from '@/components/accessGrants/newCreateFlow/CreateAccessGrantFlow.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
@@ -92,6 +93,7 @@ export abstract class RouteConfig {
 
     // access grant child paths
     public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
+    public static NewCreateAccessModal = new NavigationLink('new-create-access-modal', 'New Create Access Modal');
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
@@ -351,6 +353,11 @@ export const router = new Router({
                             path: RouteConfig.CreateAccessModal.path,
                             name: RouteConfig.CreateAccessModal.name,
                             component: CreateAccessModal,
+                        },
+                        {
+                            path: RouteConfig.NewCreateAccessModal.path,
+                            name: RouteConfig.NewCreateAccessModal.name,
+                            component: CreateAccessGrantFlow,
                         },
                     ],
                 },
