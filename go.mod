@@ -53,11 +53,11 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.1
-	storj.io/common v0.0.0-20230207140859-1c86f3de8c15
-	storj.io/drpc v0.0.32
+	storj.io/common v0.0.0-20230207160724-4deac3e5d0d6
+	storj.io/drpc v0.0.33-0.20230204035225-c9649dee8f2a
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
 	storj.io/private v0.0.0-20230123202745-d3e63b336444
-	storj.io/uplink v1.10.1-0.20230125195524-beab4fa36cf1
+	storj.io/uplink v1.10.1-0.20230207230755-d04ec4a303ef
 )
 
 require (
@@ -105,7 +105,6 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
 	github.com/quic-go/quic-go v0.32.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
