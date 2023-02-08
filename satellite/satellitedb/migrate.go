@@ -2236,6 +2236,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused column last_verification_reminder on users table",
+				Version:     225,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN last_verification_reminder;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
