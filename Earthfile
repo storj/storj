@@ -110,7 +110,7 @@ build-image:
 build-tagged-image:
     ARG --required TAG
     ARG --required IMAGE
-    FROM img.dev.storj.io/storjup/base:20221011-2
+    FROM img.dev.storj.io/storjup/base:20230208-1
     COPY +multinode-web/dist /var/lib/storj/storj/web/multinode/dist
     COPY +satellite-web/dist /var/lib/storj/storj/web/satellite/dist
     COPY +satellite-web/static /var/lib/storj/storj/web/satellite/static
@@ -119,7 +119,7 @@ build-tagged-image:
     COPY +build-binaries/binaries /var/lib/storj/go/bin/
     COPY +storagenode-bin/binaries /var/lib/storj/go/bin/
     COPY +build-storjup/binaries  /var/lib/storj/go/bin/
-    SAVE IMAGE --push $IMAGE:$TAG $IMAGE:latest
+    SAVE IMAGE --push $IMAGE:$TAG
 
 run:
     LOCALLY
