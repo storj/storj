@@ -13,6 +13,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+
+	"storj.io/common/storj"
 )
 
 // CustomerioConfig handles customer.io credentials info.
@@ -69,12 +71,11 @@ func (c *CustomerioNotifier) Notify(ctx context.Context, satellite string, event
 	}
 
 	var nodeIDs string
-	idsMap := make(map[string]struct{})
+	seen := make(map[storj.NodeID]struct{})
 	for _, e := range events {
-		idStr := e.NodeID.String()
-		if _, ok := idsMap[idStr]; !ok {
-			idsMap[idStr] = struct{}{}
-			nodeIDs = nodeIDs + idStr + ","
+		if _, ok := seen[e.NodeID]; !ok {
+			seen[e.NodeID] = struct{}{}
+			nodeIDs = nodeIDs + e.NodeID.String() + ","
 		}
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
