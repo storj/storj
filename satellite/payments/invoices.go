@@ -35,6 +35,8 @@ type Invoices interface {
 	CheckPendingItems(ctx context.Context, userID uuid.UUID) (existingItems bool, err error)
 	// AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
 	AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error)
+	// Delete a draft invoice.
+	Delete(ctx context.Context, id string) (inv *Invoice, err error)
 }
 
 // Invoice holds all public information about invoice.

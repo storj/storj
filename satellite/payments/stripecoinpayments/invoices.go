@@ -202,6 +202,24 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 	return false, nil
 }
 
+// Delete a draft invoice.
+func (invoices *invoices) Delete(ctx context.Context, id string) (_ *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stripeInvoice, err := invoices.service.stripeClient.Invoices().Del(id, &stripe.InvoiceParams{})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &payments.Invoice{
+		ID:          stripeInvoice.ID,
+		Description: stripeInvoice.Description,
+		Amount:      stripeInvoice.AmountDue,
+		Status:      convertStatus(stripeInvoice.Status),
+		Link:        stripeInvoice.InvoicePDF,
+		Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+	}, nil
+}
+
 func convertStatus(stripestatus stripe.InvoiceStatus) string {
 	var status string
 	switch stripestatus {

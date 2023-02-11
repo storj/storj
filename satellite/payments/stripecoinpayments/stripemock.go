@@ -570,6 +570,18 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 	return nil, nil
 }
 
+func (m *mockInvoices) Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for i, invoice := range invoices {
+			if invoice.ID == id {
+				m.invoices[invoice.Customer.ID] = append(m.invoices[invoice.Customer.ID][:i], m.invoices[invoice.Customer.ID][i+1:]...)
+				return invoice, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 type mockInvoiceItems struct {
 	items map[string][]*stripe.InvoiceItem
 }
