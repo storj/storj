@@ -90,7 +90,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
-			Status:      string(stripeInvoice.Status),
+			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
@@ -134,7 +134,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
-			Status:      string(stripeInvoice.Status),
+			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
@@ -200,4 +200,23 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 	}
 
 	return false, nil
+}
+
+func convertStatus(stripestatus stripe.InvoiceStatus) string {
+	var status string
+	switch stripestatus {
+	case stripe.InvoiceStatusDraft:
+		status = payments.InvoiceStatusDraft
+	case stripe.InvoiceStatusOpen:
+		status = payments.InvoiceStatusOpen
+	case stripe.InvoiceStatusPaid:
+		status = payments.InvoiceStatusPaid
+	case stripe.InvoiceStatusUncollectible:
+		status = payments.InvoiceStatusUncollectible
+	case stripe.InvoiceStatusVoid:
+		status = payments.InvoiceStatusVoid
+	default:
+		status = string(stripestatus)
+	}
+	return status
 }

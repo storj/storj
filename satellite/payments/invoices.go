@@ -10,6 +10,19 @@ import (
 	"storj.io/common/uuid"
 )
 
+const (
+	// InvoiceStatusDraft indicates the invoice is a draft.
+	InvoiceStatusDraft = "draft"
+	// InvoiceStatusOpen indicates the invoice is open.
+	InvoiceStatusOpen = "open"
+	// InvoiceStatusPaid indicates the invoice is paid.
+	InvoiceStatusPaid = "paid"
+	// InvoiceStatusUncollectible indicates the invoice is uncollectible.
+	InvoiceStatusUncollectible = "uncollectible"
+	// InvoiceStatusVoid indicates the invoice is void.
+	InvoiceStatusVoid = "void"
+)
+
 // Invoices exposes all needed functionality to manage account invoices.
 //
 // architecture: Service
