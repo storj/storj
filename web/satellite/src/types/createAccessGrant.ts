@@ -39,6 +39,14 @@ export enum CreateAccessStep {
     CredentialsCreated = 'credentialsCreated',
 }
 
+export enum Permission {
+    All = 'all',
+    Read = 'read',
+    Write = 'write',
+    List = 'list',
+    Delete = 'delete',
+}
+
 export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CreateNewAccess]: {
         icon: CreateNewAccessIcon,

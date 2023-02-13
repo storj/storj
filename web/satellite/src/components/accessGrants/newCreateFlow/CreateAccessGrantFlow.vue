@@ -15,7 +15,22 @@
                     :selected-access-types="selectedAccessTypes"
                     :name="accessName"
                     :set-name="setAccessName"
-                    :on-continue="setPermissionsStep"
+                    :on-continue="() => setStep(CreateAccessStep.ChoosePermission)"
+                />
+                <ChoosePermissionStep
+                    v-if="step === CreateAccessStep.ChoosePermission"
+                    :on-select-permission="selectPermissions"
+                    :selected-permissions="selectedPermissions"
+                    :on-back="() => setStep(CreateAccessStep.CreateNewAccess)"
+                    :on-continue="() => setStep(CreateAccessStep.AccessEncryption)"
+                    :selected-buckets="selectedBuckets"
+                    :on-select-bucket="selectBucket"
+                    :on-select-all-buckets="selectAllBuckets"
+                    :on-unselect-bucket="unselectBucket"
+                    :not-after="notAfter"
+                    :on-set-not-after="setNotAfter"
+                    :not-after-label="notAfterLabel"
+                    :on-set-not-after-label="setNotAfterLabel"
                 />
             </div>
         </template>
@@ -25,19 +40,35 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 
-import { useRoute, useRouter } from '@/utils/hooks';
+import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { AccessType, CreateAccessStep, STEP_ICON_AND_TITLE } from '@/types/createAccessGrant';
+import { AccessType, CreateAccessStep, Permission, STEP_ICON_AND_TITLE } from '@/types/createAccessGrant';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/CreateNewAccessStep.vue';
+import ChoosePermissionStep from '@/components/accessGrants/newCreateFlow/steps/ChoosePermissionStep.vue';
 
 const router = useRouter();
 const route = useRoute();
+const notify = useNotify();
+const store = useStore();
+
+const initPermissions = [
+    Permission.Read,
+    Permission.Write,
+    Permission.Delete,
+    Permission.List,
+];
 
 const step = ref<CreateAccessStep>(CreateAccessStep.CreateNewAccess);
 const selectedAccessTypes = ref<AccessType[]>([]);
+const selectedPermissions = ref<Permission[]>(initPermissions);
+const selectedBuckets = ref<string[]>([]);
 const accessName = ref<string>('');
+const notAfter = ref<Date | undefined>(undefined);
+const notAfterLabel = ref<string>('No end date');
 
 /**
  * Selects access type.
@@ -90,12 +121,86 @@ function selectAccessType(type: AccessType) {
 }
 
 /**
+ * Sets not after (end date) caveat.
+ */
+function setNotAfter(date: Date | undefined): void {
+    notAfter.value = date;
+}
+
+/**
+ * Sets not after (end date) label.
+ */
+function setNotAfterLabel(label: string): void {
+    notAfterLabel.value = label;
+}
+
+/**
  * Unselects API key access type.
  */
 function unselectAPIKeyAccessType(): void {
     if (selectedAccessTypes.value.includes(AccessType.APIKey)) {
         selectedAccessTypes.value = selectedAccessTypes.value.filter(t => t !== AccessType.APIKey);
     }
+}
+
+/**
+ * Selects access grant permissions.
+ */
+function selectPermissions(permission: Permission): void {
+    switch (permission) {
+    case Permission.All:
+        if (selectedPermissions.value.length === 4) {
+            selectedPermissions.value = [];
+            return;
+        }
+
+        selectedPermissions.value = initPermissions;
+        break;
+    case Permission.Delete:
+        handlePermissionSelection(Permission.Delete);
+        break;
+    case Permission.List:
+        handlePermissionSelection(Permission.List);
+        break;
+    case Permission.Write:
+        handlePermissionSelection(Permission.Write);
+        break;
+    case Permission.Read:
+        handlePermissionSelection(Permission.Read);
+    }
+}
+
+/**
+ * Handles permission select/unselect.
+ */
+function handlePermissionSelection(permission: Permission) {
+    if (selectedPermissions.value.includes(permission)) {
+        selectedPermissions.value = selectedPermissions.value.filter(p => p !== permission);
+        return;
+    }
+
+    selectedPermissions.value.push(permission);
+}
+
+/**
+ * Clears bucket selection which means grant access to all buckets.
+ */
+function selectAllBuckets() {
+    selectedBuckets.value = [];
+}
+
+/**
+ * Select some specific bucket.
+ */
+function selectBucket(bucket: string) {
+    selectedBuckets.value.push(bucket);
+}
+
+/**
+ * Unselect some specific bucket.
+ */
+function unselectBucket(bucket: string) {
+    selectedBuckets.value = selectedBuckets.value.filter(b => b !== bucket);
 }
 
 /**
@@ -109,8 +214,8 @@ function setAccessName(value: string): void {
 /**
  * Sets current step to be 'Choose permission'.
  */
-function setPermissionsStep(): void {
-    step.value = CreateAccessStep.ChoosePermission;
+function setStep(stepArg: CreateAccessStep): void {
+    step.value = stepArg;
 }
 
 /**
@@ -120,9 +225,15 @@ function closeModal(): void {
     router.push(RouteConfig.AccessGrants.path);
 }
 
-onMounted(() => {
+onMounted(async () => {
     if (route.params?.accessType) {
         selectedAccessTypes.value.push(route.params?.accessType as AccessType);
+    }
+
+    try {
+        await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+    } catch (error) {
+        notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
 });
 </script>

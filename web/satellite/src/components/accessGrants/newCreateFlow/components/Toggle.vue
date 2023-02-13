@@ -4,10 +4,13 @@
 <template>
     <div class="toggle">
         <label class="toggle__input-container">
-            <input :id="`checkbox${label}`" :checked="checked" type="checkbox" @change="onCheck">
+            <input :id="id || label" :checked="checked" type="checkbox" @change="onCheck">
             <span />
         </label>
-        <label class="toggle__label" :for="`checkbox${label}`">{{ label }}</label>
+        <label class="toggle__label" :for="id || label">{{ label }}</label>
+        <template v-if="onShowHideAll">
+            <ChevronIcon class="toggle__chevron" :class="{'toggle__chevron--up': allShown}" @click="onShowHideAll" />
+        </template>
         <VInfo v-if="slots.infoMessage" class="toggle__info">
             <template #icon>
                 <InfoIcon class="toggle__info__icon" />
@@ -25,6 +28,7 @@ import { useSlots } from 'vue';
 import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/accessGrants/newCreateFlow/info.svg';
+import ChevronIcon from '@/../static/images/accessGrants/newCreateFlow/chevron.svg';
 
 const slots = useSlots();
 
@@ -32,10 +36,15 @@ const props = withDefaults(defineProps<{
     checked: boolean;
     label: string;
     onCheck: () => void;
+    id?: string;
+    onShowHideAll?: () => void;
+    allShown?: boolean;
 }>(), {
     checked: false,
     label: '',
+    id: '',
     onCheck: () => {},
+    onShowHideAll: undefined,
 });
 </script>
 
@@ -116,6 +125,15 @@ const props = withDefaults(defineProps<{
 
         &__icon {
             cursor: pointer;
+        }
+    }
+
+    &__chevron {
+        transition: transform 0.3s;
+        margin-left: 8px;
+
+        &--up {
+            transform: rotate(180deg);
         }
     }
 }

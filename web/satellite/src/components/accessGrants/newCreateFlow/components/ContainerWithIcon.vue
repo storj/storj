@@ -32,7 +32,7 @@ const props = defineProps<{
 
     &__functional {
         margin-left: 16px;
-        width: 100%;
+        width: calc(100% - 56px);
 
         &__title {
             font-family: 'font_bold', sans-serif;

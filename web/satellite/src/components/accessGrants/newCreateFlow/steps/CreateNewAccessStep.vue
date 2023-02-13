@@ -65,6 +65,7 @@
                 <VInput
                     class="create__input"
                     placeholder="Input Access Name"
+                    :init-value="name"
                     @setData="setName"
                 />
             </template>
