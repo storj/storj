@@ -172,6 +172,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.employeeCount,
                 userResponse.haveSalesContact,
                 userResponse.mfaRecoveryCodeCount,
+                userResponse.createdAt,
             );
         }
 

@@ -39,13 +39,24 @@ type Config struct {
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
+// Overlay defines the overlay dependency of orders.Service.
+// use `go install github.com/golang/mock/mockgen@v1.6.0` if missing
+//
+//go:generate mockgen -destination mock_test.go -package orders . OverlayForOrders
+type Overlay interface {
+	CachedGetOnlineNodesForGet(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.SelectedNode, error)
+	GetOnlineNodesForAuditRepair(context.Context, []storj.NodeID) (map[storj.NodeID]*overlay.NodeReputation, error)
+	Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error)
+	IsOnline(node *overlay.NodeDossier) bool
+}
+
 // Service for creating order limits.
 //
 // architecture: Service
 type Service struct {
 	log       *zap.Logger
 	satellite signing.Signer
-	overlay   *overlay.Service
+	overlay   Overlay
 	orders    DB
 
 	encryptionKeys EncryptionKeys
@@ -58,7 +69,7 @@ type Service struct {
 
 // NewService creates new service for creating order limits.
 func NewService(
-	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
+	log *zap.Logger, satellite signing.Signer, overlay Overlay,
 	orders DB, config Config,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
@@ -115,7 +126,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
@@ -144,7 +155,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 	}
 
 	neededLimits := segment.Redundancy.DownloadNodes()
+	if desiredNodes > neededLimits {
+		neededLimits = desiredNodes
 
+	}
 	pieces := segment.Pieces
 	for _, pieceIndex := range service.perm(len(pieces)) {
 		piece := pieces[pieceIndex]

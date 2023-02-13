@@ -147,19 +147,23 @@ function cellContentClicked(cellIndex: number, event: Event) {
     tr {
         cursor: pointer;
 
-        &:hover .table-item .primary {
-            color: #0149ff;
-        }
+        &:hover {
+            background: var(--c-grey-1);
 
-        &:hover .table-item {
+            .table-item {
 
-            svg :deep(path) {
-                fill: var(--c-blue-3);
+                .primary {
+                    color: var(--c-blue-3);
+                }
+
+                svg :deep(path) {
+                    fill: var(--c-blue-3);
+                }
             }
         }
 
         &.selected {
-            background: #f0f3f8;
+            background: var(--c-yellow-1);
         }
     }
 

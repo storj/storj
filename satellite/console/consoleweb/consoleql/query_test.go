@@ -214,6 +214,20 @@ func TestGraphqlQuery(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.True(t, createdProject.CreatedAt.Equal(createdAt))
+
+			// test getting by publicId
+			query = fmt.Sprintf(
+				"query {project(publicId:\"%s\"){id,name,publicId,description,createdAt}}",
+				createdProject.PublicID.String(),
+			)
+
+			result = testQuery(t, query)
+
+			data = result.(map[string]interface{})
+			project = data[consoleql.ProjectQuery].(map[string]interface{})
+
+			assert.Equal(t, createdProject.ID.String(), project[consoleql.FieldID])
+			assert.Equal(t, createdProject.PublicID.String(), project[consoleql.FieldPublicID])
 		})
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 2)

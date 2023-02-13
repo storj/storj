@@ -140,14 +140,15 @@ type Satellite struct {
 	}
 
 	Audit struct {
-		VerifyQueue    audit.VerifyQueue
-		ReverifyQueue  audit.ReverifyQueue
-		Worker         *audit.Worker
-		ReverifyWorker *audit.ReverifyWorker
-		Chore          *audit.Chore
-		Verifier       *audit.Verifier
-		Reverifier     *audit.Reverifier
-		Reporter       audit.Reporter
+		VerifyQueue          audit.VerifyQueue
+		ReverifyQueue        audit.ReverifyQueue
+		Worker               *audit.Worker
+		ReverifyWorker       *audit.ReverifyWorker
+		Chore                *audit.Chore
+		Verifier             *audit.Verifier
+		Reverifier           *audit.Reverifier
+		Reporter             audit.Reporter
+		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
 
 	Reputation struct {
@@ -528,7 +529,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	err = db.TestingMigrateToLatest(ctx)
+	err = db.Testing().TestMigrateToLatest(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -644,6 +645,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.Verifier = auditorPeer.Audit.Verifier
 	system.Audit.Reverifier = auditorPeer.Audit.Reverifier
 	system.Audit.Reporter = auditorPeer.Audit.Reporter
+	system.Audit.ContainmentSyncChore = peer.Audit.ContainmentSyncChore
 
 	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
 	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service

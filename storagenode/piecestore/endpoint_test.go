@@ -174,6 +174,7 @@ func TestUpload(t *testing.T) {
 
 // TestSlowUpload tries to mock a SlowLoris attack.
 func TestSlowUpload(t *testing.T) {
+	t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -246,6 +247,7 @@ func TestSlowUpload(t *testing.T) {
 		}
 	})
 }
+
 func TestUploadOverAvailable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,

@@ -6,9 +6,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -16,9 +14,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/flynn/noise"
 	"github.com/jtolio/noiseconn"
-	"github.com/zeebo/blake3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -29,6 +25,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/noise"
 	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpctracing"
 	"storj.io/drpc"
@@ -79,36 +76,10 @@ type Server struct {
 	done chan struct{}
 }
 
-func identityBasedEntropy(context string, ident *identity.FullIdentity) (io.Reader, error) {
-	h := blake3.NewDeriveKey(context)
-
-	serialized, err := x509.MarshalPKCS8PrivateKey(ident.Key)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	_, err = h.Write(serialized)
-	return h.Digest(), Error.Wrap(err)
-}
-
-func generateNoiseConf(ident *identity.FullIdentity) (noise.Config, error) {
-	noiseConf := defaultNoiseConfig()
-	noiseConf.Initiator = false
-	entropy, err := identityBasedEntropy("noise key", ident)
-	if err != nil {
-		return noise.Config{}, err
-	}
-	noiseConf.StaticKeypair, err = noiseConf.CipherSuite.GenerateKeypair(entropy)
-	if err != nil {
-		return noise.Config{}, Error.Wrap(err)
-	}
-	return noiseConf, nil
-}
-
 // New creates a Server out of an Identity, a net.Listener,
 // and interceptors.
 func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server, err error) {
-	noiseConf, err := generateNoiseConf(tlsOptions.Ident)
+	noiseConf, err := noise.GenerateServerConf(noise.DefaultProto, tlsOptions.Ident)
 	if err != nil {
 		return nil, err
 	}
@@ -208,12 +179,16 @@ func (p *Server) Addr() net.Addr { return p.addr }
 // PrivateAddr returns the server's private listener address.
 func (p *Server) PrivateAddr() net.Addr { return p.privateTCPListener.Addr() }
 
-// DRPC returns the server's DRPC mux for registration purposes.
+// DRPC returns the server's DRPC mux that supports all endpoints for
+// registration purposes.
 func (p *Server) DRPC() drpc.Mux {
-	return newReplayRouter(
-		p.publicEndpointsReplaySafe.mux,
-		p.publicEndpointsAll.mux,
-	)
+	return p.publicEndpointsAll.mux
+}
+
+// ReplaySafeDRPC returns the server's DRPC mux that supports replay safe
+// endpoints for registration purposes.
+func (p *Server) ReplaySafeDRPC() drpc.Mux {
+	return p.publicEndpointsReplaySafe.mux
 }
 
 // PrivateDRPC returns the server's DRPC mux for registration purposes.
@@ -222,19 +197,14 @@ func (p *Server) PrivateDRPC() drpc.Mux { return p.privateEndpoints.mux }
 // IsQUICEnabled checks if QUIC is enabled by config and udp port is open.
 func (p *Server) IsQUICEnabled() bool { return !p.config.DisableQUIC && p.publicUDPConn != nil }
 
-// NoiseInfo returns the noise configuration for this server. This includes the
-// keypair in use.
-func (p *Server) NoiseInfo() *pb.NoiseInfo {
-	return &pb.NoiseInfo{
-		Proto:     defaultNoiseProto,
-		PublicKey: p.noiseConf.StaticKeypair.Public,
-	}
-}
-
 // NoiseKeyAttestation returns the noise key attestation for this server.
 func (p *Server) NoiseKeyAttestation(ctx context.Context) (_ *pb.NoiseKeyAttestation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return GenerateNoiseKeyAttestation(ctx, p.tlsOptions.Ident, p.NoiseInfo())
+	info, err := noise.ConfigToInfo(p.noiseConf)
+	if err != nil {
+		return nil, err
+	}
+	return noise.GenerateKeyAttestation(ctx, p.tlsOptions.Ident, info)
 }
 
 // Close shuts down the server.
@@ -328,7 +298,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	if p.publicTCPListener != nil {
 		publicLMux := drpcmigrate.NewListenMux(p.publicTCPListener, len(drpcmigrate.DRPCHeader))
 		publicTLSDRPCListener = tls.NewListener(publicLMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
-		publicNoiseDRPCListener = noiseconn.NewListener(publicLMux.Route(NoiseHeader), p.noiseConf)
+		publicNoiseDRPCListener = noiseconn.NewListener(publicLMux.Route(noise.Header), p.noiseConf)
 		if p.publicHTTP != nil {
 			publicHTTPListener = NewPrefixedListener([]byte("GET / HT"), publicLMux.Route("GET / HT"))
 		}

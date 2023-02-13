@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"database/sql"
 	"math/rand"
 	"testing"
 	"time"
@@ -307,5 +308,37 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
 		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
 		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
+	})
+}
+
+func TestUserSettings(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
+		id := testrand.UUID()
+		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
+		sessionDurPtr := &sessionDur
+		var nilDur *time.Duration
+
+		_, err := users.GetSettings(ctx, id)
+		require.ErrorIs(t, err, sql.ErrNoRows)
+
+		for _, tt := range []struct {
+			name     string
+			upserted **time.Duration
+			expected *time.Duration
+		}{
+			{"update when given pointer to non-nil value", &sessionDurPtr, sessionDurPtr},
+			{"ignore when given nil pointer", nil, sessionDurPtr},
+			{"nullify when given pointer to nil", &nilDur, nil},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+					SessionDuration: tt.upserted,
+				}))
+				settings, err := users.GetSettings(ctx, id)
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, settings.SessionDuration)
+			})
+		}
 	})
 }

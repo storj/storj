@@ -23,7 +23,7 @@ import (
 
 func TestDelete(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		raw := db.(interface{ DebugGetDBHandle() tagsql.DB }).DebugGetDBHandle()
+		raw := db.Testing().RawDB()
 
 		// insert 5 nodes (4 to delete)
 		for i := 0; i < 5; i++ {

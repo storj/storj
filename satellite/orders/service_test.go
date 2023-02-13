@@ -1,66 +1,112 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package orders_test
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
-	"storj.io/common/memory"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 )
 
-func TestOrderLimitsEncryptedMetadata(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const (
-			bucketName = "testbucket"
-			filePath   = "test/path"
-		)
+func TestGetOrderLimits(t *testing.T) {
+	ctx := testcontext.New(t)
+	ctrl := gomock.NewController(t)
 
-		var (
-			satellitePeer = planet.Satellites[0]
-			uplinkPeer    = planet.Uplinks[0]
-			projectID     = uplinkPeer.Projects[0].ID
-		)
-		// Setup: Upload an object and create order limits
-		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, bucketName, filePath, testrand.Bytes(5*memory.KiB)))
+	bucket := metabase.BucketLocation{ProjectID: testrand.UUID(), BucketName: "bucket1"}
 
-		bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
-
-		segments, err := satellitePeer.Metabase.DB.TestingAllSegments(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(segments))
-
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0], 0)
-		require.NoError(t, err)
-		require.Equal(t, 3, len(limits))
-
-		// Test: get the bucket name and project ID from the encrypted metadata and
-		// compare with the old method of getting the data from the serial numbers table.
-		orderLimit1 := limits[0].Limit
-		// from 3 order limits only one can be nil
-		if orderLimit1 == nil {
-			orderLimit1 = limits[1].Limit
+	pieces := metabase.Pieces{}
+	nodes := map[storj.NodeID]*overlay.SelectedNode{}
+	for i := 0; i < 8; i++ {
+		nodeID := testrand.NodeID()
+		nodes[nodeID] = &overlay.SelectedNode{
+			ID: nodeID,
+			Address: &pb.NodeAddress{
+				Address: fmt.Sprintf("host%d.com", i),
+			},
 		}
-		require.True(t, len(orderLimit1.EncryptedMetadata) > 0)
 
-		_, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(""))
-		require.Error(t, err)
-		var x []byte
-		_, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(x))
-		require.Error(t, err)
-		actualOrderMetadata, err := satellitePeer.Orders.Service.DecryptOrderMetadata(ctx, orderLimit1)
-		require.NoError(t, err)
-		actualBucketInfo, err := metabase.ParseCompactBucketPrefix(actualOrderMetadata.GetCompactProjectBucketPrefix())
-		require.NoError(t, err)
-		require.Equal(t, bucketName, actualBucketInfo.BucketName)
-		require.Equal(t, projectID, actualBucketInfo.ProjectID)
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: nodeID,
+		})
+	}
+	testIdentity, err := testidentity.PregeneratedIdentity(0, storj.LatestIDVersion())
+	require.NoError(t, err)
+	k := signing.SignerFromFullIdentity(testIdentity)
+
+	overlayService := orders.NewMockOverlayForOrders(ctrl)
+	overlayService.
+		EXPECT().
+		CachedGetOnlineNodesForGet(gomock.Any(), gomock.Any()).
+		Return(nodes, nil).AnyTimes()
+
+	service, err := orders.NewService(zaptest.NewLogger(t), k, overlayService, orders.NewNoopDB(), orders.Config{
+		EncryptionKeys: orders.EncryptionKeys{
+			Default: orders.EncryptionKey{
+				ID:  orders.EncryptionKeyID{1, 2, 3, 4, 5, 6, 7, 8},
+				Key: testrand.Key(),
+			},
+		},
 	})
+	require.NoError(t, err)
+
+	segment := metabase.Segment{
+		StreamID:  testrand.UUID(),
+		CreatedAt: time.Now(),
+		Redundancy: storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			ShareSize:      256,
+			RequiredShares: 4,
+			RepairShares:   5,
+			OptimalShares:  6,
+			TotalShares:    10,
+		},
+		Pieces:       pieces,
+		EncryptedKey: []byte{1, 2, 3, 4},
+		RootPieceID:  testrand.PieceID(),
+	}
+
+	checkExpectedLimits := func(requested int32, received int) {
+		limits, _, err := service.CreateGetOrderLimits(ctx, bucket, segment, requested, 0)
+		require.NoError(t, err)
+		realLimits := 0
+		for _, limit := range limits {
+			if limit.Limit != nil {
+				realLimits++
+			}
+		}
+		require.Equal(t, received, realLimits)
+	}
+
+	t.Run("Do not request any specific number", func(t *testing.T) {
+		checkExpectedLimits(0, 6)
+	})
+
+	t.Run("Request less than the optimal", func(t *testing.T) {
+		checkExpectedLimits(2, 6)
+	})
+
+	t.Run("Request more than the optimal", func(t *testing.T) {
+		checkExpectedLimits(8, 8)
+	})
+
+	t.Run("Request more than the replication", func(t *testing.T) {
+		checkExpectedLimits(1000, 8)
+	})
+
 }

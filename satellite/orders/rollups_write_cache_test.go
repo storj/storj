@@ -6,20 +6,26 @@ package orders_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/signing"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -209,6 +215,116 @@ func TestUpdateBucketBandwidth(t *testing.T) {
 			}
 			require.Equal(t, projectMap2[expectedKey], expectedData)
 			require.Equal(t, len(projectMap2), 3)
+		},
+	)
+}
+
+func TestEndpointAndCacheContextCanceled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Orders.FlushBatchSize = 3
+			},
+		},
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			storagenode := planet.StorageNodes[0]
+			ordersDB := planet.Satellites[0].Orders.DB
+
+			now := time.Now()
+
+			// create orders to trigger RollupsWriteCache flush
+			projectID := testrand.UUID()
+			requests := []*pb.SettlementRequest{}
+			singleOrderAmount := int64(50)
+			for i := 0; i < 3; i++ {
+				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+				require.NoError(t, err)
+
+				bucketname := "testbucket" + strconv.Itoa(i)
+
+				bucketLocation := metabase.BucketLocation{
+					ProjectID:  projectID,
+					BucketName: bucketname,
+				}
+
+				serialNumber := testrand.SerialNumber()
+				key := satellite.Config.Orders.EncryptionKeys.Default
+				encrypted, err := key.EncryptMetadata(
+					serialNumber,
+					&internalpb.OrderLimitMetadata{
+						CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
+					},
+				)
+				require.NoError(t, err)
+
+				limit := &pb.OrderLimit{
+					SerialNumber:           serialNumber,
+					SatelliteId:            satellite.ID(),
+					UplinkPublicKey:        piecePublicKey,
+					StorageNodeId:          storagenode.ID(),
+					PieceId:                storj.NewPieceID(),
+					Action:                 pb.PieceAction_GET,
+					Limit:                  1000,
+					PieceExpiration:        time.Time{},
+					OrderCreation:          now,
+					OrderExpiration:        now.Add(24 * time.Hour),
+					EncryptedMetadataKeyId: key.ID[:],
+					EncryptedMetadata:      encrypted,
+				}
+
+				orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+				require.NoError(t, err)
+
+				order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+					SerialNumber: serialNumber,
+					Amount:       singleOrderAmount,
+				})
+				require.NoError(t, err)
+
+				requests = append(requests, &pb.SettlementRequest{
+					Limit: orderLimit,
+					Order: order,
+				})
+			}
+
+			conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+			require.NoError(t, err)
+			defer ctx.Check(conn.Close)
+
+			stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
+			require.NoError(t, err)
+			defer ctx.Check(stream.Close)
+
+			for _, request := range requests {
+				err := stream.Send(&pb.SettlementRequest{
+					Limit: request.Limit,
+					Order: request.Order,
+				})
+				require.NoError(t, err)
+			}
+			require.NoError(t, err)
+			resp, err := stream.CloseAndRecv()
+			require.NoError(t, err)
+			require.Equal(t, pb.SettlementWithWindowResponse_ACCEPTED, resp.Status)
+
+			rwc := ordersDB.(*orders.RollupsWriteCache)
+			whenDone := rwc.OnNextFlush()
+
+			// make sure flushing is done
+			select {
+			case <-whenDone:
+				break
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+
+			// verify that orders were stored in DB
+			bucketBandwidth, err := getSettledBandwidth(ctx, planet.Satellites[0].DB.ProjectAccounting(), projectID, now)
+			require.NoError(t, err)
+			require.Equal(t, singleOrderAmount*int64(len(requests)), bucketBandwidth)
 		},
 	)
 }

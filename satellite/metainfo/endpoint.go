@@ -182,6 +182,16 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if satStreamID == nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create stream id")
+	}
+
+	if !satStreamID.ExpirationDate.IsZero() {
+		// DB can only preserve microseconds precision and nano seconds will be cut.
+		// To have stable StreamID/UploadID we need to always truncate it.
+		satStreamID.ExpirationDate = satStreamID.ExpirationDate.Truncate(time.Microsecond)
+	}
+
 	signedStreamID, err := SignStreamID(ctx, endpoint.satellite, satStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -201,6 +211,10 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 
 func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if satSegmentID == nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create segment id")
+	}
 
 	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {

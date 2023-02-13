@@ -75,9 +75,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				var rawDB tagsql.DB
 				var queriesBefore []string
 				if len(planet.Satellites) > 0 && satelliteDB.Name == "Cockroach" {
-					db := planet.Satellites[0].DB
-					// not perfect but didn't find better way to do this
-					rawDB = db.(interface{ DebugGetDBHandle() tagsql.DB }).DebugGetDBHandle()
+					rawDB = planet.Satellites[0].DB.Testing().RawDB()
 
 					var err error
 					queriesBefore, err = satellitedbtest.FullTableScanQueries(ctx, rawDB, dbutil.Cockroach, planetConfig.applicationName)

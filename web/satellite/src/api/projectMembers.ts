@@ -16,9 +16,9 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         const query =
             `mutation($projectId: String!, $emails:[String!]!) {
                 addProjectMembers(
-                    projectID: $projectId,
+                    publicId: $projectId,
                     email: $emails
-                ) {id}
+                ) {publicId}
             }`;
 
         const variables = {
@@ -39,9 +39,9 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         const query =
             `mutation($projectId: String!, $emails:[String!]!) {
                 deleteProjectMembers(
-                    projectID: $projectId,
+                    publicId: $projectId,
                     email: $emails
-                ) {id}
+                ) {publicId}
             }`;
 
         const variables = {
@@ -62,7 +62,7 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         const query =
             `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
                 project (
-                    id: $projectId,
+                    publicId: $projectId,
                 ) {
                     members (
                         cursor: {
