@@ -57,6 +57,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -200,6 +201,8 @@ type Config struct {
 	Console        consoleweb.Config
 	ConsoleAuth    consoleauth.Config
 	EmailReminders emailreminders.Config
+
+	AccountFreeze accountfreeze.Config
 
 	Version version_checker.Config
 

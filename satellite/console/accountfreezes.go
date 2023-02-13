@@ -25,6 +25,8 @@ type AccountFreezeEvents interface {
 	Upsert(ctx context.Context, event *AccountFreezeEvent) (*AccountFreezeEvent, error)
 	// Get is a method for querying account freeze event from the database by user ID and event type.
 	Get(ctx context.Context, userID uuid.UUID, eventType AccountFreezeEventType) (*AccountFreezeEvent, error)
+	// GetAll is a method for querying all account freeze events from the database by user ID.
+	GetAll(ctx context.Context, userID uuid.UUID) (*AccountFreezeEvent, *AccountFreezeEvent, error)
 	// DeleteAllByUserID is a method for deleting all account freeze events from the database by user ID.
 	DeleteAllByUserID(ctx context.Context, userID uuid.UUID) error
 }
@@ -188,4 +190,28 @@ func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUI
 	}
 
 	return ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteAllByUserID(ctx, userID))
+}
+
+// WarnUser adds a warning event to the freeze events table.
+func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.freezeEventsDB.Upsert(ctx, &AccountFreezeEvent{
+		UserID: userID,
+		Type:   Warning,
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// GetAll returns all events for a user.
+func (s *AccountFreezeService) GetAll(ctx context.Context, userID uuid.UUID) (freeze *AccountFreezeEvent, warning *AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	freeze, warning, err = s.freezeEventsDB.GetAll(ctx, userID)
+	if err != nil {
+		return nil, nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return freeze, warning, nil
 }

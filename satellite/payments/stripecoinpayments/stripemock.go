@@ -511,6 +511,14 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
+	lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
+	for _, item := range params.InvoiceItems {
+		lineData = append(lineData, &stripe.InvoiceLine{
+			InvoiceItem: *item.InvoiceItem,
+			Amount:      *item.Amount,
+		})
+	}
+
 	var desc string
 	if params.Description != nil {
 		if *params.Description == MockInvoicesNewFailure {
@@ -525,6 +533,9 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		DueDate:     due,
 		Status:      stripe.InvoiceStatusDraft,
 		Description: desc,
+		Lines: &stripe.InvoiceLineList{
+			Data: lineData,
+		},
 	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
@@ -548,7 +559,16 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 	lc := newListContainer(listMeta)
 
 	query := stripe.Query(func(*stripe.Params, *form.Values) (ret []interface{}, _ stripe.ListContainer, _ error) {
-		if listParams.Customer == nil {
+		if listParams.Customer == nil && listParams.Status != nil {
+			// filter by status
+			for _, invoices := range m.invoices {
+				for _, inv := range invoices {
+					if inv.Status == stripe.InvoiceStatus(*listParams.Status) {
+						ret = append(ret, inv)
+					}
+				}
+			}
+		} else if listParams.Customer == nil {
 			for _, invoices := range m.invoices {
 				for _, invoice := range invoices {
 					ret = append(ret, invoice)
@@ -577,8 +597,18 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 	return nil, errors.New("invoice not found")
 }
 
+// FinalizeInvoice forwards the invoice's status from draft to open.
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
-	return nil, nil
+	for _, invoices := range m.invoices {
+		for i, invoice := range invoices {
+			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
+				invoice.Status = stripe.InvoiceStatusOpen
+				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusOpen
+				return invoice, nil
+			}
+		}
+	}
+	return nil, &stripe.Error{}
 }
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {

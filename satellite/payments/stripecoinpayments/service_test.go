@@ -658,11 +658,20 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 			Customer: &cus1,
 		})
 		require.NoError(t, err)
+
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, &stripe.InvoiceFinalizeParams{})
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
 		invWithDue, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
 			Customer: &cus2,
 			DueDate:  &due,
 		})
 		require.NoError(t, err)
+
+		invWithDue, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(invWithDue.ID, &stripe.InvoiceFinalizeParams{})
+		require.NoError(t, err)
+		require.Equal(t, stripe.InvoiceStatusOpen, invWithDue.Status)
 
 		err = satellite.API.Payments.StripeService.PayInvoices(ctx, time.Time{})
 		require.NoError(t, err)
@@ -675,7 +684,7 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 			}
 			// when due date is set invoice should not be paid
 			if i.ID == invWithDue.ID {
-				require.Equal(t, stripe.InvoiceStatusDraft, i.Status)
+				require.Equal(t, stripe.InvoiceStatusOpen, i.Status)
 			}
 		}
 	})

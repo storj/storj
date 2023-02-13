@@ -1,3 +1,15 @@
+# whether to run this chore.
+# account-freeze.enabled: false
+
+# How long to wait between a warning event and freezing an account.
+# account-freeze.grace-period: 720h0m0s
+
+# How often to run this chore, which is how often unpaid invoices are checked.
+# account-freeze.interval: 24h0m0s
+
+# The failed invoice amount beyond which an account will not be frozen
+# account-freeze.price-threshold: 2000
+
 # admin peer http listening address
 # admin.address: ""
 

@@ -30,7 +30,9 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/gracefulexit"
@@ -46,6 +48,7 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -143,6 +146,7 @@ type Core struct {
 	}
 
 	Payments struct {
+		AccountFreeze    *accountfreeze.Chore
 		Accounts         payments.Accounts
 		BillingChore     *billing.Chore
 		StorjscanClient  *storjscan.Client
@@ -610,6 +614,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Payments.BillingChore.Run,
 			Close: peer.Payments.BillingChore.Close,
 		})
+	}
+
+	{ // setup account freeze
+		if config.AccountFreeze.Enabled {
+			peer.Payments.AccountFreeze = accountfreeze.NewChore(
+				peer.Log.Named("payments.accountfreeze:chore"),
+				peer.DB.StripeCoinPayments(),
+				peer.Payments.Accounts,
+				peer.DB.Console().Users(),
+				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects()),
+				analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName),
+				config.AccountFreeze,
+			)
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:chore",
+				Run:   peer.Payments.AccountFreeze.Run,
+				Close: peer.Payments.AccountFreeze.Close,
+			})
+		}
 	}
 
 	{ // setup graceful exit

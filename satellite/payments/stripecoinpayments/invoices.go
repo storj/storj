@@ -9,6 +9,7 @@ import (
 
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments"
@@ -140,12 +141,54 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 
 		invoicesList = append(invoicesList, payments.Invoice{
 			ID:          stripeInvoice.ID,
+			CustomerID:  customerID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
 			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
+	}
+
+	if err = invoicesIterator.Err(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return invoicesList, nil
+}
+
+func (invoices *invoices) ListFailed(ctx context.Context) (invoicesList []payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	status := string(stripe.InvoiceStatusOpen)
+	params := &stripe.InvoiceListParams{
+		Status: &status,
+	}
+
+	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
+	for invoicesIterator.Next() {
+		stripeInvoice := invoicesIterator.Invoice()
+
+		total := stripeInvoice.Total
+		for _, line := range stripeInvoice.Lines.Data {
+			// If amount is negative, this is a coupon or a credit line item.
+			// Add them to the total.
+			if line.Amount < 0 {
+				total -= line.Amount
+			}
+		}
+
+		if invoices.isInvoiceFailed(stripeInvoice) {
+			invoicesList = append(invoicesList, payments.Invoice{
+				ID:          stripeInvoice.ID,
+				CustomerID:  stripeInvoice.Customer.ID,
+				Description: stripeInvoice.Description,
+				Amount:      total,
+				Status:      string(stripeInvoice.Status),
+				Link:        stripeInvoice.InvoicePDF,
+				Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			})
+		}
 	}
 
 	if err = invoicesIterator.Err(); err != nil {
@@ -184,6 +227,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 
 		invoicesList = append(invoicesList, payments.Invoice{
 			ID:          stripeInvoice.ID,
+			CustomerID:  customerID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
 			Status:      convertStatus(stripeInvoice.Status),
@@ -289,4 +333,23 @@ func convertStatus(stripestatus stripe.InvoiceStatus) string {
 		status = string(stripestatus)
 	}
 	return status
+}
+
+// isInvoiceFailed returns whether an invoice has failed.
+func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
+	if invoice.DueDate > 0 {
+		// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
+		invoices.service.log.Info("Skipping invoice marked for manual payment",
+			zap.String("id", invoice.ID),
+			zap.String("number", invoice.Number),
+			zap.String("customer", invoice.Customer.ID))
+		return false
+	}
+	// https://stripe.com/docs/api/invoices/retrieve
+	if invoice.NextPaymentAttempt > 0 {
+		// stripe will automatically retry collecting payment.
+		return false
+	}
+
+	return true
 }

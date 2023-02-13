@@ -208,6 +208,11 @@ read one (
     where account_freeze_event.event = ?
 )
 
+read all (
+    select account_freeze_event
+    where account_freeze_event.user_id = ?
+)
+
 update account_freeze_event (
     where account_freeze_event.user_id = ?
     where account_freeze_event.event = ?

@@ -13756,6 +13756,28 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
 	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
 	limit int, offset int64) (
@@ -16283,6 +16305,51 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
 	}
 	return account_freeze_event, nil
+
+}
+
+func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -21269,6 +21336,28 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context
 
 }
 
+func (obj *pgxcockroachImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
 	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
 	limit int, offset int64) (
@@ -23796,6 +23885,51 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 		return (*AccountFreezeEvent)(nil), obj.makeErr(err)
 	}
 	return account_freeze_event, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -26803,6 +26937,16 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_AccountFreezeEvent_By_UserId(ctx, account_freeze_event_user_id)
+}
+
 func (rx *Rx) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
 	billing_transaction_user_id BillingTransaction_UserId_Field) (
 	rows []*BillingTransaction, err error) {
@@ -28082,6 +28226,16 @@ func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
+func (rx *Rx) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripeCustomer_UserId_By_CustomerId(ctx, stripe_customer_customer_id)
+}
+
 func (rx *Rx) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -28720,6 +28874,10 @@ func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	All_AccountFreezeEvent_By_UserId(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+		rows []*AccountFreezeEvent, err error)
+
 	All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field) (
 		rows []*BillingTransaction, err error)
@@ -29297,6 +29455,10 @@ type Methods interface {
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
+
+	Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		row *UserId_Row, err error)
 
 	Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
