@@ -358,6 +358,11 @@ func TestService(t *testing.T) {
 				require.Equal(t, bucket1.Name, bucketNames[0])
 				require.Equal(t, bucket2.Name, bucketNames[1])
 
+				bucketNames, err = service.GetAllBucketNames(userCtx2, up2Pro1.PublicID)
+				require.NoError(t, err)
+				require.Equal(t, bucket1.Name, bucketNames[0])
+				require.Equal(t, bucket2.Name, bucketNames[1])
+
 				// Getting someone else buckets should not work
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(userCtx1, up2Pro1.ID)
 				require.Error(t, err)

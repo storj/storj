@@ -580,11 +580,28 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// parse query params
-	projectID, err := uuid.FromString(r.URL.Query().Get("projectID"))
-	if err != nil {
+	projectIDString := r.URL.Query().Get("projectID")
+	publicIDString := r.URL.Query().Get("publicID")
+
+	var projectID uuid.UUID
+	if projectIDString != "" {
+		projectID, err = uuid.FromString(projectIDString)
+		if err != nil {
+			server.serveError(w, http.StatusBadRequest)
+			return
+		}
+	} else if publicIDString != "" {
+		projectID, err = uuid.FromString(publicIDString)
+		if err != nil {
+			server.serveError(w, http.StatusBadRequest)
+			return
+		}
+	} else {
+		server.log.Error("bucket usage report error", zap.Error(errs.New("Project ID was not provided.")))
 		server.serveError(w, http.StatusBadRequest)
 		return
 	}
+
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
 	if err != nil {
 		server.serveError(w, http.StatusBadRequest)

@@ -2416,6 +2416,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 }
 
 // GetAllBucketNames retrieves all bucket names of a specific project.
+// projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2424,7 +2425,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2437,7 +2438,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		All: true,
 	}
 
-	bucketsList, err := s.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	bucketsList, err := s.buckets.ListBuckets(ctx, isMember.project.ID, listOptions, allowedBuckets)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2451,6 +2452,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
+// projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2459,12 +2461,12 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
+	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, isMember.project.ID, since, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

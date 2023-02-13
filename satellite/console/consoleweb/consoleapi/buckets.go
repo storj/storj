@@ -43,10 +43,23 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	projectIDString := r.URL.Query().Get("projectID")
+	publicIDString := r.URL.Query().Get("publicID")
 
-	projectID, err := uuid.FromString(projectIDString)
-	if err != nil {
-		b.serveJSONError(w, http.StatusInternalServerError, err)
+	var projectID uuid.UUID
+	if projectIDString != "" {
+		projectID, err = uuid.FromString(projectIDString)
+		if err != nil {
+			b.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
+	} else if publicIDString != "" {
+		projectID, err = uuid.FromString(publicIDString)
+		if err != nil {
+			b.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
+	} else {
+		b.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
 		return
 	}
 
