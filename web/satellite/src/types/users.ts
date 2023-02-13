@@ -73,9 +73,21 @@ export class User {
         public employeeCount: string = '',
         public haveSalesContact: boolean = false,
         public mfaRecoveryCodeCount: number = 0,
+        public _createdAt: string | null = null,
         public signupPromoCode: string = '',
         public isFrozen: boolean = false,
     ) {}
+
+    public get createdAt(): Date | null {
+        if (!this._createdAt) {
+            return null;
+        }
+        const date = new Date(this._createdAt);
+        if (date.toString().includes('Invalid')) {
+            return null;
+        }
+        return date;
+    }
 
     public getFullName(): string {
         return !this.shortName ? this.fullName : this.shortName;

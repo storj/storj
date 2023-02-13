@@ -14,11 +14,11 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/noise"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/drpc/drpcctx"
 	"storj.io/storj/private/nodeoperator"
-	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -89,7 +89,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	var noiseInfo *pb.NoiseInfo
 	if req.NoiseKeyAttestation != nil {
-		if err := server.ValidateNoiseKeyAttestation(ctx, req.NoiseKeyAttestation); err == nil {
+		if err := noise.ValidateKeyAttestation(ctx, req.NoiseKeyAttestation, nodeID); err == nil {
 			noiseInfo = &pb.NoiseInfo{
 				Proto:     req.NoiseKeyAttestation.NoiseProto,
 				PublicKey: req.NoiseKeyAttestation.NoisePublicKey,

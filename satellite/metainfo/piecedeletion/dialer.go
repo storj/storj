@@ -6,6 +6,7 @@ package piecedeletion
 import (
 	"context"
 	"errors"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -107,7 +108,13 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 			if err != nil {
 				dialer.log.Debug("deletion request failed", zap.Stringer("id", node.ID), zap.Error(err))
 				// don't try to send to this storage node a bit, when the deletion times out
+
 				if errs2.IsCanceled(err) || errors.Is(err, context.DeadlineExceeded) {
+					dialer.markFailed(ctx, node)
+				}
+
+				var opErr *net.OpError
+				if errors.As(err, &opErr) {
 					dialer.markFailed(ctx, node)
 				}
 				break

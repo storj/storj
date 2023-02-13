@@ -92,6 +92,7 @@ type Config struct {
 	PathwayOverviewEnabled          bool               `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	NewProjectDashboard             bool               `help:"indicates if new project dashboard should be used" default:"true"`
 	NewBillingScreen                bool               `help:"indicates if new billing screens should be used" default:"true"`
+	NewAccessGrantFlow              bool               `help:"indicates if new access grant flow should be used" default:"false"`
 	GeneratedAPIEnabled             bool               `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string             `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string             `help:"url link to storj.io homepage" default:"https://www.storj.io"`
@@ -274,7 +275,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
 	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost)
-	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
+	authRouter.Handle("/account/change-password", server.withAuth(server.userIDRateLimiter.Limit(http.HandlerFunc(authController.ChangePassword)))).Methods(http.MethodPost)
 	authRouter.Handle("/account/freezestatus", server.withAuth(http.HandlerFunc(authController.IsAccountFrozen))).Methods(http.MethodGet)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
 	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost)
@@ -299,7 +300,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentController := consoleapi.NewPayments(logger, service, accountFreezeService)
 	paymentsRouter := router.PathPrefix("/api/v0/payments").Subrouter()
 	paymentsRouter.Use(server.withAuth)
-	paymentsRouter.HandleFunc("/cards", paymentController.AddCreditCard).Methods(http.MethodPost)
+	paymentsRouter.Handle("/cards", server.userIDRateLimiter.Limit(http.HandlerFunc(paymentController.AddCreditCard))).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/cards", paymentController.MakeCreditCardDefault).Methods(http.MethodPatch)
 	paymentsRouter.HandleFunc("/cards", paymentController.ListCreditCards).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/cards/{cardId}", paymentController.RemoveCreditCard).Methods(http.MethodDelete)
@@ -457,6 +458,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
 		NewBillingScreen                bool
+		NewAccessGrantFlow              bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDuration         int
 		InactivityTimerViewerEnabled    bool
@@ -507,6 +509,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PasswordMinimumLength = console.PasswordMinimumLength
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled
+	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {

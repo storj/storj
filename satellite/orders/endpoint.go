@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -386,6 +387,10 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	)
 
 	if status == pb.SettlementWithWindowResponse_ACCEPTED && !alreadyProcessed {
+		// we would like to update bandwidth even if context was canceled because
+		// underlying implementation is flushing cache using this context in separate
+		// goroutine so it can be executed after this stream will be closed
+		ctx := context2.WithoutCancellation(ctx)
 		for bucketIDAction, bwAmount := range bucketSettled {
 			err = endpoint.DB.UpdateBucketBandwidthSettle(ctx,
 				bucketIDAction.projectID, []byte(bucketIDAction.bucketname), bucketIDAction.action, bwAmount.Settled, bwAmount.Dead, time.Unix(0, window),

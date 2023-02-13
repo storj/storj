@@ -560,6 +560,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err := pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		if err := pb.DRPCRegisterReplaySafePiecestore(peer.Server.ReplaySafeDRPC(), peer.Storage2.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		// TODO workaround for custom timeout for order sending request (read/write)
 		sc := config.Server

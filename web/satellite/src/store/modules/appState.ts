@@ -70,6 +70,7 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
+        public isNewAccessGrantFlow = false,
     ){}
 }
 
@@ -270,6 +271,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
             state.isNewProjectDashboard = isNewProjectDashboard;
+        },
+        [APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS](state: State, isNewAccessGrantFlow: boolean): void {
+            state.isNewAccessGrantFlow = isNewAccessGrantFlow;
         },
         [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
             state.appState.onbAGStepBackRoute = backRoute;

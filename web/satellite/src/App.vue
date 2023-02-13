@@ -14,6 +14,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
 
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
@@ -40,6 +41,7 @@ export default class App extends Vue {
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
         const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
+        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -70,6 +72,10 @@ export default class App extends Vue {
 
         if (isNewProjectDashboard) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
+        }
+
+        if (isNewAccessGrantFlow) {
+            this.$store.commit(APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS, isNewAccessGrantFlow === 'true');
         }
 
         this.fixViewportHeight();

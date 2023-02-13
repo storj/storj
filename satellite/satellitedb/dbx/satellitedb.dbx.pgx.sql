@@ -459,6 +459,11 @@ CREATE TABLE users (
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,

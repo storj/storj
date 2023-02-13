@@ -6,7 +6,6 @@
         v-if="isShown && bannerWidth > 0"
         class="notification-wrap"
         :class="{ warning: severity === 'warning', critical: severity === 'critical' }"
-        :style="bannerStyle"
         @click="onClick"
     >
         <InfoIcon class="notification-wrap__icon" />
@@ -18,9 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-
-import { useResize } from '@/composables/resize';
+import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -34,17 +31,9 @@ const props = withDefaults(defineProps<{
     onClick: () => () => {},
 });
 
-const { isMobile } = useResize();
-
 const isShown = ref<boolean>(true);
 const bannerWidth = ref<number>(0);
 let resizeObserver = reactive<ResizeObserver>();
-
-const bannerStyle = computed((): string => {
-    const margin = isMobile.value ? 30 : 60;
-
-    return `width: ${bannerWidth.value - margin}px`;
-});
 
 function onBannerResize(): void {
     bannerWidth.value = props.dashboardRef.offsetWidth;
@@ -75,20 +64,20 @@ watch(() => props.dashboardRef, () => {
 
 <style scoped lang="scss">
 .notification-wrap {
-    position: fixed;
-    right: 30px;
-    top: 5rem;
-    z-index: 9998;
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1.375rem;
+    margin: 0 3rem;
     font-family: 'font_regular', sans-serif;
     background-color: var(--c-light-blue-1);
     border: 1px solid var(--c-light-blue-2);
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
-    box-sizing: border-box;
+
+    @media screen and (max-width: 800px) {
+        margin: 0 1.5rem;
+    }
 
     &__icon {
         flex-shrink: 0;
