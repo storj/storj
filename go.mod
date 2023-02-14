@@ -36,7 +36,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/stripe/stripe-go/v72 v72.51.0
+	github.com/stripe/stripe-go/v72 v72.90.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
