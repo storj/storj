@@ -77,6 +77,12 @@ type ObserverDuration struct {
 	Duration time.Duration
 }
 
+// Close stops the ranged loop.
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
+}
+
 // Run starts the looping service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -126,7 +126,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
@@ -155,7 +155,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 	}
 
 	neededLimits := segment.Redundancy.DownloadNodes()
+	if desiredNodes > neededLimits {
+		neededLimits = desiredNodes
 
+	}
 	pieces := segment.Pieces
 	for _, pieceIndex := range service.perm(len(pieces)) {
 		piece := pieces[pieceIndex]

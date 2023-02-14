@@ -22,12 +22,6 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 
 	runCfg.Debug.Address = *process.DebugAddrFlag
 
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		log.Error("Failed to load identity.", zap.Error(err))
-		return errs.New("Failed to load identity: %+v", err)
-	}
-
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-gc-bloomfilter"})
 	if err != nil {
 		return errs.New("Error starting master database on satellite GC: %+v", err)
@@ -53,12 +47,7 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
-	if err != nil {
-		return err
-	}
-
-	_, err = peer.Version.Service.CheckVersion(ctx)
+	peer, err := satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}

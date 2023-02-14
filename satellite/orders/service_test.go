@@ -81,8 +81,8 @@ func TestGetOrderLimits(t *testing.T) {
 		RootPieceID:  testrand.PieceID(),
 	}
 
-	checkExpectedLimits := func(received int) {
-		limits, _, err := service.CreateGetOrderLimits(ctx, bucket, segment, 0)
+	checkExpectedLimits := func(requested int32, received int) {
+		limits, _, err := service.CreateGetOrderLimits(ctx, bucket, segment, requested, 0)
 		require.NoError(t, err)
 		realLimits := 0
 		for _, limit := range limits {
@@ -94,7 +94,19 @@ func TestGetOrderLimits(t *testing.T) {
 	}
 
 	t.Run("Do not request any specific number", func(t *testing.T) {
-		checkExpectedLimits(6)
+		checkExpectedLimits(0, 6)
+	})
+
+	t.Run("Request less than the optimal", func(t *testing.T) {
+		checkExpectedLimits(2, 6)
+	})
+
+	t.Run("Request more than the optimal", func(t *testing.T) {
+		checkExpectedLimits(8, 8)
+	})
+
+	t.Run("Request more than the replication", func(t *testing.T) {
+		checkExpectedLimits(1000, 8)
 	})
 
 }
