@@ -319,6 +319,10 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
+// MaxVersion represents maximum version.
+// Version in DB is represented as INT4.
+const MaxVersion = Version(math.MaxInt32)
+
 // ObjectStatus defines the statuses that the object might be in.
 type ObjectStatus byte
 

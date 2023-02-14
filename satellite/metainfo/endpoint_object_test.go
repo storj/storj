@@ -2340,3 +2340,69 @@ func TestEndpoint_Object_MoveObject_MultipleVersions(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestListObjectDuplicates(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		u := planet.Uplinks[0]
+		s := planet.Satellites[0]
+
+		const amount = 23
+
+		require.NoError(t, u.CreateBucket(ctx, s, "test"))
+
+		prefixes := []string{"", "aprefix/"}
+
+		// reupload some objects many times to force different
+		// object versions internally
+		for _, prefix := range prefixes {
+			for i := 0; i < amount; i++ {
+				version := 1
+				if i%2 == 0 {
+					version = 2
+				} else if i%3 == 0 {
+					version = 3
+				}
+
+				for v := 0; v < version; v++ {
+					require.NoError(t, u.Upload(ctx, s, "test", prefix+fmt.Sprintf("file-%d", i), nil))
+				}
+			}
+		}
+
+		project, err := u.GetProject(ctx, s)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		for _, prefix := range prefixes {
+			prefixLabel := prefix
+			if prefixLabel == "" {
+				prefixLabel = "empty"
+			}
+
+			for _, listLimit := range []int{0, 1, 2, 3, 7, amount - 1, amount} {
+				t.Run(fmt.Sprintf("prefix %s limit %d", prefixLabel, listLimit), func(t *testing.T) {
+					limitCtx := testuplink.WithListLimit(ctx, listLimit)
+
+					keys := make(map[string]struct{})
+					iter := project.ListObjects(limitCtx, "test", &uplink.ListObjectsOptions{
+						Prefix: prefix,
+					})
+					for iter.Next() {
+						if iter.Item().IsPrefix {
+							continue
+						}
+
+						if _, ok := keys[iter.Item().Key]; ok {
+							t.Fatal("duplicate", iter.Item().Key, len(keys))
+						}
+						keys[iter.Item().Key] = struct{}{}
+					}
+					require.NoError(t, iter.Err())
+					require.Equal(t, amount, len(keys))
+				})
+			}
+		}
+	})
+}

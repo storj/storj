@@ -798,37 +798,46 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		status = metabase.ObjectStatus(req.Status)
 	}
 
-	cursor := string(req.EncryptedCursor)
-	if len(cursor) != 0 {
-		cursor = string(prefix) + cursor
+	cursor := metabase.IterateCursor{
+		Key: metabase.ObjectKey(req.EncryptedCursor),
+		// TODO: set to a the version from the protobuf request when it supports this
+	}
+	if len(cursor.Key) != 0 {
+		cursor.Key = prefix + cursor.Key
+
+		if status == metabase.Committed {
+			// TODO this is a workaround to avoid duplicates while listing objects by libuplink.
+			// because version is not part of cursor yet and we can have object with version higher
+			// than 1 we cannot use hardcoded version 1 as default.
+			// This workaround should be in place for a longer time even if metainfo protocol will be
+			// fix as we still want to avoid this problem for older libuplink versions.
+			cursor.Version = metabase.MaxVersion
+		}
 	}
 
 	includeCustomMetadata := true
 	includeSystemMetadata := true
 	if req.UseObjectIncludes {
 		includeCustomMetadata = req.ObjectIncludes.Metadata
-		includeSystemMetadata = !req.ObjectIncludes.ExcludeSystemMetadata
+		// because multipart upload UploadID depends on some System metadata fields we need
+		// to force reading it for listing pending object when its not included in options.
+		// This is used by libuplink ListUploads method.
+		includeSystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 	}
 
 	resp = &pb.ObjectListResponse{}
 	if endpoint.config.TestListingQuery {
 		result, err := endpoint.metabase.ListObjects(ctx,
 			metabase.ListObjects{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				Prefix:     prefix,
-				Cursor: metabase.ListObjectsCursor{
-					Key:     metabase.ObjectKey(cursor),
-					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
-				},
+				ProjectID:             keyInfo.ProjectID,
+				BucketName:            string(req.Bucket),
+				Prefix:                prefix,
+				Cursor:                metabase.ListObjectsCursor(cursor),
 				Recursive:             req.Recursive,
 				Limit:                 limit,
 				Status:                status,
 				IncludeCustomMetadata: includeCustomMetadata,
-				// because multipart upload UploadID depends on some System metadata fields we need
-				// to force reading it for listing pending object when its not included in options.
-				// This is used by libuplink ListUploads method.
-				IncludeSystemMetadata: status == metabase.Pending || includeSystemMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
 			})
 		if err != nil {
 			return nil, endpoint.convertMetabaseErr(err)
@@ -843,21 +852,17 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 		resp.More = result.More
 	} else {
-		// TODO: Replace with IterateObjectsLatestVersion when ready
 		err = endpoint.metabase.IterateObjectsAllVersionsWithStatus(ctx,
 			metabase.IterateObjectsWithStatus{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				Prefix:     prefix,
-				Cursor: metabase.IterateCursor{
-					Key:     metabase.ObjectKey(cursor),
-					Version: metabase.DefaultVersion, // TODO: set to a the version from the protobuf request when it supports this
-				},
+				ProjectID:             keyInfo.ProjectID,
+				BucketName:            string(req.Bucket),
+				Prefix:                prefix,
+				Cursor:                cursor,
 				Recursive:             req.Recursive,
 				BatchSize:             limit + 1,
 				Status:                status,
 				IncludeCustomMetadata: includeCustomMetadata,
-				IncludeSystemMetadata: status == metabase.Pending || includeSystemMetadata,
+				IncludeSystemMetadata: includeSystemMetadata,
 			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 				entry := metabase.ObjectEntry{}
 				for len(resp.Items) < limit && it.Next(ctx, &entry) {
