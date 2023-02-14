@@ -32,23 +32,37 @@
                     :not-after-label="notAfterLabel"
                     :on-set-not-after-label="setNotAfterLabel"
                 />
+                <AccessEncryptionStep
+                    v-if="step === CreateAccessStep.AccessEncryption"
+                    :on-back="() => setStep(CreateAccessStep.ChoosePermission)"
+                    :on-continue="setStepBasedOnPassphraseOption"
+                    :passphrase-option="passphraseOption"
+                    :set-option="setPassphraseOption"
+                />
             </div>
         </template>
     </VModal>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { AccessType, CreateAccessStep, Permission, STEP_ICON_AND_TITLE } from '@/types/createAccessGrant';
+import {
+    AccessType,
+    CreateAccessStep,
+    PassphraseOption,
+    Permission,
+    STEP_ICON_AND_TITLE,
+} from '@/types/createAccessGrant';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/CreateNewAccessStep.vue';
 import ChoosePermissionStep from '@/components/accessGrants/newCreateFlow/steps/ChoosePermissionStep.vue';
+import AccessEncryptionStep from '@/components/accessGrants/newCreateFlow/steps/AccessEncryptionStep.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -62,10 +76,28 @@ const initPermissions = [
     Permission.List,
 ];
 
+/**
+ * Indicates if user has to be prompt to enter project passphrase.
+ */
+const isPromptForPassphrase = computed((): boolean => {
+    return store.state.objectsModule.promptForPassphrase;
+});
+
+/**
+ * Returns passphrase from store.
+ */
+const storedPassphrase = computed((): string => {
+    return store.state.objectsModule.passphrase;
+});
+
 const step = ref<CreateAccessStep>(CreateAccessStep.CreateNewAccess);
 const selectedAccessTypes = ref<AccessType[]>([]);
 const selectedPermissions = ref<Permission[]>(initPermissions);
 const selectedBuckets = ref<string[]>([]);
+const passphraseOption = ref<PassphraseOption>(
+    isPromptForPassphrase.value ? PassphraseOption.SetMyProjectPassphrase : PassphraseOption.UseExistingPassphrase,
+);
+const passphrase = ref<string>(storedPassphrase.value);
 const accessName = ref<string>('');
 const notAfter = ref<Date | undefined>(undefined);
 const notAfterLabel = ref<string>('No end date');
@@ -118,6 +150,20 @@ function selectAccessType(type: AccessType) {
         // Select API key.
         selectedAccessTypes.value.push(type);
     }
+}
+
+/**
+ * Sets passphrase option.
+ */
+function setPassphraseOption(option: PassphraseOption): void {
+    passphraseOption.value = option;
+}
+
+/**
+ * Sets passphrase.
+ */
+function setPassphrase(value: string): void {
+    passphrase.value = value;
 }
 
 /**
@@ -212,10 +258,30 @@ function setAccessName(value: string): void {
 }
 
 /**
- * Sets current step to be 'Choose permission'.
+ * Sets current step.
  */
 function setStep(stepArg: CreateAccessStep): void {
     step.value = stepArg;
+}
+
+/**
+ * Sets next step depending on selected passphrase option.
+ */
+function setStepBasedOnPassphraseOption(): void {
+    switch (passphraseOption.value) {
+    case PassphraseOption.SetMyProjectPassphrase:
+        step.value = CreateAccessStep.EnterMyPassphrase;
+        break;
+    case PassphraseOption.EnterNewPassphrase:
+        step.value = CreateAccessStep.EnterNewPassphrase;
+        break;
+    case PassphraseOption.GenerateNewPassphrase:
+        step.value = CreateAccessStep.PassphraseGenerated;
+        break;
+    default:
+        // TODO: generate access and redirect to access created.
+        step.value = CreateAccessStep.AccessCreated;
+    }
 }
 
 /**
