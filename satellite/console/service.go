@@ -2642,6 +2642,8 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BandwidthUsed:  prUsageLimits.BandwidthUsed,
 		ObjectCount:    prObjectsSegments.ObjectCount,
 		SegmentCount:   prObjectsSegments.SegmentCount,
+		SegmentLimit:   prUsageLimits.SegmentLimit,
+		SegmentUsed:    prUsageLimits.SegmentUsed,
 	}, nil
 }
 
@@ -2695,6 +2697,10 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
+	segmentLimit, err := s.projectUsage.GetProjectSegmentLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 	if err != nil {
@@ -2704,12 +2710,18 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
+	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ProjectUsageLimits{
 		StorageLimit:   storageLimit.Int64(),
 		BandwidthLimit: bandwidthLimit.Int64(),
 		StorageUsed:    storageUsed,
 		BandwidthUsed:  bandwidthUsed,
+		SegmentLimit:   segmentLimit.Int64(),
+		SegmentUsed:    segmentUsed,
 	}, nil
 }
 
