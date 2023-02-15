@@ -44,7 +44,7 @@
                     :is-new-passphrase="false"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
                     :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
-                    :passphrase="passphrase"
+                    :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="Enter the encryption passphrase used for this project to create this access grant."
                 />
@@ -53,10 +53,17 @@
                     :is-new-passphrase="true"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
                     :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
-                    :passphrase="passphrase"
+                    :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="This passphrase will be used to encrypt all the files you upload using this access grant.
                         You will need it to access these files in the future."
+                />
+                <PassphraseGeneratedStep
+                    v-if="step === CreateAccessStep.PassphraseGenerated"
+                    :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
+                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :passphrase="generatedPassphrase"
+                    :name="accessName"
                 />
             </div>
         </template>
@@ -65,6 +72,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import { generateMnemonic } from 'bip39';
 
 import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
@@ -83,6 +91,7 @@ import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/C
 import ChoosePermissionStep from '@/components/accessGrants/newCreateFlow/steps/ChoosePermissionStep.vue';
 import AccessEncryptionStep from '@/components/accessGrants/newCreateFlow/steps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/accessGrants/newCreateFlow/steps/EnterPassphraseStep.vue';
+import PassphraseGeneratedStep from '@/components/accessGrants/newCreateFlow/steps/PassphraseGeneratedStep.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -117,7 +126,8 @@ const selectedBuckets = ref<string[]>([]);
 const passphraseOption = ref<PassphraseOption>(
     isPromptForPassphrase.value ? PassphraseOption.SetMyProjectPassphrase : PassphraseOption.UseExistingPassphrase,
 );
-const passphrase = ref<string>(storedPassphrase.value);
+const enteredPassphrase = ref<string>('');
+const generatedPassphrase = ref<string>('');
 const accessName = ref<string>('');
 const notAfter = ref<Date | undefined>(undefined);
 const notAfterLabel = ref<string>('No end date');
@@ -180,10 +190,10 @@ function setPassphraseOption(option: PassphraseOption): void {
 }
 
 /**
- * Sets passphrase.
+ * Sets entered passphrase.
  */
 function setPassphrase(value: string): void {
-    passphrase.value = value;
+    enteredPassphrase.value = value;
 }
 
 /**
@@ -316,6 +326,8 @@ onMounted(async () => {
         selectedAccessTypes.value.push(route.params?.accessType as AccessType);
     }
 
+    generatedPassphrase.value = generateMnemonic();
+
     try {
         await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
     } catch (error) {
@@ -335,7 +347,7 @@ onMounted(async () => {
         display: flex;
         align-items: center;
         padding-bottom: 16px;
-        border-bottom: 1px solid #ebeef1;
+        border-bottom: 1px solid var(--c-grey-2);
 
         &__title {
             margin-left: 16px;
@@ -343,7 +355,7 @@ onMounted(async () => {
             font-size: 24px;
             line-height: 31px;
             letter-spacing: -0.02em;
-            color: #000;
+            color: var(--c-black);
         }
     }
 }

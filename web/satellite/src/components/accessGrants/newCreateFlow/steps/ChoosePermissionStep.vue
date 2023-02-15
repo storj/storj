@@ -231,8 +231,8 @@ function toggleBucketsVisibility(): void {
     &__search-container {
         display: flex;
         align-items: center;
-        background: #fff;
-        border: 1px solid #d8dee3;
+        background: var(--c-white);
+        border: 1px solid var(--c-grey-3);
         border-radius: 8px;
         padding: 12px;
         margin-top: 16px;
@@ -245,7 +245,7 @@ function toggleBucketsVisibility(): void {
         input {
             font-size: 14px;
             line-height: 20px;
-            color: #000;
+            color: var(--c-black);
             border: none;
             outline: none;
         }
@@ -265,7 +265,7 @@ function toggleBucketsVisibility(): void {
             align-items: center;
             box-sizing: border-box;
             padding: 6px 16px;
-            border: 1px solid #d8dee3;
+            border: 1px solid var(--c-grey-3);
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 8px;
 
@@ -274,7 +274,7 @@ function toggleBucketsVisibility(): void {
                 font-family: 'font_bold', sans-serif;
                 font-size: 12px;
                 line-height: 20px;
-                color: #000;
+                color: var(--c-black);
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
@@ -291,18 +291,18 @@ function toggleBucketsVisibility(): void {
         padding: 4px 0;
         max-height: 120px;
         overflow-y: auto;
-        border: 1px solid #d8dee3;
+        border: 1px solid var(--c-grey-3);
         box-shadow: 0 4px 6px -2px rgb(0 0 0 / 5%);
         border-radius: 6px;
         max-width: 100%;
         box-sizing: border-box;
 
         &__item {
-            background-color: #fff;
+            background-color: var(--c-white);
             font-weight: 500;
             font-size: 14px;
             line-height: 20px;
-            color: #000;
+            color: var(--c-black);
             padding: 10px 16px;
             overflow: hidden;
             white-space: nowrap;
@@ -311,7 +311,7 @@ function toggleBucketsVisibility(): void {
             cursor: pointer;
 
             &:hover {
-                background-color: #ecedf2;
+                background-color: var(--c-grey-2);
             }
         }
 
@@ -320,7 +320,7 @@ function toggleBucketsVisibility(): void {
             font-weight: 500;
             font-size: 14px;
             line-height: 20px;
-            color: #000;
+            color: var(--c-black);
             text-align: left;
         }
     }
@@ -333,7 +333,7 @@ function toggleBucketsVisibility(): void {
             line-height: 22px;
             text-decoration: underline;
             text-underline-position: under;
-            color: #56606d;
+            color: var(--c-grey-6);
             text-align: left;
             cursor: pointer;
         }

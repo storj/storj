@@ -9,6 +9,7 @@
                 label="Encryption Passphrase"
                 placeholder="Enter Encryption Passphrase"
                 :is-password="true"
+                :init-value="passphrase"
                 @setData="setPassphrase"
             />
         </div>
@@ -93,21 +94,21 @@ function togglePassphraseSaved(): void {
     &__info {
         font-size: 14px;
         line-height: 20px;
-        color: #091c45;
+        color: var(--c-blue-6);
         padding: 16px 0;
         margin-bottom: 16px;
-        border-bottom: 1px solid #ebeef1;
+        border-bottom: 1px solid var(--c-grey-2);
         text-align: left;
     }
 
     &__input-container {
         padding-bottom: 16px;
-        border-bottom: 1px solid #ebeef1;
+        border-bottom: 1px solid var(--c-grey-2);
     }
 
     &__toggle-container {
         padding: 16px 0;
-        border-bottom: 1px solid #ebeef1;
+        border-bottom: 1px solid var(--c-grey-2);
     }
 }
 </style>

@@ -55,7 +55,7 @@ function togglePicker(): void {
 
 <style scoped lang="scss">
     .date-select {
-        background-color: #fff;
+        background-color: var(--c-white);
         cursor: pointer;
         border-radius: 6px;
         border: 1px solid rgb(56 75 101 / 40%);
@@ -74,7 +74,7 @@ function togglePicker(): void {
             &__label {
                 font-size: 16px;
                 line-height: 21px;
-                color: #384b65;
+                color: var(--c-grey-7);
                 margin: 0;
             }
         }

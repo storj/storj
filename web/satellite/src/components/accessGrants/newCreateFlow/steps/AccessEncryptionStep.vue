@@ -159,7 +159,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
                 line-height: 20px;
-                color: #000;
+                color: var(--c-black);
                 text-align: left;
                 cursor: pointer;
             }
@@ -177,8 +177,8 @@ function isSelectedOption(option: PassphraseOption): boolean {
     }
 
     &__warning-container {
-        background: #fec;
-        border: 1px solid #ffd78a;
+        background: var(--c-yellow-1);
+        border: 1px solid var(--c-yellow-2);
         box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
         border-radius: 10px;
         padding: 16px;
@@ -194,7 +194,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
         &__message {
             font-size: 14px;
             line-height: 20px;
-            color: #000;
+            color: var(--c-black);
             text-align: left;
         }
 
@@ -202,7 +202,7 @@ function isSelectedOption(option: PassphraseOption): boolean {
             font-weight: bold;
             font-size: 14px;
             line-height: 22px;
-            color: #000;
+            color: var(--c-black);
             font-style: italic;
             text-align: left;
         }

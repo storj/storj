@@ -15,6 +15,7 @@
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
         <span class="label" :class="{uppercase: isUppercase}">
             <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
@@ -33,6 +34,7 @@ import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
 
 const props = withDefaults(defineProps<{
@@ -140,6 +142,11 @@ const style = computed(() => {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049;
+        }
     }
 
     .blue-white {
@@ -153,7 +160,7 @@ const style = computed(() => {
 
     .white-green {
         background-color: transparent !important;
-        border: 1px solid #afb7c1 !important;
+        border: 1px solid #d8dee3 !important;
 
         .label {
             color: var(--c-green-5) !important;

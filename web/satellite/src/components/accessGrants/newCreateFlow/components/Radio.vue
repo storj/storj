@@ -58,7 +58,7 @@ const props = defineProps<{
         }
 
         &__message {
-            color: #fff;
+            color: var(--c-white);
         }
     }
 }

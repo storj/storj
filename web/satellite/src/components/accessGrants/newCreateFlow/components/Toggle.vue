@@ -75,7 +75,7 @@ const props = withDefaults(defineProps<{
             left: 0;
             height: 16px;
             width: 16px;
-            border: 1px solid #c8d3de;
+            border: 1px solid var(--c-grey-4);
             border-radius: 4px;
             box-sizing: border-box;
 
@@ -87,7 +87,7 @@ const props = withDefaults(defineProps<{
                 top: 1px;
                 width: 3px;
                 height: 7px;
-                border: solid white;
+                border: solid var(--c-white);
                 border-width: 0 2px 2px 0;
                 transform: rotate(45deg);
             }
@@ -98,15 +98,15 @@ const props = withDefaults(defineProps<{
         }
 
         input:checked ~ span {
-            border: 2px solid #376fff;
-            background-color: #376fff;
+            border: 2px solid var(--c-light-blue-5);
+            background-color: var(--c-light-blue-5);
         }
 
         &:hover {
 
             input:checked ~ span {
-                border: 2px solid #376fff;
-                background-color: #376fff;
+                border: 2px solid var(--c-light-blue-5);
+                background-color: var(--c-light-blue-5);
             }
         }
     }

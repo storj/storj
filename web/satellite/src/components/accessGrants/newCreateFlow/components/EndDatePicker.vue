@@ -119,9 +119,9 @@ function onOneYearClick(): void {
 
 <style scoped lang="scss">
     .date-picker {
-        background: #fff;
+        background: var(--c-white);
         width: 410px;
-        border: 1px solid #384b65;
+        border: 1px solid var(--c-grey-7);
         border-radius: 6px;
         box-shadow: 0 4px 8px 0 rgb(0 0 0 / 20%), 0 6px 20px 0 rgb(0 0 0 / 19%);
         position: absolute;
@@ -141,13 +141,13 @@ function onOneYearClick(): void {
                 font-size: 14px;
                 font-weight: 400;
                 padding: 10px 12px;
-                color: #1b2533;
+                color: var(--c-grey-8);
                 cursor: pointer;
                 white-space: nowrap;
 
                 &:hover {
                     font-weight: bold;
-                    background: #f5f6fa;
+                    background: var(--c-grey-0);
                 }
             }
         }

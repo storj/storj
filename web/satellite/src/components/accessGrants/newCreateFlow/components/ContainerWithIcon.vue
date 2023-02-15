@@ -29,7 +29,7 @@ const slots = useSlots();
 <style scoped lang="scss">
 .section {
     padding: 16px 0;
-    border-bottom: 1px solid #ebeef1;
+    border-bottom: 1px solid var(--c-grey-2);
 
     &__wrapper {
         display: flex;
@@ -47,7 +47,7 @@ const slots = useSlots();
                 font-family: 'font_bold', sans-serif;
                 font-size: 14px;
                 line-height: 20px;
-                color: #000;
+                color: var(--c-black);
                 text-align: left;
                 margin-bottom: 8px;
             }
