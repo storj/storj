@@ -39,6 +39,25 @@
                     :passphrase-option="passphraseOption"
                     :set-option="setPassphraseOption"
                 />
+                <EnterPassphraseStep
+                    v-if="step === CreateAccessStep.EnterMyPassphrase"
+                    :is-new-passphrase="false"
+                    :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
+                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :passphrase="passphrase"
+                    :set-passphrase="setPassphrase"
+                    info="Enter the encryption passphrase used for this project to create this access grant."
+                />
+                <EnterPassphraseStep
+                    v-if="step === CreateAccessStep.EnterNewPassphrase"
+                    :is-new-passphrase="true"
+                    :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
+                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :passphrase="passphrase"
+                    :set-passphrase="setPassphrase"
+                    info="This passphrase will be used to encrypt all the files you upload using this access grant.
+                        You will need it to access these files in the future."
+                />
             </div>
         </template>
     </VModal>
@@ -63,6 +82,7 @@ import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/CreateNewAccessStep.vue';
 import ChoosePermissionStep from '@/components/accessGrants/newCreateFlow/steps/ChoosePermissionStep.vue';
 import AccessEncryptionStep from '@/components/accessGrants/newCreateFlow/steps/AccessEncryptionStep.vue';
+import EnterPassphraseStep from '@/components/accessGrants/newCreateFlow/steps/EnterPassphraseStep.vue';
 
 const router = useRouter();
 const route = useRoute();

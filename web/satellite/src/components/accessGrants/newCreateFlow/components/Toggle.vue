@@ -131,6 +131,7 @@ const props = withDefaults(defineProps<{
     &__chevron {
         transition: transform 0.3s;
         margin-left: 8px;
+        cursor: pointer;
 
         &--up {
             transform: rotate(180deg);
