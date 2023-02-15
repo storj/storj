@@ -805,14 +805,14 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if len(cursor.Key) != 0 {
 		cursor.Key = prefix + cursor.Key
 
-		if status == metabase.Committed {
-			// TODO this is a workaround to avoid duplicates while listing objects by libuplink.
-			// because version is not part of cursor yet and we can have object with version higher
-			// than 1 we cannot use hardcoded version 1 as default.
-			// This workaround should be in place for a longer time even if metainfo protocol will be
-			// fix as we still want to avoid this problem for older libuplink versions.
-			cursor.Version = metabase.MaxVersion
-		}
+		// TODO this is a workaround to avoid duplicates while listing objects by libuplink.
+		// because version is not part of cursor yet and we can have object with version higher
+		// than 1 we cannot use hardcoded version 1 as default.
+		// This workaround should be in place for a longer time even if metainfo protocol will be
+		// fix as we still want to avoid this problem for older libuplink versions.
+		//
+		// it should be set in case of pending and committed objects
+		cursor.Version = metabase.MaxVersion
 	}
 
 	includeCustomMetadata := true

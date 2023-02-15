@@ -2406,3 +2406,40 @@ func TestListObjectDuplicates(t *testing.T) {
 		}
 	})
 }
+
+func TestListUploads(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// basic ListUploads tests, more tests are on storj/uplink side
+		u := planet.Uplinks[0]
+		s := planet.Satellites[0]
+
+		project, err := u.OpenProject(ctx, s)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
+
+		// TODO number of objects created can be limited when uplink will
+		// have an option to control listing limit value for ListUploads
+		for i := 0; i < 1001; i++ {
+			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
+			require.NoError(t, err)
+		}
+
+		list := project.ListUploads(ctx, "testbucket", nil)
+		items := 0
+		for list.Next() {
+			items++
+		}
+		require.NoError(t, list.Err())
+		// TODO result should be 1001 but we have bug in libuplink
+		// were it's not possible to get second page of results for
+		// pending objets.
+		// test will fail when we will fix uplink and we will need to adjust this test
+		require.Equal(t, 1000, items)
+	})
+}
