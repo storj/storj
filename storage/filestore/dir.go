@@ -476,26 +476,33 @@ func (dir *Dir) RestoreTrash(ctx context.Context, namespace []byte) (keysRestore
 func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (bytesEmptied int64, deletedKeys [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errorsEncountered errs.Group
-	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(blobInfo storage.BlobInfo) error {
-		fileInfo, err := blobInfo.Stat(ctx)
+	err = dir.walkNamespaceInPath(ctx, namespace, dir.trashdir(), func(info storage.BlobInfo) error {
+		fileInfo, err := info.Stat(ctx)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
 			}
-			if !errors.Is(err, ErrIsDir) {
-				errorsEncountered.Add(Error.New("%s: %s", fileInfo.Name(), err))
+			if errors.Is(err, ErrIsDir) {
+				return nil
+			}
+			// it would be best if we could report the actual problematic path
+			if thisBlobInfo, ok := info.(*blobInfo); ok {
+				errorsEncountered.Add(Error.New("%s: %s", thisBlobInfo.path, err))
+			} else {
+				// this is probably a v0PieceAccess; do what we can
+				errorsEncountered.Add(Error.New("blobRef %+v: %s", info.BlobRef(), err))
 			}
 			return nil
 		}
 
 		mtime := fileInfo.ModTime()
 		if mtime.Before(trashedBefore) {
-			err = dir.deleteWithStorageFormatInPath(ctx, dir.trashdir(), blobInfo.BlobRef(), blobInfo.StorageFormatVersion())
+			err = dir.deleteWithStorageFormatInPath(ctx, dir.trashdir(), info.BlobRef(), info.StorageFormatVersion())
 			if err != nil {
 				errorsEncountered.Add(err)
 				return nil
 			}
-			deletedKeys = append(deletedKeys, blobInfo.BlobRef().Key)
+			deletedKeys = append(deletedKeys, info.BlobRef().Key)
 			bytesEmptied += fileInfo.Size()
 		}
 		return nil
