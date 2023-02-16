@@ -7,7 +7,7 @@
             <template #functional>
                 <div class="choose__toggles">
                     <Toggle
-                        id="all permissions"
+                        id="allPermissions"
                         :checked="selectedPermissions.length === 4"
                         label="All"
                         :on-check="() => onSelectPermission(Permission.All)"
@@ -42,7 +42,7 @@
         <ContainerWithIcon :icon-and-title="FUNCTIONAL_CONTAINER_ICON_AND_TITLE[FunctionalContainer.Buckets]">
             <template #functional>
                 <Toggle
-                    id="all buckets"
+                    id="allBuckets"
                     :checked="selectedBuckets.length === 0"
                     label="All"
                     :on-check="selectAllBuckets"

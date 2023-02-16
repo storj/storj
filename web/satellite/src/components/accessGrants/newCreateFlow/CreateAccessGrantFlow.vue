@@ -15,13 +15,18 @@
                     :selected-access-types="selectedAccessTypes"
                     :name="accessName"
                     :set-name="setAccessName"
+                    :on-continue="setSecondStepBasedOnAccessType"
+                />
+                <EncryptionInfoStep
+                    v-if="step === CreateAccessStep.EncryptionInfo"
+                    :on-back="() => setStep(CreateAccessStep.CreateNewAccess)"
                     :on-continue="() => setStep(CreateAccessStep.ChoosePermission)"
                 />
                 <ChoosePermissionStep
                     v-if="step === CreateAccessStep.ChoosePermission"
                     :on-select-permission="selectPermissions"
                     :selected-permissions="selectedPermissions"
-                    :on-back="() => setStep(CreateAccessStep.CreateNewAccess)"
+                    :on-back="setFirstStepBasedOnAccessType"
                     :on-continue="() => setStep(CreateAccessStep.AccessEncryption)"
                     :selected-buckets="selectedBuckets"
                     :on-select-bucket="selectBucket"
@@ -85,6 +90,7 @@ import {
 } from '@/types/createAccessGrant';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { LocalData } from '@/utils/localData';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/CreateNewAccessStep.vue';
@@ -92,6 +98,7 @@ import ChoosePermissionStep from '@/components/accessGrants/newCreateFlow/steps/
 import AccessEncryptionStep from '@/components/accessGrants/newCreateFlow/steps/AccessEncryptionStep.vue';
 import EnterPassphraseStep from '@/components/accessGrants/newCreateFlow/steps/EnterPassphraseStep.vue';
 import PassphraseGeneratedStep from '@/components/accessGrants/newCreateFlow/steps/PassphraseGeneratedStep.vue';
+import EncryptionInfoStep from '@/components/accessGrants/newCreateFlow/steps/EncryptionInfoStep.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -292,6 +299,40 @@ function setAccessName(value: string): void {
  */
 function setStep(stepArg: CreateAccessStep): void {
     step.value = stepArg;
+}
+
+/**
+ * Sets second step based on selected access type.
+ * If access types include 'S3' and local storage value is false we set 'Encryption info step'.
+ * If not then we set regular second step (Permissions).
+ */
+function setSecondStepBasedOnAccessType(): void {
+    // Unfortunately local storage updates are not reactive so putting it inside computed property doesn't do anything.
+    // That's why we explicitly call it here.
+    const shouldShowInfo = !LocalData.getServerSideEncryptionModalHidden() && selectedAccessTypes.value.includes(AccessType.S3);
+    if (shouldShowInfo) {
+        setStep(CreateAccessStep.EncryptionInfo);
+        return;
+    }
+
+    setStep(CreateAccessStep.ChoosePermission);
+}
+
+/**
+ * Sets first step based on selected access type.
+ * If access types include 'S3' and local storage value is false we set 'Encryption info step'.
+ * If not then we set regular first step (Create access).
+ */
+function setFirstStepBasedOnAccessType(): void {
+    // Unfortunately local storage updates are not reactive so putting it inside computed property doesn't do anything.
+    // That's why we explicitly call it here.
+    const shouldShowInfo = !LocalData.getServerSideEncryptionModalHidden() && selectedAccessTypes.value.includes(AccessType.S3);
+    if (shouldShowInfo) {
+        setStep(CreateAccessStep.EncryptionInfo);
+        return;
+    }
+
+    setStep(CreateAccessStep.CreateNewAccess);
 }
 
 /**

@@ -3,8 +3,8 @@
 
 <template>
     <div class="radio">
-        <input :id="`checkbox${label}`" :checked="checked" type="radio" @change="onCheck">
-        <label class="radio__label" :for="`checkbox${label}`">{{ label }}</label>
+        <input :id="id || label" :checked="checked" type="radio" @change="onCheck">
+        <label class="radio__label" :for="id || label">{{ label }}</label>
         <VInfo class="radio__info">
             <template #icon>
                 <InfoIcon class="radio__info__icon" />
@@ -21,12 +21,15 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/accessGrants/newCreateFlow/info.svg';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     checked: boolean;
     label: string;
     onCheck: () => void;
     info: string;
-}>();
+    id?: string;
+}>(), {
+    id: '',
+});
 </script>
 
 <style scoped lang="scss">

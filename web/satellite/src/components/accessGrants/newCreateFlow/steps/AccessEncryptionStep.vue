@@ -8,6 +8,7 @@
                 <div class="encryption__radios">
                     <Radio
                         v-if="!isPromptForPassphrase"
+                        id="currentPassphrase"
                         :checked="isSelectedOption(_PassphraseOption.UseExistingPassphrase)"
                         :on-check="() => setOption(_PassphraseOption.UseExistingPassphrase)"
                         label="Use the current passphrase"
@@ -16,6 +17,7 @@
                     />
                     <Radio
                         v-else
+                        id="myPassphrase"
                         :checked="isSelectedOption(_PassphraseOption.SetMyProjectPassphrase)"
                         :on-check="() => setOption(_PassphraseOption.SetMyProjectPassphrase)"
                         label="Enter my project passphrase"
@@ -32,6 +34,7 @@
                     </div>
                     <template v-if="advancedShown">
                         <Radio
+                            id="newPassphrase"
                             :checked="isSelectedOption(_PassphraseOption.EnterNewPassphrase)"
                             :on-check="() => setOption(_PassphraseOption.EnterNewPassphrase)"
                             label="Enter a new passphrase"
@@ -39,6 +42,7 @@
                                 The access will not be able to manage any existing data."
                         />
                         <Radio
+                            id="generatePassphrase"
                             :checked="isSelectedOption(_PassphraseOption.GenerateNewPassphrase)"
                             :on-check="() => setOption(_PassphraseOption.GenerateNewPassphrase)"
                             label="Generate 12-word passphrase"
