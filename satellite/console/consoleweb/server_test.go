@@ -42,7 +42,7 @@ func TestActivationRouting(t *testing.T) {
 		client := http.Client{}
 
 		checkActivationRedirect := func(testMsg, redirectURL string, shouldHaveCookie bool) {
-			url := "http://" + sat.API.Console.Listener.Addr().String() + "/activation/?token=" + activationToken
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/activation?token=" + activationToken
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err, testMsg)

@@ -348,8 +348,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		fs := http.FileServer(http.Dir(server.config.StaticDir))
 		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 
-		router.HandleFunc("/activation/", server.accountActivationHandler)
-		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
+		// These paths previously required a trailing slash, so we support both forms for now
+		slashRouter := router.NewRoute().Subrouter()
+		slashRouter.StrictSlash(true)
+		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
+		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
+
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
@@ -794,9 +798,9 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	rootObject := make(map[string]interface{})
 
 	rootObject["origin"] = server.config.ExternalAddress
-	rootObject[consoleql.ActivationPath] = "activation/?token="
-	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery/?token="
-	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery/?token="
+	rootObject[consoleql.ActivationPath] = "activation?token="
+	rootObject[consoleql.PasswordRecoveryPath] = "password-recovery?token="
+	rootObject[consoleql.CancelPasswordRecoveryPath] = "cancel-password-recovery?token="
 	rootObject[consoleql.SignInPath] = "login"
 	rootObject[consoleql.LetUsKnowURL] = server.config.LetUsKnowURL
 	rootObject[consoleql.ContactInfoURL] = server.config.ContactInfoURL
