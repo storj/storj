@@ -29,6 +29,7 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
+                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -38,7 +39,7 @@
                     height="48px"
                     font-size="14px"
                     :on-press="onContinue"
-                    :is-disabled="isButtonDisabled"
+                    :is-disabled="isButtonDisabled || isLoading"
                 />
             </template>
         </ButtonsContainer>
@@ -62,6 +63,7 @@ const props = defineProps<{
     setPassphrase: (value: string) => void;
     onBack: () => void;
     onContinue: () => void;
+    isLoading: boolean;
 }>();
 
 const store = useStore();

@@ -171,6 +171,7 @@ async function setAccess(): Promise<void> {
     const gatewayCredentials: EdgeCredentials = await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
     await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
     await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+    store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
     store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
 }
 

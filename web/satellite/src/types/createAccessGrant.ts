@@ -8,6 +8,7 @@ import ChoosePermissionIcon from '@/../static/images/accessGrants/newCreateFlow/
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import PassphraseGeneratedIcon from '@/../static/images/accessGrants/newCreateFlow/passphraseGenerated.svg';
 import AccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/accessCreated.svg';
+import CLIAccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/cliAccessCreated.svg';
 import CredentialsCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/credentialsCreated.svg';
 import EncryptionInfoIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionInfo.svg';
 import TypeIcon from '@/../static/images/accessGrants/newCreateFlow/typeIcon.svg';
@@ -44,6 +45,7 @@ export enum CreateAccessStep {
     EnterMyPassphrase = 'enterMyPassphrase',
     EnterNewPassphrase = 'enterNewPassphrase',
     AccessCreated = 'accessCreated',
+    CLIAccessCreated = 'cliAccessCreated',
     CredentialsCreated = 'credentialsCreated',
 }
 
@@ -91,6 +93,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CredentialsCreated]: {
         icon: CredentialsCreatedIcon,
         title: 'Credentials created',
+    },
+    [CreateAccessStep.CLIAccessCreated]: {
+        icon: CLIAccessCreatedIcon,
+        title: 'CLI access created',
     },
 };
 

@@ -161,7 +161,8 @@ export default class EnterPassphraseModal extends Vue {
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-        await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
+        this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
     }
 
     /**

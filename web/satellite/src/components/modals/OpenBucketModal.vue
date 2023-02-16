@@ -108,7 +108,8 @@ export default class OpenBucketModal extends Vue {
         if (this.isLoading) return;
 
         if (this.isWarningState) {
-            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+            this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
+            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
 
             this.closeModal();
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
@@ -134,7 +135,8 @@ export default class OpenBucketModal extends Vue {
                 this.isLoading = false;
                 return;
             }
-            await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+            this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
+            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
             this.isLoading = false;
 
             this.closeModal();

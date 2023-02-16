@@ -27,7 +27,9 @@
                     :on-select-permission="selectPermissions"
                     :selected-permissions="selectedPermissions"
                     :on-back="setFirstStepBasedOnAccessType"
-                    :on-continue="() => setStep(CreateAccessStep.AccessEncryption)"
+                    :on-continue="() => setStep(
+                        selectedAccessTypes.includes(AccessType.APIKey) ? setLastStep() : CreateAccessStep.AccessEncryption
+                    )"
                     :selected-buckets="selectedBuckets"
                     :on-select-bucket="selectBucket"
                     :on-select-all-buckets="selectAllBuckets"
@@ -36,6 +38,7 @@
                     :on-set-not-after="setNotAfter"
                     :not-after-label="notAfterLabel"
                     :on-set-not-after-label="setNotAfterLabel"
+                    :is-loading="isLoading"
                 />
                 <AccessEncryptionStep
                     v-if="step === CreateAccessStep.AccessEncryption"
@@ -43,33 +46,45 @@
                     :on-continue="setStepBasedOnPassphraseOption"
                     :passphrase-option="passphraseOption"
                     :set-option="setPassphraseOption"
+                    :is-loading="isLoading"
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterMyPassphrase"
                     :is-new-passphrase="false"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :on-continue="setLastStep"
                     :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="Enter the encryption passphrase used for this project to create this access grant."
+                    :is-loading="isLoading"
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterNewPassphrase"
                     :is-new-passphrase="true"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :on-continue="setLastStep"
                     :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="This passphrase will be used to encrypt all the files you upload using this access grant.
                         You will need it to access these files in the future."
+                    :is-loading="isLoading"
                 />
                 <PassphraseGeneratedStep
                     v-if="step === CreateAccessStep.PassphraseGenerated"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="() => setStep(CreateAccessStep.AccessCreated)"
+                    :on-continue="setLastStep"
                     :passphrase="generatedPassphrase"
                     :name="accessName"
+                    :is-loading="isLoading"
                 />
+                <AccessCreatedStep
+                    v-if="step === CreateAccessStep.AccessCreated"
+                    :on-continue="() => setStep(CreateAccessStep.CredentialsCreated)"
+                    :access-grant="accessGrant"
+                    :name="accessName"
+                    :access-types="selectedAccessTypes"
+                />
+                <div v-if="isLoading" class="modal__blur" />
             </div>
         </template>
     </VModal>
@@ -89,8 +104,14 @@ import {
     STEP_ICON_AND_TITLE,
 } from '@/types/createAccessGrant';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/newCreateFlow/steps/CreateNewAccessStep.vue';
@@ -99,6 +120,7 @@ import AccessEncryptionStep from '@/components/accessGrants/newCreateFlow/steps/
 import EnterPassphraseStep from '@/components/accessGrants/newCreateFlow/steps/EnterPassphraseStep.vue';
 import PassphraseGeneratedStep from '@/components/accessGrants/newCreateFlow/steps/PassphraseGeneratedStep.vue';
 import EncryptionInfoStep from '@/components/accessGrants/newCreateFlow/steps/EncryptionInfoStep.vue';
+import AccessCreatedStep from '@/components/accessGrants/newCreateFlow/steps/AccessCreatedStep.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -126,6 +148,8 @@ const storedPassphrase = computed((): string => {
     return store.state.objectsModule.passphrase;
 });
 
+const worker = ref<Worker>();
+const isLoading = ref<boolean>(false);
 const step = ref<CreateAccessStep>(CreateAccessStep.CreateNewAccess);
 const selectedAccessTypes = ref<AccessType[]>([]);
 const selectedPermissions = ref<Permission[]>(initPermissions);
@@ -138,6 +162,14 @@ const generatedPassphrase = ref<string>('');
 const accessName = ref<string>('');
 const notAfter = ref<Date | undefined>(undefined);
 const notAfterLabel = ref<string>('No end date');
+
+// Generated values.
+const cliAccess = ref<string>('');
+const accessGrant = ref<string>('');
+const edgeCredentials = ref<EdgeCredentials>(new EdgeCredentials());
+
+const FIRST_PAGE = 1;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
  * Selects access type.
@@ -338,7 +370,7 @@ function setFirstStepBasedOnAccessType(): void {
 /**
  * Sets next step depending on selected passphrase option.
  */
-function setStepBasedOnPassphraseOption(): void {
+async function setStepBasedOnPassphraseOption(): Promise<void> {
     switch (passphraseOption.value) {
     case PassphraseOption.SetMyProjectPassphrase:
         step.value = CreateAccessStep.EnterMyPassphrase;
@@ -349,9 +381,8 @@ function setStepBasedOnPassphraseOption(): void {
     case PassphraseOption.GenerateNewPassphrase:
         step.value = CreateAccessStep.PassphraseGenerated;
         break;
-    default:
-        // TODO: generate access and redirect to access created.
-        step.value = CreateAccessStep.AccessCreated;
+    case PassphraseOption.UseExistingPassphrase:
+        await setLastStep();
     }
 }
 
@@ -362,11 +393,190 @@ function closeModal(): void {
     router.push(RouteConfig.AccessGrants.path);
 }
 
+/**
+ * Sets local worker with worker instantiated in store.
+ * Also sets worker's onmessage and onerror logic.
+ */
+function setWorker(): void {
+    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+        };
+    }
+}
+
+/**
+ * Generates CLI access.
+ */
+async function createCLIAccess(): Promise<void> {
+    if (!worker.value) {
+        throw new Error('Web worker is not initialized.');
+    }
+
+    // creates fresh new API key.
+    const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, accessName.value);
+
+    try {
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+    } catch (error) {
+        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+    }
+
+    let permissionsMsg = {
+        'type': 'SetPermission',
+        'buckets': selectedBuckets.value,
+        'apiKey': cleanAPIKey.secret,
+        'isDownload': selectedPermissions.value.includes(Permission.Read),
+        'isUpload': selectedPermissions.value.includes(Permission.Write),
+        'isList': selectedPermissions.value.includes(Permission.List),
+        'isDelete': selectedPermissions.value.includes(Permission.Delete),
+        'notBefore': new Date().toISOString(),
+    };
+
+    if (notAfter.value) permissionsMsg = Object.assign(permissionsMsg, { 'notAfter': notAfter.value.toISOString() });
+
+    await worker.value.postMessage(permissionsMsg);
+
+    const grantEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
+        }
+    });
+    if (grantEvent.data.error) {
+        throw new Error(grantEvent.data.error);
+    }
+
+    cliAccess.value = grantEvent.data.value;
+
+    if (selectedAccessTypes.value.includes(AccessType.APIKey)) {
+        analytics.eventTriggered(AnalyticsEvent.API_ACCESS_CREATED);
+    }
+}
+
+/**
+ * Generates access grant.
+ */
+async function createAccessGrant(): Promise<void> {
+    if (!worker.value) {
+        throw new Error('Web worker is not initialized.');
+    }
+
+    // creates access credentials.
+    const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+
+    const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+
+    let usedPassphrase = '';
+    switch (passphraseOption.value) {
+    case PassphraseOption.UseExistingPassphrase:
+        usedPassphrase = storedPassphrase.value;
+        break;
+    case PassphraseOption.EnterNewPassphrase:
+    case PassphraseOption.SetMyProjectPassphrase:
+        usedPassphrase = enteredPassphrase.value;
+        break;
+    case PassphraseOption.GenerateNewPassphrase:
+        usedPassphrase = generatedPassphrase.value;
+    }
+
+    if (!usedPassphrase) {
+        throw new Error('Passphrase can\'t be empty');
+    }
+
+    worker.value.postMessage({
+        'type': 'GenerateAccess',
+        'apiKey': cliAccess.value,
+        'passphrase': usedPassphrase,
+        'salt': salt,
+        'satelliteNodeURL': satelliteNodeURL,
+    });
+
+    const accessEvent: MessageEvent = await new Promise(resolve => {
+        if (worker.value) {
+            worker.value.onmessage = resolve;
+        }
+    });
+    if (accessEvent.data.error) {
+        throw new Error(accessEvent.data.error);
+    }
+
+    accessGrant.value = accessEvent.data.value;
+
+    if (selectedAccessTypes.value.includes(AccessType.AccessGrant)) {
+        analytics.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED);
+    }
+}
+
+/**
+ * Generates edge credentials.
+ */
+async function createEdgeCredentials(): Promise<void> {
+    edgeCredentials.value = await store.dispatch(
+        ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: accessGrant.value },
+    );
+    analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
+}
+
+/**
+ * Generates access and sets the last step depending on selected access type.
+ */
+async function setLastStep(): Promise<void> {
+    if (isLoading.value) {
+        return;
+    }
+
+    isLoading.value = true;
+
+    try {
+        switch (true) {
+        case selectedAccessTypes.value.includes(AccessType.APIKey):
+            await createCLIAccess();
+
+            step.value = CreateAccessStep.CLIAccessCreated;
+            break;
+        case selectedAccessTypes.value.includes(AccessType.AccessGrant) && selectedAccessTypes.value.includes(AccessType.S3):
+            await createCLIAccess();
+            await createAccessGrant();
+            await createEdgeCredentials();
+
+            step.value = CreateAccessStep.AccessCreated;
+            break;
+        case selectedAccessTypes.value.includes(AccessType.S3):
+            await createCLIAccess();
+            await createAccessGrant();
+            await createEdgeCredentials();
+
+            step.value = CreateAccessStep.CredentialsCreated;
+            break;
+        case selectedAccessTypes.value.includes(AccessType.AccessGrant):
+            await createCLIAccess();
+            await createAccessGrant();
+
+            step.value = CreateAccessStep.AccessCreated;
+        }
+
+        // This is an action to handle case if user sets project level passphrase.
+        if (
+            passphraseOption.value === PassphraseOption.SetMyProjectPassphrase &&
+            !selectedAccessTypes.value.includes(AccessType.APIKey)
+        ) {
+            store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, enteredPassphrase.value);
+            store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        }
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
+    }
+
+    isLoading.value = false;
+}
+
 onMounted(async () => {
     if (route.params?.accessType) {
         selectedAccessTypes.value.push(route.params?.accessType as AccessType);
     }
 
+    setWorker();
     generatedPassphrase.value = generateMnemonic();
 
     try {
@@ -383,6 +593,7 @@ onMounted(async () => {
     padding: 32px;
     display: flex;
     flex-direction: column;
+    position: relative;
 
     &__header {
         display: flex;
@@ -398,6 +609,16 @@ onMounted(async () => {
             letter-spacing: -0.02em;
             color: var(--c-black);
         }
+    }
+
+    &__blur {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 0;
+        background-color: rgb(0 0 0 / 10%);
+        border-radius: 10px;
     }
 }
 </style>

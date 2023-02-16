@@ -102,6 +102,7 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
+                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -110,8 +111,8 @@
                     width="100%"
                     height="48px"
                     font-size="14px"
-                    :on-press="onContinue"
-                    :is-disabled="isButtonDisabled"
+                    :on-press="handleContinue"
+                    :is-disabled="isButtonDisabled || isLoading"
                 />
             </template>
         </ButtonsContainer>
@@ -126,7 +127,8 @@ import {
     FunctionalContainer,
     Permission,
 } from '@/types/createAccessGrant';
-import { useStore } from '@/utils/hooks';
+import { useNotify, useStore } from '@/utils/hooks';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import ContainerWithIcon from '@/components/accessGrants/newCreateFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/newCreateFlow/components/ButtonsContainer.vue';
@@ -149,12 +151,14 @@ const props = withDefaults(defineProps<{
     notAfterLabel: string;
     onBack: () => void;
     onContinue: () => void;
+    isLoading: boolean;
     notAfter?: Date;
 }>(), {
     notAfter: undefined,
 });
 
 const store = useStore();
+const notify = useNotify();
 
 const allPermissionsShown = ref<boolean>(false);
 const searchBucketsShown = ref<boolean>(false);
@@ -186,6 +190,23 @@ const bucketsList = computed((): string[] => {
 function selectBucket(bucket: string): void {
     props.onSelectBucket(bucket);
     searchQuery.value = '';
+}
+
+/**
+ * Handles continue button click.
+ */
+function handleContinue(): void {
+    if (props.notAfter) {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        if (props.notAfter.getTime() < now.getTime()) {
+            notify.error('End date must be later or equal to today.', AnalyticsErrorEventSource.CREATE_AG_MODAL);
+            return;
+        }
+    }
+
+    props.onContinue();
 }
 
 /**
