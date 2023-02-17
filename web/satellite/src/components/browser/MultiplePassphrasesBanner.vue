@@ -37,6 +37,7 @@ import { Bucket } from '@/types/buckets';
 import { useStore } from '@/utils/hooks';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
@@ -74,7 +75,8 @@ const objectsCount = computed((): number => {
  * Opens switch passphrase modal.
  */
 function openManageModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN, ManageProjectPassphraseStep.Switch);
+    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, ManageProjectPassphraseStep.Switch);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
 }
 </script>
 
