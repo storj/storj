@@ -149,7 +149,7 @@ const promptForPassphrase = computed((): boolean => {
  * Toggles set passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.CREATE_PROJECT_PASSPHRASE);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
 
 }
 
@@ -157,7 +157,7 @@ function onSetClick() {
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.CREATE_BUCKET);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
 }
 
 /**

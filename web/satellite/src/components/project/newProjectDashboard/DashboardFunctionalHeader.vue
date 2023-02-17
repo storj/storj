@@ -119,7 +119,7 @@ const bucketsPage = computed((): BucketPage => {
  * Toggles create project passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.CREATE_PROJECT_PASSPHRASE);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
 }
 
 /**
