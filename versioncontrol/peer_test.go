@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/hex"
 	"io"
-	"math/rand"
 	"net/http"
 	"reflect"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -363,7 +363,7 @@ func randRollout(t *testing.T) versioncontrol.RolloutConfig {
 
 	return versioncontrol.RolloutConfig{
 		Seed:   randSeedString(t),
-		Cursor: rand.Intn(101),
+		Cursor: testrand.Intn(101),
 	}
 }
 
@@ -371,8 +371,6 @@ func randSeedString(t *testing.T) string {
 	t.Helper()
 
 	seed := make([]byte, 32)
-	_, err := rand.Read(seed)
-	require.NoError(t, err)
-
+	testrand.Read(seed)
 	return hex.EncodeToString(seed)
 }

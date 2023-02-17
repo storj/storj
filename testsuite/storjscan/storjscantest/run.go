@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -28,8 +27,6 @@ import (
 	"storj.io/storjscan/storjscandb/storjscandbtest"
 	"storj.io/uplink"
 )
-
-var mon = monkit.Package()
 
 // Stack contains references to storjscan app and eth test network.
 type Stack struct {
