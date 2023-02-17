@@ -374,7 +374,7 @@ function setShiftSelectedFiles(): void {
 function share(): void {
     store.dispatch('files/closeDropdown');
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.SHARE_OBJECT);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
 }
 
 /**

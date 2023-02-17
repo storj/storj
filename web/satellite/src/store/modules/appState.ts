@@ -55,12 +55,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: State): void {
             state.appState.hasJustLoggedIn = !state.appState.hasJustLoggedIn;
         },
-        [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: State, id: string): void {
-            state.appState.setDefaultPaymentMethodID = id;
-        },
-        [APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP](state: State, id: string): void {
-            state.appState.deletePaymentMethodID = id;
-        },
         [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: State): void {
             state.appState.isBillingNotificationShown = false;
         },
@@ -148,22 +142,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
-        },
-        [APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({ commit, state }: AppContext, methodID: string): void {
-
-            if (!state.appState.setDefaultPaymentMethodID) {
-                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
-            }
-
-            commit(APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP, methodID);
-        },
-        [APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP]: function ({ commit, state }: AppContext, methodID: string): void {
-
-            if (!state.appState.deletePaymentMethodID) {
-                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
-            }
-
-            commit(APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP, methodID);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
