@@ -11,6 +11,7 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
@@ -50,7 +51,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with opened Add team member popup', () => {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
@@ -63,11 +64,11 @@ describe('Team HeaderArea', () => {
         expect(wrapper.findAll('.blur-content').length).toBe(0);
         expect(wrapper.findAll('.blur-search').length).toBe(0);
 
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
     });
 
     it('renders correctly with selected users', () => {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
 
         const selectedUsersCount = 2;
 
@@ -90,7 +91,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 2 selected users and delete clicked once', async () => {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
 
         const selectedUsersCount = 2;
 
@@ -117,7 +118,7 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 1 selected user and delete clicked once', async () => {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
 
         const selectedUsersCount = 1;
 
