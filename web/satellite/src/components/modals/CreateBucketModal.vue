@@ -110,6 +110,13 @@ const apiKey = computed((): string => {
 });
 
 /**
+ * Returns edge credentials from store.
+ */
+const edgeCredentials = computed((): EdgeCredentials => {
+    return store.state.objectsModule.gatewayCredentials;
+});
+
+/**
  * Returns edge credentials for bucket creation from store.
  */
 const gatewayCredentialsForCreate = computed((): EdgeCredentials => {
@@ -153,6 +160,9 @@ async function onCreate(): Promise<void> {
 
     try {
         if (!promptForPassphrase.value) {
+            if (!edgeCredentials.value.accessKeyId) {
+                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+            }
             await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, bucketName.value);
             await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
             await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName.value);

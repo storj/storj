@@ -23,6 +23,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { MetaUtils } from '@/utils/meta';
 import { BucketPage } from '@/types/buckets';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
@@ -59,15 +60,22 @@ export default class UploadFile extends Vue {
         });
     }
 
-    @Watch('edgeCredentials.secretKey')
+    @Watch('passphrase')
     public async reinit(): Promise<void> {
-        if (!this.edgeCredentials.secretKey) {
+        if (!this.passphrase) {
             await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
             return;
         }
 
+        try {
+            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+            return;
+        }
+
         await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
-        await this.$store.commit('files/reinit', {
+        this.$store.commit('files/reinit', {
             endpoint: this.edgeCredentials.endpoint,
             accessKey: this.edgeCredentials.accessKeyId,
             secretKey: this.edgeCredentials.secretKey,
