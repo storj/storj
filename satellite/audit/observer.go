@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
@@ -26,7 +26,7 @@ type Observer struct {
 	seedRand *rand.Rand
 
 	// The follow fields are reset on each segment loop cycle.
-	reservoirs map[storj.NodeID]*Reservoir
+	reservoirs map[metabase.NodeAlias]*Reservoir
 }
 
 // NewObserver instantiates Observer.
@@ -46,7 +46,7 @@ func NewObserver(log *zap.Logger, queue VerifyQueue, config Config) *Observer {
 func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obs.reservoirs = make(map[storj.NodeID]*Reservoir)
+	obs.reservoirs = make(map[metabase.NodeAlias]*Reservoir)
 	return nil
 }
 
@@ -72,10 +72,10 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err 
 		return errs.New("expected partial type %T but got %T", collector, partial)
 	}
 
-	for nodeID, reservoir := range collector.Reservoirs {
-		existing, ok := obs.reservoirs[nodeID]
+	for nodeAlias, reservoir := range collector.Reservoirs {
+		existing, ok := obs.reservoirs[nodeAlias]
 		if !ok {
-			obs.reservoirs[nodeID] = reservoir
+			obs.reservoirs[nodeAlias] = reservoir
 			continue
 		}
 		if err := existing.Merge(reservoir); err != nil {
