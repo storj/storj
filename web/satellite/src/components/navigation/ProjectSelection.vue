@@ -154,7 +154,7 @@ export default class ProjectSelection extends Vue {
         this.closeDropdown();
 
         this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
 
         if (this.isBucketsView) {
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });

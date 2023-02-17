@@ -116,6 +116,9 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_ONB_OS](state: State, os: OnboardingOS): void {
             state.appState.onbSelectedOs = os;
         },
+        [APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP](state: State, step: ManageProjectPassphraseStep | undefined): void {
+            state.appState.managePassphraseStep = step;
+        },
         [APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN](state: State, dropdown: string): void {
             state.appState.activeDropdown = dropdown;
         },
