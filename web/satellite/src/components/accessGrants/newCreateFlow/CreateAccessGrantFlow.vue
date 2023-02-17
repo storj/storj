@@ -84,6 +84,11 @@
                     :name="accessName"
                     :access-types="selectedAccessTypes"
                 />
+                <CLIAccessCreatedStep
+                    v-if="step === CreateAccessStep.CLIAccessCreated"
+                    :api-key="cliAccess"
+                    :name="accessName"
+                />
                 <div v-if="isLoading" class="modal__blur" />
             </div>
         </template>
@@ -121,6 +126,7 @@ import EnterPassphraseStep from '@/components/accessGrants/newCreateFlow/steps/E
 import PassphraseGeneratedStep from '@/components/accessGrants/newCreateFlow/steps/PassphraseGeneratedStep.vue';
 import EncryptionInfoStep from '@/components/accessGrants/newCreateFlow/steps/EncryptionInfoStep.vue';
 import AccessCreatedStep from '@/components/accessGrants/newCreateFlow/steps/AccessCreatedStep.vue';
+import CLIAccessCreatedStep from '@/components/accessGrants/newCreateFlow/steps/CLIAccessCreatedStep.vue';
 
 const router = useRouter();
 const route = useRoute();

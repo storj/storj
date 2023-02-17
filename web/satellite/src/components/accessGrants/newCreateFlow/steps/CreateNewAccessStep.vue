@@ -72,17 +72,11 @@
         </ContainerWithIcon>
         <ButtonsContainer>
             <template #leftButton>
-                <a
-                    class="create__button-link"
-                    href="https://docs.storj.io/dcs/concepts/access/access-grants/api-key"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    <LearnIcon />
-                    <p class="create__button-link__label">
-                        Learn more
-                    </p>
-                </a>
+                <LinkButton
+                    label="Learn more"
+                    link="https://docs.storj.io/dcs/concepts/access/access-grants/api-key"
+                    :with-icon="true"
+                />
             </template>
             <template #rightButton>
                 <VButton
@@ -105,11 +99,10 @@ import { AccessType, FUNCTIONAL_CONTAINER_ICON_AND_TITLE, FunctionalContainer } 
 
 import ContainerWithIcon from '@/components/accessGrants/newCreateFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/newCreateFlow/components/ButtonsContainer.vue';
+import LinkButton from '@/components/accessGrants/newCreateFlow/components/LinkButton.vue';
 import Toggle from '@/components/accessGrants/newCreateFlow/components/Toggle.vue';
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
-
-import LearnIcon from '@/../static/images/accessGrants/newCreateFlow/learn.svg';
 
 const props = defineProps<{
     name: string;
@@ -153,40 +146,6 @@ const isButtonDisabled = computed((): boolean => {
 
     &__input {
         margin-top: 0;
-    }
-
-    &__button-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 100%;
-        height: 48px;
-        background: var(--c-white);
-        border: 1px solid var(--c-grey-3);
-        box-shadow: 0 0 3px rgb(0 0 0 / 8%);
-        border-radius: 8px;
-
-        &__label {
-            font-family: 'font_medium', sans-serif;
-            font-size: 14px;
-            line-height: 24px;
-            letter-spacing: -0.02em;
-            color: var(--c-grey-6);
-            margin-left: 8px;
-        }
-
-        &:hover {
-            border-color: var(--c-light-blue-6);
-            background-color: var(--c-light-blue-6);
-
-            p {
-                color: var(--c-white);
-            }
-
-            :deep(svg path) {
-                fill: var(--c-white);
-            }
-        }
     }
 }
 
