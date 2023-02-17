@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="access-created">
-        <p class="access-created__info">
-            Now copy or download to save the Access Grant as it will only appear once.
+    <div class="credentials">
+        <p class="credentials__info">
+            Now copy and save the S3 credentials as they will only appear once.
         </p>
-        <ButtonsContainer label="Save your access grant">
+        <ButtonsContainer label="Save your S3 credentials">
             <template #leftButton>
                 <VButton
-                    v-clipboard:copy="accessGrant"
-                    :label="isCopied ? 'Copied' : 'Copy'"
+                    v-clipboard:copy="`${credentials.accessKeyId} ${credentials.secretKey} ${credentials.endpoint}`"
+                    :label="isCopied ? 'Copied' : 'Copy all'"
                     width="100%"
                     height="40px"
                     font-size="14px"
@@ -22,7 +22,7 @@
             </template>
             <template #rightButton>
                 <VButton
-                    :label="isDownloaded ? 'Downloaded' : 'Download'"
+                    :label="isDownloaded ? 'Downloaded' : 'Download all'"
                     width="100%"
                     height="40px"
                     font-size="14px"
@@ -33,29 +33,42 @@
                 />
             </template>
         </ButtonsContainer>
-        <div class="access-created__blurred">
+        <div class="credentials__blurred">
             <ValueWithBlur
-                button-label="Show Access Grant"
+                class="credentials__blurred__with-margin"
+                button-label="Show Access Key"
                 :is-mnemonic="false"
-                :value="accessGrant"
-                title="Access Grant"
+                :value="credentials.accessKeyId"
+                title="Access Key"
+            />
+            <ValueWithBlur
+                class="credentials__blurred__with-margin"
+                button-label="Show Secret Key"
+                :is-mnemonic="false"
+                :value="credentials.secretKey"
+                title="Secret Key"
+            />
+            <ValueWithBlur
+                button-label="Show Endpoint"
+                :is-mnemonic="false"
+                :value="credentials.endpoint"
+                title="Endpoint"
             />
         </div>
-        <p v-if="hasNextStep" class="access-created__disclaimer">To view your S3 credentials, click next.</p>
         <ButtonsContainer>
             <template #leftButton>
                 <LinkButton
-                    label="Learn More"
-                    link="https://docs.storj.io/dcs/concepts/access/access-grants"
+                    label="View Docs"
+                    link="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                 />
             </template>
             <template #rightButton>
                 <VButton
-                    :label="hasNextStep ? 'Next' : 'Finish'"
+                    label="Finish"
                     width="100%"
                     height="48px"
                     font-size="14px"
-                    :on-press="onNextButtonClick"
+                    :on-press="onFinishButtonClick"
                 />
             </template>
         </ButtonsContainer>
@@ -63,14 +76,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AccessType } from '@/types/createAccessGrant';
 import { RouteConfig } from '@/router';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/newCreateFlow/components/ButtonsContainer.vue';
@@ -78,10 +91,8 @@ import ValueWithBlur from '@/components/accessGrants/newCreateFlow/components/Va
 import LinkButton from '@/components/accessGrants/newCreateFlow/components/LinkButton.vue';
 
 const props = defineProps<{
-    accessTypes: AccessType[];
     name: string;
-    accessGrant: string;
-    onContinue: () => void;
+    credentials: EdgeCredentials;
 }>();
 
 const store = useStore();
@@ -94,45 +105,35 @@ const isDownloaded = ref<boolean>(false);
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
- * Indicates if there are S3 credentials to show.
- */
-const hasNextStep = computed((): boolean => {
-    return props.accessTypes.includes(AccessType.S3) && props.accessTypes.includes(AccessType.AccessGrant);
-});
-
-/**
- * Saves passphrase to clipboard.
+ * Saves CLI access to clipboard.
  */
 function onCopy(): void {
     isCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
-    notify.success(`Access Grant was copied successfully`);
+    notify.success(`S3 credentials were copied successfully`);
 }
 
 /**
- * Downloads passphrase into .txt file.
+ * Downloads CLI access into .txt file.
  */
 function onDownload(): void {
     isDownloaded.value = true;
-    Download.file(props.accessGrant, `Storj-access-${props.name}-${new Date().toISOString()}.txt`);
+
+    const fileContent = `Access Key:\n${props.credentials.accessKeyId}\n\nSecret Key:\n${props.credentials.secretKey}\n\nEndpoint:\n${props.credentials.endpoint}`;
+    Download.file(fileContent, `Storj-S3-credentials-${props.name}-${new Date().toISOString()}.txt`);
     analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 }
 
 /**
- * Holds on Next/Finish button click logic.
+ * Holds on Finish button click logic.
  */
-function onNextButtonClick(): void {
-    if (hasNextStep.value) {
-        props.onContinue();
-        return;
-    }
-
+function onFinishButtonClick(): void {
     router.push(RouteConfig.AccessGrants.path);
 }
 </script>
 
 <style lang="scss" scoped>
-.access-created {
+.credentials {
     font-family: 'font_regular', sans-serif;
 
     &__info {
@@ -150,14 +151,10 @@ function onNextButtonClick(): void {
         padding: 16px 0;
         border-top: 1px solid #ebeef1;
         border-bottom: 1px solid #ebeef1;
-    }
 
-    &__disclaimer {
-        font-size: 14px;
-        line-height: 20px;
-        color: #1b2533;
-        margin-top: 16px;
-        text-align: left;
+        &__with-margin {
+            margin-bottom: 16px;
+        }
     }
 }
 </style>

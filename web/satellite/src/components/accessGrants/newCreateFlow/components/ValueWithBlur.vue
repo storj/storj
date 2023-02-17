@@ -14,7 +14,7 @@
                 </template>
             </VInfo>
         </div>
-        <div class="blured-container__wrap">
+        <div class="blured-container__wrap" :class="{justify: !isMnemonic}">
             <p v-if="isMnemonic" class="blured-container__wrap__mnemonic">{{ value }}</p>
             <p v-else class="blured-container__wrap__text">{{ value }}</p>
             <div v-if="!isMnemonic" v-clipboard:copy="value" class="blured-container__wrap__copy" @click="onCopy">
@@ -124,7 +124,6 @@ function onCopy(): void {
             font-size: 14px;
             line-height: 26px;
             color: var(--c-black);
-            text-align: justify-all;
         }
 
         &__text {
@@ -155,6 +154,10 @@ function onCopy(): void {
             backdrop-filter: blur(10px);
         }
     }
+}
+
+.justify {
+    justify-content: space-between;
 }
 
 :deep(.info__box) {
