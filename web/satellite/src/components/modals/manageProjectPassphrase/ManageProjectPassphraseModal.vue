@@ -94,7 +94,7 @@ function closeModal(): void {
 }
 
 onMounted(() => {
-    store.commit(APP_STATE_MUTATIONS.CLEAR_MANAGE_PASSPHRASE_STEP);
+    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, undefined);
 });
 </script>
 
