@@ -264,6 +264,10 @@ export default class Login extends Vue {
         this.isActivatedBannerShown = !!this.$route.query.activated;
         this.isActivatedError = this.$route.query.activated === 'false';
 
+        if (this.$store.state.appStateModule.isAllProjectsDashboard) {
+            this.returnURL = RouteConfig.AllProjectsDashboard.path;
+        }
+
         this.returnURL = this.$route.query.return_url as string || this.returnURL;
     }
 

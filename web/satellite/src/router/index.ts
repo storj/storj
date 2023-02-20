@@ -6,6 +6,8 @@ import Router from 'vue-router';
 
 import { NavigationLink } from '@/types/navigation';
 import { MetaUtils } from '@/utils/meta';
+import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
+import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
@@ -62,7 +64,7 @@ Vue.use(Router);
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
-    public static AllProjectsDashboard = new NavigationLink('/all', 'All Projects');
+    public static AllProjectsDashboard = new NavigationLink('/all-projects', 'All Projects');
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');
@@ -71,6 +73,7 @@ export abstract class RouteConfig {
     public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Authorize = new NavigationLink('/oauth/v2/authorize', 'Authorize');
     public static Account = new NavigationLink('/account', 'Account');
+    public static AccountSettings = new NavigationLink('/account-settings', 'Account Settings');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
@@ -83,14 +86,26 @@ export abstract class RouteConfig {
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
+    public static Settings2 = new NavigationLink('settings', 'Settings 2');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static Billing2 = new NavigationLink('billing', 'Account Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    public static BillingHistory4 = new NavigationLink('billing-history', 'Billing History 4');
     public static BillingOverview = new NavigationLink('overview', 'Overview');
+    // this duplicates the path of BillingOverview so that they can be used interchangeably in BillingArea.vue
+    public static BillingOverview2 = new NavigationLink('overview', 'Billing Overview');
     public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
+    // this duplicates the path of BillingPaymentMethods so that they can be used interchangeably in BillingArea.vue
+    public static BillingPaymentMethods2 = new NavigationLink('payment-methods', 'Payment Methods 2');
     public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
+    // this duplicates the path of BillingHistory2 so that they can be used interchangeably in BillingArea.vue
+    public static BillingHistory3 = new NavigationLink('billing-history2', 'Billing History 3');
     public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
+    public static BillingCoupons2 = new NavigationLink('coupons', 'Billing Coupons');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
+    public static DepositHistory2 = new NavigationLink('deposit-history', 'Deposit History 2');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
+    public static CreditsHistory2 = new NavigationLink('credits-history', 'Credits History 2');
 
     // access grant child paths
     public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
@@ -395,6 +410,74 @@ export const router = new Router({
                                     component: UploadFile,
                                 },
                             ],
+                        },
+                    ],
+                },
+            ],
+        },
+        {
+            path: RouteConfig.AllProjectsDashboard.path,
+            meta: {
+                requiresAuth: true,
+            },
+            component: AllDashboardArea,
+            children: [
+                {
+                    path: RouteConfig.Root.path,
+                    name: RouteConfig.AllProjectsDashboard.name,
+                    component: MyProjects,
+                },
+                {
+                    path: RouteConfig.AccountSettings.path,
+                    name: RouteConfig.AccountSettings.name,
+                    component: AccountArea,
+                    children: [
+                        {
+                            path: RouteConfig.Settings2.path,
+                            name: RouteConfig.Settings2.name,
+                            component: SettingsArea,
+                        },
+                        {
+                            path: RouteConfig.Billing2.path,
+                            name: RouteConfig.Billing2.name,
+                            component: AccountBilling,
+                            children: [
+                                {
+                                    path: RouteConfig.BillingOverview2.path,
+                                    name: RouteConfig.BillingOverview2.path,
+                                    component: BillingOverview,
+                                },
+                                {
+                                    path: RouteConfig.BillingPaymentMethods2.path,
+                                    name: RouteConfig.BillingPaymentMethods2.name,
+                                    component: BillingPaymentMethods,
+                                },
+                                {
+                                    path: RouteConfig.BillingHistory3.path,
+                                    name: RouteConfig.BillingHistory3.name,
+                                    component: BillingHistory2,
+                                },
+                                {
+                                    path: RouteConfig.BillingCoupons2.path,
+                                    name: RouteConfig.BillingCoupons2.name,
+                                    component: BillingCoupons,
+                                },
+                            ],
+                        },
+                        {
+                            path: RouteConfig.BillingHistory4.path,
+                            name: RouteConfig.BillingHistory4.name,
+                            component: DetailedHistory,
+                        },
+                        {
+                            path: RouteConfig.DepositHistory2.path,
+                            name: RouteConfig.DepositHistory2.name,
+                            component: DetailedHistory,
+                        },
+                        {
+                            path: RouteConfig.CreditsHistory2.path,
+                            name: RouteConfig.CreditsHistory2.name,
+                            component: CreditsHistory,
                         },
                     ],
                 },

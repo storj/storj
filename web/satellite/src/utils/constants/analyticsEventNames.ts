@@ -120,4 +120,5 @@ export enum AnalyticsErrorEventSource {
     OVERALL_APP_WRAPPER_ERROR = 'Overall app wrapper error',
     OVERALL_GRAPHQL_ERROR = 'Overall graphQL error',
     OVERALL_SESSION_EXPIRED_ERROR = 'Overall session expired error',
+    ALL_PROJECT_DASHBOARD = 'All projects dashboard error',
 }

@@ -4,7 +4,7 @@
 <template>
     <div class="header">
         <div class="header__content">
-            <LogoIcon class="header__content__logo" />
+            <LogoIcon class="header__content__logo" @click="goToProjects" />
             <div class="header__content__actions">
                 <VButton
                     class="header__content__actions__docs"
@@ -134,7 +134,6 @@ import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 
 const router = useRouter();
-const route = useRoute();
 const store = useStore();
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
@@ -184,16 +183,28 @@ function toggleNavigation(): void {
  * Sends "View Docs" event to segment and opens link.
  */
 function goToProjects(): void {
-    analytics.pageVisit(RouteConfig.AllProjectsDashboard.path);
-    router.push(RouteConfig.AllProjectsDashboard.path);
+    toggleNavigation();
+    // this will close MyAccountButton.vue if it's open.
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+
+    const projects = RouteConfig.AllProjectsDashboard.path;
+    if (router.currentRoute.path.includes(projects)) {
+        return;
+    }
+
+    analytics.pageVisit(projects);
+    router.push(projects);
 }
 
 function navigateToBilling(): void {
     toggleNavigation();
 
-    const routeConf = isNewBillingScreen ?
-        RouteConfig.AccountSettings.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path :
-        RouteConfig.AccountSettings.with(RouteConfig.Billing).path;
+    const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
+    if (router.currentRoute.path.includes(billing.path)) {
+        return;
+    }
+
+    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
 }
@@ -203,8 +214,14 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     toggleNavigation();
-    analytics.pageVisit(RouteConfig.AccountSettings.with(RouteConfig.Settings).path);
-    router.push(RouteConfig.AccountSettings.with(RouteConfig.Settings).path).catch(() => {return;});
+
+    const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
+    if (router.currentRoute.path.includes(settings)) {
+        return;
+    }
+
+    analytics.pageVisit(settings);
+    router.push(settings).catch(() => {return;});
 }
 
 /**

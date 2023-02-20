@@ -6,6 +6,7 @@ import { OnboardingOS, PartneredSatellite } from '@/types/common';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
 
 // Object that contains all states of views
 class ViewsState {
@@ -37,6 +38,7 @@ class State {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
+        public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true',
         public isNewAccessGrantFlow = false,
     ) {}
 }

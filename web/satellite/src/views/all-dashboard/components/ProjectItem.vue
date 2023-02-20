@@ -161,7 +161,7 @@ async function goToProjectEdit(): Promise<void> {
     padding: 24px;
     height: 200px;
     background: var(--c-white);
-    box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+    box-shadow: 0 0 20px rgb(0 0 0 / 5%);
     border-radius: 8px;
 
     &__header {

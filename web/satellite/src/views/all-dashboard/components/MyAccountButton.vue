@@ -83,7 +83,6 @@ import BillingIcon from '@/../static/images/navigation/billing.svg';
 import SettingsIcon from '@/../static/images/navigation/settings.svg';
 
 const router = useRouter();
-const route = useRoute();
 const store = useStore();
 const notify = useNotify();
 const analytics = new AnalyticsHttpApi();
@@ -126,12 +125,14 @@ function closeDropdown(): void {
 function navigateToBilling(): void {
     closeDropdown();
 
-    const routeConf = isNewBillingScreen ?
-        RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path :
-        RouteConfig.Account.with(RouteConfig.Billing).path;
+    const billing = RouteConfig.AccountSettings.with(RouteConfig.Billing2);
+    if (router.currentRoute.path.includes(billing.path)) {
+        return;
+    }
+
+    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
-
 }
 
 /**
@@ -139,8 +140,13 @@ function navigateToBilling(): void {
  */
 function navigateToSettings(): void {
     closeDropdown();
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
-    router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
+    const settings = RouteConfig.AccountSettings.with(RouteConfig.Settings2).path;
+    if (router.currentRoute.path.includes(settings)) {
+        return;
+    }
+
+    analytics.pageVisit(settings);
+    router.push(settings).catch(() => {return;});
 }
 
 /**

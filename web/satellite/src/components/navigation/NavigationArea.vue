@@ -171,6 +171,11 @@ export default class NavigationArea extends Vue {
      * Redirects to project dashboard.
      */
     public onLogoClick(): void {
+        if (this.isAllProjectsDashboard) {
+            this.$router.push(RouteConfig.AllProjectsDashboard.path);
+            return;
+        }
+
         if (this.$route.name === RouteConfig.ProjectDashboard.name || this.$route.name === RouteConfig.NewProjectDashboard.name) {
             return;
         }
@@ -262,6 +267,13 @@ export default class NavigationArea extends Vue {
      */
     public get isNewProjectDashboard(): boolean {
         return this.$store.state.appStateModule.isNewProjectDashboard;
+    }
+
+    /**
+     * Indicates if all projects dashboard should be used.
+     */
+    public get isAllProjectsDashboard(): boolean {
+        return this.$store.state.appStateModule.isAllProjectsDashboard;
     }
 
     /**
