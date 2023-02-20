@@ -3,7 +3,32 @@
 
 <template>
     <!-- if isDisabled check onPress in parent element -->
+    <a
+        v-if="link"
+        :href="link"
+        :class="containerClassName"
+        :style="style"
+        tabindex="0"
+        target="_blank"
+        rel="noopener noreferrer"
+        @click="onPress"
+    >
+        <slot name="icon" />
+        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
+        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
+    </a>
     <div
+        v-else
         :class="containerClassName"
         :style="style"
         tabindex="0"
@@ -21,6 +46,8 @@
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
             <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
             <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
             <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
     </div>
 </template>
@@ -29,6 +56,7 @@
 
 import { computed } from 'vue';
 
+import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
@@ -36,8 +64,10 @@ import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
 import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
+import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 
 const props = withDefaults(defineProps<{
+    link?: string;
     label?: string;
     width?: string;
     height?: string;
@@ -57,6 +87,7 @@ const props = withDefaults(defineProps<{
     isUppercase?: boolean;
     onPress?: () => void;
 }>(), {
+    link: undefined,
     label: 'Default',
     width: 'inherit',
     height: 'inherit',

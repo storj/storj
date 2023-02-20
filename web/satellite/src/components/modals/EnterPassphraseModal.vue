@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="closeModal">
+    <VModal :on-close="() => closeModal(true)">
         <template #content>
             <div class="modal">
                 <EnterPassphraseIcon />
@@ -25,7 +25,7 @@
                         height="48px"
                         font-size="14px"
                         :is-transparent="true"
-                        :on-press="closeModal"
+                        :on-press="() => closeModal()"
                         :is-disabled="isLoading"
                     />
                     <VButton
@@ -52,6 +52,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { RouteConfig } from '@/router';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -176,10 +177,15 @@ export default class EnterPassphraseModal extends Vue {
     }
 
     /**
-     * Closes open bucket modal.
+     * Closes enter passphrase modal and navigates to single project dashboard from
+     * all projects dashboard.
      */
-    public closeModal(): void {
+    public closeModal(isCloseButton = false): void {
         if (this.isLoading) return;
+
+        if (!isCloseButton && this.$route.name === RouteConfig.AllProjectsDashboard.name) {
+            this.$router.push(RouteConfig.ProjectDashboard.path);
+        }
 
         this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
     }

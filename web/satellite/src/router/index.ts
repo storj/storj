@@ -62,6 +62,7 @@ Vue.use(Router);
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
+    public static AllProjectsDashboard = new NavigationLink('/all', 'All Projects');
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static RegisterSuccess = new NavigationLink('/signup-success', 'RegisterSuccess');

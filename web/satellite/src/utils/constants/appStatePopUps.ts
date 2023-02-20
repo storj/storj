@@ -30,6 +30,7 @@ import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
+    ALL_DASH_ACCOUNT: 'allProjectsDashboardAccount',
     SELECT_PROJECT: 'isSelectProjectDropdownShown',
     RESOURCES: 'isResourcesDropdownShown',
     QUICK_START: 'isQuickStartDropdownShown',
