@@ -4,6 +4,9 @@
 # the oauth host allowed to bypass token authentication.
 # admin.allowed-oauth-host: ""
 
+# the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
+# admin.groups.limit-update: ""
+
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
 

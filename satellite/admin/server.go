@@ -34,8 +34,14 @@ type Config struct {
 	Address          string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
 	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
+	Groups           Groups
 
 	AuthorizationToken string `internal:"true"`
+}
+
+// Groups defines permission groups.
+type Groups struct {
+	LimitUpdate string `help:"the group which is only allowed to update user and project limits and freeze and unfreeze accounts."`
 }
 
 // DB is databases needed for the admin server.
