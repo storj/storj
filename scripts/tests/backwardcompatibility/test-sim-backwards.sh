@@ -42,6 +42,22 @@ test_branch() {
     test "$BRANCH_DIR" "$@"
 }
 
+install_sim_noquic(){
+    local bin_dir="$1"
+    mkdir -p ${bin_dir}
+
+    go build -race -tags noquic -v -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode >/dev/null 2>&1
+    go build -race -tags noquic -v -o ${bin_dir}/satellite storj.io/storj/cmd/satellite >/dev/null 2>&1
+    go build -race -tags noquic -v -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim >/dev/null 2>&1
+    go build -race -tags noquic -v -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol >/dev/null 2>&1
+
+    go build -race -tags noquic -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+    go build -race -tags noquic -v -o ${bin_dir}/identity storj.io/storj/cmd/identity >/dev/null 2>&1
+    go build -race -tags noquic -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
+
+    GOBIN=${bin_dir} go install -race -tags noquic storj.io/gateway@latest
+}
+
 ##
 ## Build the release and branch binaries and set up the network
 ##
@@ -68,12 +84,15 @@ EOF
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-GOBIN="$RELEASE_DIR"/bin make -C "$RELEASE_DIR" install-sim
+pushd $RELEASE_DIR
+    install_sim_noquic "$RELEASE_DIR"/bin
+popd
+
 GOBIN="$BRANCH_DIR"/bin  make -C "$BRANCH_DIR" install-sim
 
 echo "Overriding default max segment size to 6MiB"
 pushd $RELEASE_DIR
-    GOBIN=$RELEASE_DIR/bin go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
+    GOBIN=$RELEASE_DIR/bin go install -tags noquic -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
 popd
 pushd $BRANCH_DIR
     GOBIN=$BRANCH_DIR/bin go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
