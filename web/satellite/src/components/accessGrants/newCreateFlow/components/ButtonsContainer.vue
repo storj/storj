@@ -36,6 +36,12 @@ const props = withDefaults(defineProps<{
         align-items: center;
         column-gap: 16px;
         display: flex;
+
+        @media screen and (max-width: 460px) {
+            flex-direction: column-reverse;
+            column-gap: unset;
+            row-gap: 10px;
+        }
     }
 }
 </style>

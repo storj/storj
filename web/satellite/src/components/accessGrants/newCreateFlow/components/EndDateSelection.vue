@@ -5,8 +5,10 @@
     <div class="date-select">
         <div
             class="date-select__toggle-container"
+            tabindex="0"
             aria-roledescription="select-date"
             @click.stop="togglePicker"
+            @keyup.space="togglePicker"
         >
             <h1 class="date-select__toggle-container__label">{{ notAfterLabel }}</h1>
             <ExpandIcon />

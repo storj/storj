@@ -15,6 +15,7 @@
                             <p class="create__toggles__info">
                                 Keys to upload, delete, and view your project's data.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/concepts/access/access-grants"
                                     target="_blank"
@@ -32,6 +33,7 @@
                             <p class="create__toggles__info">
                                 Generates access key, secret key, and endpoint to use in your S3-supporting application.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                                     target="_blank"
@@ -49,6 +51,7 @@
                             <p class="create__toggles__info">
                                 Creates access grant to run in the command line.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token"
                                     target="_blank"
@@ -139,6 +142,10 @@ const isButtonDisabled = computed((): boolean => {
 
                 &:visited {
                     color: var(--c-white);
+                }
+
+                &:focus {
+                    outline: 2px solid #fff;
                 }
             }
         }

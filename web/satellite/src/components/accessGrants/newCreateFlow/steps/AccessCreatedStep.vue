@@ -9,7 +9,6 @@
         <ButtonsContainer label="Save your access grant">
             <template #leftButton>
                 <VButton
-                    v-clipboard:copy="accessGrant"
                     :label="isCopied ? 'Copied' : 'Copy'"
                     width="100%"
                     height="40px"
@@ -104,6 +103,7 @@ const hasNextStep = computed((): boolean => {
  * Saves passphrase to clipboard.
  */
 function onCopy(): void {
+    navigator.clipboard.writeText(props.accessGrant);
     isCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`Access Grant was copied successfully`);

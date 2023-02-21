@@ -9,7 +9,6 @@
         <ButtonsContainer label="Save your S3 credentials">
             <template #leftButton>
                 <VButton
-                    v-clipboard:copy="`${credentials.accessKeyId} ${credentials.secretKey} ${credentials.endpoint}`"
                     :label="isCopied ? 'Copied' : 'Copy all'"
                     width="100%"
                     height="40px"
@@ -108,6 +107,9 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Saves CLI access to clipboard.
  */
 function onCopy(): void {
+    const { credentials } = props;
+    navigator.clipboard.writeText(`${credentials.accessKeyId} ${credentials.secretKey} ${credentials.endpoint}`);
+
     isCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`S3 credentials were copied successfully`);

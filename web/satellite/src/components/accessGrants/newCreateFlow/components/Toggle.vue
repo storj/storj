@@ -9,11 +9,17 @@
         </label>
         <label class="toggle__label" :for="id || label">{{ label }}</label>
         <template v-if="onShowHideAll">
-            <ChevronIcon class="toggle__chevron" :class="{'toggle__chevron--up': allShown}" @click="onShowHideAll" />
+            <ChevronIcon
+                tabindex="0"
+                class="toggle__chevron"
+                :class="{'toggle__chevron--up': allShown}"
+                @click="onShowHideAll"
+                @keyup.space="onShowHideAll"
+            />
         </template>
         <VInfo v-if="slots.infoMessage" class="toggle__info">
-            <template #icon>
-                <InfoIcon class="toggle__info__icon" />
+            <template #icon="{onSpace}">
+                <InfoIcon tabindex="0" class="toggle__info__icon" @keyup.space="onSpace" />
             </template>
             <template #message>
                 <slot name="infoMessage" />
@@ -67,6 +73,10 @@ const props = withDefaults(defineProps<{
             cursor: pointer;
             height: 0;
             width: 0;
+
+            &:focus + span {
+                outline: 2px solid #376fff;
+            }
         }
 
         span {
@@ -117,6 +127,7 @@ const props = withDefaults(defineProps<{
         line-height: 20px;
         color: var(--c-black);
         cursor: pointer;
+        text-align: left;
     }
 
     &__info {
@@ -147,6 +158,11 @@ const props = withDefaults(defineProps<{
     cursor: default;
     filter: none;
     transform: rotate(-180deg);
+
+    @media screen and (max-width: 460px) {
+        left: unset;
+        right: -83px;
+    }
 }
 
 :deep(.info__box__message) {
@@ -161,5 +177,9 @@ const props = withDefaults(defineProps<{
     width: 10px;
     height: 10px;
     margin-bottom: -3px;
+
+    @media screen and (max-width: 460px) {
+        margin-right: 88px;
+    }
 }
 </style>

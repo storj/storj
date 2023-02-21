@@ -15,9 +15,15 @@
             </VInfo>
         </div>
         <div class="blured-container__wrap" :class="{justify: !isMnemonic}">
-            <p v-if="isMnemonic" class="blured-container__wrap__mnemonic">{{ value }}</p>
-            <p v-else class="blured-container__wrap__text">{{ value }}</p>
-            <div v-if="!isMnemonic" v-clipboard:copy="value" class="blured-container__wrap__copy" @click="onCopy">
+            <p v-if="isMnemonic" tabindex="0" class="blured-container__wrap__mnemonic" @keyup.space="onCopy">{{ value }}</p>
+            <p v-else tabindex="0" class="blured-container__wrap__text" @keyup.space="onCopy">{{ value }}</p>
+            <div
+                v-if="!isMnemonic"
+                tabindex="0"
+                class="blured-container__wrap__copy"
+                @click="onCopy"
+                @keyup.space="onCopy"
+            >
                 <CopyIcon />
             </div>
             <div v-if="!isValueShown" class="blured-container__wrap__blur">
@@ -76,6 +82,7 @@ function showValue(): void {
  * Holds on copy click logic.
  */
 function onCopy(): void {
+    navigator.clipboard.writeText(props.value);
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`${props.title} was copied successfully`);
 }

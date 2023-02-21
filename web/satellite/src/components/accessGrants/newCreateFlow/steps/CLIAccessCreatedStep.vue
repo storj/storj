@@ -9,7 +9,6 @@
         <ButtonsContainer label="Save your CLI access">
             <template #leftButton>
                 <VButton
-                    v-clipboard:copy="`${satelliteAddress} ${apiKey}`"
                     :label="isCopied ? 'Copied' : 'Copy all'"
                     width="100%"
                     height="40px"
@@ -102,6 +101,7 @@ const satelliteAddress = MetaUtils.getMetaContent('satellite-nodeurl');
  * Saves CLI access to clipboard.
  */
 function onCopy(): void {
+    navigator.clipboard.writeText(`${satelliteAddress} ${props.apiKey}`);
     isCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`CLI access was copied successfully`);

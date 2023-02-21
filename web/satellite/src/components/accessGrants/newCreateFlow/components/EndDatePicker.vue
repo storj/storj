@@ -4,12 +4,24 @@
 <template>
     <div v-click-outside="closePicker" class="date-picker">
         <ul class="date-picker__column">
-            <li class="date-picker__column__item" @click="onOneDayClick">24 Hours</li>
-            <li class="date-picker__column__item" @click="onOneWeekClick">1 Week</li>
-            <li class="date-picker__column__item" @click="onOneMonthClick">1 month</li>
-            <li class="date-picker__column__item" @click="onSixMonthsClick">6 Months</li>
-            <li class="date-picker__column__item" @click="onOneYearClick">1 Year</li>
-            <li class="date-picker__column__item" @click="onForeverClick">No end date</li>
+            <li class="date-picker__column__item" tabindex="0" @click="onOneDayClick" @keyup.space="onOneDayClick">
+                24 Hours
+            </li>
+            <li class="date-picker__column__item" tabindex="0" @click="onOneWeekClick" @keyup.space="onOneWeekClick">
+                1 Week
+            </li>
+            <li class="date-picker__column__item" tabindex="0" @click="onOneMonthClick" @keyup.space="onOneMonthClick">
+                1 month
+            </li>
+            <li class="date-picker__column__item" tabindex="0" @click="onSixMonthsClick" @keyup.space="onSixMonthsClick">
+                6 Months
+            </li>
+            <li class="date-picker__column__item" tabindex="0" @click="onOneYearClick" @keyup.space="onOneYearClick">
+                1 Year
+            </li>
+            <li class="date-picker__column__item" tabindex="0" @click="onForeverClick" @keyup.space="onForeverClick">
+                No end date
+            </li>
         </ul>
         <VDatePicker :on-date-pick="onCustomDatePick" />
     </div>
@@ -132,10 +144,25 @@ function onOneYearClick(): void {
         align-items: center;
         cursor: default;
 
+        @media screen and (max-width: 600px) {
+            left: -90px;
+        }
+
+        @media screen and (max-width: 460px) {
+            flex-direction: column;
+            width: 320px;
+            left: -78px;
+        }
+
         &__column {
             list-style-type: none;
             padding-left: 0;
             margin-top: 0;
+
+            @media screen and (max-width: 460px) {
+                columns: 2;
+                width: 100%;
+            }
 
             &__item {
                 font-size: 14px;
@@ -150,10 +177,6 @@ function onOneYearClick(): void {
                     background: var(--c-grey-0);
                 }
             }
-        }
-
-        &__wrapper {
-            width: 100%;
         }
     }
 </style>

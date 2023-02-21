@@ -607,11 +607,21 @@ onMounted(async () => {
     flex-direction: column;
     position: relative;
 
+    @media screen and (max-width: 460px) {
+        width: 280px;
+        padding: 16px;
+    }
+
     &__header {
         display: flex;
         align-items: center;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--c-grey-2);
+
+        @media screen and (max-width: 460px) {
+            flex-direction: column;
+            align-items: flex-start;
+        }
 
         &__title {
             margin-left: 16px;
@@ -620,6 +630,11 @@ onMounted(async () => {
             line-height: 31px;
             letter-spacing: -0.02em;
             color: var(--c-black);
+            text-align: left;
+
+            @media screen and (max-width: 460px) {
+                margin: 10px 0 0;
+            }
         }
     }
 

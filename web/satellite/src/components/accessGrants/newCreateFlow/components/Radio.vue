@@ -3,11 +3,11 @@
 
 <template>
     <div class="radio">
-        <input :id="id || label" :checked="checked" type="radio" @change="onCheck">
+        <input :id="id || label" tabindex="0" :checked="checked" type="radio" @change="onCheck">
         <label class="radio__label" :for="id || label">{{ label }}</label>
         <VInfo class="radio__info">
-            <template #icon>
-                <InfoIcon class="radio__info__icon" />
+            <template #icon="{onSpace}">
+                <InfoIcon tabindex="0" class="radio__info__icon" @keyup.space="onSpace" />
             </template>
             <template #message>
                 <p class="radio__info__message">{{ info }}</p>
@@ -50,6 +50,7 @@ const props = withDefaults(defineProps<{
         line-height: 20px;
         color: var(--c-black);
         cursor: pointer;
+        text-align: left;
     }
 
     &__info {
@@ -74,6 +75,11 @@ const props = withDefaults(defineProps<{
     cursor: default;
     filter: none;
     transform: rotate(-180deg);
+
+    @media screen and (max-width: 530px) {
+        left: unset;
+        right: -5px;
+    }
 }
 
 :deep(.info__box__message) {
@@ -88,5 +94,9 @@ const props = withDefaults(defineProps<{
     width: 10px;
     height: 10px;
     margin-bottom: -3px;
+
+    @media screen and (max-width: 530px) {
+        margin-right: 245px;
+    }
 }
 </style>

@@ -57,5 +57,9 @@ const props = withDefaults(defineProps<{
             fill: #fff;
         }
     }
+
+    &:focus {
+        outline: 2px solid #376fff;
+    }
 }
 </style>

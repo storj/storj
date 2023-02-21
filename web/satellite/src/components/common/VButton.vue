@@ -32,8 +32,8 @@
         :class="containerClassName"
         :style="style"
         tabindex="0"
-        @click="onPress"
-        @keyup.enter="onPress"
+        @click="handleClick"
+        @keyup.enter="handleClick"
     >
         <slot name="icon" />
         <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
@@ -135,6 +135,15 @@ const containerClassName = computed((): string => {
 const style = computed(() => {
     return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
 });
+
+/**
+ * This wrapper handles button's disabled state for accessibility purposes.
+ */
+function handleClick(): void {
+    if (!props.isDisabled) {
+        props.onPress();
+    }
+}
 </script>
 
 <style scoped lang="scss">
