@@ -2,16 +2,17 @@
 // DO NOT EDIT.
 
 import { HttpClient } from '@/utils/httpClient';
+import { MemorySize, Time, UUID } from '@/types/common';
 
-class APIKeyInfo {
-    id: string;
-    projectId: string;
+export class APIKeyInfo {
+    id: UUID;
+    projectId: UUID;
     userAgent: string;
     name: string;
-    createdAt: string;
+    createdAt: Time;
 }
 
-class APIKeyPage {
+export class APIKeyPage {
     apiKeys: APIKeyInfo[];
     search: string;
     limit: number;
@@ -23,8 +24,8 @@ class APIKeyPage {
     totalCount: number;
 }
 
-class BucketUsageRollup {
-    projectID: string;
+export class BucketUsageRollup {
+    projectID: UUID;
     bucketName: string;
     totalStoredData: number;
     totalSegments: number;
@@ -33,49 +34,49 @@ class BucketUsageRollup {
     repairEgress: number;
     getEgress: number;
     auditEgress: number;
-    since: string;
-    before: string;
+    since: Time;
+    before: Time;
 }
 
-class CreateAPIKeyRequest {
+export class CreateAPIKeyRequest {
     projectID: string;
     name: string;
 }
 
-class CreateAPIKeyResponse {
+export class CreateAPIKeyResponse {
     key: string;
     keyInfo: APIKeyInfo;
 }
 
-class Project {
-    id: string;
-    publicId: string;
+export class Project {
+    id: UUID;
+    publicId: UUID;
     name: string;
     description: string;
     userAgent: string;
-    ownerId: string;
+    ownerId: UUID;
     rateLimit: number;
     burstLimit: number;
     maxBuckets: number;
-    createdAt: string;
+    createdAt: Time;
     memberCount: number;
-    storageLimit: string;
-    bandwidthLimit: string;
-    userSpecifiedStorageLimit: string;
-    userSpecifiedBandwidthLimit: string;
+    storageLimit: MemorySize;
+    bandwidthLimit: MemorySize;
+    userSpecifiedStorageLimit: MemorySize;
+    userSpecifiedBandwidthLimit: MemorySize;
     segmentLimit: number;
 }
 
-class ProjectInfo {
+export class ProjectInfo {
     name: string;
     description: string;
-    storageLimit: string;
-    bandwidthLimit: string;
-    createdAt: string;
+    storageLimit: MemorySize;
+    bandwidthLimit: MemorySize;
+    createdAt: Time;
 }
 
-class ResponseUser {
-    id: string;
+export class ResponseUser {
+    id: UUID;
     fullName: string;
     shortName: string;
     email: string;
@@ -105,7 +106,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async updateProject(request: ProjectInfo, id: string): Promise<Project> {
+    public async updateProject(request: ProjectInfo, id: UUID): Promise<Project> {
         const path = `${this.ROOT_PATH}/update/${id}`;
         const response = await this.http.patch(path, JSON.stringify(request));
         if (response.ok) {
@@ -115,7 +116,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async deleteProject(id: string): Promise<void> {
+    public async deleteProject(id: UUID): Promise<void> {
         const path = `${this.ROOT_PATH}/delete/${id}`;
         const response = await this.http.delete(path);
         if (response.ok) {
@@ -135,7 +136,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async getBucketRollup(projectID: string, bucket: string, since: string, before: string): Promise<BucketUsageRollup> {
+    public async getBucketRollup(projectID: UUID, bucket: string, since: Time, before: Time): Promise<BucketUsageRollup> {
         const path = `${this.ROOT_PATH}/bucket-rollup?projectID=${projectID}&bucket=${bucket}&since=${since}&before=${before}`;
         const response = await this.http.get(path);
         if (response.ok) {
@@ -145,7 +146,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async getBucketRollups(projectID: string, since: string, before: string): Promise<Array<BucketUsageRollup>> {
+    public async getBucketRollups(projectID: UUID, since: Time, before: Time): Promise<Array<BucketUsageRollup>> {
         const path = `${this.ROOT_PATH}/bucket-rollups?projectID=${projectID}&since=${since}&before=${before}`;
         const response = await this.http.get(path);
         if (response.ok) {
@@ -155,7 +156,7 @@ export class projectsHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async getAPIKeys(projectID: string, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
+    public async getAPIKeys(projectID: UUID, search: string, limit: number, page: number, order: number, orderDirection: number): Promise<APIKeyPage> {
         const path = `${this.ROOT_PATH}/apikeys/${projectID}?search=${search}&limit=${limit}&page=${page}&order=${order}&orderDirection=${orderDirection}`;
         const response = await this.http.get(path);
         if (response.ok) {
@@ -164,8 +165,8 @@ export class projectsHttpApiV0 {
         const err = await response.json();
         throw new Error(err.error);
     }
-
 }
+
 export class apikeysHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/apikeys';
@@ -180,7 +181,7 @@ export class apikeysHttpApiV0 {
         throw new Error(err.error);
     }
 
-    public async deleteAPIKey(id: string): Promise<void> {
+    public async deleteAPIKey(id: UUID): Promise<void> {
         const path = `${this.ROOT_PATH}/delete/${id}`;
         const response = await this.http.delete(path);
         if (response.ok) {
@@ -189,8 +190,8 @@ export class apikeysHttpApiV0 {
         const err = await response.json();
         throw new Error(err.error);
     }
-
 }
+
 export class usersHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/users';
@@ -204,5 +205,4 @@ export class usersHttpApiV0 {
         const err = await response.json();
         throw new Error(err.error);
     }
-
 }

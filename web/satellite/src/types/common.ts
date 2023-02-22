@@ -42,3 +42,8 @@ export enum PricingPlanType {
     PARTNER = 'partner',
     PRO = 'pro',
 }
+
+// TODO: fully implement these types and their methods according to their Go counterparts
+export type UUID = string
+export type MemorySize = string
+export type Time = string
