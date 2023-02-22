@@ -635,11 +635,6 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 		return nil, errs.New("cannot download an inline segment")
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(seg.Redundancy)
-	if err != nil {
-		return nil, errs.New("invalid redundancy strategy: %w", err)
-	}
-
 	if len(seg.Pieces) < int(seg.Redundancy.RequiredShares) {
 		return nil, errs.New("segment only has %d pieces; needs %d for reconstruction", seg.Pieces, seg.Redundancy.RequiredShares)
 	}
@@ -651,10 +646,10 @@ func (repairer *SegmentRepairer) AdminFetchPieces(ctx context.Context, seg *meta
 		return nil, errs.New("could not create order limits: %w", err)
 	}
 
-	pieceSize := eestream.CalcPieceSize(int64(seg.EncryptedSize), redundancy)
+	pieceSize := seg.PieceSize()
 
 	pieceInfos = make([]AdminFetchInfo, len(getOrderLimits))
-	limiter := sync2.NewLimiter(redundancy.RequiredCount())
+	limiter := sync2.NewLimiter(int(seg.Redundancy.RequiredShares))
 
 	for currentLimitIndex, limit := range getOrderLimits {
 		if limit == nil {

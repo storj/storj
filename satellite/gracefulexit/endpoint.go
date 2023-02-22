@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/uplink/private/eestream"
 )
 
 // millis for the transfer queue building ticker.
@@ -868,19 +867,13 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, segment metabase.Segment, incomplete *TransferQueueItem) (int64, error) {
 	nodeID := incomplete.NodeID
 
-	// calculate piece size
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	if len(segment.Pieces) > redundancy.OptimalThreshold() {
+	if len(segment.Pieces) > int(segment.Redundancy.OptimalShares) {
 		endpoint.log.Debug("segment has more pieces than required. removing node from segment.", zap.Stringer("node ID", nodeID), zap.Int32("piece num", incomplete.PieceNum))
 
 		return 0, ErrAboveOptimalThreshold.New("")
 	}
 
-	return eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy), nil
+	return segment.PieceSize(), nil
 }
 
 func (endpoint *Endpoint) getValidSegment(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, originalRootPieceID storj.PieceID) (metabase.Segment, error) {

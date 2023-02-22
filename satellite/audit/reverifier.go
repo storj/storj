@@ -22,7 +22,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -176,12 +175,7 @@ func (reverifier *Reverifier) DoReverifyPiece(ctx context.Context, logger *zap.L
 		return OutcomeNotNecessary, reputation, nil
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return OutcomeNotPerformed, reputation, Error.Wrap(err)
-	}
-
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	pieceSize := segment.PieceSize()
 
 	limit, piecePrivateKey, cachedNodeInfo, err := reverifier.orders.CreateAuditPieceOrderLimit(ctx, locator.NodeID, uint16(locator.PieceNum), segment.RootPieceID, int32(pieceSize))
 	if err != nil {

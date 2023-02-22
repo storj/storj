@@ -23,7 +23,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -36,7 +35,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	snorders "storj.io/storj/storagenode/orders"
 	"storj.io/uplink"
-	"storj.io/uplink/private/eestream"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -1080,27 +1078,17 @@ func TestProjectUsage_BandwidthDeadAllocation(t *testing.T) {
 		now := time.Now()
 		project := planet.Uplinks[0].Projects[0]
 
-		sat := planet.Satellites[0]
-		rs, err := eestream.NewRedundancyStrategyFromStorj(storj.RedundancyScheme{
-			RequiredShares: int16(sat.Config.Metainfo.RS.Min),
-			RepairShares:   int16(sat.Config.Metainfo.RS.Repair),
-			OptimalShares:  int16(sat.Config.Metainfo.RS.Success),
-			TotalShares:    int16(sat.Config.Metainfo.RS.Total),
-			ShareSize:      sat.Config.Metainfo.RS.ErasureShareSize.Int32(),
-		})
-		require.NoError(t, err)
-
 		dataSize := 4 * memory.MiB
 		data := testrand.Bytes(dataSize)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
 		require.NoError(t, err)
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 
-		pieceSize := eestream.CalcPieceSize(int64(segments[0].EncryptedSize), rs)
+		pieceSize := segments[0].PieceSize()
 
 		reader, cleanFn, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)

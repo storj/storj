@@ -9,9 +9,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/uplink/private/eestream"
 )
 
 func TestParseBucketPrefixInvalid(t *testing.T) {
@@ -715,4 +718,31 @@ func TestPiecesUpdate(t *testing.T) {
 			require.Equal(t, got, tt.want, tt.name)
 		})
 	}
+}
+
+func BenchmarkSegmentPieceSize(b *testing.B) {
+	segment := metabase.Segment{
+		EncryptedSize: 64 * memory.MiB.Int32(),
+		Redundancy: storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: 29,
+			RepairShares:   35,
+			OptimalShares:  80,
+			TotalShares:    110,
+			ShareSize:      256,
+		},
+	}
+
+	b.Run("eestream.CalcPieceSize", func(b *testing.B) {
+		for k := 0; k < b.N; k++ {
+			redundancyScheme, _ := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+			_ = eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancyScheme)
+		}
+	})
+
+	b.Run("segment.PieceSize", func(b *testing.B) {
+		for k := 0; k < b.N; k++ {
+			_ = segment.PieceSize()
+		}
+	})
 }

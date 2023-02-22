@@ -43,6 +43,11 @@ func (s *Segment) Expired(now time.Time) bool {
 	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
 }
 
+// PieceSize returns calculated piece size for segment.
+func (s Segment) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
 // Observer is an interface defining an observer that can subscribe to the segments loop.
 //
 // architecture: Observer
