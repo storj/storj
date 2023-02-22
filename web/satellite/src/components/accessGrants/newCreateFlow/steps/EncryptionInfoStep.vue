@@ -10,6 +10,7 @@
                 href="https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/"
                 target="_blank"
                 rel="noopener noreferrer"
+                @click="trackPageVisit"
             >server-side encryption</a>.
         </p>
         <Toggle
@@ -46,6 +47,7 @@ import { ref } from 'vue';
 
 import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import ButtonsContainer from '@/components/accessGrants/newCreateFlow/components/ButtonsContainer.vue';
 import Toggle from '@/components/accessGrants/newCreateFlow/components/Toggle.vue';
@@ -59,6 +61,15 @@ const props = defineProps<{
 const store = useStore();
 
 const isDontShow = ref<boolean>(false);
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Sends "trackPageVisit" event to segment.
+ */
+function trackPageVisit(): void {
+    analytics.pageVisit('https://docs.storj.io/dcs/concepts/encryption-key/design-decision-server-side-encryption/');
+}
 
 /**
  * Toggles 'passphrase is saved' checkbox.
