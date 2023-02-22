@@ -253,7 +253,13 @@ const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolea
  * Indicates if navigation sidebar is hidden.
  */
 const isNavigationHidden = computed((): boolean => {
-    return isOnboardingTour.value || isCreateProjectPage.value;
+    return (!isAllProjectsDashboard.value && isOnboardingTour.value)
+        || isCreateProjectPage.value;
+});
+
+/* whether all projects dashboard should be used */
+const isAllProjectsDashboard = computed((): boolean => {
+    return store.state.appStateModule.isAllProjectsDashboard;
 });
 
 /* whether the project limit banner should be shown. */

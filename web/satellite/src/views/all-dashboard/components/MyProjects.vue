@@ -15,8 +15,12 @@
             />
         </div>
 
-        <div class="my-projects__list">
+        <div v-if="projects.length" class="my-projects__list">
             <project-item v-for="project in projects" :key="project.id" :project="project" />
+        </div>
+        <div v-else class="my-projects__empty-area">
+            <empty-project-item class="my-projects__empty-area__item" />
+            <rocket-icon class="my-projects__empty-area__icon" />
         </div>
     </div>
 </template>
@@ -34,9 +38,12 @@ import { User } from '@/types/users';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
 
 import VButton from '@/components/common/VButton.vue';
+
+import RocketIcon from '@/../static/images/common/rocket.svg';
 
 const router = useRouter();
 const route = useRoute();
@@ -63,7 +70,7 @@ function onCreateProjectClicked(): void {
         store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
     } else {
         analytics.pageVisit(RouteConfig.CreateProject.path);
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
+        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newCreateProject);
     }
 }
 </script>
@@ -118,6 +125,32 @@ function onCreateProjectClicked(): void {
 
         @media screen and (max-width: 425px) {
             grid-template-columns: auto;
+        }
+    }
+
+    &__empty-area {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding-top: 60px;
+        position: relative;
+
+        &__item {
+            position: absolute;
+            top: 30px;
+            left: 0;
+        }
+
+        @media screen and (max-width: 425px) {
+
+            & :deep(.empty-project-item) {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            &__icon {
+                display: none;
+            }
         }
     }
 }

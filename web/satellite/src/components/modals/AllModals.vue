@@ -12,6 +12,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptModal.vue';
 import CreateProjectModal from '@/components/modals/CreateProjectModal.vue';
+import NewCreateProjectModal from '@/components/modals/NewCreateProjectModal.vue';
 import CreateBucketModal from '@/components/modals/CreateBucketModal.vue';
 import AddPaymentMethodModal from '@/components/modals/AddPaymentMethodModal.vue';
 import OpenBucketModal from '@/components/modals/OpenBucketModal.vue';
@@ -43,6 +44,7 @@ import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
         DeleteBucketModal,
         CreateProjectPromptModal,
         CreateProjectModal,
+        NewCreateProjectModal,
         CreateBucketModal,
         AddPaymentMethodModal,
         OpenBucketModal,
