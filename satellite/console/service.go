@@ -178,21 +178,21 @@ type Config struct {
 
 // CaptchaConfig contains configurations for login/registration captcha system.
 type CaptchaConfig struct {
-	Login        MultiCaptchaConfig
-	Registration MultiCaptchaConfig
+	Login        MultiCaptchaConfig `json:"login"`
+	Registration MultiCaptchaConfig `json:"registration"`
 }
 
 // MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.
 type MultiCaptchaConfig struct {
-	Recaptcha SingleCaptchaConfig
-	Hcaptcha  SingleCaptchaConfig
+	Recaptcha SingleCaptchaConfig `json:"recaptcha"`
+	Hcaptcha  SingleCaptchaConfig `json:"hcaptcha"`
 }
 
 // SingleCaptchaConfig contains configurations abstract captcha system.
 type SingleCaptchaConfig struct {
-	Enabled   bool   `help:"whether or not captcha is enabled" default:"false"`
-	SiteKey   string `help:"captcha site key"`
-	SecretKey string `help:"captcha secret key"`
+	Enabled   bool   `help:"whether or not captcha is enabled" default:"false" json:"enabled"`
+	SiteKey   string `help:"captcha site key" json:"siteKey"`
+	SecretKey string `help:"captcha secret key" json:"-"`
 }
 
 // SessionConfig contains configurations for session management.
