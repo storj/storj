@@ -110,7 +110,6 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
-                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -120,7 +119,7 @@
                     height="48px"
                     font-size="14px"
                     :on-press="handleContinue"
-                    :is-disabled="isButtonDisabled || isLoading"
+                    :is-disabled="isButtonDisabled"
                 />
             </template>
         </ButtonsContainer>
@@ -159,7 +158,6 @@ const props = withDefaults(defineProps<{
     notAfterLabel: string;
     onBack: () => void;
     onContinue: () => void;
-    isLoading: boolean;
     notAfter?: Date;
 }>(), {
     notAfter: undefined,

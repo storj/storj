@@ -10,7 +10,6 @@
         <ButtonsContainer label="Save your encryption passphrase">
             <template #leftButton>
                 <VButton
-                    v-clipboard:copy="passphrase"
                     :label="isPassphraseCopied ? 'Copied' : 'Copy'"
                     width="100%"
                     height="40px"
@@ -57,7 +56,6 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
-                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -67,7 +65,7 @@
                     height="48px"
                     font-size="14px"
                     :on-press="onContinue"
-                    :is-disabled="isButtonDisabled || isLoading"
+                    :is-disabled="isButtonDisabled"
                 />
             </template>
         </ButtonsContainer>
@@ -92,7 +90,6 @@ const props = defineProps<{
     passphrase: string;
     onBack: () => void;
     onContinue: () => void;
-    isLoading: boolean;
 }>();
 
 const store = useStore();
@@ -123,6 +120,7 @@ function togglePassphraseSaved(): void {
  */
 function onCopy(): void {
     isPassphraseCopied.value = true;
+    navigator.clipboard.writeText(props.passphrase);
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`Passphrase was copied successfully`);
 }
