@@ -10,8 +10,8 @@ import (
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -120,47 +120,48 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 		return nil, Error.Wrap(err)
 	}
 
+	user, err := accounts.service.usersDB.Get(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	for _, project := range projects {
-		totalUsage := accounting.ProjectUsage{Since: since, Before: before}
-
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartner(ctx, project.ID, accounts.service.partnerNames, since, before)
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, since, before)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return charges, Error.Wrap(err)
 		}
 
-		var totalPrice projectUsagePrice
-
-		for partner, usage := range usages {
-			priceModel := accounts.GetProjectUsagePriceModel(partner)
-			price := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, priceModel)
-
-			totalPrice.Egress = totalPrice.Egress.Add(price.Egress)
-			totalPrice.Segments = totalPrice.Segments.Add(price.Segments)
-			totalPrice.Storage = totalPrice.Storage.Add(price.Storage)
-
-			totalUsage.Egress += usage.Egress
-			totalUsage.ObjectCount += usage.ObjectCount
-			totalUsage.SegmentCount += usage.SegmentCount
-			totalUsage.Storage += usage.Storage
-		}
+		pricing := accounts.GetProjectUsagePriceModel(user.UserAgent)
+		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, pricing)
 
 		charges = append(charges, payments.ProjectCharge{
-			ProjectUsage: totalUsage,
+			ProjectUsage: *usage,
 
 			ProjectID:    project.ID,
-			Egress:       totalPrice.Egress.IntPart(),
-			SegmentCount: totalPrice.Segments.IntPart(),
-			StorageGbHrs: totalPrice.Storage.IntPart(),
+			Egress:       projectPrice.Egress.IntPart(),
+			SegmentCount: projectPrice.Segments.IntPart(),
+			StorageGbHrs: projectPrice.Storage.IntPart(),
 		})
 	}
 
 	return charges, nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
-	if override, ok := accounts.service.usagePriceOverrides[partner]; ok {
-		return override
+// GetProjectUsagePriceModel returns the project usage price model for a user agent.
+// If the user agent is malformed or does not contain a valid partner ID, the default
+// price model is returned.
+func (accounts *accounts) GetProjectUsagePriceModel(userAgent []byte) payments.ProjectUsagePriceModel {
+	if userAgent == nil {
+		return accounts.service.usagePrices
+	}
+	entries, err := useragent.ParseEntries(userAgent)
+	if err != nil {
+		return accounts.service.usagePrices
+	}
+	for _, entry := range entries {
+		if override, ok := accounts.service.usagePriceOverrides[entry.Product]; ok {
+			return override
+		}
 	}
 	return accounts.service.usagePrices
 }

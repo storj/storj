@@ -29,8 +29,10 @@ type Accounts interface {
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)
 
-	// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-	GetProjectUsagePriceModel(partner string) ProjectUsagePriceModel
+	// GetProjectUsagePriceModel returns the project usage price model for a user agent.
+	// If the user agent is malformed or does not contain a valid partner ID, the default
+	// price model is returned.
+	GetProjectUsagePriceModel(userAgent []byte) ProjectUsagePriceModel
 
 	// CheckProjectInvoicingStatus returns error if for the given project there are outstanding project records and/or usage
 	// which have not been applied/invoiced yet (meaning sent over to stripe).

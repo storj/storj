@@ -6,7 +6,6 @@ package stripecoinpayments_test
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"testing"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -227,106 +225,68 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 	})
 }
 
-func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
-	const (
-		projectName           = "my-project"
-		partnerName           = "partner"
-		noOverridePartnerName = "no-override"
-
-		hoursPerMonth       = 24 * 30
-		bytesPerMegabyte    = int64(memory.MB / memory.B)
-		byteHoursPerMBMonth = hoursPerMonth * bytesPerMegabyte
-	)
-
-	var (
-		defaultPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "1",
-			EgressTB:  "2",
-			Segment:   "3",
-		}
-		partnerPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "4",
-			EgressTB:  "5",
-			Segment:   "6",
-		}
-	)
-	defaultModel, err := defaultPrice.ToModel()
-	require.NoError(t, err)
-	partnerModel, err := partnerPrice.ToModel()
-	require.NoError(t, err)
-
+func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.UsagePrice = defaultPrice
-				config.Payments.UsagePriceOverrides.SetMap(map[string]paymentsconfig.ProjectUsagePrice{
-					partnerName: partnerPrice,
-				})
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		usage := map[string]accounting.ProjectUsage{
-			"": {
-				Storage:      10000000000,             // Byte-hours
-				Egress:       123 * memory.GB.Int64(), // Bytes
-				SegmentCount: 200000,                  // Segment-Hours
+		satellite := planet.Satellites[0]
+
+		// these numbers are fraction of cents, not of dollars.
+		expectedStoragePrice := 0.001
+		expectedEgressPrice := 0.0045
+		expectedSegmentPrice := 0.00022
+
+		type TestCase struct {
+			Storage  float64
+			Egress   int64
+			Segments float64
+
+			StorageQuantity  int64
+			EgressQuantity   int64
+			SegmentsQuantity int64
+		}
+
+		testCases := []TestCase{
+			{}, // all zeros
+			{
+				Storage: 10000000000, // Byte-Hours
+				// storage quantity is calculated to Megabyte-Months
+				// (10000000000 / 1000000) Byte-Hours to Megabytes-Hours
+				// round(10000 / 720) Megabytes-Hours to Megabyte-Months, 720 - hours in month
+				StorageQuantity: 14, // Megabyte-Months
 			},
-			partnerName: {
-				Storage:      20000000000,
-				Egress:       456 * memory.GB.Int64(),
-				SegmentCount: 400000,
+			{
+				Egress: 134 * memory.GB.Int64(), // Bytes
+				// egress quantity is calculated to Megabytes
+				// (134000000000 / 1000000) Bytes to Megabytes
+				EgressQuantity: 134000, // Megabytes
 			},
-			noOverridePartnerName: {
-				Storage:      30000000000,
-				Egress:       789 * memory.GB.Int64(),
-				SegmentCount: 600000,
+			{
+				Segments: 400000, // Segment-Hours
+				// object quantity is calculated to Segment-Months
+				// round(400000 / 720) Segment-Hours to Segment-Months, 720 - hours in month
+				SegmentsQuantity: 556, // Segment-Months
 			},
 		}
 
-		items := planet.Satellites[0].API.Payments.StripeService.InvoiceItemsFromProjectUsage(projectName, usage)
-		require.Len(t, items, len(usage)*3)
+		for _, tc := range testCases {
+			record := stripecoinpayments.ProjectRecord{
+				Storage:  tc.Storage,
+				Egress:   tc.Egress,
+				Segments: tc.Segments,
+			}
 
-		for i, tt := range []struct {
-			name       string
-			partner    string
-			priceModel payments.ProjectUsagePriceModel
-		}{
-			{"default pricing - no partner", "", defaultModel},
-			{"default pricing - no override for partner", noOverridePartnerName, defaultModel},
-			{"partner pricing", partnerName, partnerModel},
-		} {
-			t.Run(tt.name, func(t *testing.T) {
-				prefix := "Project " + projectName
-				if tt.partner != "" {
-					prefix += " (" + tt.partner + ")"
-				}
+			pricing := satellite.API.Payments.Accounts.GetProjectUsagePriceModel(nil)
+			items := satellite.API.Payments.StripeService.InvoiceItemsFromProjectRecord("project name", record, pricing)
 
-				usage := usage[tt.partner]
-				expectedStorageQuantity := int64(math.Round(usage.Storage / float64(byteHoursPerMBMonth)))
-				expectedEgressQuantity := int64(math.Round(float64(usage.Egress) / float64(bytesPerMegabyte)))
-				expectedSegmentQuantity := int64(math.Round(usage.SegmentCount / hoursPerMonth))
+			require.Equal(t, tc.StorageQuantity, *items[0].Quantity)
+			require.Equal(t, expectedStoragePrice, *items[0].UnitAmountDecimal)
 
-				items := items[i*3 : (i*3)+3]
-				for _, item := range items {
-					require.NotNil(t, item)
-				}
+			require.Equal(t, tc.EgressQuantity, *items[1].Quantity)
+			require.Equal(t, expectedEgressPrice, *items[1].UnitAmountDecimal)
 
-				require.Equal(t, prefix+" - Segment Storage (MB-Month)", *items[0].Description)
-				require.Equal(t, expectedStorageQuantity, *items[0].Quantity)
-				storage, _ := tt.priceModel.StorageMBMonthCents.Float64()
-				require.Equal(t, storage, *items[0].UnitAmountDecimal)
-
-				require.Equal(t, prefix+" - Egress Bandwidth (MB)", *items[1].Description)
-				require.Equal(t, expectedEgressQuantity, *items[1].Quantity)
-				egress, _ := tt.priceModel.EgressMBCents.Float64()
-				require.Equal(t, egress, *items[1].UnitAmountDecimal)
-
-				require.Equal(t, prefix+" - Segment Fee (Segment-Month)", *items[2].Description)
-				require.Equal(t, expectedSegmentQuantity, *items[2].Quantity)
-				segment, _ := tt.priceModel.SegmentMonthCents.Float64()
-				require.Equal(t, segment, *items[2].UnitAmountDecimal)
-			})
+			require.Equal(t, tc.SegmentsQuantity, *items[2].Quantity)
+			require.Equal(t, expectedSegmentPrice, *items[2].UnitAmountDecimal)
 		}
 	})
 }
@@ -579,9 +539,9 @@ func TestProjectUsagePrice(t *testing.T) {
 			expectedPrice payments.ProjectUsagePriceModel
 		}{
 			{"default pricing", nil, defaultModel},
-			{"default pricing - user agent is not valid partner name", []byte("invalid/v0.0"), defaultModel},
-			{"partner pricing - user agent is partner name", []byte(partnerName), partnerModel},
-			{"partner pricing - user agent prefixed with partner name", []byte(partnerName + " invalid/v0.0"), partnerModel},
+			{"default pricing - user agent is not valid partner ID", []byte("invalid/v0.0"), defaultModel},
+			{"partner pricing - user agent is partner ID", []byte(partnerName), partnerModel},
+			{"partner pricing - user agent includes partner ID", []byte("invalid/v0.0 " + partnerName + " invalid/v0.0"), partnerModel},
 		} {
 			t.Run(tt.name, func(t *testing.T) {
 				user, err := sat.AddUser(ctx, console.CreateUser{
@@ -594,15 +554,7 @@ func TestProjectUsagePrice(t *testing.T) {
 				project, err := sat.AddProject(ctx, user.ID, "testproject")
 				require.NoError(t, err)
 
-				bucket, err := sat.DB.Buckets().CreateBucket(ctx, storj.Bucket{
-					ID:        testrand.UUID(),
-					Name:      testrand.BucketName(),
-					ProjectID: project.ID,
-					UserAgent: tt.userAgent,
-				})
-				require.NoError(t, err)
-
-				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte(bucket.Name),
+				err = sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
 					pb.PieceAction_GET, memory.TB.Int64(), 0, period)
 				require.NoError(t, err)
 

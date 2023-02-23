@@ -3050,7 +3050,7 @@ func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payme
 		return nil, Error.Wrap(err)
 	}
 
-	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
+	model := payment.service.accounts.GetProjectUsagePriceModel(user.UserAgent)
 	return &model, nil
 }
 
