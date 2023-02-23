@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -486,7 +487,12 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 		return true, nil
 	}
 
-	items := service.InvoiceItemsFromProjectRecord(projName, record)
+	usages, err := service.usageDB.GetProjectTotalByPartner(ctx, record.ProjectID, service.partnerNames, record.PeriodStart, record.PeriodEnd)
+	if err != nil {
+		return false, err
+	}
+
+	items := service.InvoiceItemsFromProjectUsage(projName, usages)
 	for _, item := range items {
 		item.Currency = stripe.String(string(stripe.CurrencyUSD))
 		item.Customer = stripe.String(cusID)
@@ -501,28 +507,50 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 	return false, nil
 }
 
-// InvoiceItemsFromProjectRecord calculates Stripe invoice item from project record.
-func (service *Service) InvoiceItemsFromProjectRecord(projName string, record ProjectRecord) (result []*stripe.InvoiceItemParams) {
-	projectItem := &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Storage (MB-Month)", projName))
-	projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(record.Storage).IntPart())
-	storagePrice, _ := service.usagePrices.StorageMBMonthCents.Float64()
-	projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
-	result = append(result, projectItem)
+// InvoiceItemsFromProjectUsage calculates Stripe invoice item from project usage.
+func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsages map[string]accounting.ProjectUsage) (result []*stripe.InvoiceItemParams) {
+	var partners []string
+	if len(partnerUsages) == 0 {
+		partners = []string{""}
+		partnerUsages = map[string]accounting.ProjectUsage{"": {}}
+	} else {
+		for partner := range partnerUsages {
+			partners = append(partners, partner)
+		}
+		sort.Strings(partners)
+	}
 
-	projectItem = &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Egress Bandwidth (MB)", projName))
-	projectItem.Quantity = stripe.Int64(egressMBDecimal(record.Egress).IntPart())
-	egressPrice, _ := service.usagePrices.EgressMBCents.Float64()
-	projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
-	result = append(result, projectItem)
+	for _, partner := range partners {
+		usage := partnerUsages[partner]
+		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
 
-	projectItem = &stripe.InvoiceItemParams{}
-	projectItem.Description = stripe.String(fmt.Sprintf("Project %s - Segment Fee (Segment-Month)", projName))
-	projectItem.Quantity = stripe.Int64(segmentMonthDecimal(record.Segments).IntPart())
-	segmentPrice, _ := service.usagePrices.SegmentMonthCents.Float64()
-	projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-	result = append(result, projectItem)
+		prefix := "Project " + projName
+		if partner != "" {
+			prefix += " (" + partner + ")"
+		}
+
+		projectItem := &stripe.InvoiceItemParams{}
+		projectItem.Description = stripe.String(prefix + " - Segment Storage (MB-Month)")
+		projectItem.Quantity = stripe.Int64(storageMBMonthDecimal(usage.Storage).IntPart())
+		storagePrice, _ := priceModel.StorageMBMonthCents.Float64()
+		projectItem.UnitAmountDecimal = stripe.Float64(storagePrice)
+		result = append(result, projectItem)
+
+		projectItem = &stripe.InvoiceItemParams{}
+		projectItem.Description = stripe.String(prefix + " - Egress Bandwidth (MB)")
+		projectItem.Quantity = stripe.Int64(egressMBDecimal(usage.Egress).IntPart())
+		egressPrice, _ := priceModel.EgressMBCents.Float64()
+		projectItem.UnitAmountDecimal = stripe.Float64(egressPrice)
+		result = append(result, projectItem)
+
+		projectItem = &stripe.InvoiceItemParams{}
+		projectItem.Description = stripe.String(prefix + " - Segment Fee (Segment-Month)")
+		projectItem.Quantity = stripe.Int64(segmentMonthDecimal(usage.SegmentCount).IntPart())
+		segmentPrice, _ := priceModel.SegmentMonthCents.Float64()
+		projectItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
+		result = append(result, projectItem)
+	}
+
 	service.log.Info("invoice items", zap.Any("result", result))
 
 	return result
@@ -780,11 +808,11 @@ func (price projectUsagePrice) TotalInt64() int64 {
 }
 
 // calculateProjectUsagePrice calculate project usage price.
-func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64) projectUsagePrice {
+func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64, pricing payments.ProjectUsagePriceModel) projectUsagePrice {
 	return projectUsagePrice{
-		Storage:  service.usagePrices.StorageMBMonthCents.Mul(storageMBMonthDecimal(storage)).Round(0),
-		Egress:   service.usagePrices.EgressMBCents.Mul(egressMBDecimal(egress)).Round(0),
-		Segments: service.usagePrices.SegmentMonthCents.Mul(segmentMonthDecimal(segments)).Round(0),
+		Storage:  pricing.StorageMBMonthCents.Mul(storageMBMonthDecimal(storage)).Round(0),
+		Egress:   pricing.EgressMBCents.Mul(egressMBDecimal(egress)).Round(0),
+		Segments: pricing.SegmentMonthCents.Mul(segmentMonthDecimal(segments)).Round(0),
 	}
 }
 

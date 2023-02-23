@@ -11,8 +11,10 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
@@ -185,14 +187,7 @@ func Test_GetProjectTotal(t *testing.T) {
 			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
 			var tallies []accounting.BucketStorageTally
 			for i := 0; i < 3; i++ {
-				tally := accounting.BucketStorageTally{
-					BucketName:        bucketName,
-					ProjectID:         projectID,
-					IntervalStart:     time.Time{}.Add(time.Duration(i) * time.Hour),
-					TotalBytes:        int64(testrand.Intn(1000)),
-					ObjectCount:       int64(testrand.Intn(1000)),
-					TotalSegmentCount: int64(testrand.Intn(1000)),
-				}
+				tally := randTally(bucketName, projectID, time.Time{}.Add(time.Duration(i)*time.Hour))
 				tallies = append(tallies, tally)
 				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
 			}
@@ -200,14 +195,7 @@ func Test_GetProjectTotal(t *testing.T) {
 			var rollups []orders.BucketBandwidthRollup
 			var expectedEgress int64
 			for i := 0; i < 2; i++ {
-				rollup := orders.BucketBandwidthRollup{
-					ProjectID:     projectID,
-					BucketName:    bucketName,
-					Action:        pb.PieceAction_GET,
-					IntervalStart: tallies[i].IntervalStart,
-					Inline:        int64(testrand.Intn(1000)),
-					Settled:       int64(testrand.Intn(1000)),
-				}
+				rollup := randRollup(bucketName, projectID, tallies[i].IntervalStart)
 				rollups = append(rollups, rollup)
 				expectedEgress += rollup.Inline + rollup.Settled
 			}
@@ -244,4 +232,183 @@ func Test_GetProjectTotal(t *testing.T) {
 			require.Equal(t, usage.Before, rollups[1].IntervalStart)
 		},
 	)
+}
+
+func Test_GetProjectTotalByPartner(t *testing.T) {
+	const (
+		epsilon          = 1e-8
+		usagePeriod      = time.Hour
+		tallyRollupCount = 2
+	)
+	since := time.Time{}
+	before := since.Add(2 * usagePeriod)
+
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User",
+				Email:    "user@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "testproject")
+			require.NoError(t, err)
+
+			type expectedTotal struct {
+				storage  float64
+				segments float64
+				objects  float64
+				egress   int64
+			}
+			expectedTotals := make(map[string]expectedTotal)
+			var beforeTotal expectedTotal
+
+			requireTotal := func(t *testing.T, expected expectedTotal, expectedSince, expectedBefore time.Time, actual accounting.ProjectUsage) {
+				require.InDelta(t, expected.storage, actual.Storage, epsilon)
+				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
+				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
+				require.Equal(t, expected.egress, actual.Egress)
+				require.Equal(t, expectedSince, actual.Since)
+				require.Equal(t, expectedBefore, actual.Before)
+			}
+
+			partnerNames := []string{"", "partner1", "partner2"}
+			for _, name := range partnerNames {
+				total := expectedTotal{}
+
+				bucket := storj.Bucket{
+					ID:        testrand.UUID(),
+					Name:      testrand.BucketName(),
+					ProjectID: project.ID,
+				}
+				if name != "" {
+					bucket.UserAgent = []byte(name)
+				}
+				_, err := sat.DB.Buckets().CreateBucket(ctx, bucket)
+				require.NoError(t, err)
+
+				// We use multiple tallies and rollups to ensure that
+				// GetProjectTotalByPartner is capable of summing them.
+				for i := 0; i <= tallyRollupCount; i++ {
+					tally := randTally(bucket.Name, project.ID, since.Add(time.Duration(i)*usagePeriod/tallyRollupCount))
+					require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally))
+
+					// The last tally's usage data is unused.
+					usageHours := (usagePeriod / tallyRollupCount).Hours()
+					if i < tallyRollupCount {
+						total.storage += float64(tally.Bytes()) * usageHours
+						total.objects += float64(tally.ObjectCount) * usageHours
+						total.segments += float64(tally.TotalSegmentCount) * usageHours
+					}
+
+					if i < tallyRollupCount-1 {
+						beforeTotal.storage += float64(tally.Bytes()) * usageHours
+						beforeTotal.objects += float64(tally.ObjectCount) * usageHours
+						beforeTotal.segments += float64(tally.TotalSegmentCount) * usageHours
+					}
+				}
+
+				var rollups []orders.BucketBandwidthRollup
+				for i := 0; i < tallyRollupCount; i++ {
+					rollup := randRollup(bucket.Name, project.ID, since.Add(time.Duration(i)*usagePeriod/tallyRollupCount))
+					rollups = append(rollups, rollup)
+					total.egress += rollup.Inline + rollup.Settled
+
+					if i < tallyRollupCount {
+						beforeTotal.egress += rollup.Inline + rollup.Settled
+					}
+				}
+				require.NoError(t, sat.DB.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+				expectedTotals[name] = total
+			}
+
+			t.Run("sum all partner usages", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
+				require.NoError(t, err)
+				require.Len(t, usages, 1)
+				require.Contains(t, usages, "")
+
+				var summedTotal expectedTotal
+				for _, total := range expectedTotals {
+					summedTotal.storage += total.storage
+					summedTotal.segments += total.segments
+					summedTotal.objects += total.objects
+					summedTotal.egress += total.egress
+				}
+
+				requireTotal(t, summedTotal, since, before, usages[""])
+			})
+
+			t.Run("individual partner usages", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, partnerNames, since, before)
+				require.NoError(t, err)
+				require.Len(t, usages, len(expectedTotals))
+				for _, name := range partnerNames {
+					require.Contains(t, usages, name)
+				}
+
+				for partner, usage := range usages {
+					requireTotal(t, expectedTotals[partner], since, before, usage)
+				}
+			})
+
+			t.Run("select one partner usage and sum remaining usages", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				partner := partnerNames[len(partnerNames)-1]
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, []string{partner}, since, before)
+				require.NoError(t, err)
+				require.Len(t, usages, 2)
+				require.Contains(t, usages, "")
+				require.Contains(t, usages, partner)
+
+				var summedTotal expectedTotal
+				for _, partner := range partnerNames[:len(partnerNames)-1] {
+					summedTotal.storage += expectedTotals[partner].storage
+					summedTotal.segments += expectedTotals[partner].segments
+					summedTotal.objects += expectedTotals[partner].objects
+					summedTotal.egress += expectedTotals[partner].egress
+				}
+
+				requireTotal(t, expectedTotals[partner], since, before, usages[partner])
+				requireTotal(t, summedTotal, since, before, usages[""])
+			})
+
+			t.Run("ensure the 'before' arg is exclusive", func(t *testing.T) {
+				ctx := testcontext.New(t)
+				before := since.Add(usagePeriod)
+				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
+				require.NoError(t, err)
+				require.Len(t, usages, 1)
+				require.Contains(t, usages, "")
+				requireTotal(t, beforeTotal, since, before, usages[""])
+			})
+		},
+	)
+}
+
+func randTally(bucketName string, projectID uuid.UUID, intervalStart time.Time) accounting.BucketStorageTally {
+	return accounting.BucketStorageTally{
+		BucketName:        bucketName,
+		ProjectID:         projectID,
+		IntervalStart:     intervalStart,
+		TotalBytes:        int64(testrand.Intn(1000)),
+		ObjectCount:       int64(testrand.Intn(1000)),
+		TotalSegmentCount: int64(testrand.Intn(1000)),
+	}
+}
+
+func randRollup(bucketName string, projectID uuid.UUID, intervalStart time.Time) orders.BucketBandwidthRollup {
+	return orders.BucketBandwidthRollup{
+		ProjectID:     projectID,
+		BucketName:    bucketName,
+		IntervalStart: intervalStart,
+		Action:        pb.PieceAction_GET,
+		Inline:        int64(testrand.Intn(1000)),
+		Settled:       int64(testrand.Intn(1000)),
+	}
 }

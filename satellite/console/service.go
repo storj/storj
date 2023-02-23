@@ -3139,7 +3139,12 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payments.ProjectUsagePriceModel, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	model := payment.service.accounts.GetProjectUsagePriceModel()
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
 	return &model, nil
 }
 

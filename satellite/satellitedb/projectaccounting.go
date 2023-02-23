@@ -16,6 +16,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
@@ -505,7 +506,21 @@ func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, project
 }
 
 // GetProjectTotal retrieves project usage for a given period.
-func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
+func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+	usages, err := db.GetProjectTotalByPartner(ctx, projectID, nil, since, before)
+	if err != nil {
+		return nil, err
+	}
+	if usage, ok := usages[""]; ok {
+		return &usage, nil
+	}
+	return &accounting.ProjectUsage{Since: since, Before: before}, nil
+}
+
+// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
+// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
@@ -531,16 +546,54 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
-	bucketsTallies := make(map[string][]*accounting.BucketStorageTally)
+	totalEgressQuery := db.db.Rebind(`
+		SELECT
+			COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM
+			bucket_bandwidth_rollups
+		WHERE
+			bucket_name = ? AND
+			project_id = ? AND
+			interval_start >= ? AND
+			interval_start < ? AND
+			action = ?;
+	`)
+
+	usages = make(map[string]accounting.ProjectUsage)
 
 	for _, bucket := range bucketNames {
-		storageTallies := make([]*accounting.BucketStorageTally, 0)
+		userAgentRow, err := db.db.Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx,
+			dbx.BucketMetainfo_ProjectId(projectID[:]),
+			dbx.BucketMetainfo_Name([]byte(bucket)))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+
+		var partner string
+		if userAgentRow != nil && userAgentRow.UserAgent != nil {
+			entries, err := useragent.ParseEntries(userAgentRow.UserAgent)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, iterPartner := range partnerNames {
+				if entries[0].Product == iterPartner {
+					partner = iterPartner
+					break
+				}
+			}
+		}
+		if _, ok := usages[partner]; !ok {
+			usages[partner] = accounting.ProjectUsage{Since: since, Before: before}
+		}
+		usage := usages[partner]
 
 		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
-		// generating tallies for each bucket name.
+
+		var prevTally *accounting.BucketStorageTally
 		for storageTalliesRows.Next() {
 			tally := accounting.BucketStorageTally{}
 
@@ -553,8 +606,17 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 				tally.TotalBytes = inline + remote
 			}
 
-			tally.BucketName = bucket
-			storageTallies = append(storageTallies, &tally)
+			if prevTally == nil {
+				prevTally = &tally
+				continue
+			}
+
+			hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
+			usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
+			usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
+			usage.ObjectCount += float64(tally.ObjectCount) * hours
+
+			prevTally = &tally
 		}
 
 		err = errs.Combine(storageTalliesRows.Err(), storageTalliesRows.Close())
@@ -562,53 +624,21 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			return nil, err
 		}
 
-		bucketsTallies[bucket] = storageTallies
-	}
-
-	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
-	if err != nil {
-		return nil, err
-	}
-
-	usage = new(accounting.ProjectUsage)
-	usage.Egress = memory.Size(totalEgress).Int64()
-	// sum up storage, objects, and segments
-	for _, tallies := range bucketsTallies {
-		for i := len(tallies) - 1; i > 0; i-- {
-			current := (tallies)[i]
-			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-			usage.Storage += memory.Size(current.Bytes()).Float64() * hours
-			usage.SegmentCount += float64(current.TotalSegmentCount) * hours
-			usage.ObjectCount += float64(current.ObjectCount) * hours
+		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, []byte(bucket), projectID[:], since, before, pb.PieceAction_GET)
+		if err != nil {
+			return nil, err
 		}
+
+		var egress int64
+		if err = totalEgressRow.Scan(&egress); err != nil {
+			return nil, err
+		}
+		usage.Egress += egress
+
+		usages[partner] = usage
 	}
 
-	usage.Since = since
-	usage.Before = before
-	return usage, nil
-}
-
-// getTotalEgress returns total egress (settled + inline) of each bucket_bandwidth_rollup
-// in selected time period, project id.
-// only process PieceAction_GET.
-func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
-	totalEgressQuery := db.db.Rebind(`
-		SELECT
-			COALESCE(SUM(settled) + SUM(inline), 0)
-		FROM
-			bucket_bandwidth_rollups
-		WHERE
-			project_id = ? AND
-			interval_start >= ? AND
-			interval_start < ? AND
-			action = ?;
-	`)
-
-	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before, pb.PieceAction_GET)
-
-	err = totalEgressRow.Scan(&totalEgress)
-
-	return totalEgress, err
+	return usages, nil
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
