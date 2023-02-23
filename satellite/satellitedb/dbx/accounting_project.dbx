@@ -1,5 +1,4 @@
-// --- bucket accounting tables --- //
-
+// bucket_bandwidth_roolup contains per bucket infromation about bandwidth used.
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
 	index (
@@ -11,15 +10,25 @@ model bucket_bandwidth_rollup (
 		fields action interval_start project_id
 	)
 
+
 	field bucket_name       blob
+	// project_id is an UUID that refers to project.id.
 	field project_id        blob
 
+	// interval_start is when the measurement interval started.
 	field interval_start   timestamp
+	// interval_seconds is the duration of the measurement interval in seconds.
 	field interval_seconds uint
+	// action is the bandwidth operation, which refers to storj.io/common/pb.PieceAction.
+	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
 	field action           uint
 
+	// inline is the number of bytes of inline traffic.
 	field inline    uint64 ( updatable )
+	// allocated is the number of bytes that the satellite has budgeted for.
+	// It's unlikely that the uplink will use all the bandwidth that they requested.
 	field allocated uint64 ( updatable )
+	// settled is the number of bytes of traffic that the storagenodes have reported back to the satellite.
 	field settled   uint64 ( updatable )
 )
 
@@ -28,6 +37,7 @@ read paged (
     where bucket_bandwidth_rollup.interval_start >= ?
 )
 
+// bucket_bandwidth_rollup_archive contains historical condensed data from bucket_bandwidth_rollup table.
 model bucket_bandwidth_rollup_archive (
 	key    bucket_name project_id interval_start action
 	index (
@@ -39,15 +49,25 @@ model bucket_bandwidth_rollup_archive (
 		fields action interval_start project_id
 	)
 
+	// bucket_name refers to buckets.name table.
 	field bucket_name       blob
+	// project_id is an UUID that refers to project.id.
 	field project_id        blob
 
+	// interval_start is when the measurement interval started.
 	field interval_start   timestamp
+	// interval_seconds is the duration of the measurement interval in seconds.
 	field interval_seconds uint
+	// action is the bandwidth operation, which refers to storj.io/common/pb.PieceAction.
+	// It is one of put = 1, get = 2, get audit = 3, get repair = 4, put repair = 5, delete = 6 or put graceful exit = 7.
 	field action           uint
 
+	// inline is the number of bytes of inline traffic.
 	field inline    uint64 ( updatable )
+	// allocated is the number of bytes that the satellite has budgeted for.
+	// It's unlikely that the uplink will use all the bandwidth that they requested.
 	field allocated uint64 ( updatable )
+	// settled is the number of bytes of traffic that the storagenodes have reported back to the satellite.
 	field settled   uint64 ( updatable )
 )
 
@@ -56,6 +76,7 @@ read paged (
     where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
+// project_bandwidth_daily_rollup contains the total traffic for a given project.
 model project_bandwidth_daily_rollup (
 	key    project_id interval_day
 	index (
@@ -63,13 +84,19 @@ model project_bandwidth_daily_rollup (
 		fields interval_day
 	)
 
+	// project_id is an UUID that refers to projects.id.
 	field project_id       blob
+	// interval_day is the total for a given day.
 	field interval_day     date
+	// egress_allocated is the total budgeted download traffic.
 	field egress_allocated uint64 ( updatable )
+	// egress_settled is the total download traffic that the storagenodes have reported.
 	field egress_settled   uint64 ( updatable )
+	// egress_dead is the amount of traffic that the uplink did not use.
 	field egress_dead      uint64 ( updatable, default 0 )
 )
 
+// bucket_storage_tally is the total at rest traffic for a given date.
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
@@ -78,20 +105,32 @@ model bucket_storage_tally (
 		fields project_id interval_start
 	)
 
+	// bucket_name refers to buckets.name table.
 	field bucket_name       blob
+	// project_id is an UUID that refers to projects.id.
 	field project_id        blob
 
+	// interval_start is when the measurement started.
+	// The measurement is collected over several hours, so it is not consistent.
 	field interval_start   timestamp
 
+	// total_bytes is the total bytes at rest.
 	field total_bytes uint64 ( default 0)
+	// inline is the amount of bytes stored in inline segments.
 	field inline uint64
+	// remote is the amount of bytes stored on storagenodes, pre-expansion.
 	field remote uint64
 
+	// total_segments_count is the count of all segments.
 	field total_segments_count     uint ( default 0)
+	// remote_segments_count is the count of segments that refer to storagenodes.
 	field remote_segments_count    uint
+	// inline_segments_count is the count of segments that have inline data.
 	field inline_segments_count    uint
+	// object_count is the count of objects.
 	field object_count             uint
 
+	// metadata_size is the total bytes used by encrypted metadata.
 	field metadata_size      uint64
 )
 

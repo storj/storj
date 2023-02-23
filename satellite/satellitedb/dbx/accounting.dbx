@@ -1,8 +1,11 @@
-// accounting_timestamps just allows us to save the last time/thing that happened
+// accounting_timestamps saves the last time an process completed.
 model accounting_timestamps (
 	key name
 
+	// name is one of "LastAtRestTally", "LastBandwidthTally" or "LastRollup".
+	// See the details in satellite/accounting/common.go for their meaning.
 	field name  text
+	// value is the last time that the specific event completed.
 	field value timestamp ( updatable )
 )
 
