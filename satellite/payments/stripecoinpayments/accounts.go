@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/payments"
 )
 
@@ -121,47 +120,28 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	for _, project := range projects {
-		totalUsage := accounting.ProjectUsage{Since: since, Before: before}
-
-		usages, err := accounts.service.usageDB.GetProjectTotalByPartner(ctx, project.ID, accounts.service.partnerNames, since, before)
+		usage, err := accounts.service.usageDB.GetProjectTotal(ctx, project.ID, since, before)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return charges, Error.Wrap(err)
 		}
 
-		var totalPrice projectUsagePrice
-
-		for partner, usage := range usages {
-			priceModel := accounts.GetProjectUsagePriceModel(partner)
-			price := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, priceModel)
-
-			totalPrice.Egress = totalPrice.Egress.Add(price.Egress)
-			totalPrice.Segments = totalPrice.Segments.Add(price.Segments)
-			totalPrice.Storage = totalPrice.Storage.Add(price.Storage)
-
-			totalUsage.Egress += usage.Egress
-			totalUsage.ObjectCount += usage.ObjectCount
-			totalUsage.SegmentCount += usage.SegmentCount
-			totalUsage.Storage += usage.Storage
-		}
+		projectPrice := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount)
 
 		charges = append(charges, payments.ProjectCharge{
-			ProjectUsage: totalUsage,
+			ProjectUsage: *usage,
 
 			ProjectID:    project.ID,
-			Egress:       totalPrice.Egress.IntPart(),
-			SegmentCount: totalPrice.Segments.IntPart(),
-			StorageGbHrs: totalPrice.Storage.IntPart(),
+			Egress:       projectPrice.Egress.IntPart(),
+			SegmentCount: projectPrice.Segments.IntPart(),
+			StorageGbHrs: projectPrice.Storage.IntPart(),
 		})
 	}
 
 	return charges, nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for a partner name.
-func (accounts *accounts) GetProjectUsagePriceModel(partner string) payments.ProjectUsagePriceModel {
-	if override, ok := accounts.service.usagePriceOverrides[partner]; ok {
-		return override
-	}
+// GetProjectUsagePriceModel returns the project usage price model.
+func (accounts *accounts) GetProjectUsagePriceModel() payments.ProjectUsagePriceModel {
 	return accounts.service.usagePrices
 }
 
