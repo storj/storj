@@ -11,7 +11,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -175,169 +174,74 @@ func Test_GetSingleBucketRollup(t *testing.T) {
 	)
 }
 
-func Test_GetProjectTotalByPartner(t *testing.T) {
-	const (
-		epsilon          = 1e-8
-		usagePeriod      = time.Hour
-		tallyRollupCount = 2
-	)
-	since := time.Time{}
-	before := since.Add(2 * usagePeriod)
-
+func Test_GetProjectTotal(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			sat := planet.Satellites[0]
+			bucketName := testrand.BucketName()
+			projectID := testrand.UUID()
 
-			user, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Test User",
-				Email:    "user@mail.test",
-			}, 1)
+			db := planet.Satellites[0].DB
+
+			// The 3rd tally is only present to prevent CreateStorageTally from skipping the 2nd.
+			var tallies []accounting.BucketStorageTally
+			for i := 0; i < 3; i++ {
+				tally := accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     time.Time{}.Add(time.Duration(i) * time.Hour),
+					TotalBytes:        int64(testrand.Intn(1000)),
+					ObjectCount:       int64(testrand.Intn(1000)),
+					TotalSegmentCount: int64(testrand.Intn(1000)),
+				}
+				tallies = append(tallies, tally)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, tally))
+			}
+
+			var rollups []orders.BucketBandwidthRollup
+			var expectedEgress int64
+			for i := 0; i < 2; i++ {
+				rollup := orders.BucketBandwidthRollup{
+					ProjectID:     projectID,
+					BucketName:    bucketName,
+					Action:        pb.PieceAction_GET,
+					IntervalStart: tallies[i].IntervalStart,
+					Inline:        int64(testrand.Intn(1000)),
+					Settled:       int64(testrand.Intn(1000)),
+				}
+				rollups = append(rollups, rollup)
+				expectedEgress += rollup.Inline + rollup.Settled
+			}
+			require.NoError(t, db.Orders().UpdateBandwidthBatch(ctx, rollups))
+
+			usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart.Add(time.Minute))
 			require.NoError(t, err)
 
-			project, err := sat.AddProject(ctx, user.ID, "testproject")
+			const epsilon = 1e-8
+			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()+tallies[1].Bytes()), epsilon)
+			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount+tallies[1].TotalSegmentCount), epsilon)
+			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount+tallies[1].ObjectCount), epsilon)
+			require.Equal(t, usage.Egress, expectedEgress)
+			require.Equal(t, usage.Since, tallies[0].IntervalStart)
+			require.Equal(t, usage.Before, tallies[2].IntervalStart.Add(time.Minute))
+
+			// Ensure that GetProjectTotal treats the 'before' arg as exclusive
+			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, tallies[0].IntervalStart, tallies[2].IntervalStart)
 			require.NoError(t, err)
+			require.InDelta(t, usage.Storage, float64(tallies[0].Bytes()), epsilon)
+			require.InDelta(t, usage.SegmentCount, float64(tallies[0].TotalSegmentCount), epsilon)
+			require.InDelta(t, usage.ObjectCount, float64(tallies[0].ObjectCount), epsilon)
+			require.Equal(t, usage.Egress, expectedEgress)
+			require.Equal(t, usage.Since, tallies[0].IntervalStart)
+			require.Equal(t, usage.Before, tallies[2].IntervalStart)
 
-			type expectedTotal struct {
-				storage  float64
-				segments float64
-				objects  float64
-				egress   int64
-			}
-			expectedTotals := make(map[string]expectedTotal)
-			var beforeTotal expectedTotal
-
-			requireTotal := func(t *testing.T, expected expectedTotal, actual accounting.ProjectUsage) {
-				require.InDelta(t, expected.storage, actual.Storage, epsilon)
-				require.InDelta(t, expected.segments, actual.SegmentCount, epsilon)
-				require.InDelta(t, expected.objects, actual.ObjectCount, epsilon)
-				require.Equal(t, expected.egress, actual.Egress)
-				require.Equal(t, since, actual.Since)
-				require.Equal(t, before, actual.Before)
-			}
-
-			partnerNames := []string{"", "partner1", "partner2"}
-			for _, name := range partnerNames {
-				total := expectedTotal{}
-
-				bucket := storj.Bucket{
-					ID:        testrand.UUID(),
-					Name:      testrand.BucketName(),
-					ProjectID: project.ID,
-				}
-				if name != "" {
-					bucket.UserAgent = []byte(name)
-				}
-				_, err := sat.DB.Buckets().CreateBucket(ctx, bucket)
-				require.NoError(t, err)
-
-				// We use multiple tallies and rollups to ensure that
-				// GetProjectTotalByPartner is capable of summing them.
-				for i := 0; i <= tallyRollupCount; i++ {
-					tally := accounting.BucketStorageTally{
-						BucketName:        bucket.Name,
-						ProjectID:         project.ID,
-						IntervalStart:     since.Add(time.Duration(i) * usagePeriod / tallyRollupCount),
-						TotalBytes:        int64(testrand.Intn(1000)),
-						ObjectCount:       int64(testrand.Intn(1000)),
-						TotalSegmentCount: int64(testrand.Intn(1000)),
-					}
-					require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, tally))
-
-					// The last tally's usage data is unused.
-					usageHours := (usagePeriod / tallyRollupCount).Hours()
-					if i < tallyRollupCount {
-						total.storage += float64(tally.Bytes()) * usageHours
-						total.objects += float64(tally.ObjectCount) * usageHours
-						total.segments += float64(tally.TotalSegmentCount) * usageHours
-					}
-
-					if i < tallyRollupCount-1 {
-						beforeTotal.storage += float64(tally.Bytes()) * usageHours
-						beforeTotal.objects += float64(tally.ObjectCount) * usageHours
-						beforeTotal.segments += float64(tally.TotalSegmentCount) * usageHours
-					}
-				}
-
-				var rollups []orders.BucketBandwidthRollup
-				for i := 0; i < tallyRollupCount; i++ {
-					rollup := orders.BucketBandwidthRollup{
-						BucketName:    bucket.Name,
-						ProjectID:     project.ID,
-						Action:        pb.PieceAction_GET,
-						IntervalStart: since.Add(time.Duration(i) * usagePeriod / tallyRollupCount),
-						Inline:        int64(testrand.Intn(1000)),
-						Settled:       int64(testrand.Intn(1000)),
-					}
-					rollups = append(rollups, rollup)
-					total.egress += rollup.Inline + rollup.Settled
-
-					if i < tallyRollupCount {
-						beforeTotal.egress += rollup.Inline + rollup.Settled
-					}
-				}
-				require.NoError(t, sat.DB.Orders().UpdateBandwidthBatch(ctx, rollups))
-
-				expectedTotals[name] = total
-			}
-
-			t.Run("sum all partner usages", func(t *testing.T) {
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 1)
-				require.Contains(t, usages, "")
-
-				var summedTotal expectedTotal
-				for _, total := range expectedTotals {
-					summedTotal.storage += total.storage
-					summedTotal.segments += total.segments
-					summedTotal.objects += total.objects
-					summedTotal.egress += total.egress
-				}
-
-				requireTotal(t, summedTotal, usages[""])
-			})
-
-			t.Run("individual partner usages", func(t *testing.T) {
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, partnerNames, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, len(expectedTotals))
-				for _, name := range partnerNames {
-					require.Contains(t, usages, name)
-				}
-
-				for partner, usage := range usages {
-					requireTotal(t, expectedTotals[partner], usage)
-				}
-			})
-
-			t.Run("select one partner usage and sum remaining usages", func(t *testing.T) {
-				partner := partnerNames[len(partnerNames)-1]
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, []string{partner}, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 2)
-				require.Contains(t, usages, "")
-				require.Contains(t, usages, partner)
-
-				var summedTotal expectedTotal
-				for _, partner := range partnerNames[:len(partnerNames)-1] {
-					summedTotal.storage += expectedTotals[partner].storage
-					summedTotal.segments += expectedTotals[partner].segments
-					summedTotal.objects += expectedTotals[partner].objects
-					summedTotal.egress += expectedTotals[partner].egress
-				}
-
-				requireTotal(t, expectedTotals[partner], usages[partner])
-				requireTotal(t, summedTotal, usages[""])
-			})
-
-			t.Run("ensure before is exclusive", func(t *testing.T) {
-				before = since.Add(usagePeriod)
-				usages, err := sat.DB.ProjectAccounting().GetProjectTotalByPartner(ctx, project.ID, nil, since, before)
-				require.NoError(t, err)
-				require.Len(t, usages, 1)
-				require.Contains(t, usages, "")
-				requireTotal(t, beforeTotal, usages[""])
-			})
+			usage, err = db.ProjectAccounting().GetProjectTotal(ctx, projectID, rollups[0].IntervalStart, rollups[1].IntervalStart)
+			require.NoError(t, err)
+			require.Zero(t, usage.Storage)
+			require.Zero(t, usage.SegmentCount)
+			require.Zero(t, usage.ObjectCount)
+			require.Equal(t, usage.Egress, rollups[0].Inline+rollups[0].Settled)
+			require.Equal(t, usage.Since, rollups[0].IntervalStart)
+			require.Equal(t, usage.Before, rollups[1].IntervalStart)
 		},
 	)
 }
