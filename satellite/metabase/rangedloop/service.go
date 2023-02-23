@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	ev  = eventkit.Package()
 )
 
 // Config contains configurable values for the shared loop.
