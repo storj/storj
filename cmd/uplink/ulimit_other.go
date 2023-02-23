@@ -6,6 +6,4 @@
 
 package main
 
-func raiseUlimits() {
-	return
-}
+func raiseUlimits() {}

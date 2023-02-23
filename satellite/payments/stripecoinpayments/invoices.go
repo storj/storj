@@ -21,6 +21,56 @@ type invoices struct {
 	service *Service
 }
 
+func (invoices *invoices) Create(ctx context.Context, userID uuid.UUID, price int64, desc string) (*payments.Invoice, error) {
+	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	inv, err := invoices.service.stripeClient.Invoices().New(&stripe.InvoiceParams{
+		Customer:                    stripe.String(customerID),
+		Discounts:                   []*stripe.InvoiceDiscountParams{},
+		Description:                 stripe.String(desc),
+		PendingInvoiceItemsBehavior: stripe.String("exclude"),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	item, err := invoices.service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+		Customer:    stripe.String(customerID),
+		Amount:      stripe.Int64(price),
+		Description: stripe.String(desc),
+		Currency:    stripe.String(string(stripe.CurrencyUSD)),
+		Invoice:     stripe.String(inv.ID),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &payments.Invoice{
+		ID:          inv.ID,
+		Description: inv.Description,
+		Amount:      item.Amount,
+		Status:      string(inv.Status),
+	}, nil
+}
+
+func (invoices *invoices) Pay(ctx context.Context, invoiceID, paymentMethodID string) (*payments.Invoice, error) {
+	inv, err := invoices.service.stripeClient.Invoices().Pay(invoiceID, &stripe.InvoicePayParams{
+		PaymentMethod: stripe.String(paymentMethodID),
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &payments.Invoice{
+		ID:          inv.ID,
+		Description: inv.Description,
+		Amount:      inv.AmountPaid,
+		Status:      string(inv.Status),
+	}, nil
+}
+
 // AttemptPayOverdueInvoices attempts to pay a user's open, overdue invoices.
 func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID uuid.UUID) (err error) {
 	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
@@ -78,11 +128,13 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 		stripeInvoice := invoicesIterator.Invoice()
 
 		total := stripeInvoice.Total
-		for _, line := range stripeInvoice.Lines.Data {
-			// If amount is negative, this is a coupon or a credit line item.
-			// Add them to the total.
-			if line.Amount < 0 {
-				total -= line.Amount
+		if stripeInvoice.Lines != nil {
+			for _, line := range stripeInvoice.Lines.Data {
+				// If amount is negative, this is a coupon or a credit line item.
+				// Add them to the total.
+				if line.Amount < 0 {
+					total -= line.Amount
+				}
 			}
 		}
 
@@ -90,7 +142,7 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
-			Status:      string(stripeInvoice.Status),
+			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
@@ -134,7 +186,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 			ID:          stripeInvoice.ID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
-			Status:      string(stripeInvoice.Status),
+			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
 		})
@@ -200,4 +252,41 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 	}
 
 	return false, nil
+}
+
+// Delete a draft invoice.
+func (invoices *invoices) Delete(ctx context.Context, id string) (_ *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stripeInvoice, err := invoices.service.stripeClient.Invoices().Del(id, &stripe.InvoiceParams{})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &payments.Invoice{
+		ID:          stripeInvoice.ID,
+		Description: stripeInvoice.Description,
+		Amount:      stripeInvoice.AmountDue,
+		Status:      convertStatus(stripeInvoice.Status),
+		Link:        stripeInvoice.InvoicePDF,
+		Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+	}, nil
+}
+
+func convertStatus(stripestatus stripe.InvoiceStatus) string {
+	var status string
+	switch stripestatus {
+	case stripe.InvoiceStatusDraft:
+		status = payments.InvoiceStatusDraft
+	case stripe.InvoiceStatusOpen:
+		status = payments.InvoiceStatusOpen
+	case stripe.InvoiceStatusPaid:
+		status = payments.InvoiceStatusPaid
+	case stripe.InvoiceStatusUncollectible:
+		status = payments.InvoiceStatusUncollectible
+	case stripe.InvoiceStatusVoid:
+		status = payments.InvoiceStatusVoid
+	default:
+		status = string(stripestatus)
+	}
+	return status
 }

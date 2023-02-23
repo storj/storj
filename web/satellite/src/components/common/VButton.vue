@@ -15,6 +15,7 @@
         <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
         <span class="label" :class="{uppercase: isUppercase}">
             <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
             <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
@@ -33,6 +34,7 @@ import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
 
 const props = withDefaults(defineProps<{
@@ -42,6 +44,7 @@ const props = withDefaults(defineProps<{
     fontSize?: string;
     borderRadius?: string;
     icon?: string;
+    isOrange?: boolean;
     isWhite?: boolean;
     isSolidDelete?: boolean;
     isTransparent?: boolean;
@@ -60,6 +63,7 @@ const props = withDefaults(defineProps<{
     fontSize: '16px',
     borderRadius: '6px',
     icon: 'none',
+    isOrange: false,
     isWhite: false,
     isSolidDelete: false,
     isTransparent: false,
@@ -77,6 +81,8 @@ const containerClassName = computed((): string => {
     if (props.isDisabled) return 'container disabled';
 
     if (props.isWhite) return 'container white';
+
+    if (props.isOrange) return 'container orange';
 
     if (props.isSolidDelete) return 'container solid-red';
 
@@ -136,6 +142,11 @@ const style = computed(() => {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049;
+        }
     }
 
     .blue-white {
@@ -149,7 +160,7 @@ const style = computed(() => {
 
     .white-green {
         background-color: transparent !important;
-        border: 1px solid #afb7c1 !important;
+        border: 1px solid #d8dee3 !important;
 
         .label {
             color: var(--c-green-5) !important;
@@ -187,6 +198,11 @@ const style = computed(() => {
         .label {
             color: #e30011 !important;
         }
+    }
+
+    .orange {
+        background-color: #ff8a00 !important;
+        border: 2px solid #ff8a00 !important;
     }
 
     .container {
@@ -260,6 +276,11 @@ const style = computed(() => {
                 .label {
                     color: #eb5757 !important;
                 }
+            }
+
+            &.orange {
+                background-color: #c16900 !important;
+                border-color: #c16900 !important;
             }
 
             &.disabled {

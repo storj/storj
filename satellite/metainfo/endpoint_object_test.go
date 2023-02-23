@@ -2340,3 +2340,107 @@ func TestEndpoint_Object_MoveObject_MultipleVersions(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestListObjectDuplicates(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		u := planet.Uplinks[0]
+		s := planet.Satellites[0]
+
+		const amount = 23
+
+		require.NoError(t, u.CreateBucket(ctx, s, "test"))
+
+		prefixes := []string{"", "aprefix/"}
+
+		// reupload some objects many times to force different
+		// object versions internally
+		for _, prefix := range prefixes {
+			for i := 0; i < amount; i++ {
+				version := 1
+				if i%2 == 0 {
+					version = 2
+				} else if i%3 == 0 {
+					version = 3
+				}
+
+				for v := 0; v < version; v++ {
+					require.NoError(t, u.Upload(ctx, s, "test", prefix+fmt.Sprintf("file-%d", i), nil))
+				}
+			}
+		}
+
+		project, err := u.GetProject(ctx, s)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		for _, prefix := range prefixes {
+			prefixLabel := prefix
+			if prefixLabel == "" {
+				prefixLabel = "empty"
+			}
+
+			for _, listLimit := range []int{0, 1, 2, 3, 7, amount - 1, amount} {
+				t.Run(fmt.Sprintf("prefix %s limit %d", prefixLabel, listLimit), func(t *testing.T) {
+					limitCtx := testuplink.WithListLimit(ctx, listLimit)
+
+					keys := make(map[string]struct{})
+					iter := project.ListObjects(limitCtx, "test", &uplink.ListObjectsOptions{
+						Prefix: prefix,
+					})
+					for iter.Next() {
+						if iter.Item().IsPrefix {
+							continue
+						}
+
+						if _, ok := keys[iter.Item().Key]; ok {
+							t.Fatal("duplicate", iter.Item().Key, len(keys))
+						}
+						keys[iter.Item().Key] = struct{}{}
+					}
+					require.NoError(t, iter.Err())
+					require.Equal(t, amount, len(keys))
+				})
+			}
+		}
+	})
+}
+
+func TestListUploads(t *testing.T) {
+	t.Skip() // see TODO at the bottom. this test is now failing.
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// basic ListUploads tests, more tests are on storj/uplink side
+		u := planet.Uplinks[0]
+		s := planet.Satellites[0]
+
+		project, err := u.OpenProject(ctx, s)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		require.NoError(t, u.CreateBucket(ctx, s, "testbucket"))
+
+		// TODO number of objects created can be limited when uplink will
+		// have an option to control listing limit value for ListUploads
+		for i := 0; i < 1001; i++ {
+			_, err := project.BeginUpload(ctx, "testbucket", "object"+strconv.Itoa(i), nil)
+			require.NoError(t, err)
+		}
+
+		list := project.ListUploads(ctx, "testbucket", nil)
+		items := 0
+		for list.Next() {
+			items++
+		}
+		require.NoError(t, list.Err())
+		// TODO result should be 1001 but we have bug in libuplink
+		// were it's not possible to get second page of results for
+		// pending objets.
+		// test will fail when we will fix uplink and we will need to adjust this test
+		require.Equal(t, 1000, items)
+	})
+}

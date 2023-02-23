@@ -90,6 +90,11 @@
 
                     <div class="hr-divider" />
 
+                    <MultiplePassphraseBanner
+                        v-if="lockedFilesNumber > 0 && isBannerShown && !fetchingFilesSpinner && !currentPath"
+                        :on-close="closeBanner"
+                    />
+
                     <v-table class="file-browser-table">
                         <template #head>
                             <file-browser-header />
@@ -157,6 +162,8 @@
                                 <th class="up-button__content" />
                             </tr>
 
+                            <locked-files-entry v-if="lockedFilesEntryDisplayed" />
+
                             <file-entry
                                 v-for="file in folders"
                                 :key="file.Key"
@@ -200,24 +207,27 @@ import { computed, onBeforeMount, ref } from 'vue';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
+import LockedFilesEntry from './LockedFilesEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import eventBus from '@/utils/eventBus';
+import { Bucket } from '@/types/buckets';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
+import MultiplePassphraseBanner from '@/components/browser/MultiplePassphrasesBanner.vue';
 
 import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
-import BlackArrowHide from '@/../static/images/common/BlackArrowHide.svg';
 
 const store = useStore();
 const router = useRouter();
@@ -228,7 +238,9 @@ const fileInput = ref<HTMLInputElement>(null);
 
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
+const isBannerShown = ref<boolean>(true);
 
+const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 /**
@@ -250,6 +262,42 @@ const path = computed((): string => {
  */
 const filesUploading = computed((): string => {
     return store.state.files.uploading;
+});
+
+/**
+ * Return file browser path from store.
+ */
+const currentPath = computed((): string => {
+    return store.state.files.path;
+});
+
+/**
+ * Return locked files number.
+ */
+const lockedFilesNumber = computed((): number => {
+    const ownObjects = store.getters['files/sortedFiles'];
+
+    return objectsCount.value - ownObjects.length;
+});
+
+/**
+ * Returns bucket objects count from store.
+ */
+const objectsCount = computed((): number => {
+    const name: string = store.state.files.bucket;
+    const data: Bucket = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+
+    return data?.objectCount || 0;
+});
+
+/**
+ * Indicates if locked files entry is displayed.
+ */
+const lockedFilesEntryDisplayed = computed((): boolean => {
+    return lockedFilesNumber.value > 0 &&
+        objectsCount.value <= NUMBER_OF_DISPLAYED_OBJECTS &&
+        !fetchingFilesSpinner.value &&
+        !currentPath.value;
 });
 
 /**
@@ -309,6 +357,13 @@ const routePath = ref(calculateRoutePath());
 const bucket = computed((): string => {
     return store.state.objectsModule.fileComponentBucketName;
 });
+
+/**
+ * Closes multiple passphrase banner.
+ */
+function closeBanner(): void {
+    isBannerShown.value = false;
+}
 
 function calculateRoutePath(): string {
     let pathMatch = router.history.current.params.pathMatch;
@@ -378,7 +433,7 @@ function closeModalDropdown(): void {
  * Toggle the folder creation modal in the store.
  */
 function toggleFolderCreationModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_FOLDER_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
 }
 
 /**

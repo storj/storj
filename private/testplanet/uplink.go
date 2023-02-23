@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/grant"
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/peertls/tlsopts"
@@ -27,6 +28,11 @@ import (
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
+
+// UplinkConfig testplanet configuration for uplink.
+type UplinkConfig struct {
+	DefaultPathCipher storj.CipherSuite
+}
 
 // Uplink is a registered user on all satellites,
 // which contains the necessary accesses and project info.
@@ -82,10 +88,13 @@ func (planet *Planet) newUplinks(ctx context.Context, prefix string, count int) 
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
 		name := prefix + strconv.Itoa(i)
+
+		log := planet.log.Named(name)
+
 		var uplink *Uplink
 		var err error
 		pprof.Do(ctx, pprof.Labels("peer", name), func(ctx context.Context) {
-			uplink, err = planet.newUplink(ctx, name)
+			uplink, err = planet.newUplink(ctx, i, log, name)
 		})
 		if err != nil {
 			return nil, errs.Wrap(err)
@@ -97,7 +106,7 @@ func (planet *Planet) newUplinks(ctx context.Context, prefix string, count int) 
 }
 
 // newUplink creates a new uplink.
-func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, err error) {
+func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger, name string) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	identity, err := planet.NewIdentity()
@@ -171,6 +180,38 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 
 			RawAPIKey: apiKey,
 		})
+
+		var config UplinkConfig
+		if planet.config.Reconfigure.Uplink != nil {
+			planet.config.Reconfigure.Uplink(log, index, &config)
+		}
+
+		// create access grant manually to avoid dialing satellite for
+		// project id and deriving key with argon2.IDKey method
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+		if config.DefaultPathCipher == storj.EncUnspecified {
+			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		} else {
+			encAccess.SetDefaultPathCipher(config.DefaultPathCipher)
+		}
+
+		grantAccess := grant.Access{
+			SatelliteAddress: satellite.URL(),
+			APIKey:           apiKey,
+			EncAccess:        encAccess,
+		}
+
+		serializedAccess, err := grantAccess.Serialize()
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		access, err := uplink.ParseAccess(serializedAccess)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		planetUplink.Access[satellite.ID()] = access
 	}
 
 	planet.Uplinks = append(planet.Uplinks, planetUplink)

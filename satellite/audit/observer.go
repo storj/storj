@@ -11,8 +11,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 )
 
@@ -26,7 +26,7 @@ type Observer struct {
 	seedRand *rand.Rand
 
 	// The follow fields are reset on each segment loop cycle.
-	reservoirs map[storj.NodeID]*Reservoir
+	reservoirs map[metabase.NodeAlias]*Reservoir
 }
 
 // NewObserver instantiates Observer.
@@ -43,13 +43,17 @@ func NewObserver(log *zap.Logger, queue VerifyQueue, config Config) *Observer {
 }
 
 // Start prepares the observer for audit segment collection.
-func (obs *Observer) Start(ctx context.Context, startTime time.Time) error {
-	obs.reservoirs = make(map[storj.NodeID]*Reservoir)
+func (obs *Observer) Start(ctx context.Context, startTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	obs.reservoirs = make(map[metabase.NodeAlias]*Reservoir)
 	return nil
 }
 
 // Fork returns a new audit reservoir collector for the range.
-func (obs *Observer) Fork(ctx context.Context) (rangedloop.Partial, error) {
+func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Each collector needs an RNG for sampling. On systems where time
 	// resolution is low (e.g. windows is 15ms), seeding an RNG using the
 	// current time (even with nanosecond precision) may end up reusing a seed
@@ -60,16 +64,18 @@ func (obs *Observer) Fork(ctx context.Context) (rangedloop.Partial, error) {
 }
 
 // Join merges the audit reservoir collector into the per-node reservoirs.
-func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) error {
+func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	collector, ok := partial.(*Collector)
 	if !ok {
 		return errs.New("expected partial type %T but got %T", collector, partial)
 	}
 
-	for nodeID, reservoir := range collector.Reservoirs {
-		existing, ok := obs.reservoirs[nodeID]
+	for nodeAlias, reservoir := range collector.Reservoirs {
+		existing, ok := obs.reservoirs[nodeAlias]
 		if !ok {
-			obs.reservoirs[nodeID] = reservoir
+			obs.reservoirs[nodeAlias] = reservoir
 			continue
 		}
 		if err := existing.Merge(reservoir); err != nil {
@@ -80,7 +86,9 @@ func (obs *Observer) Join(ctx context.Context, partial rangedloop.Partial) error
 }
 
 // Finish builds and dedups an audit queue from the merged per-node reservoirs.
-func (obs *Observer) Finish(ctx context.Context) error {
+func (obs *Observer) Finish(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	type SegmentKey struct {
 		StreamID uuid.UUID
 		Position uint64

@@ -65,7 +65,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
      * @throws Error
      */
     public async getAllBucketNames(projectId: string): Promise<string[]> {
-        const path = `${this.ROOT_PATH}/bucket-names?projectID=${projectId}`;
+        const path = `${this.ROOT_PATH}/bucket-names?publicID=${projectId}`;
         const response = await this.client.get(path);
 
         if (!response.ok) {

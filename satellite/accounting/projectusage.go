@@ -218,6 +218,18 @@ func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID u
 	return total, ErrProjectUsage.Wrap(err)
 }
 
+// GetProjectSegmentTotals returns total amount of allocated segments used for past 30 days.
+func (usage *Service) GetProjectSegmentTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	total, err = usage.liveAccounting.GetProjectSegmentUsage(ctx, projectID)
+	if ErrKeyNotFound.Has(err) {
+		return 0, nil
+	}
+
+	return total, ErrProjectUsage.Wrap(err)
+}
+
 // GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
 func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
@@ -241,6 +253,17 @@ func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid
 func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
+}
+
+// GetProjectSegmentLimit returns current project segment limit.
+func (usage *Service) GetProjectSegmentLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	limits, err := usage.projectLimitCache.GetProjectLimits(ctx, projectID)
+	if err != nil {
+		return 0, ErrProjectUsage.Wrap(err)
+	}
+
+	return memory.Size(*limits.Usage), nil
 }
 
 // UpdateProjectLimits sets new value for project's bandwidth and storage limit.

@@ -64,7 +64,16 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	maxPieceSize := eestream.CalcPieceSize(req.MaxOrderLimit, redundancy)
+	config := endpoint.config
+	defaultRedundancy := storj.RedundancyScheme{
+		Algorithm:      storj.ReedSolomon,
+		RequiredShares: int16(config.RS.Min),
+		RepairShares:   int16(config.RS.Repair),
+		OptimalShares:  int16(config.RS.Success),
+		TotalShares:    int16(config.RS.Total),
+		ShareSize:      config.RS.ErasureShareSize.Int32(),
+	}
+	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),

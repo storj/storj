@@ -55,7 +55,9 @@ func (o *LiveCountObserver) Finish(ctx context.Context) error {
 
 // Process increments the counter.
 func (o *LiveCountObserver) Process(ctx context.Context, segments []segmentloop.Segment) error {
-	atomic.AddInt64(&o.numSegments, int64(len(segments)))
+	processed := atomic.AddInt64(&o.numSegments, int64(len(segments)))
+
+	mon.IntVal("segmentsProcessed").Observe(processed)
 	return nil
 }
 

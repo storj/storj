@@ -62,6 +62,11 @@ func (provider *MetabaseRangeSplitter) CreateRanges(nRanges int, batchSize int) 
 	return rangeProviders, err
 }
 
+// Range returns range which is processed by this provider.
+func (provider *MetabaseSegmentProvider) Range() UUIDRange {
+	return provider.uuidRange
+}
+
 // Iterate loops over a part of the segment table.
 func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error {
 	var startStreamID uuid.UUID

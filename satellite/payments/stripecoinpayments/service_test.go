@@ -412,6 +412,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 				Reconfigure: testplanet.Reconfigure{
 					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 						config.Payments.StripeCoinPayments.SkipEmptyInvoices = testCase.skipEmptyInvoices
+						config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
 					},
 				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -674,7 +675,7 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 			}
 			// when due date is set invoice should not be paid
 			if i.ID == invWithDue.ID {
-				require.Equal(t, stripe.InvoiceStatus(""), i.Status)
+				require.Equal(t, stripe.InvoiceStatusDraft, i.Status)
 			}
 		}
 	})

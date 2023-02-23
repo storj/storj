@@ -118,8 +118,9 @@ import { Component, Vue, Watch } from 'vue-property-decorator';
 import prettyBytes from 'pretty-bytes';
 
 import { BrowserFile } from '@/types/browser';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -294,7 +295,7 @@ export default class ObjectDetailsModal extends Vue {
      * Close the current opened file details modal.
      */
     public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
     }
 
     /**

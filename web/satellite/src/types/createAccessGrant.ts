@@ -28,15 +28,31 @@ export enum AccessType {
     AccessGrant = 'accessGrant',
 }
 
+export enum PassphraseOption {
+    UseExistingPassphrase = 'useExistingPassphrase',
+    SetMyProjectPassphrase = 'setMyProjectPassphrase',
+    GenerateNewPassphrase = 'generateNewPassphrase',
+    EnterNewPassphrase = 'enterNewPassphrase',
+}
+
 export enum CreateAccessStep {
     CreateNewAccess = 'createNewAccess',
     ChoosePermission = 'choosePermission',
     EncryptionInfo = 'encryptionInfo',
     AccessEncryption = 'accessEncryption',
     PassphraseGenerated = 'passphraseGenerated',
+    EnterMyPassphrase = 'enterMyPassphrase',
     EnterNewPassphrase = 'enterNewPassphrase',
     AccessCreated = 'accessCreated',
     CredentialsCreated = 'credentialsCreated',
+}
+
+export enum Permission {
+    All = 'all',
+    Read = 'read',
+    Write = 'write',
+    List = 'list',
+    Delete = 'delete',
 }
 
 export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
@@ -59,6 +75,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.PassphraseGenerated]: {
         icon: PassphraseGeneratedIcon,
         title: 'Passphrase generated',
+    },
+    [CreateAccessStep.EnterMyPassphrase]: {
+        icon: AccessEncryptionIcon,
+        title: 'Enter my passphrase',
     },
     [CreateAccessStep.EnterNewPassphrase]: {
         icon: AccessEncryptionIcon,

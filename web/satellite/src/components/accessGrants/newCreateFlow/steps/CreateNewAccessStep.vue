@@ -65,6 +65,7 @@
                 <VInput
                     class="create__input"
                     placeholder="Input Access Name"
+                    :init-value="name"
                     @setData="setName"
                 />
             </template>
@@ -136,15 +137,15 @@ const isButtonDisabled = computed((): boolean => {
         row-gap: 16px;
 
         &__info {
-            color: #fff;
+            color: var(--c-white);
 
             &__link {
-                color: #fff;
+                color: var(--c-white);
                 text-decoration: underline !important;
                 text-underline-position: under;
 
                 &:visited {
-                    color: #fff;
+                    color: var(--c-white);
                 }
             }
         }
@@ -160,8 +161,8 @@ const isButtonDisabled = computed((): boolean => {
         justify-content: center;
         width: 100%;
         height: 48px;
-        background: #fff;
-        border: 1px solid #d8dee3;
+        background: var(--c-white);
+        border: 1px solid var(--c-grey-3);
         box-shadow: 0 0 3px rgb(0 0 0 / 8%);
         border-radius: 8px;
 
@@ -170,20 +171,20 @@ const isButtonDisabled = computed((): boolean => {
             font-size: 14px;
             line-height: 24px;
             letter-spacing: -0.02em;
-            color: #56606d;
+            color: var(--c-grey-6);
             margin-left: 8px;
         }
 
         &:hover {
-            border-color: #2683ff;
-            background-color: #2683ff;
+            border-color: var(--c-light-blue-6);
+            background-color: var(--c-light-blue-6);
 
             p {
-                color: #fff;
+                color: var(--c-white);
             }
 
             :deep(svg path) {
-                fill: #fff;
+                fill: var(--c-white);
             }
         }
     }

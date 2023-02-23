@@ -38,13 +38,24 @@
                             </v-banner>
 
                             <v-banner
-                                v-if="limitState.isShown && !isLoading && dashboardContent"
-                                :severity="limitState.severity"
-                                :on-click="() => setIsLimitModalShown(true)"
+                                v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
+                                severity="critical"
+                                :on-click="() => setIsHundredLimitModalShown(true)"
                                 :dashboard-ref="dashboardContent"
                             >
                                 <template #text>
-                                    <p class="medium">{{ limitState.label }}</p>
+                                    <p class="medium">{{ limitState.hundredLabel }}</p>
+                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                </template>
+                            </v-banner>
+                            <v-banner
+                                v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
+                                severity="warning"
+                                :on-click="() => setIsEightyLimitModalShown(true)"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">{{ limitState.eightyLabel }}</p>
                                     <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
                                 </template>
                             </v-banner>
@@ -66,10 +77,19 @@
             :initial-seconds="inactivityModalTime / 1000"
         />
         <limit-warning-modal
-            v-if="isLimitModalShown && !isLoading"
-            :severity="limitState.severity"
-            :on-close="() => setIsLimitModalShown(false)"
-            :title="limitState.modalTitle"
+            v-if="isHundredLimitModalShown && !isLoading"
+            severity="critical"
+            :on-close="() => setIsHundredLimitModalShown(false)"
+            :title="limitState.hundredModalTitle"
+            :limit-type="limitState.hundredModalLimitType"
+            :on-upgrade="togglePMModal"
+        />
+        <limit-warning-modal
+            v-if="isEightyLimitModalShown && !isLoading"
+            severity="warning"
+            :on-close="() => setIsEightyLimitModalShown(false)"
+            :title="limitState.eightyModalTitle"
+            :limit-type="limitState.eightyModalLimitType"
             :on-upgrade="togglePMModal"
         />
         <AllModals />
@@ -89,7 +109,6 @@ import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -102,6 +121,8 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
@@ -146,7 +167,8 @@ const debugTimerId = ref<ReturnType<typeof setTimeout> | null>();
 const inactivityModalShown = ref<boolean>(false);
 const isSessionActive = ref<boolean>(false);
 const isSessionRefreshing = ref<boolean>(false);
-const isLimitModalShown = ref<boolean>(false);
+const isHundredLimitModalShown = ref<boolean>(false);
+const isEightyLimitModalShown = ref<boolean>(false);
 const debugTimerText = ref<string>('');
 
 const dashboardContent = ref<HTMLElement | null>(null);
@@ -161,41 +183,61 @@ const isAccountFrozen = computed((): boolean => {
 /**
  * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
  */
-const limitState = computed((): { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string } => {
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { isShown: false };
+const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
+    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
 
-    const EIGHTY_PERCENT = 80;
-    const HUNDRED_PERCENT = 100;
+    const result: 
+    { 
+        eightyIsShown: boolean, 
+        hundredIsShown: boolean, 
+        eightyLabel?: string, 
+        eightyModalTitle?: string, 
+        eightyModalLimitType?: string, 
+        hundredLabel?: string, 
+        hundredModalTitle?: string, 
+        hundredModalLimitType?: string  
+    
+    } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
 
-    const result: { isShown: boolean, severity?: 'info' | 'warning' | 'critical', label?: string, modalTitle?: string  } = { isShown: false, label: '' };
     const { currentLimits } = store.state.projectsModule;
+    
+    const limitTypeArr = [
+        { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
+        { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
+        { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
+    ];
 
-    const bandwidthUsedPercent = Math.round(currentLimits.bandwidthUsed * HUNDRED_PERCENT / currentLimits.bandwidthLimit);
-    const storageUsedPercent = Math.round(currentLimits.storageUsed * HUNDRED_PERCENT / currentLimits.storageLimit);
+    const hundredPercent = [] as string[];
+    const eightyPercent = [] as string[];
 
-    const isLimitHigh = bandwidthUsedPercent >= EIGHTY_PERCENT || storageUsedPercent >= EIGHTY_PERCENT;
-    const isLimitCritical = bandwidthUsedPercent === HUNDRED_PERCENT || storageUsedPercent === HUNDRED_PERCENT;
+    limitTypeArr.forEach((limitType) => {
+        if (limitType.usedPercent >= 80) {
+            if (limitType.usedPercent >= 100) {
+                hundredPercent.push(limitType.name);
+            } else {
+                eightyPercent.push(limitType.name);
+            }
+        } 
+    });
 
-    if (isLimitHigh) {
-        result.isShown = true;
-        result.severity = isLimitCritical ? 'critical' : 'warning';
+    if (eightyPercent.length !== 0) {
+        result.eightyIsShown = true;
 
-        if (bandwidthUsedPercent > storageUsedPercent) {
-            result.label = bandwidthUsedPercent === HUNDRED_PERCENT ?
-                'URGENT: You’ve reached the bandwidth limit for your project. Avoid any service interruptions.'
-                : `You’ve used ${bandwidthUsedPercent}% of your bandwidth limit. Avoid interrupting your usage by upgrading account.`;
-            result.modalTitle = `You’ve used ${bandwidthUsedPercent}% of your free account bandwidth`;
-        } else if (bandwidthUsedPercent < storageUsedPercent) {
-            result.label = storageUsedPercent === HUNDRED_PERCENT ?
-                'URGENT: You’ve reached the storage limit for your project. Avoid any service interruptions.'
-                : `You’ve used ${storageUsedPercent}% of your storage limit. Avoid interrupting your usage by upgrading account.`;
-            result.modalTitle = `You’ve used ${storageUsedPercent}% of your free account storage`;
-        } else {
-            result.label = storageUsedPercent === HUNDRED_PERCENT && bandwidthUsedPercent === HUNDRED_PERCENT ?
-                'URGENT: You’ve reached the storage and bandwidth limits for your project. Avoid any service interruptions.'
-                : `You’ve used ${storageUsedPercent}% of your storage and ${bandwidthUsedPercent}% of bandwidth limit. Avoid interrupting your usage by upgrading account.`;
-            result.modalTitle = `You’ve used ${storageUsedPercent}% storage and ${bandwidthUsedPercent}%  of your free account bandwidth`;
-        }
+        const eightyPercentString = eightyPercent.join(' and ');
+
+        result.eightyLabel = `You've used 80% of your ${eightyPercentString} limit. Avoid interrupting your usage by upgrading your account.`;
+        result.eightyModalTitle = `80% ${eightyPercentString} limit used`;
+        result.eightyModalLimitType = eightyPercentString;
+    }
+
+    if (hundredPercent.length !== 0) {
+        result.hundredIsShown = true;
+
+        const hundredPercentString = hundredPercent.join(' and ');
+
+        result.hundredLabel = `URGENT: You’ve reached the ${hundredPercentString} limit for your project. Upgrade to avoid any service interruptions.`;
+        result.hundredModalTitle = `URGENT: You’ve reached the ${hundredPercentString} limit for your project.`;
+        result.hundredModalLimitType = hundredPercentString;
     }
 
     return result;
@@ -468,15 +510,19 @@ async function handleInactive(): Promise<void> {
     }
 }
 
-function setIsLimitModalShown(value: boolean): void {
-    isLimitModalShown.value = value;
+function setIsEightyLimitModalShown(value: boolean): void {
+    isEightyLimitModalShown.value = value;
+}
+
+function setIsHundredLimitModalShown(value: boolean): void {
+    isHundredLimitModalShown.value = value;
 }
 
 /**
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
 }
 
 /**
@@ -495,8 +541,9 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Opens add payment method modal.
  */
 function togglePMModal(): void {
-    isLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    isHundredLimitModalShown.value = false;
+    isEightyLimitModalShown.value = false;
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
 }
 
 /**

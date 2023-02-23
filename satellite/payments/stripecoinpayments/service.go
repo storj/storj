@@ -32,12 +32,6 @@ var (
 	// Error defines stripecoinpayments service error.
 	Error = errs.Class("stripecoinpayments service")
 
-	// ErrInvalidCoupon defines invalid coupon code error.
-	ErrInvalidCoupon = errs.Class("invalid coupon code")
-
-	// ErrCouponConflict occurs when attempting to replace a protected coupon.
-	ErrCouponConflict = errs.Class("coupon conflict")
-
 	mon = monkit.Package()
 )
 

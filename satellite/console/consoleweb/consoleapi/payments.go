@@ -18,8 +18,8 @@ import (
 
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
 var (
@@ -174,7 +174,7 @@ func (p *Payments) AddCreditCard(w http.ResponseWriter, r *http.Request) {
 
 	token := string(bodyBytes)
 
-	err = p.service.Payments().AddCreditCard(ctx, token)
+	_, err = p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -325,9 +325,9 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if stripecoinpayments.ErrInvalidCoupon.Has(err) {
+		if payments.ErrInvalidCoupon.Has(err) {
 			status = http.StatusBadRequest
-		} else if stripecoinpayments.ErrCouponConflict.Has(err) {
+		} else if payments.ErrCouponConflict.Has(err) {
 			status = http.StatusConflict
 		}
 		p.serveJSONError(w, status, err)

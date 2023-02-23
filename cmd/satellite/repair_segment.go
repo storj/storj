@@ -382,7 +382,7 @@ func downloadSegment(ctx context.Context, log *zap.Logger, peer *satellite.Repai
 	}
 
 	esScheme := eestream.NewUnsafeRSScheme(fec, redundancy.ErasureShareSize())
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	pieceSize := segment.PieceSize()
 	expectedSize := pieceSize * int64(redundancy.RequiredCount())
 
 	ctx, cancel := context.WithCancel(ctx)

@@ -87,10 +87,12 @@ import { computed, onMounted } from 'vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -120,35 +122,35 @@ const avatarLetter = computed((): string => {
  * Toggles enable MFA modal visibility.
  */
 function toggleEnableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_ENABLE_MFA_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
 }
 
 /**
  * Toggles disable MFA modal visibility.
  */
 function toggleDisableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
 }
 
 /**
  * Toggles MFA recovery codes modal visibility.
  */
 function toggleMFACodesModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MFA_RECOVERY_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
 }
 
 /**
  * Opens change password popup.
  */
 function toggleChangePasswordModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
 }
 
 /**
  * Opens edit account info modal.
  */
 function toggleEditProfileModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editProfile);
 }
 
 /**
