@@ -3045,12 +3045,7 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payments.ProjectUsagePriceModel, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := GetUser(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
+	model := payment.service.accounts.GetProjectUsagePriceModel()
 	return &model, nil
 }
 
