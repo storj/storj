@@ -1,0 +1,110 @@
+// --- bucket accounting tables --- //
+
+model bucket_bandwidth_rollup (
+	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_action_interval_project_id_index
+		fields action interval_start project_id
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select bucket_bandwidth_rollup
+    where bucket_bandwidth_rollup.interval_start >= ?
+)
+
+model bucket_bandwidth_rollup_archive (
+	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_archive_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_archive_action_interval_project_id_index
+		fields action interval_start project_id
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select bucket_bandwidth_rollup_archive
+    where bucket_bandwidth_rollup_archive.interval_start >= ?
+)
+
+model project_bandwidth_daily_rollup (
+	key    project_id interval_day
+	index (
+		name project_bandwidth_daily_rollup_interval_day_index
+		fields interval_day
+	)
+
+	field project_id       blob
+	field interval_day     date
+	field egress_allocated uint64 ( updatable )
+	field egress_settled   uint64 ( updatable )
+	field egress_dead      uint64 ( updatable, default 0 )
+)
+
+model bucket_storage_tally (
+	key    bucket_name project_id interval_start
+
+	index (
+		name bucket_storage_tallies_project_id_interval_start_index
+		fields project_id interval_start
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+
+	field total_bytes uint64 ( default 0)
+	field inline uint64
+	field remote uint64
+
+	field total_segments_count     uint ( default 0)
+	field remote_segments_count    uint
+	field inline_segments_count    uint
+	field object_count             uint
+
+	field metadata_size      uint64
+)
+
+read all (
+    select bucket_storage_tally
+    orderby desc bucket_storage_tally.interval_start
+)
+
+read all (
+    select bucket_storage_tally
+    where bucket_storage_tally.project_id = ?
+    where bucket_storage_tally.bucket_name = ?
+    where bucket_storage_tally.interval_start >= ?
+    where bucket_storage_tally.interval_start <= ?
+    orderby desc bucket_storage_tally.interval_start
+)
