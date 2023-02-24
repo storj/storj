@@ -47,6 +47,7 @@ import SuccessScreen from '@/components/onboardingTour/steps/cliFlow/SuccessScre
 import AGName from '@/components/onboardingTour/steps/cliFlow/AGName.vue';
 import AGPermissions from '@/components/onboardingTour/steps/cliFlow/AGPermissions.vue';
 import BucketDetails from '@/components/objects/BucketDetails.vue';
+import NewSettingsArea from '@/components/account/NewSettingsArea.vue';
 
 const ActivateAccount = () => import('@/views/ActivateAccount.vue');
 const AuthorizeArea = () => import('@/views/AuthorizeArea.vue');
@@ -436,7 +437,7 @@ export const router = new Router({
                         {
                             path: RouteConfig.Settings2.path,
                             name: RouteConfig.Settings2.name,
-                            component: SettingsArea,
+                            component: NewSettingsArea,
                         },
                         {
                             path: RouteConfig.Billing2.path,
