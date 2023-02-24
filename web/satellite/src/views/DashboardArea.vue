@@ -69,13 +69,6 @@
         <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
             <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
         </div>
-        <InactivityModal
-            v-if="inactivityModalShown"
-            :on-continue="refreshSession"
-            :on-logout="handleInactive"
-            :on-close="closeInactivityModal"
-            :initial-seconds="inactivityModalTime / 1000"
-        />
         <limit-warning-modal
             v-if="isHundredLimitModalShown && !isLoading"
             severity="critical"
@@ -93,6 +86,14 @@
             :on-upgrade="togglePMModal"
         />
         <AllModals />
+        <!-- IMPORTANT! Make sure this modal is positioned as the last element here so that it is shown on top of everything else -->
+        <InactivityModal
+            v-if="inactivityModalShown"
+            :on-continue="refreshSession"
+            :on-logout="handleInactive"
+            :on-close="closeInactivityModal"
+            :initial-seconds="inactivityModalTime / 1000"
+        />
     </div>
 </template>
 
@@ -186,21 +187,21 @@ const isAccountFrozen = computed((): boolean => {
 const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
     if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
 
-    const result: 
-    { 
-        eightyIsShown: boolean, 
-        hundredIsShown: boolean, 
-        eightyLabel?: string, 
-        eightyModalTitle?: string, 
-        eightyModalLimitType?: string, 
-        hundredLabel?: string, 
-        hundredModalTitle?: string, 
-        hundredModalLimitType?: string  
-    
+    const result:
+    {
+        eightyIsShown: boolean,
+        hundredIsShown: boolean,
+        eightyLabel?: string,
+        eightyModalTitle?: string,
+        eightyModalLimitType?: string,
+        hundredLabel?: string,
+        hundredModalTitle?: string,
+        hundredModalLimitType?: string
+
     } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
 
     const { currentLimits } = store.state.projectsModule;
-    
+
     const limitTypeArr = [
         { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
         { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
@@ -217,7 +218,7 @@ const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolea
             } else {
                 eightyPercent.push(limitType.name);
             }
-        } 
+        }
     });
 
     if (eightyPercent.length !== 0) {
