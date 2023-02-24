@@ -114,10 +114,10 @@ const endDate = computed((): string => {
 
     let date: Date;
 
-    if (coupon.value.duration == CouponDuration.Once) {
+    if (coupon.value.duration === CouponDuration.Once) {
         // Last day of billing period is last day of the month
         date = new Date(coupon.value.addedAt.getFullYear(), coupon.value.addedAt.getMonth() + 1, 0);
-    } else if (coupon.value.duration == CouponDuration.Repeating && coupon.value.expiresAt) {
+    } else if (coupon.value.duration === CouponDuration.Repeating && coupon.value.expiresAt) {
         date = coupon.value.expiresAt;
     } else {
         return '';

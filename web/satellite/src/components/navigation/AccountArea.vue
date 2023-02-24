@@ -200,7 +200,7 @@ export default class AccountArea extends Vue {
      * Indicates if account dropdown is visible.
      */
     public get isDropdown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.ACCOUNT;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
     }
 
     /**

@@ -158,7 +158,7 @@ const inactivityModalTime = 60000;
 const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
 const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
 const sessionRefreshInterval: number = sessionDuration / 2;
-const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') == 'true';
+const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
@@ -345,7 +345,7 @@ function storeProject(projectID: string): void {
  */
 function clearSessionTimers(): void {
     [inactivityTimerId.value, sessionRefreshTimerId.value, debugTimerId.value].forEach(id => {
-        if (id != null) clearTimeout(id);
+        if (id !== null) clearTimeout(id);
     });
 }
 
@@ -596,7 +596,7 @@ onMounted(async () => {
         store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
     } else {
         const unsub = store.subscribe((action) => {
-            if (action.type == APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
                 LocalData.setBillingNotificationAcknowledged();
                 unsub();
             }
@@ -610,7 +610,7 @@ onMounted(async () => {
         setupSessionTimers();
     } catch (error) {
         store.subscribeAction((action) => {
-            if (action.type == USER_ACTIONS.LOGIN) setupSessionTimers();
+            if (action.type === USER_ACTIONS.LOGIN)setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {

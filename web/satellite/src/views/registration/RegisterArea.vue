@@ -602,7 +602,7 @@ export default class RegisterArea extends Vue {
      * Executes when the Terms of Service checkbox has been toggled.
      */
     public onTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
             const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
             checkbox.checked = !checkbox.checked;
@@ -622,7 +622,7 @@ export default class RegisterArea extends Vue {
      * Executes when the beta satellite terms checkbox has been toggled.
      */
     public onBetaTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
             const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
             checkbox.checked = !checkbox.checked;
@@ -761,7 +761,7 @@ export default class RegisterArea extends Vue {
         this.isLoading = true;
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
-        
+
         try {
             await this.auth.register(this.user, this.secret, this.captchaResponseToken);
 
@@ -782,7 +782,7 @@ export default class RegisterArea extends Vue {
         this.$refs.captcha?.reset();
         this.captchaResponseToken = '';
         this.isLoading = false;
-    } 
+    }
 }
 </script>
 

@@ -89,7 +89,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance , ProjectUsageAndCharges } from '@/types/payments';
+import { AccountBalance, ProjectUsageAndCharges } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';

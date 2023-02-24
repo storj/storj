@@ -190,7 +190,7 @@ export default class UploadFile extends Vue {
      * Indicates if upload cancel popup is visible.
      */
     public get isCancelUploadPopupVisible(): boolean {
-        return this.$store.state.appStateModule.appState.activeModal == MODALS.uploadCancelPopup;
+        return this.$store.state.appStateModule.appState.activeModal === MODALS.uploadCancelPopup;
     }
 
     /**

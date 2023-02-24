@@ -8,7 +8,7 @@
  */
 export function decimalShift(decimal: string, places: number): string {
     let sign = '';
-    if (decimal[0] == '-') {
+    if (decimal[0] === '-') {
         sign = '-';
         decimal = decimal.substring(1);
     }

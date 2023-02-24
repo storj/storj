@@ -326,7 +326,7 @@ export default class NewProjectDashboard extends Vue {
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
         const since = new Date(dateRange[0]);
         const before = new Date(dateRange[1]);
-        before.setHours(23,59,59,999);
+        before.setHours(23, 59, 59, 999);
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
@@ -339,7 +339,7 @@ export default class NewProjectDashboard extends Vue {
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown == APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
     }
 
     /**

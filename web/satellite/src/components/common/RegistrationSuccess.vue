@@ -122,7 +122,7 @@ function startResendEmailCountdown(): void {
  */
 async function onResendEmailButtonClick(): Promise<void> {
     const email = userEmail.value;
-    if (secondsToWait.value != 0 || !email) {
+    if (secondsToWait.value !== 0 || !email) {
         return;
     }
 

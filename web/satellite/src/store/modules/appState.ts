@@ -38,7 +38,7 @@ class State {
         public couponCodeSignupUIEnabled = false,
         public isNewProjectDashboard = false,
         public isNewAccessGrantFlow = false,
-    ){}
+    ) {}
 }
 
 interface AppContext {

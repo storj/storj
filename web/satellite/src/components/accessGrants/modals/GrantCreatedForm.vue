@@ -308,7 +308,7 @@ export default class GrantCreated extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private checkedText: Record<string, string[]> = { access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.'] };
+    private checkedText: Record<string, string[]> = { access: ['Access Grant as it', 'information icon to learn more.'], s3: ['S3 credentials as they', 'Learn More button to access the documentation.'], api: ['Satellite Address and API Key as they', 'information icons to learn more.'] };
     public currentDate = new Date().toISOString();
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 

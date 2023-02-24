@@ -70,6 +70,12 @@ module.exports = {
         'semi': ['error', 'always'],
         'keyword-spacing': ['error'],
         'comma-dangle': ['error', 'always-multiline'],
+        'no-trailing-spaces': ['error'],
+        'eqeqeq': ['error'],
+        'comma-spacing': ['error'],
+        'arrow-spacing': ['error'],
+        'space-in-parens': ['error'],
+        'space-before-blocks': ['error'],
 
         'vue/multi-word-component-names': ['off'],
         'vue/max-attributes-per-line': ['off'],

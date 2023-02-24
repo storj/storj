@@ -76,7 +76,7 @@ export default class EncryptionInfoFormModal extends Vue {
         if (this.isDontShow) {
             LocalData.setServerSideEncryptionModalHidden(true);
         }
-        
+
         this.$emit('continue');
     }
 }
