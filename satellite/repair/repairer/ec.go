@@ -121,7 +121,14 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 					return
 				}
 
-				if successfulPieces+inProgress >= es.RequiredCount() {
+				if successfulPieces+inProgress >= es.RequiredCount() && errorCount+inProgress >= minFailures {
+					// we know that inProgress > 0 here, since we didn't return on the
+					// "successfulPieces >= es.RequiredCount() && errorCount >= minFailures" check earlier.
+					// There may be enough downloads in progress to meet all of our needs, so we won't
+					// start any more immediately. Instead, wait until all needs are met (in which case
+					// cond.Broadcast() will be called) or until one of the inProgress workers exits
+					// (in which case cond.Signal() will be called, waking up one waiter) so we can
+					// reevaluate the situation.
 					cond.Wait()
 					continue
 				}
