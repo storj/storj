@@ -9,11 +9,11 @@ require (
 	github.com/zeebo/errs v1.3.0
 	go.uber.org/zap v1.21.0
 	golang.org/x/sync v0.1.0
-	storj.io/common v0.0.0-20230221110830-7591b205266e
+	storj.io/common v0.0.0-20230224050842-81c8060f089b
 	storj.io/private v0.0.0-20230123202745-d3e63b336444
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
-	storj.io/uplink v1.10.1-0.20230217232046-0618502c1396
+	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4
 )
 
 require (
@@ -142,7 +142,7 @@ require (
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v0.0.33-0.20230204035225-c9649dee8f2a // indirect
+	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect
 	storj.io/picobuf v0.0.1 // indirect
 )
