@@ -13,6 +13,7 @@ export class LocalData {
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
     private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
     private static sessionExpirationDate = 'sessionExpirationDate';
+    private static projectLimitBannerHidden = 'projectLimitBannerHidden';
 
     public static getSelectedProjectId(): string | null {
         return localStorage.getItem(LocalData.selectedProjectId);
@@ -103,5 +104,17 @@ export class LocalData {
 
     public static setSessionExpirationDate(date: Date): void {
         localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
+    }
+
+    /**
+     * "Disable" showing the project limit banner.
+     */
+    public static setProjectLimitBannerHidden(): void {
+        localStorage.setItem(LocalData.projectLimitBannerHidden, 'true');
+    }
+
+    public static getProjectLimitBannerHidden(): boolean {
+        const value = localStorage.getItem(LocalData.projectLimitBannerHidden);
+        return value === 'true';
     }
 }

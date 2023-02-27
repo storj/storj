@@ -18,12 +18,17 @@
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <div class="bars">
                             <BetaSatBar v-if="isBetaSatellite" />
-                            <ProjectInfoBar v-if="isProjectListPage" />
                             <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
 
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
+                            />
+
+                            <ProjectLimitBanner
+                                v-if="isProjectLimitBannerShown"
+                                :dashboard-ref="dashboardContent"
+                                :on-upgrade-clicked="togglePMModal"
                             />
 
                             <v-banner
@@ -125,7 +130,6 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
-import ProjectInfoBar from '@/components/infoBars/ProjectInfoBar.vue';
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -136,6 +140,7 @@ import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
+import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -249,6 +254,23 @@ const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolea
  */
 const isNavigationHidden = computed((): boolean => {
     return isOnboardingTour.value || isCreateProjectPage.value;
+});
+
+/* whether the project limit banner should be shown. */
+const isProjectLimitBannerShown = computed((): boolean => {
+    return !LocalData.getProjectLimitBannerHidden()
+        && isProjectListPage.value
+        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+});
+
+/**
+ * Returns whether the user has reached project limits.
+ */
+const hasReachedProjectLimit = computed((): boolean => {
+    const projectLimit: number = store.getters.user.projectLimit;
+    const projectsCount: number = store.getters.projectsCount;
+
+    return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
