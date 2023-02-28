@@ -118,8 +118,9 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
-			Address:   req.Address,
-			NoiseInfo: noiseInfo,
+			Address:       req.Address,
+			NoiseInfo:     noiseInfo,
+			DebounceLimit: req.DebounceLimit,
 		},
 		LastNet:    resolvedNetwork,
 		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
