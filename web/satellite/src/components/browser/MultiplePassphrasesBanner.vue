@@ -56,9 +56,9 @@ const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
  * Returns locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjects = store.getters['files/sortedFiles'];
+    const ownObjectsCount = store.state.files.objectsCount;
 
-    return objectsCount.value - ownObjects.length;
+    return objectsCount.value - ownObjectsCount;
 });
 
 /**

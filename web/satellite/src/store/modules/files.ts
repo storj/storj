@@ -48,6 +48,7 @@ export type FilesState = {
     orderBy: 'asc' | 'desc';
     openModalOnFirstUpload: boolean;
     objectPathForModal: string;
+    objectsCount: number;
 };
 
 type InitializedFilesState = FilesState & {
@@ -110,6 +111,7 @@ export const makeFilesModule = (): FilesModule => ({
         orderBy: 'asc',
         openModalOnFirstUpload: false,
         objectPathForModal: '',
+        objectsCount: 0,
     },
     getters: {
         sortedFiles: (state: FilesState) => {
@@ -286,6 +288,10 @@ export const makeFilesModule = (): FilesModule => ({
             state.objectPathForModal = path;
         },
 
+        setObjectsCount(state: FilesState, count: number) {
+            state.objectsCount = count;
+        },
+
         addUploadToChain(state: FilesState, fn) {
             state.uploadChain = state.uploadChain.then(fn);
         },
@@ -314,7 +320,7 @@ export const makeFilesModule = (): FilesModule => ({
         },
     },
     actions: {
-        async list({ commit, state }, path = state.path) {
+        async list({ commit, state, dispatch }, path = state.path) {
             if (listCache.has(path)) {
                 commit('updateFiles', {
                     path,
@@ -324,13 +330,14 @@ export const makeFilesModule = (): FilesModule => ({
 
             assertIsInitialized(state);
 
-            const response = await state.s3
-                .listObjects({
+            const [response] = await Promise.all([
+                state.s3.listObjects({
                     Bucket: state.bucket,
                     Delimiter: '/',
                     Prefix: path,
-                })
-                .promise();
+                }).promise(),
+                path ? undefined : dispatch('getObjectCount'),
+            ]);
 
             const { Contents, CommonPrefixes } = response;
 
@@ -410,6 +417,18 @@ export const makeFilesModule = (): FilesModule => ({
             };
 
             dispatch('list', getParentDirectory(state.path));
+        },
+
+        async getObjectCount({ commit, state }) {
+            assertIsInitialized(state);
+
+            const responseV2 = await state.s3
+                .listObjectsV2({
+                    Bucket: state.bucket,
+                })
+                .promise();
+
+            commit('setObjectsCount', responseV2.KeyCount === undefined ? 0 : responseV2.KeyCount);
         },
 
         async upload({ commit, state, dispatch }, { e, callback }: { e: DragEvent, callback: () => void }) {

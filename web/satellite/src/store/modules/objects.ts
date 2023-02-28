@@ -25,7 +25,7 @@ export const OBJECTS_ACTIONS = {
     CREATE_BUCKET: 'createBucket',
     CREATE_BUCKET_WITH_NO_PASSPHRASE: 'createBucketWithNoPassphrase',
     DELETE_BUCKET: 'deleteBucket',
-    LIST_OBJECTS: 'listObjects',
+    GET_OBJECTS_COUNT: 'getObjectsCount',
     CHECK_ONGOING_UPLOADS: 'checkOngoingUploads',
 };
 
@@ -302,18 +302,12 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     Bucket: name,
                 }).promise();
             },
-            listObjects: async function(ctx, name: string): Promise<S3.ObjectList> {
-                const response =  await ctx.state.s3Client.listObjects({
+            getObjectsCount: async function(ctx, name: string): Promise<number> {
+                const response =  await ctx.state.s3Client.listObjectsV2({
                     Bucket: name,
-                    Delimiter: '/',
-                    Prefix: '',
                 }).promise();
 
-                if (!response.Contents) {
-                    return [];
-                }
-
-                return response.Contents;
+                return response.KeyCount === undefined ? 0 : response.KeyCount;
             },
             clearObjects: function({ commit }: ObjectsContext): void {
                 commit(CLEAR);

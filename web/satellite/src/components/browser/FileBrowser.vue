@@ -275,9 +275,9 @@ const currentPath = computed((): string => {
  * Return locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjects = store.getters['files/sortedFiles'];
+    const ownObjectsCount = store.state.files.objectsCount;
 
-    return objectsCount.value - ownObjects.length;
+    return objectsCount.value - ownObjectsCount;
 });
 
 /**

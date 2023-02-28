@@ -115,8 +115,8 @@ export default class OpenBucketModal extends Vue {
         try {
             this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
             await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-            const objects = await this.$store.dispatch(OBJECTS_ACTIONS.LIST_OBJECTS, this.bucketName);
-            if (this.bucketObjectCount > objects.length && this.bucketObjectCount <= this.NUMBER_OF_DISPLAYED_OBJECTS) {
+            const count: number = await this.$store.dispatch(OBJECTS_ACTIONS.GET_OBJECTS_COUNT, this.bucketName);
+            if (this.bucketObjectCount > count && this.bucketObjectCount <= this.NUMBER_OF_DISPLAYED_OBJECTS) {
                 this.isWarningState = true;
                 this.isLoading = false;
                 return;
