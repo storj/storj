@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"os"
 
 	"go.uber.org/zap"
 
@@ -60,4 +61,22 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 	}
 
 	return err
+}
+
+// WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
+func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, err error) {
+	err = fw.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
+		pieceTotal, pieceContentSize, err := access.Size(ctx)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		satPiecesTotal += pieceTotal
+		satPiecesContentSize += pieceContentSize
+		return nil
+	})
+
+	return satPiecesTotal, satPiecesContentSize, err
 }

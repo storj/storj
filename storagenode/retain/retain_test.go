@@ -35,7 +35,7 @@ func TestRetainPieces(t *testing.T) {
 		blobs := db.Pieces()
 		v0PieceInfo := db.V0PieceInfo()
 		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
-		store := pieces.NewStore(log, fw, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		store := pieces.NewStore(log, fw, nil, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 100

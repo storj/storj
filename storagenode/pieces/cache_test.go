@@ -113,7 +113,7 @@ func TestCacheInit(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -152,7 +152,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalBySA)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -163,7 +163,7 @@ func TestCacheInit(t *testing.T) {
 		cache = pieces.NewBlobsUsageCacheTest(log, nil, 0, 0, 0, nil)
 		cacheService = pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -227,7 +227,7 @@ func TestCachServiceRun(t *testing.T) {
 		cache := pieces.NewBlobsUsageCache(log, store)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)
@@ -314,7 +314,7 @@ func TestPersistCacheTotals(t *testing.T) {
 		cache := pieces.NewBlobsUsageCacheTest(log, nil, expectedPiecesTotal, expectedPiecesContentSize, expectedTrash, expectedTotalsBySA)
 		cacheService := pieces.NewService(log,
 			cache,
-			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
+			pieces.NewStore(log, pieces.NewFileWalker(log, cache, nil), nil, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
 			true,
 		)

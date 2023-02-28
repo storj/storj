@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/piecetransfer"
@@ -242,18 +243,19 @@ type Peer struct {
 
 	Storage2 struct {
 		// TODO: lift things outside of it to organize better
-		Trust         *trust.Pool
-		Store         *pieces.Store
-		TrashChore    *pieces.TrashChore
-		BlobsCache    *pieces.BlobsUsageCache
-		CacheService  *pieces.CacheService
-		RetainService *retain.Service
-		PieceDeleter  *pieces.Deleter
-		Endpoint      *piecestore.Endpoint
-		Inspector     *inspector.Endpoint
-		Monitor       *monitor.Service
-		Orders        *orders.Service
-		FileWalker    *pieces.FileWalker
+		Trust          *trust.Pool
+		Store          *pieces.Store
+		TrashChore     *pieces.TrashChore
+		BlobsCache     *pieces.BlobsUsageCache
+		CacheService   *pieces.CacheService
+		RetainService  *retain.Service
+		PieceDeleter   *pieces.Deleter
+		Endpoint       *piecestore.Endpoint
+		Inspector      *inspector.Endpoint
+		Monitor        *monitor.Service
+		Orders         *orders.Service
+		FileWalker     *pieces.FileWalker
+		LazyFileWalker *lazyfilewalker.Supervisor
 	}
 
 	Collector *collector.Service
@@ -458,8 +460,27 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.Log.Named("blobscache"), peer.DB.Pieces())
 		peer.Storage2.FileWalker = pieces.NewFileWalker(peer.Log.Named("filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo())
 
+		if config.Pieces.EnableLazyFilewalker {
+			executable, err := os.Executable()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			dbCfg := config.DatabaseConfig()
+			lazyfilewalkerCfg := lazyfilewalker.Config{
+				Storage:   dbCfg.Storage,
+				Info:      dbCfg.Info,
+				Info2:     dbCfg.Info2,
+				Pieces:    dbCfg.Pieces,
+				Filestore: dbCfg.Filestore,
+				Driver:    dbCfg.Driver,
+			}
+			peer.Storage2.LazyFileWalker = lazyfilewalker.NewSupervisor(peer.Log.Named("lazyfilewalker"), executable, lazyfilewalkerCfg.Args())
+		}
+
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
 			peer.Storage2.FileWalker,
+			peer.Storage2.LazyFileWalker,
 			peer.Storage2.BlobsCache,
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),

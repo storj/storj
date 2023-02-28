@@ -19,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 )
 
 var (
@@ -157,6 +158,9 @@ type SatelliteUsage struct {
 type Config struct {
 	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
 	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
+	// TODO(clement): default is set to false for now.
+	//  I will test and monitor on my node for some time before changing the default to true.
+	EnableLazyFilewalker bool `help:"run garbage collection and used-space calculation filewalkers as a separate subprocess with lower IO priority" releaseDefault:"false" devDefault:"true" testDefault:"false"`
 }
 
 // DefaultConfig is the default value for the Config.
@@ -176,7 +180,8 @@ type Store struct {
 	spaceUsedDB    PieceSpaceUsedDB
 	v0PieceInfo    V0PieceInfoDB
 
-	Filewalker *FileWalker
+	Filewalker     *FileWalker
+	lazyFilewalker *lazyfilewalker.Supervisor
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
@@ -186,7 +191,7 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store.
-func NewStore(log *zap.Logger, fw *FileWalker, blobs blobstore.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, spaceUsedDB PieceSpaceUsedDB, config Config) *Store {
+func NewStore(log *zap.Logger, fw *FileWalker, lazyFilewalker *lazyfilewalker.Supervisor, blobs blobstore.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, spaceUsedDB PieceSpaceUsedDB, config Config) *Store {
 	return &Store{
 		log:            log,
 		config:         config,
@@ -195,6 +200,7 @@ func NewStore(log *zap.Logger, fw *FileWalker, blobs blobstore.Blobs, v0PieceInf
 		spaceUsedDB:    spaceUsedDB,
 		v0PieceInfo:    v0PieceInfo,
 		Filewalker:     fw,
+		lazyFilewalker: lazyFilewalker,
 	}
 }
 
@@ -676,18 +682,20 @@ func (store *Store) SpaceUsedTotalAndBySatellite(ctx context.Context) (piecesTot
 		var satPiecesTotal int64
 		var satPiecesContentSize int64
 
-		err := store.WalkSatellitePieces(ctx, satelliteID, func(access StoredPieceAccess) error {
-			pieceTotal, pieceContentSize, err := access.Size(ctx)
+		failover := true
+		if store.config.EnableLazyFilewalker && store.lazyFilewalker != nil {
+			satPiecesTotal, satPiecesContentSize, err = store.lazyFilewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
 			if err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
-				return err
+				store.log.Error("failed to lazywalk space used by satellite", zap.Error(err), zap.Stringer("Satellite ID", satelliteID))
+			} else {
+				failover = false
 			}
-			satPiecesTotal += pieceTotal
-			satPiecesContentSize += pieceContentSize
-			return nil
-		})
+		}
+
+		if failover {
+			satPiecesTotal, satPiecesContentSize, err = store.Filewalker.WalkAndComputeSpaceUsedBySatellite(ctx, satelliteID)
+		}
+
 		if err != nil {
 			group.Add(err)
 		}
