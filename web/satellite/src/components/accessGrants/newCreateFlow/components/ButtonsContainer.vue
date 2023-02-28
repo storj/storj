@@ -3,16 +3,39 @@
 
 <template>
     <div class="buttons">
-        <slot name="leftButton" />
-        <slot name="rightButton" />
+        <p v-if="label" class="buttons__label">{{ label }}</p>
+        <div class="buttons__row">
+            <slot name="leftButton" />
+            <slot name="rightButton" />
+        </div>
     </div>
 </template>
 
+<script setup lang="ts">
+const props = withDefaults(defineProps<{
+    label?: string;
+}>(), {
+    label: '',
+});
+</script>
+
 <style scoped lang="scss">
 .buttons {
-    display: flex;
-    align-items: center;
-    column-gap: 16px;
-    margin-top: 24px;
+    margin-top: 16px;
+
+    &__label {
+        font-family: 'font_bold', sans-serif;
+        font-size: 14px;
+        line-height: 20px;
+        color: var(--c-grey-6);
+        text-align: left;
+        margin-bottom: 16px;
+    }
+
+    &__row {
+        align-items: center;
+        column-gap: 16px;
+        display: flex;
+    }
 }
 </style>

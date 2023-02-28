@@ -203,6 +203,33 @@ func TestUserUpdate(t *testing.T) {
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectStorageLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectBandwidthLimit)
 			require.Equal(t, newUsageLimit, updatedUserStatusAndUsageLimits.ProjectSegmentLimit)
+
+			// Update user limits and project limits (current and existing projects for a user).
+			link = "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
+			newStorageLimit := int64(15000)
+			newBandwidthLimit := int64(25000)
+			newSegmentLimit := int64(35000)
+			body2 := fmt.Sprintf(`{"projectStorageLimit":%d, "projectBandwidthLimit":%d, "projectSegmentLimit":%d}`, newStorageLimit, newBandwidthLimit, newSegmentLimit)
+			responseBody = assertReq(ctx, t, link, http.MethodPut, body2, http.StatusOK, "", planet.Satellites[0].Config.Console.AuthToken)
+			require.Len(t, responseBody, 0)
+
+			// Get user limits returns new updated limits
+			link2 := "http://" + address.String() + "/api/users/alice+2@mail.test/limits"
+			expectedBody := `{` +
+				fmt.Sprintf(`"storage":%d,"bandwidth":%d,"maxSegments":%d}`, newStorageLimit, newBandwidthLimit, newSegmentLimit)
+			assertReq(ctx, t, link2, http.MethodGet, "", http.StatusOK, expectedBody, planet.Satellites[0].Config.Console.AuthToken)
+
+			userUpdatedLimits, err := planet.Satellites[0].DB.Console().Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, newStorageLimit, userUpdatedLimits.ProjectStorageLimit)
+			require.Equal(t, newBandwidthLimit, userUpdatedLimits.ProjectBandwidthLimit)
+			require.Equal(t, newSegmentLimit, userUpdatedLimits.ProjectSegmentLimit)
+
+			projectUpdatedLimits, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+			require.NoError(t, err)
+			require.Equal(t, newStorageLimit, projectUpdatedLimits.StorageLimit.Int64())
+			require.Equal(t, newBandwidthLimit, projectUpdatedLimits.BandwidthLimit.Int64())
+			require.Equal(t, newSegmentLimit, *projectUpdatedLimits.SegmentLimit)
 		})
 
 		t.Run("Not found", func(t *testing.T) {

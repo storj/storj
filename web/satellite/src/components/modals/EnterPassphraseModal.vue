@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal :on-close="closeModal">
+    <VModal :on-close="() => closeModal(true)">
         <template #content>
             <div class="modal">
                 <EnterPassphraseIcon />
@@ -25,7 +25,7 @@
                         height="48px"
                         font-size="14px"
                         :is-transparent="true"
-                        :on-press="closeModal"
+                        :on-press="() => closeModal()"
                         :is-disabled="isLoading"
                     />
                     <VButton
@@ -52,6 +52,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { RouteConfig } from '@/router';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -161,7 +162,8 @@ export default class EnterPassphraseModal extends Vue {
         const gatewayCredentials: EdgeCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-        await this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
+        this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
     }
 
     /**
@@ -175,12 +177,17 @@ export default class EnterPassphraseModal extends Vue {
     }
 
     /**
-     * Closes open bucket modal.
+     * Closes enter passphrase modal and navigates to single project dashboard from
+     * all projects dashboard.
      */
-    public closeModal(): void {
+    public closeModal(isCloseButton = false): void {
         if (this.isLoading) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ENTER_PASSPHRASE_MODAL_SHOWN);
+        if (!isCloseButton && this.$route.name === RouteConfig.AllProjectsDashboard.name) {
+            this.$router.push(RouteConfig.ProjectDashboard.path);
+        }
+
+        this.$store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
     }
 
     /**

@@ -16,6 +16,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
@@ -820,7 +821,7 @@ func TestMaxReverifyCount(t *testing.T) {
 		})
 
 		// give node enough timeouts to reach max
-		for i := 0; i < satellite.Config.Audit.MaxReverifyCount-1; i++ {
+		for i := 0; i < satellite.Config.Audit.MaxReverifyCount; i++ {
 			// run the reverify worker; each loop should complete once there are
 			// no more reverifications to do in the queue
 			audits.ReverifyWorker.Loop.TriggerWait()
@@ -842,5 +843,158 @@ func TestMaxReverifyCount(t *testing.T) {
 		newRep, err := satellite.Reputation.Service.Get(ctx, slowNode)
 		require.NoError(t, err)
 		require.Less(t, oldRep.AuditReputationBeta, newRep.AuditReputationBeta)
+	})
+}
+
+func TestTimeDelayBeforeReverifies(t *testing.T) {
+	const (
+		auditTimeout     = time.Second
+		reverifyInterval = time.Second / 4
+	)
+	testWithChoreAndObserver(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
+					config.Audit.MinBytesPerSecond = 100 * memory.KiB
+					config.Audit.MinDownloadTimeout = auditTimeout
+					// disable reputation write cache so changes are immediate
+					config.Reputation.FlushInterval = 0
+				},
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		pauseQueueing(satellite)
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
+		queueSegment, err := queue.Next(ctx)
+		require.NoError(t, err)
+
+		segment, err := satellite.Metabase.DB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		slowPiece := segment.Pieces[0]
+		slowNode := planet.FindNode(slowPiece.StorageNode)
+		slowNode.DB.(*testblobs.SlowDB).SetLatency(10 * auditTimeout)
+
+		report, err := audits.Verifier.Verify(ctx, audit.Segment{
+			StreamID: segment.StreamID,
+			Position: segment.Position,
+		}, nil)
+		require.NoError(t, err)
+
+		approximateQueueTime := time.Now()
+		audits.Reporter.RecordAudits(ctx, report)
+		node, err := satellite.Overlay.DB.Get(ctx, slowNode.ID())
+		require.NoError(t, err)
+		require.True(t, node.Contained)
+		pendingJob, err := satellite.DB.Containment().Get(ctx, slowNode.ID())
+		require.NoError(t, err)
+		require.NotNil(t, pendingJob)
+		dbQueueTime := pendingJob.InsertedAt // note this is not necessarily comparable with times from time.Now()
+
+		reverifyQueue := satellite.Audit.ReverifyQueue
+
+		// To demonstrate that a Reverify won't happen until reverifyInterval has elapsed, we will
+		// call reverifyQueue.GetNextJob up to 10 times, evenly spaced within reverifyInterval,
+		// asserting that the reverification job is still there, unchanged, and that the node
+		// is still contained, until after reverifyInterval.
+		//
+		// Yes, this is unfortunately dependent on the system clock and on sleep()s. But I've tried
+		// to make it as independent of actual timing as I can.
+		const (
+			numCallsTarget = 10
+			callInterval   = reverifyInterval / numCallsTarget
+		)
+
+		for {
+			// reverify queue won't let us get the job yet
+			nextJob, err := reverifyQueue.GetNextJob(ctx, reverifyInterval)
+			if err == nil {
+				// unless reverifyInterval has elapsed
+				if time.Since(approximateQueueTime) >= reverifyInterval {
+					// in which case, it's good to get this
+					require.Equal(t, slowNode.ID(), nextJob.Locator.NodeID)
+					require.True(t, dbQueueTime.Equal(nextJob.InsertedAt), nextJob)
+					break
+				}
+				require.Failf(t, "Got no error", "only %s has elapsed. nextJob=%+v", time.Since(approximateQueueTime), nextJob)
+			}
+			require.Error(t, err)
+			require.True(t, audit.ErrEmptyQueue.Has(err), err)
+			require.Nil(t, nextJob)
+
+			// reverification job is still in the queue, though
+			pendingJob, err := reverifyQueue.GetByNodeID(ctx, slowNode.ID())
+			require.NoError(t, err)
+			require.Equal(t, slowNode.ID(), pendingJob.Locator.NodeID)
+			require.True(t, dbQueueTime.Equal(pendingJob.InsertedAt), pendingJob)
+
+			// and the node is still contained
+			node, err := satellite.Overlay.DB.Get(ctx, slowNode.ID())
+			require.NoError(t, err)
+			require.True(t, node.Contained)
+
+			// wait a bit
+			sync2.Sleep(ctx, callInterval)
+			require.NoError(t, ctx.Err())
+		}
+
+		// Now we need to demonstrate that a second Reverify won't happen until reverifyInterval
+		// has elapsed again. This code will be largely the same as the first time around.
+
+		for {
+			// reverify queue won't let us get the job yet
+			nextJob, err := reverifyQueue.GetNextJob(ctx, reverifyInterval)
+			if err == nil {
+				// unless 2*reverifyInterval has elapsed
+				if time.Since(approximateQueueTime) >= 2*reverifyInterval {
+					// in which case, it's good to get this
+					require.Equal(t, slowNode.ID(), nextJob.Locator.NodeID)
+					require.True(t, dbQueueTime.Equal(nextJob.InsertedAt), nextJob)
+					break
+				}
+			}
+			require.Error(t, err)
+			require.True(t, audit.ErrEmptyQueue.Has(err), err)
+			require.Nil(t, nextJob)
+
+			// reverification job is still in the queue, though
+			pendingJob, err := reverifyQueue.GetByNodeID(ctx, slowNode.ID())
+			require.NoError(t, err)
+			require.Equal(t, slowNode.ID(), pendingJob.Locator.NodeID)
+			require.True(t, dbQueueTime.Equal(pendingJob.InsertedAt), pendingJob)
+			require.True(t, pendingJob.LastAttempt.After(dbQueueTime), pendingJob)
+
+			// and the node is still contained
+			node, err := satellite.Overlay.DB.Get(ctx, slowNode.ID())
+			require.NoError(t, err)
+			require.True(t, node.Contained)
+
+			// wait a bit
+			sync2.Sleep(ctx, callInterval)
+			require.NoError(t, ctx.Err())
+		}
 	})
 }

@@ -1440,6 +1440,7 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 		numConcurrentAudits = 10
 		minPieces           = 5
 		slowNodes           = minPieces / 2
+		retryInterval       = 5 * time.Minute
 	)
 
 	testWithChoreAndObserver(t, testplanet.Config{
@@ -1508,6 +1509,11 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 		err = group.Wait()
 		require.NoError(t, err)
 
+		rq := audits.ReverifyQueue.(interface {
+			audit.ReverifyQueue
+			TestingFudgeUpdateTime(ctx context.Context, pendingAudit *audit.PieceLocator, updateTime time.Time) error
+		})
+
 		for _, report := range reports {
 			require.Len(t, report.Fails, 0)
 			require.Len(t, report.Unknown, 0)
@@ -1517,14 +1523,19 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 
 			// apply the audit results, as the audit worker would have done
 			audits.Reporter.RecordAudits(ctx, report)
+
+			// fudge the insert time backward by retryInterval so the jobs will be available to GetNextJob
+			for _, pending := range report.PendingAudits {
+				err := rq.TestingFudgeUpdateTime(ctx, &pending.Locator, time.Now().Add(-retryInterval))
+				require.NoError(t, err)
+			}
 		}
 
 		// the slow nodes should have been added to the reverify queue multiple times;
 		// once for each timed-out piece fetch
 		queuedReverifies := make([]*audit.ReverificationJob, 0, numConcurrentAudits*slowNodes)
-		dummyRetryInterval := 5 * time.Minute
 		for {
-			job, err := audits.ReverifyQueue.GetNextJob(ctx, dummyRetryInterval)
+			job, err := audits.ReverifyQueue.GetNextJob(ctx, retryInterval)
 			if err != nil {
 				if audit.ErrEmptyQueue.Has(err) {
 					break

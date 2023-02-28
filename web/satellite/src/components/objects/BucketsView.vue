@@ -27,6 +27,8 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
@@ -81,7 +83,7 @@ export default class BucketsView extends Vue {
             }
 
             if (!this.bucketsPage.buckets.length && !wasDemoBucketCreated && !this.promptForPassphrase) {
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
             }
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
@@ -102,10 +104,17 @@ export default class BucketsView extends Vue {
     }
 
     /**
+     * Toggles create project passphrase modal visibility.
+     */
+    public onSetClick(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    }
+
+    /**
      * Toggles create bucket modal visibility.
      */
     public onCreateBucketClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
     }
 
     /**

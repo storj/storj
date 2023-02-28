@@ -156,6 +156,8 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             limits.storageUsed,
             limits.objectCount,
             limits.segmentCount,
+            limits.segmentLimit,
+            limits.segmentUsed,
         );
 
     }

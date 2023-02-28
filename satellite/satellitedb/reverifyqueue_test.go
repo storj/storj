@@ -40,6 +40,9 @@ const (
 func TestReverifyQueue(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		reverifyQueue := db.ReverifyQueue()
+		reverifyQueueTest := reverifyQueue.(interface {
+			TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error
+		})
 
 		locator1 := randomLocator()
 		locator2 := randomLocator()
@@ -56,6 +59,13 @@ func TestReverifyQueue(t *testing.T) {
 
 		checkGetAllContainedNodes(ctx, t, reverifyQueue, locator1.NodeID, locator2.NodeID)
 
+		// pretend that retryInterval has elapsed for both jobs
+		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-retryInterval))
+		require.NoError(t, err)
+		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator2, time.Now().Add(-retryInterval))
+		require.NoError(t, err)
+
+		// fetch both jobs from the queue and expect the right contents
 		job1, err := reverifyQueue.GetNextJob(ctx, retryInterval)
 		require.NoError(t, err)
 		require.Equal(t, *locator1, job1.Locator)
@@ -74,9 +84,6 @@ func TestReverifyQueue(t *testing.T) {
 		require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 
 		// pretend that ReverifyRetryInterval has elapsed
-		reverifyQueueTest := reverifyQueue.(interface {
-			TestingFudgeUpdateTime(ctx context.Context, piece *audit.PieceLocator, updateTime time.Time) error
-		})
 		err = reverifyQueueTest.TestingFudgeUpdateTime(ctx, locator1, time.Now().Add(-retryInterval))
 		require.NoError(t, err)
 

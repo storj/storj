@@ -97,6 +97,7 @@ import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
@@ -157,14 +158,14 @@ export default class BillingArea extends Vue {
      * Indicates if free credits dropdown shown.
      */
     public get isCreditsDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isFreeCreditsDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
     }
 
     /**
      * Indicates if available balance dropdown shown.
      */
     public get isBalanceDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isAvailableBalanceDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
     }
 
     /**
@@ -222,7 +223,7 @@ export default class BillingArea extends Vue {
      * Toggles available balance dropdown visibility.
      */
     public toggleBalanceDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AVAILABLE_BALANCE);
     }
 
     /**
@@ -231,7 +232,7 @@ export default class BillingArea extends Vue {
     public closeDropdown(): void {
         if (!this.isCreditsDropdownShown && !this.isBalanceDropdownShown) return;
 
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
     }
 
     /**

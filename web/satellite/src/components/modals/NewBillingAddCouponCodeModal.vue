@@ -19,6 +19,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import NewBillingAddCouponCodeInput from '@/components/common/NewBillingAddCouponCodeInput.vue';
@@ -42,7 +44,7 @@ export default class NewBillingAddCouponCodeModal extends Vue {
     */
     public onCloseClick(): void {
         this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_NEW_BILLING_ADD_COUPON_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
     }
 }
 </script>

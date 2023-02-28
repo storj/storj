@@ -380,10 +380,10 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == 'mfa_required') {
+            if (result.code === 'mfa_required') {
                 throw new ErrorMFARequired();
             }
-            if (result.code == 'token_expired') {
+            if (result.code === 'token_expired') {
                 throw new ErrorTokenExpired();
             }
             if (result.error) {

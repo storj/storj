@@ -27,6 +27,8 @@ import { RouteConfig } from '@/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
@@ -93,7 +95,7 @@ export default class BucketDetails extends Vue {
             return;
         }
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
     }
 
     /**

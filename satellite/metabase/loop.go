@@ -206,6 +206,7 @@ type LoopSegmentEntry struct {
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	PlainOffset   int64 // verify
 	PlainSize     int32 // verify
+	AliasPieces   AliasPieces
 	Redundancy    storj.RedundancyScheme
 	Pieces        Pieces
 	Placement     storj.PlacementConstraint
@@ -387,7 +388,6 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 
 // scanItem scans doNextQuery results into LoopSegmentEntry.
 func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
-	var aliasPieces AliasPieces
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
 		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
@@ -395,14 +395,14 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 		&item.EncryptedSize,
 		&item.PlainOffset, &item.PlainSize,
 		redundancyScheme{&item.Redundancy},
-		&aliasPieces,
+		&item.AliasPieces,
 		&item.Placement,
 	)
 	if err != nil {
 		return Error.New("failed to scan segments: %w", err)
 	}
 
-	item.Pieces, err = it.db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	item.Pieces, err = it.db.aliasCache.ConvertAliasesToPieces(ctx, item.AliasPieces)
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
 	}

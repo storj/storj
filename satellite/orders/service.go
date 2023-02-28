@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
 )
 
 var (
@@ -129,11 +128,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, desiredNodes int32, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-	orderLimit := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	orderLimit := segment.PieceSize()
 	if overrideLimit > 0 && overrideLimit < orderLimit {
 		orderLimit = overrideLimit
 	}
@@ -176,9 +171,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 			break
 		}
 	}
-	if len(signer.AddressedLimits) < redundancy.RequiredCount() {
+	if len(signer.AddressedLimits) < int(segment.Redundancy.RequiredShares) {
 		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //mon:locked
-		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), segment.Redundancy.RequiredShares)
 	}
 
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
@@ -404,13 +399,8 @@ func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nod
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
-
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
-	totalPieces := redundancy.TotalCount()
+	pieceSize := segment.PieceSize()
+	totalPieces := segment.Redundancy.TotalShares
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
 	for i, piece := range segment.Pieces {
@@ -450,8 +440,8 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		limitsCount++
 	}
 
-	if limitsCount < redundancy.RequiredCount() {
-		err = ErrDownloadFailedNotEnoughPieces.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.RequiredCount())
+	if limitsCount < int(segment.Redundancy.RequiredShares) {
+		err = ErrDownloadFailedNotEnoughPieces.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 
@@ -463,14 +453,10 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	pieceSize := segment.PieceSize()
 
-	totalPieces := redundancy.TotalCount()
-	totalPiecesAfterRepair := int(math.Ceil(float64(redundancy.OptimalThreshold())*optimalThresholdMultiplier)) + numPiecesInExcludedCountries
+	totalPieces := int(segment.Redundancy.TotalShares)
+	totalPiecesAfterRepair := int(math.Ceil(float64(segment.Redundancy.OptimalShares)*optimalThresholdMultiplier)) + numPiecesInExcludedCountries
 
 	if totalPiecesAfterRepair > totalPieces {
 		totalPiecesAfterRepair = totalPieces

@@ -22,7 +22,7 @@
                 <div class="forgot-area__content-area__container__title-area">
                     <h1 class="forgot-area__content-area__container__title-area__title">Reset Password</h1>
                     <div class="forgot-area__expand" @click.stop="toggleDropdown">
-                        <button 
+                        <button
                             id="resetDropdown"
                             type="button"
                             aria-haspopup="listbox"

@@ -67,11 +67,14 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*pie
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
-// It attempts to download from the minimum required number based on the redundancy scheme.
+// It attempts to download from the minimum required number based on the redundancy scheme. It will further wait
+// for additional error/failure results up to minFailures, for testing purposes. Under normal conditions,
+// minFailures will be 0.
+//
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, _ FetchResultReport, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedNodesInfo map[storj.NodeID]overlay.NodeReputation, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64, minFailures int) (_ io.ReadCloser, _ FetchResultReport, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -80,12 +83,13 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	nonNilLimits := nonNilCount(limits)
 
-	if nonNilLimits < es.RequiredCount() {
-		return nil, FetchResultReport{}, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
+	if nonNilLimits < es.RequiredCount()+minFailures {
+		return nil, FetchResultReport{}, Error.New("number of non-nil limits (%d) is less than requested result count (%d)", nonNilCount(limits), es.RequiredCount()+minFailures)
 	}
 
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
 
+	errorCount := 0
 	var successfulPieces, inProgress int
 	unusedLimits := nonNilLimits
 	pieceReaders := make(map[int]io.ReadCloser)
@@ -106,18 +110,25 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			defer cond.L.Unlock()
 
 			for {
-				if successfulPieces >= es.RequiredCount() {
-					// already downloaded minimum number of pieces
+				if successfulPieces >= es.RequiredCount() && errorCount >= minFailures {
+					// already downloaded required number of pieces
 					cond.Broadcast()
 					return
 				}
-				if successfulPieces+inProgress+unusedLimits < es.RequiredCount() {
+				if successfulPieces+inProgress+unusedLimits < es.RequiredCount() || errorCount+inProgress+unusedLimits < minFailures {
 					// not enough available limits left to get required number of pieces
 					cond.Broadcast()
 					return
 				}
 
-				if successfulPieces+inProgress >= es.RequiredCount() {
+				if successfulPieces+inProgress >= es.RequiredCount() && errorCount+inProgress >= minFailures {
+					// we know that inProgress > 0 here, since we didn't return on the
+					// "successfulPieces >= es.RequiredCount() && errorCount >= minFailures" check earlier.
+					// There may be enough downloads in progress to meet all of our needs, so we won't
+					// start any more immediately. Instead, wait until all needs are met (in which case
+					// cond.Broadcast() will be called) or until one of the inProgress workers exits
+					// (in which case cond.Signal() will be called, waking up one waiter) so we can
+					// reevaluate the situation.
 					cond.Wait()
 					continue
 				}
@@ -162,6 +173,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.String("reason", err.Error()))
 						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
+						errorCount++
 						return
 					}
 
@@ -173,6 +185,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Failed = append(pieces.Failed, PieceFetchResult{Piece: piece, Err: err})
+						errorCount++
 
 					case audit.PieceAuditOffline:
 						ec.log.Debug("Failed to download piece for repair: dial timeout (offline)",
@@ -180,6 +193,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Offline = append(pieces.Offline, PieceFetchResult{Piece: piece, Err: err})
+						errorCount++
 
 					case audit.PieceAuditContained:
 						ec.log.Info("Failed to download piece for repair: download timeout (contained)",
@@ -187,6 +201,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Contained = append(pieces.Contained, PieceFetchResult{Piece: piece, Err: err})
+						errorCount++
 
 					case audit.PieceAuditUnknown:
 						ec.log.Info("Failed to download piece for repair: unknown transport error (skipped)",
@@ -194,6 +209,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 							zap.Stringer("Piece ID", limit.Limit.PieceId),
 							zap.Error(err))
 						pieces.Unknown = append(pieces.Unknown, PieceFetchResult{Piece: piece, Err: err})
+						errorCount++
 					}
 
 					return
@@ -215,6 +231,9 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
 		}
+	}
+	if errorCount < minFailures {
+		return nil, pieces, Error.New("expected %d failures, but only observed %d", minFailures, errorCount)
 	}
 
 	fec, err := infectious.NewFEC(es.RequiredCount(), es.TotalCount())

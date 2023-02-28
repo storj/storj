@@ -15,7 +15,9 @@ Requires setting `Authorization` header for requests.
             * [POST /api/users](#post-apiusers)
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
+            * [GET /api/users/{user-email}/limits](#get-apiusersuser-emaillimits)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+            * [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
             * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
             * [PUT /api/users/{user-email}/freeze](#put-apiusersuser-emailfreeze)
             * [DELETE /api/users/{user-email}/freeze](#delete-apiusersuser-emailfreeze)
@@ -152,9 +154,17 @@ A successful response body:
 }
 ```
 
+#### GET /api/users/{user-email}/limits
+
+This endpoint returns information about users limits.
+
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
+
+#### PUT /api/users/{user-email}/limits
+
+Updates the limits of the user and user's existing project(s) limits found by its email.
 
 #### DELETE /api/users/{user-email}/mfa
 

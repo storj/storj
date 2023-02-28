@@ -58,7 +58,7 @@ func (ce *consoleEndpoints) CreditCards() string {
 }
 
 func (ce *consoleEndpoints) Activation(token string) string {
-	return ce.appendPath("/activation/?token=" + token)
+	return ce.appendPath("/activation?token=" + token)
 }
 
 func (ce *consoleEndpoints) Token() string {

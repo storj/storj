@@ -66,12 +66,12 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 }
 
 // Add is used to save new credit card, attach it to payment account and make it default.
-func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (err error) {
+func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardToken string) (_ payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, userID, cardToken)(&err)
 
 	customerID, err := creditCards.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
-		return payments.ErrAccountNotSetup.Wrap(err)
+		return payments.CreditCard{}, payments.ErrAccountNotSetup.Wrap(err)
 	}
 
 	cardParams := &stripe.PaymentMethodParams{
@@ -81,7 +81,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
@@ -90,7 +90,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 
 	card, err = creditCards.service.stripeClient.PaymentMethods().Attach(card.ID, attachParams)
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	params := &stripe.CustomerParams{
@@ -102,7 +102,14 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	_, err = creditCards.service.stripeClient.Customers().Update(customerID, params)
 
 	// TODO: handle created but not attached card manually?
-	return Error.Wrap(err)
+	return payments.CreditCard{
+		ID:        card.ID,
+		ExpMonth:  int(card.Card.ExpMonth),
+		ExpYear:   int(card.Card.ExpYear),
+		Brand:     string(card.Card.Brand),
+		Last4:     card.Card.Last4,
+		IsDefault: true,
+	}, Error.Wrap(err)
 }
 
 // MakeDefault makes a credit card default payment method.

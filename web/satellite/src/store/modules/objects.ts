@@ -1,12 +1,13 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { Bucket } from 'aws-sdk/clients/s3';
+import S3, { Bucket, ObjectList } from 'aws-sdk/clients/s3';
 
 import { EdgeCredentials } from '@/types/accessGrants';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FilesState } from '@/store/modules/files';
 import { StoreModule } from '@/types/store';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -21,6 +22,7 @@ export const OBJECTS_ACTIONS = {
     CREATE_BUCKET: 'createBucket',
     CREATE_BUCKET_WITH_NO_PASSPHRASE: 'createBucketWithNoPassphrase',
     DELETE_BUCKET: 'deleteBucket',
+    LIST_OBJECTS: 'listObjects',
     CHECK_ONGOING_UPLOADS: 'checkOngoingUploads',
 };
 
@@ -233,6 +235,19 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     Bucket: name,
                 }).promise();
             },
+            listObjects: async function(ctx, name: string): Promise<S3.ObjectList> {
+                const response =  await ctx.state.s3Client.listObjects({
+                    Bucket: name,
+                    Delimiter: '/',
+                    Prefix: '',
+                }).promise();
+
+                if (!response.Contents) {
+                    return [];
+                }
+
+                return response.Contents;
+            },
             clearObjects: function({ commit }: ObjectsContext): void {
                 commit(CLEAR);
             },
@@ -242,7 +257,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 }
 
                 commit(SET_LEAVE_ROUTE, leaveRoute);
-                dispatch(APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP, null, { root: true });
+                commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.uploadCancelPopup, null, { root: true });
 
                 return true;
             },

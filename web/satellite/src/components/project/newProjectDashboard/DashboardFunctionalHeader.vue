@@ -63,11 +63,12 @@
 import { computed } from 'vue';
 
 import { useRouter, useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
 import { LocalData } from '@/utils/localData';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -118,14 +119,14 @@ const bucketsPage = computed((): BucketPage => {
  * Toggles create project passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
 }
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick() {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
 }
 
 /**

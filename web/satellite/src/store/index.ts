@@ -26,6 +26,7 @@ import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
 import { ABTestingState, makeABTestingModule } from '@/store/modules/abTesting';
 import { ABHttpApi } from '@/api/abtesting';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 Vue.use(Vuex);
@@ -113,7 +114,7 @@ router.beforeEach(async (to, from, next) => {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
-    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+    if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.appState.activeModal !== MODALS.uploadCancelPopup)) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }

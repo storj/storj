@@ -20,6 +20,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';

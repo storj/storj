@@ -322,6 +322,14 @@ export class Admin {
 				}
 			},
 			{
+				name: 'get user limits',
+				desc: 'Get the current limits for a user',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<Record<string, unknown>> => {
+					return this.fetch('GET', `users/${email}/limits`);
+				}
+			},
+			{
 				name: 'update',
 				desc: `Update the information of a user's account.
 Blank fields will not be updated.`,
@@ -330,7 +338,6 @@ Blank fields will not be updated.`,
 					['new email', new InputText('email', false)],
 					['full name', new InputText('text', false)],
 					['short name', new InputText('text', false)],
-					['partner ID', new InputText('text', false)],
 					['password hash', new InputText('text', false)],
 					['project limit (max number)', new InputText('number', false)],
 					['project storage limit (in bytes)', new InputText('number', false)],
@@ -367,6 +374,29 @@ Blank fields will not be updated.`,
 						projectBandwidthLimit,
 						projectSegmentLimit,
 						paidTierStr
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'update user and project limits',
+				desc: `Update limits for all of user's existing and future projects.
+				Blank fields will not be updated.`,
+				params: [
+					["current user's email", new InputText('email', true)],
+					['project storage limit (in bytes)', new InputText('number', false)],
+					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					['project segment limit (max number)', new InputText('number', false)]
+				],
+				func: async (
+					currentEmail: string,
+					projectStorageLimit?: number,
+					projectBandwidthLimit?: number,
+					projectSegmentLimit?: number
+				): Promise<null> => {
+					return this.fetch('PUT', `users/${currentEmail}/limits`, null, {
+						projectStorageLimit,
+						projectBandwidthLimit,
+						projectSegmentLimit
 					}) as Promise<null>;
 				}
 			},

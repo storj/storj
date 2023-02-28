@@ -55,17 +55,23 @@ func TestAuditCollector(t *testing.T) {
 		err := satellite.Metabase.SegmentLoop.Join(ctx, observer)
 		require.NoError(t, err)
 
+		aliases, err := planet.Satellites[0].Metabase.DB.LatestNodesAliasMap(ctx)
+		require.NoError(t, err)
+
 		for _, node := range planet.StorageNodes {
+			nodeID, ok := aliases.Alias(node.ID())
+			require.True(t, ok)
+
 			// expect a reservoir for every node
-			require.NotNil(t, observer.Reservoirs[node.ID()])
-			require.True(t, len(observer.Reservoirs[node.ID()].Segments()) > 1)
+			require.NotNil(t, observer.Reservoirs[nodeID])
+			require.True(t, len(observer.Reservoirs[nodeID].Segments()) > 1)
 
 			// Require that len segments are <= 3 even though the Collector was instantiated with 4
 			// because the maxReservoirSize is currently 3.
-			require.True(t, len(observer.Reservoirs[node.ID()].Segments()) <= 3)
+			require.True(t, len(observer.Reservoirs[nodeID].Segments()) <= 3)
 
 			repeats := make(map[audit.Segment]bool)
-			for _, loopSegment := range observer.Reservoirs[node.ID()].Segments() {
+			for _, loopSegment := range observer.Reservoirs[nodeID].Segments() {
 				segment := audit.NewSegment(loopSegment)
 				assert.False(t, repeats[segment], "expected every item in reservoir to be unique")
 				repeats[segment] = true

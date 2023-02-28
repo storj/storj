@@ -15,7 +15,6 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/eestream"
 )
 
 var (
@@ -62,12 +61,7 @@ func (service *Service) VerifySizes(ctx context.Context, redundancy storj.Redund
 		return Error.New("no remote pieces")
 	}
 
-	redundancyScheme, err := eestream.NewRedundancyStrategyFromStorj(redundancy)
-	if err != nil {
-		return Error.New("invalid redundancy strategy: %v", err)
-	}
-
-	expectedSize := eestream.CalcPieceSize(encryptedSize, redundancyScheme)
+	expectedSize := redundancy.PieceSize(encryptedSize)
 	if expectedSize != commonSize {
 		return Error.New("expected size is different from provided (%d != %d)", expectedSize, commonSize)
 	}

@@ -882,6 +882,9 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	undelete := func(node *overlay.SelectedNode) {
 		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
 
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
 		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
 			ID:      node.ID,
 			Address: node.Address.Address,

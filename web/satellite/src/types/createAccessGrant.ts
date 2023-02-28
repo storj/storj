@@ -8,6 +8,7 @@ import ChoosePermissionIcon from '@/../static/images/accessGrants/newCreateFlow/
 import AccessEncryptionIcon from '@/../static/images/accessGrants/newCreateFlow/accessEncryption.svg';
 import PassphraseGeneratedIcon from '@/../static/images/accessGrants/newCreateFlow/passphraseGenerated.svg';
 import AccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/accessCreated.svg';
+import CLIAccessCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/cliAccessCreated.svg';
 import CredentialsCreatedIcon from '@/../static/images/accessGrants/newCreateFlow/credentialsCreated.svg';
 import EncryptionInfoIcon from '@/../static/images/accessGrants/newCreateFlow/encryptionInfo.svg';
 import TypeIcon from '@/../static/images/accessGrants/newCreateFlow/typeIcon.svg';
@@ -28,15 +29,32 @@ export enum AccessType {
     AccessGrant = 'accessGrant',
 }
 
+export enum PassphraseOption {
+    UseExistingPassphrase = 'useExistingPassphrase',
+    SetMyProjectPassphrase = 'setMyProjectPassphrase',
+    GenerateNewPassphrase = 'generateNewPassphrase',
+    EnterNewPassphrase = 'enterNewPassphrase',
+}
+
 export enum CreateAccessStep {
     CreateNewAccess = 'createNewAccess',
     ChoosePermission = 'choosePermission',
     EncryptionInfo = 'encryptionInfo',
     AccessEncryption = 'accessEncryption',
     PassphraseGenerated = 'passphraseGenerated',
+    EnterMyPassphrase = 'enterMyPassphrase',
     EnterNewPassphrase = 'enterNewPassphrase',
     AccessCreated = 'accessCreated',
+    CLIAccessCreated = 'cliAccessCreated',
     CredentialsCreated = 'credentialsCreated',
+}
+
+export enum Permission {
+    All = 'all',
+    Read = 'read',
+    Write = 'write',
+    List = 'list',
+    Delete = 'delete',
 }
 
 export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
@@ -60,6 +78,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
         icon: PassphraseGeneratedIcon,
         title: 'Passphrase generated',
     },
+    [CreateAccessStep.EnterMyPassphrase]: {
+        icon: AccessEncryptionIcon,
+        title: 'Enter my passphrase',
+    },
     [CreateAccessStep.EnterNewPassphrase]: {
         icon: AccessEncryptionIcon,
         title: 'Enter a new passphrase',
@@ -71,6 +93,10 @@ export const STEP_ICON_AND_TITLE: Record<CreateAccessStep, IconAndTitle> = {
     [CreateAccessStep.CredentialsCreated]: {
         icon: CredentialsCreatedIcon,
         title: 'Credentials created',
+    },
+    [CreateAccessStep.CLIAccessCreated]: {
+        icon: CLIAccessCreatedIcon,
+        title: 'CLI access created',
     },
 };
 

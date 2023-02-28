@@ -4,10 +4,13 @@
 <template>
     <div class="toggle">
         <label class="toggle__input-container">
-            <input :id="`checkbox${label}`" :checked="checked" type="checkbox" @change="onCheck">
+            <input :id="id || label" :checked="checked" type="checkbox" @change="onCheck">
             <span />
         </label>
-        <label class="toggle__label" :for="`checkbox${label}`">{{ label }}</label>
+        <label class="toggle__label" :for="id || label">{{ label }}</label>
+        <template v-if="onShowHideAll">
+            <ChevronIcon class="toggle__chevron" :class="{'toggle__chevron--up': allShown}" @click="onShowHideAll" />
+        </template>
         <VInfo v-if="slots.infoMessage" class="toggle__info">
             <template #icon>
                 <InfoIcon class="toggle__info__icon" />
@@ -25,6 +28,7 @@ import { useSlots } from 'vue';
 import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/accessGrants/newCreateFlow/info.svg';
+import ChevronIcon from '@/../static/images/accessGrants/newCreateFlow/chevron.svg';
 
 const slots = useSlots();
 
@@ -32,10 +36,15 @@ const props = withDefaults(defineProps<{
     checked: boolean;
     label: string;
     onCheck: () => void;
+    id?: string;
+    onShowHideAll?: () => void;
+    allShown?: boolean;
 }>(), {
     checked: false,
     label: '',
+    id: '',
     onCheck: () => {},
+    onShowHideAll: undefined,
 });
 </script>
 
@@ -66,7 +75,7 @@ const props = withDefaults(defineProps<{
             left: 0;
             height: 16px;
             width: 16px;
-            border: 1px solid #c8d3de;
+            border: 1px solid var(--c-grey-4);
             border-radius: 4px;
             box-sizing: border-box;
 
@@ -78,7 +87,7 @@ const props = withDefaults(defineProps<{
                 top: 1px;
                 width: 3px;
                 height: 7px;
-                border: solid white;
+                border: solid var(--c-white);
                 border-width: 0 2px 2px 0;
                 transform: rotate(45deg);
             }
@@ -89,15 +98,15 @@ const props = withDefaults(defineProps<{
         }
 
         input:checked ~ span {
-            border: 2px solid #376fff;
-            background-color: #376fff;
+            border: 2px solid var(--c-light-blue-5);
+            background-color: var(--c-light-blue-5);
         }
 
         &:hover {
 
             input:checked ~ span {
-                border: 2px solid #376fff;
-                background-color: #376fff;
+                border: 2px solid var(--c-light-blue-5);
+                background-color: var(--c-light-blue-5);
             }
         }
     }
@@ -116,6 +125,16 @@ const props = withDefaults(defineProps<{
 
         &__icon {
             cursor: pointer;
+        }
+    }
+
+    &__chevron {
+        transition: transform 0.3s;
+        margin-left: 8px;
+        cursor: pointer;
+
+        &--up {
+            transform: rotate(180deg);
         }
     }
 }

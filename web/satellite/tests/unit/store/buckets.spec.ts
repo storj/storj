@@ -52,7 +52,7 @@ describe('actions', () => {
         jest.spyOn(bucketsApi, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
-            await store.dispatch(FETCH , 1);
+            await store.dispatch(FETCH, 1);
         } catch (error) {
             expect(state.page).toEqual(page);
         }

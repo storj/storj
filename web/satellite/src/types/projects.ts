@@ -47,12 +47,12 @@ export interface ProjectsApi {
 
     /**
      * Get project salt
-     * 
+     *
      * @param projectID - project ID
      * throws Error
      */
     getSalt(projectID: string): Promise<string>;
-    
+
     /**
      * Get project limits.
      *
@@ -153,6 +153,8 @@ export class ProjectLimits {
         public storageUsed: number = 0,
         public objectCount: number = 0,
         public segmentCount: number = 0,
+        public segmentLimit: number = 0,
+        public segmentUsed: number = 0,
     ) {}
 }
 

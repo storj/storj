@@ -474,6 +474,9 @@ func TestIterateLoopSegments(t *testing.T) {
 				entry.Position = expect.Position
 				entry.PlainOffset = expect.PlainOffset
 				entry.ExpiresAt = expect.ExpiresAt
+				entry.AliasPieces = metabase.AliasPieces([]metabase.AliasPiece{
+					{Alias: 1},
+				})
 				expected = append(expected, entry)
 			}
 
@@ -512,6 +515,9 @@ func TestIterateLoopSegments(t *testing.T) {
 					PlainSize:     512,
 					PlainOffset:   int64(i) * 512,
 					Redundancy:    metabasetest.DefaultRedundancy,
+					AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
+						{Alias: 1},
+					}),
 				}
 				expected[i] = entry
 				expectedRaw[i] = metabase.RawSegment{
@@ -603,6 +609,9 @@ func TestIterateLoopSegments(t *testing.T) {
 						PlainSize:     512,
 						PlainOffset:   int64(j) * 512,
 						Redundancy:    metabasetest.DefaultRedundancy,
+						AliasPieces: metabase.AliasPieces([]metabase.AliasPiece{
+							{Alias: 1},
+						}),
 					}
 					expected[i*numberOfSegmentsPerObject+j] = entry
 					expectedRaw[i*numberOfSegmentsPerObject+j] = metabase.RawSegment{

@@ -12,7 +12,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
-	"storj.io/uplink/private/eestream"
 )
 
 var remoteSegmentFunc = mon.Task()
@@ -71,22 +70,13 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segm
 }
 
 func (collector *PathCollector) handleRemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	pieceSize := int64(-1)
-
 	numPieces := len(segment.Pieces)
 	for _, piece := range segment.Pieces {
 		if _, ok := collector.nodeIDStorage[piece.StorageNode]; !ok {
 			continue
 		}
 
-		// avoid creating new redundancy strategy for every segment piece
-		if pieceSize == -1 {
-			redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-			if err != nil {
-				return err
-			}
-			pieceSize = eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
-		}
+		pieceSize := segment.PieceSize()
 
 		collector.nodeIDStorage[piece.StorageNode] += pieceSize
 

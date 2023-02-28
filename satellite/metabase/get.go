@@ -52,6 +52,11 @@ func (s Segment) Expired(now time.Time) bool {
 	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
 }
 
+// PieceSize returns calculated piece size for segment.
+func (s Segment) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
+}
+
 // GetObjectExactVersion contains arguments necessary for fetching an information
 // about exact object version.
 type GetObjectExactVersion struct {

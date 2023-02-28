@@ -41,6 +41,9 @@ var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
+// ErrLowDifficulty is when the node id's difficulty is too low.
+var ErrLowDifficulty = errs.Class("node id difficulty too low")
+
 // DB implements the database for overlay.Service.
 //
 // architecture: Database
@@ -621,7 +624,7 @@ func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID,
 // UpdateCheckIn updates a single storagenode's check-in info if needed.
 /*
 The check-in info is updated in the database if:
-	(1) there is no previous entry;
+	(1) there is no previous entry and the node is allowed (id difficulty, etc);
 	(2) it has been too long since the last known entry; or
 	(3) the node hostname, IP address, port, wallet, sw version, or disk capacity
 	has changed.
@@ -643,6 +646,16 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			// this is a previously unknown node, and we couldn't pingback to verify that it even
 			// exists. Don't bother putting it in the db.
 			return nil
+		}
+
+		difficulty, err := node.NodeID.Difficulty()
+		if err != nil {
+			// this should never happen
+			return err
+		}
+		if int(difficulty) < service.config.MinimumNewNodeIDDifficulty {
+			return ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
+				difficulty, service.config.MinimumNewNodeIDDifficulty)
 		}
 
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)

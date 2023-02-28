@@ -1,13 +1,17 @@
-//--- graceful exit progress ---//
-
+// graceful_exit_progress contains stats for a storagenode exit progress.
 model graceful_exit_progress (
 	table graceful_exit_progress
 	key node_id
 
+	// node_id is the storagenode storj.NodeID.
 	field node_id                     blob
+	// bytes_transferred is the number of bytes the storagenode has uploaded to an other storagenode.
 	field bytes_transferred           int64     ( updatable )
+	// pieces_transferred is the count of pieces the storagenode has uploaded to an other storagenode.
 	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
+	// pieces_failed is the count of pieces the storagenode has failed to transfer.
 	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
+	// updated_at is the last time the progress was updated.
 	field updated_at                  timestamp ( autoinsert, autoupdate )
 )
 
@@ -16,24 +20,38 @@ read one (
 	where graceful_exit_progress.node_id = ?
 )
 
-//--- graceful exit transfer queue with segment stream_id and position ---//
-
+// graceful_exit_segment_transfer contains the segments that the storagenode needs to transfer to other nodes.
 model graceful_exit_segment_transfer (
 	table graceful_exit_segment_transfer_queue
 	key node_id stream_id position piece_num
 
+	// node_id is the storagenode storj.NodeID.
 	field node_id                blob
+	// stream_id refers to the metabase segments.stream_id.
 	field stream_id              blob
+	// position refers to the metabase segments.position.
 	field position               uint64
+	// piece_num is the piece index that the storagenode stores.
 	field piece_num              int
+	// root_piece_id is the segment root piece id, which is necessary for deriving a new piece id.
 	field root_piece_id          blob      ( nullable )
+	// durability_ratio is a segment score on how important is it to transfer this piece.
 	field durability_ratio       float64   ( updatable )
+	// queued_at is the time this segment was queued.
 	field queued_at              timestamp ( autoinsert )
+	// requested_at is the time the piece info and order limits were requested by storagenode.
+	// This column is not being used.
 	field requested_at           timestamp ( updatable, nullable )
+	// last_failed_at is when this segment transfer last failed.
 	field last_failed_at         timestamp ( updatable, nullable )
+	// last_failed_code is a code for the failure classification.
+	// This column is not being used.
 	field last_failed_code       int       ( updatable, nullable )
+	// failed_count is the number of times the transfer failed.
 	field failed_count           int       ( updatable, nullable )
+	// finished_at is the time the segment transfer completed.
 	field finished_at            timestamp ( updatable, nullable )
+	// order_limit_send_count counts how many times the storagnode has requested the order limit.
 	field order_limit_send_count int       ( updatable, default 0 )
 
 	index (

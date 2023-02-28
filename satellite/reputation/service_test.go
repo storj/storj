@@ -5,6 +5,7 @@ package reputation_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -188,5 +189,52 @@ func TestDisqualificationAuditFailure(t *testing.T) {
 		nodeInfo, err = satel.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 		assert.NotNil(t, nodeInfo.Disqualified)
+	})
+}
+
+func TestExitedAndDQNodesGetNoAudit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.4
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satel := planet.Satellites[0]
+		okNode := planet.StorageNodes[0].ID()
+		dqNode := planet.StorageNodes[1].ID()
+		exitNode := planet.StorageNodes[2].ID()
+
+		// Ok node gets audit
+		require.NoError(t, satel.Reputation.Service.ApplyAudit(ctx, okNode, overlay.ReputationStatus{}, reputation.AuditOffline))
+		info, err := satel.Reputation.Service.Get(ctx, okNode)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), info.TotalAuditCount)
+
+		// DQ node
+		require.NoError(t, satel.Overlay.Service.DisqualifyNode(ctx, dqNode, overlay.DisqualificationReasonAuditFailure))
+		require.NoError(t, satel.Reputation.Service.ApplyAudit(ctx, dqNode, overlay.ReputationStatus{}, reputation.AuditOffline))
+		info, err = satel.Reputation.Service.Get(ctx, dqNode)
+		require.NoError(t, err)
+		require.Zero(t, info.TotalAuditCount)
+
+		// Exit node
+		now := time.Now()
+		_, err = satel.Overlay.DB.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              exitNode,
+			ExitInitiatedAt:     now,
+			ExitLoopCompletedAt: now,
+			ExitFinishedAt:      now,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+		require.NoError(t, satel.Reputation.Service.ApplyAudit(ctx, exitNode, overlay.ReputationStatus{}, reputation.AuditOffline))
+		info, err = satel.Reputation.Service.Get(ctx, exitNode)
+		require.NoError(t, err)
+		require.Zero(t, info.TotalAuditCount)
 	})
 }

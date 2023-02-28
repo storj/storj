@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
-	"storj.io/common/grant"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgtest"
@@ -21,7 +19,6 @@ import (
 	"storj.io/private/tagsql"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/uplink"
 )
 
 // Run runs testplanet in multiple configurations.
@@ -70,7 +67,6 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				defer ctx.Check(planet.Shutdown)
 
 				planet.Start(ctx)
-				provisionUplinks(ctx, t, planet)
 
 				var rawDB tagsql.DB
 				var queriesBefore []string
@@ -144,40 +140,9 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				defer ctx.Check(planet.Shutdown)
 
 				planet.Start(ctx)
-				provisionUplinks(ctx, b, planet)
 
 				bench(b, ctx, planet)
 			})
 		})
-	}
-}
-
-func provisionUplinks(ctx context.Context, t testing.TB, planet *Planet) {
-	for _, planetUplink := range planet.Uplinks {
-		for _, satellite := range planet.Satellites {
-			apiKey := planetUplink.APIKey[satellite.ID()]
-
-			// create access grant manually to avoid dialing satellite for
-			// project id and deriving key with argon2.IDKey method
-			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
-			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-
-			grantAccess := grant.Access{
-				SatelliteAddress: satellite.URL(),
-				APIKey:           apiKey,
-				EncAccess:        encAccess,
-			}
-
-			serializedAccess, err := grantAccess.Serialize()
-			if err != nil {
-				t.Fatalf("%+v", err)
-			}
-			access, err := uplink.ParseAccess(serializedAccess)
-			if err != nil {
-				t.Fatalf("%+v", err)
-			}
-
-			planetUplink.Access[satellite.ID()] = access
-		}
 	}
 }

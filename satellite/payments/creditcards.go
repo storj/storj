@@ -17,7 +17,7 @@ type CreditCards interface {
 	List(ctx context.Context, userID uuid.UUID) ([]CreditCard, error)
 
 	// Add is used to save new credit card and attach it to payment account.
-	Add(ctx context.Context, userID uuid.UUID, cardToken string) error
+	Add(ctx context.Context, userID uuid.UUID, cardToken string) (CreditCard, error)
 
 	// Remove is used to detach a credit card from payment account.
 	Remove(ctx context.Context, userID uuid.UUID, cardID string) error

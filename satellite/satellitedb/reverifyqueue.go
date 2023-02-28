@@ -56,7 +56,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 		WITH next_entry AS (
 			SELECT *
 			FROM reverification_audits
-			WHERE last_attempt IS NULL OR last_attempt < (now() - '1 microsecond'::interval * $1::bigint)
+			WHERE COALESCE(last_attempt, inserted_at) < (now() - '1 microsecond'::interval * $1::bigint)
 			ORDER BY inserted_at
 			LIMIT 1
 		)

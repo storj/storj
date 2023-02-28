@@ -171,7 +171,6 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
@@ -180,6 +179,8 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -346,7 +347,7 @@ export default class MobileNavigation extends Vue {
      * Toggles manage passphrase modal shown.
      */
     public onManagePassphraseClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
     }
 
     /**
@@ -434,10 +435,10 @@ export default class MobileNavigation extends Vue {
             const ownProjectsCount: number = this.$store.getters.projectsCount;
 
             if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
             } else {
                 this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
             }
         }
 

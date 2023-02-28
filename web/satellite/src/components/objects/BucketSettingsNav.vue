@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div 
+    <div
         class="bucket-settings-nav"
-        @click.stop.prevent="isDropdownOpen = !isDropdownOpen" 
-        @mouseenter="isHoveredOver = true" 
-        @mouseleave="isHoveredOver = false"  
+        @click.stop.prevent="isDropdownOpen = !isDropdownOpen"
+        @mouseenter="isHoveredOver = true"
+        @mouseleave="isHoveredOver = false"
     >
         <div class="bucket-settings-nav__button">
             <GearIcon class="bucket-settings-nav__button__icon" :class="{active: isHoveredOver || isDropdownOpen}" />
@@ -30,8 +30,10 @@
 import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useRoute, useRouter, useStore } from '@/utils/hooks';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
@@ -81,7 +83,7 @@ function onDetailsClick(): void {
  * Toggles share bucket modal.
  */
 function onShareBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_BUCKET_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareBucket);
     isDropdownOpen.value = false;
 }
 </script>

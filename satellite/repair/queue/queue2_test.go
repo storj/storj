@@ -160,7 +160,6 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 		{uuid.UUID{'h'}, 10, time.Now().Add(-8 * time.Hour)},
 	}
 	// shuffle list since select order should not depend on insert order
-	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(injuredSegList), func(i, j int) {
 		injuredSegList[i], injuredSegList[j] = injuredSegList[j], injuredSegList[i]
 	})
