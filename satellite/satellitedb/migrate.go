@@ -2294,6 +2294,14 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add debounce_limit column to nodes table",
+				Version:     229,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN debounce_limit integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

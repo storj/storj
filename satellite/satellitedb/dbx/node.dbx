@@ -130,6 +130,11 @@ model node (
     field noise_proto int ( updatable, nullable )
     // noise_public_key is the last known public key for the storagenode.
     field noise_public_key blob ( updatable, nullable )
+
+    // debounce_limit is the limit of the number of identical messages this
+    // node can defend against. this is not the limit of messages, just the
+    // limit of how many of the same message can be debounced.
+    field debounce_limit int ( updatable, default 0 )
 )
 
 update node ( where node.id = ? )

@@ -155,6 +155,7 @@ CREATE TABLE nodes (
 	last_software_update_email timestamp with time zone,
 	noise_proto integer,
 	noise_public_key bytea,
+	debounce_limit integer NOT NULL DEFAULT 0,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
