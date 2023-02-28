@@ -290,7 +290,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedNetworks:   nil,
 			MinimumVersion:     "v1.0.0",
 			OnlineWindow:       time.Hour,
-			DistinctIP:         false,
 			AsOfSystemInterval: -time.Microsecond,
 		}
 		excludedCriteria := &overlay.NodeCriteria{
@@ -299,7 +298,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedNetworks:   excludedNets,
 			MinimumVersion:     "v1.0.0",
 			OnlineWindow:       time.Hour,
-			DistinctIP:         false,
 			AsOfSystemInterval: -time.Microsecond,
 		}
 

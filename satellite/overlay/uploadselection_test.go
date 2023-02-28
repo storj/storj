@@ -459,6 +459,12 @@ func TestGetNodesDistinct(t *testing.T) {
 	}
 
 	{ // test that distinctIP=true allows selecting 6 nodes
+		// emulate DistinctIP=false behavior by filling in LastNets with unique addresses
+		for _, nodeList := range [][]*overlay.SelectedNode{reputableNodes, newNodes} {
+			for i := range nodeList {
+				nodeList[i].LastNet = nodeList[i].LastIPPort
+			}
+		}
 		config := nodeSelectionConfig
 		config.NewNodeFraction = 0.5
 		config.DistinctIP = false
