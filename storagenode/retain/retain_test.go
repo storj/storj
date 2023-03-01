@@ -31,7 +31,11 @@ import (
 
 func TestRetainPieces(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
+		log := zaptest.NewLogger(t)
+		blobs := db.Pieces()
+		v0PieceInfo := db.V0PieceInfo()
+		fw := pieces.NewFileWalker(log, blobs, v0PieceInfo)
+		store := pieces.NewStore(log, fw, blobs, v0PieceInfo, db.PieceExpirationDB(), db.PieceSpaceUsedDB(), pieces.DefaultConfig)
 		testStore := pieces.StoreForTest{Store: store}
 
 		const numPieces = 100

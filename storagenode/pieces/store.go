@@ -172,9 +172,11 @@ type Store struct {
 	config Config
 
 	blobs          storage.Blobs
-	v0PieceInfo    V0PieceInfoDB
 	expirationInfo PieceExpirationDB
 	spaceUsedDB    PieceSpaceUsedDB
+	v0PieceInfo    V0PieceInfoDB
+
+	Filewalker *FileWalker
 }
 
 // StoreForTest is a wrapper around Store to be used only in test scenarios. It enables writing
@@ -184,16 +186,15 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store.
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB,
-	expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
-
+func NewStore(log *zap.Logger, fw *FileWalker, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, spaceUsedDB PieceSpaceUsedDB, config Config) *Store {
 	return &Store{
 		log:            log,
 		config:         config,
 		blobs:          blobs,
-		v0PieceInfo:    v0PieceInfo,
 		expirationInfo: expirationInfo,
-		spaceUsedDB:    pieceSpaceUsedDB,
+		spaceUsedDB:    spaceUsedDB,
+		v0PieceInfo:    v0PieceInfo,
+		Filewalker:     fw,
 	}
 }
 
@@ -276,13 +277,14 @@ func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite 
 	return writer, Error.Wrap(err)
 }
 
-// Reader returns a new piece reader.
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
+// ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
+// potential need to check multiple storage formats to find the right blob.
+func (store *StoreForTest) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
+	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
+
 	defer mon.Task()(&ctx)(&err)
-	blob, err := store.blobs.Open(ctx, storage.BlobRef{
-		Namespace: satellite.Bytes(),
-		Key:       pieceID.Bytes(),
-	})
+	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
+	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
@@ -294,14 +296,13 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 	return reader, Error.Wrap(err)
 }
 
-// ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
-// potential need to check multiple storage formats to find the right blob.
-func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
-	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
-
+// Reader returns a new piece reader.
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
-	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
-	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
+	blob, err := store.blobs.Open(ctx, storage.BlobRef{
+		Namespace: satellite.Bytes(),
+		Key:       pieceID.Bytes(),
+	})
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, err
@@ -520,33 +521,11 @@ func (store *Store) GetHashAndLimit(ctx context.Context, satellite storj.NodeID,
 	return pieceHash, header.OrderLimit, nil
 }
 
-// WalkSatellitePieces executes walkFunc for each locally stored piece in the namespace of the
-// given satellite. If walkFunc returns a non-nil error, WalkSatellitePieces will stop iterating
-// and return the error immediately. The ctx parameter is intended specifically to allow canceling
-// iteration early.
-//
-// Note that this method includes all locally stored pieces, both V0 and higher.
+// WalkSatellitePieces wraps FileWalker.WalkSatellitePieces.
 func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
-		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
-			// we'll address this piece while iterating over the V0 pieces below.
-			return nil
-		}
-		pieceAccess, err := newStoredPieceAccess(store, blobInfo)
-		if err != nil {
-			// this is not a real piece blob. the blob store can't distinguish between actual piece
-			// blobs and stray files whose names happen to decode as valid base32. skip this
-			// "blob".
-			return nil //nolint: nilerr // we ignore other files
-		}
-		return walkFunc(pieceAccess)
-	})
-	if err == nil && store.v0PieceInfo != nil {
-		err = store.v0PieceInfo.WalkSatelliteV0Pieces(ctx, store.blobs, satellite, walkFunc)
-	}
-	return err
+
+	return store.Filewalker.WalkSatellitePieces(ctx, satellite, walkFunc)
 }
 
 // GetExpired gets piece IDs that are expired and were created before the given time.
@@ -781,18 +760,20 @@ func (store *Store) Stat(ctx context.Context, satellite storj.NodeID, pieceID st
 
 type storedPieceAccess struct {
 	storage.BlobInfo
-	store   *Store
 	pieceID storj.PieceID
+	blobs   storage.Blobs
 }
 
-func newStoredPieceAccess(store *Store, blobInfo storage.BlobInfo) (storedPieceAccess, error) {
-	pieceID, err := storj.PieceIDFromBytes(blobInfo.BlobRef().Key)
+func newStoredPieceAccess(blobs storage.Blobs, blobInfo storage.BlobInfo) (storedPieceAccess, error) {
+	ref := blobInfo.BlobRef()
+	pieceID, err := storj.PieceIDFromBytes(ref.Key)
 	if err != nil {
 		return storedPieceAccess{}, err
 	}
+
 	return storedPieceAccess{
 		BlobInfo: blobInfo,
-		store:    store,
+		blobs:    blobs,
 		pieceID:  pieceID,
 	}, nil
 }
@@ -827,11 +808,16 @@ func (access storedPieceAccess) Size(ctx context.Context) (size, contentSize int
 // header. If exact precision is not required, ModTime() may be a better solution.
 func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	satellite, err := access.Satellite()
+
+	blob, err := access.blobs.OpenWithStorageFormat(ctx, access.BlobInfo.BlobRef(), access.BlobInfo.StorageFormatVersion())
 	if err != nil {
+		if os.IsNotExist(err) {
+			return time.Time{}, err
+		}
 		return time.Time{}, err
 	}
-	reader, err := access.store.ReaderWithStorageFormat(ctx, satellite, access.PieceID(), access.StorageFormatVersion())
+
+	reader, err := NewReader(blob)
 	if err != nil {
 		return time.Time{}, err
 	}
