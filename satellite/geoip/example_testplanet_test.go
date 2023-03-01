@@ -5,6 +5,7 @@ package geoip_test
 
 import (
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,9 @@ import (
 )
 
 func TestGeoIPMock(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
 	testplanet.Run(t,
 		testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
