@@ -462,6 +462,7 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (

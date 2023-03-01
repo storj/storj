@@ -780,6 +780,7 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -1445,6 +1446,7 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -9955,18 +9957,21 @@ func (f User_SignupCaptcha_Field) value() interface{} {
 func (User_SignupCaptcha_Field) _Column() string { return "signup_captcha" }
 
 type UserSettings struct {
-	UserId         []byte
-	SessionMinutes *uint
+	UserId           []byte
+	SessionMinutes   *uint
+	PassphrasePrompt *bool
 }
 
 func (UserSettings) _Table() string { return "user_settings" }
 
 type UserSettings_Create_Fields struct {
-	SessionMinutes UserSettings_SessionMinutes_Field
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
 }
 
 type UserSettings_Update_Fields struct {
-	SessionMinutes UserSettings_SessionMinutes_Field
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
 }
 
 type UserSettings_UserId_Field struct {
@@ -10021,6 +10026,40 @@ func (f UserSettings_SessionMinutes_Field) value() interface{} {
 }
 
 func (UserSettings_SessionMinutes_Field) _Column() string { return "session_minutes" }
+
+type UserSettings_PassphrasePrompt_Field struct {
+	_set   bool
+	_null  bool
+	_value *bool
+}
+
+func UserSettings_PassphrasePrompt(v bool) UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _value: &v}
+}
+
+func UserSettings_PassphrasePrompt_Raw(v *bool) UserSettings_PassphrasePrompt_Field {
+	if v == nil {
+		return UserSettings_PassphrasePrompt_Null()
+	}
+	return UserSettings_PassphrasePrompt(*v)
+}
+
+func UserSettings_PassphrasePrompt_Null() UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_PassphrasePrompt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_PassphrasePrompt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_PassphrasePrompt_Field) _Column() string { return "passphrase_prompt" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -11186,6 +11225,7 @@ type __sqlbundle_SQL interface {
 }
 
 type __sqlbundle_Dialect interface {
+	// Rebind gives the opportunity to rewrite provided SQL into a SQL dialect.
 	Rebind(sql string) string
 }
 
@@ -11272,6 +11312,30 @@ func __sqlbundle_flattenSQL(x string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
+type __sqlbundle_cockroach struct{}
+
+func (p __sqlbundle_cockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgx struct{}
+
+func (p __sqlbundle_pgx) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgxcockroach struct{}
+
+func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
+	return __sqlbundle_postgres{}.Rebind(sql)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
 type __sqlbundle_postgres struct{}
 
 func (p __sqlbundle_postgres) Rebind(sql string) string {
@@ -11332,174 +11396,6 @@ type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
 	return sql
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_cockroach struct{}
-
-func (p __sqlbundle_cockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgx struct{}
-
-func (p __sqlbundle_pgx) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgxcockroach struct{}
-
-func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
-	type sqlParseState int
-	const (
-		sqlParseStart sqlParseState = iota
-		sqlParseInStringLiteral
-		sqlParseInQuotedIdentifier
-		sqlParseInComment
-	)
-
-	out := make([]byte, 0, len(sql)+10)
-
-	j := 1
-	state := sqlParseStart
-	for i := 0; i < len(sql); i++ {
-		ch := sql[i]
-		switch state {
-		case sqlParseStart:
-			switch ch {
-			case '?':
-				out = append(out, '$')
-				out = append(out, strconv.Itoa(j)...)
-				state = sqlParseStart
-				j++
-				continue
-			case '-':
-				if i+1 < len(sql) && sql[i+1] == '-' {
-					state = sqlParseInComment
-				}
-			case '"':
-				state = sqlParseInQuotedIdentifier
-			case '\'':
-				state = sqlParseInStringLiteral
-			}
-		case sqlParseInStringLiteral:
-			if ch == '\'' {
-				state = sqlParseStart
-			}
-		case sqlParseInQuotedIdentifier:
-			if ch == '"' {
-				state = sqlParseStart
-			}
-		case sqlParseInComment:
-			if ch == '\n' {
-				state = sqlParseStart
-			}
-		}
-		out = append(out, ch)
-	}
-
-	return string(out)
 }
 
 type __sqlbundle_Literal string
@@ -13052,11 +12948,12 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__user_id_val := user_settings_user_id.value()
 	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __session_minutes_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -16358,7 +16255,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -16367,7 +16264,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -18326,7 +18223,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18335,6 +18232,11 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -18350,7 +18252,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20632,11 +20534,12 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__user_id_val := user_settings_user_id.value()
 	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __session_minutes_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -23938,7 +23841,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -23947,7 +23850,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -25906,7 +25809,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -25915,6 +25818,11 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -25930,7 +25838,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
