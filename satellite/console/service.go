@@ -1384,6 +1384,14 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return Error.Wrap(err)
 	}
 
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
 	if err != nil {
 		return Error.Wrap(err)

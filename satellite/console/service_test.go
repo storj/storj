@@ -15,6 +15,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
@@ -930,6 +931,34 @@ func TestResetPassword(t *testing.T) {
 		// Expect success when providing good passcode.
 		err = service.ResetPassword(ctx, token.Secret.String(), newPass, passcode, "", token.CreatedAt)
 		require.NoError(t, err)
+	})
+}
+
+func TestChangePassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		newPass := "newPass123!"
+
+		user, err := sat.DB.Console().Users().GetByEmail(ctx, upl.User[sat.ID()].Email)
+		require.NoError(t, err)
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// generate a password recovery token to test that changing password invalidates it
+		passwordRecoveryToken, err := sat.API.Console.Service.GeneratePasswordRecoveryToken(userCtx, user.ID)
+		require.NoError(t, err)
+
+		require.NoError(t, sat.API.Console.Service.ChangePassword(userCtx, upl.User[sat.ID()].Password, newPass))
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.NoError(t, bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(newPass)))
+
+		err = sat.API.Console.Service.ResetPassword(userCtx, passwordRecoveryToken, "aDifferentPassword123!", "", "", time.Now())
+		require.Error(t, err)
+		require.True(t, console.ErrRecoveryToken.Has(err))
 	})
 }
 
