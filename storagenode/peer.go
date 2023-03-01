@@ -253,6 +253,7 @@ type Peer struct {
 		Inspector     *inspector.Endpoint
 		Monitor       *monitor.Service
 		Orders        *orders.Service
+		FileWalker    *pieces.FileWalker
 	}
 
 	Collector *collector.Service
@@ -454,8 +455,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 	{ // setup storage
 		peer.Storage2.BlobsCache = pieces.NewBlobsUsageCache(peer.Log.Named("blobscache"), peer.DB.Pieces())
+		peer.Storage2.FileWalker = pieces.NewFileWalker(peer.Log.Named("filewalker"), peer.Storage2.BlobsCache, peer.DB.V0PieceInfo())
 
 		peer.Storage2.Store = pieces.NewStore(peer.Log.Named("pieces"),
+			peer.Storage2.FileWalker,
 			peer.Storage2.BlobsCache,
 			peer.DB.V0PieceInfo(),
 			peer.DB.PieceExpirationDB(),

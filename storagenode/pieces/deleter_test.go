@@ -38,10 +38,11 @@ func TestDeleter(t *testing.T) {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
 			storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
-				dir, err := filestore.NewDir(zaptest.NewLogger(t), ctx.Dir("piecedeleter"))
+				log := zaptest.NewLogger(t)
+				dir, err := filestore.NewDir(log, ctx.Dir("piecedeleter"))
 				require.NoError(t, err)
 
-				blobs := filestore.New(zaptest.NewLogger(t), dir, filestore.DefaultConfig)
+				blobs := filestore.New(log, dir, filestore.DefaultConfig)
 				defer ctx.Check(blobs.Close)
 
 				v0PieceInfo, ok := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
@@ -51,8 +52,8 @@ func TestDeleter(t *testing.T) {
 					WritePreallocSize: 4 * memory.MiB,
 					DeleteToTrash:     testCase.deleteToTrash,
 				}
-				store := pieces.NewStore(zaptest.NewLogger(t), blobs, v0PieceInfo, db.PieceExpirationDB(), nil, conf)
-				deleter := pieces.NewDeleter(zaptest.NewLogger(t), store, 1, 10000)
+				store := pieces.NewStore(log, pieces.NewFileWalker(log, blobs, v0PieceInfo), blobs, v0PieceInfo, db.PieceExpirationDB(), nil, conf)
+				deleter := pieces.NewDeleter(log, store, 1, 10000)
 				defer ctx.Check(deleter.Close)
 				deleter.SetupTest()
 
