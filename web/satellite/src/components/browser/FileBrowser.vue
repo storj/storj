@@ -148,19 +148,7 @@
                                 <th class="files-uploading-count__content" />
                             </tr>
 
-                            <tr v-if="path.length > 0" class="up-button">
-                                <th class="align-left data up-button__content">
-                                    <span @click.prevent="onBack">
-                                        <a
-                                            id="navigate-back"
-                                            href="javascript:null"
-                                        >...</a>
-                                    </span>
-                                </th>
-                                <th class="up-button__content" />
-                                <th class="up-button__content" />
-                                <th class="up-button__content" />
-                            </tr>
+                            <up-entry v-if="path.length > 0" :on-back="onBack" />
 
                             <locked-files-entry v-if="lockedFilesEntryDisplayed" />
 
@@ -224,6 +212,7 @@ import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 import MultiplePassphraseBanner from '@/components/browser/MultiplePassphrasesBanner.vue';
+import UpEntry from '@/components/browser/UpEntry.vue';
 
 import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';

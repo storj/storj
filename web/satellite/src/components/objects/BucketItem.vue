@@ -5,9 +5,10 @@
     <table-item
         :item="itemToRender"
         :on-click="onClick"
+        :on-primary-click="onClick"
         :show-guide="shouldShowGuide"
         :hide-guide="hideGuidePermanently"
-        table-type="bucket"
+        item-type="bucket"
     >
         <th slot="options" v-click-outside="closeDropdown" :class="{active: isDropdownOpen}" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
