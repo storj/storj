@@ -57,19 +57,19 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	query := `SELECT su1.satellite_id,
 					su1.at_rest_total,
 					COALESCE(
-					    (
-					        CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
-					        -
-					        CAST(strftime('%s', (
-					            SELECT interval_end_time
-					            FROM storage_usage
-					            WHERE satellite_id = su1.satellite_id
-					            AND timestamp < su1.timestamp
-					            ORDER BY timestamp DESC
-					            LIMIT 1
-					        )) AS NUMERIC)
-					    ) / 3600,
-					    24
+						(
+							CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
+							-
+							CAST(strftime('%s', (
+								SELECT interval_end_time
+								FROM storage_usage
+								WHERE satellite_id = su1.satellite_id
+								AND timestamp < su1.timestamp
+								ORDER BY timestamp DESC
+								LIMIT 1
+							)) AS NUMERIC)
+						) / 3600,
+						24
 					) AS hour_interval,
 					su1.timestamp
 				FROM storage_usage su1
@@ -123,19 +123,19 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 					SELECT
 						su1.at_rest_total,
 						su1.at_rest_total / COALESCE(
-						    (
-						        CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
-						        -
-						        CAST(strftime('%s', (
-						            SELECT interval_end_time
-						            FROM storage_usage su2
-						            WHERE su2.satellite_id = su1.satellite_id
-						            AND su2.timestamp < su1.timestamp
-						            ORDER BY su2.timestamp DESC
-						            LIMIT 1
-						        )) AS NUMERIC)
-						    ) / 3600,
-						    24
+							(
+								CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
+								-
+								CAST(strftime('%s', (
+									SELECT interval_end_time
+									FROM storage_usage su2
+									WHERE su2.satellite_id = su1.satellite_id
+									AND su2.timestamp < su1.timestamp
+									ORDER BY su2.timestamp DESC
+									LIMIT 1
+								)) AS NUMERIC)
+							) / 3600,
+							24
 						) AS at_rest_total_bytes,
 						su1.timestamp
 					FROM storage_usage su1
@@ -180,23 +180,23 @@ func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_, _
 	query := `SELECT SUM(at_rest_total), AVG(at_rest_total_bytes)
 				FROM (
 					SELECT
-						SUM(su1.at_rest_total) AS at_rest_total, 
+						SUM(su1.at_rest_total) AS at_rest_total,
 						SUM(
 							su1.at_rest_total / (
 								COALESCE(
-						    		(
-						    		    CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
-						    		    -
-						    		    CAST(strftime('%s', (
-						    		        SELECT interval_end_time
-						    		        FROM storage_usage su2
-						    		        WHERE su2.satellite_id = su1.satellite_id
-						    		        AND su2.timestamp < su1.timestamp
-						    		        ORDER BY su2.timestamp DESC
-						    		        LIMIT 1
-						    		    )) AS NUMERIC)
-						    		) / 3600,
-						    		24
+									(
+										CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
+										-
+										CAST(strftime('%s', (
+											SELECT interval_end_time
+											FROM storage_usage su2
+											WHERE su2.satellite_id = su1.satellite_id
+											AND su2.timestamp < su1.timestamp
+											ORDER BY su2.timestamp DESC
+											LIMIT 1
+										)) AS NUMERIC)
+									) / 3600,
+									24
 								)
 							)
 						) AS at_rest_total_bytes,
@@ -222,19 +222,19 @@ func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 						(
 							su1.at_rest_total / (
 								COALESCE(
-						    		(
-						    		    CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
-						    		    -
-						    		    CAST(strftime('%s', (
-						    		        SELECT interval_end_time
-						    		        FROM storage_usage su2
-						    		        WHERE su2.satellite_id = su1.satellite_id
-						    		        AND su2.timestamp < su1.timestamp
-						    		        ORDER BY su2.timestamp DESC
-						    		        LIMIT 1
-						    		    )) AS NUMERIC)
-						    		) / 3600,
-						    		24
+									(
+										CAST(strftime('%s', su1.interval_end_time) AS NUMERIC)
+										-
+										CAST(strftime('%s', (
+											SELECT interval_end_time
+											FROM storage_usage su2
+											WHERE su2.satellite_id = su1.satellite_id
+											AND su2.timestamp < su1.timestamp
+											ORDER BY su2.timestamp DESC
+											LIMIT 1
+										)) AS NUMERIC)
+									) / 3600,
+									24
 								)
 							)
 						) AS at_rest_total_bytes
