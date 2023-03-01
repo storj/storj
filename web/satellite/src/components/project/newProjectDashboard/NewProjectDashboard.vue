@@ -3,7 +3,11 @@
 
 <template>
     <div class="project-dashboard">
-        <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
+        <div class="project-dashboard__heading">
+            <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
+            <project-ownership-tag :project="selectedProject" />
+        </div>
+
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
@@ -157,7 +161,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { RouteConfig } from '@/router';
-import { DataStamp, ProjectLimits } from '@/types/projects';
+import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -176,6 +180,7 @@ import DateRangeSelection from '@/components/project/newProjectDashboard/DateRan
 import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
+import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -183,6 +188,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
 //@vue/component
 @Component({
     components: {
+        ProjectOwnershipTag,
         VLoader,
         VButton,
         InfoContainer,
@@ -427,6 +433,13 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
+     * get selected project from store
+     */
+    private get selectedProject(): Project {
+        return this.$store.getters.selectedProject;
+    }
+
+    /**
      * Formats value to needed form and returns it.
      */
     private formattedValue(value: Size): string {
@@ -450,11 +463,18 @@ export default class NewProjectDashboard extends Vue {
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
 
-        &__title {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 24px;
-            color: #000;
+        &__heading {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+
+            &__title {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 24px;
+                color: #000;
+            }
         }
 
         &__message {

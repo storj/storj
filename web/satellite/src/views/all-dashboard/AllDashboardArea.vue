@@ -26,6 +26,13 @@
                     :open-add-p-m-modal="togglePMModal"
                 />
 
+                <ProjectLimitBanner
+                    v-if="isProjectLimitBannerShown"
+                    class="all-dashboard__banners__project-limit"
+                    :dashboard-ref="dashboardContent"
+                    :on-upgrade-clicked="togglePMModal"
+                />
+
                 <v-banner
                     v-if="isAccountFrozen && !isLoading && dashboardContent"
                     class="all-dashboard__banners__freeze"
@@ -137,6 +144,7 @@ import AllModals from '@/components/modals/AllModals.vue';
 import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
+import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
@@ -276,6 +284,23 @@ const isLoading = computed((): boolean => {
 const showMFARecoveryCodeBar = computed((): boolean => {
     const user: User = store.getters.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
+});
+
+/* whether the project limit banner should be shown. */
+const isProjectLimitBannerShown = computed((): boolean => {
+    return !LocalData.getProjectLimitBannerHidden()
+        && !isBillingPage.value
+        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+});
+
+/**
+ * Returns whether the user has reached project limits.
+ */
+const hasReachedProjectLimit = computed((): boolean => {
+    const projectLimit: number = store.getters.user.projectLimit;
+    const projectsCount: number = store.getters.projectsCount;
+
+    return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
@@ -669,6 +694,7 @@ onBeforeUnmount(() => {
         }
 
         &__upgrade,
+        &__project-limit,
         &__freeze,
         &__hundred-limit,
         &__eighty-limit {
