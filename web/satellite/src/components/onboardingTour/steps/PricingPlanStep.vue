@@ -3,15 +3,18 @@
 
 <template>
     <div class="pricing-area">
-        <h1 class="pricing-area__title" aria-roledescription="title">Welcome to Storj</h1>
-        <p class="pricing-area__subtitle">Select an account type to continue.</p>
-        <div class="pricing-area__plans">
-            <PricingPlanContainer
-                v-for="(plan, index) in plans"
-                :key="index"
-                :plan="plan"
-            />
-        </div>
+        <VLoader v-if="isLoading" class="pricing-area__loader" width="90px" height="90px" />
+        <template v-else>
+            <h1 class="pricing-area__title" aria-roledescription="title">Welcome to Storj</h1>
+            <p class="pricing-area__subtitle">Select an account type to continue.</p>
+            <div class="pricing-area__plans">
+                <PricingPlanContainer
+                    v-for="(plan, index) in plans"
+                    :key="index"
+                    :plan="plan"
+                />
+            </div>
+        </template>
     </div>
 </template>
 
@@ -23,12 +26,17 @@ import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MetaUtils } from '@/utils/meta';
+import { PaymentsHttpApi } from '@/api/payments';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
+const payments: PaymentsHttpApi = new PaymentsHttpApi();
+
+const isLoading = ref<boolean>(true);
 
 const plans = ref<PricingPlanInfo[]>([
     new PricingPlanInfo(
@@ -58,7 +66,7 @@ const plans = ref<PricingPlanInfo[]>([
 /*
  * Loads pricing plan config.
  */
-onBeforeMount(() => {
+onBeforeMount(async () => {
     const user: User = store.getters.user;
     const nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
 
@@ -68,16 +76,29 @@ onBeforeMount(() => {
         return;
     }
 
+    let pkgAvailable = false;
+    try {
+        pkgAvailable = await payments.pricingPackageAvailable();
+    } catch (error) {
+        notify.error(error.message, null);
+    }
+    if (!pkgAvailable) {
+        router.push(nextPath);
+        return;
+    }
+
     let config;
     try {
         config = require('@/components/onboardingTour/steps/pricingPlanFlow/pricingPlanConfig.json');
     } catch {
+        notify.error('No pricing plan configuration file.', null);
         router.push(nextPath);
         return;
     }
 
     const plan = config[user.partner];
     if (!plan) {
+        notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
         router.push(nextPath);
         return;
     }
@@ -93,11 +114,22 @@ onBeforeMount(() => {
         plan.activationDescription,
         plan.successSubtitle,
     ));
+
+    isLoading.value = false;
 });
 </script>
 
 <style scoped lang="scss">
 .pricing-area {
+
+    &__loader {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        align-items: center;
+    }
 
     &__title {
         color: #14142b;
