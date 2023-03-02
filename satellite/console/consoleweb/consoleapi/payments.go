@@ -517,6 +517,26 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PackageAvailable returns whether a package plan is configured for the user's partner.
+func (p *Payments) PackageAvailable(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	u, err := console.GetUser(ctx)
+	if err != nil {
+		p.serveJSONError(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	pkg, err := p.packagePlans.Get(u.UserAgent)
+	hasPkg := err == nil && pkg != payments.PackagePlan{}
+
+	if err = json.NewEncoder(w).Encode(hasPkg); err != nil {
+		p.log.Error("failed to encode package plan checking response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(p.log, w, status, err)
