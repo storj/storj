@@ -19,18 +19,11 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Delete any content left over from a previous run.
-                sh "chmod -R 777 ."
-                // Bash requires extglob option to support !(.git) syntax,
-                // and we don't want to delete .git to have faster clones.
-                sh 'bash -O extglob -c "rm -rf !(.git)"'
+                sh "chmod -R 777 ." // Del orphaned files
 
                 checkout scm
-
                 sh 'mkdir -p .build'
 
-                // download dependencies
-                sh 'go mod download'
 
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'
