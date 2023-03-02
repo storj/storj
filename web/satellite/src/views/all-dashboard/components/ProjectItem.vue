@@ -40,8 +40,9 @@
 
         <VButton
             class="project-item__button"
-            width="unset"
-            height="unset"
+            width="fit-content"
+            height="fit-content"
+            border-radius="8px"
             :on-press="onOpenClicked"
             label="Open Project"
         />
@@ -154,10 +155,9 @@ async function goToProjectEdit(): Promise<void> {
 
 <style scoped lang="scss">
 .project-item {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    align-items: flex-start;
+    display: grid;
+    grid-template-rows: 1fr 1fr 1fr 1fr;
+    align-items: start;
     padding: 24px;
     height: 200px;
     background: var(--c-white);
@@ -244,9 +244,7 @@ async function goToProjectEdit(): Promise<void> {
     }
 
     &__name {
-        margin-top: 16px;
-        font-weight: bold;
-        font-family: 'font_regular', sans-serif;
+        font-family: 'font_bold', sans-serif;
         font-size: 24px;
         line-height: 31px;
         width: 100%;
@@ -257,18 +255,18 @@ async function goToProjectEdit(): Promise<void> {
     }
 
     &__description {
-        font-weight: 400;
-        font-size: 14px;
-        margin-top: 5px;
         font-family: 'font_regular', sans-serif;
+        font-size: 14px;
         color: var(--c-grey-6);
         line-height: 20px;
+        width: 100%;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
     }
 
     &__button {
-        margin-top: 20px;
         padding: 10px 16px;
-        border-radius: 8px;
     }
 }
 </style>
