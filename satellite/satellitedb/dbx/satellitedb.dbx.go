@@ -371,7 +371,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -1037,7 +1037,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -11225,7 +11225,6 @@ type __sqlbundle_SQL interface {
 }
 
 type __sqlbundle_Dialect interface {
-	// Rebind gives the opportunity to rewrite provided SQL into a SQL dialect.
 	Rebind(sql string) string
 }
 
@@ -11312,30 +11311,6 @@ func __sqlbundle_flattenSQL(x string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
-type __sqlbundle_cockroach struct{}
-
-func (p __sqlbundle_cockroach) Rebind(sql string) string {
-	return __sqlbundle_postgres{}.Rebind(sql)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgx struct{}
-
-func (p __sqlbundle_pgx) Rebind(sql string) string {
-	return __sqlbundle_postgres{}.Rebind(sql)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_pgxcockroach struct{}
-
-func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
-	return __sqlbundle_postgres{}.Rebind(sql)
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
 type __sqlbundle_postgres struct{}
 
 func (p __sqlbundle_postgres) Rebind(sql string) string {
@@ -11396,6 +11371,174 @@ type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
 	return sql
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_cockroach struct{}
+
+func (p __sqlbundle_cockroach) Rebind(sql string) string {
+	type sqlParseState int
+	const (
+		sqlParseStart sqlParseState = iota
+		sqlParseInStringLiteral
+		sqlParseInQuotedIdentifier
+		sqlParseInComment
+	)
+
+	out := make([]byte, 0, len(sql)+10)
+
+	j := 1
+	state := sqlParseStart
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		switch state {
+		case sqlParseStart:
+			switch ch {
+			case '?':
+				out = append(out, '$')
+				out = append(out, strconv.Itoa(j)...)
+				state = sqlParseStart
+				j++
+				continue
+			case '-':
+				if i+1 < len(sql) && sql[i+1] == '-' {
+					state = sqlParseInComment
+				}
+			case '"':
+				state = sqlParseInQuotedIdentifier
+			case '\'':
+				state = sqlParseInStringLiteral
+			}
+		case sqlParseInStringLiteral:
+			if ch == '\'' {
+				state = sqlParseStart
+			}
+		case sqlParseInQuotedIdentifier:
+			if ch == '"' {
+				state = sqlParseStart
+			}
+		case sqlParseInComment:
+			if ch == '\n' {
+				state = sqlParseStart
+			}
+		}
+		out = append(out, ch)
+	}
+
+	return string(out)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgx struct{}
+
+func (p __sqlbundle_pgx) Rebind(sql string) string {
+	type sqlParseState int
+	const (
+		sqlParseStart sqlParseState = iota
+		sqlParseInStringLiteral
+		sqlParseInQuotedIdentifier
+		sqlParseInComment
+	)
+
+	out := make([]byte, 0, len(sql)+10)
+
+	j := 1
+	state := sqlParseStart
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		switch state {
+		case sqlParseStart:
+			switch ch {
+			case '?':
+				out = append(out, '$')
+				out = append(out, strconv.Itoa(j)...)
+				state = sqlParseStart
+				j++
+				continue
+			case '-':
+				if i+1 < len(sql) && sql[i+1] == '-' {
+					state = sqlParseInComment
+				}
+			case '"':
+				state = sqlParseInQuotedIdentifier
+			case '\'':
+				state = sqlParseInStringLiteral
+			}
+		case sqlParseInStringLiteral:
+			if ch == '\'' {
+				state = sqlParseStart
+			}
+		case sqlParseInQuotedIdentifier:
+			if ch == '"' {
+				state = sqlParseStart
+			}
+		case sqlParseInComment:
+			if ch == '\n' {
+				state = sqlParseStart
+			}
+		}
+		out = append(out, ch)
+	}
+
+	return string(out)
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_pgxcockroach struct{}
+
+func (p __sqlbundle_pgxcockroach) Rebind(sql string) string {
+	type sqlParseState int
+	const (
+		sqlParseStart sqlParseState = iota
+		sqlParseInStringLiteral
+		sqlParseInQuotedIdentifier
+		sqlParseInComment
+	)
+
+	out := make([]byte, 0, len(sql)+10)
+
+	j := 1
+	state := sqlParseStart
+	for i := 0; i < len(sql); i++ {
+		ch := sql[i]
+		switch state {
+		case sqlParseStart:
+			switch ch {
+			case '?':
+				out = append(out, '$')
+				out = append(out, strconv.Itoa(j)...)
+				state = sqlParseStart
+				j++
+				continue
+			case '-':
+				if i+1 < len(sql) && sql[i+1] == '-' {
+					state = sqlParseInComment
+				}
+			case '"':
+				state = sqlParseInQuotedIdentifier
+			case '\'':
+				state = sqlParseInStringLiteral
+			}
+		case sqlParseInStringLiteral:
+			if ch == '\'' {
+				state = sqlParseStart
+			}
+		case sqlParseInQuotedIdentifier:
+			if ch == '"' {
+				state = sqlParseStart
+			}
+		case sqlParseInComment:
+			if ch == '\n' {
+				state = sqlParseStart
+			}
+		}
+		out = append(out, ch)
+	}
+
+	return string(out)
 }
 
 type __sqlbundle_Literal string
@@ -11537,8 +11680,8 @@ type Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continua
 }
 
 type Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
-	_value_bucket_name    []byte
 	_value_project_id     []byte
+	_value_bucket_name    []byte
 	_value_interval_start time.Time
 	_value_action         uint
 	_set                  bool
@@ -13377,16 +13520,16 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -13407,7 +13550,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 
 			for __rows.Next() {
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -20963,16 +21106,16 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -20993,7 +21136,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 
 			for __rows.Next() {
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
 					return nil, nil, err
 				}

@@ -53,7 +53,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,

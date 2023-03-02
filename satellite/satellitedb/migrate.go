@@ -2252,6 +2252,39 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE user_settings ADD COLUMN passphrase_prompt boolean;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "fix bucket_bandwidth_rollups primary key",
+				Version:     227,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					alterPrimaryKey := true
+					// for crdb lets check if key was already altered, for pg we will do migration always
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						var primaryKey string
+						err := db.QueryRow(ctx,
+							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
+						).Scan(&primaryKey)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						// alter primary key only if it was not adjusted manually
+						alterPrimaryKey = primaryKey != "PRIMARY KEY (project_id ASC, bucket_name ASC, interval_start ASC, action ASC)"
+					}
+
+					if alterPrimaryKey {
+						_, err := tx.ExecContext(ctx, `
+							ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pk;
+							ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY ( project_id, bucket_name, interval_start, action );
+						`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+					}
+
+					return nil
+				}),
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
