@@ -862,6 +862,18 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
+# the duration of the first retry interval
+# payments.stripe-coin-payments.retries.initial-backoff: 20ms
+
+# the maximum duration of any retry interval
+# payments.stripe-coin-payments.retries.max-backoff: 5s
+
+# the maximum number of times to retry a request
+# payments.stripe-coin-payments.retries.max-retries: 10
+
+# the factor by which the retry interval will be multiplied on each iteration
+# payments.stripe-coin-payments.retries.multiplier: 2
+
 # if set, skips the creation of empty invoices for customers with zero usage for the billing period
 # payments.stripe-coin-payments.skip-empty-invoices: true
 

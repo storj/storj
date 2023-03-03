@@ -46,6 +46,7 @@ type Config struct {
 	AutoAdvance            bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit           int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 	SkipEmptyInvoices      bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
+	Retries                RetryConfig
 }
 
 // Service is an implementation for payment service via Stripe and Coinpayments.
