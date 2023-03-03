@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/accounting"
@@ -61,7 +60,6 @@ func TestSignupCouponCodes(t *testing.T) {
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
 			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),

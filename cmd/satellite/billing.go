@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/process"
 	"storj.io/storj/satellite"
@@ -43,14 +42,15 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 
 	var stripeClient stripecoinpayments.StripeClient
 	switch pc.Provider {
-	default:
+	case "": // just new mock, only used in testing binaries
 		stripeClient = stripecoinpayments.NewStripeMock(
-			storj.NodeID{},
 			db.StripeCoinPayments().Customers(),
 			db.Console().Users(),
 		)
 	case "stripecoinpayments":
 		stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+	default:
+		return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 	}
 
 	prices, err := pc.UsagePrice.ToModel()

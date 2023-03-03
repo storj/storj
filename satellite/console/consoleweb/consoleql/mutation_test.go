@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
@@ -83,7 +82,6 @@ func TestGraphqlMutation(t *testing.T) {
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
 			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),
