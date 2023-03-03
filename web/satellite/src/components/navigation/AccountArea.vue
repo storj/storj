@@ -3,7 +3,7 @@
 
 <template>
     <div ref="accountArea" class="account-area">
-        <div class="account-area__wrap" :class="{ active: isDropdown }" aria-roledescription="account-area" @click.stop="toggleDropdown">
+        <div role="button" tabindex="0" class="account-area__wrap" :class="{ active: isDropdown }" aria-roledescription="account-area" @keyup.enter="toggleDropdown" @click.stop="toggleDropdown">
             <div class="account-area__wrap__left">
                 <AccountIcon class="account-area__wrap__left__icon" />
                 <p class="account-area__wrap__left__label">My Account</p>
@@ -227,6 +227,8 @@ export default class AccountArea extends Vue {
         &__wrap {
             box-sizing: border-box;
             padding: 22px 32px;
+            outline: none;
+            border: none;
             border-left: 4px solid #fff;
             width: 100%;
             display: flex;
@@ -264,6 +266,21 @@ export default class AccountArea extends Vue {
 
                 .account-area__wrap__arrow :deep(path),
                 .account-area__wrap__left__icon :deep(path) {
+                    fill: var(--c-blue-3);
+                }
+            }
+
+            &:focus {
+                outline: none;
+                border-color: var(--c-grey-1);
+                background-color: var(--c-grey-1);
+                color: var(--c-blue-3);
+
+                p {
+                    color: var(--c-blue-3);
+                }
+
+                :deep(path) {
                     fill: var(--c-blue-3);
                 }
             }
