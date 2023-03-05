@@ -124,12 +124,24 @@ export interface PaymentsApi {
 export class AccountBalance {
     constructor(
         public freeCredits: number = 0,
+        // STORJ token balance from storjscan.
         private _coins: string = '0',
+        // STORJ balance from stripe. This may include the following.
+        // 1. legacy Coinpayments deposit.
+        // 2. legacy credit for a manual STORJ deposit.
+        // 4. bonus manually credited for a storjscan payment once a month before  invoicing.
+        // 5. any other adjustment we may have to make from time to time manually to the customer´s STORJ balance.
+        private _credits: string = '0',
     ) { }
 
     public get coins(): number {
         return parseFloat(this._coins);
     }
+
+    public get credits(): number {
+        return parseFloat(this._credits);
+    }
+
     public get sum(): number {
         return this.freeCredits + this.coins;
     }

@@ -43,7 +43,7 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         const balance = await response.json();
         if (balance) {
-            return new AccountBalance(balance.freeCredits, balance.coins);
+            return new AccountBalance(balance.freeCredits, balance.coins, balance.credits);
         }
 
         return new AccountBalance();
