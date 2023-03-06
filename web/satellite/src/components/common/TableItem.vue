@@ -21,7 +21,7 @@
                 <div v-if="icon && index === 0" class="item-icon file-background">
                     <component :is="icon" />
                 </div>
-                <p :class="{primary: index === 0}" @click.stop="(e) => cellContentClicked(index, e)">
+                <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
                     <middle-truncate v-if="(itemType.toLowerCase() === 'file')" :text="val" />
                     <span v-else>{{ val }}</span>
                 </p>
@@ -235,7 +235,7 @@ function cellContentClicked(cellIndex: number, event: Event) {
         padding: 2px;
         border-radius: 8px;
         height: 32px;
-        width: 32px;
+        min-width: 32px;
         display: flex;
         align-items: center;
         justify-content: center;

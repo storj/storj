@@ -52,4 +52,21 @@ export default class ProjectMemberListItem extends Resizable {
             color: #afb7c1;
         }
     }
+
+    :deep(.primary) {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    :deep(th) {
+        max-width: 25rem;
+    }
+
+    @media screen and (max-width: 940px) {
+
+        :deep(th) {
+            max-width: 10rem;
+        }
+    }
 </style>

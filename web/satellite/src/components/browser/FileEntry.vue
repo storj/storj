@@ -589,4 +589,28 @@ function cancelDeletion(): void {
     border-radius: 50%;
     animation: 0.75s linear infinite spinner-border;
 }
+
+:deep(.primary) {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+:deep(th) {
+    max-width: 26rem;
+}
+
+@media screen and (max-width: 940px) {
+
+    :deep(th) {
+        max-width: 15rem;
+    }
+}
+
+@media screen and (max-width: 650px) {
+
+    :deep(th) {
+        max-width: 10rem;
+    }
+}
 </style>
