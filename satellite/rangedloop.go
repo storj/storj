@@ -171,7 +171,7 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 
 	{ // setup ranged loop
 		observers := []rangedloop.Observer{
-			rangedloop.NewLiveCountObserver(),
+			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
 		}
 
 		if config.Audit.UseRangedLoop {

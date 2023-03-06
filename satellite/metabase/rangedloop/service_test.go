@@ -402,7 +402,7 @@ func TestAllInOne(t *testing.T) {
 		bfConfig.AccessGrant = accessGrant
 
 		service := rangedloop.NewService(log, config, metabaseProvider, []rangedloop.Observer{
-			rangedloop.NewLiveCountObserver(),
+			rangedloop.NewLiveCountObserver(satellite.Metabase.DB, config.SuspiciousProcessedRatio, config.AsOfSystemInterval),
 			metrics.NewObserver(),
 			nodetally.NewRangedLoopObserver(log.Named("accounting:nodetally"),
 				satellite.DB.StoragenodeAccounting(),
