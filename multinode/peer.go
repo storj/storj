@@ -48,7 +48,10 @@ type DB interface {
 
 // Config is all the configuration parameters for a Multinode Dashboard.
 type Config struct {
-	Debug   debug.Config
+	// TODO: remove Identity flags since --identity-dir is deprecated
+	Identity identity.Config
+	Debug    debug.Config
+
 	Console server.Config
 }
 

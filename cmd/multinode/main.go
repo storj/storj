@@ -82,7 +82,8 @@ $ cat nodes.json | multinode add -
 
 		Config
 	}
-	confDir string
+	confDir     string
+	identityDir string
 )
 
 func main() {
@@ -92,15 +93,22 @@ func main() {
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "multinode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for multinode configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", "", "main directory for multinode identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
+
+	// Ignoring errors since MarkDeprecated only errors if the flag
+	// doesn't exist or no deprecated message is provided.
+	// and MarkHidden only errors if the flag doesn't exist.
+	_ = rootCmd.PersistentFlags().MarkDeprecated("identity-dir", "multinode no longer requires an identity key")
+	_ = rootCmd.PersistentFlags().MarkHidden("identity-dir")
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(addCmd)
 
-	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir))
-	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
-	process.Bind(addCmd, &addCfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
+	process.Bind(addCmd, &addCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -283,8 +291,16 @@ func unmarshalJSONNodes(nodesJSONData []byte) ([]nodes.Node, error) {
 }
 
 func getIdentity(ctx context.Context, cfg *Config) (*identity.FullIdentity, error) {
+	// for backwards compatibility reasons, check if an identity was provided.
+	if cfgstruct.FindIdentityDirParam() != "" {
+		ident, err := cfg.Identity.Load()
+		if err == nil {
+			return ident, nil
+		}
+		zap.L().Error("failed to load identity.", zap.Error(err))
+		zap.L().Info("generating new identity.")
+	}
 	// generate new identity
-	zap.L().Info("generating new identity.")
 	return identity.NewFullIdentity(ctx, identity.NewCAOptions{
 		Difficulty:  0,
 		Concurrency: 1,
