@@ -95,7 +95,7 @@ const isDetailedInfoShown = ref<boolean>(false);
  */
 const projectName = computed((): string => {
     const projects: Project[] = store.state.projectsModule.projects;
-    const project: Project = projects.find(project => project.id === props.item.projectId);
+    const project: Project | undefined = projects.find(project => project.id === props.item.projectId);
 
     return project?.name || '';
 });

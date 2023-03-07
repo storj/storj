@@ -196,8 +196,8 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 }
 
 type bucketIDAction struct {
-	bucketname string
 	projectID  uuid.UUID
+	bucketname string
 	action     pb.PieceAction
 }
 
@@ -353,8 +353,8 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		}
 
 		currentBucketIDAction := bucketIDAction{
-			bucketname: bucketInfo.BucketName,
 			projectID:  bucketInfo.ProjectID,
+			bucketname: bucketInfo.BucketName,
 			action:     orderLimit.Action,
 		}
 		bucketSettled[currentBucketIDAction] = bandwidthAmount{

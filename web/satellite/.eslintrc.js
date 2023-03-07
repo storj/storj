@@ -89,7 +89,7 @@ module.exports = {
 
         'storj/vue/require-annotation': 'warn',
 
-        'vue/no-v-html': 0,
+        'vue/no-v-html': ['error'],
     },
     settings: {
         'import/resolver': {
