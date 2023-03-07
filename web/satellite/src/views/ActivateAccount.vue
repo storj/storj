@@ -232,7 +232,7 @@ export default class ActivateAccount extends Vue {
                     &__left {
                         display: flex;
                         align-items: center;
-                        justify-content: start;
+                        justify-content: flex-start;
                         gap: 1.5rem;
 
                         &__message {
