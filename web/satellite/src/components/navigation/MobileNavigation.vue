@@ -273,13 +273,7 @@ export default class MobileNavigation extends Vue {
             return;
         }
 
-        if (this.$route.name === RouteConfig.ProjectDashboard.name || this.$route.name === RouteConfig.NewProjectDashboard.name) {
-            return;
-        }
-
-        if (this.isNewProjectDashboard) {
-            this.$router.push(RouteConfig.NewProjectDashboard.path);
-
+        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
             return;
         }
 
@@ -325,13 +319,6 @@ export default class MobileNavigation extends Vue {
     public toggleAccountDropdown(): void {
         this.isAccountDropdownShown = !this.isAccountDropdownShown;
         window.scrollTo(0, document.querySelector('.navigation-area__container__wrap')?.scrollHeight || 0);
-    }
-
-    /**
-     * Indicates if new project dashboard should be used.
-     */
-    public get isNewProjectDashboard(): boolean {
-        return this.$store.state.appStateModule.isNewProjectDashboard;
     }
 
     /**
