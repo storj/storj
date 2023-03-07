@@ -12,114 +12,120 @@
     />
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 
 import VChart from '@/components/common/VChart.vue';
-import BaseChart from '@/components/common/BaseChart.vue';
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class BandwidthChart extends BaseChart {
-    @Prop({ default: () => [] })
-    public readonly settledData: DataStamp[];
-    @Prop({ default: () => [] })
-    public readonly allocatedData: DataStamp[];
-    @Prop({ default: new Date() })
-    public readonly since: Date;
-    @Prop({ default: new Date() })
-    public readonly before: Date;
+const props = withDefaults(defineProps<{
+    settledData: DataStamp[],
+    allocatedData: DataStamp[],
+    since: Date,
+    before: Date,
+    width: number,
+    height: number,
+}>(), {
+    settledData: () => [],
+    allocatedData: () => [],
+    since: () => new Date(),
+    before: () => new Date(),
+    width: 0,
+    height: 0,
+});
 
-    /**
-     * Returns formatted data to render chart.
-     */
-    public get chartData(): ChartData {
-        const mainData: number[] = this.settledData.map(el => el.value);
-        const secondaryData: number[] = this.allocatedData.map(el => el.value);
-        const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.since, this.before);
+const chartKey = ref<number>(0);
 
-        return new ChartData(
-            xAxisDateLabels,
-            'rgba(226, 220, 255, .3)',
-            '#c5baff',
-            '#c5baff',
-            mainData,
-            'rgba(226, 220, 255, .7)',
-            '#a18eff',
-            '#a18eff',
-            secondaryData,
-        );
+/**
+ * Returns formatted data to render chart.
+ */
+const chartData = computed((): ChartData => {
+    const mainData: number[] = props.settledData.map(el => el.value);
+    const secondaryData: number[] = props.allocatedData.map(el => el.value);
+    const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(props.since, props.before);
+
+    return new ChartData(
+        xAxisDateLabels,
+        'rgba(226, 220, 255, .3)',
+        '#c5baff',
+        '#c5baff',
+        mainData,
+        'rgba(226, 220, 255, .7)',
+        '#a18eff',
+        '#a18eff',
+        secondaryData,
+    );
+});
+
+/**
+ * Used as constructor of custom tooltip.
+ */
+function tooltip(tooltipModel: TooltipModel): void {
+    if (!tooltipModel.dataPoints) {
+        const settledTooltip = Tooltip.createTooltip('settled-bandwidth-tooltip');
+        const allocatedTooltip = Tooltip.createTooltip('allocated-bandwidth-tooltip');
+        Tooltip.remove(settledTooltip);
+        Tooltip.remove(allocatedTooltip);
+
+        return;
     }
 
-    /**
-     * Used as constructor of custom tooltip.
-     */
-    public tooltip(tooltipModel: TooltipModel): void {
-        if (!tooltipModel.dataPoints) {
-            const settledTooltip = Tooltip.createTooltip('settled-bandwidth-tooltip');
-            const allocatedTooltip = Tooltip.createTooltip('allocated-bandwidth-tooltip');
-            Tooltip.remove(settledTooltip);
-            Tooltip.remove(allocatedTooltip);
-
-            return;
+    tooltipModel.dataPoints.forEach(p => {
+        let tooltipParams: TooltipParams;
+        if (p.datasetIndex === 0) {
+            tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'settled-bandwidth-tooltip',
+                settledTooltipMarkUp(tooltipModel), -20, 78);
+        } else {
+            tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'allocated-bandwidth-tooltip',
+                allocatedTooltipMarkUp(tooltipModel), 95, 78);
         }
 
-        tooltipModel.dataPoints.forEach(p => {
-            let tooltipParams: TooltipParams;
-            if (p.datasetIndex === 0) {
-                tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'settled-bandwidth-tooltip',
-                    this.settledTooltipMarkUp(tooltipModel), -20, 78);
-            } else {
-                tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'allocated-bandwidth-tooltip',
-                    this.allocatedTooltipMarkUp(tooltipModel), 95, 78);
-            }
-
-            Tooltip.custom(tooltipParams);
-        });
-    }
-
-    /**
-     * Returns allocated bandwidth tooltip's html mark up.
-     */
-    private allocatedTooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new ChartTooltipData(this.allocatedData[dataIndex]);
-
-        return `<div class='allocated-tooltip'>
-                    <p class='settled-tooltip__title'>Allocated</p>
-                    <p class='allocated-tooltip__value'>${dataPoint.date}<b class='allocated-tooltip__value__bold'> / ${dataPoint.value}</b></p>
-                    <div class='allocated-tooltip__arrow'></div>
-                </div>`;
-    }
-
-    /**
-     * Returns settled bandwidth tooltip's html mark up.
-     */
-    private settledTooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new ChartTooltipData(this.settledData[dataIndex]);
-
-        return `<div class='settled-tooltip'>
-                    <div class='settled-tooltip__arrow'></div>
-                    <p class='settled-tooltip__title'>Settled</p>
-                    <p class='settled-tooltip__value'>${dataPoint.date}<b class='settled-tooltip__value__bold'> / ${dataPoint.value}</b></p>
-                </div>`;
-    }
+        Tooltip.custom(tooltipParams);
+    });
 }
+
+/**
+ * Returns allocated bandwidth tooltip's html mark up.
+ */
+function allocatedTooltipMarkUp(tooltipModel: TooltipModel): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataPoint = new ChartTooltipData(props.allocatedData[dataIndex]);
+
+    return `<div class='allocated-tooltip'>
+                <p class='settled-tooltip__title'>Allocated</p>
+                <p class='allocated-tooltip__value'>${dataPoint.date}<b class='allocated-tooltip__value__bold'> / ${dataPoint.value}</b></p>
+                <div class='allocated-tooltip__arrow'></div>
+            </div>`;
+}
+
+/**
+ * Returns settled bandwidth tooltip's html mark up.
+ */
+function settledTooltipMarkUp(tooltipModel: TooltipModel): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataPoint = new ChartTooltipData(props.settledData[dataIndex]);
+
+    return `<div class='settled-tooltip'>
+                <div class='settled-tooltip__arrow'></div>
+                <p class='settled-tooltip__title'>Settled</p>
+                <p class='settled-tooltip__value'>${dataPoint.date}<b class='settled-tooltip__value__bold'> / ${dataPoint.value}</b></p>
+            </div>`;
+}
+
+watch(() => props.width, () => {
+    chartKey.value += 1;
+});
 </script>
 
 <style lang="scss">
