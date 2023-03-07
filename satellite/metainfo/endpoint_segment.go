@@ -64,7 +64,16 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	maxPieceSize := eestream.CalcPieceSize(req.MaxOrderLimit, redundancy)
+	config := endpoint.config
+	defaultRedundancy := storj.RedundancyScheme{
+		Algorithm:      storj.ReedSolomon,
+		RequiredShares: int16(config.RS.Min),
+		RepairShares:   int16(config.RS.Repair),
+		OptimalShares:  int16(config.RS.Success),
+		TotalShares:    int16(config.RS.Total),
+		ShareSize:      config.RS.ErasureShareSize.Int32(),
+	}
+	maxPieceSize := defaultRedundancy.PieceSize(req.MaxOrderLimit)
 
 	request := overlay.FindStorageNodesRequest{
 		RequestedCount: redundancy.TotalCount(),
@@ -123,6 +132,10 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		RootPieceId:         rootPieceID,
 		CreationDate:        time.Now(),
 	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 
 	endpoint.log.Info("Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
 	mon.Meter("req_put_remote").Mark(1)
@@ -132,6 +145,94 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		AddressedLimits:  addressedLimits,
 		PrivateKey:       piecePrivateKey,
 		RedundancyScheme: endpoint.defaultRS,
+	}, nil
+}
+
+// RetryBeginSegmentPieces replaces put order limits for failed piece uploads.
+func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.RetryBeginSegmentPiecesRequest) (resp *pb.RetryBeginSegmentPiecesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        segmentID.StreamId.Bucket,
+		EncryptedPath: segmentID.StreamId.EncryptedObjectKey,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(req.RetryPieceNumbers) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "piece numbers to exchange cannot be empty")
+	}
+
+	pieceNumberSet := make(map[int32]struct{}, len(req.RetryPieceNumbers))
+	for _, pieceNumber := range req.RetryPieceNumbers {
+		if pieceNumber < 0 || int(pieceNumber) >= len(segmentID.OriginalOrderLimits) {
+			endpoint.log.Debug("piece number is out of range",
+				zap.Int32("piece number", pieceNumber),
+				zap.Int("redundancy total", len(segmentID.OriginalOrderLimits)),
+				zap.Stringer("Segment ID", req.SegmentId),
+			)
+			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d must be within range [0,%d]", pieceNumber, len(segmentID.OriginalOrderLimits)-1)
+		}
+		if _, ok := pieceNumberSet[pieceNumber]; ok {
+			endpoint.log.Debug("piece number is duplicated",
+				zap.Int32("piece number", pieceNumber),
+				zap.Stringer("Segment ID", req.SegmentId),
+			)
+			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece number %d is duplicated", pieceNumber)
+		}
+		pieceNumberSet[pieceNumber] = struct{}{}
+	}
+
+	if err := endpoint.checkUploadLimits(ctx, keyInfo.ProjectID); err != nil {
+		return nil, err
+	}
+
+	// Find a new set of storage nodes, excluding any already represented in
+	// the current list of order limits.
+	// TODO: It's possible that a node gets reused across multiple calls to RetryBeginSegmentPieces.
+	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	for _, orderLimit := range segmentID.OriginalOrderLimits {
+		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
+	}
+	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
+		RequestedCount: len(req.RetryPieceNumbers),
+		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
+		ExcludedIDs:    excludedIDs,
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	addressedLimits, err := endpoint.orders.ReplacePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.RetryPieceNumbers)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	segmentID.OriginalOrderLimits = addressedLimits
+
+	amendedSegmentID, err := endpoint.packSegmentID(ctx, segmentID)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	endpoint.log.Info("Segment Upload Piece Retry", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "remote"))
+
+	return &pb.RetryBeginSegmentPiecesResponse{
+		SegmentId:       amendedSegmentID,
+		AddressedLimits: addressedLimits,
 	}, nil
 }
 
@@ -611,7 +712,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Remote segment
-	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment, 0)
+	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment, req.GetDesiredNodes(), 0)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",

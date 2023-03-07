@@ -284,7 +284,7 @@ export default class Authorize extends Vue {
 
     public setBucket(value: string): void {
         this.selectedBucketName = value;
-        this.bucketExists = this.selectedProjectID.length == 0 || value.length == 0 || this.buckets.includes(value);
+        this.bucketExists = this.selectedProjectID.length === 0 || value.length === 0 || this.buckets.includes(value);
 
         this.setScope();
     }
@@ -333,7 +333,7 @@ export default class Authorize extends Vue {
         this.bucketErr = '';
         this.passphraseErr = '';
 
-        if (this.selectedProjectID == '') {
+        if (this.selectedProjectID === '') {
             this.projectErr = 'Missing project.';
         }
 
@@ -341,13 +341,13 @@ export default class Authorize extends Vue {
             this.bucketErr = 'Name must contain only lowercase latin characters, numbers, a hyphen or a period';
         }
 
-        if (this.providedPassphrase == '') {
+        if (this.providedPassphrase === '') {
             this.passphraseErr = 'A passphrase must be provided.';
         }
 
-        this.valid = this.projectErr == '' &&
-            this.bucketErr == '' &&
-            this.passphraseErr == '';
+        this.valid = this.projectErr === '' &&
+            this.bucketErr === '' &&
+            this.passphraseErr === '';
 
         return this.valid;
     }
@@ -381,11 +381,11 @@ function formatObjectPermissions(scope: string): string {
 
     perms.sort();
 
-    if (perms.length == 0) {
+    if (perms.length === 0) {
         return '';
-    } else if (perms.length == 1) {
+    } else if (perms.length === 1) {
         return perms[0];
-    } else if (perms.length == 2) {
+    } else if (perms.length === 2) {
         return `${perms[0]} and ${perms[1]}`;
     }
 

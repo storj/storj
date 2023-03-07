@@ -208,7 +208,6 @@ describe('actions', () => {
         expect(state.page.projectMembers[0].joinedAt).toBe(projectMember1.joinedAt);
         expect(state.page.projectMembers[0].user.email).toBe(projectMember1.user.email);
         expect(state.page.projectMembers[0].user.id).toBe(projectMember1.user.id);
-        expect(state.page.projectMembers[0].user.partnerId).toBe(projectMember1.user.partnerId);
         expect(state.page.projectMembers[0].user.fullName).toBe(projectMember1.user.fullName);
         expect(state.page.projectMembers[0].user.shortName).toBe(projectMember1.user.shortName);
     });

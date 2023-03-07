@@ -371,7 +371,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -471,6 +471,8 @@ CREATE TABLE nodes (
 	contained timestamp with time zone,
 	last_offline_email timestamp with time zone,
 	last_software_update_email timestamp with time zone,
+	noise_proto integer,
+	noise_public_key bytea,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -775,6 +777,12 @@ CREATE TABLE users (
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	passphrase_prompt boolean,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
@@ -865,6 +873,7 @@ CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
+CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
@@ -1028,7 +1037,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -1128,6 +1137,8 @@ CREATE TABLE nodes (
 	contained timestamp with time zone,
 	last_offline_email timestamp with time zone,
 	last_software_update_email timestamp with time zone,
+	noise_proto integer,
+	noise_public_key bytea,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -1432,6 +1443,12 @@ CREATE TABLE users (
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	passphrase_prompt boolean,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
@@ -1522,6 +1539,7 @@ CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
+CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;
@@ -3549,6 +3567,8 @@ type Node struct {
 	Contained               *time.Time
 	LastOfflineEmail        *time.Time
 	LastSoftwareUpdateEmail *time.Time
+	NoiseProto              *int
+	NoisePublicKey          []byte
 }
 
 func (Node) _Table() string { return "nodes" }
@@ -3583,6 +3603,8 @@ type Node_Create_Fields struct {
 	Contained               Node_Contained_Field
 	LastOfflineEmail        Node_LastOfflineEmail_Field
 	LastSoftwareUpdateEmail Node_LastSoftwareUpdateEmail_Field
+	NoiseProto              Node_NoiseProto_Field
+	NoisePublicKey          Node_NoisePublicKey_Field
 }
 
 type Node_Update_Fields struct {
@@ -3619,6 +3641,8 @@ type Node_Update_Fields struct {
 	Contained               Node_Contained_Field
 	LastOfflineEmail        Node_LastOfflineEmail_Field
 	LastSoftwareUpdateEmail Node_LastSoftwareUpdateEmail_Field
+	NoiseProto              Node_NoiseProto_Field
+	NoisePublicKey          Node_NoisePublicKey_Field
 }
 
 type Node_Id_Field struct {
@@ -4490,6 +4514,70 @@ func (f Node_LastSoftwareUpdateEmail_Field) value() interface{} {
 }
 
 func (Node_LastSoftwareUpdateEmail_Field) _Column() string { return "last_software_update_email" }
+
+type Node_NoiseProto_Field struct {
+	_set   bool
+	_null  bool
+	_value *int
+}
+
+func Node_NoiseProto(v int) Node_NoiseProto_Field {
+	return Node_NoiseProto_Field{_set: true, _value: &v}
+}
+
+func Node_NoiseProto_Raw(v *int) Node_NoiseProto_Field {
+	if v == nil {
+		return Node_NoiseProto_Null()
+	}
+	return Node_NoiseProto(*v)
+}
+
+func Node_NoiseProto_Null() Node_NoiseProto_Field {
+	return Node_NoiseProto_Field{_set: true, _null: true}
+}
+
+func (f Node_NoiseProto_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_NoiseProto_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_NoiseProto_Field) _Column() string { return "noise_proto" }
+
+type Node_NoisePublicKey_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Node_NoisePublicKey(v []byte) Node_NoisePublicKey_Field {
+	return Node_NoisePublicKey_Field{_set: true, _value: v}
+}
+
+func Node_NoisePublicKey_Raw(v []byte) Node_NoisePublicKey_Field {
+	if v == nil {
+		return Node_NoisePublicKey_Null()
+	}
+	return Node_NoisePublicKey(v)
+}
+
+func Node_NoisePublicKey_Null() Node_NoisePublicKey_Field {
+	return Node_NoisePublicKey_Field{_set: true, _null: true}
+}
+
+func (f Node_NoisePublicKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Node_NoisePublicKey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_NoisePublicKey_Field) _Column() string { return "noise_public_key" }
 
 type NodeApiVersion struct {
 	Id         []byte
@@ -9868,6 +9956,111 @@ func (f User_SignupCaptcha_Field) value() interface{} {
 
 func (User_SignupCaptcha_Field) _Column() string { return "signup_captcha" }
 
+type UserSettings struct {
+	UserId           []byte
+	SessionMinutes   *uint
+	PassphrasePrompt *bool
+}
+
+func (UserSettings) _Table() string { return "user_settings" }
+
+type UserSettings_Create_Fields struct {
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
+}
+
+type UserSettings_Update_Fields struct {
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
+}
+
+type UserSettings_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserSettings_UserId(v []byte) UserSettings_UserId_Field {
+	return UserSettings_UserId_Field{_set: true, _value: v}
+}
+
+func (f UserSettings_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_UserId_Field) _Column() string { return "user_id" }
+
+type UserSettings_SessionMinutes_Field struct {
+	_set   bool
+	_null  bool
+	_value *uint
+}
+
+func UserSettings_SessionMinutes(v uint) UserSettings_SessionMinutes_Field {
+	return UserSettings_SessionMinutes_Field{_set: true, _value: &v}
+}
+
+func UserSettings_SessionMinutes_Raw(v *uint) UserSettings_SessionMinutes_Field {
+	if v == nil {
+		return UserSettings_SessionMinutes_Null()
+	}
+	return UserSettings_SessionMinutes(*v)
+}
+
+func UserSettings_SessionMinutes_Null() UserSettings_SessionMinutes_Field {
+	return UserSettings_SessionMinutes_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_SessionMinutes_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_SessionMinutes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_SessionMinutes_Field) _Column() string { return "session_minutes" }
+
+type UserSettings_PassphrasePrompt_Field struct {
+	_set   bool
+	_null  bool
+	_value *bool
+}
+
+func UserSettings_PassphrasePrompt(v bool) UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _value: &v}
+}
+
+func UserSettings_PassphrasePrompt_Raw(v *bool) UserSettings_PassphrasePrompt_Field {
+	if v == nil {
+		return UserSettings_PassphrasePrompt_Null()
+	}
+	return UserSettings_PassphrasePrompt(*v)
+}
+
+func UserSettings_PassphrasePrompt_Null() UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_PassphrasePrompt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_PassphrasePrompt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_PassphrasePrompt_Field) _Column() string { return "passphrase_prompt" }
+
 type ValueAttribution struct {
 	ProjectId   []byte
 	BucketName  []byte
@@ -11487,8 +11680,8 @@ type Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continua
 }
 
 type Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
-	_value_bucket_name    []byte
 	_value_project_id     []byte
+	_value_bucket_name    []byte
 	_value_interval_start time.Time
 	_value_action         uint
 	_set                  bool
@@ -11555,6 +11748,10 @@ type SegmentLimit_Row struct {
 
 type UsageLimit_Row struct {
 	UsageLimit *int64
+}
+
+type UserAgent_Row struct {
+	UserAgent []byte
 }
 
 type UserId_Row struct {
@@ -12414,92 +12611,6 @@ func (obj *pgxImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
-	bucket_metainfo_id BucketMetainfo_Id_Field,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
-	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
-	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
-	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
-	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
-	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
-	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
-	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
-	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
-	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
-	optional BucketMetainfo_Create_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bucket_metainfo_id.value()
-	__project_id_val := bucket_metainfo_project_id.value()
-	__name_val := bucket_metainfo_name.value()
-	__partner_id_val := optional.PartnerId.value()
-	__user_agent_val := optional.UserAgent.value()
-	__path_cipher_val := bucket_metainfo_path_cipher.value()
-	__created_at_val := __now
-	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
-	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
-	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
-	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
-	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
-	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
-	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
-	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
-	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
-	__placement_val := optional.Placement.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metainfos ( id, project_id, name, partner_id, user_agent, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares, placement ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __name_val, __partner_id_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field,
-	optional ValueAttribution_Create_Fields) (
-	value_attribution *ValueAttribution, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__project_id_val := value_attribution_project_id.value()
-	__bucket_name_val := value_attribution_bucket_name.value()
-	__partner_id_val := value_attribution_partner_id.value()
-	__user_agent_val := optional.UserAgent.value()
-	__last_updated_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, user_agent, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated")
-
-	var __values []interface{}
-	__values = append(__values, __project_id_val, __bucket_name_val, __partner_id_val, __user_agent_val, __last_updated_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return value_attribution, nil
-
-}
-
 func (obj *pgxImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -12627,6 +12738,92 @@ func (obj *pgxImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
+	bucket_metainfo_id BucketMetainfo_Id_Field,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
+	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
+	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
+	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
+	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
+	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
+	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
+	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
+	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
+	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
+	optional BucketMetainfo_Create_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_metainfo_id.value()
+	__project_id_val := bucket_metainfo_project_id.value()
+	__name_val := bucket_metainfo_name.value()
+	__partner_id_val := optional.PartnerId.value()
+	__user_agent_val := optional.UserAgent.value()
+	__path_cipher_val := bucket_metainfo_path_cipher.value()
+	__created_at_val := __now
+	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
+	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
+	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
+	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
+	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
+	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
+	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
+	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
+	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
+	__placement_val := optional.Placement.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metainfos ( id, project_id, name, partner_id, user_agent, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares, placement ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __project_id_val, __name_val, __partner_id_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	value_attribution_partner_id ValueAttribution_PartnerId_Field,
+	optional ValueAttribution_Create_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := value_attribution_project_id.value()
+	__bucket_name_val := value_attribution_bucket_name.value()
+	__partner_id_val := value_attribution_partner_id.value()
+	__user_agent_val := optional.UserAgent.value()
+	__last_updated_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, user_agent, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __bucket_name_val, __partner_id_val, __user_agent_val, __last_updated_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
 
 }
 
@@ -12887,6 +13084,31 @@ func (obj *pgxImpl) Replace_AccountFreezeEvent(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := user_settings_user_id.value()
+	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -12909,219 +13131,6 @@ func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 		return (*Value_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
-
-}
-
-func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
-	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
-
-			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
-	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
-	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
-
-			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
-				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
-	rows []*BucketStorageTally, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
-
-	var __values []interface{}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketStorageTally, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
-	rows []*BucketStorageTally, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
-
-	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketStorageTally, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -13505,6 +13514,219 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 
 }
 
+func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
 	reverification_audits *ReverificationAudits, err error) {
@@ -13569,6 +13791,28 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -14296,7 +14540,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -14305,7 +14549,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -14361,9 +14605,9 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -14390,7 +14634,7 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -14845,265 +15089,6 @@ func (obj *pgxImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Context,
 		return (*OauthToken)(nil), obj.makeErr(err)
 	}
 	return oauth_token, nil
-
-}
-
-func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err != nil {
-		return (*BucketMetainfo)(nil), obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (obj *pgxImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedAt_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
-	if err != nil {
-		return (*CreatedAt_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Id_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Id_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
-	if err != nil {
-		return (*Id_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Placement_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Placement_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement)
-	if err != nil {
-		return (*Placement_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	has bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
-
-}
-
-func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketMetainfo, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_metainfo := &BucketMetainfo{}
-				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketMetainfo, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_metainfo := &BucketMetainfo{}
-				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
-
-	var __values []interface{}
-	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
-	if err != nil {
-		return (*ValueAttribution)(nil), obj.makeErr(err)
-	}
-	return value_attribution, nil
 
 }
 
@@ -15707,6 +15692,288 @@ func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err != nil {
+		return (*BucketMetainfo)(nil), obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *CreatedAt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CreatedAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
+	if err != nil {
+		return (*CreatedAt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement)
+	if err != nil {
+		return (*Placement_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
+func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return (*ValueAttribution)(nil), obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
 func (obj *pgxImpl) All_User_By_NormalizedEmail(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	rows []*User, err error) {
@@ -16081,6 +16348,73 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 
 }
 
+func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_settings_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
+	if err != nil {
+		return (*UserSettings)(nil), obj.makeErr(err)
+	}
+	return user_settings, nil
+
+}
+
 func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -16410,7 +16744,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -16581,6 +16915,16 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
 	}
 
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -16595,7 +16939,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -16781,6 +17125,16 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -16979,6 +17333,16 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitF
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -17485,103 +17849,6 @@ func (obj *pgxImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx context.Cont
 	return nil
 }
 
-func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	update BucketMetainfo_Update_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.PartnerId._set {
-		__values = append(__values, update.PartnerId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
-	}
-
-	if update.UserAgent._set {
-		__values = append(__values, update.UserAgent.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
-	}
-
-	if update.DefaultSegmentSize._set {
-		__values = append(__values, update.DefaultSegmentSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
-	}
-
-	if update.DefaultEncryptionCipherSuite._set {
-		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
-	}
-
-	if update.DefaultEncryptionBlockSize._set {
-		__values = append(__values, update.DefaultEncryptionBlockSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
-	}
-
-	if update.DefaultRedundancyAlgorithm._set {
-		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
-	}
-
-	if update.DefaultRedundancyShareSize._set {
-		__values = append(__values, update.DefaultRedundancyShareSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
-	}
-
-	if update.DefaultRedundancyRequiredShares._set {
-		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
-	}
-
-	if update.DefaultRedundancyRepairShares._set {
-		__values = append(__values, update.DefaultRedundancyRepairShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
-	}
-
-	if update.DefaultRedundancyOptimalShares._set {
-		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
-	}
-
-	if update.DefaultRedundancyTotalShares._set {
-		__values = append(__values, update.DefaultRedundancyTotalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
-	}
-
-	if update.Placement._set {
-		__values = append(__values, update.Placement.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-}
-
 func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -17703,6 +17970,103 @@ func (obj *pgxImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PartnerId._set {
+		__values = append(__values, update.PartnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
 }
 
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
@@ -17995,6 +18359,52 @@ func (obj *pgxImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx context.Co
 	return account_freeze_event, nil
 }
 
+func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SessionMinutes._set {
+		__values = append(__values, update.SessionMinutes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_settings_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_settings, nil
+}
+
 func (obj *pgxImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -18189,34 +18599,6 @@ func (obj *pgxImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -18281,6 +18663,34 @@ func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -18536,6 +18946,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_settings;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -19777,92 +20197,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_OauthToken(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Create_BucketMetainfo(ctx context.Context,
-	bucket_metainfo_id BucketMetainfo_Id_Field,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
-	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
-	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
-	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
-	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
-	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
-	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
-	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
-	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
-	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
-	optional BucketMetainfo_Create_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := bucket_metainfo_id.value()
-	__project_id_val := bucket_metainfo_project_id.value()
-	__name_val := bucket_metainfo_name.value()
-	__partner_id_val := optional.PartnerId.value()
-	__user_agent_val := optional.UserAgent.value()
-	__path_cipher_val := bucket_metainfo_path_cipher.value()
-	__created_at_val := __now
-	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
-	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
-	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
-	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
-	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
-	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
-	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
-	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
-	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
-	__placement_val := optional.Placement.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metainfos ( id, project_id, name, partner_id, user_agent, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares, placement ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __project_id_val, __name_val, __partner_id_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field,
-	value_attribution_partner_id ValueAttribution_PartnerId_Field,
-	optional ValueAttribution_Create_Fields) (
-	value_attribution *ValueAttribution, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__project_id_val := value_attribution_project_id.value()
-	__bucket_name_val := value_attribution_bucket_name.value()
-	__partner_id_val := value_attribution_partner_id.value()
-	__user_agent_val := optional.UserAgent.value()
-	__last_updated_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, user_agent, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated")
-
-	var __values []interface{}
-	__values = append(__values, __project_id_val, __bucket_name_val, __partner_id_val, __user_agent_val, __last_updated_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return value_attribution, nil
-
-}
-
 func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
@@ -19990,6 +20324,92 @@ func (obj *pgxcockroachImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_BucketMetainfo(ctx context.Context,
+	bucket_metainfo_id BucketMetainfo_Id_Field,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	bucket_metainfo_path_cipher BucketMetainfo_PathCipher_Field,
+	bucket_metainfo_default_segment_size BucketMetainfo_DefaultSegmentSize_Field,
+	bucket_metainfo_default_encryption_cipher_suite BucketMetainfo_DefaultEncryptionCipherSuite_Field,
+	bucket_metainfo_default_encryption_block_size BucketMetainfo_DefaultEncryptionBlockSize_Field,
+	bucket_metainfo_default_redundancy_algorithm BucketMetainfo_DefaultRedundancyAlgorithm_Field,
+	bucket_metainfo_default_redundancy_share_size BucketMetainfo_DefaultRedundancyShareSize_Field,
+	bucket_metainfo_default_redundancy_required_shares BucketMetainfo_DefaultRedundancyRequiredShares_Field,
+	bucket_metainfo_default_redundancy_repair_shares BucketMetainfo_DefaultRedundancyRepairShares_Field,
+	bucket_metainfo_default_redundancy_optimal_shares BucketMetainfo_DefaultRedundancyOptimalShares_Field,
+	bucket_metainfo_default_redundancy_total_shares BucketMetainfo_DefaultRedundancyTotalShares_Field,
+	optional BucketMetainfo_Create_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := bucket_metainfo_id.value()
+	__project_id_val := bucket_metainfo_project_id.value()
+	__name_val := bucket_metainfo_name.value()
+	__partner_id_val := optional.PartnerId.value()
+	__user_agent_val := optional.UserAgent.value()
+	__path_cipher_val := bucket_metainfo_path_cipher.value()
+	__created_at_val := __now
+	__default_segment_size_val := bucket_metainfo_default_segment_size.value()
+	__default_encryption_cipher_suite_val := bucket_metainfo_default_encryption_cipher_suite.value()
+	__default_encryption_block_size_val := bucket_metainfo_default_encryption_block_size.value()
+	__default_redundancy_algorithm_val := bucket_metainfo_default_redundancy_algorithm.value()
+	__default_redundancy_share_size_val := bucket_metainfo_default_redundancy_share_size.value()
+	__default_redundancy_required_shares_val := bucket_metainfo_default_redundancy_required_shares.value()
+	__default_redundancy_repair_shares_val := bucket_metainfo_default_redundancy_repair_shares.value()
+	__default_redundancy_optimal_shares_val := bucket_metainfo_default_redundancy_optimal_shares.value()
+	__default_redundancy_total_shares_val := bucket_metainfo_default_redundancy_total_shares.value()
+	__placement_val := optional.Placement.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metainfos ( id, project_id, name, partner_id, user_agent, path_cipher, created_at, default_segment_size, default_encryption_cipher_suite, default_encryption_block_size, default_redundancy_algorithm, default_redundancy_share_size, default_redundancy_required_shares, default_redundancy_repair_shares, default_redundancy_optimal_shares, default_redundancy_total_shares, placement ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __project_id_val, __name_val, __partner_id_val, __user_agent_val, __path_cipher_val, __created_at_val, __default_segment_size_val, __default_encryption_cipher_suite_val, __default_encryption_block_size_val, __default_redundancy_algorithm_val, __default_redundancy_share_size_val, __default_redundancy_required_shares_val, __default_redundancy_repair_shares_val, __default_redundancy_optimal_shares_val, __default_redundancy_total_shares_val, __placement_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field,
+	value_attribution_partner_id ValueAttribution_PartnerId_Field,
+	optional ValueAttribution_Create_Fields) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__project_id_val := value_attribution_project_id.value()
+	__bucket_name_val := value_attribution_bucket_name.value()
+	__partner_id_val := value_attribution_partner_id.value()
+	__user_agent_val := optional.UserAgent.value()
+	__last_updated_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( project_id, bucket_name, partner_id, user_agent, last_updated ) VALUES ( ?, ?, ?, ?, ? ) RETURNING value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated")
+
+	var __values []interface{}
+	__values = append(__values, __project_id_val, __bucket_name_val, __partner_id_val, __user_agent_val, __last_updated_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
 
 }
 
@@ -20250,6 +20670,31 @@ func (obj *pgxcockroachImpl) Replace_AccountFreezeEvent(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	__user_id_val := user_settings_user_id.value()
+	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+
+}
+
 func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field) (
 	row *Value_Row, err error) {
@@ -20272,219 +20717,6 @@ func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context
 		return (*Value_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
-	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
-	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
-
-			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
-	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
-	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
-	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
-
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
-
-	var __stmt string
-	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	} else {
-		__values = append(__values, limit)
-		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
-	}
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, nil, err
-			}
-			defer __rows.Close()
-
-			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-			__continuation._set = true
-
-			for __rows.Next() {
-				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
-				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
-				if err != nil {
-					return nil, nil, err
-				}
-				rows = append(rows, bucket_bandwidth_rollup_archive)
-				next = &__continuation
-			}
-
-			if err := __rows.Err(); err != nil {
-				return nil, nil, err
-			}
-
-			return rows, next, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, nil, obj.makeErr(err)
-		}
-		return rows, next, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
-	rows []*BucketStorageTally, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
-
-	var __values []interface{}
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketStorageTally, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
-	rows []*BucketStorageTally, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
-
-	var __values []interface{}
-	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketStorageTally, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_storage_tally)
-			}
-			if err := __rows.Err(); err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
 
 }
 
@@ -20868,6 +21100,219 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 
 }
 
+func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx context.Context,
+	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
+	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
+	bucket_storage_tally_interval_start_greater_or_equal BucketStorageTally_IntervalStart_Field,
+	bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
+	rows []*BucketStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+
+	var __values []interface{}
+	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketStorageTally, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_storage_tally := &BucketStorageTally{}
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_storage_tally)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_Asc_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field) (
 	reverification_audits *ReverificationAudits, err error) {
@@ -20932,6 +21377,28 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -21659,7 +22126,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -21668,7 +22135,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -21724,9 +22191,9 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -21753,7 +22220,7 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -22208,265 +22675,6 @@ func (obj *pgxcockroachImpl) Get_OauthToken_By_Kind_And_Token(ctx context.Contex
 		return (*OauthToken)(nil), obj.makeErr(err)
 	}
 	return oauth_token, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err != nil {
-		return (*BucketMetainfo)(nil), obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *CreatedAt_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &CreatedAt_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
-	if err != nil {
-		return (*CreatedAt_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Id_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Id_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
-	if err != nil {
-		return (*Id_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	row *Placement_Row, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	row = &Placement_Row{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement)
-	if err != nil {
-		return (*Placement_Row)(nil), obj.makeErr(err)
-	}
-	return row, nil
-
-}
-
-func (obj *pgxcockroachImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	has bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-	return has, nil
-
-}
-
-func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketMetainfo, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_metainfo := &BucketMetainfo{}
-				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
-	limit int, offset int64) (
-	rows []*BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*BucketMetainfo, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				bucket_metainfo := &BucketMetainfo{}
-				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, bucket_metainfo)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
-func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
-	count int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
-func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
-	value_attribution_project_id ValueAttribution_ProjectId_Field,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
-
-	var __values []interface{}
-	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	value_attribution = &ValueAttribution{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
-	if err != nil {
-		return (*ValueAttribution)(nil), obj.makeErr(err)
-	}
-	return value_attribution, nil
 
 }
 
@@ -23070,6 +23278,288 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Contex
 
 }
 
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err != nil {
+		return (*BucketMetainfo)(nil), obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *CreatedAt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.created_at FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &CreatedAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CreatedAt)
+	if err != nil {
+		return (*CreatedAt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Id_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	if err != nil {
+		return (*Id_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement)
+	if err != nil {
+		return (*Placement_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *UserAgent_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.user_agent FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserAgent_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserAgent)
+	if err != nil {
+		return (*UserAgent_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
+func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name >= ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater_or_equal.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM bucket_metainfos WHERE bucket_metainfos.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
+	value_attribution_project_id ValueAttribution_ProjectId_Field,
+	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
+	value_attribution *ValueAttribution, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.user_agent, value_attributions.last_updated FROM value_attributions WHERE value_attributions.project_id = ? AND value_attributions.bucket_name = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_project_id.value(), value_attribution_bucket_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.UserAgent, &value_attribution.LastUpdated)
+	if err != nil {
+		return (*ValueAttribution)(nil), obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_User_By_NormalizedEmail(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	rows []*User, err error) {
@@ -23444,6 +23934,73 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 
 }
 
+func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, user_settings_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
+	if err != nil {
+		return (*UserSettings)(nil), obj.makeErr(err)
+	}
+	return user_settings, nil
+
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	update AccountingTimestamps_Update_Fields) (
@@ -23773,7 +24330,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.country_code, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.disqualified, nodes.disqualification_reason, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.contained, nodes.last_offline_email, nodes.last_software_update_email, nodes.noise_proto, nodes.noise_public_key")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -23944,6 +24501,16 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
 	}
 
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -23958,7 +24525,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.CountryCode, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Disqualified, &node.DisqualificationReason, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &node.Contained, &node.LastOfflineEmail, &node.LastSoftwareUpdateEmail, &node.NoiseProto, &node.NoisePublicKey)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -24144,6 +24711,16 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -24342,6 +24919,16 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_
 	if update.LastSoftwareUpdateEmail._set {
 		__values = append(__values, update.LastSoftwareUpdateEmail.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_software_update_email = ?"))
+	}
+
+	if update.NoiseProto._set {
+		__values = append(__values, update.NoiseProto.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_proto = ?"))
+	}
+
+	if update.NoisePublicKey._set {
+		__values = append(__values, update.NoisePublicKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("noise_public_key = ?"))
 	}
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -24848,103 +25435,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_OauthToken_By_Token_And_Kind(ctx con
 	return nil
 }
 
-func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field,
-	update BucketMetainfo_Update_Fields) (
-	bucket_metainfo *BucketMetainfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.PartnerId._set {
-		__values = append(__values, update.PartnerId.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
-	}
-
-	if update.UserAgent._set {
-		__values = append(__values, update.UserAgent.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
-	}
-
-	if update.DefaultSegmentSize._set {
-		__values = append(__values, update.DefaultSegmentSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
-	}
-
-	if update.DefaultEncryptionCipherSuite._set {
-		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
-	}
-
-	if update.DefaultEncryptionBlockSize._set {
-		__values = append(__values, update.DefaultEncryptionBlockSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
-	}
-
-	if update.DefaultRedundancyAlgorithm._set {
-		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
-	}
-
-	if update.DefaultRedundancyShareSize._set {
-		__values = append(__values, update.DefaultRedundancyShareSize.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
-	}
-
-	if update.DefaultRedundancyRequiredShares._set {
-		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
-	}
-
-	if update.DefaultRedundancyRepairShares._set {
-		__values = append(__values, update.DefaultRedundancyRepairShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
-	}
-
-	if update.DefaultRedundancyOptimalShares._set {
-		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
-	}
-
-	if update.DefaultRedundancyTotalShares._set {
-		__values = append(__values, update.DefaultRedundancyTotalShares.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
-	}
-
-	if update.Placement._set {
-		__values = append(__values, update.Placement.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	bucket_metainfo = &BucketMetainfo{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return bucket_metainfo, nil
-}
-
 func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -25066,6 +25556,103 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_ApiKey_By_Id(ctx context.Context,
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.user_agent, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares, bucket_metainfos.placement")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PartnerId._set {
+		__values = append(__values, update.PartnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
+	}
+
+	if update.UserAgent._set {
+		__values = append(__values, update.UserAgent.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("user_agent = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if update.Placement._set {
+		__values = append(__values, update.Placement.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("placement = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.UserAgent, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares, &bucket_metainfo.Placement)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
 }
 
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
@@ -25358,6 +25945,52 @@ func (obj *pgxcockroachImpl) Update_AccountFreezeEvent_By_UserId_And_Event(ctx c
 	return account_freeze_event, nil
 }
 
+func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.SessionMinutes._set {
+		__values = append(__values, update.SessionMinutes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, user_settings_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	user_settings = &UserSettings{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_settings, nil
+}
+
 func (obj *pgxcockroachImpl) Delete_ReverificationAudits_By_NodeId_And_StreamId_And_Position(ctx context.Context,
 	reverification_audits_node_id ReverificationAudits_NodeId_Field,
 	reverification_audits_stream_id ReverificationAudits_StreamId_Field,
@@ -25552,34 +26185,6 @@ func (obj *pgxcockroachImpl) Delete_OauthClient_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
-	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
-	bucket_metainfo_name BucketMetainfo_Name_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
-
-	var __values []interface{}
-	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	deleted bool, err error) {
@@ -25644,6 +26249,34 @@ func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -25899,6 +26532,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM value_attributions;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM user_settings;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -26345,6 +26988,16 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_AccountFreezeEvent_By_UserId(ctx, account_freeze_event_user_id)
+}
+
 func (rx *Rx) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
 	billing_transaction_user_id BillingTransaction_UserId_Field) (
 	rows []*BillingTransaction, err error) {
@@ -26696,6 +27349,18 @@ func (rx *Rx) CreateNoReturn_StorjscanWallet(ctx context.Context,
 		return
 	}
 	return tx.CreateNoReturn_StorjscanWallet(ctx, storjscan_wallet_user_id, storjscan_wallet_wallet_address)
+
+}
+
+func (rx *Rx) CreateNoReturn_UserSettings(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	optional UserSettings_Create_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.CreateNoReturn_UserSettings(ctx, user_settings_user_id, optional)
 
 }
 
@@ -27316,6 +27981,17 @@ func (rx *Rx) Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx context.Con
 	return tx.Get_BucketMetainfo_Placement_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
 }
 
+func (rx *Rx) Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *UserAgent_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
 func (rx *Rx) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 	graceful_exit_progress *GracefulExitProgress, err error) {
@@ -27601,6 +28277,16 @@ func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
+func (rx *Rx) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripeCustomer_UserId_By_CustomerId(ctx, stripe_customer_customer_id)
+}
+
 func (rx *Rx) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -27621,6 +28307,16 @@ func (rx *Rx) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context
 		return
 	}
 	return tx.Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx, stripecoinpayments_tx_conversion_rate_tx_id)
+}
+
+func (rx *Rx) Get_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field) (
+	user_settings *UserSettings, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_UserSettings_By_UserId(ctx, user_settings_user_id)
 }
 
 func (rx *Rx) Get_User_By_Id(ctx context.Context,
@@ -28195,6 +28891,17 @@ func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Co
 	return tx.Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx, stripecoinpayments_invoice_project_record_id, update)
 }
 
+func (rx *Rx) Update_UserSettings_By_UserId(ctx context.Context,
+	user_settings_user_id UserSettings_UserId_Field,
+	update UserSettings_Update_Fields) (
+	user_settings *UserSettings, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_UserSettings_By_UserId(ctx, user_settings_user_id, update)
+}
+
 func (rx *Rx) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -28218,6 +28925,10 @@ func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	All_AccountFreezeEvent_By_UserId(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+		rows []*AccountFreezeEvent, err error)
+
 	All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field) (
 		rows []*BillingTransaction, err error)
@@ -28375,6 +29086,11 @@ type Methods interface {
 	CreateNoReturn_StorjscanWallet(ctx context.Context,
 		storjscan_wallet_user_id StorjscanWallet_UserId_Field,
 		storjscan_wallet_wallet_address StorjscanWallet_WalletAddress_Field) (
+		err error)
+
+	CreateNoReturn_UserSettings(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field,
+		optional UserSettings_Create_Fields) (
 		err error)
 
 	Create_ApiKey(ctx context.Context,
@@ -28669,6 +29385,11 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Placement_Row, err error)
 
+	Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		row *UserAgent_Row, err error)
+
 	Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 		graceful_exit_progress_node_id GracefulExitProgress_NodeId_Field) (
 		graceful_exit_progress *GracefulExitProgress, err error)
@@ -28786,6 +29507,10 @@ type Methods interface {
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
 
+	Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		row *UserId_Row, err error)
+
 	Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -28795,6 +29520,10 @@ type Methods interface {
 	Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.Context,
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
+
+	Get_UserSettings_By_UserId(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field) (
+		user_settings *UserSettings, err error)
 
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
@@ -29069,6 +29798,11 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 		update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
 		stripecoinpayments_invoice_project_record *StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Update_UserSettings_By_UserId(ctx context.Context,
+		user_settings_user_id UserSettings_UserId_Field,
+		update UserSettings_Update_Fields) (
+		user_settings *UserSettings, err error)
 
 	Update_User_By_Id(ctx context.Context,
 		user_id User_Id_Field,

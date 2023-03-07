@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -109,7 +110,10 @@ func (l *Local) List(ctx context.Context, path string, opts *ListOptions) (Objec
 		return emptyObjectIterator{}, nil
 	}
 
-	prefix := filepath.Clean(path) + string(filepath.Separator)
+	prefix := filepath.Clean(path)
+	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
+		prefix += string(filepath.Separator)
+	}
 
 	var err error
 	var files []os.FileInfo

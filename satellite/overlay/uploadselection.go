@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
@@ -124,7 +123,7 @@ func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode
 	for _, n := range nodes {
 		xs = append(xs, &SelectedNode{
 			ID:          n.ID,
-			Address:     &pb.NodeAddress{Address: n.Address},
+			Address:     pb.NodeFromNodeURL(n.NodeURL).Address,
 			LastNet:     n.LastNet,
 			LastIPPort:  n.LastIPPort,
 			CountryCode: n.CountryCode,
@@ -136,10 +135,10 @@ func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode
 func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*uploadselection.Node) {
 	for _, n := range nodes {
 		xs = append(xs, &uploadselection.Node{
-			NodeURL: storj.NodeURL{
-				ID:      n.ID,
-				Address: n.Address.Address,
-			},
+			NodeURL: (&pb.Node{
+				Id:      n.ID,
+				Address: n.Address,
+			}).NodeURL(),
 			LastNet:     n.LastNet,
 			LastIPPort:  n.LastIPPort,
 			CountryCode: n.CountryCode,

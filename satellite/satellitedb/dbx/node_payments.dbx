@@ -1,5 +1,4 @@
-// --- storage node payment tables --- //
-
+// storagenode_paystub contains pending payments to the storagenode.
 model storagenode_paystub (
 	// The (period, node_id) tuple is the primary key. The primary key index
 	// should serve for quick queries for all paystubs in a given period since
@@ -10,32 +9,55 @@ model storagenode_paystub (
 
 	index ( fields node_id )
 
-	field period     text                     // YYYY-MM, e.g. 2020-02
-	field node_id    blob                     //
-	field created_at timestamp ( autoinsert ) //
-	field codes      text                     // colon separated list
+	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
+	field period     text
+	// node_id is the storagenode storj.NodeID.
+	field node_id    blob
+	// created_at is when this paystub was created.
+	field created_at timestamp ( autoinsert )
+	// codes is a colon separated list of compensation.Code values that the billing entry can be.
+	// For example, whether the node is disqualified, sanctioned and others. For the full list see compensation.Code.
+	field codes      text
 
-	field usage_at_rest    float64            // byte-hours of data at rest
-	field usage_get        int64              // bytes of bandwidth
-	field usage_put        int64              // bytes of bandwidth
-	field usage_get_repair int64              // bytes of bandwidth
-	field usage_put_repair int64              // bytes of bandwidth
-	field usage_get_audit  int64              // bytes of bandwidth
+	// usage_at_rest is byte*hours of data at rest for this period.
+	field usage_at_rest    float64
+	// usage_get bytes of data downloaded from the storagenode.
+	field usage_get        int64
+	// usage_put bytes of data uploaded to the storagenode.
+	field usage_put        int64
+	// usage_get_repair bytes of data downloaded from the storagenode for repair.
+	field usage_get_repair int64
+	// usage_put_repair bytes of data uploaded to the storagenode for repair.
+	field usage_put_repair int64
+	// usage_get_audit bytes of data downloaded from the storagenode for audit.
+	field usage_get_audit  int64
 
-	field comp_at_rest    int64               // in micro-units of currency
-	field comp_get        int64               // in micro-units of currency
-	field comp_put        int64               // in micro-units of currency
-	field comp_get_repair int64               // in micro-units of currency
-	field comp_put_repair int64               // in micro-units of currency
-	field comp_get_audit  int64               // in micro-units of currency
+	// comp_at_rest is compensation in micro-units of currency for usage_at_rest.
+	field comp_at_rest    int64
+	// comp_get is compensation in micro-units of currency for usage_get.
+	field comp_get        int64
+	// comp_put is compensation in micro-units of currency for usage_put.
+	field comp_put        int64
+	// comp_get_repair is compensation in micro-units of currency for usage_get_repair.
+	field comp_get_repair int64
+	// comp_put_repair is compensation in micro-units of currency for usage_put_repair.
+	field comp_put_repair int64
+	// comp_get_audit is compensation in micro-units of currency for usage_get_audit.
+	field comp_get_audit  int64
 
-	field surge_percent int64                 // percentage
+	// surge_percent is surge percentage that is used for the compensation, or 0 if no surge.
+	field surge_percent int64
 
-	field held        int64                   // in micro-units of currency
-	field owed        int64                   // in micro-units of currency
-	field disposed    int64                   // in micro-units of currency
-	field paid        int64                   // in micro-units of currency
-	field distributed int64                   // in micro-units of currency
+	// held is micro-units of currency that has been held from sum(comp_*) for this period
+	field held        int64
+	// owed is the amount we intend to pay to the node (sum(comp_*) - held + disposed).
+	field owed        int64
+	// disposed is micro-units of currency owed that is due to graceful-exit or held period ending.
+	field disposed    int64
+	// paid is micro-units of currency is total amount ever paid to the node (but not necessarily dispensed).
+	field paid        int64
+	// distributed is micro-units of currency is total amount ever distributed to the node (always less than or equal to paid).
+	field distributed int64
 )
 
 create storagenode_paystub ( noreturn, replace )
@@ -51,18 +73,27 @@ read all (
 	where storagenode_paystub.node_id = ?
 )
 
+// storagenode_payment contains information about old payments.
+// The payment information has been moved into storagenode_paystub.
 model storagenode_payment (
 	key id
 
 	index ( fields node_id period )
 
-	field id         serial64                 //
-	field created_at timestamp ( autoinsert ) //
-	field node_id    blob                     //
-	field period     text                     // YYYY-MM, e.g. 2020-02
-	field amount     int64                    // in micro-units of currency
-	field receipt    text      ( nullable )   //
-	field notes      text      ( nullable )   //
+	// id is an identifier for the payment.
+	field id         serial64
+	// created_at is the time this payment information was added.
+	field created_at timestamp ( autoinsert )
+	// node_id is the storagenode storj.NodeID.
+	field node_id    blob
+	// period is YYYY-MM encoded month, which this paystub refers to. e.g. ""2020-02".
+	field period     text
+	// amount to be paid in micro-units of currency.
+	field amount     int64
+	// receipt is a receipt for the payment.
+	field receipt    text      ( nullable )
+	// notes contains any additional information about the payment.
+	field notes      text      ( nullable )
 )
 
 create storagenode_payment ( noreturn )

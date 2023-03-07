@@ -171,9 +171,8 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 			{
 				DB:          &db.db,
 				Description: "Test snapshot",
-				Version:     15,
+				Version:     16,
 				Action: migrate.SQL{
-
 					`CREATE TABLE objects (
 						project_id   BYTEA NOT NULL,
 						bucket_name  BYTEA NOT NULL, -- we're using bucket_name here to avoid a lookup into buckets table
@@ -201,6 +200,32 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
 					);
+
+					COMMENT ON TABLE  objects             is 'Objects table contains information about path and streams.';
+					COMMENT ON COLUMN objects.project_id  is 'project_id is a uuid referring to project.id.';
+					COMMENT ON COLUMN objects.bucket_name is 'bucket_name is a alpha-numeric string referring to bucket_metainfo.name.';
+					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
+					COMMENT ON COLUMN objects.version     is 'version is a monotonically increasing number per object. currently unused.';
+					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
+
+					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
+					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';
+
+					COMMENT ON COLUMN objects.status        is 'status refers to metabase.ObjectStatus, where pending=1 and committed=3.';
+					COMMENT ON COLUMN objects.segment_count is 'segment_count indicates, how many segments are in the segments table for this object. This is zero until the object is committed.';
+
+					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
+					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
+					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
+
+					COMMENT ON COLUMN objects.total_plain_size     is 'total_plain_size is the user-specified total size of the object. This can be zero for old migrated objects.';
+					COMMENT ON COLUMN objects.total_encrypted_size is 'total_encrypted_size is the sum of the encrypted data sizes of segments.';
+					COMMENT ON COLUMN objects.fixed_segment_size   is 'fixed_segment_size is specified for objects that have a uniform segment sizes (except the last segment). This can be zero for old migrated objects.';
+
+					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
+
+					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
+
 					CREATE TABLE segments (
 						stream_id  BYTEA NOT NULL,
 						position   INT8  NOT NULL,
@@ -227,6 +252,31 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 
 						PRIMARY KEY (stream_id, position)
 					);
+
+					COMMENT ON TABLE  segments            is 'segments table contains where segment data is located and other metadata about them.';
+					COMMENT ON COLUMN segments.stream_id  is 'stream_id is a uuid referring to segments that belong to the same object.';
+					COMMENT ON COLUMN segments.position   is 'position is a segment sequence number, determining the order they should be read in. It is represented as uint64, where the upper 32bits indicate the part-number and the lower 32bits indicate the index inside the part.';
+
+					COMMENT ON COLUMN segments.root_piece_id       is 'root_piece_id is used for deriving per storagenode piece numbers.';
+					COMMENT ON COLUMN segments.encrypted_key_nonce is 'encrypted_key_nonce is random data used for encrypting the encrypted_key.';
+					COMMENT ON COLUMN segments.encrypted_key       is 'encrypted_key is the encrypted key that was used for encrypting the data in this segment.';
+					COMMENT ON COLUMN segments.remote_alias_pieces is 'remote_alias_pieces is a compressed list of storagenodes that contain the pieces. See metabase.AliasPieces to see how they are compressed.';
+
+					COMMENT ON COLUMN segments.encrypted_size is 'encrypted_size is the data size after compression, but before Reed-Solomon encoding.';
+					COMMENT ON COLUMN segments.plain_offset   is 'plain_offset is the offset of this segment in the unencrypted data stream. Old migrated objects do not have this information, and is zero.';
+					COMMENT ON COLUMN segments.plain_size     is 'plain_size is the user-specified unencrypted size of this segment. Old migrated objects do not have this information, and it is zero.';
+
+					COMMENT ON COLUMN segments.redundancy  is 'redundancy is the compressed Reed-Solomon redundancy parameters for this segment. See metabase.redundancyScheme for the compression.';
+
+					COMMENT ON COLUMN segments.inline_data is 'inline_data contains encrypted data for small objects.';
+
+					COMMENT ON COLUMN segments.created_at  is 'created_at is the date when the segment was committed to the table.';
+					COMMENT ON COLUMN segments.repaired_at is 'repaired_at is the last date when the segment was repaired.';
+					COMMENT ON COLUMN segments.expires_at  is 'expires_at is the date when the segment is marked for deletion.';
+
+					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storj.PlacementConstraint for the values.';
+					COMMENT ON COLUMN segments.encrypted_etag is 'encrypted_etag is etag that has been encrypted.';
+
 					CREATE SEQUENCE node_alias_seq
 						INCREMENT BY 1
 						MINVALUE 1 MAXVALUE 2147483647 -- MaxInt32
@@ -236,13 +286,22 @@ func (db *DB) TestMigrateToLatest(ctx context.Context) error {
 						node_alias INT4   NOT NULL UNIQUE default nextval('node_alias_seq')
 					);
 
+					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
+					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
+					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';
+
 					CREATE TABLE segment_copies (
 						stream_id BYTEA NOT NULL PRIMARY KEY,
 						ancestor_stream_id BYTEA NOT NULL,
 
 						CONSTRAINT not_self_ancestor CHECK (stream_id != ancestor_stream_id)
 					);
-					CREATE INDEX ON segment_copies (ancestor_stream_id);`,
+					CREATE INDEX ON segment_copies (ancestor_stream_id);
+
+					COMMENT ON TABLE  segment_copies                    is 'segment_copies contains a reference for sharing stream_id-s.';
+					COMMENT ON COLUMN segment_copies.stream_id          is 'stream_id refers to the objects.stream_id.';
+					COMMENT ON COLUMN segment_copies.ancestor_stream_id is 'ancestor_stream_id refers to the actual segments where data is stored.';
+					`,
 				},
 			},
 		},
@@ -471,6 +530,73 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 					`CREATE INDEX ON segment_copies (ancestor_stream_id)`,
 				},
+			},
+			{
+				DB:          &db.db,
+				Description: "add database comments",
+				Version:     16,
+				Action: migrate.SQL{`
+					-- objects table
+					COMMENT ON TABLE  objects             is 'Objects table contains information about path and streams.';
+					COMMENT ON COLUMN objects.project_id  is 'project_id is a uuid referring to project.id.';
+					COMMENT ON COLUMN objects.bucket_name is 'bucket_name is a alpha-numeric string referring to bucket_metainfo.name.';
+					COMMENT ON COLUMN objects.object_key  is 'object_key is an encrypted path of the object.';
+					COMMENT ON COLUMN objects.version     is 'version is a monotonically increasing number per object. currently unused.';
+					COMMENT ON COLUMN objects.stream_id   is 'stream_id is a random identifier for the content uploaded to the object.';
+
+					COMMENT ON COLUMN objects.created_at  is 'created_at is the creation date of this object.';
+					COMMENT ON COLUMN objects.expires_at  is 'expires_at is the date when this object will be marked for deletion.';
+
+					COMMENT ON COLUMN objects.status        is 'status refers to metabase.ObjectStatus, where pending=1 and committed=3.';
+					COMMENT ON COLUMN objects.segment_count is 'segment_count indicates, how many segments are in the segments table for this object. This is zero until the object is committed.';
+
+					COMMENT ON COLUMN objects.encrypted_metadata_nonce is 'encrypted_metadata_nonce is random identifier used as part of encryption for encrypted_metadata.';
+					COMMENT ON COLUMN objects.encrypted_metadata       is 'encrypted_metadata is encrypted key-value pairs of user-specified data.';
+					COMMENT ON COLUMN objects.encrypted_metadata_encrypted_key is 'encrypted_metadata_encrypted_key is the encrypted key for encrypted_metadata.';
+
+					COMMENT ON COLUMN objects.total_plain_size     is 'total_plain_size is the user-specified total size of the object. This can be zero for old migrated objects.';
+					COMMENT ON COLUMN objects.total_encrypted_size is 'total_encrypted_size is the sum of the encrypted data sizes of segments.';
+					COMMENT ON COLUMN objects.fixed_segment_size   is 'fixed_segment_size is specified for objects that have a uniform segment sizes (except the last segment). This can be zero for old migrated objects.';
+
+					COMMENT ON COLUMN objects.encryption is 'encryption contains object encryption parameters encoded into a uint32. See metabase.encryptionParameters type for the implementation.';
+
+					COMMENT ON COLUMN objects.zombie_deletion_deadline is 'zombie_deletion_deadline defines when a pending object can be deleted due to a failed upload.';
+
+					-- segments table
+					COMMENT ON TABLE  segments            is 'segments table contains where segment data is located and other metadata about them.';
+					COMMENT ON COLUMN segments.stream_id  is 'stream_id is a uuid referring to segments that belong to the same object.';
+					COMMENT ON COLUMN segments.position   is 'position is a segment sequence number, determining the order they should be read in. It is represented as uint64, where the upper 32bits indicate the part-number and the lower 32bits indicate the index inside the part.';
+
+					COMMENT ON COLUMN segments.root_piece_id       is 'root_piece_id is used for deriving per storagenode piece numbers.';
+					COMMENT ON COLUMN segments.encrypted_key_nonce is 'encrypted_key_nonce is random data used for encrypting the encrypted_key.';
+					COMMENT ON COLUMN segments.encrypted_key       is 'encrypted_key is the encrypted key that was used for encrypting the data in this segment.';
+					COMMENT ON COLUMN segments.remote_alias_pieces is 'remote_alias_pieces is a compressed list of storagenodes that contain the pieces. See metabase.AliasPieces to see how they are compressed.';
+
+					COMMENT ON COLUMN segments.encrypted_size is 'encrypted_size is the data size after compression, but before Reed-Solomon encoding.';
+					COMMENT ON COLUMN segments.plain_offset   is 'plain_offset is the offset of this segment in the unencrypted data stream. Old migrated objects do not have this information, and is zero.';
+					COMMENT ON COLUMN segments.plain_size     is 'plain_size is the user-specified unencrypted size of this segment. Old migrated objects do not have this information, and it is zero.';
+
+					COMMENT ON COLUMN segments.redundancy  is 'redundancy is the compressed Reed-Solomon redundancy parameters for this segment. See metabase.redundancyScheme for the compression.';
+
+					COMMENT ON COLUMN segments.inline_data is 'inline_data contains encrypted data for small objects.';
+
+					COMMENT ON COLUMN segments.created_at  is 'created_at is the date when the segment was committed to the table.';
+					COMMENT ON COLUMN segments.repaired_at is 'repaired_at is the last date when the segment was repaired.';
+					COMMENT ON COLUMN segments.expires_at  is 'expires_at is the date when the segment is marked for deletion.';
+
+					COMMENT ON COLUMN segments.placement is 'placement is the country or region restriction for the segment data. See storj.PlacementConstraint for the values.';
+					COMMENT ON COLUMN segments.encrypted_etag is 'encrypted_etag is etag that has been encrypted.';
+
+					-- node aliases table
+					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
+					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
+					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';
+
+					-- segment copies table
+					COMMENT ON TABLE  segment_copies                    is 'segment_copies contains a reference for sharing stream_id-s.';
+					COMMENT ON COLUMN segment_copies.stream_id          is 'stream_id refers to the objects.stream_id.';
+					COMMENT ON COLUMN segment_copies.ancestor_stream_id is 'ancestor_stream_id refers to the actual segments where data is stored.';
+				`},
 			},
 		},
 	}

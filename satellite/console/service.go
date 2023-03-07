@@ -38,7 +38,6 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
-	"storj.io/storj/satellite/rewards"
 )
 
 var mon = monkit.Package()
@@ -123,6 +122,9 @@ var (
 
 	// ErrProjName is error that occurs with reused project names.
 	ErrProjName = errs.Class("project name")
+
+	// ErrPurchaseDesc is error that occurs when something is wrong with Purchase description.
+	ErrPurchaseDesc = errs.Class("purchase description")
 )
 
 // Service is handling accounts related logic.
@@ -135,7 +137,6 @@ type Service struct {
 	projectAccounting          accounting.ProjectAccounting
 	projectUsage               *accounting.Service
 	buckets                    buckets.DB
-	partners                   *rewards.PartnersService
 	accounts                   payments.Accounts
 	depositWallets             payments.DepositWallets
 	billing                    billing.TransactionsDB
@@ -177,21 +178,21 @@ type Config struct {
 
 // CaptchaConfig contains configurations for login/registration captcha system.
 type CaptchaConfig struct {
-	Login        MultiCaptchaConfig
-	Registration MultiCaptchaConfig
+	Login        MultiCaptchaConfig `json:"login"`
+	Registration MultiCaptchaConfig `json:"registration"`
 }
 
 // MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.
 type MultiCaptchaConfig struct {
-	Recaptcha SingleCaptchaConfig
-	Hcaptcha  SingleCaptchaConfig
+	Recaptcha SingleCaptchaConfig `json:"recaptcha"`
+	Hcaptcha  SingleCaptchaConfig `json:"hcaptcha"`
 }
 
 // SingleCaptchaConfig contains configurations abstract captcha system.
 type SingleCaptchaConfig struct {
-	Enabled   bool   `help:"whether or not captcha is enabled" default:"false"`
-	SiteKey   string `help:"captcha site key"`
-	SecretKey string `help:"captcha secret key"`
+	Enabled   bool   `help:"whether or not captcha is enabled" default:"false" json:"enabled"`
+	SiteKey   string `help:"captcha site key" json:"siteKey"`
+	SecretKey string `help:"captcha secret key" json:"-"`
 }
 
 // SessionConfig contains configurations for session management.
@@ -208,7 +209,7 @@ type Payments struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, partners *rewards.PartnersService, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets buckets.DB, accounts payments.Accounts, depositWallets payments.DepositWallets, billing billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, satelliteAddress string, config Config) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
@@ -244,7 +245,6 @@ func NewService(log *zap.Logger, store DB, restKeys RESTKeys, projectAccounting 
 		projectAccounting:          projectAccounting,
 		projectUsage:               projectUsage,
 		buckets:                    buckets,
-		partners:                   partners,
 		accounts:                   accounts,
 		depositWallets:             depositWallets,
 		billing:                    billing,
@@ -331,17 +331,17 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
-func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (err error) {
+func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken string) (card payments.CreditCard, err error) {
 	defer mon.Task()(&ctx, creditCardToken)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "add credit card")
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	err = payment.service.accounts.CreditCards().Add(ctx, user.ID, creditCardToken)
+	card, err = payment.service.accounts.CreditCards().Add(ctx, user.ID, creditCardToken)
 	if err != nil {
-		return Error.Wrap(err)
+		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email)
@@ -355,12 +355,12 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 			payment.service.config.UsageLimits.Project.Paid,
 		)
 		if err != nil {
-			return Error.Wrap(err)
+			return payments.CreditCard{}, Error.Wrap(err)
 		}
 
 		projects, err := payment.service.store.Projects().GetOwn(ctx, user.ID)
 		if err != nil {
-			return Error.Wrap(err)
+			return payments.CreditCard{}, Error.Wrap(err)
 		}
 		for _, project := range projects {
 			if project.StorageLimit == nil || *project.StorageLimit < payment.service.config.UsageLimits.Storage.Paid {
@@ -376,12 +376,12 @@ func (payment Payments) AddCreditCard(ctx context.Context, creditCardToken strin
 			}
 			err = payment.service.store.Projects().Update(ctx, &project)
 			if err != nil {
-				return Error.Wrap(err)
+				return payments.CreditCard{}, Error.Wrap(err)
 			}
 		}
 	}
 
-	return nil
+	return card, nil
 }
 
 // MakeCreditCardDefault makes a credit card default payment method.
@@ -593,6 +593,39 @@ func (payment Payments) checkProjectUsageStatus(ctx context.Context, projectID u
 	}
 
 	return payment.service.accounts.CheckProjectUsageStatus(ctx, projectID)
+}
+
+// ApplyCoupon applies a coupon to an account based on couponID.
+func (payment Payments) ApplyCoupon(ctx context.Context, couponID string) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := payment.service.getUserAndAuditLog(ctx, "apply coupon")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupon, err = payment.service.accounts.Coupons().ApplyCoupon(ctx, user.ID, couponID)
+	if err != nil {
+		return coupon, Error.Wrap(err)
+	}
+	return coupon, nil
+}
+
+// ApplyFreeTierCoupon applies the default free tier coupon to an account.
+func (payment Payments) ApplyFreeTierCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	coupon, err = payment.service.accounts.Coupons().ApplyFreeTierCoupon(ctx, user.ID)
+	if err != nil {
+		return coupon, Error.Wrap(err)
+	}
+
+	return coupon, nil
 }
 
 // ApplyCouponCode applies a coupon code to a Stripe customer
@@ -950,7 +983,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		}
 	}
 
-	if err := ValidatePassword(password); err != nil {
+	if err := ValidateNewPassword(password); err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
@@ -1220,7 +1253,6 @@ func (s *Service) GenGetUser(ctx context.Context) (*ResponseUser, api.HTTPError)
 		FullName:             user.FullName,
 		ShortName:            user.ShortName,
 		Email:                user.Email,
-		PartnerID:            user.PartnerID,
 		UserAgent:            user.UserAgent,
 		ProjectLimit:         user.ProjectLimit,
 		IsProfessional:       user.IsProfessional,
@@ -1335,7 +1367,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 		return ErrChangePassword.New(changePasswordErrMsg)
 	}
 
-	if err := ValidatePassword(newPass); err != nil {
+	if err := ValidateNewPassword(newPass); err != nil {
 		return ErrValidation.Wrap(err)
 	}
 
@@ -1350,6 +1382,14 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string) (err
 	})
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return Error.Wrap(err)
+		}
 	}
 
 	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID)
@@ -1387,6 +1427,7 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 }
 
 // GetProject is a method for querying project by id.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "get project", zap.String("projectID", projectID.String()))
@@ -1394,14 +1435,12 @@ func (s *Service) GetProject(ctx context.Context, projectID uuid.UUID) (p *Proje
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	p, err = s.store.Projects().Get(ctx, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	p = isMember.project
 
 	return
 }
@@ -1512,7 +1551,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        user.ID,
-				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
 				StorageLimit:   &storageLimit,
 				BandwidthLimit: &bandwidthLimit,
@@ -1580,7 +1618,6 @@ func (s *Service) GenCreateProject(ctx context.Context, projectInfo ProjectInfo)
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        user.ID,
-				PartnerID:      user.PartnerID,
 				UserAgent:      user.UserAgent,
 				StorageLimit:   &storageLimit,
 				BandwidthLimit: &bandwidthLimit,
@@ -1687,6 +1724,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 }
 
 // UpdateProject is a method for updating project name and description by id.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, updatedProject ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1734,7 +1772,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.New("specified bandwidth limit exceeds allowed maximum for current tier")
 		}
 
-		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -1742,7 +1780,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 			return nil, Error.New("cannot set storage limit below current usage")
 		}
 
-		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -1889,6 +1927,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 
 // AddProjectMembers adds users by email to given project.
 // Email addresses not belonging to a user are ignored.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (users []*User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "add project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
@@ -1896,7 +1935,8 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 		return nil, Error.Wrap(err)
 	}
 
-	if _, err = s.isProjectMember(ctx, user.ID, projectID); err != nil {
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -1914,7 +1954,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 	// add project members in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		for _, user := range users {
-			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, projectID); err != nil {
+			if _, err := tx.ProjectMembers().Insert(ctx, user.ID, isMember.project.ID); err != nil {
 				return err
 			}
 		}
@@ -1930,6 +1970,7 @@ func (s *Service) AddProjectMembers(ctx context.Context, projectID uuid.UUID, em
 }
 
 // DeleteProjectMembers removes users by email from given project.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID, emails []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	user, err := s.getUserAndAuditLog(ctx, "delete project members", zap.String("projectID", projectID.String()), zap.Strings("emails", emails))
@@ -2013,6 +2054,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, cu
 }
 
 // CreateAPIKey creates new api key.
+// projectID here may be project.PublicID or project.ID.
 func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2021,12 +2063,12 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
 	if err == nil {
 		return nil, nil, ErrValidation.New(apiKeyWithNameExistsErrMsg)
 	}
@@ -2043,9 +2085,8 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	apikey := APIKeyInfo{
 		Name:      name,
-		ProjectID: projectID,
+		ProjectID: isMember.project.ID,
 		Secret:    secret,
-		PartnerID: user.PartnerID,
 		UserAgent: user.UserAgent,
 	}
 
@@ -2116,7 +2157,6 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		Name:      requestInfo.Name,
 		ProjectID: projectID,
 		Secret:    secret,
-		PartnerID: user.PartnerID,
 		UserAgent: user.UserAgent,
 	}
 
@@ -2420,6 +2460,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 }
 
 // GetAllBucketNames retrieves all bucket names of a specific project.
+// projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2428,7 +2469,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2441,7 +2482,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		All: true,
 	}
 
-	bucketsList, err := s.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	bucketsList, err := s.buckets.ListBuckets(ctx, isMember.project.ID, listOptions, allowedBuckets)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2455,6 +2496,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
+// projectID here may be Project.ID or Project.PublicID.
 func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -2463,12 +2505,12 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 		return nil, Error.Wrap(err)
 	}
 
-	_, err = s.isProjectMember(ctx, user.ID, projectID)
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, projectID, since, before)
+	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, isMember.project.ID, since, before)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -2611,6 +2653,8 @@ func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 		BandwidthUsed:  prUsageLimits.BandwidthUsed,
 		ObjectCount:    prObjectsSegments.ObjectCount,
 		SegmentCount:   prObjectsSegments.SegmentCount,
+		SegmentLimit:   prUsageLimits.SegmentLimit,
+		SegmentUsed:    prUsageLimits.SegmentUsed,
 	}, nil
 }
 
@@ -2664,6 +2708,10 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
+	segmentLimit, err := s.projectUsage.GetProjectSegmentLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 	if err != nil {
@@ -2673,12 +2721,18 @@ func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID
 	if err != nil {
 		return nil, err
 	}
+	segmentUsed, err := s.projectUsage.GetProjectSegmentTotals(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ProjectUsageLimits{
 		StorageLimit:   storageLimit.Int64(),
 		BandwidthLimit: bandwidthLimit.Int64(),
 		StorageUsed:    storageUsed,
 		BandwidthUsed:  bandwidthUsed,
+		SegmentLimit:   segmentLimit.Int64(),
+		SegmentUsed:    segmentUsed,
 	}, nil
 }
 
@@ -3043,6 +3097,52 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 	}, nil
 }
 
+// Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
+func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if desc == "" {
+		return ErrPurchaseDesc.New("description cannot be empty")
+	}
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	invoices, err := payment.service.accounts.Invoices().List(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// check for any previously created unpaid invoice with the same description.
+	// If draft, delete it and create new and pay. If open, pay it and don't create new.
+	for _, inv := range invoices {
+		if inv.Description == desc {
+			if inv.Status == payments.InvoiceStatusDraft {
+				_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			} else if inv.Status == payments.InvoiceStatusOpen {
+				_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+				return Error.Wrap(err)
+			}
+		}
+	}
+
+	inv, err := payment.service.accounts.Invoices().Create(ctx, user.ID, price, desc)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
 // GetProjectUsagePriceModel returns the project usage price model for the user.
 func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payments.ProjectUsagePriceModel, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3052,7 +3152,7 @@ func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payme
 		return nil, Error.Wrap(err)
 	}
 
-	model := payment.service.accounts.GetProjectUsagePriceModel(user.UserAgent)
+	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
 	return &model, nil
 }
 

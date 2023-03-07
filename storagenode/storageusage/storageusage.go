@@ -21,7 +21,7 @@ type DB interface {
 	GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]Stamp, error)
 	// GetDailyTotal returns daily storage usage stamps summed across all known satellites
 	// for provided time range
-	GetDailyTotal(ctx context.Context, from, to time.Time) ([]Stamp, error)
+	GetDailyTotal(ctx context.Context, from, to time.Time) ([]StampGroup, error)
 	// Summary returns aggregated storage usage across all satellites.
 	Summary(ctx context.Context, from, to time.Time) (float64, float64, error)
 	// SatelliteSummary returns aggregated storage usage for a particular satellite.
@@ -44,4 +44,16 @@ type Stamp struct {
 	// IntervalEndTime represents the timestamp for the last tally run time
 	//  (i.e. last interval_end_time) for the day
 	IntervalEndTime time.Time `json:"-"`
+}
+
+// StampGroup is storage usage stamp for all satellites from interval start till next interval
+// grouped by interval_start time.
+type StampGroup struct {
+	// AtRestTotal is the bytes*hour disk space used at the IntervalEndTime.
+	AtRestTotal float64 `json:"atRestTotal"`
+	// AtRestTotalBytes is the AtRestTotal divided by the IntervalInHours.
+	AtRestTotalBytes float64 `json:"atRestTotalBytes"`
+	// IntervalStart represents one tally day
+	//  TODO: rename to timestamp to match DB
+	IntervalStart time.Time `json:"intervalStart"`
 }

@@ -19,32 +19,11 @@
             <EmptyBucketIcon class="buckets-table__no-buckets-area__image" />
             <CreateBucketIcon class="buckets-table__no-buckets-area__small-image" />
             <h4 class="buckets-table__no-buckets-area__title">There are no buckets in this project</h4>
-            <template v-if="isNewEncryptionPassphraseFlowEnabled">
-                <template v-if="promptForPassphrase">
-                    <p class="buckets-table__no-buckets-area__body">Set an encryption passphrase to start uploading files.</p>
-                    <VButton
-                        label="Set Encryption Passphrase ->"
-                        width="234px"
-                        height="40px"
-                        font-size="14px"
-                        :on-press="onSetClick"
-                    />
-                </template>
-                <template v-else>
-                    <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-                    <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
-                        <WhitePlusIcon class="new-bucket-button__icon" />
-                        <p class="new-bucket-button__label">New Bucket</p>
-                    </div>
-                </template>
-            </template>
-            <template v-else>
-                <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
-                <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onNewBucketButtonClick">
-                    <WhitePlusIcon class="new-bucket-button__icon" />
-                    <p class="new-bucket-button__label">New Bucket</p>
-                </div>
-            </template>
+            <p class="buckets-table__no-buckets-area__body">Create a new bucket to upload files</p>
+            <div class="new-bucket-button" :class="{ disabled: isLoading }" @click="onCreateBucketClick">
+                <WhitePlusIcon class="new-bucket-button__icon" />
+                <p class="new-bucket-button__label">New Bucket</p>
+            </div>
         </div>
 
         <div v-if="isNoSearchResultsShown" class="buckets-table__empty-search">
@@ -83,6 +62,7 @@
                 />
             </template>
         </v-table>
+        <VOverallLoader v-if="overallLoading" />
     </div>
 </template>
 
@@ -91,18 +71,20 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import VButton from '@/components/common/VButton.vue';
 import VHeader from '@/components/common/VHeader.vue';
+import VOverallLoader from '@/components/common/VOverallLoader.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 import EmptyBucketIcon from '@/../static/images/objects/emptyBucket.svg';
@@ -115,6 +97,7 @@ const props = withDefaults(defineProps<{
 });
 
 const activeDropdown = ref<number>(-1);
+const overallLoading = ref<boolean>(false);
 const searchLoading = ref<boolean>(false);
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -165,32 +148,17 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
- * Indicates if new encryption passphrase flow is enabled.
+ * Returns edge credentials from store.
  */
-const isNewEncryptionPassphraseFlowEnabled = computed((): boolean => {
-    return store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+const edgeCredentials = computed((): EdgeCredentials => {
+    return store.state.objectsModule.gatewayCredentials;
 });
-
-/**
- * Toggles set passphrase modal visibility.
- */
-function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
-}
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
-}
-
-/**
- * Starts bucket creation flow.
- */
-function onNewBucketButtonClick(): void {
-    analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
-    router.push(RouteConfig.Buckets.with(RouteConfig.BucketCreation).path);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
 }
 
 /**
@@ -238,16 +206,29 @@ function openDropdown(key: number): void {
 /**
  * Holds on bucket click. Proceeds to file browser.
  */
-function openBucket(bucketName: string): void {
+async function openBucket(bucketName: string): Promise<void> {
     store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
-    if (isNewEncryptionPassphraseFlowEnabled.value && !promptForPassphrase.value) {
+    if (!promptForPassphrase.value) {
+        if (!edgeCredentials.value.accessKeyId) {
+            overallLoading.value = true;
+
+            try {
+                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                overallLoading.value = false;
+            } catch (error) {
+                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_TABLE);
+                overallLoading.value = false;
+                return;
+            }
+        }
+
         analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
         router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
         return;
     }
 
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
 }
 
 onBeforeUnmount(() => {

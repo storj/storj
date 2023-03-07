@@ -168,6 +168,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AccessType } from '@/types/createAccessGrant';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
@@ -342,6 +343,16 @@ export default class AccessGrants extends Vue {
      */
     public accessGrantClick(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
+
+        if (this.isNewAccessGrantFlow) {
+            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
+            this.$router.push({
+                name: RouteConfig.NewCreateAccessModal.name,
+                params: { accessType: AccessType.AccessGrant },
+            });
+            return;
+        }
+
         this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
@@ -354,6 +365,16 @@ export default class AccessGrants extends Vue {
      */
     public s3Click(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
+
+        if (this.isNewAccessGrantFlow) {
+            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
+            this.$router.push({
+                name: RouteConfig.NewCreateAccessModal.name,
+                params: { accessType: AccessType.S3 },
+            });
+            return;
+        }
+
         this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
@@ -366,6 +387,16 @@ export default class AccessGrants extends Vue {
      */
     public cliClick(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
+
+        if (this.isNewAccessGrantFlow) {
+            this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
+            this.$router.push({
+                name: RouteConfig.NewCreateAccessModal.name,
+                params: { accessType: AccessType.APIKey },
+            });
+            return;
+        }
+
         this.trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
@@ -378,6 +409,13 @@ export default class AccessGrants extends Vue {
      */
     public trackPageVisit(link: string): void {
         this.analytics.pageVisit(link);
+    }
+
+    /**
+     * Indicates if new access grant flow should be used.
+     */
+    private get isNewAccessGrantFlow(): boolean {
+        return this.$store.state.appStateModule.isNewAccessGrantFlow;
     }
 }
 </script>

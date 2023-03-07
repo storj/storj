@@ -251,9 +251,13 @@
                 font-size="14px"
                 height="48px"
                 class="grants__buttons__download-button"
-                :is-green-white="areCredentialsDownloaded"
+                :is-green="areCredentialsDownloaded"
                 :on-press="downloadCredentials"
-            />
+            >
+                <template v-if="areCredentialsDownloaded" #icon>
+                    <check-icon />
+                </template>
+            </v-button>
         </div>
         <div v-else class="grants__buttons">
             <v-button
@@ -262,9 +266,13 @@
                 width="182px"
                 height="48px"
                 class="grants__buttons__download-button"
-                :is-green-white="areCredentialsDownloaded"
+                :is-green="areCredentialsDownloaded"
                 :on-press="downloadCredentials"
-            />
+            >
+                <template v-if="areCredentialsDownloaded" #icon>
+                    <check-icon />
+                </template>
+            </v-button>
         </div>
     </div>
 </template>
@@ -281,6 +289,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import VButton from '@/components/common/VButton.vue';
 
 import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
@@ -288,6 +297,7 @@ import S3Icon from '@/../static/images/accessGrants/s3.svg';
 @Component({
     components: {
         AccessGrantsIcon,
+        CheckIcon,
         CLIIcon,
         S3Icon,
         VButton,
@@ -308,7 +318,7 @@ export default class GrantCreated extends Vue {
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private checkedText: Record<string, string[]> = { access: ['Access Grant as it','information icon to learn more.'], s3: ['S3 credentials as they','Learn More button to access the documentation.'],api: ['Satellite Address and API Key as they','information icons to learn more.'] };
+    private checkedText: Record<string, string[]> = { access: ['Access Grant as it', 'information icon to learn more.'], s3: ['S3 credentials as they', 'Learn More button to access the documentation.'], api: ['Satellite Address and API Key as they', 'information icons to learn more.'] };
     public currentDate = new Date().toISOString();
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
@@ -507,10 +517,6 @@ export default class GrantCreated extends Vue {
             margin-top: 20px;
             padding-top: 20px;
         }
-    }
-
-    .button-icon {
-        margin-right: 5px;
     }
 
     .clickable-image {

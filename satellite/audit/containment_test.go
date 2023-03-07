@@ -6,7 +6,6 @@ package audit_test
 import (
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -75,7 +74,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		assert.EqualValues(t, 0, pending.ReverifyCount)
 
 		// after the job is selected for work, its ReverifyCount should be increased to 1
-		job, err := planet.Satellites[0].DB.ReverifyQueue().GetNextJob(ctx, 10*time.Minute)
+		job, err := planet.Satellites[0].DB.ReverifyQueue().GetNextJob(ctx, 0)
 		require.NoError(t, err)
 		require.Equal(t, pending.Locator, job.Locator)
 		assert.EqualValues(t, 1, job.ReverifyCount)

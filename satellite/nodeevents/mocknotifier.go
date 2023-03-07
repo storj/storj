@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+
+	"storj.io/common/storj"
 )
 
 // MockNotifier implements the Notifier interface.
@@ -28,8 +30,12 @@ func (m *MockNotifier) Notify(ctx context.Context, satellite string, events []No
 	if len(events) == 0 {
 		return nil
 	}
+	seen := make(map[storj.NodeID]struct{})
 	for _, e := range events {
-		nodeIDs = nodeIDs + e.NodeID.String() + ","
+		if _, ok := seen[e.NodeID]; !ok {
+			seen[e.NodeID] = struct{}{}
+			nodeIDs = nodeIDs + e.NodeID.String() + ","
+		}
 	}
 	nodeIDs = strings.TrimSuffix(nodeIDs, ",")
 

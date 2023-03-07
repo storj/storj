@@ -16,6 +16,7 @@
             </div>
         </div>
         <bucket-details-overview class="bucket-details__table" :bucket="bucket" />
+        <VOverallLoader v-if="isLoading" />
     </div>
 </template>
 
@@ -27,15 +28,20 @@ import { RouteConfig } from '@/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
+import VOverallLoader from '@/components/common/VOverallLoader.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
 // @vue/component
 @Component({
     components: {
+        VOverallLoader,
         ArrowRightIcon,
         BucketDetailsOverview,
     },
@@ -43,13 +49,15 @@ import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 export default class BucketDetails extends Vue {
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+    public isLoading = false;
+
     /**
      * Lifecycle hook before initial render.
      * Checks if bucket name was passed as route param.
      */
-    public async beforeMount(): Promise<void> {
+    public beforeMount(): void {
         if (!this.$route.params.bucketName) {
-            await this.redirectToBucketsPage();
+            this.redirectToBucketsPage();
         }
     }
 
@@ -72,9 +80,9 @@ export default class BucketDetails extends Vue {
         return `${this.bucket.since.getUTCDate()} ${MONTHS_NAMES[this.bucket.since.getUTCMonth()]} ${this.bucket.since.getUTCFullYear()}`;
     }
 
-    public async redirectToBucketsPage(): Promise<void> {
+    public redirectToBucketsPage(): void {
         try {
-            await this.$router.push({ name: RouteConfig.BucketsManagement.name });
+            this.$router.push({ name: RouteConfig.BucketsManagement.name });
         } catch (_) {
             return;
         }
@@ -83,20 +91,30 @@ export default class BucketDetails extends Vue {
     /**
      * Holds on bucket click. Proceeds to file browser.
      */
-    public openBucket(): void {
-        this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
+    public async openBucket(): Promise<void> {
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
 
-        if (
-            this.$route.params.backRoute === RouteConfig.UploadFileChildren.name ||
-            (this.isNewEncryptionPassphraseFlowEnabled && !this.promptForPassphrase)
-        ) {
+        if (this.$route.params.backRoute === RouteConfig.UploadFileChildren.name || !this.promptForPassphrase) {
+            if (!this.edgeCredentials.accessKeyId) {
+                this.isLoading = true;
+
+                try {
+                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                    this.isLoading = false;
+                } catch (error) {
+                    await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
+                    this.isLoading = false;
+                    return;
+                }
+            }
+
             this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
 
             return;
         }
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_OPEN_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
     }
 
     /**
@@ -107,10 +125,10 @@ export default class BucketDetails extends Vue {
     }
 
     /**
-     * Indicates if new encryption passphrase flow is enabled.
+     * Returns edge credentials from store.
      */
-    private get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    private get edgeCredentials(): EdgeCredentials {
+        return this.$store.state.objectsModule.gatewayCredentials;
     }
 }
 </script>

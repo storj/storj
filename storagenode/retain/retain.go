@@ -5,6 +5,7 @@ package retain
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -379,40 +380,52 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
+
+		pieceID := access.PieceID()
+		if filter.Contains(pieceID) {
+			// This piece is explicitly not trash. Move on.
+			return nil
+		}
+
+		// If the blob's mtime is at or after the createdBefore line, we can't safely delete it;
+		// it might not be trash. If it is, we can expect to get it next time.
+		//
 		// See the comment above the retainPieces() function for a discussion on the correctness
 		// of using ModTime in place of the more precise CreationTime.
 		mTime, err := access.ModTime(ctx)
 		if err != nil {
+			if os.IsNotExist(err) {
+				// piece was deleted while we were scanning.
+				return nil
+			}
+
 			piecesSkipped++
 			s.log.Warn("failed to determine mtime of blob", zap.Error(err))
 			// but continue iterating.
 			return nil
 		}
-
 		if !mTime.Before(createdBefore) {
 			return nil
 		}
-		pieceID := access.PieceID()
-		if !filter.Contains(pieceID) {
-			s.log.Debug("About to move piece to trash",
-				zap.Stringer("Satellite ID", satelliteID),
-				zap.Stringer("Piece ID", pieceID),
-				zap.String("Status", s.config.Status.String()))
 
-			piecesToDeleteCount++
+		s.log.Debug("About to move piece to trash",
+			zap.Stringer("Satellite ID", satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.String("Status", s.config.Status.String()))
 
-			// if retain status is enabled, delete pieceid
-			if s.config.Status == Enabled {
-				if err = s.trash(ctx, satelliteID, pieceID); err != nil {
-					s.log.Warn("failed to delete piece",
-						zap.Stringer("Satellite ID", satelliteID),
-						zap.Stringer("Piece ID", pieceID),
-						zap.Error(err))
-					return nil
-				}
+		piecesToDeleteCount++
+
+		// if retain status is enabled, delete pieceid
+		if s.config.Status == Enabled {
+			if err = s.trash(ctx, satelliteID, pieceID); err != nil {
+				s.log.Warn("failed to delete piece",
+					zap.Stringer("Satellite ID", satelliteID),
+					zap.Stringer("Piece ID", pieceID),
+					zap.Error(err))
+				return nil
 			}
-			numDeleted++
 		}
+		numDeleted++
 
 		select {
 		case <-ctx.Done():

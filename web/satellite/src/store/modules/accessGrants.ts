@@ -294,6 +294,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: Acc
         },
         getters: {
             selectedAccessGrants: (state: AccessGrantsState) => state.page.accessGrants.filter((grant: AccessGrant) => grant.isSelected),
+            worker: (state: AccessGrantsState) => state.accessGrantsWebWorker,
         },
     };
 }

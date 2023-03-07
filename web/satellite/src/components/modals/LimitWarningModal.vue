@@ -7,7 +7,7 @@
             <div class="modal">
                 <Icon class="modal__icon" :class="{ warning: severity === 'warning', critical: severity === 'critical' }" />
                 <h1 class="modal__title">{{ title }}</h1>
-                <p class="modal__info">To get more storage and bandwidth, upgrade to a Pro Account. You will still get 150GB free storage and bandwidth per month, and only pay what you use beyond that.</p>
+                <p class="modal__info">To get more {{ limitType }} limit, upgrade to a Pro Account. You will still get 150GB free storage and bandwidth per month, and only pay what you use beyond that.</p>
                 <div class="modal__buttons">
                     <VButton
                         label="Cancel"
@@ -25,7 +25,7 @@
                         font-size="13px"
                         class="modal__buttons__button upgrade"
                         :on-press="onUpgrade"
-                        :is-green-white="true"
+                        :is-white-blue="true"
                     />
                 </div>
             </div>
@@ -54,6 +54,8 @@ export default class LimitWarningModal extends Vue {
     private readonly severity: 'warning' | 'critical';
     @Prop({ default: '' })
     private readonly title: string;
+    @Prop({ default: '' })
+    private readonly limitType: string;
     @Prop({ default: () => {} })
     private readonly onUpgrade: () => Promise<void>;
     @Prop({ default: () => {} })
@@ -127,9 +129,5 @@ export default class LimitWarningModal extends Vue {
             }
         }
     }
-}
-
-:deep(.whiteCheck) {
-    display: none;
 }
 </style>

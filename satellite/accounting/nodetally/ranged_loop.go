@@ -44,6 +44,8 @@ func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAcc
 
 // Start implements ranged loop observer start method.
 func (observer *RangedLoopObserver) Start(ctx context.Context, time time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	observer.Node = map[storj.NodeID]float64{}
 	observer.lastTallyTime, err = observer.accounting.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -56,12 +58,16 @@ func (observer *RangedLoopObserver) Start(ctx context.Context, time time.Time) (
 }
 
 // Fork forks new node tally ranged loop partial.
-func (observer *RangedLoopObserver) Fork(ctx context.Context) (rangedloop.Partial, error) {
+func (observer *RangedLoopObserver) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return NewRangedLoopPartial(observer.log, observer.nowFn), nil
 }
 
 // Join joins node tally ranged loop partial to main observer updating main per node usage map.
-func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) error {
+func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	tallyPartial, ok := partial.(*RangedLoopPartial)
 	if !ok {
 		return Error.New("expected partial type %T but got %T", tallyPartial, partial)
@@ -78,7 +84,9 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 var monRangedTally = monkit.ScopeNamed("storj.io/storj/satellite/accounting/tally")
 
 // Finish calculates byte*hours from per node storage usage and save tallies to DB.
-func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
+func (observer *RangedLoopObserver) Finish(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	finishTime := observer.nowFn()
 
 	// calculate byte hours, not just bytes
@@ -92,7 +100,7 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
 
 	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
-	err := observer.accounting.SaveTallies(ctx, finishTime, byteHours)
+	err = observer.accounting.SaveTallies(ctx, finishTime, byteHours)
 	if err != nil {
 		return Error.New("StorageNodeAccounting.SaveTallies failed: %v", err)
 	}

@@ -32,17 +32,6 @@ export default class ObjectsArea extends Vue {
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
     }
-
-    /**
-     * Lifecycle hook before component destroying.
-     * Clears objects VUEX state.
-     */
-    public beforeDestroy(): void {
-        // new encryption passphrase flow should not clear passphrase/api key when exiting object browser.
-        if (!this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled) {
-            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-        }
-    }
 }
 </script>
 

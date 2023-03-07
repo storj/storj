@@ -3,16 +3,20 @@
 
 <template>
     <!-- if isDisabled check onPress in parent element -->
-    <div
+    <a
+        v-if="link"
+        class="container"
+        :href="link"
         :class="containerClassName"
         :style="style"
         tabindex="0"
+        target="_blank"
+        rel="noopener noreferrer"
         @click="onPress"
-        @keyup.enter="onPress"
     >
-        <slot name="icon" />
-        <div v-if="isWhiteGreen" class="greenCheck">&#x2713;</div>
-        <div v-if="isGreenWhite" class="whiteCheck">&#x2713;</div>
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
         <span class="label" :class="{uppercase: isUppercase}">
             <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
             <LockIcon v-if="icon.toLowerCase() === 'lock'" />
@@ -20,7 +24,43 @@
             <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
             <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
             <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
-            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>{{ label }}</span>
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
+    </a>
+    <div
+        v-else
+        class="container"
+        :class="containerClassName"
+        :style="style"
+        tabindex="0"
+        @click="handleClick"
+        @keyup.enter="handleClick"
+    >
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
     </div>
 </template>
 
@@ -28,20 +68,25 @@
 
 import { computed } from 'vue';
 
+import AddCircleIcon from '@/../static/images/common/addCircle.svg';
 import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
 import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
 import LockIcon from '@/../static/images/common/lockIcon.svg';
 import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
 import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+import DownloadIcon from '@/../static/images/common/download.svg';
 import FolderIcon from '@/../static/images/objects/newFolder.svg';
+import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 
 const props = withDefaults(defineProps<{
+    link?: string;
     label?: string;
     width?: string;
     height?: string;
     fontSize?: string;
     borderRadius?: string;
     icon?: string;
+    isOrange?: boolean;
     isWhite?: boolean;
     isSolidDelete?: boolean;
     isTransparent?: boolean;
@@ -49,17 +94,19 @@ const props = withDefaults(defineProps<{
     isGreyBlue?: boolean;
     isBlueWhite?: boolean;
     isWhiteGreen?: boolean;
-    isGreenWhite?: boolean;
+    isGreen?: boolean;
     isDisabled?: boolean;
     isUppercase?: boolean;
     onPress?: () => void;
 }>(), {
+    link: undefined,
     label: 'Default',
     width: 'inherit',
     height: 'inherit',
     fontSize: '16px',
     borderRadius: '6px',
     icon: 'none',
+    isOrange: false,
     isWhite: false,
     isSolidDelete: false,
     isTransparent: false,
@@ -67,37 +114,48 @@ const props = withDefaults(defineProps<{
     isGreyBlue: false,
     isBlueWhite: false,
     isWhiteGreen: false,
-    isGreenWhite: false,
+    isGreen: false,
     isDisabled: false,
     isUppercase: false,
     onPress: () => {},
 });
 
 const containerClassName = computed((): string => {
-    if (props.isDisabled) return 'container disabled';
+    if (props.isDisabled) return 'disabled';
 
-    if (props.isWhite) return 'container white';
+    if (props.isWhite) return 'white';
 
-    if (props.isSolidDelete) return 'container solid-red';
+    if (props.isOrange) return 'orange';
 
-    if (props.isTransparent) return 'container transparent';
+    if (props.isSolidDelete) return 'solid-red';
 
-    if (props.isDeletion) return 'container red';
+    if (props.isTransparent) return 'transparent';
 
-    if (props.isGreyBlue) return 'container grey-blue';
+    if (props.isDeletion) return 'red';
 
-    if (props.isBlueWhite) return 'container blue-white';
+    if (props.isGreyBlue) return 'grey-blue';
 
-    if (props.isWhiteGreen) return 'container white-green';
+    if (props.isBlueWhite) return 'blue-white';
 
-    if (props.isGreenWhite) return 'container green-white';
+    if (props.isWhiteGreen) return 'white-green';
 
-    return 'container';
+    if (props.isGreen) return 'green';
+
+    return '';
 });
 
 const style = computed(() => {
     return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
 });
+
+/**
+ * This wrapper handles button's disabled state for accessibility purposes.
+ */
+function handleClick(): void {
+    if (!props.isDisabled) {
+        props.onPress();
+    }
+}
 </script>
 
 <style scoped lang="scss">
@@ -136,6 +194,11 @@ const style = computed(() => {
         .label {
             color: #354049 !important;
         }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049;
+        }
     }
 
     .blue-white {
@@ -149,16 +212,15 @@ const style = computed(() => {
 
     .white-green {
         background-color: transparent !important;
-        border: 1px solid #afb7c1 !important;
+        border: 1px solid #d8dee3 !important;
 
         .label {
             color: var(--c-green-5) !important;
         }
     }
 
-    .green-white {
+    .green {
         background-color: var(--c-green-5) !important;
-        border: 1px solid var(--c-green-5) !important;
     }
 
     .grey-blue {
@@ -189,6 +251,11 @@ const style = computed(() => {
         }
     }
 
+    .orange {
+        background-color: #ff8a00 !important;
+        border: 2px solid #ff8a00 !important;
+    }
+
     .container {
         display: flex;
         align-items: center;
@@ -201,14 +268,20 @@ const style = computed(() => {
             margin-right: 5px;
         }
 
-        .greenCheck {
-            color: var(--c-green-5) !important;
-            margin-right: 5px;
+        .icon-wrapper {
+            display: flex;
+
+            &:not(:empty) {
+                margin-right: 8px;
+            }
         }
 
-        .whiteCheck {
-            color: #fff !important;
-            margin-right: 5px;
+        .icon-wrapper-right {
+            display: flex;
+
+            &:not(:empty) {
+                margin-left: 8px;
+            }
         }
 
         .label {
@@ -260,6 +333,19 @@ const style = computed(() => {
                 .label {
                     color: #eb5757 !important;
                 }
+            }
+
+            &.orange {
+                background-color: #c16900 !important;
+                border-color: #c16900 !important;
+            }
+
+            &.white-green {
+                background-color: var(--c-green-4) !important;
+            }
+
+            &.green {
+                background-color: #008a1e !important;
             }
 
             &.disabled {

@@ -32,7 +32,7 @@ node('node') {
               sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
               // fetch the remote main branch
               sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
-              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.18.8'
+              sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/testversions/test-sim-versions.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.19.6'
             }
             catch(err){
                 throw err
@@ -69,7 +69,7 @@ node('node') {
           sh 'docker exec postgres-$BUILD_NUMBER createdb -U postgres teststorj'
           // fetch the remote main branch
           sh 'git fetch --no-tags --progress -- https://github.com/storj/storj.git +refs/heads/main:refs/remotes/origin/main'
-          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.18.8'
+          sh 'docker run -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/tests/rollingupgrade/test-sim-rolling-upgrade.sh -e BRANCH_NAME -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_MIGRATION_DB --link redis-$BUILD_NUMBER:redis --link postgres-$BUILD_NUMBER:postgres -e CC=gcc storjlabs/golang:1.19.6'
         }
         catch(err){
             throw err
@@ -152,13 +152,7 @@ node('node') {
 
     slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
 
-    mail from: 'builds@storj.io',
-      replyTo: 'builds@storj.io',
-      to: 'builds@storj.io',
-      subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
-      body: "Project build log: ${env.BUILD_URL}"
-
-      throw err
+    throw err
 
   }
   finally {

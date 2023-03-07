@@ -19,27 +19,35 @@ import (
 	"github.com/stripe/stripe-go/v72/paymentmethod"
 	"github.com/stripe/stripe-go/v72/promotioncode"
 
-	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 )
 
-// mocks synchronized map for caching mockStripeClient.
-//
-// The satellite has a Core part and API part which mostly duplicate each
-// other. Each of them have a StripeClient instance. This is not a problem in
-// production, because the stripeClient implementation is stateless and calls
-// the Web API of the same Stripe backend. But it is a problem in test
-// environments as the mockStripeClient is stateful - the data is stored in
-// in-memory maps. Therefore, we need the Core and API parts share the same
-// instance of mockStripeClient.
-var mocks = struct {
-	sync.Mutex
-	m map[storj.NodeID]*mockStripeState
-}{
-	m: make(map[storj.NodeID]*mockStripeState),
-}
+const (
+	// MockCouponID1 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID1 = "c1"
+	// MockCouponID2 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID2 = "c2"
+	// MockCouponID3 is a coupon that stripe mock is aware of. Applying unknown coupons results in failure.
+	MockCouponID3 = "c3"
+
+	// MockInvoicesNewFailure can be passed to mockInvoices.New as `desc` argument to cause it to return
+	// an error.
+	MockInvoicesNewFailure = "mock_invoices_new_failure"
+
+	// MockInvoicesPayFailure can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
+	// an error.
+	MockInvoicesPayFailure = "mock_invoices_pay_failure"
+
+	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
+	// mockPaymentMethods.New to return an error.
+	TestPaymentMethodsNewFailure = "test_payment_methods_new_failure"
+
+	// TestPaymentMethodsAttachFailure can be passed to creditCards.Add as the cardToken arg to cause
+	// mockPaymentMethods.Attach to return an error.
+	TestPaymentMethodsAttachFailure = "test_payment_methods_attach_failure"
+)
 
 var (
 	testPromoCodes = map[string]*stripe.PromotionCode{
@@ -49,7 +57,7 @@ var (
 				AmountOff: 500,
 				Currency:  stripe.CurrencyUSD,
 				Name:      "Test Promo Code 1",
-				ID:        "c1",
+				ID:        MockCouponID1,
 			},
 		},
 		"promo2": {
@@ -57,7 +65,16 @@ var (
 			Coupon: &stripe.Coupon{
 				PercentOff: 50,
 				Name:       "Test Promo Code 2",
-				ID:         "c2",
+				ID:         MockCouponID2,
+			},
+		},
+		"promo3": {
+			ID: "p3",
+			Coupon: &stripe.Coupon{
+				AmountOff: 100,
+				Currency:  stripe.CurrencyUSD,
+				Name:      "Test Promo Code 3",
+				ID:        MockCouponID3,
 			},
 		},
 	}
@@ -65,14 +82,17 @@ var (
 		"p1": testPromoCodes["promo1"],
 		"p2": testPromoCodes["promo2"],
 	}
-	couponIDs = map[string]*stripe.Coupon{
-		"c1": testPromoCodes["promo1"].Coupon,
-		"c2": testPromoCodes["promo2"].Coupon,
+	mockCoupons = map[string]*stripe.Coupon{
+		MockCouponID1: testPromoCodes["promo1"].Coupon,
+		MockCouponID2: testPromoCodes["promo2"].Coupon,
+		MockCouponID3: testPromoCodes["promo3"].Coupon,
 	}
 )
 
 // mockStripeState Stripe client mock.
 type mockStripeState struct {
+	mu sync.Mutex
+
 	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
 	invoices                    *mockInvoices
@@ -103,26 +123,15 @@ var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interfac
 // If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
-func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Users) StripeClient {
-	mocks.Lock()
-	defer mocks.Unlock()
-
-	state, ok := mocks.m[id]
-	if !ok {
-		state = &mockStripeState{
-			customers:                   &mockCustomersState{},
-			paymentMethods:              newMockPaymentMethods(),
-			invoices:                    newMockInvoices(),
-			invoiceItems:                newMockInvoiceItems(),
-			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
-			charges:                     &mockCharges{},
-			promoCodes: &mockPromoCodes{
-				promoCodes: testPromoCodes,
-			},
-		}
-		state.invoices.invoiceItems = state.invoiceItems
-		mocks.m[id] = state
-	}
+func NewStripeMock(customersDB CustomersDB, usersDB console.Users) StripeClient {
+	state := &mockStripeState{}
+	state.customers = &mockCustomersState{}
+	state.paymentMethods = newMockPaymentMethods(state)
+	state.invoiceItems = newMockInvoiceItems(state)
+	state.invoices = newMockInvoices(state, state.invoiceItems)
+	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
+	state.charges = &mockCharges{}
+	state.promoCodes = newMockPromoCodes(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -132,13 +141,15 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 }
 
 func (m *mockStripeClient) Customers() StripeCustomers {
-	mocks.Lock()
-	defer mocks.Unlock()
-
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return &mockCustomers{
+		root: m.mockStripeState,
+
 		customersDB: m.customersDB,
 		usersDB:     m.usersDB,
 		state:       m.customers,
+		coupons:     mockCoupons,
 	}
 }
 
@@ -171,9 +182,12 @@ func (m *mockStripeClient) CreditNotes() StripeCreditNotes {
 }
 
 type mockCustomers struct {
+	root *mockStripeState
+
 	customersDB CustomersDB
 	usersDB     console.Users
 	state       *mockCustomersState
+	coupons     map[string]*stripe.Coupon
 }
 
 type mockCustomersState struct {
@@ -185,8 +199,8 @@ type mockCustomersState struct {
 // We need to repopulate the mock on every restart to ensure that requests to the mock
 // for existing users won't fail with errors like "customer not found".
 func (m *mockCustomers) repopulate() error {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	if !m.state.repopulated {
 		const limit = 25
@@ -252,12 +266,16 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
 
-	if params.Coupon != nil {
-		customer.Discount = &stripe.Discount{Coupon: couponIDs[*params.Coupon]}
+	if params.Coupon != nil && *params.Coupon != "" {
+		c, ok := m.coupons[*params.Coupon]
+		if !ok {
+			return nil, &stripe.Error{}
+		}
+		customer.Discount = &stripe.Discount{Coupon: mockCoupons[c.ID]}
 	}
 
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	m.state.customers = append(m.state.customers, customer)
 	return customer, nil
@@ -268,8 +286,8 @@ func (m *mockCustomers) Get(id string, params *stripe.CustomerParams) (*stripe.C
 		return nil, err
 	}
 
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	for _, customer := range m.state.customers {
 		if id == customer.ID {
@@ -294,8 +312,8 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		return customer, nil
 	}
 
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	if params.Metadata != nil {
 		customer.Metadata = params.Metadata
@@ -304,7 +322,11 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 		customer.Discount = &stripe.Discount{Coupon: promoIDs[*params.PromotionCode].Coupon}
 	}
 	if params.Coupon != nil {
-		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: *params.Coupon}}
+		c, ok := m.coupons[*params.Coupon]
+		if !ok {
+			return nil, &stripe.Error{}
+		}
+		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{ID: c.ID}}
 	}
 
 	// TODO update customer with more params as necessary
@@ -313,14 +335,16 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 }
 
 type mockPaymentMethods struct {
+	root *mockStripeState
 	// attached contains a mapping of customerID to its paymentMethods
 	attached map[string][]*stripe.PaymentMethod
 	// unattached contains created but not attached paymentMethods
 	unattached []*stripe.PaymentMethod
 }
 
-func newMockPaymentMethods() *mockPaymentMethods {
+func newMockPaymentMethods(root *mockStripeState) *mockPaymentMethods {
 	return &mockPaymentMethods{
+		root:     root,
 		attached: map[string][]*stripe.PaymentMethod{},
 	}
 }
@@ -339,8 +363,8 @@ func (c *listContainer) GetListMeta() *stripe.ListMeta {
 }
 
 func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	listMeta := &stripe.ListMeta{
 		HasMore:    false,
@@ -366,8 +390,20 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
 	randID := testrand.BucketName()
+	id := fmt.Sprintf("pm_card_%s", randID)
+	if params.Card.Token != nil {
+		switch *params.Card.Token {
+		case TestPaymentMethodsNewFailure:
+			return nil, &stripe.Error{}
+		case TestPaymentMethodsAttachFailure:
+			id = TestPaymentMethodsAttachFailure
+		case MockInvoicesPayFailure:
+			id = MockInvoicesPayFailure
+		}
+	}
+
 	newMethod := &stripe.PaymentMethod{
-		ID: fmt.Sprintf("pm_card_%s", randID),
+		ID: id,
 		Card: &stripe.PaymentMethodCard{
 			ExpMonth:    12,
 			ExpYear:     2050,
@@ -378,8 +414,8 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 		Type: stripe.PaymentMethodTypeCard,
 	}
 
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	m.unattached = append(m.unattached, newMethod)
 
@@ -387,12 +423,15 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 }
 
 func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error) {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	var method *stripe.PaymentMethod
 	for _, candidate := range m.unattached {
 		if candidate.ID == id {
+			if id == TestPaymentMethodsAttachFailure {
+				return nil, &stripe.Error{}
+			}
 			method = candidate
 		}
 	}
@@ -405,8 +444,8 @@ func (m *mockPaymentMethods) Attach(id string, params *stripe.PaymentMethodAttac
 }
 
 func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error) {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	var unattached *stripe.PaymentMethod
 	for user, userMethods := range m.attached {
@@ -425,23 +464,29 @@ func (m *mockPaymentMethods) Detach(id string, params *stripe.PaymentMethodDetac
 }
 
 type mockInvoices struct {
+	root *mockStripeState
+
 	invoices     map[string][]*stripe.Invoice
 	invoiceItems *mockInvoiceItems
 }
 
-func newMockInvoices() *mockInvoices {
+func newMockInvoices(root *mockStripeState, invoiceItems *mockInvoiceItems) *mockInvoices {
 	return &mockInvoices{
-		invoices: make(map[string][]*stripe.Invoice),
+		root:         root,
+		invoices:     make(map[string][]*stripe.Invoice),
+		invoiceItems: invoiceItems,
 	}
 }
 
 func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error) {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	items, ok := m.invoiceItems.items[*params.Customer]
 	if !ok || len(items) == 0 {
-		return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+		if params.PendingInvoiceItemsBehavior == nil || *params.PendingInvoiceItemsBehavior != "exclude" {
+			return nil, &stripe.Error{Code: stripe.ErrorCodeInvoiceNoCustomerLineItems}
+		}
 	}
 
 	due := int64(0)
@@ -449,11 +494,33 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
-	invoice := &stripe.Invoice{
-		ID:       "in_" + string(testrand.RandAlphaNumeric(25)),
-		Customer: &stripe.Customer{ID: *params.Customer},
-		DueDate:  due,
+	lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
+	for _, item := range params.InvoiceItems {
+		lineData = append(lineData, &stripe.InvoiceLine{
+			InvoiceItem: *item.InvoiceItem,
+			Amount:      *item.Amount,
+		})
 	}
+
+	var desc string
+	if params.Description != nil {
+		if *params.Description == MockInvoicesNewFailure {
+			return nil, &stripe.Error{}
+		}
+		desc = *params.Description
+	}
+
+	invoice := &stripe.Invoice{
+		ID:          "in_" + string(testrand.RandAlphaNumeric(25)),
+		Customer:    &stripe.Customer{ID: *params.Customer},
+		DueDate:     due,
+		Status:      stripe.InvoiceStatusDraft,
+		Description: desc,
+		Lines: &stripe.InvoiceLineList{
+			Data: lineData,
+		},
+	}
+
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
 	for _, item := range items {
 		if item.Invoice == nil {
@@ -465,8 +532,8 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 }
 
 func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	listMeta := &stripe.ListMeta{
 		HasMore:    false,
@@ -475,7 +542,16 @@ func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter 
 	lc := newListContainer(listMeta)
 
 	query := stripe.Query(func(*stripe.Params, *form.Values) (ret []interface{}, _ stripe.ListContainer, _ error) {
-		if listParams.Customer == nil {
+		if listParams.Customer == nil && listParams.Status != nil {
+			// filter by status
+			for _, invoices := range m.invoices {
+				for _, inv := range invoices {
+					if inv.Status == stripe.InvoiceStatus(*listParams.Status) {
+						ret = append(ret, inv)
+					}
+				}
+			}
+		} else if listParams.Customer == nil {
 			for _, invoices := range m.invoices {
 				for _, invoice := range invoices {
 					ret = append(ret, invoice)
@@ -504,15 +580,43 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 	return nil, errors.New("invoice not found")
 }
 
+// FinalizeInvoice forwards the invoice's status from draft to open.
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
-	return nil, nil
+	for _, invoices := range m.invoices {
+		for i, invoice := range invoices {
+			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
+				invoice.Status = stripe.InvoiceStatusOpen
+				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusOpen
+				return invoice, nil
+			}
+		}
+	}
+	return nil, &stripe.Error{}
 }
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
 		for i, invoice := range invoices {
 			if invoice.ID == id {
+				if params.PaymentMethod != nil {
+					if *params.PaymentMethod == MockInvoicesPayFailure {
+						invoice.Status = stripe.InvoiceStatusOpen
+						return invoice, &stripe.Error{}
+					}
+				}
 				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
+				return invoice, nil
+			}
+		}
+	}
+	return nil, &stripe.Error{}
+}
+
+func (m *mockInvoices) Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error) {
+	for _, invoices := range m.invoices {
+		for i, invoice := range invoices {
+			if invoice.ID == id {
+				m.invoices[invoice.Customer.ID] = append(m.invoices[invoice.Customer.ID][:i], m.invoices[invoice.Customer.ID][i+1:]...)
 				return invoice, nil
 			}
 		}
@@ -521,11 +625,13 @@ func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.
 }
 
 type mockInvoiceItems struct {
+	root  *mockStripeState
 	items map[string][]*stripe.InvoiceItem
 }
 
-func newMockInvoiceItems() *mockInvoiceItems {
+func newMockInvoiceItems(root *mockStripeState) *mockInvoiceItems {
 	return &mockInvoiceItems{
+		root:  root,
 		items: make(map[string][]*stripe.InvoiceItem),
 	}
 }
@@ -539,8 +645,8 @@ func (m *mockInvoiceItems) Del(id string, params *stripe.InvoiceItemParams) (*st
 }
 
 func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error) {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	item := &stripe.InvoiceItem{
 		Metadata: params.Metadata,
@@ -548,14 +654,17 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	if params.UnitAmountDecimal != nil {
 		item.UnitAmountDecimal = *params.UnitAmountDecimal
 	}
+	if params.Amount != nil {
+		item.Amount = *params.Amount
+	}
 	m.items[*params.Customer] = append(m.items[*params.Customer], item)
 
 	return item, nil
 }
 
 func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	listMeta := &stripe.ListMeta{
 		HasMore:    false,
@@ -580,11 +689,13 @@ func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoi
 }
 
 type mockCustomerBalanceTransactions struct {
+	root         *mockStripeState
 	transactions map[string][]*stripe.CustomerBalanceTransaction
 }
 
-func newMockCustomerBalanceTransactions() *mockCustomerBalanceTransactions {
+func newMockCustomerBalanceTransactions(root *mockStripeState) *mockCustomerBalanceTransactions {
 	return &mockCustomerBalanceTransactions{
+		root:         root,
 		transactions: make(map[string][]*stripe.CustomerBalanceTransaction),
 	}
 }
@@ -598,8 +709,8 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 		Created:     time.Now().Unix(),
 	}
 
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)
 
@@ -607,8 +718,8 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 }
 
 func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	query := stripe.Query(func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListContainer, error) {
 		txs := m.transactions[*listParams.Customer]
@@ -638,12 +749,21 @@ func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
 }
 
 type mockPromoCodes struct {
+	root *mockStripeState
+
 	promoCodes map[string]*stripe.PromotionCode
 }
 
+func newMockPromoCodes(root *mockStripeState) *mockPromoCodes {
+	return &mockPromoCodes{
+		root:       root,
+		promoCodes: testPromoCodes,
+	}
+}
+
 func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotioncode.Iter {
-	mocks.Lock()
-	defer mocks.Unlock()
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
 
 	query := stripe.Query(func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListContainer, error) {
 		promoCode := m.promoCodes[*params.Code]

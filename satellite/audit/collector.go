@@ -7,7 +7,7 @@ import (
 	"context"
 	"math/rand"
 
-	"storj.io/common/storj"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
@@ -15,7 +15,7 @@ var _ segmentloop.Observer = (*Collector)(nil)
 
 // Collector uses the segment loop to add segments to node reservoirs.
 type Collector struct {
-	Reservoirs map[storj.NodeID]*Reservoir
+	Reservoirs map[metabase.NodeAlias]*Reservoir
 	slotCount  int
 	rand       *rand.Rand
 }
@@ -23,7 +23,7 @@ type Collector struct {
 // NewCollector instantiates a segment collector.
 func NewCollector(reservoirSlots int, r *rand.Rand) *Collector {
 	return &Collector{
-		Reservoirs: make(map[storj.NodeID]*Reservoir),
+		Reservoirs: make(map[metabase.NodeAlias]*Reservoir),
 		slotCount:  reservoirSlots,
 		rand:       r,
 	}
@@ -38,11 +38,11 @@ func (collector *Collector) LoopStarted(context.Context, segmentloop.LoopInfo) (
 func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
 	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
-	for _, piece := range segment.Pieces {
-		res, ok := collector.Reservoirs[piece.StorageNode]
+	for _, piece := range segment.AliasPieces {
+		res, ok := collector.Reservoirs[piece.Alias]
 		if !ok {
 			res = NewReservoir(collector.slotCount)
-			collector.Reservoirs[piece.StorageNode] = res
+			collector.Reservoirs[piece.Alias] = res
 		}
 		res.Sample(collector.rand, segment)
 	}

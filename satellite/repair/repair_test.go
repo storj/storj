@@ -2480,7 +2480,7 @@ func TestECRepairerGet(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 0)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(piecesReport.Offline))
 		require.Equal(t, 0, len(piecesReport.Failed))
@@ -2547,7 +2547,7 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 1)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(piecesReport.Offline))
 		require.Equal(t, 1, len(piecesReport.Failed))
@@ -2616,7 +2616,7 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 1)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(piecesReport.Offline))
 		require.Equal(t, 1, len(piecesReport.Failed))
@@ -2682,7 +2682,7 @@ func TestECRepairerGetOffline(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(piecesReport.Offline))
 		require.Equal(t, 0, len(piecesReport.Failed))
@@ -2752,7 +2752,7 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 1)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(piecesReport.Offline))
 		require.Equal(t, 0, len(piecesReport.Failed))
@@ -2837,7 +2837,7 @@ func TestECRepairerGetFailure(t *testing.T) {
 		getOrderLimits, getPrivateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
 		require.NoError(t, err)
 
-		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
+		_, piecesReport, err := ecRepairer.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize), 0)
 		require.Error(t, err)
 		require.Equal(t, 1, len(piecesReport.Offline))
 		require.Equal(t, 1, len(piecesReport.Failed))
@@ -2898,7 +2898,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize), 0)
 		require.NoError(t, err)
 		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)
@@ -2983,7 +2983,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
 
-		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
+		readCloser, pieces, err := ec.Get(ctx, limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize), 0)
 		require.NoError(t, err)
 		require.Len(t, pieces.Failed, 0)
 		require.NotNil(t, readCloser)

@@ -41,6 +41,9 @@ var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
+// ErrLowDifficulty is when the node id's difficulty is too low.
+var ErrLowDifficulty = errs.Class("node id difficulty too low")
+
 // DB implements the database for overlay.Service.
 //
 // architecture: Database
@@ -78,6 +81,8 @@ type DB interface {
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 	// SetNodeContained updates the contained field for the node record.
 	SetNodeContained(ctx context.Context, node storj.NodeID, contained bool) (err error)
+	// SetAllContainedNodes updates the contained field for all nodes, as necessary.
+	SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int64, err error)
@@ -290,11 +295,10 @@ type NodeReputation struct {
 
 // Clone returns a deep clone of the selected node.
 func (node *SelectedNode) Clone() *SelectedNode {
+	copy := pb.CopyNode(&pb.Node{Id: node.ID, Address: node.Address})
 	return &SelectedNode{
-		ID: node.ID,
-		Address: &pb.NodeAddress{
-			Address: node.Address.Address,
-		},
+		ID:         copy.Id,
+		Address:    copy.Address,
 		LastNet:    node.LastNet,
 		LastIPPort: node.LastIPPort,
 	}
@@ -620,7 +624,7 @@ func (service *Service) SetNodeContained(ctx context.Context, node storj.NodeID,
 // UpdateCheckIn updates a single storagenode's check-in info if needed.
 /*
 The check-in info is updated in the database if:
-	(1) there is no previous entry;
+	(1) there is no previous entry and the node is allowed (id difficulty, etc);
 	(2) it has been too long since the last known entry; or
 	(3) the node hostname, IP address, port, wallet, sw version, or disk capacity
 	has changed.
@@ -644,6 +648,16 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			return nil
 		}
 
+		difficulty, err := node.NodeID.Difficulty()
+		if err != nil {
+			// this should never happen
+			return err
+		}
+		if int(difficulty) < service.config.MinimumNewNodeIDDifficulty {
+			return ErrLowDifficulty.New("node id difficulty is %d when %d is the minimum",
+				difficulty, service.config.MinimumNewNodeIDDifficulty)
+		}
+
 		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
 		if err != nil {
 			failureMeter.Mark(1)
@@ -665,8 +679,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	dbStale := lastContact.Add(service.config.NodeCheckInWaitPeriod).Before(timestamp) ||
 		(node.IsUp && lastUp.Before(lastDown)) || (!node.IsUp && lastDown.Before(lastUp))
 
-	addrChanged := ((node.Address == nil) != (oldInfo.Address == nil)) ||
-		(oldInfo.Address != nil && node.Address != nil && oldInfo.Address.Address != node.Address.Address)
+	addrChanged := !pb.AddressEqual(node.Address, oldInfo.Address)
 
 	walletChanged := (node.Operator == nil && oldInfo.Operator.Wallet != "") ||
 		(node.Operator != nil && oldInfo.Operator.Wallet != node.Operator.Wallet)
@@ -703,7 +716,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		if v.Compare(min) == -1 {
 			node.VersionBelowMin = true
 			if oldInfo.LastSoftwareUpdateEmail == nil ||
-				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(time.Now()) {
+				oldInfo.LastSoftwareUpdateEmail.Add(service.config.NodeSoftwareUpdateEmailCooldown).Before(timestamp) {
 				_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, node.NodeID, nodeevents.BelowMinVersion)
 				if err != nil {
 					service.log.Error("could not insert node software below minimum version into node events", zap.Error(err))

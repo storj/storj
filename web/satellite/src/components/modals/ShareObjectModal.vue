@@ -26,9 +26,13 @@
                         height="40px"
                         :on-press="onCopy"
                         :is-disabled="isLoading"
-                        :is-green-white="copyButtonState === ButtonStates.Copied"
+                        :is-green="copyButtonState === ButtonStates.Copied"
                         :icon="copyButtonState === ButtonStates.Copied ? 'none' : 'copy'"
-                    />
+                    >
+                        <template v-if="copyButtonState === ButtonStates.Copied" #icon>
+                            <check-icon />
+                        </template>
+                    </VButton>
                 </div>
             </div>
         </template>
@@ -38,12 +42,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import ShareContainer from '@/components/common/share/ShareContainer.vue';
+
+import CheckIcon from '@/../static/images/common/check.svg';
 
 enum ButtonStates {
     Copy,
@@ -53,6 +61,7 @@ enum ButtonStates {
 // @vue/component
 @Component({
     components: {
+        CheckIcon,
         ShareContainer,
         VLoader,
         VButton,
@@ -104,7 +113,7 @@ export default class ShareObjectModal extends Vue {
     public closeModal(): void {
         if (this.isLoading) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
     }
 }
 </script>

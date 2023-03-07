@@ -114,7 +114,9 @@ func (observer *RangedLoopObserver) TestingCompareInjuredSegmentIDs(ctx context.
 }
 
 // Start starts parallel segments loop.
-func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Time) error {
+func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	observer.startTime = startTime
 	observer.TotalStats = aggregateStats{}
 
@@ -122,13 +124,17 @@ func (observer *RangedLoopObserver) Start(ctx context.Context, startTime time.Ti
 }
 
 // Fork creates a Partial to process a chunk of all the segments.
-func (observer *RangedLoopObserver) Fork(ctx context.Context) (rangedloop.Partial, error) {
+func (observer *RangedLoopObserver) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return newRangedLoopCheckerPartial(observer), nil
 }
 
 // Join is called after the chunk for Partial is done.
 // This gives the opportunity to merge the output like in a reduce step.
-func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) error {
+func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop.Partial) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	repPartial, ok := partial.(*repairPartial)
 	if !ok {
 		return Error.New("expected partial type %T but got %T", repPartial, partial)
@@ -148,7 +154,9 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 }
 
 // Finish is called after all segments are processed by all observers.
-func (observer *RangedLoopObserver) Finish(ctx context.Context) error {
+func (observer *RangedLoopObserver) Finish(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// remove all segments which were not seen as unhealthy by this checker iteration
 	healthyDeleted, err := observer.repairQueue.Clean(ctx, observer.startTime)
 	if err != nil {

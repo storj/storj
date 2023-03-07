@@ -28,6 +28,7 @@ type Config struct {
 	NodeSoftwareUpdateEmailCooldown time.Duration `help:"the amount of time to wait between sending Node Software Update emails" default:"168h"`
 	RepairExcludedCountryCodes      []string      `help:"list of country codes to exclude nodes from target repair selection" default:"" testDefault:"FR,BE"`
 	SendNodeEmails                  bool          `help:"whether to send emails to nodes" default:"false"`
+	MinimumNewNodeIDDifficulty      int           `help:"the minimum node id difficulty required for new nodes. existing nodes remain allowed" devDefault:"0" releaseDefault:"36"`
 }
 
 // AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.

@@ -26,19 +26,8 @@ func TestUsers(t *testing.T) {
 		// create user
 		userPassHash := testrand.Bytes(8)
 
-		// create a user with partnerID
-		_, err := consoleDB.Users().Insert(ctx, &console.User{
-			ID:           testrand.UUID(),
-			FullName:     "John Doe",
-			Email:        "john@mail.test",
-			PasswordHash: userPassHash,
-			Status:       console.Active,
-			PartnerID:    testrand.UUID(),
-		})
-		require.NoError(t, err)
-
 		// create an user with no partnerID
-		_, err = consoleDB.Users().Insert(ctx, &console.User{
+		_, err := consoleDB.Users().Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
 			FullName:     "John Doe",
 			Email:        "john@mail.test",
@@ -52,7 +41,6 @@ func TestUsers(t *testing.T) {
 			ID:          testrand.UUID(),
 			Name:        "John Doe",
 			Description: "some description",
-			PartnerID:   testrand.UUID(),
 			CreatedAt:   time.Now(),
 		})
 		require.NoError(t, err)

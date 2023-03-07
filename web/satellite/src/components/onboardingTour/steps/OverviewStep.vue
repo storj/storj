@@ -34,6 +34,7 @@ import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
@@ -78,7 +79,7 @@ export default class OverviewStep extends Vue {
      */
     public onSkip(): void {
         this.$router.push(this.projectDashboardPath);
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
     }
 
     /**
@@ -95,14 +96,7 @@ export default class OverviewStep extends Vue {
      * Redirects to buckets page.
      */
     public onUploadInBrowserClick(): void {
-        if (this.isNewEncryptionPassphraseFlowEnabled) {
-            this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
-            return;
-        }
-
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
-        this.analytics.pageVisit(RouteConfig.Buckets.path);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
     }
 
     /**
@@ -110,13 +104,6 @@ export default class OverviewStep extends Vue {
      */
     private get satelliteName(): string {
         return this.$store.state.appStateModule.satelliteName;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    private get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>

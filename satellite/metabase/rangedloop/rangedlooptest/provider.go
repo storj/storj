@@ -50,6 +50,11 @@ func (m *RangeSplitter) CreateRanges(nRanges int, batchSize int) ([]rangedloop.S
 	return rangeProviders, nil
 }
 
+// Range returns range which is processed by this provider.
+func (m *SegmentProvider) Range() rangedloop.UUIDRange {
+	return rangedloop.UUIDRange{}
+}
+
 // Iterate allows to loop over the segments stored in the provider.
 func (m *SegmentProvider) Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error {
 	for offset := 0; offset < len(m.Segments); offset += m.batchSize {

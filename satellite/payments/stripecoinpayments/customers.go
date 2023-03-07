@@ -22,6 +22,8 @@ type CustomersDB interface {
 	Insert(ctx context.Context, userID uuid.UUID, customerID string) error
 	// GetCustomerID return stripe customers id.
 	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
+	// GetUserID return userID given stripe customer id.
+	GetUserID(ctx context.Context, customerID string) (uuid.UUID, error)
 	// List returns page with customers ids created before specified date.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
 

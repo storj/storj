@@ -56,6 +56,7 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_PRICE_MODEL: 'getProjectUsagePriceModel',
     APPLY_COUPON_CODE: 'applyCouponCode',
     GET_COUPON: `getCoupon`,
+    PURCHASE_PACKAGE: 'purchasePackage',
 };
 
 const {
@@ -94,6 +95,7 @@ const {
     GET_PROJECT_USAGE_PRICE_MODEL: GET_PROJECT_USAGE_PRICE_MODEL,
     APPLY_COUPON_CODE,
     GET_COUPON,
+    PURCHASE_PACKAGE,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -323,6 +325,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [GET_COUPON]: async function({ commit }: PaymentsContext): Promise<void> {
                 const coupon = await api.getCoupon();
                 commit(SET_COUPON, coupon);
+            },
+            [PURCHASE_PACKAGE]: async function(_: PaymentsContext, token: string): Promise<void> {
+                await api.purchasePricingPackage(token);
             },
         },
         getters: {

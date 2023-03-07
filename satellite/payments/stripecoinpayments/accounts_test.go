@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/accounting"
@@ -23,7 +22,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/rewards"
 )
 
 func TestSignupCouponCodes(t *testing.T) {
@@ -31,11 +29,6 @@ func TestSignupCouponCodes(t *testing.T) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		log := zaptest.NewLogger(t)
-
-		partnersService := rewards.NewPartnersService(
-			log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
 
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
@@ -67,7 +60,6 @@ func TestSignupCouponCodes(t *testing.T) {
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
 			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),
@@ -80,6 +72,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			db.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 		require.NoError(t, err)
 
@@ -90,7 +83,6 @@ func TestSignupCouponCodes(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
-			partnersService,
 			paymentsService.Accounts(),
 			// TODO: do we need a payment deposit wallet here?
 			nil,

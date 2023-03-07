@@ -10,7 +10,7 @@
             height="100px"
         />
         <template v-else>
-            <template v-if="promptForPassphrase">
+            <template v-if="promptForPassphrase && !bucketWasCreated">
                 <p class="dashboard-header__subtitle">
                     Set an encryption passphrase <br>to start uploading files.
                 </p>
@@ -22,7 +22,7 @@
                     :on-press="onSetClick"
                 />
             </template>
-            <template v-else-if="!promptForPassphrase && !bucketsPage.buckets.length && !bucketsPage.search">
+            <template v-else-if="!promptForPassphrase && !bucketWasCreated && !bucketsPage.buckets.length && !bucketsPage.search">
                 <p class="dashboard-header__subtitle">
                     Create a bucket to start <br>uploading data in your project.
                 </p>
@@ -63,10 +63,12 @@
 import { computed } from 'vue';
 
 import { useRouter, useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -88,6 +90,18 @@ const promptForPassphrase = computed((): boolean => {
 });
 
 /**
+ * Indicates if bucket was created.
+ */
+const bucketWasCreated = computed((): boolean => {
+    const status = LocalData.getBucketWasCreatedStatus();
+    if (status !== null) {
+        return status;
+    }
+
+    return false;
+});
+
+/**
  * Returns current limits from store.
  */
 const limits = computed((): ProjectLimits => {
@@ -105,14 +119,14 @@ const bucketsPage = computed((): BucketPage => {
  * Toggles create project passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
 }
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick() {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
 }
 
 /**

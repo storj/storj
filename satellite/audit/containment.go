@@ -29,4 +29,5 @@ type Containment interface {
 	Get(ctx context.Context, nodeID pb.NodeID) (*ReverificationJob, error)
 	Insert(ctx context.Context, job *PieceLocator) error
 	Delete(ctx context.Context, job *PieceLocator) (wasDeleted, nodeStillContained bool, err error)
+	GetAllContainedNodes(ctx context.Context) ([]pb.NodeID, error)
 }

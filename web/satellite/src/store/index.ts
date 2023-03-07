@@ -26,6 +26,8 @@ import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
 import { ABTestingState, makeABTestingModule } from '@/store/modules/abTesting';
 import { ABHttpApi } from '@/api/abtesting';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 Vue.use(Vuex);
 
@@ -99,8 +101,20 @@ export default store;
   store and the router. Many of the tests require router, however, this implementation
   relies on store state for the routing behavior.
 */
-router.beforeEach(async (to, _, next) => {
-    if (!to.path.includes(RouteConfig.UploadFile.path) && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+router.beforeEach(async (to, from, next) => {
+    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.Login.name) {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+    }
+
+    // On very first login we try to redirect user to project dashboard
+    // but since there is no project we then redirect user to onboarding flow.
+    // That's why we toggle this flag here back to false not show create project passphrase modal again
+    // if user clicks 'Continue in web'.
+    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+    }
+
+    if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.appState.activeModal !== MODALS.uploadCancelPopup)) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }
@@ -118,7 +132,7 @@ router.beforeEach(async (to, _, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        next(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
 
         return;
     }

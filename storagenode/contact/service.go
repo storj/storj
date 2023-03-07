@@ -42,11 +42,12 @@ type Config struct {
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
-	ID       storj.NodeID
-	Address  string
-	Version  pb.NodeVersion
-	Capacity pb.NodeCapacity
-	Operator pb.NodeOperator
+	ID                  storj.NodeID
+	Address             string
+	Version             pb.NodeVersion
+	Capacity            pb.NodeCapacity
+	Operator            pb.NodeOperator
+	NoiseKeyAttestation *pb.NoiseKeyAttestation
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -129,10 +130,11 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 
 	self := service.Local()
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-		Address:  self.Address,
-		Version:  &self.Version,
-		Capacity: &self.Capacity,
-		Operator: &self.Operator,
+		Address:             self.Address,
+		Version:             &self.Version,
+		Capacity:            &self.Capacity,
+		Operator:            &self.Operator,
+		NoiseKeyAttestation: self.NoiseKeyAttestation,
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {

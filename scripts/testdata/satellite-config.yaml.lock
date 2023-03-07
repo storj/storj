@@ -1,8 +1,23 @@
+# whether to run this chore.
+# account-freeze.enabled: false
+
+# How long to wait between a warning event and freezing an account.
+# account-freeze.grace-period: 720h0m0s
+
+# How often to run this chore, which is how often unpaid invoices are checked.
+# account-freeze.interval: 24h0m0s
+
+# The failed invoice amount beyond which an account will not be frozen
+# account-freeze.price-threshold: 2000
+
 # admin peer http listening address
 # admin.address: ""
 
 # the oauth host allowed to bypass token authentication.
 # admin.allowed-oauth-host: ""
+
+# the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
+# admin.groups.limit-update: ""
 
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.static-dir: ""
@@ -36,6 +51,9 @@
 
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
+
+# how often to run the containment-sync chore
+# audit.containment-sync-chore-interval: 2h0m0s
 
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
@@ -132,6 +150,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # server address of the graphql api gateway and frontend app
 # console.address: :10100
+
+# indicates if all projects dashboard should be used
+# console.all-projects-dashboard: false
 
 # default duration for AS OF SYSTEM TIME
 # console.as-of-system-time-duration: -5m0s
@@ -241,11 +262,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if storj native token payments system is enabled
 # console.native-token-payments-enabled: false
 
+# indicates if new access grant flow should be used
+# console.new-access-grant-flow: false
+
 # indicates if new billing screens should be used
 # console.new-billing-screen: true
-
-# indicates if new encryption passphrase flow is enabled
-# console.new-encryption-passphrase-flow-enabled: true
 
 # indicates if new project dashboard should be used
 # console.new-project-dashboard: true
@@ -273,6 +294,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true
+
+# whether to allow purchasing pricing packages
+# console.pricing-packages-enabled: false
 
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
@@ -596,7 +620,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.min-remote-segment-size: 1.2 KiB
 
 # feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: false
+# metainfo.multiple-versions: true
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
@@ -745,6 +769,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # a mock list of countries the satellite will attribute to nodes (useful for testing)
 # overlay.geo-ip.mock-countries: []
 
+# the minimum node id difficulty required for new nodes. existing nodes remain allowed
+# overlay.minimum-new-node-id-difficulty: 36
+
 # the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
 # overlay.node-check-in-wait-period: 2h0m0s
 
@@ -863,7 +890,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.usage-price.storage-tb: "4"
 
 # how often to remove unused project bandwidth rollups
-# project-bw-cleanup.interval: 168h0m0s
+# project-bw-cleanup.interval: 24h0m0s
 
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
@@ -1020,6 +1047,12 @@ server.private-address: 127.0.0.1:7778
 
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
 # server.revocation-dburl: bolt://testdata/revocations.db
+
+# enable support for tcp fast open experiment
+# server.tcp-fast-open: true
+
+# the size of the tcp fast open queue
+# server.tcp-fast-open-queue: 256
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true

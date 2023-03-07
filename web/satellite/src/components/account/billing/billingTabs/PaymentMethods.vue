@@ -303,7 +303,7 @@ export default class PaymentMethods extends Vue {
         try {
             await this.$store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
             this.transactionCount = this.nativePaymentHistoryItems.length;
-            this.displayedHistory = this.nativePaymentHistoryItems.slice(0,this.pageSize);
+            this.displayedHistory = this.nativePaymentHistoryItems.slice(0, this.pageSize);
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         } finally {
@@ -448,16 +448,16 @@ export default class PaymentMethods extends Vue {
     public sortFunction(key) {
         switch (key) {
         case 'date-ascending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
+            this.nativePaymentHistoryItems.sort((a, b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
             break;
         case 'date-descending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
+            this.nativePaymentHistoryItems.sort((a, b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
             break;
         case 'amount-ascending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return a.amount.value - b.amount.value;});
+            this.nativePaymentHistoryItems.sort((a, b) => {return a.amount.value - b.amount.value;});
             break;
         case 'amount-descending':
-            this.nativePaymentHistoryItems.sort((a,b) => {return b.amount.value - a.amount.value;});
+            this.nativePaymentHistoryItems.sort((a, b) => {return b.amount.value - a.amount.value;});
             break;
         case 'status-ascending':
             this.nativePaymentHistoryItems.sort((a, b) => {
@@ -472,14 +472,14 @@ export default class PaymentMethods extends Vue {
                 return 0;});
             break;
         }
-        this.displayedHistory = this.nativePaymentHistoryItems.slice(0,10);
+        this.displayedHistory = this.nativePaymentHistoryItems.slice(0, 10);
     }
 
     /**
      * controls transaction table pagination
      */
     public paginationController(i): void {
-        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize,((i - 1) * this.pageSize) + this.pageSize);
+        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize, ((i - 1) * this.pageSize) + this.pageSize);
     }
 
     public get pageCount(): number {

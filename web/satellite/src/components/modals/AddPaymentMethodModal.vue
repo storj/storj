@@ -130,11 +130,12 @@ import { Component, Vue } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -222,7 +223,7 @@ export default class AddPaymentMethodModal extends Vue {
      * Closes add payment method modal.
      */
     public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
     }
 
     /**

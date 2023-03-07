@@ -26,6 +26,7 @@
 import { Component, Vue, Prop } from 'vue-property-decorator';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
 
@@ -65,7 +66,7 @@ export default class DurationSelection extends Vue {
      * Toggles duration picker.
      */
     public togglePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_AG_DATEPICKER_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AG_DATE_PICKER);
     }
 
     /**
@@ -79,7 +80,7 @@ export default class DurationSelection extends Vue {
      * Indicates if date picker is shown.
      */
     public get isDurationPickerVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isAGDatePickerShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
     }
 
     /**

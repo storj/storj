@@ -6,17 +6,6 @@
         <div class="file-browser">
             <FileBrowser />
         </div>
-        <info-notification v-if="isMultiplePassphraseNotificationShown">
-            <template #text>
-                <p class="medium">Do you know a bucket can have multiple passphrases?</p>
-                <p>
-                    If you don’t see the objects you’re looking for,
-                    <span v-if="isNewEncryptionPassphraseFlowEnabled" class="link" @click="toggleManagePassphrase">try opening the bucket again</span>
-                    <router-link v-else class="link" :to="bucketsManagementPath">try opening the bucket again</router-link>
-                    with a different passphrase.
-                </p>
-            </template>
-        </info-notification>
         <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
     </div>
 </template>
@@ -30,18 +19,18 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { MetaUtils } from '@/utils/meta';
-import { Bucket } from '@/types/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { BucketPage } from '@/types/buckets';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
-import InfoNotification from '@/components/common/InfoNotification.vue';
 
 // @vue/component
 @Component({
     components: {
-        InfoNotification,
         FileBrowser,
         UploadCancelPopup,
     },
@@ -50,8 +39,6 @@ export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-
-    public readonly bucketsManagementPath: string = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
 
     /**
      * Lifecycle hook after vue instance was created.
@@ -73,24 +60,28 @@ export default class UploadFile extends Vue {
         });
     }
 
-    @Watch('edgeCredentials.secretKey')
+    @Watch('passphrase')
     public async reinit(): Promise<void> {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
-        if (!this.edgeCredentials.secretKey) {
+        if (!this.passphrase) {
             await this.$router.push(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path).catch(() => {return;});
             return;
         }
 
+        try {
+            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        } catch (error) {
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
+            return;
+        }
+
         await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
-        await this.$store.commit('files/reinit', {
+        this.$store.commit('files/reinit', {
             endpoint: this.edgeCredentials.endpoint,
             accessKey: this.edgeCredentials.accessKeyId,
             secretKey: this.edgeCredentials.secretKey,
         });
         try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.bucketPage.currentPage);
             await this.$store.dispatch('files/list', '');
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
@@ -138,13 +129,6 @@ export default class UploadFile extends Vue {
 
             return '';
         }
-    }
-
-    /**
-     * Toggles manage project passphrase modal visibility.
-     */
-    public toggleManagePassphrase(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
     }
 
     /**
@@ -211,23 +195,10 @@ export default class UploadFile extends Vue {
     }
 
     /**
-     * Indicates if we have objects in this bucket but not for inputted passphrase.
-     */
-    public get isMultiplePassphraseNotificationShown(): boolean {
-        const name: string = this.$store.state.files.bucket;
-        const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
-
-        const objectCount: number = data?.objectCount || 0;
-        const ownObjects = this.$store.getters['files/sortedFiles'];
-
-        return objectCount > 0 && !ownObjects.length;
-    }
-
-    /**
      * Indicates if upload cancel popup is visible.
      */
     public get isCancelUploadPopupVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
+        return this.$store.state.appStateModule.appState.activeModal === MODALS.uploadCancelPopup;
     }
 
     /**
@@ -252,17 +223,17 @@ export default class UploadFile extends Vue {
     }
 
     /**
+     * Returns current bucket page from store.
+     */
+    private get bucketPage(): BucketPage {
+        return this.$store.state.bucketUsageModule.page;
+    }
+
+    /**
      * Returns edge credentials from store.
      */
     private get edgeCredentials(): EdgeCredentials {
         return this.$store.state.objectsModule.gatewayCredentials;
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 }
 </script>
@@ -271,9 +242,5 @@ export default class UploadFile extends Vue {
     .file-browser {
         font-family: 'font_regular', sans-serif;
         padding-bottom: 200px;
-    }
-
-    .link {
-        cursor: pointer;
     }
 </style>

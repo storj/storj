@@ -3,44 +3,15 @@
 
 <template>
     <div class="project-dashboard">
-        <h1 class="project-dashboard__title" aria-roledescription="title">Dashboard</h1>
+        <div class="project-dashboard__heading">
+            <h1 class="project-dashboard__heading__title" aria-roledescription="title">{{ selectedProject.name }}</h1>
+            <project-ownership-tag :project="selectedProject" />
+        </div>
+
         <p class="project-dashboard__message">
             Expect a delay of a few hours between network activity and the latest dashboard stats.
         </p>
-        <DashboardFunctionalHeader
-            v-if="isNewEncryptionPassphraseFlowEnabled"
-            :loading="isDataFetching || areBucketsFetching"
-        />
-        <template v-else>
-            <VLoader v-if="isDataFetching" class="project-dashboard__loader" width="100px" height="100px" />
-            <p v-if="!isDataFetching && limits.objectCount" class="project-dashboard__subtitle" aria-roledescription="with-usage-title">
-                Your
-                <span class="project-dashboard__subtitle__value">{{ limits.objectCount }} objects</span>
-                are stored in
-                <span class="project-dashboard__subtitle__value">{{ limits.segmentCount }} segments</span>
-                around the world
-            </p>
-            <template v-if="!isDataFetching && !limits.objectCount">
-                <p class="project-dashboard__subtitle" aria-roledescription="empty-title">
-                    Welcome to Storj :) <br> You’re ready to experience the future of cloud storage
-                </p>
-            </template>
-            <p class="project-dashboard__limits">
-                <span class="project-dashboard__limits--bold">Storage Limit</span>
-                per month: {{ limits.storageLimit | bytesToBase10String }} |
-                <span class="project-dashboard__limits--bold">Bandwidth Limit</span>
-                per month: {{ limits.bandwidthLimit | bytesToBase10String }}
-            </p>
-            <template v-if="!isDataFetching && !limits.objectCount">
-                <VButton
-                    class="project-dashboard__upload-button"
-                    label="Upload"
-                    width="100px"
-                    height="40px"
-                    :on-press="onUploadClick"
-                />
-            </template>
-        </template>
+        <DashboardFunctionalHeader :loading="isDataFetching || areBucketsFetching" />
         <div class="project-dashboard__stats-header">
             <h2 class="project-dashboard__stats-header__title">Project Stats</h2>
             <div class="project-dashboard__stats-header__buttons">
@@ -183,19 +154,21 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import { computed } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
-import { DataStamp, ProjectLimits } from '@/types/projects';
+import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
@@ -207,6 +180,7 @@ import DateRangeSelection from '@/components/project/newProjectDashboard/DateRan
 import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
+import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
@@ -214,6 +188,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
 //@vue/component
 @Component({
     components: {
+        ProjectOwnershipTag,
         VLoader,
         VButton,
         InfoContainer,
@@ -250,8 +225,10 @@ export default class NewProjectDashboard extends Vue {
         this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
 
         if (!this.$store.getters.selectedProject.id) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            this.analytics.pageVisit(onboardingPath);
+            await this.$router.push(onboardingPath);
 
             return;
         }
@@ -264,8 +241,21 @@ export default class NewProjectDashboard extends Vue {
             const past = new Date();
             past.setDate(past.getDate() - 30);
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+            if (this.hasJustLoggedIn) {
+                if (this.limits.objectCount > 0) {
+                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+                    if (!this.bucketWasCreated) {
+                        LocalData.setBucketWasCreatedStatus();
+                    }
+                } else {
+                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+                }
+
+                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+            }
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
         } catch (error) {
             await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
@@ -311,7 +301,7 @@ export default class NewProjectDashboard extends Vue {
      * Holds on upgrade button click logic.
      */
     public onUpgradeClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
     }
 
     /**
@@ -320,14 +310,6 @@ export default class NewProjectDashboard extends Vue {
     public onCreateProjectClick(): void {
         this.analytics.pageVisit(RouteConfig.CreateProject.path);
         this.$router.push(RouteConfig.CreateProject.path);
-    }
-
-    /**
-     * Holds on upload button click logic.
-     */
-    public onUploadClick(): void {
-        this.analytics.pageVisit(RouteConfig.Buckets.path);
-        this.$router.push(RouteConfig.Buckets.path).catch(() => {return;});
     }
 
     /**
@@ -341,7 +323,7 @@ export default class NewProjectDashboard extends Vue {
      * toggleChartsDatePicker holds logic for toggling charts date picker.
      */
     public toggleChartsDatePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHARTS_DATEPICKER_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
     }
 
     /**
@@ -352,7 +334,7 @@ export default class NewProjectDashboard extends Vue {
     public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
         const since = new Date(dateRange[0]);
         const before = new Date(dateRange[1]);
-        before.setHours(23,59,59,999);
+        before.setHours(23, 59, 59, 999);
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
@@ -365,7 +347,7 @@ export default class NewProjectDashboard extends Vue {
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
-        return this.$store.state.appStateModule.appState.isChartsDatePickerShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
     }
 
     /**
@@ -432,10 +414,29 @@ export default class NewProjectDashboard extends Vue {
     }
 
     /**
-     * Indicates if new encryption passphrase flow is enabled.
+     * Indicates if user has just logged in.
      */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
+    public get hasJustLoggedIn(): boolean {
+        return this.$store.state.appStateModule.appState.hasJustLoggedIn;
+    }
+
+    /**
+     * Indicates if bucket was created.
+     */
+    private get bucketWasCreated(): boolean {
+        const status = LocalData.getBucketWasCreatedStatus();
+        if (status !== null) {
+            return status;
+        }
+
+        return false;
+    }
+
+    /**
+     * get selected project from store
+     */
+    private get selectedProject(): Project {
+        return this.$store.getters.selectedProject;
     }
 
     /**
@@ -462,24 +463,18 @@ export default class NewProjectDashboard extends Vue {
         background-repeat: no-repeat;
         font-family: 'font_regular', sans-serif;
 
-        &__limits {
-            font-size: 14px;
-            margin-top: 11px;
+        &__heading {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
 
-            &--bold {
-                font-family: 'font_bold', sans-serif;
+            &__title {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                line-height: 24px;
+                color: #000;
             }
-        }
-
-        &__loader {
-            display: inline-block;
-        }
-
-        &__title {
-            font-family: 'font_medium', sans-serif;
-            font-size: 16px;
-            line-height: 24px;
-            color: #000;
         }
 
         &__message {
@@ -487,25 +482,6 @@ export default class NewProjectDashboard extends Vue {
             line-height: 20px;
             color: #384b65;
             margin: 10px 0 64px;
-        }
-
-        &__subtitle {
-            font-family: 'font_bold', sans-serif;
-            font-size: 28px;
-            line-height: 36px;
-            letter-spacing: -0.02em;
-            color: #000;
-            max-width: 365px;
-
-            &__value {
-                text-decoration: underline;
-                text-underline-position: under;
-                text-decoration-color: var(--c-green-3);
-            }
-        }
-
-        &__upload-button {
-            margin-top: 16px;
         }
 
         &__stats-header {
@@ -670,10 +646,6 @@ export default class NewProjectDashboard extends Vue {
     }
 
     .new-project-button {
-
-        svg {
-            margin-right: 9px;
-        }
 
         &:hover svg :deep(path) {
             fill: #fff;

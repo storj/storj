@@ -84,7 +84,7 @@ func (c *cmdAccessInspect) Execute(ctx context.Context) error {
 	for _, cb := range m.Caveats() {
 		var c macaroon.Caveat
 
-		err = pb.Unmarshal(cb, &c)
+		err = c.UnmarshalBinary(cb)
 		if err != nil {
 			return err
 		}

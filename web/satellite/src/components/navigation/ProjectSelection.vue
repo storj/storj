@@ -39,7 +39,7 @@
                     <p class="project-selection__dropdown__items__choice__unselected">{{ project.name }}</p>
                 </div>
             </div>
-            <div v-if="isNewEncryptionPassphraseFlowEnabled" tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
+            <div tabindex="0" class="project-selection__dropdown__link-container" @click.stop="onManagePassphraseClick" @keyup.enter="onManagePassphraseClick">
                 <PassphraseIcon />
                 <p class="project-selection__dropdown__link-container__label">Manage Passphrase</p>
             </div>
@@ -67,10 +67,11 @@ import { LocalData } from '@/utils/localData';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -138,7 +139,7 @@ export default class ProjectSelection extends Vue {
      * Toggles project dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PROJECT_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.SELECT_PROJECT);
     }
 
     /**
@@ -152,9 +153,8 @@ export default class ProjectSelection extends Vue {
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
-        if (this.isNewEncryptionPassphraseFlowEnabled || this.isBucketsView) {
-            this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        }
+        this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
 
         if (this.isBucketsView) {
             await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
@@ -224,8 +224,8 @@ export default class ProjectSelection extends Vue {
     /**
      * Indicates if dropdown is shown.
      */
-    public get isDropdownShown(): string {
-        return this.$store.state.appStateModule.appState.isSelectProjectDropdownShown;
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
     }
 
     /**
@@ -266,11 +266,7 @@ export default class ProjectSelection extends Vue {
      * Toggles manage passphrase modal shown.
      */
     public onManagePassphraseClick(): void {
-        if (!this.isNewEncryptionPassphraseFlowEnabled) {
-            return;
-        }
-
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
 
         this.closeDropdown();
     }
@@ -286,21 +282,14 @@ export default class ProjectSelection extends Vue {
             const ownProjectsCount: number = this.$store.getters.projectsCount;
 
             if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
             } else {
                 this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
             }
         }
 
         this.closeDropdown();
-    }
-
-    /**
-     * Indicates if new encryption passphrase flow is enabled.
-     */
-    public get isNewEncryptionPassphraseFlowEnabled(): boolean {
-        return this.$store.state.appStateModule.isNewEncryptionPassphraseFlowEnabled;
     }
 
     /**

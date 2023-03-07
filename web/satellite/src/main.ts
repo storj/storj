@@ -3,7 +3,6 @@
 
 import Vue from 'vue';
 import VueClipboard from 'vue-clipboard2';
-import VueSanitize from 'vue-sanitize';
 import { createPinia, PiniaVuePlugin } from 'pinia';
 
 import App from './App.vue';
@@ -23,7 +22,6 @@ Vue.config.productionTip = false;
 
 Vue.use(new NotificatorPlugin(store));
 Vue.use(VueClipboard);
-Vue.use(VueSanitize);
 Vue.use(PiniaVuePlugin);
 const pinia = createPinia();
 
@@ -85,6 +83,13 @@ Vue.filter('centsToDollars', (cents: number): string => {
  */
 Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
     return `${Size.toBase10String(amountInBytes)}`;
+});
+
+/**
+ * Adds leading zero to number if it is less than 10.
+ */
+Vue.filter('leadingZero', (value: number): string => {
+    return value <= 9 ? `0${value}` : `${value}`;
 });
 
 new Vue({

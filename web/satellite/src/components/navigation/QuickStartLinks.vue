@@ -47,8 +47,10 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
+import { AccessType } from '@/types/createAccessGrant';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -78,6 +80,16 @@ export default class QuickStartLinks extends Vue {
     public navigateToCreateAG(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
         this.closeDropdowns();
+
+        if (this.isNewAccessGrantFlow) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
+            this.$router.push({
+                name: RouteConfig.NewCreateAccessModal.name,
+                params: { accessType: AccessType.AccessGrant },
+            }).catch(() => {return;});
+            return;
+        }
+
         this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
@@ -91,6 +103,16 @@ export default class QuickStartLinks extends Vue {
     public navigateToAccessGrantS3(): void {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
         this.closeDropdowns();
+
+        if (this.isNewAccessGrantFlow) {
+            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
+            this.$router.push({
+                name: RouteConfig.NewCreateAccessModal.name,
+                params: { accessType: AccessType.S3 },
+            }).catch(() => {return;});
+            return;
+        }
+
         this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
@@ -130,14 +152,21 @@ export default class QuickStartLinks extends Vue {
             const ownProjectsCount: number = this.$store.getters.projectsCount;
 
             if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_PROMPT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
             } else {
                 this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_PROJECT_POPUP);
+                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
             }
         }
 
         this.closeDropdowns();
+    }
+
+    /**
+     * Indicates if new access grant flow should be used.
+     */
+    private get isNewAccessGrantFlow(): boolean {
+        return this.$store.state.appStateModule.isNewAccessGrantFlow;
     }
 }
 </script>

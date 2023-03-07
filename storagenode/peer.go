@@ -23,7 +23,6 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
@@ -420,6 +419,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		noiseKeyAttestation, err := peer.Server.NoiseKeyAttestation(context.Background())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		self := contact.NodeInfo{
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
@@ -428,7 +431,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Wallet:         config.Operator.Wallet,
 				WalletFeatures: config.Operator.WalletFeatures,
 			},
-			Version: *pbVersion,
+			Version:             *pbVersion,
+			NoiseKeyAttestation: noiseKeyAttestation,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
 		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
@@ -536,7 +540,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
-			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
@@ -554,6 +558,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		if err := pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err := pb.DRPCRegisterReplaySafePiecestore(peer.Server.ReplaySafeDRPC(), peer.Storage2.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 

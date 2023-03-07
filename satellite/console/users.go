@@ -47,6 +47,10 @@ type Users interface {
 	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 	// GetUserPaidTier is a method to gather whether the specified user is on the Paid Tier or not.
 	GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid bool, err error)
+	// GetSettings is a method for returning a user's set of configurations.
+	GetSettings(ctx context.Context, userID uuid.UUID) (*UserSettings, error)
+	// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
+	UpsertSettings(ctx context.Context, userID uuid.UUID, settings UpsertUserSettingsRequest) error
 }
 
 // UserInfo holds User updatable data.
@@ -71,7 +75,6 @@ type CreateUser struct {
 	FullName         string `json:"fullName"`
 	ShortName        string `json:"shortName"`
 	Email            string `json:"email"`
-	PartnerID        string `json:"partnerId"`
 	UserAgent        []byte `json:"userAgent"`
 	Password         string `json:"password"`
 	IsProfessional   bool   `json:"isProfessional"`
@@ -92,19 +95,12 @@ func (user *CreateUser) IsValid() error {
 
 	errgrp.Add(
 		ValidateFullName(user.FullName),
-		ValidatePassword(user.Password),
+		ValidateNewPassword(user.Password),
 	)
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)
 	errgrp.Add(err)
-
-	if user.PartnerID != "" {
-		_, err := uuid.FromString(user.PartnerID)
-		if err != nil {
-			errgrp.Add(err)
-		}
-	}
 
 	return ErrValidation.Wrap(errgrp.Err())
 }
@@ -156,7 +152,6 @@ type User struct {
 	PasswordHash []byte `json:"passwordHash"`
 
 	Status    UserStatus `json:"status"`
-	PartnerID uuid.UUID  `json:"partnerId"`
 	UserAgent []byte     `json:"userAgent"`
 
 	CreatedAt time.Time `json:"createdAt"`
@@ -195,7 +190,6 @@ type ResponseUser struct {
 	FullName             string    `json:"fullName"`
 	ShortName            string    `json:"shortName"`
 	Email                string    `json:"email"`
-	PartnerID            uuid.UUID `json:"partnerId"`
 	UserAgent            []byte    `json:"userAgent"`
 	ProjectLimit         int       `json:"projectLimit"`
 	IsProfessional       bool      `json:"isProfessional"`
@@ -253,4 +247,15 @@ type UpdateUserRequest struct {
 	FailedLoginCount *int
 
 	LoginLockoutExpiration **time.Time
+}
+
+// UserSettings contains configurations for a user.
+type UserSettings struct {
+	SessionDuration *time.Duration `json:"sessionDuration"`
+}
+
+// UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
+type UpsertUserSettingsRequest struct {
+	// The DB stores this value with minute granularity. Finer time units are ignored.
+	SessionDuration **time.Duration
 }

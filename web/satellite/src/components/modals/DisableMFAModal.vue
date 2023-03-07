@@ -45,8 +45,10 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -78,7 +80,7 @@ export default class DisableMFAModal extends Vue {
      * Closes disable MFA modal.
      */
     public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DISABLE_MFA_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
     }
 
     /**

@@ -28,8 +28,10 @@
 
 <script setup lang="ts">
 import { useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -46,7 +48,7 @@ const store = useStore();
  */
 function onClear(): void {
     store.commit(OBJECTS_MUTATIONS.CLEAR);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_MANAGE_PROJECT_PASSPHRASE_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
 }
 </script>
 

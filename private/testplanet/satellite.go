@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -140,14 +141,15 @@ type Satellite struct {
 	}
 
 	Audit struct {
-		VerifyQueue    audit.VerifyQueue
-		ReverifyQueue  audit.ReverifyQueue
-		Worker         *audit.Worker
-		ReverifyWorker *audit.ReverifyWorker
-		Chore          *audit.Chore
-		Verifier       *audit.Verifier
-		Reverifier     *audit.Reverifier
-		Reporter       audit.Reporter
+		VerifyQueue          audit.VerifyQueue
+		ReverifyQueue        audit.ReverifyQueue
+		Worker               *audit.Worker
+		ReverifyWorker       *audit.ReverifyWorker
+		Chore                *audit.Chore
+		Verifier             *audit.Verifier
+		Reverifier           *audit.Reverifier
+		Reporter             audit.Reporter
+		ContainmentSyncChore *audit.ContainmentSyncChore
 	}
 
 	Reputation struct {
@@ -237,32 +239,32 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 
 	regToken, err := system.API.Console.Service.CreateRegToken(ctx, maxNumberOfProjects)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	newUser.Password = newUser.FullName
 	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	activationToken, err := system.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	_, err = system.API.Console.Service.ActivateAccount(ctx, activationToken)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	userCtx, err := system.UserContext(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	_, err = system.API.Console.Service.Payments().SetupAccount(userCtx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return user, nil
@@ -274,13 +276,13 @@ func (system *Satellite) AddProject(ctx context.Context, ownerID uuid.UUID, name
 
 	ctx, err = system.UserContext(ctx, ownerID)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	project, err := system.API.Console.Service.CreateProject(ctx, console.ProjectInfo{
 		Name: name,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	return project, nil
 }
@@ -291,7 +293,7 @@ func (system *Satellite) UserContext(ctx context.Context, userID uuid.UUID) (_ c
 
 	user, err := system.API.Console.Service.GetUser(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return console.WithUser(ctx, user), nil
@@ -356,10 +358,10 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 		var err error
 
 		pprof.Do(ctx, pprof.Labels("peer", prefix), func(ctx context.Context) {
-			system, err = planet.newSatellite(ctx, prefix, index, log, databases)
+			system, err = planet.newSatellite(ctx, prefix, index, log, databases, planet.config.applicationName)
 		})
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
@@ -370,22 +372,22 @@ func (planet *Planet) newSatellites(ctx context.Context, count int, databases sa
 	return satellites, nil
 }
 
-func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases) (_ *Satellite, err error) {
+func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases, applicationName string) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	identity, err := planet.NewIdentity()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
-	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB)
+	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB, applicationName)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if planet.config.Reconfigure.SatelliteDB != nil {
@@ -400,14 +402,14 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 
 	redis, err := testredis.Mini(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	encryptionKeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
 		Key: storj.Key{1},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	var config satellite.Config
@@ -492,7 +494,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		MultipleVersions: config.Metainfo.MultipleVersions,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
@@ -523,54 +525,57 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
+	config.Payments.Provider = "mock"
+	config.Payments.MockProvider = stripecoinpayments.NewStripeMock(db.StripeCoinPayments().Customers(), db.Console().Users())
+
 	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
-	err = db.TestingMigrateToLatest(ctx)
+	err = db.Testing().TestMigrateToLatest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	err = metabaseDB.TestMigrateToLatest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	api, err := planet.newAPI(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	adminPeer, err := planet.newAdmin(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	auditorPeer, err := planet.newAuditor(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
-	gcBFPeer, err := planet.newGarbageCollectionBF(ctx, index, identity, db, metabaseDB, config, versionInfo)
+	gcBFPeer, err := planet.newGarbageCollectionBF(ctx, index, db, metabaseDB, config, versionInfo)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	rangedLoopPeer, err := planet.newRangedLoop(ctx, index, db, metabaseDB, config)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if config.EmailReminders.Enable {
@@ -644,6 +649,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Audit.Verifier = auditorPeer.Audit.Verifier
 	system.Audit.Reverifier = auditorPeer.Audit.Reverifier
 	system.Audit.Reporter = auditorPeer.Audit.Reporter
+	system.Audit.ContainmentSyncChore = peer.Audit.ContainmentSyncChore
 
 	system.GarbageCollection.Sender = gcPeer.GarbageCollection.Sender
 	system.GarbageCollection.BloomFilters = gcBFPeer.GarbageCollection.Service
@@ -761,7 +767,7 @@ func (planet *Planet) newGarbageCollection(ctx context.Context, index int, ident
 	return satellite.NewGarbageCollection(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.GarbageCollectionBF, err error) {
+func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.GarbageCollectionBF, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	prefix := "satellite-gc-bf" + strconv.Itoa(index)
@@ -772,7 +778,7 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, ide
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, revocationDB)
-	return satellite.NewGarbageCollectionBF(log, identity, db, metabaseDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
 func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config) (_ *satellite.RangedLoop, err error) {

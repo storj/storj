@@ -20,14 +20,12 @@ var ErrBucketNotAttributed = errs.Class("bucket not attributed")
 type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
-	PartnerID  uuid.UUID
 	UserAgent  []byte
 	CreatedAt  time.Time
 }
 
 // BucketUsage is the usage data for a single bucket.
 type BucketUsage struct {
-	PartnerID    []byte
 	UserAgent    []byte
 	ProjectID    []byte
 	BucketName   []byte
@@ -47,7 +45,7 @@ type DB interface {
 	// Insert creates and stores new Info.
 	Insert(ctx context.Context, info *Info) (*Info, error)
 	// QueryAttribution queries partner bucket attribution data.
-	QueryAttribution(ctx context.Context, partnerID uuid.UUID, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
+	QueryAttribution(ctx context.Context, userAgent []byte, start time.Time, end time.Time) ([]*BucketUsage, error)
 	// QueryAllAttribution queries all partner bucket usage data.
 	QueryAllAttribution(ctx context.Context, start time.Time, end time.Time) ([]*BucketUsage, error)
 }

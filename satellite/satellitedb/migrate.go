@@ -63,7 +63,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
@@ -83,8 +83,8 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	}
 }
 
-// TestingMigrateToLatest is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
+// TestMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -113,14 +113,14 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 
 		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
 
-		testMigration := db.TestPostgresMigration()
+		testMigration := db.TestMigration()
 		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
 			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
 		}
@@ -134,7 +134,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		return migration.ValidateVersions(ctx, db.log)
 
 	default:
@@ -142,13 +142,13 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// TestPostgresMigration returns steps needed for migrating test postgres database.
-func (db *satelliteDB) TestPostgresMigration() *migrate.Migration {
+// TestMigration returns steps needed for migrating test postgres database.
+func (db *satelliteDB) TestMigration() *migrate.Migration {
 	return db.testMigration()
 }
 
-// PostgresMigration returns steps needed for migrating postgres database.
-func (db *satelliteDB) PostgresMigration() *migrate.Migration {
+// ProductionMigration returns steps needed for migrating postgres database.
+func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -2206,6 +2206,84 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`DROP TABLE project_bandwidth_rollups`,
 				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add noise columns to nodes table",
+				Version:     222,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN noise_proto integer;`,
+					`ALTER TABLE nodes ADD COLUMN noise_public_key bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for interval_day column for project_bandwidth_daily_rollup",
+				Version:     223,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create user_settings table",
+				Version:     224,
+				Action: migrate.SQL{
+					`CREATE TABLE user_settings (
+						user_id bytea NOT NULL,
+						session_minutes integer,
+						PRIMARY KEY ( user_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused column last_verification_reminder on users table",
+				Version:     225,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN last_verification_reminder;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_prompt column to user_settings table",
+				Version:     226,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN passphrase_prompt boolean;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "fix bucket_bandwidth_rollups primary key",
+				Version:     227,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					alterPrimaryKey := true
+					// for crdb lets check if key was already altered, for pg we will do migration always
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						var primaryKey string
+						err := db.QueryRow(ctx,
+							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
+						).Scan(&primaryKey)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+
+						// alter primary key only if it was not adjusted manually
+						alterPrimaryKey = primaryKey != "PRIMARY KEY (project_id ASC, bucket_name ASC, interval_start ASC, action ASC)"
+					}
+
+					if alterPrimaryKey {
+						_, err := tx.ExecContext(ctx, `
+							ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pk;
+							ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY ( project_id, bucket_name, interval_start, action );
+						`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+					}
+
+					return nil
+				}),
 			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.

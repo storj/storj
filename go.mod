@@ -8,11 +8,13 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/cheggaaa/pb/v3 v3.0.5
+	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/color v1.9.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
-	github.com/go-redis/redis/v8 v8.7.1
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/go-cmp v0.5.5
+	github.com/golang/mock v1.6.0
+	github.com/google/go-cmp v0.5.8
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/graphql-go/graphql v0.7.9
@@ -22,6 +24,7 @@ require (
 	github.com/jackc/pgx/v4 v4.15.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/jtolio/eventkit v0.0.0-20221007130042-690145affff8
+	github.com/jtolio/noiseconn v0.0.0-20230111204749-d7ec1a08b0b8
 	github.com/loov/hrtime v1.0.3
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
@@ -34,7 +37,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/stripe/stripe-go/v72 v72.51.0
+	github.com/stripe/stripe-go/v72 v72.90.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
@@ -42,21 +45,21 @@ require (
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
-	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
-	golang.org/x/text v0.3.7
+	golang.org/x/sync v0.1.0
+	golang.org/x/sys v0.4.0
+	golang.org/x/term v0.4.0
+	golang.org/x/text v0.6.0
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
-	storj.io/common v0.0.0-20230124141033-6d40840eac7d
-	storj.io/drpc v0.0.32
+	gopkg.in/yaml.v3 v3.0.1
+	storj.io/common v0.0.0-20230224050842-81c8060f089b
+	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41
-	storj.io/private v0.0.0-20221108123115-3a27297f0b78
-	storj.io/uplink v1.10.0
+	storj.io/private v0.0.0-20230123202745-d3e63b336444
+	storj.io/uplink v1.10.1-0.20230224190621-ce85aec713d4
 )
 
 require (
@@ -65,12 +68,12 @@ require (
 	github.com/alicebob/gopher-json v0.0.0-20200520072559-a9ecdc9d1d3a // indirect
 	github.com/apache/thrift v0.12.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
+	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/cespare/xxhash/v2 v2.1.1 // indirect
-	github.com/cheekybits/genny v1.0.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/flynn/noise v1.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
 	github.com/golang-jwt/jwt v3.2.1+incompatible // indirect
@@ -89,21 +92,19 @@ require (
 	github.com/jtolds/tracetagger/v2 v2.0.0-rc5 // indirect
 	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.12 // indirect
-	github.com/lucas-clemente/quic-go v0.28.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
-	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
-	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
-	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/onsi/ginkgo v1.16.5 // indirect
+	github.com/onsi/ginkgo/v2 v2.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/quic-go/qtls-go1-18 v0.2.0 // indirect
+	github.com/quic-go/qtls-go1-19 v0.2.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.1.0 // indirect
+	github.com/quic-go/quic-go v0.32.0 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spf13/afero v1.6.0 // indirect
@@ -120,20 +121,17 @@ require (
 	github.com/zeebo/mwc v0.0.4 // indirect
 	github.com/zeebo/structs v1.0.2 // indirect
 	go.opencensus.io v0.22.2 // indirect
-	go.opentelemetry.io/otel v0.18.0 // indirect
-	go.opentelemetry.io/otel/metric v0.18.0 // indirect
-	go.opentelemetry.io/otel/trace v0.18.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20220517211312-f3a8303e98df // indirect
+	golang.org/x/exp v0.0.0-20221205204356-47842c84f3db // indirect
+	golang.org/x/mod v0.6.0 // indirect
+	golang.org/x/tools v0.2.0 // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/appengine v1.6.6 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	google.golang.org/grpc v1.27.1 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	storj.io/picobuf v0.0.1 // indirect
 )

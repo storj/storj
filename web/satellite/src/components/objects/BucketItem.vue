@@ -5,9 +5,10 @@
     <table-item
         :item="itemToRender"
         :on-click="onClick"
+        :on-primary-click="onClick"
         :show-guide="shouldShowGuide"
         :hide-guide="hideGuidePermanently"
-        table-type="bucket"
+        item-type="bucket"
     >
         <th slot="options" v-click-outside="closeDropdown" :class="{active: isDropdownOpen}" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
@@ -31,6 +32,7 @@ import { Component, Prop } from 'vue-property-decorator';
 import { RouteConfig } from '@/router';
 import { Bucket } from '@/types/buckets';
 import { LocalData } from '@/utils/localData';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import TableItem from '@/components/common/TableItem.vue';
@@ -119,7 +121,7 @@ export default class BucketItem extends Resizable {
      * Holds on delete click logic.
      */
     public onDeleteClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_BUCKET_MODAL_SHOWN);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.deleteBucket);
         this.closeDropdown();
     }
 

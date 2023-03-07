@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -222,4 +223,61 @@ func TestUpdateCheckInDirectUpdate(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, updated)
 	})
+}
+
+func TestSetAllContainedNodes(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		cache := db.OverlayCache()
+
+		node1 := testrand.NodeID()
+		node2 := testrand.NodeID()
+		node3 := testrand.NodeID()
+
+		// put nodes with these IDs in the db
+		for _, n := range []storj.NodeID{node1, node2, node3} {
+			checkInInfo := overlay.NodeCheckInInfo{
+				IsUp:    true,
+				Address: &pb.NodeAddress{Address: "1.2.3.4"},
+				Version: &pb.NodeVersion{Version: "v0.0.0"},
+				NodeID:  n,
+			}
+			err := cache.UpdateCheckIn(ctx, checkInInfo, time.Now().UTC(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+		}
+		// none of them should be contained
+		assertContained(ctx, t, cache, node1, false, node2, false, node3, false)
+
+		// Set node2 (only) to be contained
+		err := cache.SetAllContainedNodes(ctx, []storj.NodeID{node2})
+		require.NoError(t, err)
+		assertContained(ctx, t, cache, node1, false, node2, true, node3, false)
+
+		// Set node1 and node3 (only) to be contained
+		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{node1, node3})
+		require.NoError(t, err)
+		assertContained(ctx, t, cache, node1, true, node2, false, node3, true)
+
+		// Set node1 (only) to be contained
+		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{node1})
+		require.NoError(t, err)
+		assertContained(ctx, t, cache, node1, true, node2, false, node3, false)
+
+		// Set no nodes to be contained
+		err = cache.SetAllContainedNodes(ctx, []storj.NodeID{})
+		require.NoError(t, err)
+		assertContained(ctx, t, cache, node1, false, node2, false, node3, false)
+	})
+}
+
+func assertContained(ctx context.Context, t testing.TB, cache overlay.DB, args ...interface{}) {
+	require.Equal(t, 0, len(args)%2, "must be given an even number of args")
+	for n := 0; n < len(args); n += 2 {
+		nodeID := args[n].(storj.NodeID)
+		expectedContainment := args[n+1].(bool)
+		nodeInDB, err := cache.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Equalf(t, expectedContainment, nodeInDB.Contained,
+			"Expected nodeID %v (args[%d]) contained = %v, but got %v",
+			nodeID, n, expectedContainment, nodeInDB.Contained)
+	}
 }

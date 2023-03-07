@@ -52,7 +52,6 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
 
@@ -152,10 +151,6 @@ type API struct {
 		Service    *console.Service
 		Endpoint   *consoleweb.Server
 		AuthTokens *consoleauth.Service
-	}
-
-	Marketing struct {
-		PartnersService *rewards.PartnersService
 	}
 
 	NodeStats struct {
@@ -415,13 +410,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup marketing partners service
-		peer.Marketing.PartnersService = rewards.NewPartnersService(
-			peer.Log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
-	}
-
 	{ // setup analytics service
 		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
 
@@ -467,7 +455,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
-			peer.Marketing.PartnersService,
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
@@ -533,14 +520,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
-		default:
+		case "": // just new mock, only used in testing binaries
 			stripeClient = stripecoinpayments.NewStripeMock(
-				peer.ID(),
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
+		case "mock":
+			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		default:
+			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
 
 		prices, err := pc.UsagePrice.ToModel()
@@ -565,6 +555,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 
 		if err != nil {
@@ -618,7 +609,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.Buckets.Service,
-			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			peer.Payments.DepositWallets,
 			peer.DB.Billing(),
@@ -640,13 +630,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service,
 			peer.OIDC.Service,
 			peer.Mail.Service,
-			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
 			peer.ABTesting.Service,
 			accountFreezeService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			peer.URL(),
+			config.Payments.PackagePlans,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

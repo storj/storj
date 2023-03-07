@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"net/http"
 	"regexp"
 	"strings"
@@ -23,7 +24,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 var (
@@ -58,11 +58,10 @@ type Auth struct {
 	analytics                 *analytics.Service
 	mailService               *mailservice.Service
 	cookieAuth                *consolewebauth.CookieAuth
-	partners                  *rewards.PartnersService
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *console.AccountFreezeService, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, satelliteName string, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string, generalRequestURL string) *Auth {
 	return &Auth{
 		log:                       log,
 		ExternalAddress:           externalAddress,
@@ -71,14 +70,13 @@ func NewAuth(log *zap.Logger, service *console.Service, accountFreezeService *co
 		ContactInfoURL:            contactInfoURL,
 		GeneralRequestURL:         generalRequestURL,
 		SatelliteName:             satelliteName,
-		PasswordRecoveryURL:       externalAddress + "password-recovery/",
-		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery/",
-		ActivateAccountURL:        externalAddress + "activation/",
+		PasswordRecoveryURL:       externalAddress + "password-recovery",
+		CancelPasswordRecoveryURL: externalAddress + "cancel-password-recovery",
+		ActivateAccountURL:        externalAddress + "activation",
 		service:                   service,
 		accountFreezeService:      accountFreezeService,
 		mailService:               mailService,
 		cookieAuth:                cookieAuth,
-		partners:                  partners,
 		analytics:                 analytics,
 	}
 }
@@ -165,9 +163,11 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.RemoveTokenCookie(w)
 }
 
-// replaceURLCharacters replaces slash, colon, and dot characters in a string with a hyphen.
-func replaceURLCharacters(s string) string {
+// replaceSpecialCharacters replaces characters that could be used to represent a url or html.
+func replaceSpecialCharacters(s string) string {
 	re := regexp.MustCompile(`[\/:\.]`)
+	s = template.HTMLEscapeString(s)
+	s = template.JSEscapeString(s)
 	return re.ReplaceAllString(s, "-")
 }
 
@@ -196,7 +196,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		ShortName        string `json:"shortName"`
 		Email            string `json:"email"`
 		Partner          string `json:"partner"`
-		PartnerID        string `json:"partnerId"`
 		UserAgent        []byte `json:"userAgent"`
 		Password         string `json:"password"`
 		SecretInput      string `json:"secret"`
@@ -225,9 +224,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// remove special characters from submitted name so that malicious link cannot be injected into verification or password reset emails.
-	registerData.FullName = replaceURLCharacters(registerData.FullName)
-	registerData.ShortName = replaceURLCharacters(registerData.ShortName)
+	// remove special characters from submitted info so that malicious link or code cannot be injected anywhere.
+	registerData.FullName = replaceSpecialCharacters(registerData.FullName)
+	registerData.ShortName = replaceSpecialCharacters(registerData.ShortName)
+	registerData.Partner = replaceSpecialCharacters(registerData.Partner)
+	registerData.Position = replaceSpecialCharacters(registerData.Position)
+	registerData.CompanyName = replaceSpecialCharacters(registerData.CompanyName)
+	registerData.EmployeeCount = replaceSpecialCharacters(registerData.EmployeeCount)
 
 	if len([]rune(registerData.Partner)) > 100 {
 		a.serveJSONError(w, console.ErrValidation.Wrap(errs.New("Partner must be less than or equal to 100 characters")))
@@ -276,12 +279,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 		if registerData.Partner != "" {
 			registerData.UserAgent = []byte(registerData.Partner)
-			info, err := a.partners.ByName(ctx, registerData.Partner)
-			if err != nil {
-				a.log.Warn("Invalid partner name", zap.String("Partner name", registerData.Partner), zap.String("User email", registerData.Email), zap.Error(err))
-			} else {
-				registerData.PartnerID = info.ID
-			}
 		}
 
 		ip, err := web.GetRequestIP(r)
@@ -295,7 +292,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 				FullName:         registerData.FullName,
 				ShortName:        registerData.ShortName,
 				Email:            registerData.Email,
-				PartnerID:        registerData.PartnerID,
 				UserAgent:        registerData.UserAgent,
 				Password:         registerData.Password,
 				IsProfessional:   registerData.IsProfessional,
@@ -353,18 +349,13 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link := a.ActivateAccountURL + "?token=" + token
-	userName := user.ShortName
-	if user.ShortName == "" {
-		userName = user.FullName
-	}
 
 	a.mailService.SendRenderedAsync(
 		ctx,
-		[]post.Address{{Address: user.Email, Name: userName}},
+		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
 			ActivationLink: link,
 			Origin:         a.ExternalAddress,
-			UserName:       userName,
 		},
 	)
 }
@@ -427,6 +418,8 @@ func (a *Auth) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+	updatedInfo.FullName = replaceSpecialCharacters(updatedInfo.FullName)
+	updatedInfo.ShortName = replaceSpecialCharacters(updatedInfo.ShortName)
 
 	if err = a.service.UpdateAccount(ctx, updatedInfo.FullName, updatedInfo.ShortName); err != nil {
 		a.serveJSONError(w, err)
@@ -444,8 +437,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		FullName             string    `json:"fullName"`
 		ShortName            string    `json:"shortName"`
 		Email                string    `json:"email"`
-		PartnerID            uuid.UUID `json:"partnerId"`
-		UserAgent            []byte    `json:"userAgent"`
+		Partner              string    `json:"partner"`
 		ProjectLimit         int       `json:"projectLimit"`
 		IsProfessional       bool      `json:"isProfessional"`
 		Position             string    `json:"position"`
@@ -455,6 +447,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		PaidTier             bool      `json:"paidTier"`
 		MFAEnabled           bool      `json:"isMFAEnabled"`
 		MFARecoveryCodeCount int       `json:"mfaRecoveryCodeCount"`
+		CreatedAt            time.Time `json:"createdAt"`
 	}
 
 	consoleUser, err := console.GetUser(ctx)
@@ -467,8 +460,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.FullName = consoleUser.FullName
 	user.Email = consoleUser.Email
 	user.ID = consoleUser.ID
-	user.PartnerID = consoleUser.PartnerID
-	user.UserAgent = consoleUser.UserAgent
+	if consoleUser.UserAgent != nil {
+		user.Partner = string(consoleUser.UserAgent)
+	}
 	user.ProjectLimit = consoleUser.ProjectLimit
 	user.IsProfessional = consoleUser.IsProfessional
 	user.CompanyName = consoleUser.CompanyName
@@ -478,6 +472,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.PaidTier = consoleUser.PaidTier
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
+	user.CreatedAt = consoleUser.CreatedAt
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -688,24 +683,18 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userName := user.ShortName
-	if user.ShortName == "" {
-		userName = user.FullName
-	}
-
 	link := a.ActivateAccountURL + "?token=" + token
 	contactInfoURL := a.ContactInfoURL
 	termsAndConditionsURL := a.TermsAndConditionsURL
 
 	a.mailService.SendRenderedAsync(
 		ctx,
-		[]post.Address{{Address: user.Email, Name: userName}},
+		[]post.Address{{Address: user.Email}},
 		&console.AccountActivationEmail{
 			Origin:                a.ExternalAddress,
 			ActivationLink:        link,
 			TermsAndConditionsURL: termsAndConditionsURL,
 			ContactInfoURL:        contactInfoURL,
-			UserName:              userName,
 		},
 	)
 }

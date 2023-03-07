@@ -15,6 +15,8 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/private/debug"
+	"storj.io/private/tagsql"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
@@ -55,6 +57,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/accountfreeze"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
@@ -83,9 +86,6 @@ type DB interface {
 	CheckVersion(ctx context.Context) error
 	// Close closes the database
 	Close() error
-
-	// TestingMigrateToLatest initializes the database for testplanet.
-	TestingMigrateToLatest(ctx context.Context) error
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
@@ -135,6 +135,23 @@ type DB interface {
 	NodeAPIVersion() nodeapiversion.DB
 	// StorjscanPayments stores payments retrieved from storjscan.
 	StorjscanPayments() storjscan.PaymentsDB
+
+	// Testing provides access to testing facilities. These should not be used in production code.
+	Testing() TestingDB
+}
+
+// TestingDB defines access to database testing facilities.
+type TestingDB interface {
+	// RawDB returns the underlying database connection to the primary database.
+	RawDB() tagsql.DB
+	// Schema returns the full schema for the database.
+	Schema() string
+	// TestMigrateToLatest initializes the database for testplanet.
+	TestMigrateToLatest(ctx context.Context) error
+	// ProductionMigration returns the primary migration.
+	ProductionMigration() *migrate.Migration
+	// TestMigration returns the migration used for tests.
+	TestMigration() *migrate.Migration
 }
 
 // Config is the global config satellite.
@@ -184,6 +201,8 @@ type Config struct {
 	Console        consoleweb.Config
 	ConsoleAuth    consoleauth.Config
 	EmailReminders emailreminders.Config
+
+	AccountFreeze accountfreeze.Config
 
 	Version version_checker.Config
 

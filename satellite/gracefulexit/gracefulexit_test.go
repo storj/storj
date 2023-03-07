@@ -296,7 +296,6 @@ func TestGracefulExit_CopiedObjects(t *testing.T) {
 // TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batch
 // ensures that deletion works as expected using different batch sizes.
 func TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batchsize(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
 	var testCases = []struct {
 		name                      string
 		batchSize                 int
@@ -400,8 +399,6 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 // the CRDB batch logic for delete all the transfer queue items of exited nodes
 // works as expected.
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
-
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		const (
 			addr    = "127.0.1.0:8080"

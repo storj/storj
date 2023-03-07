@@ -28,11 +28,8 @@
                 <h1 class="register-area__intro-area__title">{{ viewConfig.title }}</h1>
                 <p v-if="viewConfig.description" class="register-area__intro-area__sub-title">{{ viewConfig.description }}</p>
                 <div class="register-area__intro-area__large-content">
-                    <div
-                        v-if="viewConfig.customHtmlDescription"
-                        class="register-area__intro-area__large-content__custom-html-container"
-                        v-html="$sanitize(viewConfig.customHtmlDescription)"
-                    />
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div v-if="viewConfig.customHtmlDescription" class="register-area__intro-area__large-content__custom-html-container" v-html="viewConfig.customHtmlDescription" />
                     <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper bottom">
                         <div class="register-area__logo-wrapper__container">
                             <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
@@ -267,11 +264,8 @@
                 </div>
             </div>
             <div class="register-area__container__mobile-content">
-                <div
-                    v-if="viewConfig.customHtmlDescription"
-                    class="register-area__container__mobile-content__custom-html-container"
-                    v-html="$sanitize(viewConfig.customHtmlDescription)"
-                />
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <div v-if="viewConfig.customHtmlDescription" class="register-area__container__mobile-content__custom-html-container" v-html="viewConfig.customHtmlDescription" />
                 <div v-if="!!viewConfig.partnerLogoBottomUrl" class="register-area__logo-wrapper">
                     <div class="register-area__logo-wrapper__container">
                         <img :src="viewConfig.partnerLogoBottomUrl" :srcset="viewConfig.partnerLogoBottomUrl" alt="partner logo" class="register-area__logo-wrapper__logo wide">
@@ -602,7 +596,7 @@ export default class RegisterArea extends Vue {
      * Executes when the Terms of Service checkbox has been toggled.
      */
     public onTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
             const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
             checkbox.checked = !checkbox.checked;
@@ -622,7 +616,7 @@ export default class RegisterArea extends Vue {
      * Executes when the beta satellite terms checkbox has been toggled.
      */
     public onBetaTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key == ' ' || event.code == 'Space' ||  event.keyCode == 32) {
+        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
             const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
             checkbox.checked = !checkbox.checked;
@@ -761,7 +755,7 @@ export default class RegisterArea extends Vue {
         this.isLoading = true;
         this.user.isProfessional = this.isProfessional;
         this.user.haveSalesContact = this.haveSalesContact;
-        
+
         try {
             await this.auth.register(this.user, this.secret, this.captchaResponseToken);
 
@@ -782,7 +776,7 @@ export default class RegisterArea extends Vue {
         this.$refs.captcha?.reset();
         this.captchaResponseToken = '';
         this.isLoading = false;
-    } 
+    }
 }
 </script>
 

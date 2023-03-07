@@ -24,8 +24,9 @@
                     font-size="13px"
                     :on-press="onCopyPassphraseClick"
                 >
-                    <template v-if="!isPassphraseCopied" #icon>
-                        <copy-icon class="copy-icon" />
+                    <template #icon>
+                        <copy-icon v-if="!isPassphraseCopied" class="copy-icon" />
+                        <check-icon v-else class="check-icon" />
                     </template>
                 </v-button>
                 <v-button
@@ -33,11 +34,12 @@
                     font-size="13px"
                     width="100%"
                     height="40px"
-                    :is-green-white="isPassphraseDownloaded"
+                    :is-green="isPassphraseDownloaded"
                     :on-press="downloadPassphrase"
                 >
-                    <template v-if="!isPassphraseDownloaded" #icon>
-                        <download-icon class="button-icon" />
+                    <template #icon>
+                        <download-icon v-if="!isPassphraseDownloaded" />
+                        <check-icon v-else />
                     </template>
                 </v-button>
             </div>
@@ -56,6 +58,7 @@ import { Download } from '@/utils/download';
 import VButton from '@/components/common/VButton.vue';
 
 import GeneratedIcon from '@/../static/images/projectPassphrase/generated.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import CopyIcon from '@/../static/images/common/copy.svg';
 import DownloadIcon from '@/../static/images/common/download.svg';
 
@@ -155,20 +158,14 @@ function downloadPassphrase(): void {
 }
 
 .copy-icon {
-    margin-right: 5px;
 
-    :deep(path),
-    :deep(rect) {
-        stroke: #354049;
+    :deep(rect),
+    :deep(path) {
+        stroke: var(--c-grey-6);
     }
 }
 
-.button-icon {
-    margin-right: 5px;
-
-    :deep(path),
-    :deep(rect) {
-        stroke: white;
-    }
+.check-icon :deep(path) {
+    fill: var(--c-green-5);
 }
 </style>

@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/audit"
@@ -54,7 +56,7 @@ func (rq *reverifyQueue) GetNextJob(ctx context.Context, retryInterval time.Dura
 		WITH next_entry AS (
 			SELECT *
 			FROM reverification_audits
-			WHERE last_attempt IS NULL OR last_attempt < (now() - '1 microsecond'::interval * $1::bigint)
+			WHERE COALESCE(last_attempt, inserted_at) < (now() - '1 microsecond'::interval * $1::bigint)
 			ORDER BY inserted_at
 			LIMIT 1
 		)
@@ -135,6 +137,32 @@ func (rq *reverifyQueue) GetByNodeID(ctx context.Context, nodeID storj.NodeID) (
 	}
 
 	return convertDBJob(ctx, pending)
+}
+
+func (rq *reverifyQueue) GetAllContainedNodes(ctx context.Context) (nodes []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := rq.db.QueryContext(ctx, `SELECT DISTINCT node_id FROM reverification_audits`)
+	if err != nil {
+		return nil, audit.ContainError.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, audit.ContainError.Wrap(result.Close()))
+	}()
+
+	for result.Next() {
+		var nodeIDBytes []byte
+		if err := result.Scan(&nodeIDBytes); err != nil {
+			return nil, audit.ContainError.Wrap(err)
+		}
+		nodeID, err := storj.NodeIDFromBytes(nodeIDBytes)
+		if err != nil {
+			return nil, audit.ContainError.Wrap(err)
+		}
+		nodes = append(nodes, nodeID)
+	}
+
+	return nodes, audit.ContainError.Wrap(result.Err())
 }
 
 func convertDBJob(ctx context.Context, info *dbx.ReverificationAudits) (pendingJob *audit.ReverificationJob, err error) {

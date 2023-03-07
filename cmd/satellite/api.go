@@ -55,7 +55,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 			}
 		case snapshotMigration:
 			log.Info("MigrationUnsafe using latest snapshot. It's not for production", zap.String("db", "master"))
-			err = db.TestingMigrateToLatest(ctx)
+			err = db.Testing().TestMigrateToLatest(ctx)
 			if err != nil {
 				return err
 			}

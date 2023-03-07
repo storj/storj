@@ -1,4 +1,6 @@
-# Generated REST API design
+# Generated REST API documentation
+
+These endpoints are not currently used from within the Satellite UI.
 
 Requires setting 'Authorization' header for requests.
 

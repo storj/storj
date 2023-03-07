@@ -52,7 +52,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -60,6 +59,13 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Validator } from '@/utils/validation';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { MetaUtils } from '@/utils/meta';
+import { LocalData } from '@/utils/localData';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -78,6 +84,9 @@ const bucketName = ref<string>('');
 const nameError = ref<string>('');
 const bucketNamesLoading = ref<boolean>(true);
 const isLoading = ref<boolean>(false);
+const worker = ref<Worker>();
+
+const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 /**
  * Returns all bucket names from store.
@@ -87,10 +96,55 @@ const allBucketNames = computed((): string[] => {
 });
 
 /**
+ * Returns condition if user has to be prompt for passphrase from store.
+ */
+const promptForPassphrase = computed((): boolean => {
+    return store.state.objectsModule.promptForPassphrase;
+});
+
+/**
+ * Returns object browser api key from store.
+ */
+const apiKey = computed((): string => {
+    return store.state.objectsModule.apiKey;
+});
+
+/**
+ * Returns edge credentials from store.
+ */
+const edgeCredentials = computed((): EdgeCredentials => {
+    return store.state.objectsModule.gatewayCredentials;
+});
+
+/**
+ * Returns edge credentials for bucket creation from store.
+ */
+const gatewayCredentialsForCreate = computed((): EdgeCredentials => {
+    return store.state.objectsModule.gatewayCredentialsForCreate;
+});
+
+/**
+ * Indicates if bucket was created.
+ */
+const bucketWasCreated = computed((): boolean => {
+    const status = LocalData.getBucketWasCreatedStatus();
+    if (status !== null) {
+        return status;
+    }
+
+    return false;
+});
+
+/**
  * Validates provided bucket's name and creates a bucket.
  */
 async function onCreate(): Promise<void> {
     if (isLoading.value) return;
+
+    if (!worker.value) {
+        notify.error('Worker is not defined', AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
+        return;
+    }
 
     if (!isBucketNameValid(bucketName.value)) {
         analytics.errorEventTriggered(AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);
@@ -105,18 +159,107 @@ async function onCreate(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, bucketName.value);
-        await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-        await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName.value);
-        analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
-        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        closeModal();
-    } catch (error) {
-        await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
-    }
+        if (!promptForPassphrase.value) {
+            if (!edgeCredentials.value.accessKeyId) {
+                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+            }
+            await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, bucketName.value);
+            await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName.value);
+            analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+            analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+            closeModal();
 
-    isLoading.value = false;
+            if (!bucketWasCreated.value) {
+                LocalData.setBucketWasCreatedStatus();
+            }
+
+            return;
+        }
+
+        if (gatewayCredentialsForCreate.value.accessKeyId) {
+            await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET_WITH_NO_PASSPHRASE, bucketName.value);
+            await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+            closeModal();
+
+            if (!bucketWasCreated.value) {
+                LocalData.setBucketWasCreatedStatus();
+            }
+
+            return ;
+        }
+
+        if (!apiKey.value) {
+            await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME);
+            const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME);
+            await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+        }
+
+        const now = new Date();
+        const inOneHour = new Date(now.setHours(now.getHours() + 1));
+
+        await worker.value.postMessage({
+            'type': 'SetPermission',
+            'isDownload': false,
+            'isUpload': true,
+            'isList': false,
+            'isDelete': false,
+            'notAfter': inOneHour.toISOString(),
+            'buckets': [],
+            'apiKey': apiKey.value,
+        });
+
+        const grantEvent: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
+            }
+        });
+        if (grantEvent.data.error) {
+            await notify.error(grantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            return;
+        }
+
+        const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
+        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
+        worker.value.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': grantEvent.data.value,
+            'passphrase': '',
+            'salt': salt,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessGrantEvent: MessageEvent = await new Promise(resolve => {
+            if (worker.value) {
+                worker.value.onmessage = resolve;
+            }
+        });
+        if (accessGrantEvent.data.error) {
+            await notify.error(accessGrantEvent.data.error, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+            return;
+        }
+
+        const accessGrant = accessGrantEvent.data.value;
+
+        const gatewayCredentials: EdgeCredentials = await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
+        await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_CREATE, gatewayCredentials);
+        await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET_WITH_NO_PASSPHRASE, bucketName.value);
+        await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
+
+        closeModal();
+
+        if (!bucketWasCreated.value) {
+            LocalData.setBucketWasCreatedStatus();
+        }
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_FLOW);
+    } finally {
+        isLoading.value = false;
+    }
 }
 
 /**
@@ -130,7 +273,19 @@ function setBucketName(name: string): void {
  * Closes create bucket modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_CREATE_BUCKET_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+}
+
+/**
+ * Sets local worker with worker instantiated in store.
+ */
+function setWorker(): void {
+    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    if (worker.value) {
+        worker.value.onerror = (error: ErrorEvent) => {
+            notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
+        };
+    }
 }
 
 /**
@@ -150,6 +305,8 @@ function isBucketNameValid(name: string): boolean {
 }
 
 onMounted(async (): Promise<void> => {
+    setWorker();
+
     try {
         await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';

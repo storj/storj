@@ -25,7 +25,6 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -54,10 +53,6 @@ type GarbageCollection struct {
 
 	Overlay struct {
 		DB overlay.DB
-	}
-
-	Metainfo struct {
-		SegmentLoop *segmentloop.Service
 	}
 
 	GarbageCollection struct {
@@ -126,23 +121,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
-	}
-
-	{ // setup metainfo
-		// Garbage Collection creates its own instance of the loop here. Since
-		// GC runs infrequently, this shouldn't add too much extra load on the metabase db.
-		// As long as garbage collection is the only observer joining the loop, then by default
-		// the loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.SegmentLoop = segmentloop.New(
-			log.Named("segmentloop"),
-			config.Metainfo.SegmentLoop,
-			metabaseDB,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:segmentloop",
-			Run:   peer.Metainfo.SegmentLoop.Run,
-			Close: peer.Metainfo.SegmentLoop.Close,
-		})
 	}
 
 	{ // setup garbage collection

@@ -78,6 +78,14 @@ func (c *ProjectLimitCache) GetProjectLimits(ctx context.Context, projectID uuid
 		defaultUsage := c.defaultMaxUsage.Int64()
 		projectLimits.Usage = &defaultUsage
 	}
+	if projectLimits.Segments == nil {
+		defaultSegments := c.defaultMaxSegments
+		projectLimits.Segments = &defaultSegments
+	}
+	if projectLimits.Segments == nil {
+		defaultSegments := c.defaultMaxSegments
+		projectLimits.Segments = &defaultSegments
+	}
 
 	return projectLimits, nil
 }

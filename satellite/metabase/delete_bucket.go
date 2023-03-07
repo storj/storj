@@ -130,6 +130,9 @@ func (db *DB) deleteBucketObjectBatchWithCopyFeatureEnabled(ctx context.Context,
 
 		return db.promoteNewAncestors(ctx, tx, objects)
 	})
+	if err != nil {
+		return 0, err
+	}
 
 	deletedObjectCount = int64(len(objects))
 

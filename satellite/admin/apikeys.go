@@ -43,8 +43,7 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		PartnerID uuid.UUID `json:"partnerId"`
-		Name      string    `json:"name"`
+		Name string `json:"name"`
 	}
 
 	err = json.Unmarshal(body, &input)
@@ -85,7 +84,6 @@ func (server *Server) addAPIKey(w http.ResponseWriter, r *http.Request) {
 		Name:      input.Name,
 		ProjectID: projectUUID,
 		Secret:    secret,
-		PartnerID: input.PartnerID,
 	}
 
 	_, err = server.db.Console().APIKeys().Create(ctx, key.Head(), apikey)

@@ -162,7 +162,6 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.shortName,
                 userResponse.email,
                 userResponse.partner,
-                userResponse.partnerId,
                 userResponse.password,
                 userResponse.projectLimit,
                 userResponse.paidTier,
@@ -173,6 +172,7 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.employeeCount,
                 userResponse.haveSalesContact,
                 userResponse.mfaRecoveryCodeCount,
+                userResponse.createdAt,
             );
         }
 
@@ -256,7 +256,6 @@ export class AuthHttpApi implements UsersApi {
             shortName: user.shortName,
             email: user.email,
             partner: user.partner || '',
-            partnerId: user.partnerId || '',
             isProfessional: user.isProfessional,
             position: user.position,
             companyName: user.companyName,
@@ -381,10 +380,10 @@ export class AuthHttpApi implements UsersApi {
 
         if (text) {
             const result = JSON.parse(text);
-            if (result.code == 'mfa_required') {
+            if (result.code === 'mfa_required') {
                 throw new ErrorMFARequired();
             }
-            if (result.code == 'token_expired') {
+            if (result.code === 'token_expired') {
                 throw new ErrorTokenExpired();
             }
             if (result.error) {

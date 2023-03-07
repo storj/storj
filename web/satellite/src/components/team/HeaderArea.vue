@@ -86,8 +86,9 @@ import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -146,7 +147,7 @@ export default class HeaderArea extends Vue {
      * Opens add team members modal.
      */
     public toggleTeamMembersModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAM_MEMBERS_MODAL);
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
     }
 
     public onFirstDeleteClick(): void {
@@ -210,8 +211,10 @@ export default class HeaderArea extends Vue {
     private async setProjectState(): Promise<void> {
         const projects: Project[] = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
-            this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            this.analytics.pageVisit(onboardingPath);
+            await this.$router.push(onboardingPath);
 
             return;
         }

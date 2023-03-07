@@ -8,7 +8,7 @@
         :on-click="selectFile"
         :on-primary-click="openModal"
         :item="{'name': file.Key, 'size': size, 'date': uploadDate}"
-        table-type="file"
+        :item-type="fileType"
     >
         <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
             <div
@@ -64,7 +64,7 @@
         :selected="isFileSelected"
         :on-click="selectFile"
         :on-primary-click="openBucket"
-        table-type="folder"
+        item-type="folder"
     >
         <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
             <div
@@ -109,9 +109,11 @@ import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
 import type { BrowserFile } from '@/types/browser';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -134,6 +136,36 @@ const props = defineProps<{
 const emit = defineEmits(['onUpdate']);
 
 const deleteConfirmation = ref(false);
+
+/**
+ * Return the type of the file.
+ */
+const fileType = computed((): string => {
+    const image = /(\.jpg|\.jpeg|\.png|\.gif)$/i;
+    const video = /(\.mp4|\.mkv|\.mov)$/i;
+    const audio = /(\.mp3|\.aac|\.wav|\.m4a)$/i;
+    const text = /(\.txt|\.docx|\.doc|\.pages)$/i;
+    const pdf = /(\.pdf)$/i;
+    const archive = /(\.zip|\.tar.gz|\.7z|\.rar)$/i;
+    const spreadsheet = /(\.xls|\.numbers|\.csv|\.xlsx|\.tsv)$/i;
+
+    if (image.exec(props.file.Key)) {
+        return 'image';
+    } else if (video.exec(props.file.Key)) {
+        return 'video';
+    } else if (audio.exec(props.file.Key)) {
+        return 'audio';
+    } else if (text.exec(props.file.Key)) {
+        return 'text';
+    } else if (pdf.exec(props.file.Key)) {
+        return 'pdf';
+    } else if (archive.exec(props.file.Key)) {
+        return 'archive';
+    } else if (spreadsheet.exec(props.file.Key)) {
+        return 'spreadsheet';
+    }
+    return 'file';
+});
 
 /**
  * Return the size of the file formatted.
@@ -161,7 +193,8 @@ const dropdownOpen = computed((): boolean => {
  */
 const link = computed((): string => {
     const browserRoot = store.state.files.browserRoot;
-    const pathAndKey = store.state.files.path + props.file.Key;
+    const uriParts = (store.state.files.path + props.file.Key).split('/');
+    const pathAndKey = uriParts.map(part => encodeURIComponent(part)).join('/');
     return pathAndKey.length > 0
         ? browserRoot + pathAndKey + '/'
         : browserRoot;
@@ -201,7 +234,7 @@ const fileTypeIsFile = computed((): boolean => {
  */
 function openModal(): void {
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_OBJECT_DETAILS_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
     store.dispatch('files/closeDropdown');
 }
 
@@ -371,7 +404,7 @@ function setShiftSelectedFiles(): void {
 function share(): void {
     store.dispatch('files/closeDropdown');
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.TOGGLE_SHARE_OBJECT_MODAL_SHOWN);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
 }
 
 /**

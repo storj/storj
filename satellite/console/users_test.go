@@ -43,21 +43,8 @@ const (
 func TestUserRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repository := db.Console().Users()
-		partnerID := testrand.UUID()
 
-		// Test with and without partnerID
 		user := &console.User{
-			ID:           testrand.UUID(),
-			FullName:     name,
-			ShortName:    lastName,
-			Email:        email,
-			PartnerID:    partnerID,
-			PasswordHash: []byte(passValid),
-			CreatedAt:    time.Now(),
-		}
-		testUsers(ctx, t, repository, user)
-
-		user = &console.User{
 			ID:           testrand.UUID(),
 			FullName:     name,
 			ShortName:    lastName,
@@ -191,7 +178,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
-		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
 		assert.Equal(t, user.SignupPromoCode, userByEmail.SignupPromoCode)
 		assert.False(t, user.PaidTier)
 		assert.False(t, user.MFAEnabled)
@@ -214,7 +200,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByID.FullName)
 		assert.Equal(t, lastName, userByID.ShortName)
-		assert.Equal(t, user.PartnerID, userByID.PartnerID)
 		assert.Equal(t, user.SignupPromoCode, userByID.SignupPromoCode)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
@@ -237,7 +222,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.ShortName, userByEmail.ShortName)
 		assert.Equal(t, userByID.Email, userByEmail.Email)
 		assert.Equal(t, userByID.PasswordHash, userByEmail.PasswordHash)
-		assert.Equal(t, userByID.PartnerID, userByEmail.PartnerID)
 		assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
 		assert.Equal(t, userByID.IsProfessional, userByEmail.IsProfessional)
 		assert.Equal(t, userByID.WorkingOn, userByEmail.WorkingOn)
@@ -291,8 +275,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.True(t, newUser.MFAEnabled)
 		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
 		assert.Equal(t, newUserInfo.MFARecoveryCodes, newUser.MFARecoveryCodes)
-		// PartnerID should not change
-		assert.Equal(t, user.PartnerID, newUser.PartnerID)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)
 	})
 

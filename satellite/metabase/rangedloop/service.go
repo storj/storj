@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,6 +20,7 @@ import (
 
 var (
 	mon = monkit.Package()
+	ev  = eventkit.Package()
 )
 
 // Config contains configurable values for the shared loop.
@@ -77,6 +79,12 @@ type ObserverDuration struct {
 	Duration time.Duration
 }
 
+// Close stops the ranged loop.
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
+}
+
 // Run starts the looping service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -84,7 +92,10 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	service.log.Info("ranged loop initialized")
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		service.log.Info("ranged loop started")
+		service.log.Info("ranged loop started",
+			zap.Int("parallelism", service.config.Parallelism),
+			zap.Int("batchSize", service.config.BatchSize),
+		)
 		_, err := service.RunOnce(ctx)
 		if err != nil {
 			service.log.Error("ranged loop failure", zap.Error(err))
@@ -120,7 +131,10 @@ func (service *Service) RunOnce(ctx context.Context) (observerDurations []Observ
 	}
 
 	group := errs2.Group{}
-	for _, rangeProvider := range rangeProviders {
+	for index, rangeProvider := range rangeProviders {
+		uuidRange := rangeProvider.Range()
+		service.log.Debug("creating range", zap.Int("index", index), zap.Stringer("start", uuidRange.Start), zap.Stringer("end", uuidRange.End))
+
 		rangeObservers := []*rangeObserverState{}
 		for i, observerState := range observerStates {
 			if observerState.err != nil {

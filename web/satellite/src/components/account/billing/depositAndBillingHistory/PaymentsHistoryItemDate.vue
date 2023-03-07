@@ -3,121 +3,91 @@
 
 <template>
     <div class="countdown-container">
-        <div v-if="isExpired">{{ date }}</div>
+        <div v-if="isExpired">{{ expireDate }}</div>
         <div v-else class="row">
             <p>Expires in </p>
-            <p class="digit margin">{{ hours | leadingZero }}</p>
+            <p class="digit margin">{{ expirationTimer.hours | leadingZero }}</p>
             <p>:</p>
-            <p class="digit">{{ minutes | leadingZero }}</p>
+            <p class="digit">{{ expirationTimer.minutes | leadingZero }}</p>
             <p>:</p>
-            <p class="digit">{{ seconds | leadingZero }}</p>
+            <p class="digit">{{ expirationTimer.seconds | leadingZero }}</p>
         </div>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
-import { PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
+import { PaymentsHistoryItem, PaymentsHistoryItemStatus, PaymentsHistoryItemType } from '@/types/payments';
 
-// @vue/component
-@Component({
-    filters: {
-        leadingZero(value: number): string {
-            if (value <= 9) {
-                return `0${value}`;
-            }
-            return `${value}`;
-        },
-    },
-})
-export default class PaymentsHistoryItemDate extends Vue {
-    /**
-     * expiration date.
-     */
-    @Prop({ default: () => new Date() })
-    private readonly expiration: Date;
-    /**
-     * creation date.
-     */
-    @Prop({ default: () => new Date() })
-    private readonly start: Date;
-    @Prop({ default: 0 })
-    private readonly type: PaymentsHistoryItemType;
-    @Prop({ default: '' })
-    private readonly status: PaymentsHistoryItemStatus;
+const props = withDefaults(defineProps<{
+    billingItem?: PaymentsHistoryItem,
+}>(), {
+    billingItem: () => new PaymentsHistoryItem(),
+});
 
-    private expirationTimeInSeconds: number;
-    private nowInSeconds = Math.trunc(new Date().getTime() / 1000);
-    private intervalID: ReturnType<typeof setInterval>;
+const { end, start, type, status } = props.billingItem;
 
-    /**
-     * indicates if billing item is expired.
-     */
-    public isExpired: boolean;
+const nowInSeconds = ref<number>(Math.trunc(new Date().getTime() / 1000));
+const expirationTimeInSeconds = ref<number>(0);
+const intervalID = ref<ReturnType<typeof setInterval>>();
 
-    public created() {
-        this.expirationTimeInSeconds = Math.trunc(new Date(this.expiration).getTime() / 1000);
-        this.isExpired = (this.expirationTimeInSeconds - this.nowInSeconds) < 0;
+/**
+ * indicates if billing item is expired.
+ */
+const isExpired = ref<boolean>(false);
 
-        if (this.type === PaymentsHistoryItemType.Transaction) {
-            this.isExpired = this.isTransactionCompleted;
+/**
+ * String representation of creation date.
+ */
+const expireDate = computed((): string => {
+    return start.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
+});
+
+/**
+ * Seconds count for expiration timer.
+ */
+const expirationTimer = computed((): { seconds: number, minutes: number, hours: number } => {
+    return {
+        seconds: (expirationTimeInSeconds.value - nowInSeconds.value) % 60,
+        minutes: Math.trunc((expirationTimeInSeconds.value - nowInSeconds.value) / 60) % 60,
+        hours: Math.trunc((expirationTimeInSeconds.value - nowInSeconds.value) / 3600) % 24,
+    };
+});
+
+/**
+ * Indicates if transaction status is completed, paid or cancelled.
+ */
+const isTransactionCompleted = computed((): boolean => {
+    return status !== PaymentsHistoryItemStatus.Pending;
+});
+
+/**
+ * Starts expiration timer if item is not expired.
+ */
+function ready(): void {
+    intervalID.value = setInterval(() => {
+        if ((expirationTimeInSeconds.value - nowInSeconds.value) < 0 || isTransactionCompleted.value) {
+            isExpired.value = true;
+            intervalID.value && clearInterval(intervalID.value);
+
+            return;
         }
 
-        this.ready();
-    }
-
-    /**
-     * String representation of creation date.
-     */
-    public get date(): string {
-        return this.start.toLocaleString('default', { month: 'long', day: '2-digit', year: 'numeric' });
-    }
-
-    /**
-     * Seconds count for expiration timer.
-     */
-    public get seconds(): number {
-        return (this.expirationTimeInSeconds - this.nowInSeconds) % 60;
-    }
-
-    /**
-     * Minutes count for expiration timer.
-     */
-    public get minutes(): number {
-        return Math.trunc((this.expirationTimeInSeconds - this.nowInSeconds) / 60) % 60;
-    }
-
-    /**
-     * Hours count for expiration timer.
-     */
-    public get hours(): number {
-        return Math.trunc((this.expirationTimeInSeconds - this.nowInSeconds) / 3600) % 24;
-    }
-
-    /**
-     * Indicates if transaction status is completed, paid or cancelled.
-     */
-    private get isTransactionCompleted(): boolean {
-        return this.status !== PaymentsHistoryItemStatus.Pending;
-    }
-
-    /**
-     * Starts expiration timer if item is not expired.
-     */
-    private ready(): void {
-        this.intervalID = setInterval(() => {
-            if ((this.expirationTimeInSeconds - this.nowInSeconds) < 0 || this.isTransactionCompleted) {
-                this.isExpired = true;
-                clearInterval(this.intervalID);
-
-                return;
-            }
-
-            this.nowInSeconds = Math.trunc(new Date().getTime() / 1000);
-        }, 1000);
-    }
+        nowInSeconds.value = Math.trunc(new Date().getTime() / 1000);
+    }, 1000);
 }
+
+onBeforeMount(() => {
+    expirationTimeInSeconds.value = Math.trunc(new Date(end).getTime() / 1000);
+    isExpired.value = (expirationTimeInSeconds.value - nowInSeconds.value) < 0;
+
+    if (type === PaymentsHistoryItemType.Transaction) {
+        isExpired.value = isTransactionCompleted.value;
+    }
+
+    ready();
+});
 </script>
 
 <style scoped lang="scss">

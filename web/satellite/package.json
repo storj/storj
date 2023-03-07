@@ -79,7 +79,6 @@
     "ts-jest": "27.1.4",
     "typescript": "4.6.4",
     "vue-eslint-parser": "9.0.3",
-    "vue-sanitize": "0.2.2",
     "vue-svg-loader": "0.17.0-beta.2",
     "vue-template-compiler": "2.7.10",
     "webpack-bundle-analyzer": "4.5.0"

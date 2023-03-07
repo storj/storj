@@ -134,29 +134,6 @@ type BucketBandwidthRollup struct {
 	Dead          int64
 }
 
-// SortBucketBandwidthRollups sorts the rollups.
-func SortBucketBandwidthRollups(rollups []BucketBandwidthRollup) {
-	sort.SliceStable(rollups, func(i, j int) bool {
-		uuidCompare := bytes.Compare(rollups[i].ProjectID[:], rollups[j].ProjectID[:])
-		switch {
-		case rollups[i].BucketName < rollups[j].BucketName:
-			return true
-		case rollups[i].BucketName > rollups[j].BucketName:
-			return false
-		case uuidCompare == -1:
-			return true
-		case uuidCompare == 1:
-			return false
-		case rollups[i].Action < rollups[j].Action:
-			return true
-		case rollups[i].Action > rollups[j].Action:
-			return false
-		default:
-			return false
-		}
-	})
-}
-
 // StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
 type StoragenodeBandwidthRollup struct {
 	NodeID    storj.NodeID
@@ -219,8 +196,8 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 }
 
 type bucketIDAction struct {
-	bucketname string
 	projectID  uuid.UUID
+	bucketname string
 	action     pb.PieceAction
 }
 
@@ -275,9 +252,8 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	log.Debug("SettlementWithWindow")
 
 	type bandwidthAmount struct {
-		Settled   int64
-		Allocated int64
-		Dead      int64
+		Settled int64
+		Dead    int64
 	}
 
 	storagenodeSettled := map[int32]int64{}
@@ -327,6 +303,15 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
 
+		// user can do only two actions which are important for bucket bandwidth usage
+		userAction := orderLimit.Action == pb.PieceAction_PUT || orderLimit.Action == pb.PieceAction_GET
+
+		// don't store anything else than user actions in bucket_bandwidth_rollups table. amounts for other
+		// actions will be stored in storagenode_bandwidth_rollups.
+		if !userAction {
+			continue
+		}
+
 		metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
 		if err != nil {
 			log.Debug("decrypt order metadata err:", zap.Error(err))
@@ -356,13 +341,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			continue
 		}
 
-		satelliteAction := orderLimit.Action == pb.PieceAction_GET_AUDIT ||
-			orderLimit.Action == pb.PieceAction_GET_REPAIR ||
-			orderLimit.Action == pb.PieceAction_PUT_REPAIR
-
 		// log error only for orders created by users, for satellite actions order limits are created
 		// without bucket name and project ID because segments loop doesn't have access to it
-		if !satelliteAction && (bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero()) {
+		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Warn("decrypt order: bucketName or projectID not set",
 				zap.String("bucketName", bucketInfo.BucketName),
 				zap.String("projectID", bucketInfo.ProjectID.String()),
@@ -372,14 +353,14 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		}
 
 		currentBucketIDAction := bucketIDAction{
-			bucketname: bucketInfo.BucketName,
 			projectID:  bucketInfo.ProjectID,
+			bucketname: bucketInfo.BucketName,
 			action:     orderLimit.Action,
 		}
 		bucketSettled[currentBucketIDAction] = bandwidthAmount{
-			Settled:   bucketSettled[currentBucketIDAction].Settled + order.Amount,
-			Allocated: bucketSettled[currentBucketIDAction].Allocated + orderLimit.Limit,
-			Dead:      bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+			Settled: bucketSettled[currentBucketIDAction].Settled + order.Amount,
+			Dead:    bucketSettled[currentBucketIDAction].Dead + orderLimit.Limit - order.Amount,
+			// we are not collecting Allocated bandwidth as it won't be stored with UpdateBucketBandwidthSettle
 		}
 	}
 

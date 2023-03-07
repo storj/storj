@@ -64,6 +64,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 // @vue/component
 @Component
@@ -102,14 +103,14 @@ export default class TokenDepositSelection3 extends Vue {
      * isSelectionShown flag that indicate is token amount selection shown.
      */
     public get isSelectionShown(): boolean {
-        return this.$store.state.appStateModule.appState.isPaymentSelectionShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.PAYMENT_SELECTION;
     }
 
     /**
      * opens token amount selection.
      */
     public open(): void {
-        setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PAYMENT_SELECTION, true), 0);
+        setTimeout(() => this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PAYMENT_SELECTION), 0);
     }
 
     /**
@@ -340,7 +341,7 @@ export default class TokenDepositSelection3 extends Vue {
         }
 
         &__custom-input::placeholder {
-            font-size: 14;
+            font-size: 14px;
         }
 
         &__custom-input::-webkit-inner-spin-button,

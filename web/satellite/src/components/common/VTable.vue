@@ -87,10 +87,6 @@ const props = withDefaults(defineProps<{
 
     tbody {
 
-        tr:hover {
-            background: var(--c-blue-1);
-        }
-
         th {
             font-family: 'font_regular', sans-serif;
             color: #111827;

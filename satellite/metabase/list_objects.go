@@ -14,10 +14,7 @@ import (
 )
 
 // ListObjectsCursor is a cursor used during iteration through objects.
-type ListObjectsCursor struct {
-	Key     ObjectKey
-	Version Version
-}
+type ListObjectsCursor IterateCursor
 
 // ListObjects contains arguments necessary for listing objects.
 type ListObjects struct {

@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/grant"
 	"storj.io/common/identity"
 	"storj.io/common/macaroon"
 	"storj.io/common/peertls/tlsopts"
@@ -27,6 +28,11 @@ import (
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
+
+// UplinkConfig testplanet configuration for uplink.
+type UplinkConfig struct {
+	DefaultPathCipher storj.CipherSuite
+}
 
 // Uplink is a registered user on all satellites,
 // which contains the necessary accesses and project info.
@@ -82,13 +88,16 @@ func (planet *Planet) newUplinks(ctx context.Context, prefix string, count int) 
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
 		name := prefix + strconv.Itoa(i)
+
+		log := planet.log.Named(name)
+
 		var uplink *Uplink
 		var err error
 		pprof.Do(ctx, pprof.Labels("peer", name), func(ctx context.Context) {
-			uplink, err = planet.newUplink(ctx, name)
+			uplink, err = planet.newUplink(ctx, i, log, name)
 		})
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		xs = append(xs, uplink)
 	}
@@ -97,19 +106,19 @@ func (planet *Planet) newUplinks(ctx context.Context, prefix string, count int) 
 }
 
 // newUplink creates a new uplink.
-func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, err error) {
+func (planet *Planet) newUplink(ctx context.Context, index int, log *zap.Logger, name string) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	identity, err := planet.NewIdentity()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: strconv.Itoa(int(planet.config.IdentityVersion.Number)),
 	}, nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	planetUplink := &Uplink{
@@ -133,7 +142,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 			Email:    fmt.Sprintf("user@%s.test", projectName),
 		}, 10)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		planetUplink.User[satellite.ID()] = UserLogin{
@@ -143,16 +152,16 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 
 		project, err := satellite.AddProject(ctx, user.ID, projectName)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		userCtx, err := satellite.UserContext(ctx, user.ID)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		_, apiKey, err := consoleAPI.Service.CreateAPIKey(userCtx, project.ID, "root")
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		planetUplink.APIKey[satellite.ID()] = apiKey
@@ -171,6 +180,38 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (_ *Uplink, er
 
 			RawAPIKey: apiKey,
 		})
+
+		var config UplinkConfig
+		if planet.config.Reconfigure.Uplink != nil {
+			planet.config.Reconfigure.Uplink(log, index, &config)
+		}
+
+		// create access grant manually to avoid dialing satellite for
+		// project id and deriving key with argon2.IDKey method
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+		if config.DefaultPathCipher == storj.EncUnspecified {
+			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+		} else {
+			encAccess.SetDefaultPathCipher(config.DefaultPathCipher)
+		}
+
+		grantAccess := grant.Access{
+			SatelliteAddress: satellite.URL(),
+			APIKey:           apiKey,
+			EncAccess:        encAccess,
+		}
+
+		serializedAccess, err := grantAccess.Serialize()
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		access, err := uplink.ParseAccess(serializedAccess)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		planetUplink.Access[satellite.ID()] = access
 	}
 
 	planet.Uplinks = append(planet.Uplinks, planetUplink)
@@ -226,27 +267,27 @@ func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *Satel
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	_, err = project.EnsureBucket(ctx, bucketName)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	upload, err := project.UploadObject(ctx, bucketName, path, &uplink.UploadOptions{
 		Expires: expiration,
 	})
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	_, err = io.Copy(upload, bytes.NewReader(data))
 	if err != nil {
 		abortErr := upload.Abort()
 		err = errs.Combine(err, abortErr)
-		return err
+		return errs.Wrap(err)
 	}
 
 	return upload.Commit()
@@ -258,13 +299,13 @@ func (client *Uplink) Download(ctx context.Context, satellite *Satellite, bucket
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	download, err := project.DownloadObject(ctx, bucketName, path, nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, download.Close()) }()
 
@@ -281,14 +322,14 @@ func (client *Uplink) DownloadStream(ctx context.Context, satellite *Satellite, 
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errs.Wrap(err)
 	}
 
 	cleanup = func() error {
 		err = errs.Combine(err,
 			project.Close(),
 		)
-		return err
+		return errs.Wrap(err)
 	}
 
 	downloader, err := project.DownloadObject(ctx, bucketName, path, nil)
@@ -301,21 +342,18 @@ func (client *Uplink) DownloadStreamRange(ctx context.Context, satellite *Satell
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errs.Wrap(err)
 	}
 
 	cleanup = func() error {
-		err = errs.Combine(err,
-			project.Close(),
-		)
-		return err
+		return errs.Combine(err, project.Close())
 	}
 
 	downloader, err := project.DownloadObject(ctx, bucketName, path, &uplink.DownloadOptions{
 		Offset: start,
 		Length: limit,
 	})
-	return downloader, cleanup, err
+	return downloader, cleanup, errs.Wrap(err)
 }
 
 // DeleteObject deletes an object at the path in a bucket.
@@ -324,15 +362,15 @@ func (client *Uplink) DeleteObject(ctx context.Context, satellite *Satellite, bu
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	_, err = project.DeleteObject(ctx, bucketName, path)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
-	return err
+	return errs.Wrap(err)
 }
 
 // CopyObject copies an object.
@@ -355,13 +393,13 @@ func (client *Uplink) CreateBucket(ctx context.Context, satellite *Satellite, bu
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	_, err = project.CreateBucket(ctx, bucketName)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	return nil
 }
@@ -372,13 +410,13 @@ func (client *Uplink) DeleteBucket(ctx context.Context, satellite *Satellite, bu
 
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	_, err = project.DeleteBucket(ctx, bucketName)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 	return nil
 }
@@ -390,7 +428,7 @@ func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) (_ 
 	var buckets = []*uplink.Bucket{}
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return buckets, err
+		return buckets, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
@@ -408,7 +446,7 @@ func (client *Uplink) ListObjects(ctx context.Context, satellite *Satellite, buc
 	var objects = []*uplink.Object{}
 	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
-		return objects, err
+		return objects, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
@@ -427,7 +465,7 @@ func (client *Uplink) GetProject(ctx context.Context, satellite *Satellite) (_ *
 
 	project, err := client.Config.OpenProject(ctx, access)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	return project, nil
 }

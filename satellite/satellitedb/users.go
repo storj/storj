@@ -5,7 +5,9 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -150,9 +152,6 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		IsProfessional:  dbx.User_IsProfessional(user.IsProfessional),
 		SignupPromoCode: dbx.User_SignupPromoCode(user.SignupPromoCode),
 	}
-	if !user.PartnerID.IsZero() {
-		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
-	}
 	if user.UserAgent != nil {
 		optional.UserAgent = dbx.User_UserAgent(user.UserAgent)
 	}
@@ -290,6 +289,57 @@ func (users *users) GetUserPaidTier(ctx context.Context, id uuid.UUID) (isPaid b
 	return row.PaidTier, nil
 }
 
+// GetSettings is a method for returning a user's set of configurations.
+func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings *console.UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_UserSettings_By_UserId(ctx, dbx.UserSettings_UserId(userID[:]))
+	if err != nil {
+		return nil, err
+	}
+
+	settings = &console.UserSettings{}
+	if row.SessionMinutes != nil {
+		dur := time.Duration(*row.SessionMinutes) * time.Minute
+		settings.SessionDuration = &dur
+	}
+
+	return settings, nil
+}
+
+// UpsertSettings is a method for updating a user's set of configurations if it exists and inserting it otherwise.
+func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settings console.UpsertUserSettingsRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbID := dbx.UserSettings_UserId(userID[:])
+	update := dbx.UserSettings_Update_Fields{}
+	fieldCount := 0
+
+	if settings.SessionDuration != nil {
+		if *settings.SessionDuration == nil {
+			update.SessionMinutes = dbx.UserSettings_SessionMinutes_Null()
+		} else {
+			update.SessionMinutes = dbx.UserSettings_SessionMinutes(uint((*settings.SessionDuration).Minutes()))
+		}
+		fieldCount++
+	}
+
+	return users.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		_, err := tx.Get_UserSettings_By_UserId(ctx, dbID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return tx.CreateNoReturn_UserSettings(ctx, dbID, dbx.UserSettings_Create_Fields(update))
+		}
+		if err != nil {
+			return err
+		}
+		if fieldCount > 0 {
+			_, err := tx.Update_UserSettings_By_UserId(ctx, dbID, update)
+			return err
+		}
+		return nil
+	})
+}
+
 // toUpdateUser creates dbx.User_Update_Fields with only non-empty fields as updatable.
 func toUpdateUser(request console.UpdateUserRequest) (*dbx.User_Update_Fields, error) {
 	update := dbx.User_Update_Fields{}
@@ -402,13 +452,6 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		MFAEnabled:            user.MfaEnabled,
 		VerificationReminders: user.VerificationReminders,
 		SignupCaptcha:         user.SignupCaptcha,
-	}
-
-	if user.PartnerId != nil {
-		result.PartnerID, err = uuid.FromBytes(user.PartnerId)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if user.UserAgent != nil {

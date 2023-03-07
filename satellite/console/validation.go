@@ -11,15 +11,18 @@ const (
 	// PasswordMinimumLength is the minimum allowed length for user account passwords.
 	PasswordMinimumLength = 6
 	// PasswordMaximumLength is the maximum allowed length for user account passwords.
-	PasswordMaximumLength = 128
+	PasswordMaximumLength = 72
 )
 
 // ErrValidation validation related error class.
 var ErrValidation = errs.Class("validation")
 
-// ValidatePassword validates password.
+// ValidateNewPassword validates password for creation.
 // It returns an plain error (not wrapped in a errs.Class) if pass is invalid.
-func ValidatePassword(pass string) error {
+//
+// Previously the limit was 128, however, bcrypt ignores any characters beyond 72,
+// hence this checks new passwords -- old passwords might be longer.
+func ValidateNewPassword(pass string) error {
 	if len(pass) < PasswordMinimumLength {
 		return errs.New(passwordTooShortErrMsg, PasswordMinimumLength)
 	}

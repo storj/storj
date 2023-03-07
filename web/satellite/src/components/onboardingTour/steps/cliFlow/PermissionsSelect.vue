@@ -46,6 +46,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -62,7 +63,7 @@ export default class PermissionsSelect extends Vue {
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERMISSIONS_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PERMISSIONS);
     }
 
     /**
@@ -104,7 +105,7 @@ export default class PermissionsSelect extends Vue {
      * Indicates if dropdown is visible.
      */
     public get isDropdownVisible(): boolean {
-        return this.$store.state.appStateModule.appState.isPermissionsDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
     }
 
     /**

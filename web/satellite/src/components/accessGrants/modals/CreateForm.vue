@@ -253,7 +253,7 @@ const checkedTypes = ref<string[]>([]);
 const accessName = ref<string>('');
 const selectedPermissions = ref<string[]>([]);
 const allPermissionsClicked = ref<boolean>(false);
-const permissionsList = ref<string[]>(['Read','Write','List','Delete']);
+const permissionsList = ref<string[]>(['Read', 'Write', 'List', 'Delete']);
 const addDateSelected = ref<boolean>(false);
 const tooltipHover = ref<string>('');
 const tooltipVisibilityTimer = ref<ReturnType<typeof setTimeout> | null>();
@@ -354,10 +354,14 @@ function toggleAllPermission(type): void {
     if (checkedPermissions[type]) {
         checkedPermissions[type] = false;
         allPermissionsClicked.value = false;
+        selectedPermissions.value = selectedPermissions.value.filter(t => t !== type);
     } else {
         checkedPermissions[type] = true;
+        selectedPermissions.value.push(type);
+
         if (checkedPermissions.Read && checkedPermissions.Write && checkedPermissions.List && checkedPermissions.Delete) {
             allPermissionsClicked.value = true;
+            selectedPermissions.value = permissionsList.value;
         }
     }
 }
@@ -369,15 +373,15 @@ function toggleTooltipHover(type, action): void {
     if (tooltipHover.value === '' && action === 'over') {
         tooltipHover.value = type;
         return;
-    } else if (tooltipHover === type && action === 'leave') {
+    } else if (tooltipHover.value === type && action === 'leave') {
         tooltipVisibilityTimer.value = setTimeout(() => {
             tooltipHover.value = '';
-        },750);
+        }, 750);
         return;
     } else if (tooltipHover.value === type && action === 'over') {
         tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
         return;
-    } else if (tooltipHover !== type) {
+    } else if (tooltipHover.value !== type) {
         tooltipVisibilityTimer.value && clearTimeout(tooltipVisibilityTimer.value);
         tooltipHover.value = type;
     }

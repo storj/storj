@@ -105,6 +105,25 @@ func NewService(log *zap.Logger, overlay *overlay.Service, db DB, config Config)
 func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, reputation overlay.ReputationStatus, result AuditType) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// There are some cases where the caller did not get updated reputation-status information.
+	// (Usually this means the node was offline, disqualified, or exited and we skipped creating an order limit for it.)
+	var nodeExited bool
+	if reputation.Email == "" {
+		dossier, err := service.overlay.Get(ctx, nodeID)
+		if err != nil {
+			return err
+		}
+		reputation = dossier.Reputation.Status
+		if dossier.ExitStatus.ExitFinishedAt != nil {
+			nodeExited = true
+		}
+	}
+
+	// If the node is disqualified or exited, we do not need to apply the audit, so return nil.
+	if reputation.Disqualified != nil || nodeExited {
+		return nil
+	}
+
 	now := time.Now()
 	statusUpdate, err := service.db.Update(ctx, UpdateRequest{
 		NodeID:       nodeID,
@@ -250,7 +269,8 @@ func (service *Service) Close() error { return nil }
 // hasReputationChanged determines if the current node reputation is different from the newly updated reputation. This
 // function will only consider the Disqualified, UnknownAudiSuspended and OfflineSuspended statuses for changes.
 func hasReputationChanged(updated Info, current overlay.ReputationStatus, now time.Time) (changed bool, repChanges []nodeevents.Type) {
-	if statusChanged(current.Disqualified, updated.Disqualified) {
+	// there is no unDQ, so only update if changed from nil to not nil
+	if current.Disqualified == nil && updated.Disqualified != nil {
 		repChanges = append(repChanges, nodeevents.Disqualified)
 		changed = true
 	}
@@ -281,13 +301,10 @@ func hasReputationChanged(updated Info, current overlay.ReputationStatus, now ti
 }
 
 // statusChanged determines if the two given statuses are different.
+// a status is considered "different" if it went from nil to not-nil, or not-nil to nil.
+// if not-nil and the only difference is the time, this is considered "not changed".
 func statusChanged(s1, s2 *time.Time) bool {
-	if s1 == nil && s2 == nil {
-		return false
-	} else if s1 != nil && s2 != nil {
-		return !s1.Equal(*s2)
-	}
-	return true
+	return (s1 == nil && s2 != nil) || (s1 != nil && s2 == nil)
 }
 
 // UpdateRequestToMutations transforms an UpdateRequest into the equivalent

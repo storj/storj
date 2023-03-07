@@ -93,7 +93,7 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	signer    signing.Signer
+	ident     *identity.FullIdentity
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
@@ -110,12 +110,12 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		signer:    signer,
+		ident:     ident,
 		trust:     trust,
 		monitor:   monitor,
 		retain:    retain,
@@ -407,14 +407,110 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		limit: endpoint.config.MinUploadSpeed,
 	}
 
-	for {
+	handleMessage := func(ctx context.Context, message *pb.PieceUploadRequest) (done bool, err error) {
+		if message.Order != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
+				return true, err
+			}
+			largestOrder = *message.Order
+		}
 
+		if message.Chunk != nil {
+			if message.Chunk.Offset != pieceWriter.Size() {
+				return true, rpcstatus.Error(rpcstatus.InvalidArgument, "chunk out of order")
+			}
+
+			chunkSize := int64(len(message.Chunk.Data))
+			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
+				// TODO: should we write currently and give a chance for uplink to remedy the situation?
+				return true, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"not enough allocated, allocated=%v writing=%v",
+					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
+			}
+
+			availableSpace -= chunkSize
+			if availableSpace < 0 {
+				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
+			}
+			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+			}
+		}
+
+		if message.Done == nil {
+			return false, nil
+		}
+
+		if message.Done.HashAlgorithm != hashAlgorithm {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, errs.New("Hash algorithm in the first and last upload message are different %s %s", hashAlgorithm, message.Done.HashAlgorithm))
+		}
+
+		calculatedHash := pieceWriter.Hash()
+		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+		if message.Done.PieceSize != pieceWriter.Size() {
+			return true, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"Size of finished piece does not match size declared by uplink! %d != %d",
+				message.Done.PieceSize, pieceWriter.Size())
+		}
+
+		{
+			info := &pb.PieceHeader{
+				Hash:          calculatedHash,
+				HashAlgorithm: hashAlgorithm,
+				CreationTime:  message.Done.Timestamp,
+				Signature:     message.Done.GetSignature(),
+				OrderLimit:    *limit,
+			}
+			if err := pieceWriter.Commit(ctx, info); err != nil {
+				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+			}
+			committed = true
+			if !limit.PieceExpiration.IsZero() {
+				err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
+				if err != nil {
+					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+				}
+			}
+		}
+
+		storageNodeHash, err := signing.SignPieceHash(ctx, signing.SignerFromFullIdentity(endpoint.ident), &pb.PieceHash{
+			PieceId:       limit.PieceId,
+			Hash:          calculatedHash,
+			HashAlgorithm: hashAlgorithm,
+			PieceSize:     pieceWriter.Size(),
+			Timestamp:     time.Now(),
+		})
+		if err != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+			return stream.SendAndClose(&pb.PieceUploadResponse{
+				Done:          storageNodeHash,
+				NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
+		})
+		if errs.Is(closeErr, io.EOF) {
+			closeErr = nil
+		}
+		if closeErr != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
+		}
+		return true, nil
+	}
+
+	// handle any data in the first message we already received.
+	if done, err := handleMessage(ctx, message); err != nil || done {
+		return err
+	}
+
+	for {
 		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
 			return rpcstatus.Wrap(rpcstatus.Aborted, err)
 		}
 
 		// TODO: reuse messages to avoid allocations
-
 		// N.B.: we are only allowed to use message if the returned error is nil. it would be
 		// a race condition otherwise as Run does not wait for the closure to exit.
 		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
@@ -426,99 +522,12 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		} else if err != nil {
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
-
 		if message == nil {
 			return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
 		}
-		if message.Order == nil && message.Chunk == nil && message.Done == nil {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
-		}
 
-		if message.Order != nil {
-			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
-				return err
-			}
-			largestOrder = *message.Order
-		}
-
-		if message.Chunk != nil {
-			if message.Chunk.Offset != pieceWriter.Size() {
-				return rpcstatus.Error(rpcstatus.InvalidArgument, "chunk out of order")
-			}
-
-			chunkSize := int64(len(message.Chunk.Data))
-			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
-				// TODO: should we write currently and give a chance for uplink to remedy the situation?
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"not enough allocated, allocated=%v writing=%v",
-					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
-			}
-
-			availableSpace -= chunkSize
-			if availableSpace < 0 {
-				return rpcstatus.Error(rpcstatus.Internal, "out of space")
-			}
-			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-		}
-
-		if message.Done != nil {
-			if message.Done.HashAlgorithm != hashAlgorithm {
-				return rpcstatus.Wrap(rpcstatus.Internal, errs.New("Hash algorithm in the first and last upload message are different %s %s", hashAlgorithm, message.Done.HashAlgorithm))
-			}
-
-			calculatedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-			if message.Done.PieceSize != pieceWriter.Size() {
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"Size of finished piece does not match size declared by uplink! %d != %d",
-					message.Done.PieceSize, pieceWriter.Size())
-			}
-
-			{
-				info := &pb.PieceHeader{
-					Hash:          calculatedHash,
-					HashAlgorithm: hashAlgorithm,
-					CreationTime:  message.Done.Timestamp,
-					Signature:     message.Done.GetSignature(),
-					OrderLimit:    *limit,
-				}
-				if err := pieceWriter.Commit(ctx, info); err != nil {
-					return rpcstatus.Wrap(rpcstatus.Internal, err)
-				}
-				committed = true
-				if !limit.PieceExpiration.IsZero() {
-					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
-					if err != nil {
-						return rpcstatus.Wrap(rpcstatus.Internal, err)
-					}
-				}
-			}
-
-			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
-				PieceId:       limit.PieceId,
-				Hash:          calculatedHash,
-				HashAlgorithm: hashAlgorithm,
-				PieceSize:     pieceWriter.Size(),
-				Timestamp:     time.Now(),
-			})
-			if err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				return stream.SendAndClose(&pb.PieceUploadResponse{Done: storageNodeHash})
-			})
-			if errs.Is(closeErr, io.EOF) {
-				closeErr = nil
-			}
-			if closeErr != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, closeErr)
-			}
-			return nil
+		if done, err := handleMessage(ctx, message); err != nil || done {
+			return err
 		}
 	}
 }
@@ -595,19 +604,18 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	}
 
 	var pieceReader *pieces.Reader
+	downloadedBytes := make(chan int64, 1)
+	largestOrder := pb.Order{}
 	defer func() {
 		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
-		downloadSize := int64(0)
-		if pieceReader != nil {
-			downloadSize = pieceReader.Size()
-		}
 		downloadRate := float64(0)
+		downloadSize := <-downloadedBytes
 		if dt.Seconds() > 0 {
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
-		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
@@ -629,6 +637,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			mon.FloatVal("download_success_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr))
 		}
+		mon.IntVal("download_orders_amount", actionSeriesTag).Observe(largestOrder.Amount)
+	}()
+	defer func() {
+		close(downloadedBytes)
 	}()
 
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
@@ -684,6 +696,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
+
+		defer func() {
+			downloadedBytes <- chunk.ChunkSize - unsentAmount
+		}()
+
 		for unsentAmount > 0 {
 			tryToSend := min(unsentAmount, maximumChunkSize)
 
@@ -691,7 +708,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
 				// this can happen only because uplink decided to close the connection
-				return nil //nolint: nilerr // We don't need to return an error when client cancels.
+				return nil // We don't need to return an error when client cancels.
 			}
 
 			chunkData := make([]byte, chunkSize)
@@ -736,7 +753,6 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		if err != nil {
 			return err
 		}
-		largestOrder := pb.Order{}
 		defer commitOrderToStore(ctx, &largestOrder)
 
 		// ensure that we always terminate sending goroutine

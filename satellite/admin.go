@@ -138,16 +138,18 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		pc := config.Payments
 
 		var stripeClient stripecoinpayments.StripeClient
-		var err error
 		switch pc.Provider {
-		default:
+		case "": // just new mock, only used in testing binaries
 			stripeClient = stripecoinpayments.NewStripeMock(
-				peer.ID(),
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
+		case "mock":
+			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		default:
+			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
 
 		prices, err := pc.UsagePrice.ToModel()
@@ -172,6 +174,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.ProjectAccounting(),
 			prices,
 			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 
 		if err != nil {

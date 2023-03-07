@@ -53,7 +53,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -153,6 +153,8 @@ CREATE TABLE nodes (
 	contained timestamp with time zone,
 	last_offline_email timestamp with time zone,
 	last_software_update_email timestamp with time zone,
+	noise_proto integer,
+	noise_public_key bytea,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
@@ -457,6 +459,12 @@ CREATE TABLE users (
 	signup_captcha double precision,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE user_settings (
+	user_id bytea NOT NULL,
+	session_minutes integer,
+	passphrase_prompt boolean,
+	PRIMARY KEY ( user_id )
+);
 CREATE TABLE value_attributions (
 	project_id bytea NOT NULL,
 	bucket_name bytea NOT NULL,
@@ -547,6 +555,7 @@ CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;
 CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;
 CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;
 CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
+CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX reverification_audits_inserted_at_index ON reverification_audits ( inserted_at ) ;

@@ -1,8 +1,0 @@
-#!/bin/sh
-
-if [ "$*" != "show --property=MainPID storagenode" ]; then
-  echo "invalid command" >&2
-  exit 1
-fi
-
-printf 'MainPID=%s' "$(supervisorctl -c /etc/supervisor/supervisord.conf pid storagenode)"

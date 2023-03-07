@@ -164,26 +164,6 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 	return dbc.dbs[""]
 }
 
-// TestDBAccess for raw database access,
-// should not be used outside of migration tests.
-func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
-
-// TestDBAccess for raw database access,
-// should not be used outside of migration tests.
-func (dbc *satelliteDBCollection) TestDBAccess() *dbx.DB {
-	return dbc.getByName("").TestDBAccess()
-}
-
-// MigrationTestingDefaultDB assists in testing migrations themselves against
-// the default database.
-func (dbc *satelliteDBCollection) MigrationTestingDefaultDB() interface {
-	TestDBAccess() *dbx.DB
-	TestPostgresMigration() *migrate.Migration
-	PostgresMigration() *migrate.Migration
-} {
-	return dbc.getByName("")
-}
-
 // PeerIdentities returns a storage for peer identities.
 func (dbc *satelliteDBCollection) PeerIdentities() overlay.PeerIdentities {
 	return &peerIdentities{db: dbc.getByName("peeridentities")}
@@ -345,15 +325,6 @@ func (dbc *satelliteDBCollection) MigrateToLatest(ctx context.Context) error {
 	return eg.Err()
 }
 
-// TestingMigrateToLatest is a method for creating all tables for all database for testing.
-func (dbc *satelliteDBCollection) TestingMigrateToLatest(ctx context.Context) error {
-	var eg errs.Group
-	for _, db := range dbc.dbs {
-		eg.Add(db.TestingMigrateToLatest(ctx))
-	}
-	return eg.Err()
-}
-
 // Close closes all satellite dbs.
 func (dbc *satelliteDBCollection) Close() error {
 	var eg errs.Group
@@ -361,4 +332,67 @@ func (dbc *satelliteDBCollection) Close() error {
 		eg.Add(db.Close())
 	}
 	return eg.Err()
+}
+
+// Testing provides access to testing facilities. These should not be used in production code.
+func (db *satelliteDB) Testing() satellite.TestingDB {
+	return &satelliteDBTesting{satelliteDB: db}
+}
+
+type satelliteDBTesting struct{ *satelliteDB }
+
+// RawDB returns the underlying database connection to the primary database.
+func (db *satelliteDBTesting) RawDB() tagsql.DB {
+	return db.satelliteDB.DB
+}
+
+// Schema returns the full schema for the database.
+func (db *satelliteDBTesting) Schema() string {
+	return db.satelliteDB.Schema()
+}
+
+// ProductionMigration returns the primary migration.
+func (db *satelliteDBTesting) ProductionMigration() *migrate.Migration {
+	return db.satelliteDB.ProductionMigration()
+}
+
+// TestMigration returns the migration used for tests.
+func (db *satelliteDBTesting) TestMigration() *migrate.Migration {
+	return db.satelliteDB.TestMigration()
+}
+
+// Testing provides access to testing facilities. These should not be used in production code.
+func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
+	return &satelliteDBCollectionTesting{satelliteDBCollection: dbc}
+}
+
+type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
+
+// RawDB returns the underlying database connection to the primary database.
+func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
+	return dbc.getByName("").DB.DB
+}
+
+// Schema returns the full schema for the database.
+func (dbc *satelliteDBCollectionTesting) Schema() string {
+	return dbc.getByName("").Schema()
+}
+
+// MigrateToLatest initializes the database for testplanet.
+func (dbc *satelliteDBCollectionTesting) TestMigrateToLatest(ctx context.Context) error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.Testing().TestMigrateToLatest(ctx))
+	}
+	return eg.Err()
+}
+
+// ProductionMigration returns the primary migration.
+func (dbc *satelliteDBCollectionTesting) ProductionMigration() *migrate.Migration {
+	return dbc.getByName("").ProductionMigration()
+}
+
+// TestMigration returns the migration used for tests.
+func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
+	return dbc.getByName("").TestMigration()
 }

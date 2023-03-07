@@ -63,6 +63,8 @@ type Config struct {
 	Host        string
 	NonParallel bool
 	Timeout     time.Duration
+
+	applicationName string
 }
 
 // DatabaseConfig defines connection strings for database.
@@ -143,6 +145,10 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 		}
 	}
 
+	if config.applicationName == "" {
+		config.applicationName = "testplanet"
+	}
+
 	planet := &Planet{
 		ctx:    ctx,
 		log:    log,
@@ -159,12 +165,12 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 	var err error
 	planet.directory, err = os.MkdirTemp("", "planet")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	planet.whitelistPath = whitelistPath
 
@@ -357,7 +363,13 @@ func (planet *Planet) Shutdown() error {
 	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
-	return errlist.Err()
+
+	// workaround for not being able to catch context.Canceled error from net package
+	err := errlist.Err()
+	if err != nil && strings.Contains(err.Error(), "operation was canceled") {
+		return nil
+	}
+	return err
 }
 
 // Identities returns the identity provider for this planet.

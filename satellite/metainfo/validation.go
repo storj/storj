@@ -166,7 +166,7 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 	ek.Event("auth",
 		eventkit.String("user-agent", userAgent),
 		eventkit.String("project", keyInfo.ProjectID.String()),
-		eventkit.String("partner", keyInfo.PartnerID.String()),
+		eventkit.String("partner", string(keyInfo.UserAgent)),
 	)
 
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {

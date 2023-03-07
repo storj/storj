@@ -25,6 +25,11 @@ func (m *InfiniteSegmentProvider) CreateRanges(nRanges int, batchSize int) (segm
 	return segmentsProviders, nil
 }
 
+// Range returns range which is processed by this provider.
+func (m *InfiniteSegmentProvider) Range() rangedloop.UUIDRange {
+	return rangedloop.UUIDRange{}
+}
+
 // Iterate allows to loop over the segments stored in the provider.
 func (m *InfiniteSegmentProvider) Iterate(ctx context.Context, fn func([]segmentloop.Segment) error) error {
 	for {
