@@ -863,7 +863,15 @@ func (s *Service) GenerateSessionToken(ctx context.Context, userID uuid.UUID, em
 
 	duration := s.config.Session.Duration
 	if s.config.Session.InactivityTimerEnabled {
-		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+		settings, err := s.store.Users().GetSettings(ctx, userID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		if settings != nil && settings.SessionDuration != nil {
+			duration = *settings.SessionDuration
+		} else {
+			duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+		}
 	}
 	expiresAt := time.Now().Add(duration)
 
@@ -3197,12 +3205,20 @@ func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uu
 func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getUserAndAuditLog(ctx, "refresh session")
+	user, err := s.getUserAndAuditLog(ctx, "refresh session")
 	if err != nil {
 		return time.Time{}, Error.Wrap(err)
 	}
 
-	expiresAt = time.Now().Add(time.Duration(s.config.Session.InactivityTimerDuration) * time.Second)
+	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+	settings, err := s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil && !errs.Is(err, sql.ErrNoRows) {
+		return time.Time{}, Error.Wrap(err)
+	}
+	if settings != nil && settings.SessionDuration != nil {
+		duration = *settings.SessionDuration
+	}
+	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
