@@ -522,13 +522,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, liveAccounting)
 
-	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
-	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
-
 	config.Payments.Provider = "mock"
 	config.Payments.MockProvider = stripecoinpayments.NewStripeMock(db.StripeCoinPayments().Customers(), db.Console().Users())
 
-	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, versionInfo, &config, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -639,7 +636,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Orders.DB = api.Orders.DB
 	system.Orders.Endpoint = api.Orders.Endpoint
-	system.Orders.Service = peer.Orders.Service
+	system.Orders.Service = api.Orders.Service
 	system.Orders.Chore = api.Orders.Chore
 
 	system.Repair.Checker = peer.Repair.Checker
@@ -725,10 +722,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
-	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
-
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
 }
 
 func (planet *Planet) newAuditor(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (_ *satellite.Auditor, err error) {
@@ -743,10 +737,7 @@ func (planet *Planet) newAuditor(ctx context.Context, index int, identity *ident
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
-	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
-
-	return satellite.NewAuditor(log, identity, metabaseDB, revocationDB, db.VerifyQueue(), db.ReverifyQueue(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewAuditor(log, identity, metabaseDB, revocationDB, db.VerifyQueue(), db.ReverifyQueue(), db.OverlayCache(), db.NodeEvents(), db.Reputation(), db.Containment(), versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {

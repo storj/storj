@@ -59,9 +59,7 @@ type Auditor struct {
 	Overlay    *overlay.Service
 	Reputation *reputation.Service
 	Orders     struct {
-		DB      orders.DB
 		Service *orders.Service
-		Chore   *orders.Chore
 	}
 
 	Audit struct {
@@ -85,7 +83,6 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 	nodeEvents nodeevents.DB,
 	reputationdb reputation.DB,
 	containmentDB audit.Containment,
-	rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel,
 ) (*Auditor, error) {
 	peer := &Auditor{
@@ -177,22 +174,15 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup orders
-		peer.Orders.DB = rollupsWriteCache
-		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "orders:chore",
-			Run:   peer.Orders.Chore.Run,
-			Close: peer.Orders.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
-
 		var err error
 		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
-			peer.Orders.DB,
+			// orders service needs DB only for handling
+			// PUT and GET actions which are not used by
+			// auditor so we can set noop implementation.
+			orders.NewNoopDB(),
 			config.Orders,
 		)
 		if err != nil {
