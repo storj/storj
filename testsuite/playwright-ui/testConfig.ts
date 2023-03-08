@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 export const testConfig = {
     host: `https://nightly.storj.rodeo`,
     port: `:10000`,

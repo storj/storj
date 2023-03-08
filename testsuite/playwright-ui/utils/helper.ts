@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import type {Page, TestInfo} from '@playwright/test';
 
 export async function screenshotOnFailure({page}: { page: Page }, testInfo: TestInfo) {
