@@ -659,7 +659,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
-				"--identity-dir", process.Directory,
 				"--console.address", net.JoinHostPort(host, port(multinodePeer, 0, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/multinode/"),
 				"--debug.addr", net.JoinHostPort(host, port(multinodePeer, 0, debugHTTP)),

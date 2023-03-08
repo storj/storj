@@ -147,7 +147,7 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 		charges = append(charges, payments.ProjectCharge{
 			ProjectUsage: totalUsage,
 
-			ProjectID:    project.ID,
+			ProjectID:    project.PublicID,
 			Egress:       totalPrice.Egress.IntPart(),
 			SegmentCount: totalPrice.Segments.IntPart(),
 			StorageGbHrs: totalPrice.Storage.IntPart(),

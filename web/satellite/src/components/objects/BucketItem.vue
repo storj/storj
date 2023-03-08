@@ -194,7 +194,7 @@ export default class BucketItem extends Resizable {
                 width: 25rem;
                 display: flex;
                 flex-direction: column;
-                align-items: start;
+                align-items: flex-start;
                 transform: translateX(-100%);
                 background-color: var(--c-blue-3);
                 text-align: center;
@@ -247,7 +247,7 @@ export default class BucketItem extends Resizable {
 
                 &__actions {
                     display: flex;
-                    justify-content: end;
+                    justify-content: flex-end;
                     align-items: center;
                     width: 100%;
 

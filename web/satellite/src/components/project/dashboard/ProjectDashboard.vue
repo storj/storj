@@ -154,7 +154,6 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { computed } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -171,12 +170,12 @@ import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import VLoader from '@/components/common/VLoader.vue';
-import InfoContainer from '@/components/project/newProjectDashboard/InfoContainer.vue';
-import StorageChart from '@/components/project/newProjectDashboard/StorageChart.vue';
-import BandwidthChart from '@/components/project/newProjectDashboard/BandwidthChart.vue';
-import DashboardFunctionalHeader from '@/components/project/newProjectDashboard/DashboardFunctionalHeader.vue';
+import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
+import StorageChart from '@/components/project/dashboard/StorageChart.vue';
+import BandwidthChart from '@/components/project/dashboard/BandwidthChart.vue';
+import DashboardFunctionalHeader from '@/components/project/dashboard/DashboardFunctionalHeader.vue';
 import VButton from '@/components/common/VButton.vue';
-import DateRangeSelection from '@/components/project/newProjectDashboard/DateRangeSelection.vue';
+import DateRangeSelection from '@/components/project/dashboard/DateRangeSelection.vue';
 import VInfo from '@/components/common/VInfo.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
@@ -203,7 +202,7 @@ import InfoIcon from '@/../static/images/project/infoIcon.svg';
         DashboardFunctionalHeader,
     },
 })
-export default class NewProjectDashboard extends Vue {
+export default class ProjectDashboard extends Vue {
     public now = new Date().toLocaleDateString('en-US');
     public isDataFetching = true;
     public areBucketsFetching = true;

@@ -552,8 +552,8 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 		FROM
 			bucket_bandwidth_rollups
 		WHERE
-			bucket_name = ? AND
 			project_id = ? AND
+			bucket_name = ? AND
 			interval_start >= ? AND
 			interval_start < ? AND
 			action = ?;
@@ -624,7 +624,7 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 			return nil, err
 		}
 
-		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, []byte(bucket), projectID[:], since, before, pb.PieceAction_GET)
+		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
 		if err != nil {
 			return nil, err
 		}

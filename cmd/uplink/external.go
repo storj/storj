@@ -35,7 +35,6 @@ import (
 type external struct {
 	interactive bool  // controls if interactive input is allowed
 	analytics   *bool // enables sending analytics
-	quic        bool  // if set, use the quic transport
 
 	dirs struct {
 		loaded  bool   // true if Setup has been called
@@ -83,12 +82,6 @@ func newExternal() *external {
 func (ex *external) Setup(f clingy.Flags) {
 	ex.interactive = f.Flag(
 		"interactive", "Controls if interactive input is allowed", true,
-		clingy.Transform(strconv.ParseBool), clingy.Boolean,
-		clingy.Advanced,
-	).(bool)
-
-	ex.quic = f.Flag(
-		"quic", "If set, uses the quic transport", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 		clingy.Advanced,
 	).(bool)

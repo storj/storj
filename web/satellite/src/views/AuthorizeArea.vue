@@ -88,8 +88,6 @@
 </template>
 
 <script lang="ts">
-import { URLSearchParams } from 'url';
-
 import { Component, Vue } from 'vue-property-decorator';
 
 import { Validator } from '@/utils/validation';

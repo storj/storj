@@ -32,7 +32,7 @@ export default class BucketGuide extends Vue {
         width: 25rem;
         display: flex;
         flex-direction: column;
-        align-items: start;
+        align-items: flex-start;
         background-color: #0149ff;
         text-align: center;
         border-radius: 8px;
@@ -74,7 +74,7 @@ export default class BucketGuide extends Vue {
 
         &__actions {
             display: flex;
-            justify-content: end;
+            justify-content: flex-end;
             align-items: center;
             width: 100%;
 

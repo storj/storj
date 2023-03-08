@@ -145,7 +145,6 @@ fi
 # setup multinode if config is missing
 MULTINODE_DIR=$(storj-sim network env MULTINODE_0_DIR)
 if [ ! -f "$MULTINODE_DIR/config.yaml" ]; then
-    identity --identity-dir $MULTINODE_DIR --concurrency 1 --difficulty 8 create .
     multinode $(storj-sim --host "$STORJ_NETWORK_HOST4" network env MULTINODE_0_SETUP_ARGS)
 fi
 
