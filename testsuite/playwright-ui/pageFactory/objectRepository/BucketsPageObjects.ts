@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 export class BucketsPageObjects {
     protected static ENCRYPTION_PASSPHRASE_XPATH = `//input[@id='Encryption Passphrase']`;
     protected static CONTINUE_BUTTON_PASSPHRASE_MODAL_XPATH = `//span[contains(text(),'Continue ->')]`;

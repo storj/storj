@@ -1,3 +1,6 @@
+// Copyright (C) 2023 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 import {test as baseTest} from '@playwright/test';
 import {LoginPage} from '@pages/LoginPage';
 import {DashboardPage} from '@pages/DashboardPage';
