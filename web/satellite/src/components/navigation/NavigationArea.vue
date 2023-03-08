@@ -176,13 +176,7 @@ export default class NavigationArea extends Vue {
             return;
         }
 
-        if (this.$route.name === RouteConfig.ProjectDashboard.name || this.$route.name === RouteConfig.NewProjectDashboard.name) {
-            return;
-        }
-
-        if (this.isNewProjectDashboard) {
-            this.$router.push(RouteConfig.NewProjectDashboard.path);
-
+        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
             return;
         }
 
@@ -260,13 +254,6 @@ export default class NavigationArea extends Vue {
      */
     public get isQuickStartDropdownShown(): boolean {
         return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
-    }
-
-    /**
-     * Indicates if new project dashboard should be used.
-     */
-    public get isNewProjectDashboard(): boolean {
-        return this.$store.state.appStateModule.isNewProjectDashboard;
     }
 
     /**

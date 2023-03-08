@@ -748,8 +748,8 @@ async function goToBuckets(): Promise<void> {
 
     @media screen and (max-width: 768px) {
         flex-direction: column;
-        justify-content: start;
-        align-items: start;
+        justify-content: flex-start;
+        align-items: flex-start;
     }
 
     &__title {
@@ -766,7 +766,7 @@ async function goToBuckets(): Promise<void> {
 
     &__actions {
         display: flex;
-        justify-content: start;
+        justify-content: flex-start;
         flex-wrap: wrap;
         gap: 5px;
     }

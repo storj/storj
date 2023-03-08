@@ -982,7 +982,7 @@ $align: center;
         margin-top: 1.5rem;
         display: flex;
         flex-direction: column;
-        align-items: start;
+        align-items: flex-start;
         gap: 1.5rem;
 
         &__title {

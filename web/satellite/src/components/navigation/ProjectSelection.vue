@@ -162,7 +162,7 @@ export default class ProjectSelection extends Vue {
             return;
         }
 
-        if (this.$route.name === RouteConfig.NewProjectDashboard.name) {
+        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
             const now = new Date();
             const past = new Date();
             past.setDate(past.getDate() - 30);
