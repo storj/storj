@@ -18,7 +18,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/version"
 	"storj.io/storj/satellite/geoip"
-	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeevents"
 )
@@ -310,7 +309,6 @@ type Service struct {
 	log              *zap.Logger
 	db               DB
 	nodeEvents       nodeevents.DB
-	mail             *mailservice.Service
 	satelliteName    string
 	satelliteAddress string
 	config           Config
@@ -325,7 +323,7 @@ type Service struct {
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *mailservice.Service, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, satelliteAddr, satelliteName string, config Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -358,7 +356,6 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, mailService *m
 		log:              log,
 		db:               db,
 		nodeEvents:       nodeEvents,
-		mail:             mailService,
 		satelliteAddress: satelliteAddr,
 		satelliteName:    satelliteName,
 		config:           config,
