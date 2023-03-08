@@ -12,71 +12,77 @@
     />
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue';
 
 import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 
 import VChart from '@/components/common/VChart.vue';
-import BaseChart from '@/components/common/BaseChart.vue';
 
-// @vue/component
-@Component({
-    components: { VChart },
-})
-export default class StorageChart extends BaseChart {
-    @Prop({ default: () => [] })
-    public readonly data: DataStamp[];
-    @Prop({ default: new Date() })
-    public readonly since: Date;
-    @Prop({ default: new Date() })
-    public readonly before: Date;
+const props = withDefaults(defineProps<{
+    data: DataStamp[],
+    since: Date,
+    before: Date,
+    width: number,
+    height: number,
+}>(), {
+    data: () => [],
+    since: () => new Date(),
+    before: () => new Date(),
+    width: 0,
+    height: 0,
+});
 
-    /**
-     * Returns formatted data to render chart.
-     */
-    public get chartData(): ChartData {
-        const data: number[] = this.data.map(el => el.value);
-        const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(this.since, this.before);
+const chartKey = ref<number>(0);
 
-        return new ChartData(
-            xAxisDateLabels,
-            '#E6EDF7',
-            '#D7E8FF',
-            '#003DC1',
-            data,
-        );
-    }
+/**
+ * Returns formatted data to render chart.
+ */
+const chartData = computed((): ChartData => {
+    const data: number[] = props.data.map(el => el.value);
+    const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(props.since, props.before);
 
-    /**
-     * Used as constructor of custom tooltip.
-     */
-    public tooltip(tooltipModel: TooltipModel): void {
-        const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', 'storage-tooltip',
-            this.tooltipMarkUp(tooltipModel), 76, 81);
+    return new ChartData(
+        xAxisDateLabels,
+        '#E6EDF7',
+        '#D7E8FF',
+        '#003DC1',
+        data,
+    );
+});
 
-        Tooltip.custom(tooltipParams);
-    }
+/**
+ * Used as constructor of custom tooltip.
+ */
+function tooltip(tooltipModel: TooltipModel): void {
+    const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', 'storage-tooltip',
+        tooltipMarkUp(tooltipModel), 76, 81);
 
-    /**
-     * Returns tooltip's html mark up.
-     */
-    private tooltipMarkUp(tooltipModel: TooltipModel): string {
-        if (!tooltipModel.dataPoints) {
-            return '';
-        }
-
-        const dataIndex = tooltipModel.dataPoints[0].index;
-        const dataPoint = new ChartTooltipData(this.data[dataIndex]);
-
-        return `<div class='tooltip'>
-                    <p class='tooltip__value'>${dataPoint.date}<b class='tooltip__value__bold'> / ${dataPoint.value}</b></p>
-                    <div class='tooltip__arrow' />
-                </div>`;
-    }
+    Tooltip.custom(tooltipParams);
 }
+
+/**
+ * Returns tooltip's html mark up.
+ */
+function tooltipMarkUp(tooltipModel: TooltipModel): string {
+    if (!tooltipModel.dataPoints) {
+        return '';
+    }
+
+    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataPoint = new ChartTooltipData(props.data[dataIndex]);
+
+    return `<div class='tooltip'>
+                <p class='tooltip__value'>${dataPoint.date}<b class='tooltip__value__bold'> / ${dataPoint.value}</b></p>
+                <div class='tooltip__arrow' />
+            </div>`;
+}
+
+watch(() => props.width, () => {
+    chartKey.value += 1;
+});
 </script>
 
 <style lang="scss">
