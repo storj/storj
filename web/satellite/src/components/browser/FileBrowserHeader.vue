@@ -251,7 +251,7 @@ function cancelDeleteSelection(): void {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    align-items: start;
+    align-items: flex-start;
     width: 100%;
 
     &__options {

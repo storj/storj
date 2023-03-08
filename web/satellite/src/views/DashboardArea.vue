@@ -350,7 +350,7 @@ const isCreateProjectPage = computed((): boolean => {
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.NewProjectDashboard.name;
+    return router.history.current?.name === RouteConfig.ProjectDashboard.name;
 });
 
 /**

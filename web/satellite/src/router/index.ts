@@ -31,8 +31,7 @@ import OnbCLIStep from '@/components/onboardingTour/steps/CLIStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
-import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
-import NewProjectDashboard from '@/components/project/newProjectDashboard/NewProjectDashboard.vue';
+import ProjectDashboard from '@/components/project/dashboard/ProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import CLIInstall from '@/components/onboardingTour/steps/cliFlow/CLIInstall.vue';
@@ -76,7 +75,6 @@ export abstract class RouteConfig {
     public static Account = new NavigationLink('/account', 'Account');
     public static AccountSettings = new NavigationLink('/account-settings', 'Account Settings');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
-    public static NewProjectDashboard = new NavigationLink('/new-project-dashboard', ' Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
@@ -135,11 +133,6 @@ export abstract class RouteConfig {
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
-}
-
-const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard') === 'true';
-if (isNewProjectDashboard) {
-    RouteConfig.ProjectDashboard = RouteConfig.NewProjectDashboard;
 }
 
 if (MetaUtils.getMetaContent('pricing-packages-enabled') === 'true') {
@@ -268,11 +261,6 @@ export const router = new Router({
                             component: CreditsHistory,
                         },
                     ],
-                },
-                {
-                    path: RouteConfig.NewProjectDashboard.path,
-                    name: RouteConfig.NewProjectDashboard.name,
-                    component: NewProjectDashboard,
                 },
                 {
                     path: RouteConfig.ProjectDashboard.path,

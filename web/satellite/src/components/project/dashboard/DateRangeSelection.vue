@@ -18,61 +18,57 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { useStore } from '@/utils/hooks';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 import DatepickerIcon from '@/../static/images/project/datepicker.svg';
 
-// @vue/component
-@Component({
-    components: {
-        DatepickerIcon,
-        VDateRangePicker,
-    },
-})
+const props = withDefaults(defineProps<{
+    since: Date,
+    before: Date,
+    isOpen: boolean,
+    onDatePick: (dateRange: Date[]) => void,
+    toggle: () => void;
+}>(), {
+    since: () => new Date(),
+    before: () => new Date(),
+    isOpen: false,
+    onDatePick: () => {},
+    toggle: () => {},
+});
 
-export default class DateRangeSelection extends Vue {
-    @Prop({ default: new Date() })
-    public readonly since: Date;
-    @Prop({ default: new Date() })
-    public readonly before: Date;
-    @Prop({ default: () => () => {} })
-    public readonly onDatePick: (dateRange: Date[]) => void;
-    @Prop({ default: () => () => {} })
-    public readonly toggle: () => void;
-    @Prop({ default: false })
-    public readonly isOpen: boolean;
+const store = useStore();
 
-    /**
-     * Closes duration picker.
-     */
-    public closePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+/**
+ * Returns formatted date range string.
+ */
+const dateRangeLabel = computed((): string => {
+    if (props.since.getTime() === props.before.getTime()) {
+        return props.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
     }
 
-    /**
-     * Returns formatted date range string.
-     */
-    public get dateRangeLabel(): string {
-        if (this.since.getTime() === this.before.getTime()) {
-            return this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-        }
+    const sinceFormattedString = props.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+    const beforeFormattedString = props.before.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+    return `${sinceFormattedString} - ${beforeFormattedString}`;
+});
 
-        const sinceFormattedString = this.since.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-        const beforeFormattedString = this.before.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-        return `${sinceFormattedString} - ${beforeFormattedString}`;
-    }
+/**
+ * Returns date range to be displayed in date range picker.
+ */
+const pickerDateRange = computed((): Date[] => {
+    return [props.since, props.before];
+});
 
-    /**
-     * Returns date range to be displayed in date range picker.
-     */
-    public get pickerDateRange(): Date[] {
-        return [this.since, this.before];
-    }
+/**
+ * Closes duration picker.
+ */
+function closePicker(): void {
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 }
 </script>
 

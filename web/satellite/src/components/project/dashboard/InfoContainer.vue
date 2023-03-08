@@ -13,27 +13,20 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import VLoader from '@/components/common/VLoader.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VLoader,
-    },
-})
-export default class InfoContainer extends Vue {
-    @Prop({ default: false })
-    public readonly isDataFetching: boolean;
-    @Prop({ default: '' })
-    public readonly title: string;
-    @Prop({ default: '' })
-    public readonly subtitle: string;
-    @Prop({ default: '' })
-    public readonly value: string;
-}
+const props = withDefaults(defineProps<{
+    isDataFetching: boolean,
+    title: string,
+    subtitle: string,
+    value: string,
+}>(), {
+    isDataFetching: false,
+    title: '',
+    subtitle: '',
+    value: '',
+});
 </script>
 
 <style scoped lang="scss">

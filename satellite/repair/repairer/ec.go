@@ -87,6 +87,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 		return nil, FetchResultReport{}, Error.New("number of non-nil limits (%d) is less than requested result count (%d)", nonNilCount(limits), es.RequiredCount()+minFailures)
 	}
 
+	mon.IntVal("ECRepairer_Get_nonNilLimits").Observe(int64(nonNilLimits))
+
 	pieceSize := eestream.CalcPieceSize(dataSize, es)
 
 	errorCount := 0

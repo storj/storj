@@ -4,7 +4,7 @@
 <template>
     <div class="toggle">
         <label class="toggle__input-container">
-            <input :id="id || label" :checked="checked" type="checkbox" @change="onCheck">
+            <input :id="id || label" :checked="checked" :disabled="disabled" type="checkbox" @change="onCheck">
             <span />
         </label>
         <label class="toggle__label" :for="id || label">{{ label }}</label>
@@ -45,12 +45,14 @@ const props = withDefaults(defineProps<{
     id?: string;
     onShowHideAll?: () => void;
     allShown?: boolean;
+    disabled?: boolean;
 }>(), {
     checked: false,
     label: '',
     id: '',
     onCheck: () => {},
     onShowHideAll: undefined,
+    disabled: false,
 });
 </script>
 

@@ -45,6 +45,7 @@
                     id="allBuckets"
                     :checked="selectedBuckets.length === 0"
                     label="All"
+                    :disabled="selectedBuckets.length === 0"
                     :on-check="selectAllBuckets"
                     :on-show-hide-all="toggleBucketsVisibility"
                     :all-shown="searchBucketsShown"

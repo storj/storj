@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 
-	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcpool"
 	"storj.io/storj/cmd/uplink/ulext"
 	"storj.io/storj/cmd/uplink/ulfs"
@@ -41,10 +40,6 @@ func (ex *external) OpenProject(ctx context.Context, accessName string, options 
 
 	config := uplink.Config{
 		UserAgent: uplinkCLIUserAgent,
-	}
-
-	if ex.quic {
-		transport.SetConnector(&config, rpc.NewHybridConnector())
 	}
 
 	if opts.ConnectionPoolOptions != (rpcpool.Options{}) {

@@ -374,7 +374,8 @@ async function onRouteChange(): Promise<void> {
 }
 
 /**
- * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
+ * Set spinner state. If routePath is not present navigate away.
+ * If there's some error then re-render the page with a call to list.
  */
 onBeforeMount(async () => {
     if (!bucket.value) {
@@ -397,7 +398,7 @@ onBeforeMount(async () => {
             analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
         } catch (err) {
             await list('');
-            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER);
+            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER_CHANGE_ROUTE);
         }
     }
 
@@ -463,7 +464,7 @@ async function list(path: string): Promise<void> {
             root: true,
         });
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER);
+        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
 
 }
@@ -747,8 +748,8 @@ async function goToBuckets(): Promise<void> {
 
     @media screen and (max-width: 768px) {
         flex-direction: column;
-        justify-content: start;
-        align-items: start;
+        justify-content: flex-start;
+        align-items: flex-start;
     }
 
     &__title {
@@ -765,7 +766,7 @@ async function goToBuckets(): Promise<void> {
 
     &__actions {
         display: flex;
-        justify-content: start;
+        justify-content: flex-start;
         flex-wrap: wrap;
         gap: 5px;
     }
