@@ -129,6 +129,9 @@ type DB interface {
 	TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error)
 	// TestUpdateCheckInDirectUpdate tries to update a node info directly. Returns true if it succeeded, false if there were no node with the provided (used for testing).
 	TestUpdateCheckInDirectUpdate(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error)
+	// OneTimeFixLastNets updates the last_net values for all node records to be equal to their
+	// last_ip_port values.
+	OneTimeFixLastNets(ctx context.Context) error
 
 	// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllContactedNodes(context.Context, func(context.Context, *SelectedNode) error) error
