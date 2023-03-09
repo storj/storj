@@ -1681,3 +1681,15 @@ func (n *noiseScanner) Convert() *pb.NoiseInfo {
 		PublicKey: n.PublicKey,
 	}
 }
+
+// OneTimeFixLastNets updates the last_net values for all node records to be equal to their
+// last_ip_port values.
+//
+// This is only appropriate to do when the satellite has DistinctIP=false and has been upgraded from
+// before changeset I0e7e92498c3da768df5b4d5fb213dcd2d4862924. It is only necessary to run this
+// once, after all satellite peers are upgraded (otherwise some nodes may be inserted with truncated
+// last_net values, and those nodes could be unfairly disadvantaged in node selection).
+func (cache *overlaycache) OneTimeFixLastNets(ctx context.Context) error {
+	_, err := cache.db.ExecContext(ctx, "UPDATE nodes SET last_net = last_ip_port")
+	return err
+}

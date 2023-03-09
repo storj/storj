@@ -278,6 +278,17 @@ echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}" "2"
 echo -e "\nRunning stage 2."
 
+# For cases where the old satellite predates changeset I0e7e92498c3da768df5b4d5fb213dcd2d4862924,
+# adjust all last_net values for future compatibility. this migration step is only necessary for
+# satellites which existed before the aforementioned changeset and use dev defaults (to be specific,
+# DistinctIP is off). This is a harmless change for any other satellites using dev defaults.
+#
+# This may need to be done more than once, since in this particular case we will be running an old
+# API server the whole time, and it will update nodes with a masked last_net as they check in.
+fix_last_nets() {
+    $(version_dir ${stage2_sat_version})/bin/satellite --config-dir "${test_dir}/local-network/satellite/0" fix-last-nets
+}
+
 # Starting old satellite api in the background
 has_marketing_server=$(echo $stage1_sat_version | awk 'BEGIN{FS="[v.]"} ($2 == 1 && $3 <= 22) || $2 == 0 {print $0}')
 if [ "$has_marketing_server" != "" ]; then
@@ -303,10 +314,12 @@ for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
+    fix_last_nets
     PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
     if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
+        fix_last_nets
         PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade-final-upload.sh" "${test_dir}/local-network"
     fi
 done

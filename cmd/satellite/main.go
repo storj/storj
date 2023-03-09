@@ -292,6 +292,11 @@ var (
 		Args:  cobra.RangeArgs(1, 2),
 		RunE:  cmdRepairSegment,
 	}
+	fixLastNetsCmd = &cobra.Command{
+		Use:   "fix-last-nets",
+		Short: "Fix last_net entries in the database for satellites with DistinctIP=false",
+		RunE:  cmdFixLastNets,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -361,6 +366,7 @@ func init() {
 	rootCmd.AddCommand(registerLostSegments)
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
+	rootCmd.AddCommand(fixLastNetsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -408,6 +414,7 @@ func init() {
 	process.Bind(payCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
@@ -973,6 +980,27 @@ func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
 	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost-segments", numLostSegments))
 
 	return nil
+}
+
+func cmdFixLastNets(cmd *cobra.Command, _ []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	if runCfg.Overlay.Node.DistinctIP {
+		log.Info("No fix necessary; DistinctIP=true")
+		return nil
+	}
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName: "satellite-fix-last-nets",
+	})
+	if err != nil {
+		return fmt.Errorf("error opening master database: %w", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	return db.OverlayCache().OneTimeFixLastNets(ctx)
 }
 
 func main() {
