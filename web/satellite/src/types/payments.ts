@@ -28,7 +28,7 @@ export interface PaymentsApi {
     /**
      * projectUsagePriceModel returns the project usage price model for the user.
      */
-     projectUsagePriceModel(): Promise<ProjectUsagePriceModel>;
+    projectUsagePriceModel(): Promise<ProjectUsagePriceModel>;
 
     /**
      * Add credit card
@@ -104,6 +104,21 @@ export interface PaymentsApi {
      * @throws Error
      */
     claimWallet(): Promise<Wallet>;
+
+    /**
+     * Purchases the pricing package associated with the user's partner.
+     *
+     * @param token - the Stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
+    purchasePricingPackage(token: string): Promise<void>;
+
+    /**
+     * Returns whether there is a pricing package configured for the user's partner.
+     *
+     * @throws Error
+     */
+    pricingPackageAvailable(): Promise<boolean>;
 }
 
 export class AccountBalance {

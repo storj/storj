@@ -27,6 +27,7 @@ import CreateProjectPromptModal from '@/components/modals/CreateProjectPromptMod
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 import ObjectDetailsModal from '@/components/modals/ObjectDetailsModal.vue';
 import EnterPassphraseModal from '@/components/modals/EnterPassphraseModal.vue';
+import PricingPlanModal from '@/components/modals/PricingPlanModal.vue';
 
 export const APP_STATE_DROPDOWNS = {
     ACCOUNT: 'isAccountDropdownShown',
@@ -68,6 +69,7 @@ enum Modals {
     UPLOAD_CANCEL_POPUP = 'uploadCancelPopup',
     OBJECT_DETAILS = 'objectDetails',
     ENTER_PASSPHRASE = 'enterPassphrase',
+    PRICING_PLAN = 'pricingPlan',
 }
 
 // modals could be of VueConstructor type or Object (for composition api components).
@@ -95,4 +97,5 @@ export const MODALS: Record<Modals, unknown> = {
     [Modals.UPLOAD_CANCEL_POPUP]: UploadCancelPopup,
     [Modals.OBJECT_DETAILS]: ObjectDetailsModal,
     [Modals.ENTER_PASSPHRASE]: EnterPassphraseModal,
+    [Modals.PRICING_PLAN]: PricingPlanModal,
 };

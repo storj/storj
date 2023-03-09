@@ -25,31 +25,31 @@
                             you use for this project. This allows you to manage existing data you have uploaded with the
                             same passphrase."
                     />
-                    <div class="encryption__radios__advanced" @click="toggleAdvanced">
+                    <div tabindex="0" class="encryption__radios__advanced" @click="toggleAdvanced" @keyup.space="toggleAdvanced">
                         <h2 class="encryption__radios__advanced__label">Advanced</h2>
                         <ChevronIcon
                             class="encryption__radios__advanced__chevron"
                             :class="{'encryption__radios__advanced__chevron--up': advancedShown}"
                         />
                     </div>
-                    <template v-if="advancedShown">
-                        <Radio
-                            id="newPassphrase"
-                            :checked="isSelectedOption(_PassphraseOption.EnterNewPassphrase)"
-                            :on-check="() => setOption(_PassphraseOption.EnterNewPassphrase)"
-                            label="Enter a new passphrase"
-                            info="Create this access with a new encryption passphrase that you can enter on the next step.
-                                The access will not be able to manage any existing data."
-                        />
-                        <Radio
-                            id="generatePassphrase"
-                            :checked="isSelectedOption(_PassphraseOption.GenerateNewPassphrase)"
-                            :on-check="() => setOption(_PassphraseOption.GenerateNewPassphrase)"
-                            label="Generate 12-word passphrase"
-                            info="Create this access with a new encryption passphrase that will be generated for you on
-                                the next step. The access will not be able to manage any existing data."
-                        />
-                    </template>
+                    <Radio
+                        v-show="advancedShown"
+                        id="new passphrase"
+                        :checked="isSelectedOption(_PassphraseOption.EnterNewPassphrase)"
+                        :on-check="() => setOption(_PassphraseOption.EnterNewPassphrase)"
+                        label="Enter a new passphrase"
+                        info="Create this access with a new encryption passphrase that you can enter on the next step.
+                            The access will not be able to manage any existing data."
+                    />
+                    <Radio
+                        v-show="advancedShown"
+                        id="generate passphrase"
+                        :checked="isSelectedOption(_PassphraseOption.GenerateNewPassphrase)"
+                        :on-check="() => setOption(_PassphraseOption.GenerateNewPassphrase)"
+                        label="Generate 12-word passphrase"
+                        info="Create this access with a new encryption passphrase that will be generated for you on
+                            the next step. The access will not be able to manage any existing data."
+                    />
                 </div>
             </template>
             <template #info>
@@ -77,7 +77,6 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
-                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -87,7 +86,6 @@
                     height="48px"
                     font-size="14px"
                     :on-press="onContinue"
-                    :is-disabled="isLoading"
                 />
             </template>
         </ButtonsContainer>
@@ -117,7 +115,6 @@ const props = defineProps<{
     setOption: (option: PassphraseOption) => void;
     onBack: () => void;
     onContinue: () => void;
-    isLoading: boolean;
 }>();
 
 const store = useStore();
@@ -193,9 +190,17 @@ function isSelectedOption(option: PassphraseOption): boolean {
         align-items: flex-start;
         margin-top: 16px;
 
+        @media screen and (max-width: 460px) {
+            flex-direction: column;
+        }
+
         &__icon {
             min-width: 32px;
             margin-right: 16px;
+
+            @media screen and (max-width: 460px) {
+                margin: 0 0 16px;
+            }
         }
 
         &__message {

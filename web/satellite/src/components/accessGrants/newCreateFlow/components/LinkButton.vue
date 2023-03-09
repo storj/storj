@@ -7,6 +7,7 @@
         :href="link"
         target="_blank"
         rel="noopener noreferrer"
+        @click="trackPageVisit"
     >
         <LearnIcon v-if="withIcon" />
         <p class="link-button__label">{{ label }}</p>
@@ -14,6 +15,8 @@
 </template>
 
 <script setup lang="ts">
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 import LearnIcon from '@/../static/images/accessGrants/newCreateFlow/learn.svg';
 
 const props = withDefaults(defineProps<{
@@ -23,6 +26,15 @@ const props = withDefaults(defineProps<{
 }>(), {
     withIcon: false,
 });
+
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Sends "trackPageVisit" event to segment.
+ */
+function trackPageVisit(): void {
+    analytics.pageVisit(props.link);
+}
 </script>
 
 <style scoped lang="scss">
@@ -56,6 +68,10 @@ const props = withDefaults(defineProps<{
         :deep(svg path) {
             fill: #fff;
         }
+    }
+
+    &:focus {
+        outline: 2px solid #376fff;
     }
 }
 </style>

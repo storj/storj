@@ -28,7 +28,7 @@
                     :selected-permissions="selectedPermissions"
                     :on-back="setFirstStepBasedOnAccessType"
                     :on-continue="() => setStep(
-                        selectedAccessTypes.includes(AccessType.APIKey) ? setLastStep() : CreateAccessStep.AccessEncryption
+                        selectedAccessTypes.includes(AccessType.APIKey) ? CreateAccessStep.ConfirmDetails : CreateAccessStep.AccessEncryption
                     )"
                     :selected-buckets="selectedBuckets"
                     :on-select-bucket="selectBucket"
@@ -38,7 +38,6 @@
                     :on-set-not-after="setNotAfter"
                     :not-after-label="notAfterLabel"
                     :on-set-not-after-label="setNotAfterLabel"
-                    :is-loading="isLoading"
                 />
                 <AccessEncryptionStep
                     v-if="step === CreateAccessStep.AccessEncryption"
@@ -46,36 +45,43 @@
                     :on-continue="setStepBasedOnPassphraseOption"
                     :passphrase-option="passphraseOption"
                     :set-option="setPassphraseOption"
-                    :is-loading="isLoading"
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterMyPassphrase"
                     :is-new-passphrase="false"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="setLastStep"
+                    :on-continue="() => setStep(CreateAccessStep.ConfirmDetails)"
                     :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="Enter the encryption passphrase used for this project to create this access grant."
-                    :is-loading="isLoading"
                 />
                 <EnterPassphraseStep
                     v-if="step === CreateAccessStep.EnterNewPassphrase"
                     :is-new-passphrase="true"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="setLastStep"
+                    :on-continue="() => setStep(CreateAccessStep.ConfirmDetails)"
                     :passphrase="enteredPassphrase"
                     :set-passphrase="setPassphrase"
                     info="This passphrase will be used to encrypt all the files you upload using this access grant.
                         You will need it to access these files in the future."
-                    :is-loading="isLoading"
                 />
                 <PassphraseGeneratedStep
                     v-if="step === CreateAccessStep.PassphraseGenerated"
                     :on-back="() => setStep(CreateAccessStep.AccessEncryption)"
-                    :on-continue="setLastStep"
+                    :on-continue="() => setStep(CreateAccessStep.ConfirmDetails)"
                     :passphrase="generatedPassphrase"
                     :name="accessName"
+                />
+                <ConfirmDetailsStep
+                    v-if="step === CreateAccessStep.ConfirmDetails"
+                    :access-types="selectedAccessTypes"
                     :is-loading="isLoading"
+                    :not-after-label="notAfterLabel"
+                    :selected-buckets="selectedBuckets"
+                    :name="accessName"
+                    :selected-permissions="selectedPermissions"
+                    :on-back="setPreviousStepFromConfirm"
+                    :on-continue="setLastStep"
                 />
                 <AccessCreatedStep
                     v-if="step === CreateAccessStep.AccessCreated"
@@ -133,6 +139,7 @@ import EncryptionInfoStep from '@/components/accessGrants/newCreateFlow/steps/En
 import AccessCreatedStep from '@/components/accessGrants/newCreateFlow/steps/AccessCreatedStep.vue';
 import CLIAccessCreatedStep from '@/components/accessGrants/newCreateFlow/steps/CLIAccessCreatedStep.vue';
 import S3CredentialsCreatedStep from '@/components/accessGrants/newCreateFlow/steps/S3CredentialsCreatedStep.vue';
+import ConfirmDetailsStep from '@/components/accessGrants/newCreateFlow/steps/ConfirmDetailsStep.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -252,6 +259,28 @@ function setPassphrase(value: string): void {
  */
 function setNotAfter(date: Date | undefined): void {
     notAfter.value = date;
+}
+
+/**
+ * Sets previous step from confirm step.
+ */
+function setPreviousStepFromConfirm(): void {
+    switch (true) {
+    case selectedAccessTypes.value.includes(AccessType.APIKey):
+        step.value = CreateAccessStep.ChoosePermission;
+        break;
+    case passphraseOption.value === PassphraseOption.SetMyProjectPassphrase:
+        step.value = CreateAccessStep.EnterMyPassphrase;
+        break;
+    case passphraseOption.value === PassphraseOption.UseExistingPassphrase:
+        step.value = CreateAccessStep.AccessEncryption;
+        break;
+    case passphraseOption.value === PassphraseOption.EnterNewPassphrase:
+        step.value = CreateAccessStep.EnterNewPassphrase;
+        break;
+    case passphraseOption.value === PassphraseOption.GenerateNewPassphrase:
+        step.value = CreateAccessStep.PassphraseGenerated;
+    }
 }
 
 /**
@@ -382,7 +411,7 @@ function setFirstStepBasedOnAccessType(): void {
 /**
  * Sets next step depending on selected passphrase option.
  */
-async function setStepBasedOnPassphraseOption(): Promise<void> {
+function setStepBasedOnPassphraseOption(): void {
     switch (passphraseOption.value) {
     case PassphraseOption.SetMyProjectPassphrase:
         step.value = CreateAccessStep.EnterMyPassphrase;
@@ -394,7 +423,7 @@ async function setStepBasedOnPassphraseOption(): Promise<void> {
         step.value = CreateAccessStep.PassphraseGenerated;
         break;
     case PassphraseOption.UseExistingPassphrase:
-        await setLastStep();
+        step.value = CreateAccessStep.ConfirmDetails;
     }
 }
 
@@ -607,11 +636,21 @@ onMounted(async () => {
     flex-direction: column;
     position: relative;
 
+    @media screen and (max-width: 460px) {
+        width: 280px;
+        padding: 16px;
+    }
+
     &__header {
         display: flex;
         align-items: center;
         padding-bottom: 16px;
         border-bottom: 1px solid var(--c-grey-2);
+
+        @media screen and (max-width: 460px) {
+            flex-direction: column;
+            align-items: flex-start;
+        }
 
         &__title {
             margin-left: 16px;
@@ -620,6 +659,11 @@ onMounted(async () => {
             line-height: 31px;
             letter-spacing: -0.02em;
             color: var(--c-black);
+            text-align: left;
+
+            @media screen and (max-width: 460px) {
+                margin: 10px 0 0;
+            }
         }
     }
 

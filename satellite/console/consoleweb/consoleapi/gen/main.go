@@ -16,6 +16,8 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+// main defines the structure of the API and generates its associated frontend and backend code.
+// These API endpoints are not currently used from inside the Satellite UI.
 func main() {
 	// definition for REST API
 	a := &apigen.API{

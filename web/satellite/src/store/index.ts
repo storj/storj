@@ -102,7 +102,7 @@ export default store;
   relies on store state for the routing behavior.
 */
 router.beforeEach(async (to, from, next) => {
-    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.Login.name) {
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.Login.name) {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
@@ -110,7 +110,7 @@ router.beforeEach(async (to, from, next) => {
     // but since there is no project we then redirect user to onboarding flow.
     // That's why we toggle this flag here back to false not show create project passphrase modal again
     // if user clicks 'Continue in web'.
-    if (to.name === RouteConfig.NewProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
@@ -132,7 +132,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        next(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
 
         return;
     }

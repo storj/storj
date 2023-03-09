@@ -208,6 +208,11 @@ read one (
     where account_freeze_event.event = ?
 )
 
+read all (
+    select account_freeze_event
+    where account_freeze_event.user_id = ?
+)
+
 update account_freeze_event (
     where account_freeze_event.user_id = ?
     where account_freeze_event.event = ?
@@ -223,6 +228,8 @@ model user_settings (
     field user_id blob
     // session_minutes indicates the time when the user should be logged out.
     field session_minutes uint ( nullable, updatable )
+    // passphrase_prompt indicates whether the user would like to be prompted for a passphrase when entering or switching projects.
+    field passphrase_prompt bool ( nullable, updatable )
 )
 
 create user_settings ( noreturn )

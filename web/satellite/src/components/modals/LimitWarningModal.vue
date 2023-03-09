@@ -130,8 +130,4 @@ export default class LimitWarningModal extends Vue {
         }
     }
 }
-
-:deep(.whiteCheck) {
-    display: none;
-}
 </style>

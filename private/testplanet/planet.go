@@ -57,6 +57,7 @@ type Config struct {
 	MultinodeCount   int
 
 	IdentityVersion *storj.IDVersion
+	LastNetFunc     overlay.LastNetFunc
 	Reconfigure     Reconfigure
 
 	Name        string

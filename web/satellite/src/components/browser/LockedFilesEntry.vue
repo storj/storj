@@ -6,7 +6,7 @@
         :on-click="openModal"
         :on-primary-click="openModal"
         :item="{'name': 'Objects locked', 'size': '', 'date': ''}"
-        table-type="locked"
+        item-type="locked"
     >
         <th slot="options" />
     </table-item>

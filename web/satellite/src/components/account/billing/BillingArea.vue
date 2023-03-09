@@ -9,25 +9,25 @@
             </div>
             <div class="account-billing-area__header">
                 <div
-                    :class="`account-billing-area__header__tab first-header-tab ${$route.name === 'Overview' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab first-header-tab ${routeHas('overview') ? 'selected-tab' : ''}`"
                     @click="routeToOverview"
                 >
                     <p>Overview</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab ${$route.name === 'Payment Methods' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab ${routeHas('methods') ? 'selected-tab' : ''}`"
                     @click="routeToPaymentMethods"
                 >
                     <p>Payment Methods</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab ${$route.name === 'Billing History 2' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab ${routeHas('history') ? 'selected-tab' : ''}`"
                     @click="routeToBillingHistory"
                 >
                     <p>Billing History</p>
                 </div>
                 <div
-                    :class="`account-billing-area__header__tab last-header-tab ${$route.name === 'Coupons' ? 'selected-tab' : ''}`"
+                    :class="`account-billing-area__header__tab last-header-tab ${routeHas('coupons') ? 'selected-tab' : ''}`"
                     @click="routeToCoupons"
                 >
                     <p>Coupons</p>
@@ -98,6 +98,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { NavigationLink } from '@/types/navigation';
 
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
@@ -220,6 +221,23 @@ export default class BillingArea extends Vue {
     }
 
     /**
+     * Returns the base account route based on if we're on all projects dashboard.
+     */
+    public get baseAccountRoute(): NavigationLink {
+        if (this.$route.path.includes(RouteConfig.AccountSettings.path)) {
+            return RouteConfig.AccountSettings;
+        }
+        return RouteConfig.Account;
+    }
+
+    /**
+     * Whether current route name contains term.
+     */
+    public routeHas(term: string): boolean {
+        return !!this.$route.name?.toLowerCase().includes(term);
+    }
+
+    /**
      * Toggles available balance dropdown visibility.
      */
     public toggleBalanceDropdown(): void {
@@ -239,7 +257,7 @@ export default class BillingArea extends Vue {
      * Routes for new billing screens.
      */
     public routeToOverview(): void {
-        const overviewPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+        const overviewPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
         if (this.$route.path !== overviewPath) {
             this.analytics.pageVisit(overviewPath);
             this.$router.push(overviewPath);
@@ -247,7 +265,7 @@ export default class BillingArea extends Vue {
     }
 
     public routeToPaymentMethods(): void {
-        const payMethodsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+        const payMethodsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
         if (this.$route.path !== payMethodsPath) {
             this.analytics.pageVisit(payMethodsPath);
             this.$router.push(payMethodsPath);
@@ -255,7 +273,7 @@ export default class BillingArea extends Vue {
     }
 
     public routeToBillingHistory(): void {
-        const billingPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
+        const billingPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path;
         if (this.$route.path !== billingPath) {
             this.analytics.pageVisit(billingPath);
             this.$router.push(billingPath);
@@ -263,7 +281,7 @@ export default class BillingArea extends Vue {
     }
 
     public routeToCoupons(): void {
-        const couponsPath = RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+        const couponsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
         if (this.$route.path !== couponsPath) {
             this.analytics.pageVisit(couponsPath);
             this.$router.push(couponsPath);

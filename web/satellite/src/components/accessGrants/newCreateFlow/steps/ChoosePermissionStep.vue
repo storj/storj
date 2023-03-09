@@ -45,6 +45,7 @@
                     id="allBuckets"
                     :checked="selectedBuckets.length === 0"
                     label="All"
+                    :disabled="selectedBuckets.length === 0"
                     :on-check="selectAllBuckets"
                     :on-show-hide-all="toggleBucketsVisibility"
                     :all-shown="searchBucketsShown"
@@ -53,7 +54,7 @@
                     <div v-if="selectedBuckets.length" class="choose__selected-container">
                         <div v-for="bucket in selectedBuckets" :key="bucket" class="choose__selected-container__item">
                             <p class="choose__selected-container__item__label">{{ bucket }}</p>
-                            <CloseIcon @click="() => onUnselectBucket(bucket)" />
+                            <CloseIcon tabindex="0" @click="() => onUnselectBucket(bucket)" @keyup.space="() => onUnselectBucket(bucket)" />
                         </div>
                     </div>
                     <div class="choose__search-container">
@@ -65,8 +66,10 @@
                             <p
                                 v-for="bucket in bucketsList"
                                 :key="bucket"
+                                tabindex="0"
                                 class="choose__bucket-results__item"
                                 @click="() => selectBucket(bucket)"
+                                @keyup.space="() => selectBucket(bucket)"
                             >
                                 {{ bucket }}
                             </p>
@@ -81,7 +84,13 @@
         <ContainerWithIcon :icon-and-title="FUNCTIONAL_CONTAINER_ICON_AND_TITLE[FunctionalContainer.EndDate]">
             <template #functional>
                 <div class="choose__date-selection">
-                    <p v-if="!settingDate && !notAfter" class="choose__date-selection__label" @click="toggleSettingDate">
+                    <p
+                        v-if="!settingDate && !notAfter"
+                        tabindex="0"
+                        class="choose__date-selection__label"
+                        @click="toggleSettingDate"
+                        @keyup.space="toggleSettingDate"
+                    >
                         Add Date (optional)
                     </p>
                     <EndDateSelection
@@ -102,7 +111,6 @@
                     font-size="14px"
                     :on-press="onBack"
                     :is-white="true"
-                    :is-disabled="isLoading"
                 />
             </template>
             <template #rightButton>
@@ -112,7 +120,7 @@
                     height="48px"
                     font-size="14px"
                     :on-press="handleContinue"
-                    :is-disabled="isButtonDisabled || isLoading"
+                    :is-disabled="isButtonDisabled"
                 />
             </template>
         </ButtonsContainer>
@@ -151,7 +159,6 @@ const props = withDefaults(defineProps<{
     notAfterLabel: string;
     onBack: () => void;
     onContinue: () => void;
-    isLoading: boolean;
     notAfter?: Date;
 }>(), {
     notAfter: undefined,

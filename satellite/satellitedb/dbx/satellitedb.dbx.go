@@ -371,7 +371,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -780,6 +780,7 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -1036,7 +1037,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	inline bigint NOT NULL,
 	allocated bigint NOT NULL,
 	settled bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+	PRIMARY KEY ( project_id, bucket_name, interval_start, action )
 );
 CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
@@ -1445,6 +1446,7 @@ CREATE TABLE users (
 CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
+	passphrase_prompt boolean,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
@@ -9955,18 +9957,21 @@ func (f User_SignupCaptcha_Field) value() interface{} {
 func (User_SignupCaptcha_Field) _Column() string { return "signup_captcha" }
 
 type UserSettings struct {
-	UserId         []byte
-	SessionMinutes *uint
+	UserId           []byte
+	SessionMinutes   *uint
+	PassphrasePrompt *bool
 }
 
 func (UserSettings) _Table() string { return "user_settings" }
 
 type UserSettings_Create_Fields struct {
-	SessionMinutes UserSettings_SessionMinutes_Field
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
 }
 
 type UserSettings_Update_Fields struct {
-	SessionMinutes UserSettings_SessionMinutes_Field
+	SessionMinutes   UserSettings_SessionMinutes_Field
+	PassphrasePrompt UserSettings_PassphrasePrompt_Field
 }
 
 type UserSettings_UserId_Field struct {
@@ -10021,6 +10026,40 @@ func (f UserSettings_SessionMinutes_Field) value() interface{} {
 }
 
 func (UserSettings_SessionMinutes_Field) _Column() string { return "session_minutes" }
+
+type UserSettings_PassphrasePrompt_Field struct {
+	_set   bool
+	_null  bool
+	_value *bool
+}
+
+func UserSettings_PassphrasePrompt(v bool) UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _value: &v}
+}
+
+func UserSettings_PassphrasePrompt_Raw(v *bool) UserSettings_PassphrasePrompt_Field {
+	if v == nil {
+		return UserSettings_PassphrasePrompt_Null()
+	}
+	return UserSettings_PassphrasePrompt(*v)
+}
+
+func UserSettings_PassphrasePrompt_Null() UserSettings_PassphrasePrompt_Field {
+	return UserSettings_PassphrasePrompt_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_PassphrasePrompt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_PassphrasePrompt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserSettings_PassphrasePrompt_Field) _Column() string { return "passphrase_prompt" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -11641,8 +11680,8 @@ type Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continua
 }
 
 type Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
-	_value_bucket_name    []byte
 	_value_project_id     []byte
+	_value_bucket_name    []byte
 	_value_interval_start time.Time
 	_value_action         uint
 	_set                  bool
@@ -13052,11 +13091,12 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__user_id_val := user_settings_user_id.value()
 	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __session_minutes_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -13480,16 +13520,16 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -13510,7 +13550,7 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(
 
 			for __rows.Next() {
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -13751,6 +13791,28 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -16286,12 +16348,57 @@ func (obj *pgxImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx context.Conte
 
 }
 
+func (obj *pgxImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings_user_id UserSettings_UserId_Field) (
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -16300,7 +16407,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -18259,7 +18366,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18268,6 +18375,11 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -18283,7 +18395,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20565,11 +20677,12 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	__user_id_val := user_settings_user_id.value()
 	__session_minutes_val := optional.SessionMinutes.value()
+	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes ) VALUES ( ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_settings ( user_id, session_minutes, passphrase_prompt ) VALUES ( ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __session_minutes_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -20993,16 +21106,16 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
 
 	var __values []interface{}
 	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
 
 	var __stmt string
 	if start != nil && start._set {
-		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__values = append(__values, start._value_project_id, start._value_bucket_name, start._value_interval_start, start._value_action, limit)
 		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	} else {
 		__values = append(__values, limit)
@@ -21023,7 +21136,7 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_Greate
 
 			for __rows.Next() {
 				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
-				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_project_id, &__continuation._value_bucket_name, &__continuation._value_interval_start, &__continuation._value_action)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -21264,6 +21377,28 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context
 	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id FROM stripe_customers WHERE stripe_customers.customer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_customer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &UserId_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UserId)
+	if err != nil {
+		return (*UserId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -23799,12 +23934,57 @@ func (obj *pgxcockroachImpl) Get_AccountFreezeEvent_By_UserId_And_Event(ctx cont
 
 }
 
+func (obj *pgxcockroachImpl) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.created_at FROM account_freeze_events WHERE account_freeze_events.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*AccountFreezeEvent, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				account_freeze_event := &AccountFreezeEvent{}
+				err = __rows.Scan(&account_freeze_event.UserId, &account_freeze_event.Event, &account_freeze_event.Limits, &account_freeze_event.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, account_freeze_event)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	user_settings_user_id UserSettings_UserId_Field) (
 	user_settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_settings_user_id.value())
@@ -23813,7 +23993,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -25772,7 +25952,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -25781,6 +25961,11 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	if update.SessionMinutes._set {
 		__values = append(__values, update.SessionMinutes.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("session_minutes = ?"))
+	}
+
+	if update.PassphrasePrompt._set {
+		__values = append(__values, update.PassphrasePrompt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("passphrase_prompt = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -25796,7 +25981,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -26801,6 +26986,16 @@ func (rx *Rx) Rollback() (err error) {
 		rx.tx = nil
 	}
 	return err
+}
+
+func (rx *Rx) All_AccountFreezeEvent_By_UserId(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+	rows []*AccountFreezeEvent, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_AccountFreezeEvent_By_UserId(ctx, account_freeze_event_user_id)
 }
 
 func (rx *Rx) All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
@@ -28082,6 +28277,16 @@ func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
+func (rx *Rx) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	row *UserId_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripeCustomer_UserId_By_CustomerId(ctx, stripe_customer_customer_id)
+}
+
 func (rx *Rx) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -28720,6 +28925,10 @@ func (rx *Rx) Update_WebappSession_By_Id(ctx context.Context,
 }
 
 type Methods interface {
+	All_AccountFreezeEvent_By_UserId(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
+		rows []*AccountFreezeEvent, err error)
+
 	All_BillingTransaction_By_UserId_OrderBy_Desc_Timestamp(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field) (
 		rows []*BillingTransaction, err error)
@@ -29297,6 +29506,10 @@ type Methods interface {
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
+
+	Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		row *UserId_Row, err error)
 
 	Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,

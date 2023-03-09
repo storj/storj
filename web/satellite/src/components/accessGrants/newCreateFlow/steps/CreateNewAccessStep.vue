@@ -15,10 +15,12 @@
                             <p class="create__toggles__info">
                                 Keys to upload, delete, and view your project's data.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/concepts/access/access-grants"
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    @click="() => trackPageVisit('https://docs.storj.io/dcs/concepts/access/access-grants')"
                                 >Learn More</a>
                             </p>
                         </template>
@@ -32,10 +34,12 @@
                             <p class="create__toggles__info">
                                 Generates access key, secret key, and endpoint to use in your S3-supporting application.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/api-reference/s3-compatible-gateway"
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    @click="() => trackPageVisit('https://docs.storj.io/dcs/api-reference/s3-compatible-gateway')"
                                 >Learn More</a>
                             </p>
                         </template>
@@ -49,10 +53,12 @@
                             <p class="create__toggles__info">
                                 Creates access grant to run in the command line.
                                 <a
+                                    tabindex="0"
                                     class="create__toggles__info__link"
                                     href="https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token"
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    @click="() => trackPageVisit('https://docs.storj.io/dcs/getting-started/quickstart-uplink-cli/generate-access-grants-and-tokens/generate-a-token')"
                                 >Learn More</a>
                             </p>
                         </template>
@@ -96,6 +102,7 @@
 import { computed } from 'vue';
 
 import { AccessType, FUNCTIONAL_CONTAINER_ICON_AND_TITLE, FunctionalContainer } from '@/types/createAccessGrant';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 import ContainerWithIcon from '@/components/accessGrants/newCreateFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/newCreateFlow/components/ButtonsContainer.vue';
@@ -112,12 +119,21 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
 /**
  * Indicates if button should be disabled.
  */
 const isButtonDisabled = computed((): boolean => {
     return !props.name || !props.selectedAccessTypes.length;
 });
+
+/**
+ * Sends "trackPageVisit" event to segment.
+ */
+function trackPageVisit(link: string): void {
+    analytics.pageVisit(link);
+}
 </script>
 
 <style lang="scss" scoped>
@@ -139,6 +155,10 @@ const isButtonDisabled = computed((): boolean => {
 
                 &:visited {
                     color: var(--c-white);
+                }
+
+                &:focus {
+                    outline: 2px solid #fff;
                 }
             }
         }

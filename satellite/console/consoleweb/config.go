@@ -31,7 +31,6 @@ type FrontendConfig struct {
 	LinksharingURL                  string                `json:"linksharingURL"`
 	PathwayOverviewEnabled          bool                  `json:"pathwayOverviewEnabled"`
 	Captcha                         console.CaptchaConfig `json:"captcha"`
-	NewProjectDashboard             bool                  `json:"newProjectDashboard"`
 	AllProjectsDashboard            bool                  `json:"allProjectsDashboard"`
 	DefaultPaidStorageLimit         memory.Size           `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit       memory.Size           `json:"defaultPaidBandwidthLimit"`
@@ -46,6 +45,7 @@ type FrontendConfig struct {
 	PasswordMinimumLength           int                   `json:"passwordMinimumLength"`
 	PasswordMaximumLength           int                   `json:"passwordMaximumLength"`
 	ABTestingEnabled                bool                  `json:"abTestingEnabled"`
+	PricingPackagesEnabled          bool                  `json:"pricingPackagesEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

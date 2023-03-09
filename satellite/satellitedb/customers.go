@@ -58,6 +58,22 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 	return idRow.CustomerId, nil
 }
 
+// GetUserID return userID given stripe customer id.
+func (customers *customers) GetUserID(ctx context.Context, customerID string) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	idRow, err := customers.db.Get_StripeCustomer_UserId_By_CustomerId(ctx, dbx.StripeCustomer_CustomerId(customerID))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return uuid.UUID{}, stripecoinpayments.ErrNoCustomer
+		}
+
+		return uuid.UUID{}, err
+	}
+
+	return uuid.FromBytes(idRow.UserId)
+}
+
 // List returns paginated customers id list, with customers created before specified date.
 func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CustomersPage, err error) {
 	defer mon.Task()(&ctx)(&err)

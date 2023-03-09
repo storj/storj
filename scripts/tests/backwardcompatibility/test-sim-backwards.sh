@@ -145,7 +145,6 @@ fi
 # setup multinode if config is missing
 MULTINODE_DIR=$(storj-sim network env MULTINODE_0_DIR)
 if [ ! -f "$MULTINODE_DIR/config.yaml" ]; then
-    identity --identity-dir $MULTINODE_DIR --concurrency 1 --difficulty 8 create .
     multinode $(storj-sim --host "$STORJ_NETWORK_HOST4" network env MULTINODE_0_SETUP_ARGS)
 fi
 
@@ -164,6 +163,20 @@ sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-s
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_7_DIR)"/config.yaml
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_8_DIR)"/config.yaml
 sed -i -e "s#storage.whitelisted-satellites#storage2.trust.sources#g" "$(storj-sim network env STORAGENODE_9_DIR)"/config.yaml
+
+# For cases where the release predates changeset I0e7e92498c3da768df5b4d5fb213dcd2d4862924,
+# adjust all last_net values for future compatibility. this migration step is only necessary for
+# satellites which existed before the aforementioned changeset and use dev defaults (to be specific,
+# DistinctIP is off). This is a harmless change for any other satellites using dev defaults.
+if [ "${STORJ_SIM_POSTGRES#cockroach:}" != "$STORJ_SIM_POSTGRES" ]; then
+    schema_set=
+    pgurl="${STORJ_SIM_POSTGRES/cockroach:/postgres:}"
+    pgurl="${pgurl%?sslmode=disable}/satellite/0?sslmode=disable"
+else
+    schema_set='set search_path to "satellite/0"; '
+    pgurl="$STORJ_SIM_POSTGRES"
+fi
+psql "$pgurl" -c "${schema_set}update nodes set last_net = last_ip_port"
 
 # Run with 9 nodes to exercise more code paths with one node being offline.
 STORJ_NUM_NODES=9

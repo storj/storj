@@ -26,9 +26,13 @@
                         height="40px"
                         :on-press="onCopy"
                         :is-disabled="isLoading"
-                        :is-green-white="copyButtonState === ButtonStates.Copied"
+                        :is-green="copyButtonState === ButtonStates.Copied"
                         :icon="copyButtonState === ButtonStates.Copied ? 'none' : 'copy'"
-                    />
+                    >
+                        <template v-if="copyButtonState === ButtonStates.Copied" #icon>
+                            <check-icon />
+                        </template>
+                    </VButton>
                 </div>
             </div>
         </template>
@@ -47,6 +51,8 @@ import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import ShareContainer from '@/components/common/share/ShareContainer.vue';
 
+import CheckIcon from '@/../static/images/common/check.svg';
+
 enum ButtonStates {
     Copy,
     Copied,
@@ -55,6 +61,7 @@ enum ButtonStates {
 // @vue/component
 @Component({
     components: {
+        CheckIcon,
         ShareContainer,
         VLoader,
         VButton,

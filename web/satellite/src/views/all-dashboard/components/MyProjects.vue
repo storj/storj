@@ -87,9 +87,8 @@ function onCreateProjectClicked(): void {
         }
 
         &__title {
+            font-family: 'font_bold', sans-serif;
             font-size: 24px;
-            font-family: sans-serif;
-            font-weight: bold;
             line-height: 31px;
         }
 

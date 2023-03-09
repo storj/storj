@@ -2,10 +2,11 @@
 // See LICENSE for copying information.
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { OnboardingOS, PartneredSatellite } from '@/types/common';
+import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/common';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
 
 // Object that contains all states of views
 class ViewsState {
@@ -21,6 +22,7 @@ class ViewsState {
         public setDefaultPaymentMethodID = '',
         public deletePaymentMethodID = '',
         public onbSelectedOs: OnboardingOS | null = null,
+        public selectedPricingPlan: PricingPlanInfo | null = null,
         public managePassphraseStep: ManageProjectPassphraseStep | undefined = undefined,
         public activeDropdown = 'none',
         // activeModal could be of VueConstructor type or Object (for composition api components).
@@ -36,7 +38,7 @@ class State {
         public isBetaSatellite = false,
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
-        public isNewProjectDashboard = false,
+        public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true',
         public isNewAccessGrantFlow = false,
     ) {}
 }
@@ -70,6 +72,7 @@ export const appStateModule = {
             state.appState.deletePaymentMethodID = '';
             state.appState.onbSelectedOs = null;
             state.appState.managePassphraseStep = undefined;
+            state.appState.selectedPricingPlan = null;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -82,9 +85,6 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: State, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
-        },
-        [APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS](state: State, isNewProjectDashboard: boolean): void {
-            state.isNewProjectDashboard = isNewProjectDashboard;
         },
         [APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS](state: State, isNewAccessGrantFlow: boolean): void {
             state.isNewAccessGrantFlow = isNewAccessGrantFlow;
@@ -109,6 +109,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_ONB_OS](state: State, os: OnboardingOS): void {
             state.appState.onbSelectedOs = os;
+        },
+        [APP_STATE_MUTATIONS.SET_PRICING_PLAN](state: State, plan: PricingPlanInfo): void {
+            state.appState.selectedPricingPlan = plan;
         },
         [APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP](state: State, step: ManageProjectPassphraseStep | undefined): void {
             state.appState.managePassphraseStep = step;
@@ -161,9 +164,6 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({ commit }: AppContext, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
-        },
-        [APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS]: function ({ commit }: AppContext, isNewProjectDashboard: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard);
         },
         [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);

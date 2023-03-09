@@ -24,7 +24,9 @@ var Error = errs.Class("payments config")
 
 // Config defines global payments config.
 type Config struct {
-	Provider                 string `help:"payments provider to use" default:""`
+	Provider     string                          `help:"payments provider to use" default:""`
+	MockProvider stripecoinpayments.StripeClient `internal:"true"`
+
 	BillingConfig            billing.Config
 	StripeCoinPayments       stripecoinpayments.Config
 	Storjscan                storjscan.Config

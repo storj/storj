@@ -148,19 +148,7 @@
                                 <th class="files-uploading-count__content" />
                             </tr>
 
-                            <tr v-if="path.length > 0" class="up-button">
-                                <th class="align-left data up-button__content">
-                                    <span @click.prevent="onBack">
-                                        <a
-                                            id="navigate-back"
-                                            href="javascript:null"
-                                        >...</a>
-                                    </span>
-                                </th>
-                                <th class="up-button__content" />
-                                <th class="up-button__content" />
-                                <th class="up-button__content" />
-                            </tr>
+                            <up-entry v-if="path.length > 0" :on-back="onBack" />
 
                             <locked-files-entry v-if="lockedFilesEntryDisplayed" />
 
@@ -224,6 +212,7 @@ import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
 import VTable from '@/components/common/VTable.vue';
 import MultiplePassphraseBanner from '@/components/browser/MultiplePassphrasesBanner.vue';
+import UpEntry from '@/components/browser/UpEntry.vue';
 
 import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
@@ -275,9 +264,9 @@ const currentPath = computed((): string => {
  * Return locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjects = store.getters['files/sortedFiles'];
+    const ownObjectsCount = store.state.files.objectsCount;
 
-    return objectsCount.value - ownObjects.length;
+    return objectsCount.value - ownObjectsCount;
 });
 
 /**
@@ -385,7 +374,8 @@ async function onRouteChange(): Promise<void> {
 }
 
 /**
- * Set spinner state. If routePath is not present navigate away. If there's some error re-render the page with a call to list. All of this is done on the created lifecycle method.
+ * Set spinner state. If routePath is not present navigate away.
+ * If there's some error then re-render the page with a call to list.
  */
 onBeforeMount(async () => {
     if (!bucket.value) {
@@ -408,7 +398,7 @@ onBeforeMount(async () => {
             analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
         } catch (err) {
             await list('');
-            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER);
+            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER_CHANGE_ROUTE);
         }
     }
 
@@ -474,7 +464,7 @@ async function list(path: string): Promise<void> {
             root: true,
         });
     } catch (error) {
-        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER);
+        notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
 
 }
@@ -758,8 +748,8 @@ async function goToBuckets(): Promise<void> {
 
     @media screen and (max-width: 768px) {
         flex-direction: column;
-        justify-content: start;
-        align-items: start;
+        justify-content: flex-start;
+        align-items: flex-start;
     }
 
     &__title {
@@ -776,7 +766,7 @@ async function goToBuckets(): Promise<void> {
 
     &__actions {
         display: flex;
-        justify-content: start;
+        justify-content: flex-start;
         flex-wrap: wrap;
         gap: 5px;
     }

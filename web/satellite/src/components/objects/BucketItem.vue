@@ -5,9 +5,10 @@
     <table-item
         :item="itemToRender"
         :on-click="onClick"
+        :on-primary-click="onClick"
         :show-guide="shouldShowGuide"
         :hide-guide="hideGuidePermanently"
-        table-type="bucket"
+        item-type="bucket"
     >
         <th slot="options" v-click-outside="closeDropdown" :class="{active: isDropdownOpen}" class="bucket-item__functional options overflow-visible" @click.stop="openDropdown(dropdownKey)">
             <dots-icon />
@@ -193,7 +194,7 @@ export default class BucketItem extends Resizable {
                 width: 25rem;
                 display: flex;
                 flex-direction: column;
-                align-items: start;
+                align-items: flex-start;
                 transform: translateX(-100%);
                 background-color: var(--c-blue-3);
                 text-align: center;
@@ -246,7 +247,7 @@ export default class BucketItem extends Resizable {
 
                 &__actions {
                     display: flex;
-                    justify-content: end;
+                    justify-content: flex-end;
                     align-items: center;
                     width: 100%;
 

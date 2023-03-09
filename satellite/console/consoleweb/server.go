@@ -91,7 +91,6 @@ type Config struct {
 	CSPEnabled                      bool       `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string     `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	NewProjectDashboard             bool       `help:"indicates if new project dashboard should be used" default:"true"`
 	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"false"`
 	NewBillingScreen                bool       `help:"indicates if new billing screens should be used" default:"true"`
 	NewAccessGrantFlow              bool       `help:"indicates if new access grant flow should be used" default:"false"`
@@ -323,6 +322,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 	paymentsRouter.HandleFunc("/pricing", paymentController.GetProjectUsagePriceModel).Methods(http.MethodGet)
 	if config.PricingPackagesEnabled {
 		paymentsRouter.HandleFunc("/purchase-package", paymentController.PurchasePackage).Methods(http.MethodPost)
+		paymentsRouter.HandleFunc("/package-available", paymentController.PackageAvailable).Methods(http.MethodGet)
 	}
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
@@ -468,7 +468,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		LoginRecaptchaSiteKey           string
 		LoginHcaptchaEnabled            bool
 		LoginHcaptchaSiteKey            string
-		NewProjectDashboard             bool
 		AllProjectsDashboard            bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
@@ -483,6 +482,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		PasswordMinimumLength           int
 		PasswordMaximumLength           int
 		ABTestingEnabled                bool
+		PricingPackagesEnabled          bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -513,7 +513,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.LoginRecaptchaSiteKey = server.config.Captcha.Login.Recaptcha.SiteKey
 	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
 	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
-	data.NewProjectDashboard = server.config.NewProjectDashboard
 	data.AllProjectsDashboard = server.config.AllProjectsDashboard
 	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
@@ -526,6 +525,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled
 	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
+	data.PricingPackagesEnabled = server.config.PricingPackagesEnabled
 
 	templates, err := server.loadTemplates()
 	if err != nil || templates.index == nil {
@@ -682,7 +682,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		DefaultPaidStorageLimit:         server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
-		NewProjectDashboard:             server.config.NewProjectDashboard,
 		AllProjectsDashboard:            server.config.AllProjectsDashboard,
 		NewBillingScreen:                server.config.NewBillingScreen,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,

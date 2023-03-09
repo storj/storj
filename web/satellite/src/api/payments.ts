@@ -379,4 +379,37 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         return new Wallet();
     }
+
+    /**
+     * Purchases the pricing package associated with the user's partner.
+     *
+     * @param token - the Stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
+    public async purchasePricingPackage(token: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package`;
+        const response = await this.client.post(path, token);
+
+        if (response.ok) {
+            return;
+        }
+
+        throw new Error('Could not purchase pricing package');
+    }
+
+    /**
+     * Returns whether there is a pricing package configured for the user's partner.
+     *
+     * @throws Error
+     */
+    public async pricingPackageAvailable(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/package-available`;
+        const response = await this.client.get(path);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        throw new Error('Could not check pricing package availability');
+    }
 }

@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -524,9 +525,16 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
+	config.Payments.Provider = "mock"
+	config.Payments.MockProvider = stripecoinpayments.NewStripeMock(db.StripeCoinPayments().Customers(), db.Console().Users())
+
 	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
+	}
+
+	if planet.config.LastNetFunc != nil {
+		peer.Overlay.Service.LastNetFunc = planet.config.LastNetFunc
 	}
 
 	err = db.Testing().TestMigrateToLatest(ctx)

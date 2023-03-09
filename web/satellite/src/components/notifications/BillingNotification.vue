@@ -20,8 +20,9 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MetaUtils } from '@/utils/meta';
+import { NavigationLink } from '@/types/navigation';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -34,7 +35,30 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
     },
 })
 export default class BillingNotification extends Vue {
-    public readonly billingPath: string = RouteConfig.Account.with(RouteConfig.Billing).path;
+
+    /**
+     * Returns the base account route based on if we're on all projects dashboard.
+     */
+    public get baseAccountRoute(): NavigationLink {
+        if (this.$route.path.includes(RouteConfig.AccountSettings.path)) {
+            return RouteConfig.AccountSettings;
+        }
+        return RouteConfig.Account;
+    }
+
+    /**
+     * Indicates if tabs options are hidden.
+     */
+    public get isNewBillingScreen(): boolean {
+        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
+        return isNewBillingScreen === 'true';
+    }
+
+    public get billingPath(): string {
+        const billing = this.baseAccountRoute.with(RouteConfig.Billing);
+
+        return this.isNewBillingScreen ? billing.with(RouteConfig.BillingOverview).path : billing.path;
+    }
 
     /**
      * Closes notification.

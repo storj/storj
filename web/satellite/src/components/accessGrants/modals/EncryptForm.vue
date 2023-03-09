@@ -92,8 +92,9 @@
                     :on-press="onCopyPassphraseClick"
                     :is-disabled="passphrase.length < 1"
                 >
-                    <template v-if="!isPassphraseCopied" #icon>
-                        <copy-icon class="button-icon" :class="{ active: passphrase }" />
+                    <template #icon>
+                        <copy-icon v-if="!isPassphraseCopied" :class="{'copy-icon': !!passphrase.length}" />
+                        <check-icon v-else class="check-icon" />
                     </template>
                 </v-button>
                 <v-button
@@ -101,12 +102,13 @@
                     font-size="14px"
                     height="50px"
                     class="encrypt__footer-container__buttons__download-button"
-                    :is-green-white="isPassphraseDownloaded"
+                    :is-green="isPassphraseDownloaded"
                     :on-press="downloadPassphrase"
                     :is-disabled="passphrase.length < 1"
                 >
-                    <template v-if="!isPassphraseDownloaded" #icon>
-                        <download-icon class="button-icon" />
+                    <template #icon>
+                        <download-icon v-if="!isPassphraseDownloaded" :class="{'download-icon': !passphrase.length}" />
+                        <check-icon v-else />
                     </template>
                 </v-button>
             </div>
@@ -156,6 +158,7 @@ import { useNotify } from '@/utils/hooks';
 import VButton from '@/components/common/VButton.vue';
 
 import CopyIcon from '@/../static/images/common/copy.svg';
+import CheckIcon from '@/../static/images/common/check.svg';
 import DownloadIcon from '@/../static/images/common/download.svg';
 import AccessKeyIcon from '@/../static/images/accessGrants/accessKeyIcon.svg';
 import ThumbPrintIcon from '@/../static/images/accessGrants/thumbPrintIcon.svg';
@@ -221,21 +224,20 @@ watch(passphrase, (newPassphrase) => {
 </script>
 
 <style scoped lang="scss">
-.button-icon {
-    margin-right: 5px;
+.copy-icon {
 
-    :deep(path),
-    :deep(rect) {
-        stroke: white;
+    :deep(rect),
+    :deep(path) {
+        stroke: var(--c-grey-6);
     }
+}
 
-    &.active {
+.check-icon :deep(path) {
+    fill: var(--c-green-5);
+}
 
-        :deep(path),
-        :deep(rect) {
-            stroke: var(--c-grey-6);
-        }
-    }
+.download-icon :deep(path) {
+    fill: #acb0bc;
 }
 
 .encrypt {

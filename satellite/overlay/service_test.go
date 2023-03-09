@@ -37,11 +37,10 @@ func TestCache_Database(t *testing.T) {
 }
 
 // returns a NodeSelectionConfig with sensible test values.
-func testNodeSelectionConfig(newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
+func testNodeSelectionConfig(newNodeFraction float64) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
 		NewNodeFraction: newNodeFraction,
 		OnlineWindow:    time.Hour,
-		DistinctIP:      distinctIP,
 	}
 }
 
@@ -63,7 +62,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 	lastNet := "127.0.0"
 
-	nodeSelectionConfig := testNodeSelectionConfig(0, false)
+	nodeSelectionConfig := testNodeSelectionConfig(0)
 	serviceConfig := overlay.Config{
 		Node: nodeSelectionConfig,
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
@@ -74,7 +73,7 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nil, "", "", serviceConfig)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, "", "", serviceConfig)
 	require.NoError(t, err)
 	ctx.Go(func() error { return service.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
@@ -283,7 +282,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 		for i := 0; i < totalNodes; i++ {
 			newID := testrand.NodeID()
 			address := fmt.Sprintf("127.0.%d.0:8080", i)
-			lastNet := fmt.Sprintf("127.0.%d", i)
+			lastNet := address
 
 			n := overlay.NodeCheckInInfo{
 				NodeID: newID,

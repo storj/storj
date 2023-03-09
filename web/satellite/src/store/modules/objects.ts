@@ -1,13 +1,16 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import S3, { Bucket, ObjectList } from 'aws-sdk/clients/s3';
+import S3, { Bucket } from 'aws-sdk/clients/s3';
 
-import { EdgeCredentials } from '@/types/accessGrants';
+import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { FilesState } from '@/store/modules/files';
 import { StoreModule } from '@/types/store';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { MetaUtils } from '@/utils/meta';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -22,7 +25,7 @@ export const OBJECTS_ACTIONS = {
     CREATE_BUCKET: 'createBucket',
     CREATE_BUCKET_WITH_NO_PASSPHRASE: 'createBucketWithNoPassphrase',
     DELETE_BUCKET: 'deleteBucket',
-    LIST_OBJECTS: 'listObjects',
+    GET_OBJECTS_COUNT: 'getObjectsCount',
     CHECK_ONGOING_UPLOADS: 'checkOngoingUploads',
 };
 
@@ -92,7 +95,15 @@ interface ObjectsContext {
     rootState: {
         files: FilesState
     }
+    rootGetters: {
+        worker: Worker,
+        selectedProject: {
+            id: string,
+        }
+    }
 }
+
+export const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 /**
  * Creates objects module with all dependencies.
@@ -206,7 +217,63 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 commit(SET_GATEWAY_CREDENTIALS_FOR_CREATE, credentials);
                 commit(SET_S3_CLIENT_FOR_CREATE);
             },
-            setS3Client: function({ commit }: ObjectsContext): void {
+            setS3Client: async function({ commit, dispatch, state, rootGetters }: ObjectsContext): Promise<void> {
+                if (!state.apiKey) {
+                    await dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME, { root: true });
+                    const cleanAPIKey: AccessGrant = await dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME, { root: true });
+                    commit(SET_API_KEY, cleanAPIKey.secret);
+                }
+
+                const now = new Date();
+                const inThreeDays = new Date(now.setDate(now.getDate() + 3));
+
+                const worker = rootGetters.worker;
+                worker.onerror = (error: ErrorEvent) => {
+                    throw new Error(error.message);
+                };
+
+                await worker.postMessage({
+                    'type': 'SetPermission',
+                    'isDownload': true,
+                    'isUpload': true,
+                    'isList': true,
+                    'isDelete': true,
+                    'notAfter': inThreeDays.toISOString(),
+                    'buckets': [],
+                    'apiKey': state.apiKey,
+                });
+
+                const grantEvent: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
+                if (grantEvent.data.error) {
+                    throw new Error(grantEvent.data.error);
+                }
+
+                const salt = await dispatch(PROJECTS_ACTIONS.GET_SALT, rootGetters.selectedProject.id, { root: true });
+                const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
+                if (!state.passphrase) {
+                    throw new Error('Passphrase can\'t be empty');
+                }
+
+                worker.postMessage({
+                    'type': 'GenerateAccess',
+                    'apiKey': grantEvent.data.value,
+                    'passphrase': state.passphrase,
+                    'salt': salt,
+                    'satelliteNodeURL': satelliteNodeURL,
+                });
+
+                const accessGrantEvent: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
+                if (accessGrantEvent.data.error) {
+                    throw new Error(accessGrantEvent.data.error);
+                }
+
+                const accessGrant = accessGrantEvent.data.value;
+
+                const gatewayCredentials: EdgeCredentials = await dispatch(
+                    ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant }, { root: true },
+                );
+                commit(SET_GATEWAY_CREDENTIALS, gatewayCredentials);
                 commit(SET_S3_CLIENT);
             },
             setPassphrase: function({ commit }: ObjectsContext, passphrase: string): void {
@@ -235,18 +302,12 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                     Bucket: name,
                 }).promise();
             },
-            listObjects: async function(ctx, name: string): Promise<S3.ObjectList> {
-                const response =  await ctx.state.s3Client.listObjects({
+            getObjectsCount: async function(ctx, name: string): Promise<number> {
+                const response =  await ctx.state.s3Client.listObjectsV2({
                     Bucket: name,
-                    Delimiter: '/',
-                    Prefix: '',
                 }).promise();
 
-                if (!response.Contents) {
-                    return [];
-                }
-
-                return response.Contents;
+                return response.KeyCount === undefined ? 0 : response.KeyCount;
             },
             clearObjects: function({ commit }: ObjectsContext): void {
                 commit(CLEAR);

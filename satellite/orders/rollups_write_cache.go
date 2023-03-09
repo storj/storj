@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/common/context2"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -143,6 +144,12 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 				Dead:          cacheData.Dead,
 			})
 		}
+
+		// we would like to update bandwidth even if context was canceled. flushing
+		// is triggered by endpoint methods (metainfo/orders) but flushing is started
+		// in separate goroutine and because of that endpoint request can be finished
+		// and its context will be canceled before UpdateBandwidthBatch is finished.
+		ctx = context2.WithoutCancellation(ctx)
 
 		err := cache.DB.UpdateBandwidthBatch(ctx, rollups)
 		if err != nil {

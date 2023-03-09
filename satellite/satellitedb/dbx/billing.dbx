@@ -17,6 +17,10 @@ read one (
 	select stripe_customer.customer_id
 	where stripe_customer.user_id = ?
 )
+read one (
+	select stripe_customer.user_id
+	where stripe_customer.customer_id = ?
+)
 read limitoffset (
 	select stripe_customer
 	where stripe_customer.created_at <= ?

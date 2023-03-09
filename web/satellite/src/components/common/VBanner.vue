@@ -12,7 +12,7 @@
         <div class="notification-wrap__text">
             <slot name="text" />
         </div>
-        <CloseIcon class="notification-wrap__close" @click="isShown = false" />
+        <CloseIcon class="notification-wrap__close" @click="closeClicked" />
     </div>
 </template>
 
@@ -25,15 +25,24 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 const props = withDefaults(defineProps<{
     severity?: 'info' | 'warning' | 'critical';
     onClick?: () => void;
+    onClose?: () => void;
     dashboardRef: HTMLElement;
 }>(), {
     severity: 'info',
     onClick: () => () => {},
+    onClose: () => () => {},
 });
 
 const isShown = ref<boolean>(true);
 const bannerWidth = ref<number>(0);
 let resizeObserver = reactive<ResizeObserver>();
+
+function closeClicked(): void {
+    isShown.value = false;
+    if (props.onClose) {
+        props.onClose();
+    }
+}
 
 function onBannerResize(): void {
     bannerWidth.value = props.dashboardRef.offsetWidth;

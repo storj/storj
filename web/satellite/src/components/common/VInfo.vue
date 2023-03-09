@@ -3,7 +3,7 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot name="icon" />
+        <slot name="icon" :on-space="toggleVisibility" />
         <div v-if="isVisible" class="info__box">
             <div class="info__box__arrow" />
             <div class="info__box__message">
