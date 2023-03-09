@@ -6,6 +6,14 @@ import { SortDirection } from '@/types/common';
 export type OnHeaderClickCallback = (sortBy: AccessGrantsOrderBy, sortDirection: SortDirection) => Promise<void>;
 
 /**
+ * AccessGrantsWorker provides access to the WASM module.
+ */
+export interface AccessGrantsWorkerFactory {
+    // TODO: this should be converted to a proper interface.
+    create(): Worker;
+}
+
+/**
  * Exposes all access grants-related functionality.
  */
 export interface AccessGrantsApi {
@@ -44,10 +52,10 @@ export interface AccessGrantsApi {
     /**
      * Get gateway credentials using access grant
      *
-     * @returns GatewayCredentials
+     * @returns EdgeCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<GatewayCredentials>;
+    getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials>;
 }
 
 /**
@@ -106,7 +114,7 @@ export class AccessGrant {
      * Returns created date as a local string.
      */
     public localDate(): string {
-        return this.createdAt.toLocaleString('en-US', {timeZone: 'UTC', timeZoneName: 'short'});
+        return this.createdAt.toLocaleString('en-US', { timeZone: 'UTC', timeZoneName: 'short' });
     }
 }
 
@@ -121,9 +129,9 @@ export class DurationPermission {
 }
 
 /**
- * GatewayCredentials class holds info for gateway credentials generated from access grant.
+ * EdgeCredentials class holds info for edge credentials generated from access grant.
  */
-export class GatewayCredentials {
+export class EdgeCredentials {
     constructor(
         public id: string = '',
         public createdAt: Date = new Date(),

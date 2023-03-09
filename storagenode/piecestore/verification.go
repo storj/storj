@@ -35,7 +35,7 @@ func (endpoint *Endpoint) verifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	switch {
 	case limit.Limit < 0:
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit is negative")
-	case endpoint.signer.ID() != limit.StorageNodeId:
+	case endpoint.ident.ID != limit.StorageNodeId:
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "order intended for other storagenode: %v", limit.StorageNodeId)
 	case endpoint.IsExpired(limit.PieceExpiration):
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece expired: %v", limit.PieceExpiration)

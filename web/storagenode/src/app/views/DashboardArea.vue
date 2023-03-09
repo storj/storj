@@ -13,13 +13,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
-import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+
+import SNOContentTitle from '@/app/components/SNOContentTitle.vue';
+import SNOContentFilling from '@/app/components/SNOContentFilling.vue';
 
 // @vue/component
 @Component ({

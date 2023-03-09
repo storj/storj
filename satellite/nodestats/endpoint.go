@@ -88,12 +88,12 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 			UnknownReputationScore: unknownScore,
 		},
 		OnlineScore:        reputationInfo.OnlineScore,
-		Disqualified:       reputationInfo.Disqualified,
-		Suspended:          reputationInfo.UnknownAuditSuspended,
-		OfflineSuspended:   reputationInfo.OfflineSuspended,
+		Disqualified:       node.Disqualified,
+		Suspended:          node.UnknownAuditSuspended,
+		OfflineSuspended:   node.OfflineSuspended,
 		OfflineUnderReview: reputationInfo.UnderReview,
-		VettedAt:           reputationInfo.VettedAt,
-		AuditHistory:       reputation.AuditHistoryToPB(reputationInfo.AuditHistory),
+		VettedAt:           node.Reputation.Status.VettedAt,
+		AuditHistory:       reputation.DuplicateAuditHistory(reputationInfo.AuditHistory),
 		JoinedAt:           node.CreatedAt,
 	}, nil
 }
@@ -145,8 +145,9 @@ func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyS
 
 	for _, usage := range usages {
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
-			AtRestTotal: usage.StorageUsed,
-			Timestamp:   usage.Timestamp,
+			AtRestTotal:     usage.StorageUsed,
+			Timestamp:       usage.Timestamp,
+			IntervalEndTime: usage.IntervalEndTime,
 		})
 	}
 

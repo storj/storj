@@ -53,7 +53,7 @@ func (s *scenario) name() string {
 
 // run runs the specified scenario.
 //
-// nolint: scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
+//nolint:scopelint // This heavily uses loop variables without goroutines, avoiding these would add lots of boilerplate.
 func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) {
 	if s.redundancy.IsZero() {
 		s.redundancy = storj.RedundancyScheme{
@@ -214,9 +214,10 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		for i := 0; i < b.N; i++ {
 			for _, projectID := range s.projectID {
 				m.Record(func() {
-					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: "bucket",
+						Status:     metabase.Committed,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
@@ -236,10 +237,11 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		for i := 0; i < b.N; i++ {
 			for i, projectID := range s.projectID {
 				m.Record(func() {
-					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
 						ProjectID:  projectID,
 						BucketName: "bucket",
 						Prefix:     metabase.ObjectKey(prefixes[i]),
+						Status:     metabase.Committed,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
@@ -276,14 +278,14 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		}
 	})
 
-	b.Run("GetObjectLatestVersion", func(b *testing.B) {
+	b.Run("GetObjectLastCommitted", func(b *testing.B) {
 		m := make(Metrics, 0, b.N*len(s.objectStream))
 		defer m.Report(b, "ns/obj")
 
 		for i := 0; i < b.N; i++ {
 			for _, object := range s.objectStream {
 				m.Record(func() {
-					_, err := db.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+					_, err := db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
 						ObjectLocation: object.Location(),
 					})
 					require.NoError(b, err)

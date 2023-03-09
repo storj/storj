@@ -11,9 +11,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
-
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+
+import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 // @vue/component
 @Component({
@@ -22,7 +22,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class BucketNameBullet extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public readonly name: string;
 
     /**
@@ -47,8 +47,8 @@ export default class BucketNameBullet extends Vue {
             font-family: 'font_bold', sans-serif;
             font-style: normal;
             font-weight: bold;
-            font-size: 9px;
-            line-height: 12px;
+            font-size: 13px;
+            line-height: 15px;
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;

@@ -11,11 +11,11 @@
                     src="@/../static/images/account/billing/coupon.png"
                     alt="Coupon"
                 >
-                <HeaderlessInput
+                <VInput
                     :label="inputLabel"
                     placeholder="Enter Coupon Code"
                     height="52px"
-                    :with-icon="true"
+                    with-icon
                     @setData="setCouponCode"
                 />
                 <CheckIcon
@@ -34,7 +34,7 @@
                 v-if="!isSignupView"
                 class="add-coupon__apply-button"
                 label="Apply Coupon Code"
-                width="85%"
+                width="100%"
                 height="44px"
                 :on-press="couponCheck"
             />
@@ -46,18 +46,16 @@
             </p>
             <div class="add-coupon__button-wrapper">
                 <VButton
-                    class="add-coupon__confirm-button"
                     label="Yes"
-                    width="250px"
-                    height="44px"
+                    width="100%"
+                    height="48px"
                     :on-press="applyCouponCode"
                 />
                 <VButton
-                    class="add-coupon__back-button"
                     label="Back"
-                    width="250px"
+                    width="calc(100% - 4px)"
                     height="44px"
-                    is-blue-white="true"
+                    :is-blue-white="true"
                     :on-press="toggleConfirmMessage"
                 />
             </div>
@@ -65,113 +63,96 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useRoute, useStore } from '@/utils/hooks';
+
+import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
-import { PaymentsHttpApi } from '@/api/payments';
-import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+const route = useRoute();
+const store = useStore();
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        HeaderlessInput,
-        CheckIcon,
-        ValidationMessage,
-    },
-})
-export default class AddCouponCodeInput extends Vue {
-    private showValidationMessage = false;
-    private errorMessage = '';
-    private isCodeValid = false;
+const showValidationMessage = ref<boolean>(false);
+const isCodeValid = ref<boolean>(false);
+const showConfirmMessage = ref<boolean>(false);
+const errorMessage = ref<string>('');
+const couponCode = ref<string>('');
 
-    private couponCode = '';
+const analytics = new AnalyticsHttpApi();
 
-    private showConfirmMessage = false;
+/**
+ * Signup view requires some unique styling and element text.
+ */
+const isSignupView = computed((): boolean => {
+    return route.name === RouteConfig.Register.name;
+});
 
-    private readonly payments: PaymentsHttpApi = new PaymentsHttpApi();
+/**
+ * Returns label for input if in signup view
+ * Depending on view.
+ */
+const inputLabel = computed((): string => {
+    return isSignupView.value ? 'Add Coupon' : '';
+});
 
-    /**
-     * Signup view requires some unque styling and element text.
-     */
-    public get isSignupView(): boolean {
-        return this.$route.name === RouteConfig.Register.name;
+/**
+ * Sets code from input.
+ */
+function setCouponCode(value: string): void {
+    couponCode.value = value;
+}
+
+/**
+ * Toggles showing of coupon code replace confirmation message
+ */
+function toggleConfirmMessage(): void {
+    showConfirmMessage.value = !showConfirmMessage.value;
+}
+
+/**
+ * Check if coupon code is valid
+ */
+async function applyCouponCode(): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, couponCode.value);
+    } catch (error) {
+        errorMessage.value = error.message;
+        isCodeValid.value = false;
+        showValidationMessage.value = true;
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.BILLING_APPLY_COUPON_CODE_INPUT);
+
+        return;
+    } finally {
+        if (showConfirmMessage.value) toggleConfirmMessage();
     }
 
-    /**
-     * Returns label for input if in signup view
-     * Depending on view.
-     */
-    public get inputLabel(): string | void {
-        return this.isSignupView ? 'Add Coupon' : '';
+    isCodeValid.value = true;
+    showValidationMessage.value = true;
+}
+
+/**
+ * Check if user has a coupon code applied to their account before applying
+ */
+async function couponCheck(): Promise<void> {
+    if (store.state.paymentsModule.coupon) {
+        toggleConfirmMessage();
+        return;
     }
 
-    public setCouponCode(value: string): void {
-        this.couponCode = value;
-    }
-
-    /**
-    * Toggles showing of coupon code replace confirmation message
-    */
-    public toggleConfirmMessage(): void {
-        this.showConfirmMessage = !this.showConfirmMessage;
-    }
-
-    /**
-     * Check if coupon code is valid
-     */
-    public async applyCouponCode(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
-        }
-        catch (error) {
-            if (this.showConfirmMessage) {
-                this.toggleConfirmMessage();
-            }
-            this.errorMessage = error.message;
-            this.isCodeValid = false;
-            this.showValidationMessage = true;
-
-            return;
-        }
-        if (this.showConfirmMessage) {
-            this.toggleConfirmMessage();
-        }
-        this.isCodeValid = true;
-        this.showValidationMessage = true;
-    }
-
-    /**
-     * Check if user has a coupon code applied to their account before applying
-     */
-    public async couponCheck(): Promise<void> {
-        try {
-            if (this.$store.state.paymentsModule.coupon) {
-                this.toggleConfirmMessage();
-            } else {
-                this.applyCouponCode();
-            }
-        } catch (error) {
-
-            this.errorMessage = error.message;
-            this.isCodeValid = false;
-            this.showValidationMessage = true;
-
-            return;
-        }
-    }
+    await applyCouponCode();
 }
 </script>
 
 <style scoped lang="scss">
-
     .add-coupon {
 
         &__input-wrapper {
@@ -179,21 +160,11 @@ export default class AddCouponCodeInput extends Vue {
         }
 
         &__valid-message {
-            position: relative;
-            top: 15px;
+            margin-top: 15px;
         }
 
         &__apply-button {
-            position: absolute;
-            left: 0;
-            right: 0;
-            margin: 0 auto;
-            bottom: 40px;
-            background: #2683ff;
-
-            &:hover {
-                background: #0059d0;
-            }
+            margin-top: 15px;
         }
 
         &__check {
@@ -212,7 +183,7 @@ export default class AddCouponCodeInput extends Vue {
         }
 
         &__input-icon.signup-view {
-            top: 63px;
+            top: 50px;
         }
 
         &__confirm-message {
@@ -223,9 +194,14 @@ export default class AddCouponCodeInput extends Vue {
 
         &__button-wrapper {
             display: flex;
-            justify-content: space-evenly;
             margin-top: 30px;
+            column-gap: 20px;
+
+            @media screen and (max-width: 650px) {
+                flex-direction: column;
+                column-gap: unset;
+                row-gap: 20px;
+            }
         }
     }
-
 </style>

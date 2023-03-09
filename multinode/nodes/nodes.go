@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/multinodeauth"
 )
 
 // DB exposes needed by MND NodesDB functionality.
@@ -41,9 +42,9 @@ var (
 type Node struct {
 	ID storj.NodeID `json:"id"`
 	// APISecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
-	APISecret     []byte `json:"apiSecret"`
-	PublicAddress string `json:"publicAddress"`
-	Name          string `json:"name"`
+	APISecret     multinodeauth.Secret `json:"apiSecret"`
+	PublicAddress string               `json:"publicAddress"`
+	Name          string               `json:"name"`
 }
 
 // Status represents node online status.

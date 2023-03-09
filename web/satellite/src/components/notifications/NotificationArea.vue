@@ -14,9 +14,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationItem from '@/components/notifications/NotificationItem.vue';
-
 import { DelayedNotification } from '@/types/DelayedNotification';
+
+import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 // @vue/component
 @Component({

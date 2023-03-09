@@ -12,7 +12,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const {
     CLEAR_CARDS_SELECTION,
@@ -23,7 +23,7 @@ const {
 // @vue/component
 @Component
 export default class CardDialog extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly cardId: string;
 
     /**
@@ -40,7 +40,7 @@ export default class CardDialog extends Vue {
         try {
             await this.$store.dispatch(MAKE_CARD_DEFAULT, this.cardId);
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_CC_DIALOG);
         }
     }
 
@@ -50,8 +50,9 @@ export default class CardDialog extends Vue {
     public async onRemoveClick(): Promise<void> {
         try {
             await this.$store.dispatch(REMOVE_CARD, this.cardId);
+            await this.$notify.success('Credit card removed');
         } catch (error) {
-            await this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_CC_DIALOG);
         }
     }
 }

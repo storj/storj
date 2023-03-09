@@ -76,6 +76,14 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 
 	audit := resp.GetAuditCheck()
 
+	satelliteIDSeriesTag := monkit.NewSeriesTag("satellite_id", satelliteID.String())
+
+	mon.IntVal("audit_success_count", satelliteIDSeriesTag).Observe(audit.GetSuccessCount())
+	mon.IntVal("audit_total_count", satelliteIDSeriesTag).Observe(audit.GetTotalCount())
+	mon.FloatVal("audit_reputation_score", satelliteIDSeriesTag).Observe(audit.GetReputationScore())
+	mon.FloatVal("suspension_score", satelliteIDSeriesTag).Observe(audit.GetUnknownReputationScore())
+	mon.FloatVal("online_score", satelliteIDSeriesTag).Observe(resp.GetOnlineScore())
+
 	return &reputation.Stats{
 		SatelliteID: satelliteID,
 		Audit: reputation.Metric{
@@ -168,9 +176,10 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
 		stamps = append(stamps, storageusage.Stamp{
-			SatelliteID:   satelliteID,
-			AtRestTotal:   pbUsage.AtRestTotal,
-			IntervalStart: pbUsage.Timestamp,
+			SatelliteID:     satelliteID,
+			AtRestTotal:     pbUsage.AtRestTotal,
+			IntervalStart:   pbUsage.Timestamp,
+			IntervalEndTime: pbUsage.IntervalEndTime,
 		})
 	}
 

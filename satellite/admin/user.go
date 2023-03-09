@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
@@ -21,7 +22,7 @@ import (
 func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
@@ -38,9 +39,10 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := console.CreateUser{
-		Email:    input.Email,
-		FullName: input.FullName,
-		Password: input.Password,
+		Email:           input.Email,
+		FullName:        input.FullName,
+		Password:        input.Password,
+		SignupPromoCode: input.SignupPromoCode,
 	}
 
 	err = user.IsValid()
@@ -76,15 +78,16 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newuser, err := server.db.Console().Users().Insert(ctx, &console.User{
+	newUser, err := server.db.Console().Users().Insert(ctx, &console.User{
 		ID:                    userID,
 		FullName:              user.FullName,
 		ShortName:             user.ShortName,
 		Email:                 user.Email,
 		PasswordHash:          hash,
-		ProjectLimit:          server.config.ConsoleConfig.DefaultProjectLimit,
-		ProjectStorageLimit:   server.config.ConsoleConfig.UsageLimits.Storage.Free.Int64(),
-		ProjectBandwidthLimit: server.config.ConsoleConfig.UsageLimits.Bandwidth.Free.Int64(),
+		ProjectLimit:          server.console.DefaultProjectLimit,
+		ProjectStorageLimit:   server.console.UsageLimits.Storage.Free.Int64(),
+		ProjectBandwidthLimit: server.console.UsageLimits.Bandwidth.Free.Int64(),
+		SignupPromoCode:       user.SignupPromoCode,
 	})
 	if err != nil {
 		sendJSONError(w, "failed to insert user",
@@ -92,7 +95,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = server.payments.Setup(ctx, newuser.ID, newuser.Email)
+	_, err = server.payments.Setup(ctx, newUser.ID, newUser.Email, newUser.SignupPromoCode)
 	if err != nil {
 		sendJSONError(w, "failed to create payment account for user",
 			err.Error(), http.StatusInternalServerError)
@@ -100,16 +103,17 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set User Status to be activated, as we manually created it
-	newuser.Status = console.Active
-	newuser.PasswordHash = nil
-	err = server.db.Console().Users().Update(ctx, newuser)
+	newUser.Status = console.Active
+	err = server.db.Console().Users().Update(ctx, userID, console.UpdateUserRequest{
+		Status: &newUser.Status,
+	})
 	if err != nil {
 		sendJSONError(w, "failed to activate user",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	data, err := json.Marshal(newuser)
+	data, err := json.Marshal(newUser)
 	if err != nil {
 		sendJSONError(w, "json encoding failed",
 			err.Error(), http.StatusInternalServerError)
@@ -143,7 +147,7 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	user.PasswordHash = nil
 
-	projects, err := server.db.Console().Projects().GetByUserID(ctx, user.ID)
+	projects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
 	if err != nil {
 		sendJSONError(w, "failed to get user projects",
 			err.Error(), http.StatusInternalServerError)
@@ -193,6 +197,50 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	sendJSONData(w, http.StatusOK, data)
 }
 
+func (server *Server) userLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+	user.PasswordHash = nil
+
+	var limits struct {
+		Storage   int64 `json:"storage"`
+		Bandwidth int64 `json:"bandwidth"`
+		Segment   int64 `json:"maxSegments"`
+	}
+
+	limits.Storage = user.ProjectStorageLimit
+	limits.Bandwidth = user.ProjectBandwidthLimit
+	limits.Segment = user.ProjectSegmentLimit
+
+	data, err := json.Marshal(limits)
+	if err != nil {
+		sendJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSONData(w, http.StatusOK, data)
+}
+
 func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -216,14 +264,19 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var input console.User
+	type UserWithPaidTier struct {
+		console.User
+		PaidTierStr string `json:"paidTierStr"`
+	}
+
+	var input UserWithPaidTier
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
@@ -232,28 +285,228 @@ func (server *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updateRequest := console.UpdateUserRequest{}
+
 	if input.FullName != "" {
-		user.FullName = input.FullName
+		updateRequest.FullName = &input.FullName
 	}
 	if input.ShortName != "" {
-		user.ShortName = input.ShortName
+		shortNamePtr := &input.ShortName
+		updateRequest.ShortName = &shortNamePtr
 	}
 	if input.Email != "" {
-		user.Email = input.Email
-	}
-	if !input.PartnerID.IsZero() {
-		user.PartnerID = input.PartnerID
+		updateRequest.Email = &input.Email
 	}
 	if len(input.PasswordHash) > 0 {
-		user.PasswordHash = input.PasswordHash
+		updateRequest.PasswordHash = input.PasswordHash
 	}
 	if input.ProjectLimit > 0 {
-		user.ProjectLimit = input.ProjectLimit
+		updateRequest.ProjectLimit = &input.ProjectLimit
+	}
+	if input.ProjectStorageLimit > 0 {
+		updateRequest.ProjectStorageLimit = &input.ProjectStorageLimit
+	}
+	if input.ProjectBandwidthLimit > 0 {
+		updateRequest.ProjectBandwidthLimit = &input.ProjectBandwidthLimit
+	}
+	if input.ProjectSegmentLimit > 0 {
+		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
+	}
+	if input.PaidTierStr != "" {
+		status, err := strconv.ParseBool(input.PaidTierStr)
+		if err != nil {
+			sendJSONError(w, "failed to parse paid tier status",
+				err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		updateRequest.PaidTier = &status
 	}
 
-	err = server.db.Console().Users().Update(ctx, user)
+	err = server.db.Console().Users().Update(ctx, user.ID, updateRequest)
 	if err != nil {
 		sendJSONError(w, "failed to update user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// updateLimits updates user limits and all project limits for that user (future and existing).
+func (server *Server) updateLimits(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendJSONError(w, "failed to read body",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	type User struct {
+		console.User
+	}
+
+	var input User
+
+	err = json.Unmarshal(body, &input)
+	if err != nil {
+		sendJSONError(w, "failed to unmarshal request",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	updateRequest := console.UpdateUserRequest{}
+
+	if input.ProjectStorageLimit > 0 {
+		updateRequest.ProjectStorageLimit = &input.ProjectStorageLimit
+	}
+	if input.ProjectBandwidthLimit > 0 {
+		updateRequest.ProjectBandwidthLimit = &input.ProjectBandwidthLimit
+	}
+	if input.ProjectSegmentLimit > 0 {
+		updateRequest.ProjectSegmentLimit = &input.ProjectSegmentLimit
+	}
+
+	userLimits := console.UsageLimits{
+		Storage:   *updateRequest.ProjectStorageLimit,
+		Bandwidth: *updateRequest.ProjectBandwidthLimit,
+		Segment:   *updateRequest.ProjectSegmentLimit,
+	}
+
+	err = server.db.Console().Users().UpdateUserProjectLimits(ctx, user.ID, userLimits)
+	if err != nil {
+		sendJSONError(w, "failed to update user limits",
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	userProjects, err := server.db.Console().Projects().GetOwn(ctx, user.ID)
+	if err != nil {
+		sendJSONError(w, "failed to get user's projects",
+			err.Error(), http.StatusInternalServerError)
+	}
+
+	for _, p := range userProjects {
+		err = server.db.Console().Projects().UpdateUsageLimits(ctx, p.ID, userLimits)
+		if err != nil {
+			sendJSONError(w, "failed to update project limits",
+				err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+}
+
+func (server *Server) disableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	user, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if errors.Is(err, sql.ErrNoRows) {
+		sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+			"", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	user.MFAEnabled = false
+	user.MFASecretKey = ""
+	mfaSecretKeyPtr := &user.MFASecretKey
+	var mfaRecoveryCodes []string
+
+	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		MFAEnabled:       &user.MFAEnabled,
+		MFASecretKey:     &mfaSecretKeyPtr,
+		MFARecoveryCodes: &mfaRecoveryCodes,
+	})
+	if err != nil {
+		sendJSONError(w, "failed to disable mfa",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (server *Server) freezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = server.freezeAccounts.FreezeUser(ctx, u.ID)
+	if err != nil {
+		sendJSONError(w, "failed to freeze user",
+			err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func (server *Server) unfreezeUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	userEmail, ok := vars["useremail"]
+	if !ok {
+		sendJSONError(w, "user-email missing", "", http.StatusBadRequest)
+		return
+	}
+
+	u, err := server.db.Console().Users().GetByEmail(ctx, userEmail)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			sendJSONError(w, fmt.Sprintf("user with email %q does not exist", userEmail),
+				"", http.StatusNotFound)
+			return
+		}
+		sendJSONError(w, "failed to get user details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = server.freezeAccounts.UnfreezeUser(ctx, u.ID); err != nil {
+		sendJSONError(w, "failed to unfreeze user",
 			err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -341,15 +594,17 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userInfo := &console.User{
-		ID:        user.ID,
-		FullName:  "",
-		ShortName: "",
-		Email:     fmt.Sprintf("deactivated+%s@storj.io", user.ID.String()),
-		Status:    console.Deleted,
-	}
+	emptyName := ""
+	emptyNamePtr := &emptyName
+	deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", user.ID.String())
+	status := console.Deleted
 
-	err = server.db.Console().Users().Update(ctx, userInfo)
+	err = server.db.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+		FullName:  &emptyName,
+		ShortName: &emptyNamePtr,
+		Email:     &deactivatedEmail,
+		Status:    &status,
+	})
 	if err != nil {
 		sendJSONError(w, "unable to delete user",
 			err.Error(), http.StatusInternalServerError)

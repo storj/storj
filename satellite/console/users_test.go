@@ -11,50 +11,40 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 const (
-	lastName       = "lastName"
-	email          = "email@mail.test"
-	passValid      = "123456"
-	name           = "name"
-	newName        = "newName"
-	newLastName    = "newLastName"
-	newEmail       = "newEmail@mail.test"
-	newPass        = "newPass1234567890123456789012345"
-	position       = "position"
-	companyName    = "companyName"
-	employeeCount  = "0"
-	workingOn      = "workingOn"
-	isProfessional = true
-	mfaSecretKey   = "mfaSecretKey"
+	lastName        = "lastName"
+	email           = "email@mail.test"
+	passValid       = "123456"
+	name            = "name"
+	newName         = "newName"
+	newLastName     = "newLastName"
+	newEmail        = "newEmail@mail.test"
+	newPass         = "newPass1234567890123456789012345"
+	position        = "position"
+	companyName     = "companyName"
+	employeeCount   = "0"
+	workingOn       = "workingOn"
+	isProfessional  = true
+	mfaSecretKey    = "mfaSecretKey"
+	signupPromoCode = "STORJ50"
 )
 
 func TestUserRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repository := db.Console().Users()
-		partnerID := testrand.UUID()
 
-		// Test with and without partnerID
 		user := &console.User{
-			ID:           testrand.UUID(),
-			FullName:     name,
-			ShortName:    lastName,
-			Email:        email,
-			PartnerID:    partnerID,
-			PasswordHash: []byte(passValid),
-			CreatedAt:    time.Now(),
-		}
-		testUsers(ctx, t, repository, user)
-
-		user = &console.User{
 			ID:           testrand.UUID(),
 			FullName:     name,
 			ShortName:    lastName,
@@ -66,17 +56,18 @@ func TestUserRepository(t *testing.T) {
 
 		// test professional user
 		user = &console.User{
-			ID:             testrand.UUID(),
-			FullName:       name,
-			ShortName:      lastName,
-			Email:          email,
-			PasswordHash:   []byte(passValid),
-			CreatedAt:      time.Now(),
-			IsProfessional: isProfessional,
-			Position:       position,
-			CompanyName:    companyName,
-			EmployeeCount:  employeeCount,
-			WorkingOn:      workingOn,
+			ID:              testrand.UUID(),
+			FullName:        name,
+			ShortName:       lastName,
+			Email:           email,
+			PasswordHash:    []byte(passValid),
+			CreatedAt:       time.Now(),
+			IsProfessional:  isProfessional,
+			Position:        position,
+			CompanyName:     companyName,
+			EmployeeCount:   employeeCount,
+			WorkingOn:       workingOn,
+			SignupPromoCode: signupPromoCode,
 		}
 		testUsers(ctx, t, repository, user)
 	})
@@ -110,7 +101,9 @@ func TestUserEmailCase(t *testing.T) {
 
 			createdUser.Status = console.Active
 
-			err = db.Console().Users().Update(ctx, createdUser)
+			err = db.Console().Users().Update(ctx, createdUser.ID, console.UpdateUserRequest{
+				Status: &createdUser.Status,
+			})
 			assert.NoError(t, err)
 
 			retrievedUser, err := db.Console().Users().GetByEmail(ctx, testCase.email)
@@ -128,6 +121,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		password := "password"
 		projectBandwidthLimit := memory.Size(50000000000)
 		storageStorageLimit := memory.Size(50000000000)
+		projectLimit := 3
 		segmentLimit := int64(100)
 		newUser := &console.User{
 			ID:           testrand.UUID(),
@@ -145,7 +139,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, createdUser.ShortName)
 		require.False(t, createdUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
@@ -155,7 +149,7 @@ func TestUserUpdatePaidTier(t *testing.T) {
 		require.Equal(t, shortName, retrievedUser.ShortName)
 		require.True(t, retrievedUser.PaidTier)
 
-		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit)
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false, projectBandwidthLimit, storageStorageLimit, segmentLimit, projectLimit)
 		require.NoError(t, err)
 
 		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
@@ -173,7 +167,9 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 
 		insertedUser.Status = console.Active
 
-		err = repository.Update(ctx, insertedUser)
+		err = repository.Update(ctx, insertedUser.ID, console.UpdateUserRequest{
+			Status: &insertedUser.Status,
+		})
 		assert.NoError(t, err)
 	})
 
@@ -182,12 +178,11 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
-		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
+		assert.Equal(t, user.SignupPromoCode, userByEmail.SignupPromoCode)
 		assert.False(t, user.PaidTier)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
@@ -205,11 +200,10 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByID.FullName)
 		assert.Equal(t, lastName, userByID.ShortName)
-		assert.Equal(t, user.PartnerID, userByID.PartnerID)
+		assert.Equal(t, user.SignupPromoCode, userByID.SignupPromoCode)
 		assert.False(t, user.MFAEnabled)
 		assert.Empty(t, user.MFASecretKey)
 		assert.Empty(t, user.MFARecoveryCodes)
-		assert.Empty(t, user.SignupPromoCode)
 
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByID.WorkingOn)
@@ -228,7 +222,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.ShortName, userByEmail.ShortName)
 		assert.Equal(t, userByID.Email, userByEmail.Email)
 		assert.Equal(t, userByID.PasswordHash, userByEmail.PasswordHash)
-		assert.Equal(t, userByID.PartnerID, userByEmail.PartnerID)
 		assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
 		assert.Equal(t, userByID.IsProfessional, userByEmail.IsProfessional)
 		assert.Equal(t, userByID.WorkingOn, userByEmail.WorkingOn)
@@ -255,7 +248,20 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			PasswordHash:     []byte(newPass),
 		}
 
-		err = repository.Update(ctx, newUserInfo)
+		shortNamePtr := &newUserInfo.ShortName
+		secretKeyPtr := &newUserInfo.MFASecretKey
+
+		err = repository.Update(ctx, newUserInfo.ID, console.UpdateUserRequest{
+			FullName:         &newUserInfo.FullName,
+			ShortName:        &shortNamePtr,
+			Email:            &newUserInfo.Email,
+			Status:           &newUserInfo.Status,
+			PaidTier:         &newUserInfo.PaidTier,
+			MFAEnabled:       &newUserInfo.MFAEnabled,
+			MFASecretKey:     &secretKeyPtr,
+			MFARecoveryCodes: &newUserInfo.MFARecoveryCodes,
+			PasswordHash:     newUserInfo.PasswordHash,
+		})
 		assert.NoError(t, err)
 
 		newUser, err := repository.Get(ctx, oldUser.ID)
@@ -269,8 +275,6 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.True(t, newUser.MFAEnabled)
 		assert.Equal(t, mfaSecretKey, newUser.MFASecretKey)
 		assert.Equal(t, newUserInfo.MFARecoveryCodes, newUser.MFARecoveryCodes)
-		// PartnerID should not change
-		assert.Equal(t, user.PartnerID, newUser.PartnerID)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)
 	})
 
@@ -321,11 +325,74 @@ func TestGetUserByEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		// Required to set the active status.
-		err = usersRepo.Update(ctx, &activeUser)
+		err = usersRepo.Update(ctx, activeUser.ID, console.UpdateUserRequest{
+			Status: &activeUser.Status,
+		})
 		require.NoError(t, err)
 
 		dbUser, err := usersRepo.GetByEmail(ctx, email)
 		require.NoError(t, err)
 		require.Equal(t, activeUser.ID, dbUser.ID)
+	})
+}
+
+func TestGetUnverifiedNeedingReminder(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.EmailReminders.FirstVerificationReminder = 24 * time.Hour
+				config.EmailReminders.SecondVerificationReminder = 120 * time.Hour
+			},
+		},
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var sentFirstReminder bool
+		var sentSecondReminder bool
+
+		config := planet.Satellites[0].Config.EmailReminders
+		db := planet.Satellites[0].DB.Console().Users()
+
+		id := testrand.UUID()
+		_, err := db.Insert(ctx, &console.User{
+			ID:           id,
+			FullName:     "unverified user one",
+			Email:        "userone@mail.test",
+			PasswordHash: []byte("123a123"),
+		})
+		require.NoError(t, err)
+
+		now := time.Now()
+
+		// We expect two reminders in total - one after a day of account creation,
+		// and one after five. This test will check to ensure that both reminders occur.
+		// Each iteration advances time by i*24 hours from `now`.
+		for i := 0; i <= 6; i++ {
+			u, err := db.Get(ctx, id)
+			require.NoError(t, err)
+
+			// Intuitively it would be better to test this by setting `created_at` to some point in the past.
+			// Since we have no control over `created_at` (it's autoinserted) we will instead pass in a future time
+			// as the `now` argument to `GetUnverifiedNeedingReminder`
+			futureTime := now.Add(time.Duration(i*24) * time.Hour)
+			needReminder, err := db.GetUnverifiedNeedingReminder(ctx, futureTime.Add(-config.FirstVerificationReminder), futureTime.Add(-config.SecondVerificationReminder), now.Add(-time.Hour))
+			require.NoError(t, err)
+
+			// These are the conditions in the SQL query which selects users needing reminder
+			if u.VerificationReminders == 0 && u.CreatedAt.Before(futureTime.Add(-config.FirstVerificationReminder)) {
+				require.NotEmpty(t, needReminder)
+				require.Equal(t, u.ID, needReminder[0].ID)
+				require.NoError(t, db.UpdateVerificationReminders(ctx, u.ID))
+				sentFirstReminder = true
+			} else if u.VerificationReminders == 1 && u.CreatedAt.Before(futureTime.Add(-config.SecondVerificationReminder)) {
+				require.NotEmpty(t, needReminder)
+				require.Equal(t, u.ID, needReminder[0].ID)
+				require.NoError(t, db.UpdateVerificationReminders(ctx, u.ID))
+				sentSecondReminder = true
+			} else {
+				require.Empty(t, needReminder)
+			}
+		}
+		require.True(t, sentFirstReminder)
+		require.True(t, sentSecondReminder)
 	})
 }

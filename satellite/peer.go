@@ -5,12 +5,21 @@ package satellite
 
 import (
 	"context"
+	"net"
+	"net/mail"
+	"net/smtp"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/identity"
 	"storj.io/private/debug"
+	"storj.io/private/tagsql"
+	"storj.io/storj/private/migrate"
+	"storj.io/storj/private/post"
+	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
@@ -26,20 +35,33 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/emailreminders"
+	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
+	"storj.io/storj/satellite/payments/accountfreeze"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
@@ -66,13 +88,12 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	// TestingMigrateToLatest initializes the database for testplanet.
-	TestingMigrateToLatest(ctx context.Context) error
-
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// NodeEvents returns a database for node event information
+	NodeEvents() nodeevents.DB
 	// Reputation returns database for audit reputation information
 	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
@@ -83,8 +104,14 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
+	// VerifyQueue returns queue for segments chosen for verification
+	VerifyQueue() audit.VerifyQueue
+	// ReverifyQueue returns queue for pieces that need audit reverification
+	ReverifyQueue() audit.ReverifyQueue
 	// Console returns database for satellite console
 	Console() console.DB
+	// OIDC returns the database for OIDC resources.
+	OIDC() oidc.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -95,14 +122,37 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// SnoPayout returns database for payouts.
+	// Billing returns storjscan transactions database.
+	Billing() billing.TransactionsDB
+	// Wallets returns storjscan wallets database.
+	Wallets() storjscan.WalletsDB
+	// SNOPayouts returns database for payouts.
 	SNOPayouts() snopayouts.DB
-	// Compoensation tracks storage node compensation
+	// Compensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
 	Revocation() revocation.DB
 	// NodeAPIVersion tracks nodes observed api usage
 	NodeAPIVersion() nodeapiversion.DB
+	// StorjscanPayments stores payments retrieved from storjscan.
+	StorjscanPayments() storjscan.PaymentsDB
+
+	// Testing provides access to testing facilities. These should not be used in production code.
+	Testing() TestingDB
+}
+
+// TestingDB defines access to database testing facilities.
+type TestingDB interface {
+	// RawDB returns the underlying database connection to the primary database.
+	RawDB() tagsql.DB
+	// Schema returns the full schema for the database.
+	Schema() string
+	// TestMigrateToLatest initializes the database for testplanet.
+	TestMigrateToLatest(ctx context.Context) error
+	// ProductionMigration returns the primary migration.
+	ProductionMigration() *migrate.Migration
+	// TestMigration returns the migration used for tests.
+	TestMigration() *migrate.Migration
 }
 
 // Config is the global config satellite.
@@ -113,12 +163,16 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact    contact.Config
-	Overlay    overlay.Config
-	StrayNodes straynodes.Config
+	Contact      contact.Config
+	Overlay      overlay.Config
+	OfflineNodes offlinenodes.Config
+	NodeEvents   nodeevents.Config
+	StrayNodes   straynodes.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
+
+	Userinfo userinfo.Config
 
 	Reputation reputation.Config
 
@@ -126,7 +180,10 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	GarbageCollection gc.Config
+	GarbageCollection   sender.Config
+	GarbageCollectionBF bloomfilter.Config
+
+	RangedLoop rangedloop.Config
 
 	ExpiredDeletion expireddeletion.Config
 	ZombieDeletion  zombiedeletion.Config
@@ -141,7 +198,12 @@ type Config struct {
 
 	Payments paymentsconfig.Config
 
-	Console consoleweb.Config
+	RESTKeys       restkeys.Config
+	Console        consoleweb.Config
+	ConsoleAuth    consoleauth.Config
+	EmailReminders emailreminders.Config
+
+	AccountFreeze accountfreeze.Config
 
 	Version version_checker.Config
 
@@ -154,4 +216,69 @@ type Config struct {
 	ProjectLimit accounting.ProjectLimitConfig
 
 	Analytics analytics.Config
+}
+
+func setupMailService(log *zap.Logger, config Config) (*mailservice.Service, error) {
+	// TODO(yar): test multiple satellites using same OAUTH credentials
+	mailConfig := config.Mail
+
+	// validate from mail address
+	from, err := mail.ParseAddress(mailConfig.From)
+	if err != nil {
+		return nil, errs.New("SMTP from address '%s' couldn't be parsed: %v", mailConfig.From, err)
+	}
+
+	// validate smtp server address
+	host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
+	if err != nil && mailConfig.AuthType != "simulate" && mailConfig.AuthType != "nologin" {
+		return nil, errs.New("SMTP server address '%s' couldn't be parsed: %v", mailConfig.SMTPServerAddress, err)
+	}
+
+	var sender mailservice.Sender
+	switch mailConfig.AuthType {
+	case "oauth2":
+		creds := oauth2.Credentials{
+			ClientID:     mailConfig.ClientID,
+			ClientSecret: mailConfig.ClientSecret,
+			TokenURI:     mailConfig.TokenURI,
+		}
+		token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
+		if err != nil {
+			return nil, err
+		}
+
+		sender = &post.SMTPSender{
+			From: *from,
+			Auth: &oauth2.Auth{
+				UserEmail: from.Address,
+				Storage:   oauth2.NewTokenStore(creds, *token),
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	case "plain":
+		sender = &post.SMTPSender{
+			From:          *from,
+			Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	case "login":
+		sender = &post.SMTPSender{
+			From: *from,
+			Auth: post.LoginAuth{
+				Username: mailConfig.Login,
+				Password: mailConfig.Password,
+			},
+			ServerAddress: mailConfig.SMTPServerAddress,
+		}
+	case "nomail":
+		sender = simulate.NoMail{}
+	default:
+		sender = simulate.NewDefaultLinkClicker(log.Named("mail:linkclicker"))
+	}
+
+	return mailservice.New(
+		log.Named("mail:service"),
+		sender,
+		mailConfig.TemplatePath,
+	)
 }

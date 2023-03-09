@@ -7,8 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
-	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -22,7 +23,6 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/private/debug"
 	"storj.io/private/version"
@@ -36,10 +36,10 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/console/consoleassets"
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/storj/storagenode/healthcheck"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
@@ -63,6 +63,7 @@ import (
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	version2 "storj.io/storj/storagenode/version"
+	storagenodeweb "storj.io/storj/web/storagenode"
 )
 
 var (
@@ -75,6 +76,7 @@ var (
 type DB interface {
 	// MigrateToLatest initializes the database
 	MigrateToLatest(ctx context.Context) error
+
 	// Close closes the database
 	Close() error
 
@@ -121,6 +123,8 @@ type Config struct {
 	Nodestats nodestats.Config
 
 	Console consoleserver.Config
+
+	Healthcheck healthcheck.Config
 
 	Version checker.Config
 
@@ -207,6 +211,11 @@ type Peer struct {
 		Service *checker.Service
 	}
 
+	Healthcheck struct {
+		Service  *healthcheck.Service
+		Endpoint *healthcheck.Endpoint
+	}
+
 	Debug struct {
 		Listener net.Listener
 		Server   *debug.Server
@@ -224,6 +233,7 @@ type Peer struct {
 		Chore     *contact.Chore
 		Endpoint  *contact.Endpoint
 		PingStats *contact.PingStats
+		QUICStats *contact.QUICStats
 	}
 
 	Estimation struct {
@@ -264,7 +274,7 @@ type Peer struct {
 	}
 
 	GracefulExit struct {
-		Service      gracefulexit.Service
+		Service      *gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
@@ -346,6 +356,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 	}
 
+	{
+
+		peer.Healthcheck.Service = healthcheck.NewService(peer.DB.Reputation(), config.Healthcheck.Details)
+		peer.Healthcheck.Endpoint = healthcheck.NewEndpoint(peer.Healthcheck.Service)
+	}
+
 	{ // setup listener and server
 		sc := config.Server
 
@@ -359,6 +375,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		if config.Healthcheck.Enabled {
+			peer.Server.AddHTTPFallback(peer.Healthcheck.Endpoint.HandleHTTP)
 		}
 
 		peer.Servers.Add(lifecycle.Item{
@@ -399,6 +419,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		noiseKeyAttestation, err := peer.Server.NoiseKeyAttestation(context.Background())
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		self := contact.NodeInfo{
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
@@ -407,10 +431,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				Wallet:         config.Operator.Wallet,
 				WalletFeatures: config.Operator.WalletFeatures,
 			},
-			Version: *pbVersion,
+			Version:             *pbVersion,
+			NoiseKeyAttestation: noiseKeyAttestation,
 		}
 		peer.Contact.PingStats = new(contact.PingStats)
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust)
+		peer.Contact.QUICStats = contact.NewQUICStats(peer.Server.IsQUICEnabled())
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats)
 
 		peer.Contact.Chore = contact.NewChore(peer.Log.Named("contact:chore"), config.Contact.Interval, peer.Contact.Service)
 		peer.Services.Add(lifecycle.Item{
@@ -461,6 +487,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.BlobsCache,
 			peer.Storage2.Store,
 			config.Storage2.CacheSyncInterval,
+			config.Storage2.PieceScanOnStartup,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "piecestore:cache",
@@ -513,12 +540,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
 			peer.Log.Named("piecestore"),
-			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Identity,
 			peer.Storage2.Trust,
 			peer.Storage2.Monitor,
 			peer.Storage2.RetainService,
 			peer.Contact.PingStats,
 			peer.Storage2.Store,
+			peer.Storage2.TrashChore,
 			peer.Storage2.PieceDeleter,
 			peer.OrdersStore,
 			peer.DB.Bandwidth(),
@@ -530,6 +558,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		if err := pb.DRPCRegisterPiecestore(peer.Server.DRPC(), peer.Storage2.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err := pb.DRPCRegisterReplaySafePiecestore(peer.Server.ReplaySafeDRPC(), peer.Storage2.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
@@ -635,6 +666,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup storage node operator dashboard
+		_, port, _ := net.SplitHostPort(peer.Addr())
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
@@ -653,6 +685,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Estimation.Service,
 			peer.Storage2.BlobsCache,
 			config.Operator.WalletFeatures,
+			port,
+			peer.Contact.QUICStats,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -663,10 +697,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		assets := consoleassets.FileSystem
+		var assets fs.FS
+		assets = storagenodeweb.Assets
 		if config.Console.StaticDir != "" {
-			// a specific directory has been configured. use it
-			assets = http.Dir(config.Console.StaticDir)
+			// HACKFIX: Previous setups specify the directory for web/storagenode,
+			// instead of the actual built data. This is for backwards compatibility.
+			distDir := filepath.Join(config.Console.StaticDir, "dist")
+			assets = os.DirFS(distDir)
 		}
 
 		peer.Console.Endpoint = consoleserver.NewServer(
@@ -677,6 +714,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Payout.Service,
 			peer.Console.Listener,
 		)
+
+		// add console service to peer services
 		peer.Services.Add(lifecycle.Item{
 			Name:  "console:endpoint",
 			Run:   peer.Console.Endpoint.Run,

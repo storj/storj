@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
@@ -64,16 +66,12 @@ type Repairer struct {
 	}
 
 	Audit struct {
-		Reporter *audit.Reporter
+		Reporter audit.Reporter
 	}
 
 	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
-
-	Buckets struct {
-		Service *buckets.Service
-	}
 }
 
 // NewRepairer creates a new repairer peer.
@@ -83,6 +81,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	repairQueue queue.RepairQueue,
 	bucketsDB buckets.DB,
 	overlayCache overlay.DB,
+	nodeEvents nodeevents.DB,
 	reputationdb reputation.DB,
 	containmentDB audit.Containment,
 	rollupsWriteCache *orders.RollupsWriteCache,
@@ -144,19 +143,28 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Run,
 			Close: peer.Overlay.Close,
 		})
 	}
 
 	{ // setup reputation
+		if config.Reputation.FlushInterval > 0 {
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationdb, config.Reputation)
+			peer.Services.Add(lifecycle.Item{
+				Name: "reputation:writecache",
+				Run:  cachingDB.Manage,
+			})
+			reputationdb = cachingDB
+		}
 		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
-			overlayCache,
+			peer.Overlay,
 			reputationdb,
 			config.Reputation,
 		)
@@ -165,10 +173,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			Name:  "reputation",
 			Close: peer.Reputation.Close,
 		})
-	}
-
-	{ // setup buckets service
-		peer.Buckets.Service = buckets.NewService(bucketsDB, metabaseDB)
 	}
 
 	{ // setup orders
@@ -188,7 +192,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -200,6 +203,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Audit.Reporter = audit.NewReporter(
 			log.Named("reporter"),
 			peer.Reputation,
+			peer.Overlay,
 			containmentDB,
 			config.Audit.MaxRetriesStatDB,
 			int32(config.Audit.MaxReverifyCount))
@@ -221,8 +225,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			config.Checker.RepairOverrides,
-			config.Repairer.Timeout,
-			config.Repairer.MaxExcessRateOptimalThreshold,
+			config.Repairer,
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
@@ -244,10 +247,15 @@ func (peer *Repairer) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "repairer"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

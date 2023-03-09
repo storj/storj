@@ -4,26 +4,35 @@
 package audit_test
 
 import (
+	"context"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 )
 
 func TestChoreAndWorkerIntegration(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
+	testWithChoreAndObserver(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
+		pauseQueueing(satellite)
 
 		ul := planet.Uplinks[0]
 
@@ -35,16 +44,16 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		require.EqualValues(t, 2, queue.Size(), "audit queue")
+		err := runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
+
+		queue := audits.VerifyQueue
 
 		uniqueSegments := make(map[audit.Segment]struct{})
-		var err error
 		var segment audit.Segment
 		var segmentCount int
 		for {
-			segment, err = queue.Next()
+			segment, err = queue.Next(ctx)
 			if err != nil {
 				break
 			}
@@ -54,16 +63,23 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 
 			uniqueSegments[segment] = struct{}{}
 		}
-		require.True(t, audit.ErrEmptyQueue.Has(err))
+		require.True(t, audit.ErrEmptyQueue.Has(err), "expected empty queue error, but got error %+v", err)
 		require.Equal(t, 2, segmentCount)
-		require.Equal(t, 0, queue.Size())
+		requireAuditQueueEmpty(ctx, t, audits.VerifyQueue)
 
 		// Repopulate the queue for the worker.
-		audits.Chore.Loop.TriggerWait()
+		err = runQueueingOnce(ctx, satellite)
+		require.NoError(t, err)
 
 		// Make sure the worker processes the audit queue.
 		audits.Worker.Loop.TriggerWait()
-		queue = audits.Queues.Fetch()
-		require.EqualValues(t, 0, queue.Size(), "audit queue")
+		requireAuditQueueEmpty(ctx, t, audits.VerifyQueue)
 	})
+}
+
+func requireAuditQueueEmpty(ctx context.Context, t *testing.T, verifyQueue audit.VerifyQueue) {
+	entry, err := verifyQueue.Next(ctx)
+	require.NotNilf(t, err, "expected empty audit queue, but got entry %+v", entry)
+	require.Truef(t, audit.ErrEmptyQueue.Has(err), "expected empty audit queue error, but unexpectedly got error %v", err)
+	require.Empty(t, entry)
 }

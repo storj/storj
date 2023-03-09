@@ -35,6 +35,7 @@ message DiskSpaceResponse {
 message StorageUsage {
   double at_rest_total = 1;
   google.protobuf.Timestamp interval_start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  double at_rest_total_bytes = 3;
 }
 
 message StorageUsageRequest {
@@ -46,6 +47,7 @@ message StorageUsageRequest {
 message StorageUsageResponse {
   repeated StorageUsage storage_usage = 1;
   double summary = 2;
+  double average_usage_bytes = 3;
 }
 
 message StorageUsageSatelliteRequest {
@@ -58,6 +60,7 @@ message StorageUsageSatelliteRequest {
 message StorageUsageSatelliteResponse {
   repeated StorageUsage storage_usage = 1;
   double summary = 2;
+  double average_usage_bytes = 3;
 }
 
 service Bandwidth {

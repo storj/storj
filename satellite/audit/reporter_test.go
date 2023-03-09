@@ -9,13 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
-	"storj.io/common/memory"
-	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
 )
@@ -30,30 +29,32 @@ func TestReportPendingAudits(t *testing.T) {
 
 		nodeID := planet.StorageNodes[0].ID()
 
-		pending := audit.PendingAudit{
-			NodeID:            nodeID,
-			PieceID:           storj.NewPieceID(),
-			StripeIndex:       1,
-			ShareSize:         1 * memory.KiB.Int32(),
-			ExpectedShareHash: pkcrypto.SHA256Hash([]byte("test")),
+		pending := audit.ReverificationJob{
+			Locator: audit.PieceLocator{
+				NodeID: nodeID,
+			},
 		}
 
-		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
+		report := audit.Report{PendingAudits: []*audit.ReverificationJob{&pending}}
 		containment := satellite.DB.Containment()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-		assert.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		pa, err := containment.Get(ctx, nodeID)
 		require.NoError(t, err)
-		assert.Equal(t, pending, *pa)
+		assert.Equal(t, pending.Locator, pa.Locator)
 	})
 }
 
 func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -64,9 +65,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
-		failed, err := audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-		require.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		service := satellite.Reputation.Service
 		node, err := service.Get(ctx, nodeID)
@@ -79,6 +78,13 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 func TestRecordAuditsCorrectOutcome(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
+				config.Reputation.AuditLambda = 0.95
+				config.Reputation.AuditDQ = 0.6
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
@@ -94,22 +100,16 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 			Successes: []storj.NodeID{goodNode},
 			Fails:     []storj.NodeID{dqNode},
 			Unknown:   []storj.NodeID{suspendedNode},
-			PendingAudits: []*audit.PendingAudit{
+			PendingAudits: []*audit.ReverificationJob{
 				{
-					NodeID:            pendingNode,
-					PieceID:           testrand.PieceID(),
-					StripeIndex:       0,
-					ShareSize:         10,
-					ExpectedShareHash: []byte{},
-					ReverifyCount:     0,
+					Locator:       audit.PieceLocator{NodeID: pendingNode},
+					ReverifyCount: 0,
 				},
 			},
 			Offlines: []storj.NodeID{offlineNode},
 		}
 
-		failed, err := audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-		require.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		overlay := satellite.Overlay.Service
 		node, err := overlay.Get(ctx, goodNode)
@@ -149,9 +149,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedNode := planet.StorageNodes[0].ID()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
-		require.NoError(t, err)
-		require.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 
 		overlay := satellite.Overlay.Service
 
@@ -162,9 +160,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedAt := node.UnknownAuditSuspended
 
-		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
-		require.NoError(t, err)
-		require.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 
 		node, err = overlay.Get(ctx, suspendedNode)
 		require.NoError(t, err)
@@ -196,9 +192,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		report := audit.Report{
 			Successes: storj.NodeIDList{successNode.ID(), failedNode.ID(), containedNode.ID(), unknownNode.ID(), offlineNode.ID()},
 		}
-		failed, err := audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-		assert.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		// mark each node as having gracefully exited
 		for _, node := range nodeList {
@@ -212,23 +206,19 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		pending := audit.PendingAudit{
-			NodeID:            containedNode.ID(),
-			PieceID:           storj.NewPieceID(),
-			StripeIndex:       1,
-			ShareSize:         1 * memory.KiB.Int32(),
-			ExpectedShareHash: pkcrypto.SHA256Hash([]byte("test")),
+		pending := audit.ReverificationJob{
+			Locator: audit.PieceLocator{
+				NodeID: containedNode.ID(),
+			},
 		}
 		report = audit.Report{
 			Successes:     storj.NodeIDList{successNode.ID()},
 			Fails:         storj.NodeIDList{failedNode.ID()},
 			Offlines:      storj.NodeIDList{offlineNode.ID()},
-			PendingAudits: []*audit.PendingAudit{&pending},
+			PendingAudits: []*audit.ReverificationJob{&pending},
 			Unknown:       storj.NodeIDList{unknownNode.ID()},
 		}
-		failed, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-		assert.Zero(t, failed)
+		audits.Reporter.RecordAudits(ctx, report)
 
 		// since every node has gracefully exit, reputation, dq, and suspension should remain at default values
 		for _, node := range nodeList {
@@ -244,24 +234,29 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 func TestReportOfflineAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		reputationDB := satellite.DB.Reputation()
+		reputationService := satellite.Core.Reputation.Service
 
-		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
-		require.NoError(t, err)
+		audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
 
-		info, err := reputationDB.Get(ctx, node.ID())
+		info, err := reputationService.Get(ctx, node.ID())
 		require.NoError(t, err)
 		require.Equal(t, int64(1), info.TotalAuditCount)
 
 		// check that other reputation stats were not incorrectly updated by offline audit
 		require.EqualValues(t, 0, info.AuditSuccessCount)
-		require.EqualValues(t, 1, info.AuditReputationAlpha)
-		require.EqualValues(t, 0, info.AuditReputationBeta)
+		require.EqualValues(t, satellite.Config.Reputation.InitialAlpha, info.AuditReputationAlpha)
+		require.EqualValues(t, satellite.Config.Reputation.InitialBeta, info.AuditReputationBeta)
 		require.EqualValues(t, 1, info.UnknownAuditReputationAlpha)
 		require.EqualValues(t, 0, info.UnknownAuditReputationBeta)
 	})

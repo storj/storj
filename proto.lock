@@ -15,7 +15,7 @@
               {
                 "id": 2,
                 "name": "timestamp",
-                "type": "int32"
+                "type": "int64"
               }
             ]
           },
@@ -25,6 +25,73 @@
               {
                 "id": 1,
                 "name": "chain",
+                "type": "bytes",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "AuthorizationGroup",
+            "fields": [
+              {
+                "id": 1,
+                "name": "authorizations",
+                "type": "Authorization",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "Authorization",
+            "fields": [
+              {
+                "id": 1,
+                "name": "token",
+                "type": "Token"
+              },
+              {
+                "id": 2,
+                "name": "claim",
+                "type": "Claim"
+              }
+            ]
+          },
+          {
+            "name": "Token",
+            "fields": [
+              {
+                "id": 1,
+                "name": "user_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "data",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "Claim",
+            "fields": [
+              {
+                "id": 1,
+                "name": "addr",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "timestamp",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "identity",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "signed_chain_bytes",
                 "type": "bytes",
                 "is_repeated": true
               }

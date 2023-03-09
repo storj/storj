@@ -4,6 +4,8 @@
 package payments
 
 import (
+	"github.com/shopspring/decimal"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 )
@@ -19,4 +21,11 @@ type ProjectCharge struct {
 	Egress int64 `json:"egressPrice"`
 	// SegmentCount shows how many cents we should pay for objects count.
 	SegmentCount int64 `json:"segmentPrice"`
+}
+
+// ProjectUsagePriceModel represents price model for project usage.
+type ProjectUsagePriceModel struct {
+	StorageMBMonthCents decimal.Decimal `json:"storageMBMonthCents"`
+	EgressMBCents       decimal.Decimal `json:"egressMBCents"`
+	SegmentMonthCents   decimal.Decimal `json:"segmentMonthCents"`
 }

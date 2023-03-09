@@ -28,9 +28,9 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import BaseTable from '@/app/components/common/BaseTable.vue';
-
 import { HeldAmountSummary } from '@/payouts';
+
+import BaseTable from '@/app/components/common/BaseTable.vue';
 
 // @vue/component
 @Component({

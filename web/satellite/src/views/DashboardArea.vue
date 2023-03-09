@@ -4,328 +4,741 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
+            <div class="load" />
             <LoaderImage class="loading-icon" />
         </div>
-        <div v-if="!isLoading" class="dashboard__wrap">
-            <template v-if="!isNewNavStructure">
-                <BetaSatBar v-if="isBetaSatellite" />
-                <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                <ProjectInfoBar v-if="isProjectListPage" />
-                <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-            </template>
-            <template v-if="isNewNavStructure">
-                <div class="dashboard__wrap__new-main-area">
-                    <NewNavigationArea v-if="!isNavigationHidden" />
-                    <div
-                        class="dashboard__wrap__new-main-area__content-wrap"
-                        :class="{
-                            'with-one-bar': amountOfInfoBars === 1,
-                            'with-two-bars': amountOfInfoBars === 2,
-                            'with-three-bars': amountOfInfoBars === 3,
-                            'with-four-bars': amountOfInfoBars === 4,
-                        }"
-                    >
-                        <BetaSatBar v-if="isBetaSatellite" />
-                        <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
-                        <ProjectInfoBar v-if="isProjectListPage" />
-                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <router-view class="dashboard__wrap__new-main-area__content-wrap__content" />
-                    </div>
-                </div>
-            </template>
-            <template v-else>
-                <DashboardHeader />
+        <div v-else class="dashboard__wrap">
+            <div class="dashboard__wrap__main-area">
+                <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
+                <MobileNavigation v-if="!isNavigationHidden" class="dashboard__wrap__main-area__mobile-navigation" />
                 <div
-                    class="dashboard__wrap__main-area"
-                    :class="{
-                        'with-one-bar-old': amountOfInfoBars === 1,
-                        'with-two-bars-old': amountOfInfoBars === 2,
-                        'with-three-bars-old': amountOfInfoBars === 3,
-                        'with-four-bars-old': amountOfInfoBars === 4,
-                    }"
+                    class="dashboard__wrap__main-area__content-wrap"
+                    :class="{ 'no-nav': isNavigationHidden }"
                 >
-                    <NavigationArea class="regular-navigation" />
-                    <router-view class="dashboard__wrap__main-area__content" />
+                    <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
+                        <div class="bars">
+                            <BetaSatBar v-if="isBetaSatellite" />
+                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+
+                            <UpgradeNotification
+                                v-if="isPaidTierBannerShown"
+                                :open-add-p-m-modal="togglePMModal"
+                            />
+
+                            <ProjectLimitBanner
+                                v-if="isProjectLimitBannerShown"
+                                :dashboard-ref="dashboardContent"
+                                :on-upgrade-clicked="togglePMModal"
+                            />
+
+                            <v-banner
+                                v-if="isAccountFrozen && !isLoading && dashboardContent"
+                                severity="critical"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">Your account was frozen due to billing issues. Please update your payment information.</p>
+                                    <p class="link" @click.stop.self="redirectToBillingPage">To Billing Page</p>
+                                </template>
+                            </v-banner>
+
+                            <v-banner
+                                v-if="limitState.hundredIsShown && !isLoading && dashboardContent"
+                                severity="critical"
+                                :on-click="() => setIsHundredLimitModalShown(true)"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">{{ limitState.hundredLabel }}</p>
+                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                </template>
+                            </v-banner>
+                            <v-banner
+                                v-if="limitState.eightyIsShown && !isLoading && dashboardContent"
+                                severity="warning"
+                                :on-click="() => setIsEightyLimitModalShown(true)"
+                                :dashboard-ref="dashboardContent"
+                            >
+                                <template #text>
+                                    <p class="medium">{{ limitState.eightyLabel }}</p>
+                                    <p class="link" @click.stop.self="togglePMModal">Upgrade now</p>
+                                </template>
+                            </v-banner>
+                        </div>
+                        <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
+                    </div>
+                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
-            </template>
+            </div>
         </div>
-        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
+        <div v-if="debugTimerShown && !isLoading" class="dashboard__debug-timer">
+            <p>Remaining session time: <b class="dashboard__debug-timer__bold">{{ debugTimerText }}</b></p>
+        </div>
+        <limit-warning-modal
+            v-if="isHundredLimitModalShown && !isLoading"
+            severity="critical"
+            :on-close="() => setIsHundredLimitModalShown(false)"
+            :title="limitState.hundredModalTitle"
+            :limit-type="limitState.hundredModalLimitType"
+            :on-upgrade="togglePMModal"
+        />
+        <limit-warning-modal
+            v-if="isEightyLimitModalShown && !isLoading"
+            severity="warning"
+            :on-close="() => setIsEightyLimitModalShown(false)"
+            :title="limitState.eightyModalTitle"
+            :limit-type="limitState.eightyModalLimitType"
+            :on-upgrade="togglePMModal"
+        />
+        <AllModals />
+        <!-- IMPORTANT! Make sure this modal is positioned as the last element here so that it is shown on top of everything else -->
+        <InactivityModal
+            v-if="inactivityModalShown"
+            :on-continue="refreshSession"
+            :on-logout="handleInactive"
+            :on-close="closeInactivityModal"
+            :initial-seconds="inactivityModalTime / 1000"
+        />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
-import PaidTierBar from '@/components/infoBars/PaidTierBar.vue';
-import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
-import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
-import DashboardHeader from '@/components/header/HeaderArea.vue';
-import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import NewNavigationArea from '@/components/navigation/newNavigationStructure/NewNavigationArea.vue';
-import ProjectInfoBar from "@/components/infoBars/ProjectInfoBar.vue";
-
-import LoaderImage from '@/../static/images/common/loader.svg';
+<script setup lang="ts">
+import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CouponType } from '@/types/coupons';
 import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
-import { User } from "@/types/users";
+import { User } from '@/types/users';
+import { AuthHttpApi } from '@/api/auth';
+import { MetaUtils } from '@/utils/meta';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import eventBus from '@/utils/eventBus';
+import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
+import BillingNotification from '@/components/notifications/BillingNotification.vue';
+import NavigationArea from '@/components/navigation/NavigationArea.vue';
+import InactivityModal from '@/components/modals/InactivityModal.vue';
+import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
+import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
+import AllModals from '@/components/modals/AllModals.vue';
+import MobileNavigation from '@/components/navigation/MobileNavigation.vue';
+import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
+import VBanner from '@/components/common/VBanner.vue';
+import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
+import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
+
+import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
 const {
     SETUP_ACCOUNT,
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        NavigationArea,
-        NewNavigationArea,
-        DashboardHeader,
-        LoaderImage,
-        PaidTierBar,
-        MFARecoveryCodeBar,
-        BetaSatBar,
-        ProjectInfoBar,
-        MFARecoveryCodesPopup,
-        AddPaymentMethodModal,
-    },
-})
-export default class DashboardArea extends Vue {
-    // Minimum number of recovery codes before the recovery code warning bar is shown.
-    public recoveryCodeWarningThreshold = 4;
+const store = useStore();
+// TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
+const nativeRouter = useRouter();
+const notify = useNotify();
 
-    public isMFACodesPopup = false;
+const router = reactive(nativeRouter);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Pre fetches user`s and project information.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GET);
-        } catch (error) {
-            if (!(error instanceof ErrorUnauthorized)) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
-                await this.$notify.error(error.message);
+const auth: AuthHttpApi = new AuthHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
+const inactivityModalTime = 60000;
+const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
+const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
+const sessionRefreshInterval: number = sessionDuration / 2;
+const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
+// Minimum number of recovery codes before the recovery code warning bar is shown.
+const recoveryCodeWarningThreshold = 4;
+
+const inactivityTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const sessionRefreshTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const debugTimerId = ref<ReturnType<typeof setTimeout> | null>();
+const inactivityModalShown = ref<boolean>(false);
+const isSessionActive = ref<boolean>(false);
+const isSessionRefreshing = ref<boolean>(false);
+const isHundredLimitModalShown = ref<boolean>(false);
+const isEightyLimitModalShown = ref<boolean>(false);
+const debugTimerText = ref<string>('');
+
+const dashboardContent = ref<HTMLElement | null>(null);
+
+/**
+ * Indicates if account was frozen due to billing issues.
+ */
+const isAccountFrozen = computed((): boolean => {
+    return store.state.usersModule.user.isFrozen;
+});
+
+/**
+ * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
+ */
+const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
+    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
+
+    const result:
+    {
+        eightyIsShown: boolean,
+        hundredIsShown: boolean,
+        eightyLabel?: string,
+        eightyModalTitle?: string,
+        eightyModalLimitType?: string,
+        hundredLabel?: string,
+        hundredModalTitle?: string,
+        hundredModalLimitType?: string
+
+    } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
+
+    const { currentLimits } = store.state.projectsModule;
+
+    const limitTypeArr = [
+        { name: 'bandwidth', usedPercent: Math.round(currentLimits.bandwidthUsed * 100 / currentLimits.bandwidthLimit) },
+        { name: 'storage', usedPercent: Math.round(currentLimits.storageUsed * 100 / currentLimits.storageLimit) },
+        { name: 'segment', usedPercent: Math.round(currentLimits.segmentUsed * 100 / currentLimits.segmentLimit) },
+    ];
+
+    const hundredPercent = [] as string[];
+    const eightyPercent = [] as string[];
+
+    limitTypeArr.forEach((limitType) => {
+        if (limitType.usedPercent >= 80) {
+            if (limitType.usedPercent >= 100) {
+                hundredPercent.push(limitType.name);
+            } else {
+                eightyPercent.push(limitType.name);
             }
+        }
+    });
 
-            setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
+    if (eightyPercent.length !== 0) {
+        result.eightyIsShown = true;
 
-            return;
+        const eightyPercentString = eightyPercent.join(' and ');
+
+        result.eightyLabel = `You've used 80% of your ${eightyPercentString} limit. Avoid interrupting your usage by upgrading your account.`;
+        result.eightyModalTitle = `80% ${eightyPercentString} limit used`;
+        result.eightyModalLimitType = eightyPercentString;
+    }
+
+    if (hundredPercent.length !== 0) {
+        result.hundredIsShown = true;
+
+        const hundredPercentString = hundredPercent.join(' and ');
+
+        result.hundredLabel = `URGENT: You’ve reached the ${hundredPercentString} limit for your project. Upgrade to avoid any service interruptions.`;
+        result.hundredModalTitle = `URGENT: You’ve reached the ${hundredPercentString} limit for your project.`;
+        result.hundredModalLimitType = hundredPercentString;
+    }
+
+    return result;
+});
+
+/**
+ * Indicates if navigation sidebar is hidden.
+ */
+const isNavigationHidden = computed((): boolean => {
+    return isOnboardingTour.value || isCreateProjectPage.value;
+});
+
+/* whether the project limit banner should be shown. */
+const isProjectLimitBannerShown = computed((): boolean => {
+    return !LocalData.getProjectLimitBannerHidden()
+        && isProjectListPage.value
+        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+});
+
+/**
+ * Returns whether the user has reached project limits.
+ */
+const hasReachedProjectLimit = computed((): boolean => {
+    const projectLimit: number = store.getters.user.projectLimit;
+    const projectsCount: number = store.getters.projectsCount;
+
+    return projectsCount === projectLimit;
+});
+
+/* whether the paid tier banner should be shown */
+const isPaidTierBannerShown = computed((): boolean => {
+    return !store.state.usersModule.user.paidTier
+        && !isOnboardingTour.value
+        && joinedWhileAgo.value
+        && isDashboardPage.value;
+});
+
+/* whether the user joined more than 7 days ago */
+const joinedWhileAgo = computed((): boolean => {
+    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    if (!createdAt) return true; // true so we can show the banner regardless
+    const millisPerDay = 24 * 60 * 60 * 1000;
+    return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
+});
+
+/**
+ * Indicates if current route is projects list page.
+ */
+const isProjectListPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.ProjectsList.name;
+});
+
+/**
+ * Returns credit cards from store.
+ */
+const creditCards = computed((): CreditCard[] => {
+    return store.state.paymentsModule.creditCards;
+});
+
+/**
+ * Indicates if current route is onboarding tour.
+ */
+const isOnboardingTour = computed((): boolean => {
+    return router.history.current?.path.includes(RouteConfig.OnboardingTour.path);
+});
+
+/**
+ * Indicates if satellite is in beta.
+ */
+const isBetaSatellite = computed((): boolean => {
+    return store.state.appStateModule.isBetaSatellite;
+});
+
+/**
+ * Indicates if loading screen is active.
+ */
+const isLoading = computed((): boolean => {
+    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+});
+
+/**
+ * Indicates whether the MFA recovery code warning bar should be shown.
+ */
+const showMFARecoveryCodeBar = computed((): boolean => {
+    const user: User = store.getters.user;
+    return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
+});
+
+/**
+ * Indicates whether the billing relocation notification should be shown.
+ */
+const isBillingNotificationShown = computed((): boolean => {
+    return store.state.appStateModule.appState.isBillingNotificationShown;
+});
+
+/**
+ * Indicates if current route is create project page.
+ */
+const isCreateProjectPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.CreateProject.name;
+});
+
+/**
+ * Indicates if current route is the dashboard page.
+ */
+const isDashboardPage = computed((): boolean => {
+    return router.history.current?.name === RouteConfig.ProjectDashboard.name;
+});
+
+/**
+ * Stores project to vuex store and browser's local storage.
+ * @param projectID - project id string
+ */
+function storeProject(projectID: string): void {
+    store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    LocalData.setSelectedProjectId(projectID);
+}
+
+/**
+ * Clears timers associated with session refreshing and inactivity.
+ */
+function clearSessionTimers(): void {
+    [inactivityTimerId.value, sessionRefreshTimerId.value, debugTimerId.value].forEach(id => {
+        if (id !== null) clearTimeout(id);
+    });
+}
+
+/**
+ * Adds DOM event listeners and starts session timers.
+ */
+function setupSessionTimers(): void {
+    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+    if (isInactivityTimerEnabled === 'false') return;
+
+    const expiresAt = LocalData.getSessionExpirationDate();
+
+    if (expiresAt) {
+        resetActivityEvents.forEach((eventName: string) => {
+            document.addEventListener(eventName, onSessionActivity, false);
+        });
+
+        if (expiresAt.getTime() - sessionDuration + sessionRefreshInterval < Date.now()) {
+            refreshSession();
         }
 
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
-        } catch (error) {
-            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(SETUP_ACCOUNT);
-        } catch (error) {
-            await this.$notify.error(`Unable to setup account. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
-        }
-
-        let projects: Project[] = [];
-
-        try {
-            projects = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-        } catch (error) {
-            await this.$notify.error(error.message);
-
-            return;
-        }
-
-        if (!projects.length) {
-            try {
-                await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-                if (this.isNewOnbCLiFlow) {
-                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
-                } else {
-                    await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path);
-                }
-
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-            } catch (error) {
-                return;
-            }
-
-            return;
-        }
-
-        this.selectProject(projects);
-
-        await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-    }
-
-    /**
-     * Generates new MFA recovery codes and toggles popup visibility.
-     */
-    public async generateNewMFARecoveryCodes(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-    }
-
-    /**
-     * Opens add payment method modal.
-     */
-    public togglePMModal(): void {
-        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
-    }
-
-    /**
-     * Toggles MFA recovery codes popup visibility.
-     */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
-    }
-
-    /**
-     * Checks if stored project is in fetched projects array and selects it.
-     * Selects first fetched project if check is not successful.
-     * @param fetchedProjects - fetched projects array
-     */
-    private selectProject(fetchedProjects: Project[]): void {
-        const storedProjectID = LocalData.getSelectedProjectId();
-        const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
-        if (storedProjectID && isProjectInFetchedProjects) {
-            this.storeProject(storedProjectID);
-
-            return;
-        }
-
-        // Length of fetchedProjects array is checked before selectProject() function call.
-        this.storeProject(fetchedProjects[0].id);
-    }
-
-    /**
-     * Stores project to vuex store and browser's local storage.
-     * @param projectID - project id string
-     */
-    private storeProject(projectID: string): void {
-        this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
-    }
-
-    /**
-     * Returns amount of rendered info bars.
-     * It is used to set height of content's container.
-     */
-    public get amountOfInfoBars(): number {
-        const conditions: boolean[] = [
-            this.isBetaSatellite,
-            !this.creditCards.length && !this.isOnboardingTour,
-            this.isProjectListPage,
-            this.showMFARecoveryCodeBar,
-        ]
-
-        return conditions.filter(c => c).length;
-    }
-
-    /**
-     * Indicates if current route is projects list page.
-     */
-    public get isProjectListPage(): boolean {
-        return this.$route.name === RouteConfig.ProjectsList.name;
-    }
-
-    /**
-     * Indicates if add payment method modal is shown.
-     */
-    public get isAddPMModal(): boolean {
-        return this.$store.state.paymentsModule.isAddPMModalShown;
-    }
-
-    /**
-     * Returns credit cards from store.
-     */
-    public get creditCards(): CreditCard[] {
-        return this.$store.state.paymentsModule.creditCards;
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
-     * Indicates if satellite is in beta.
-     */
-    public get isBetaSatellite(): boolean {
-        return this.$store.state.appStateModule.isBetaSatellite;
-    }
-
-    /**
-     * Indicates if loading screen is active.
-     */
-    public get isLoading(): boolean {
-        return this.$store.state.appStateModule.appState.fetchState === AppState.LOADING;
-    }
-
-    /**
-     * Indicates whether the MFA recovery code warning bar should be shown.
-     */
-    public get showMFARecoveryCodeBar(): boolean {
-        const user : User = this.$store.getters.user;
-        return user.isMFAEnabled && user.mfaRecoveryCodeCount < this.recoveryCodeWarningThreshold;
-    }
-
-    /**
-     * Indicates if new navigation structure is used.
-     */
-    public get isNewNavStructure(): boolean {
-        return this.$store.state.appStateModule.isNewNavStructure;
-    }
-
-    /**
-     * Indicates if navigation side bar is hidden.
-     */
-    public get isNavigationHidden(): boolean {
-        return this.isOnboardingTour || this.isCreateProjectPage;
-    }
-
-    /**
-     * Indicates if current route is create project page.
-     */
-    private get isCreateProjectPage(): boolean {
-        return this.$route.name === RouteConfig.CreateProject.name;
-    }
-
-    /**
-     * Returns onboarding CLI flow status from store.
-     */
-    private get isNewOnbCLiFlow(): boolean {
-        return this.$store.state.appStateModule.isNewOnbCLIFlow;
+        restartSessionTimers();
     }
 }
+
+/**
+ * Restarts timers associated with session refreshing and inactivity.
+ */
+function restartSessionTimers(): void {
+    sessionRefreshTimerId.value = setTimeout(async () => {
+        sessionRefreshTimerId.value = null;
+        if (isSessionActive.value) {
+            await refreshSession();
+        }
+    }, sessionRefreshInterval);
+
+    inactivityTimerId.value = setTimeout(() => {
+        if (isSessionActive.value) return;
+        inactivityModalShown.value = true;
+        inactivityTimerId.value = setTimeout(async () => {
+            await handleInactive();
+            await notify.notify('Your session was timed out.');
+        }, inactivityModalTime);
+    }, sessionDuration - inactivityModalTime);
+
+    if (!debugTimerShown) return;
+
+    const debugTimer = () => {
+        const expiresAt = LocalData.getSessionExpirationDate();
+
+        if (expiresAt) {
+            const ms = Math.max(0, expiresAt.getTime() - Date.now());
+            const secs = Math.floor(ms/1000)%60;
+
+            debugTimerText.value = `${Math.floor(ms/60000)}:${(secs<10 ? '0' : '')+secs}`;
+
+            if (ms > 1000) {
+                debugTimerId.value = setTimeout(debugTimer, 1000);
+            }
+        }
+    };
+
+    debugTimer();
+}
+
+/**
+ * Checks if stored project is in fetched projects array and selects it.
+ * Selects first fetched project if check is not successful.
+ * @param fetchedProjects - fetched projects array
+ */
+function selectProject(fetchedProjects: Project[]): void {
+    const storedProjectID = LocalData.getSelectedProjectId();
+    const isProjectInFetchedProjects = fetchedProjects.some(project => project.id === storedProjectID);
+    if (storedProjectID && isProjectInFetchedProjects) {
+        storeProject(storedProjectID);
+
+        return;
+    }
+
+    // Length of fetchedProjects array is checked before selectProject() function call.
+    storeProject(fetchedProjects[0].id);
+}
+
+/**
+ * Used to trigger session timer update while doing not UI-related work for a long time.
+ */
+async function resetSessionOnLogicRelatedActivity(): Promise<void> {
+    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
+
+    if (!isInactivityTimerEnabled) {
+        return;
+    }
+
+    const expiresAt = LocalData.getSessionExpirationDate();
+
+    if (expiresAt) {
+        const ms = Math.max(0, expiresAt.getTime() - Date.now());
+
+        // Isn't triggered when decent amount of session time is left.
+        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
+            await refreshSession();
+        }
+    }
+}
+
+/**
+ * Refreshes session and resets session timers.
+ */
+async function refreshSession(): Promise<void> {
+    isSessionRefreshing.value = true;
+
+    try {
+        LocalData.setSessionExpirationDate(await auth.refreshSession());
+    } catch (error) {
+        await notify.error((error instanceof ErrorUnauthorized) ? 'Your session was timed out.' : error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+        await handleInactive();
+        isSessionRefreshing.value = false;
+        return;
+    }
+
+    clearSessionTimers();
+    restartSessionTimers();
+    inactivityModalShown.value = false;
+    isSessionActive.value = false;
+    isSessionRefreshing.value = false;
+}
+
+/**
+ * Performs logout and cleans event listeners and session timers.
+ */
+async function handleInactive(): Promise<void> {
+    await analytics.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
+
+    await Promise.all([
+        store.dispatch(PM_ACTIONS.CLEAR),
+        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        store.dispatch(USER_ACTIONS.CLEAR),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        store.dispatch(BUCKET_ACTIONS.CLEAR),
+        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        store.dispatch('files/clear'),
+    ]);
+
+    resetActivityEvents.forEach((eventName: string) => {
+        document.removeEventListener(eventName, onSessionActivity);
+    });
+    clearSessionTimers();
+    inactivityModalShown.value = false;
+
+    try {
+        await auth.logout();
+    } catch (error) {
+        if (error instanceof ErrorUnauthorized) return;
+
+        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
+    }
+}
+
+function setIsEightyLimitModalShown(value: boolean): void {
+    isEightyLimitModalShown.value = value;
+}
+
+function setIsHundredLimitModalShown(value: boolean): void {
+    isHundredLimitModalShown.value = value;
+}
+
+/**
+ * Toggles MFA recovery modal visibility.
+ */
+function toggleMFARecoveryModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+}
+
+/**
+ * Generates new MFA recovery codes and toggles popup visibility.
+ */
+async function generateNewMFARecoveryCodes(): Promise<void> {
+    try {
+        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        toggleMFARecoveryModal();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+}
+
+/**
+ * Opens add payment method modal.
+ */
+function togglePMModal(): void {
+    isHundredLimitModalShown.value = false;
+    isEightyLimitModalShown.value = false;
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+}
+
+/**
+ * Disables session inactivity modal visibility.
+ */
+function closeInactivityModal(): void {
+    inactivityModalShown.value = false;
+}
+
+/**
+ * Redirects to Billing Page.
+ */
+async function redirectToBillingPage(): Promise<void> {
+    await router.push(RouteConfig.Account.with(RouteConfig.Billing.with(RouteConfig.BillingPaymentMethods)).path);
+}
+
+/**
+ * Resets inactivity timer and refreshes session if necessary.
+ */
+async function onSessionActivity(): Promise<void> {
+    if (inactivityModalShown.value || isSessionActive.value) return;
+
+    if (sessionRefreshTimerId.value === null && !isSessionRefreshing.value) {
+        await refreshSession();
+    }
+
+    isSessionActive.value = true;
+}
+
+/**
+ * Subscribes to activity events to refresh session timers.
+ */
+onBeforeMount(() => {
+    eventBus.$on('upload_progress', () => {
+        resetSessionOnLogicRelatedActivity();
+    });
+});
+
+/**
+ * Lifecycle hook after initial render.
+ * Pre fetches user`s and project information.
+ */
+onMounted(async () => {
+    store.subscribeAction((action) => {
+        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    });
+
+    if (LocalData.getBillingNotificationAcknowledged()) {
+        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+    } else {
+        const unsub = store.subscribe((action) => {
+            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
+                LocalData.setBillingNotificationAcknowledged();
+                unsub();
+            }
+        });
+    }
+
+    try {
+        await store.dispatch(USER_ACTIONS.GET);
+        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
+        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        setupSessionTimers();
+    } catch (error) {
+        store.subscribeAction((action) => {
+            if (action.type === USER_ACTIONS.LOGIN)setupSessionTimers();
+        });
+
+        if (!(error instanceof ErrorUnauthorized)) {
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        }
+
+        setTimeout(async () => await router.push(RouteConfig.Login.path), 1000);
+
+        return;
+    }
+
+    try {
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+    } catch (error) {
+        await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    try {
+        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        if (couponType === CouponType.NoCoupon) {
+            await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+        }
+
+        if (couponType === CouponType.SignupCoupon) {
+            await notify.success(`The coupon code was added successfully`);
+        }
+    } catch (error) {
+        await notify.error(`Unable to setup account. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    try {
+        await store.dispatch(GET_CREDIT_CARDS);
+    } catch (error) {
+        await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+    }
+
+    let projects: Project[] = [];
+
+    try {
+        projects = await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    } catch (error) {
+        return;
+    }
+
+    if (!projects.length) {
+        try {
+            await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            await analytics.pageVisit(onboardingPath);
+            await router.push(onboardingPath);
+
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            return;
+        }
+
+        return;
+    }
+
+    selectProject(projects);
+
+    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+});
+
+onBeforeUnmount(() => {
+    eventBus.$off('upload_progress');
+});
 </script>
 
 <style scoped lang="scss">
+    @keyframes rotate {
+
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    :deep(.notification-wrap) {
+        margin-top: 1rem;
+    }
+
+    .load {
+        width: 90px;
+        height: 90px;
+        margin: auto 0;
+        border: solid 3px var(--c-blue-3);
+        border-radius: 50%;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+        transition: all 0.5s ease-in;
+        animation-name: rotate;
+        animation-duration: 1.2s;
+        animation-iteration-count: infinite;
+        animation-timing-function: linear;
+    }
+
     .loading-overlay {
         display: flex;
         justify-content: center;
@@ -335,12 +748,9 @@ export default class DashboardArea extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(134, 134, 148, 0.3);
+        background-color: #fff;
         visibility: hidden;
         opacity: 0;
-        -webkit-transition: all 0.5s linear;
-        -moz-transition: all 0.5s linear;
-        -o-transition: all 0.5s linear;
         transition: all 0.5s linear;
     }
 
@@ -350,8 +760,12 @@ export default class DashboardArea extends Vue {
     }
 
     .loading-icon {
-        width: 100px;
-        height: 100px;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
     }
 
     .dashboard {
@@ -366,68 +780,106 @@ export default class DashboardArea extends Vue {
             height: 100%;
 
             &__main-area {
-                display: flex;
-                height: calc(100% - 62px);
-
-                &__content {
-                    overflow-y: auto;
-                    width: 100%;
-                    position: relative;
-                }
-            }
-
-            &__new-main-area {
+                position: fixed;
                 display: flex;
                 width: 100%;
                 height: 100%;
 
+                &__mobile-navigation {
+                    display: none;
+                }
+
                 &__content-wrap {
                     width: 100%;
+                    height: 100%;
+                    min-width: 0;
 
-                    &__content {
+                    &__container {
+                        height: 100%;
                         overflow-y: auto;
+
+                        &__content {
+                            max-width: 1200px;
+                            margin: 0 auto;
+                            padding: 48px 48px 60px;
+                        }
                     }
                 }
             }
         }
+
+        &__debug-timer {
+            display: flex;
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px;
+            z-index: 10000;
+            background-color: #fec;
+            font-family: 'font_regular', sans-serif;
+            font-size: 14px;
+            border: 1px solid var(--c-yellow-2);
+            border-radius: 10px;
+            box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
+
+            &__bold {
+                font-family: 'font_medium', sans-serif;
+            }
+        }
     }
 
-    .with-one-bar {
-        height: calc(100% - 26px);
+    .no-nav {
+        width: 100%;
     }
 
-    .with-two-bars {
-        height: calc(100% - 52px);
-    }
-
-    .with-three-bars {
-        height: calc(100% - 78px);
-    }
-
-    .with-four-bars {
-        height: calc(100% - 104px);
-    }
-
-    .with-one-bar-old {
-        height: calc(100% - 62px - 26px);
-    }
-
-    .with-two-bars-old {
-        height: calc(100% - 62px - 52px);
-    }
-
-    .with-three-bars-old {
-        height: calc(100% - 62px - 78px);
-    }
-
-    .with-four-bars-old {
-        height: calc(100% - 62px - 104px);
+    .bars {
+        display: contents;
+        position: fixed;
+        width: 100%;
+        top: 0;
+        z-index: 1000;
     }
 
     @media screen and (max-width: 1280px) {
 
         .regular-navigation {
             display: none;
+        }
+
+        .no-nav {
+            width: 100%;
+        }
+    }
+
+    @media screen and (max-width: 800px) {
+
+        .dashboard__wrap__main-area__content-wrap__container__content {
+            padding: 32px 24px 50px;
+        }
+    }
+
+    @media screen and (max-width: 500px) {
+
+        .dashboard__wrap__main-area {
+            flex-direction: column;
+
+            &__content-wrap {
+                height: calc(100% - 4rem);
+
+                &__container {
+                    height: 100%;
+                    margin-bottom: 0;
+                }
+            }
+
+            &__navigation {
+                display: none;
+            }
+
+            &__mobile-navigation {
+                display: block;
+            }
         }
     }
 </style>

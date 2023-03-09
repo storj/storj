@@ -5,15 +5,19 @@ package contact
 
 import (
 	"context"
+	"net"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/noise"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/drpc/drpcctx"
 	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
 )
@@ -68,25 +72,35 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
-	resolvedIPPort, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
+	resolvedIP, port, resolvedNetwork, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
 		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
 	}
 
 	nodeurl := storj.NodeURL{
 		ID:      nodeID,
 		Address: req.Address,
 	}
+
+	var noiseInfo *pb.NoiseInfo
+	if req.NoiseKeyAttestation != nil {
+		if err := noise.ValidateKeyAttestation(ctx, req.NoiseKeyAttestation, nodeID); err == nil {
+			noiseInfo = &pb.NoiseInfo{
+				Proto:     req.NoiseKeyAttestation.NoiseProto,
+				PublicKey: req.NoiseKeyAttestation.NoisePublicKey,
+			}
+			nodeurl.NoiseInfo = noiseInfo.Convert()
+		}
+	}
+
 	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
-		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
-		if errPingBackDial.Has(err) {
-			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
-		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		return nil, endpoint.checkPingRPCErr(err, nodeurl)
 	}
 
 	// check wallet features
@@ -105,15 +119,17 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
 			Address:   req.Address,
-			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			NoiseInfo: noiseInfo,
 		},
 		LastNet:    resolvedNetwork,
-		LastIPPort: resolvedIPPort,
+		LastIPPort: net.JoinHostPort(resolvedIP.String(), port),
 		IsUp:       pingNodeSuccess,
 		Capacity:   req.Capacity,
 		Operator:   req.Operator,
 		Version:    req.Version,
 	}
+
+	endpoint.emitEvenkitEvent(ctx, req, pingNodeSuccess, pingNodeSuccessQUIC, nodeInfo)
 
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
@@ -127,6 +143,32 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
 		PingErrorMessage:    pingErrorMessage,
 	}, nil
+}
+
+func (endpoint *Endpoint) emitEvenkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPSuccess bool, pingNodeQUICSuccess bool, nodeInfo overlay.NodeCheckInInfo) {
+	var sourceAddr string
+	transport, found := drpcctx.Transport(ctx)
+	if found {
+		if conn, ok := transport.(net.Conn); ok {
+			a := conn.RemoteAddr()
+			if a != nil {
+				sourceAddr = a.String()
+			}
+		}
+	}
+
+	ek.Event("checkin",
+		eventkit.String("id", nodeInfo.NodeID.String()),
+		eventkit.String("addr", req.Address),
+		eventkit.String("resolved-addr", nodeInfo.LastIPPort),
+		eventkit.String("source-addr", sourceAddr),
+		eventkit.Timestamp("build-time", nodeInfo.Version.Timestamp),
+		eventkit.String("version", nodeInfo.Version.Version),
+		eventkit.String("country", nodeInfo.CountryCode.String()),
+		eventkit.Int64("free-disk", nodeInfo.Capacity.FreeDisk),
+		eventkit.Bool("ping-tpc-success", pingNodeTCPSuccess),
+		eventkit.Bool("ping-quic-success", pingNodeQUICSuccess),
+	)
 }
 
 // GetTime returns current timestamp.
@@ -144,4 +186,96 @@ func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (
 	return &pb.GetTimeResponse{
 		Timestamp: currentTimestamp,
 	}, nil
+}
+
+// PingMe is called by storage node to request a pingBack from the satellite to confirm they can
+// successfully connect to the node.
+func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ *pb.PingMeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peerID, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
+	}
+	nodeID := peerID.ID
+
+	nodeURL := storj.NodeURL{
+		ID:      nodeID,
+		Address: req.Address,
+	}
+
+	resolvedIP, _, _, err := endpoint.service.overlay.ResolveIPAndNetwork(ctx, req.Address)
+	if err != nil {
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
+	}
+	if !endpoint.service.allowPrivateIP && (!resolvedIP.IsGlobalUnicast() || isPrivateIP(resolvedIP)) {
+		endpoint.log.Info("IP address not allowed", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("IP address not allowed: %s", req.Address).Error())
+	}
+
+	if endpoint.service.timeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, endpoint.service.timeout)
+		defer cancel()
+	}
+
+	switch req.Transport {
+
+	case pb.NodeTransport_QUIC_RPC:
+		err = endpoint.service.pingNodeQUIC(ctx, nodeURL)
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+		return &pb.PingMeResponse{}, nil
+
+	case pb.NodeTransport_TCP_TLS_RPC:
+		client, err := dialNodeURL(ctx, endpoint.service.dialer, nodeURL)
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+
+		defer func() { err = errs.Combine(err, client.Close()) }()
+
+		_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+		if err != nil {
+			return nil, endpoint.checkPingRPCErr(err, nodeURL)
+		}
+		return &pb.PingMeResponse{}, nil
+	}
+
+	return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "invalid transport: %v", req.Transport)
+}
+
+func (endpoint *Endpoint) checkPingRPCErr(err error, nodeURL storj.NodeURL) error {
+	endpoint.log.Info("failed to ping back address", zap.String("node address", nodeURL.Address), zap.Stringer("Node ID", nodeURL.ID), zap.Error(err))
+	if errPingBackDial.Has(err) {
+		err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeURL.ID, nodeURL.Address, err)
+		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	}
+	err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeURL.ID, nodeURL.Address, err)
+	return rpcstatus.Error(rpcstatus.NotFound, err.Error())
+}
+
+// isPrivateIP is copied Go 1.17's net.IP.IsPrivate. We copied it to ensure we
+// can compile for the Go version earlier than 1.17.
+//
+// TODO(artur): Swap isPrivateIP usages with net.IP.IsPrivate when we no longer
+// need to build for earlier than Go 1.17. Keep this in sync with stdlib until.
+func isPrivateIP(ip net.IP) bool {
+	if ip4 := ip.To4(); ip4 != nil {
+		// Following RFC 1918, Section 3. Private Address Space which says:
+		//   The Internet Assigned Numbers Authority (IANA) has reserved the
+		//   following three blocks of the IP address space for private internets:
+		//     10.0.0.0        -   10.255.255.255  (10/8 prefix)
+		//     172.16.0.0      -   172.31.255.255  (172.16/12 prefix)
+		//     192.168.0.0     -   192.168.255.255 (192.168/16 prefix)
+		return ip4[0] == 10 ||
+			(ip4[0] == 172 && ip4[1]&0xf0 == 16) ||
+			(ip4[0] == 192 && ip4[1] == 168)
+	}
+	// Following RFC 4193, Section 8. IANA Considerations which says:
+	//   The IANA has assigned the FC00::/7 prefix to "Unique Local Unicast".
+	return len(ip) == net.IPv6len && ip[0]&0xfe == 0xfc
 }

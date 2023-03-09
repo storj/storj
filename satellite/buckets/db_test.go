@@ -4,6 +4,8 @@
 package buckets_test
 
 import (
+	"sort"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 )
 
 func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
@@ -233,5 +236,66 @@ func TestListBucketsNotAllowed(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestBatchBuckets(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		db := sat.DB
+		consoleDB := db.Console()
+
+		var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
+			"test.bucket", "123", "0test", "999", "test-bucket.thing",
+		}
+
+		bucketsService := sat.API.Buckets.Service
+		var expectedBucketLocations []metabase.BucketLocation
+
+		for i := 1; i < 4; i++ {
+			project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject" + strconv.Itoa(i)})
+			require.NoError(t, err)
+
+			for _, bucket := range testBucketNames {
+				testBucket := newTestBucket(bucket, project.ID)
+				_, err := bucketsService.CreateBucket(ctx, testBucket)
+				require.NoError(t, err)
+				expectedBucketLocations = append(expectedBucketLocations, metabase.BucketLocation{
+					ProjectID:  project.ID,
+					BucketName: bucket,
+				})
+			}
+		}
+
+		sortBucketLocations(expectedBucketLocations)
+
+		testLimits := []int{1, 3, 30, 1000, len(expectedBucketLocations)}
+
+		for _, testLimit := range testLimits {
+			more, err := db.Buckets().IterateBucketLocations(ctx, uuid.UUID{}, "", testLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+				if testLimit > len(expectedBucketLocations) {
+					testLimit = len(expectedBucketLocations)
+				}
+
+				expectedResult := expectedBucketLocations[:testLimit]
+				require.Equal(t, expectedResult, bucketLocations)
+				return nil
+			})
+			require.NoError(t, err)
+			if testLimit < len(expectedBucketLocations) {
+				require.True(t, more)
+			} else {
+				require.False(t, more)
+			}
+		}
+	})
+}
+
+func sortBucketLocations(locations []metabase.BucketLocation) {
+	sort.Slice(locations, func(i, j int) bool {
+		if locations[i].ProjectID == locations[j].ProjectID {
+			return locations[i].BucketName < locations[j].BucketName
+		}
+		return locations[i].ProjectID.Less(locations[j].ProjectID)
 	})
 }

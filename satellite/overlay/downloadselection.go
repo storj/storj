@@ -5,12 +5,12 @@ package overlay
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
 // DownloadSelectionDB implements the database for download selection cache.
@@ -35,113 +35,121 @@ type DownloadSelectionCache struct {
 	db     DownloadSelectionDB
 	config DownloadSelectionCacheConfig
 
-	mu          sync.RWMutex
-	lastRefresh time.Time
-	state       *DownloadSelectionCacheState
+	cache sync2.ReadCache
 }
 
 // NewDownloadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to download data from.
-func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) *DownloadSelectionCache {
-	return &DownloadSelectionCache{
+func NewDownloadSelectionCache(log *zap.Logger, db DownloadSelectionDB, config DownloadSelectionCacheConfig) (*DownloadSelectionCache, error) {
+	cache := &DownloadSelectionCache{
 		log:    log,
 		db:     db,
 		config: config,
 	}
+	return cache, cache.cache.Init(config.Staleness/2, config.Staleness, cache.read)
+}
+
+// Run runs the background task for cache.
+func (cache *DownloadSelectionCache) Run(ctx context.Context) (err error) {
+	return cache.cache.Run(ctx)
 }
 
 // Refresh populates the cache with all of the reputableNodes and newNode nodes
 // This method is useful for tests.
 func (cache *DownloadSelectionCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = cache.refresh(ctx)
+	_, err = cache.cache.RefreshAndGet(ctx, time.Now())
 	return err
 }
 
-// refresh calls out to the database and refreshes the cache with the most up-to-date
-// data from the nodes table, then sets time that the last refresh occurred so we know when
-// to refresh again in the future.
-func (cache *DownloadSelectionCache) refresh(ctx context.Context) (state *DownloadSelectionCacheState, err error) {
+// read loads the latest download selection state.
+func (cache *DownloadSelectionCache) read(ctx context.Context) (_ interface{}, err error) {
 	defer mon.Task()(&ctx)(&err)
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	if cache.state != nil && time.Since(cache.lastRefresh) <= cache.config.Staleness {
-		return cache.state, nil
-	}
 
 	onlineNodes, err := cache.db.SelectAllStorageNodesDownload(ctx, cache.config.OnlineWindow, cache.config.AsOfSystemTime)
 	if err != nil {
-		return cache.state, err
+		return nil, Error.Wrap(err)
 	}
 
-	cache.lastRefresh = time.Now().UTC()
-	cache.state = NewDownloadSelectionCacheState(onlineNodes)
-
 	mon.IntVal("refresh_cache_size_online").Observe(int64(len(onlineNodes)))
-	return cache.state, nil
+
+	return NewDownloadSelectionCacheState(onlineNodes), nil
 }
 
 // GetNodeIPs gets the last node ip:port from the cache, refreshing when needed.
 func (cache *DownloadSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	cache.mu.RLock()
-	lastRefresh := cache.lastRefresh
-	state := cache.state
-	cache.mu.RUnlock()
-
-	// if the cache is stale, then refresh it before we get nodes
-	if state == nil || time.Since(lastRefresh) > cache.config.Staleness {
-		state, err = cache.refresh(ctx)
-		if err != nil {
-			return nil, err
-		}
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+	state := stateAny.(*DownloadSelectionCacheState)
 
 	return state.IPs(nodes), nil
 }
 
-// Size returns how many nodes are in the cache.
-func (cache *DownloadSelectionCache) Size() int {
-	cache.mu.RLock()
-	state := cache.state
-	cache.mu.RUnlock()
+// GetNodes gets nodes by ID from the cache, and refreshes the cache if it is stale.
+func (cache *DownloadSelectionCache) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	if state == nil {
-		return 0
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
+	state := stateAny.(*DownloadSelectionCacheState)
 
-	return state.Size()
+	return state.Nodes(nodes), nil
+}
+
+// Size returns how many nodes are in the cache.
+func (cache *DownloadSelectionCache) Size(ctx context.Context) (int, error) {
+	stateAny, err := cache.cache.Get(ctx, time.Now())
+	if stateAny == nil || err != nil {
+		return 0, Error.Wrap(err)
+	}
+	state := stateAny.(*DownloadSelectionCacheState)
+	return state.Size(), nil
 }
 
 // DownloadSelectionCacheState contains state of download selection cache.
 type DownloadSelectionCacheState struct {
-	// ipPortByID returns IP based on storj.NodeID
-	ipPortByID map[storj.NodeID]string
+	// byID returns IP based on storj.NodeID
+	byID map[storj.NodeID]*SelectedNode // TODO: optimize, avoid pointery structures for performance
 }
 
 // NewDownloadSelectionCacheState creates a new state from the nodes.
 func NewDownloadSelectionCacheState(nodes []*SelectedNode) *DownloadSelectionCacheState {
-	ipPortByID := map[storj.NodeID]string{}
+	byID := map[storj.NodeID]*SelectedNode{}
 	for _, n := range nodes {
-		ipPortByID[n.ID] = n.LastIPPort
+		byID[n.ID] = n
 	}
 	return &DownloadSelectionCacheState{
-		ipPortByID: ipPortByID,
+		byID: byID,
 	}
 }
 
 // Size returns how many nodes are in the state.
 func (state *DownloadSelectionCacheState) Size() int {
-	return len(state.ipPortByID)
+	return len(state.byID)
 }
 
 // IPs returns node ip:port for nodes that are in state.
 func (state *DownloadSelectionCacheState) IPs(nodes []storj.NodeID) map[storj.NodeID]string {
 	xs := make(map[storj.NodeID]string, len(nodes))
 	for _, nodeID := range nodes {
-		if ip, exists := state.ipPortByID[nodeID]; exists {
-			xs[nodeID] = ip
+		if n, exists := state.byID[nodeID]; exists {
+			xs[nodeID] = n.LastIPPort
+		}
+	}
+	return xs
+}
+
+// Nodes returns node ip:port for nodes that are in state.
+func (state *DownloadSelectionCacheState) Nodes(nodes []storj.NodeID) map[storj.NodeID]*SelectedNode {
+	xs := make(map[storj.NodeID]*SelectedNode, len(nodes))
+	for _, nodeID := range nodes {
+		if n, exists := state.byID[nodeID]; exists {
+			xs[nodeID] = n.Clone() // TODO: optimize the clones
 		}
 	}
 	return xs

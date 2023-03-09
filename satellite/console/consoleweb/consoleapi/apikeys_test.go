@@ -54,39 +54,48 @@ func Test_DeleteAPIKeyByNameAndProjectID(t *testing.T) {
 			Secret:    secret,
 		}
 
-		created, err := sat.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
-		require.NoError(t, err)
-
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}
-
-		req, err := http.NewRequestWithContext(ctx, "DELETE", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&projectID="+project.ID.String(), nil)
-		require.NoError(t, err)
 
 		expire := time.Now().AddDate(0, 0, 1)
 		cookie := http.Cookie{
 			Name:    "_tokenKey",
 			Path:    "/",
-			Value:   token,
+			Value:   tokenInfo.Token.String(),
 			Expires: expire,
 		}
 
-		req.AddCookie(&cookie)
+		deleteTestFunc := func(request *http.Request) func(t *testing.T) {
+			return func(t *testing.T) {
+				created, err := sat.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+				require.NoError(t, err)
 
-		result, err := client.Do(req)
+				request.AddCookie(&cookie)
+
+				result, err := client.Do(request)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, result.StatusCode)
+
+				keyAfterDelete, err := sat.DB.Console().APIKeys().Get(ctx, created.ID)
+				require.Error(t, err)
+				require.Nil(t, keyAfterDelete)
+
+				defer func() {
+					err = result.Body.Close()
+					require.NoError(t, err)
+				}()
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "DELETE", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&projectID="+project.ID.String(), nil)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
+		t.Run("delete by name and projectID", deleteTestFunc(req))
 
-		keyAfterDelete, err := sat.DB.Console().APIKeys().Get(ctx, created.ID)
-		require.Error(t, err)
-		require.Nil(t, keyAfterDelete)
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
+		req, err = http.NewRequestWithContext(ctx, "DELETE", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&publicID="+project.PublicID.String(), nil)
+		require.NoError(t, err)
+		t.Run("delete by name and pubicID", deleteTestFunc(req))
 	})
 }

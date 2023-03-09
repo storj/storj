@@ -5,43 +5,43 @@ package gracefulexit
 
 import (
 	"context"
-	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
-	"storj.io/uplink/private/eestream"
 )
 
+var remoteSegmentFunc = mon.Task()
+
 var _ segmentloop.Observer = (*PathCollector)(nil)
+var _ rangedloop.Partial = (*PathCollector)(nil)
 
 // PathCollector uses the metainfo loop to add paths to node reservoirs.
 //
 // architecture: Observer
 type PathCollector struct {
-	db            DB
-	nodeIDMutex   sync.Mutex
-	nodeIDStorage map[storj.NodeID]int64
-	buffer        []TransferQueueItem
 	log           *zap.Logger
+	db            DB
+	buffer        []TransferQueueItem
 	batchSize     int
+	nodeIDStorage map[storj.NodeID]int64
 }
 
 // NewPathCollector instantiates a path collector.
-func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSize int) *PathCollector {
-	buffer := make([]TransferQueueItem, 0, batchSize)
+func NewPathCollector(log *zap.Logger, db DB, exitingNodes storj.NodeIDList, batchSize int) *PathCollector {
 	collector := &PathCollector{
-		db:        db,
-		log:       log,
-		buffer:    buffer,
-		batchSize: batchSize,
+		log:           log,
+		db:            db,
+		buffer:        make([]TransferQueueItem, 0, batchSize),
+		batchSize:     batchSize,
+		nodeIDStorage: make(map[storj.NodeID]int64, len(exitingNodes)),
 	}
 
-	if len(nodeIDs) > 0 {
-		collector.nodeIDStorage = make(map[storj.NodeID]int64, len(nodeIDs))
-		for _, nodeID := range nodeIDs {
+	if len(exitingNodes) > 0 {
+		for _, nodeID := range exitingNodes {
 			collector.nodeIDStorage[nodeID] = 0
 		}
 	}
@@ -62,25 +62,22 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+	defer remoteSegmentFunc(&ctx)(&err)
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
+	return collector.handleRemoteSegment(ctx, segment)
+}
 
-	collector.nodeIDMutex.Lock()
-	defer collector.nodeIDMutex.Unlock()
-
+func (collector *PathCollector) handleRemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	numPieces := len(segment.Pieces)
 	for _, piece := range segment.Pieces {
 		if _, ok := collector.nodeIDStorage[piece.StorageNode]; !ok {
 			continue
 		}
-		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-		if err != nil {
-			return err
-		}
-		pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+
+		pieceSize := segment.PieceSize()
+
 		collector.nodeIDStorage[piece.StorageNode] += pieceSize
 
 		item := TransferQueueItem{
@@ -109,6 +106,27 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segm
 
 // InlineSegment returns nil because we're only auditing for storage nodes for now.
 func (collector *PathCollector) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
+	return nil
+}
+
+// Process adds transfer queue items for remote segments belonging to newly
+// exiting nodes.
+func (collector *PathCollector) Process(ctx context.Context, segments []segmentloop.Segment) (err error) {
+	// Intentionally omitting mon.Task here. The duration for all process
+	// calls are aggregated and and emitted by the ranged loop service.
+
+	if len(collector.nodeIDStorage) == 0 {
+		return nil
+	}
+
+	for _, segment := range segments {
+		if segment.Inline() {
+			continue
+		}
+		if err := collector.handleRemoteSegment(ctx, &segment); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

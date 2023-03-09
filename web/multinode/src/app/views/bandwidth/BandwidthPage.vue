@@ -53,9 +53,9 @@
         <section class="bandwidth__chart-area">
             <section class="chart-container">
                 <div class="chart-container__title-area disk-space-title">
-                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                    <p class="chart-container__title-area__title">Average Disk Space Used This Month</p>
                 </div>
-                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}*h</b></p>
+                <p class="chart-container__amount disk-space-amount"><b>{{ diskSpaceUsageSummary | bytesToBase10String }}</b></p>
                 <div ref="diskSpaceChart" class="chart-container__chart" onresize="recalculateChartDimensions()">
                     <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth" />
                 </div>
@@ -70,6 +70,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+import { BandwidthTraffic } from '@/bandwidth';
+
 import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
 import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
 import IngressChart from '@/app/components/bandwidth/IngressChart.vue';
@@ -77,9 +80,6 @@ import NodeSelectionDropdown from '@/app/components/common/NodeSelectionDropdown
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
 import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
-
-import { UnauthorizedError } from '@/api';
-import { BandwidthTraffic } from '@/bandwidth';
 
 // @vue/component
 @Component({
@@ -110,7 +110,7 @@ export default class BandwidthPage extends Vue {
     }
 
     public get diskSpaceUsageSummary(): number {
-        return this.$store.state.storage.usage.diskSpaceSummary;
+        return this.$store.state.storage.usage.diskSpaceSummaryBytes;
     }
 
     /**
@@ -260,7 +260,7 @@ export default class BandwidthPage extends Vue {
             border: 1px solid var(--c-gray--light);
             border-radius: 11px;
             padding: 32px 30px;
-            margin: 20px 0 13px 0;
+            margin: 20px 0 13px;
             position: relative;
 
             &__title-area {
@@ -332,7 +332,7 @@ export default class BandwidthPage extends Vue {
     }
 
     .disk-stat-chart {
-        margin: 20px 0 13px 0;
+        margin: 20px 0 13px;
         width: auto;
     }
 </style>

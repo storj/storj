@@ -12,10 +12,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
-
-import { UnauthorizedError } from '@/api';
 
 // @vue/component
 @Component({

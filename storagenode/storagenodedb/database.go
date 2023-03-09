@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:generate sh -c "go run schemagen.go > schema.go.tmp && mv schema.go.tmp schema.go"
+//go:generate go run ./schemagen -o schema.go
 
 package storagenodedb
 
@@ -83,6 +83,8 @@ type Config struct {
 	Driver    string // if unset, uses sqlite3
 	Pieces    string
 	Filestore filestore.Config
+
+	TestingDisableWAL bool
 }
 
 // DB contains access to different database tables.
@@ -319,7 +321,12 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	wal := "&_journal=WAL"
+	if db.config.TestingDisableWAL {
+		wal = "&_journal=MEMORY"
+	}
+
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_busy_timeout=10000"+wal)
 	if err != nil {
 		return ErrDatabase.New("%s opening file %q failed: %w", dbName, path, err)
 	}
@@ -557,6 +564,11 @@ func (db *DB) APIKeys() apikeys.DB {
 // RawDatabases are required for testing purposes.
 func (db *DB) RawDatabases() map[string]DBContainer {
 	return db.SQLDBs
+}
+
+// DBDirectory returns the database directory for testing purposes.
+func (db *DB) DBDirectory() string {
+	return db.dbDirectory
 }
 
 // migrateToDB is a helper method that performs the migration from the
@@ -955,7 +967,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						satellite_id BLOB
 					)`,
 					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
-					`INSERT INTO piece_space_used (total) select ifnull(sum(piece_size), 0) from pieceinfo_`,
+					`INSERT INTO piece_space_used (total) SELECT IFNULL(SUM(piece_size), 0) FROM pieceinfo_`,
 				},
 			},
 			{
@@ -2001,6 +2013,32 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE satellites ADD COLUMN address TEXT;
 					 UPDATE satellites SET address = 'satellite.stefan-benten.de:7777' WHERE node_id = X'004ae89e970e703df42ba4ab1416a3b30b7e1d8e14aa0e558f7ee26800000000'`,
 				},
+			},
+			{
+				DB:          &db.storageUsageDB.DB,
+				Description: "Add interval_end_time field to storage_usage db, backfill interval_end_time with interval_start, rename interval_start to timestamp",
+				Version:     54,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) error {
+					_, err := rtx.Exec(ctx, `
+						CREATE TABLE storage_usage_new (
+							timestamp TIMESTAMP NOT NULL,
+							satellite_id BLOB NOT NULL,
+							at_rest_total REAL NOT NULL,
+							interval_end_time TIMESTAMP NOT NULL,
+							PRIMARY KEY (timestamp, satellite_id)
+						);
+						INSERT INTO storage_usage_new SELECT
+							interval_start,
+							satellite_id,
+							at_rest_total,
+							interval_start
+						FROM storage_usage;
+						DROP TABLE storage_usage;
+						ALTER TABLE storage_usage_new RENAME TO storage_usage;
+					`)
+
+					return errs.Wrap(err)
+				}),
 			},
 		},
 	}

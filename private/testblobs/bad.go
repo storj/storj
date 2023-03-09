@@ -15,10 +15,18 @@ import (
 	"storj.io/storj/storagenode"
 )
 
+// ErrorBlobs is the interface of storage.Blobs with the SetError method added.
+// This allows the BadDB{}.Blobs member to be replaced with something that has
+// specific behavior changes.
+type ErrorBlobs interface {
+	storage.Blobs
+	SetError(err error)
+}
+
 // BadDB implements bad storage node DB.
 type BadDB struct {
 	storagenode.DB
-	blobs *BadBlobs
+	Blobs ErrorBlobs
 	log   *zap.Logger
 }
 
@@ -27,19 +35,19 @@ type BadDB struct {
 func NewBadDB(log *zap.Logger, db storagenode.DB) *BadDB {
 	return &BadDB{
 		DB:    db,
-		blobs: newBadBlobs(log, db.Pieces()),
+		Blobs: newBadBlobs(log, db.Pieces()),
 		log:   log,
 	}
 }
 
 // Pieces returns the blob store.
 func (bad *BadDB) Pieces() storage.Blobs {
-	return bad.blobs
+	return bad.Blobs
 }
 
 // SetError sets an error to be returned for all piece operations.
 func (bad *BadDB) SetError(err error) {
-	bad.blobs.SetError(err)
+	bad.Blobs.SetError(err)
 }
 
 // BadBlobs implements a bad blob store.

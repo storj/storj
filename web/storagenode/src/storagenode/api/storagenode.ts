@@ -45,7 +45,7 @@ export class StorageNodeApi {
         const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
         return new Dashboard(data.nodeID, data.wallet, data.walletFeatures || [], satellites, diskSpace, bandwidth,
-            new Date(data.lastPinged), new Date(data.startedAt), data.version, data.allowedVersion, data.upToDate);
+            new Date(data.lastPinged), new Date(data.startedAt), data.version, data.allowedVersion, data.upToDate, data.quicStatus, data.configuredPort, new Date(data.lastQuicPingedAt));
     }
 
     /**
@@ -79,6 +79,7 @@ export class StorageNodeApi {
             satelliteByDayInfo.egressDaily,
             satelliteByDayInfo.ingressDaily,
             data.storageSummary,
+            data.averageUsageBytes,
             data.bandwidthSummary,
             data.egressSummary,
             data.ingressSummary,
@@ -119,6 +120,7 @@ export class StorageNodeApi {
             satelliteByDayInfo.egressDaily,
             satelliteByDayInfo.ingressDaily,
             data.storageSummary,
+            data.averageUsageBytes,
             data.bandwidthSummary,
             data.egressSummary,
             data.ingressSummary,

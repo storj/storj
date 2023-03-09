@@ -8,13 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/teststorj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storagenode"
 )
 
@@ -58,7 +63,7 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		// check that limit works, set limit = 1
 		// run twice to DQ nodes 1 and 2
 		for i := 0; i < 2; i++ {
-			n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 1)
+			_, n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 1)
 			require.NoError(t, err)
 			require.Equal(t, n, 1)
 		}
@@ -76,7 +81,7 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		// there should be no more nodes for DQ
 		// use higher limit to double check that DQ times
 		// for nodes 1 and 2 have not changed
-		n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
+		_, n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
 		require.NoError(t, err)
 		require.Equal(t, n, 0)
 
@@ -89,12 +94,12 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
 		require.NotNil(t, n1Info.Disqualified)
-		require.Equal(t, n1DQTime, n1Info.Reputation.Disqualified)
+		require.Equal(t, n1DQTime, n1Info.Reputation.Status.Disqualified)
 
 		n2Info, err = cache.Get(ctx, node2.ID())
 		require.NoError(t, err)
 		require.NotNil(t, n2Info.Disqualified)
-		require.Equal(t, n2DQTime, n2Info.Reputation.Disqualified)
+		require.Equal(t, n2DQTime, n2Info.Reputation.Status.Disqualified)
 	})
 }
 
@@ -128,14 +133,14 @@ func TestDQStrayNodesFailedPingback(t *testing.T) {
 		d, err := oc.Get(ctx, testID)
 		require.NoError(t, err)
 		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
-		require.Nil(t, d.Reputation.Disqualified)
+		require.Nil(t, d.Reputation.Status.Disqualified)
 
 		sat.Overlay.DQStrayNodes.Loop.TriggerWait()
 
 		d, err = oc.Get(ctx, testID)
 		require.NoError(t, err)
 		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
-		require.Nil(t, d.Reputation.Disqualified)
+		require.Nil(t, d.Reputation.Status.Disqualified)
 	})
 }
 
@@ -161,6 +166,74 @@ func TestOperatorConfig(t *testing.T) {
 			require.Equal(t, node.Config.Operator.Email, nodeInfo.Operator.Email)
 			require.Equal(t, node.Config.Operator.Wallet, nodeInfo.Operator.Wallet)
 			require.Equal(t, []string(node.Config.Operator.WalletFeatures), nodeInfo.Operator.WalletFeatures)
+		}
+	})
+}
+
+func TestDBDisqualifyNode(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		overlayDB := db.OverlayCache()
+		now := time.Now().Truncate(time.Second).UTC()
+
+		cases := []struct {
+			Name           string
+			NodeID         storj.NodeID
+			DisqualifiedAt time.Time
+			Reason         overlay.DisqualificationReason
+		}{
+			{
+				Name:           "Unknown",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonUnknown,
+			},
+			{
+				Name:           "Audit Failure",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonAuditFailure,
+			},
+			{
+				Name:           "Suspension",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonSuspension,
+			},
+			{
+				Name:           "Node Offline",
+				NodeID:         testrand.NodeID(),
+				DisqualifiedAt: now,
+				Reason:         overlay.DisqualificationReasonNodeOffline,
+			},
+		}
+
+		for _, testcase := range cases {
+			t.Run(testcase.Name, func(t *testing.T) {
+				checkIn := overlay.NodeCheckInInfo{
+					NodeID: testcase.NodeID,
+					Address: &pb.NodeAddress{
+						Address: "127.0.0.1:0",
+					},
+					IsUp: true,
+					Version: &pb.NodeVersion{
+						Version:    "v0.0.0",
+						CommitHash: "",
+						Timestamp:  now,
+					},
+				}
+
+				err := overlayDB.UpdateCheckIn(ctx, checkIn, now, overlay.NodeSelectionConfig{})
+				require.NoError(t, err)
+
+				_, err = overlayDB.DisqualifyNode(ctx, testcase.NodeID, testcase.DisqualifiedAt, testcase.Reason)
+				require.NoError(t, err)
+
+				info, err := overlayDB.Get(ctx, testcase.NodeID)
+				require.NoError(t, err)
+				require.NotNil(t, info.Disqualified)
+				assert.Equal(t, testcase.DisqualifiedAt, info.Disqualified.UTC())
+				assert.Equal(t, testcase.Reason, *info.DisqualificationReason)
+			})
 		}
 	})
 }

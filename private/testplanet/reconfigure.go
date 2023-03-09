@@ -23,6 +23,7 @@ type Reconfigure struct {
 	SatelliteDB         func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
 	SatelliteMetabaseDB func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
+	Uplink              func(log *zap.Logger, index int, config *UplinkConfig)
 
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)
@@ -74,6 +75,20 @@ var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalT
 	}
 }
 
+// RepairExcludedCountryCodes returns function to change satellite repair excluded country codes.
+var RepairExcludedCountryCodes = func(repairExcludedCountryCodes []string) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Overlay.RepairExcludedCountryCodes = repairExcludedCountryCodes
+	}
+}
+
+// UploadExcludedCountryCodes returns function to change satellite upload excluded country codes.
+var UploadExcludedCountryCodes = func(uploadExcludedCountryCodes []string) func(log *zap.Logger, index int, config *satellite.Config) {
+	return func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Overlay.Node.UploadExcludedCountryCodes = uploadExcludedCountryCodes
+	}
+}
+
 // MaxSegmentSize returns function to change satellite max segment size value.
 var MaxSegmentSize = func(maxSegmentSize memory.Size) func(log *zap.Logger, index int, config *satellite.Config) {
 	return func(log *zap.Logger, index int, config *satellite.Config) {
@@ -99,10 +114,10 @@ var MaxObjectKeyLength = func(maxObjectKeyLength int) func(log *zap.Logger, inde
 // tcp connections.
 var DisableTCP = Reconfigure{
 	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-		config.Server.DisableTCPTLS = true
+		config.Server.DisableTCP = true
 	},
 	StorageNode: func(index int, config *storagenode.Config) {
-		config.Server.DisableTCPTLS = true
+		config.Server.DisableTCP = true
 	},
 }
 

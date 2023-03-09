@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { Currency } from '@/app/utils/currency';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
 
 const localVue = createLocalVue();
 

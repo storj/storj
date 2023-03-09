@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -309,7 +309,7 @@ func (server *Server) putProjectLimit(w http.ResponseWriter, r *http.Request) {
 func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "failed to read body",
 			err.Error(), http.StatusInternalServerError)
@@ -402,7 +402,7 @@ func (server *Server) renameProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		sendJSONError(w, "ailed to read body",
 			err.Error(), http.StatusInternalServerError)
@@ -502,57 +502,82 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
-	// do not delete projects that have usage for the current month.
+func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (openInvoices bool) {
 	year, month, _ := server.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
-	if err != nil {
-		sendJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
-		return true
-	}
-	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
-		sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
-		return true
-	}
-
-	// if usage of last month exist, make sure to look for billing records
-	lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
-	if err != nil {
-		sendJSONError(w, "error getting project totals",
-			"", http.StatusInternalServerError)
-		return true
-	}
-
-	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
-		// time passed into the check function need to be the UTC midnight dates
-		// of the first day of the current month and the first day of the last
-		// month
-		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-		if errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
-			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
-			if err != nil {
-				sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
-				return true
-			}
-			// state = 0 means unapplied and not invoiced yet.
-			if record.State == 0 {
-				sendJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
-				return true
-			}
-			// Record has been applied, so project can be deleted.
-			return false
-		}
+	// Check if an invoice project record exists already
+	err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+	if errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
+		record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
 		if err != nil {
 			sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 			return true
 		}
-		sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
+		// state = 0 means unapplied and not invoiced yet.
+		if record.State == 0 {
+			sendJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
+			return true
+		}
+		// Record has been applied, so project can be deleted.
+		return false
+	}
+	if err != nil {
+		sendJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)
 		return true
 	}
 
 	return false
+}
+
+func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
+	year, month, _ := server.nowFn().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	prj, err := server.db.Console().Projects().Get(ctx, projectID)
+	if err != nil {
+		sendJSONError(w, "unable to get project details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// If user is paid tier, check the usage limit, otherwise it is ok to delete it.
+	paid, err := server.db.Console().Users().GetUserPaidTier(ctx, prj.OwnerID)
+	if err != nil {
+		sendJSONError(w, "unable to project owner tier",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if paid {
+		// check current month usage and do not allow deletion if usage exists
+		currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
+		if err != nil {
+			sendJSONError(w, "unable to list project usage", err.Error(), http.StatusInternalServerError)
+			return true
+		}
+		if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.SegmentCount > 0 {
+			sendJSONError(w, "usage for current month exists", "", http.StatusConflict)
+			return true
+		}
+
+		// check usage for last month, if exists, ensure we have an invoice item created.
+		lastMonthUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+		if err != nil {
+			sendJSONError(w, "error getting project totals",
+				"", http.StatusInternalServerError)
+			return true
+		}
+		if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.SegmentCount > 0 {
+			err = server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth)
+			if !errors.Is(err, stripecoinpayments.ErrProjectRecordExists) {
+				sendJSONError(w, "usage for last month exist, but is not billed yet", "", http.StatusConflict)
+				return true
+			}
+		}
+	}
+
+	// If we have open invoice items, do not delete the project yet and wait for invoice completion.
+	return server.checkInvoicing(ctx, w, projectID)
 }
 
 func bucketNames(buckets []storj.Bucket) []string {

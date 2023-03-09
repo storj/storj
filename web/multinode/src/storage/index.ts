@@ -6,10 +6,12 @@
  */
 export class Stamp {
     public atRestTotal: number;
+    public atRestTotalBytes: number;
     public intervalStart: Date;
 
-    public constructor(atRestTotal = 0, intervalStart: Date = new Date()) {
+    public constructor(atRestTotal = 0, atRestTotalBytes = 0, intervalStart: Date = new Date()) {
         this.atRestTotal = atRestTotal;
+        this.atRestTotalBytes = atRestTotalBytes;
         this.intervalStart = intervalStart;
     }
 
@@ -24,7 +26,7 @@ export class Stamp {
         now.setUTCDate(date);
         now.setUTCHours(0, 0, 0, 0);
 
-        return new Stamp(0, now);
+        return new Stamp(0, 0, now);
     }
 }
 
@@ -49,5 +51,6 @@ export class DiskSpaceUsage {
     public constructor(
         public diskSpaceDaily: Stamp[] = [],
         public diskSpaceSummary: number = 0,
+        public diskSpaceSummaryBytes: number = 0,
     ) {}
 }

@@ -38,8 +38,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import {
@@ -49,6 +47,8 @@ import {
     StoredMonthsByYear,
 } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
+
+import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
 // @vue/component
 @Component({
@@ -110,7 +110,7 @@ export default class PayoutPeriodCalendar extends Vue {
 
             if (!isLastPeriodSelected) {
                 await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, true);
-                console.error(error.message);
+                console.error(error);
             }
         }
 
@@ -287,7 +287,7 @@ export default class PayoutPeriodCalendar extends Vue {
             const isLastMonth: boolean = lastMonthDate.getUTCFullYear() === year && lastMonthDate.getUTCMonth() === i;
             const isLastMonthActive: boolean =
                 isLastMonth && this.$store.state.node.selectedSatellite.joinDate.getTime() < new Date(
-                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1,
+                    this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1,
                 ).getTime();
 
             const isMonthActive: boolean = availablePeriods.includes(period);
@@ -316,7 +316,7 @@ export default class PayoutPeriodCalendar extends Vue {
         width: 170px;
         height: 215px;
         background: var(--block-background-color);
-        box-shadow: 0 10px 25px rgba(175, 183, 193, 0.1);
+        box-shadow: 0 10px 25px rgb(175 183 193 / 10%);
         border-radius: 5px;
         padding: 24px;
         font-family: 'font_regular', sans-serif;
@@ -438,10 +438,7 @@ export default class PayoutPeriodCalendar extends Vue {
         }
     }
 
-    .arrow-icon {
-
-        path {
-            fill: var(--year-selection-arrow-color);
-        }
+    .arrow-icon ::v-deep path {
+        fill: var(--year-selection-arrow-color);
     }
 </style>

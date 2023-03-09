@@ -12,10 +12,10 @@
         </div>
         <p class="password-strength-container__subtitle">Your password should contain:</p>
         <div class="password-strength-container__rule-area">
-            <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLongEnough }">
+            <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLengthAcceptable }">
                 <VectorIcon />
             </div>
-            <p class="password-strength-container__rule-area__rule">6 or more Latin characters</p>
+            <p class="password-strength-container__rule-area__rule">Between 6 and 128 Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
@@ -34,8 +34,10 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
+
+import { Validator } from '@/utils/validation';
 
 import VectorIcon from '@/../static/images/register/StrengthVector.svg';
 
@@ -52,139 +54,124 @@ class BarFillStyle {
     }
 }
 
+const PASSWORD_STRENGTH = {
+    veryStrong: 'Very Strong',
+    strong: 'Strong',
+    good: 'Good',
+    weak: 'Weak',
+};
+
+const PASSWORD_STRENGTH_COLORS = {
+    [PASSWORD_STRENGTH.good]: '#ffff00',
+    [PASSWORD_STRENGTH.strong]: '#bfff00',
+    [PASSWORD_STRENGTH.veryStrong]: '#00ff40',
+    default: '#e16c58',
+};
+
+const BAR_WIDTH = {
+    [PASSWORD_STRENGTH.weak]: '25%',
+    [PASSWORD_STRENGTH.good]: '50%',
+    [PASSWORD_STRENGTH.strong]: '75%',
+    [PASSWORD_STRENGTH.veryStrong]: '100%',
+    default: '0px',
+};
+
+const props = withDefaults(defineProps<{
+    passwordString?: string;
+    isShown?: boolean;
+}>(), {
+    passwordString: '',
+    isShown: false,
+});
+
+const isPasswordLengthAcceptable = computed((): boolean => {
+    return Validator.password(props.passwordString);
+});
+
 /**
- * StrengthLabelColor class holds info for StrengthLabelColor entity.
+ * Returns password strength label depends on score.
  */
-class StrengthLabelColor {
-    color: string;
-
-    public constructor(color: string) {
-        this.color = color;
-    }
-}
-
-// @vue/component
-@Component({
-    components: {
-        VectorIcon,
-    },
-})
-export default class PasswordStrength extends Vue {
-    @Prop({default: ''})
-    private readonly passwordString: string;
-    /**
-     * Indicates if component should be rendered.
-     */
-    @Prop({default: false})
-    private readonly isShown: boolean;
-
-    private MINIMAL_PASSWORD_LENGTH = 6;
-
-    public get isPasswordLongEnough(): boolean {
-        return this.passwordString.length >= this.MINIMAL_PASSWORD_LENGTH;
+const passwordStrength = computed((): string => {
+    if (props.passwordString.length < Validator.PASS_MIN_LENGTH) {
+        return `Use ${Validator.PASS_MIN_LENGTH} or more characters`;
     }
 
-    /**
-     * Returns password strength label depends on score.
-     */
-    public get passwordStrength(): string {
-        if (this.passwordString.length < this.MINIMAL_PASSWORD_LENGTH) {
-            return `Use ${this.MINIMAL_PASSWORD_LENGTH} or more characters`;
-        }
-
-        const score = this.scorePassword();
-        if (score > 90) {
-            return 'Very Strong';
-        }
-        if (score > 70) {
-            return 'Strong';
-        }
-        if (score > 45) {
-            return 'Good';
-        }
-
-        return 'Weak';
+    if (props.passwordString.length > Validator.PASS_MAX_LENGTH) {
+        return `Use ${Validator.PASS_MAX_LENGTH} or fewer characters`;
     }
 
-    public get barFillStyle(): BarFillStyle {
-        return new BarFillStyle(this.passwordStrengthColor, this.barWidth);
+    const score = scorePassword();
+    if (score > 90) {
+        return PASSWORD_STRENGTH.veryStrong;
+    }
+    if (score > 70) {
+        return PASSWORD_STRENGTH.strong;
+    }
+    if (score > 45) {
+        return PASSWORD_STRENGTH.good;
     }
 
-    public get strengthLabelColor(): StrengthLabelColor {
-        return new StrengthLabelColor(this.passwordStrengthColor);
+    return PASSWORD_STRENGTH.weak;
+});
+
+/**
+ * Color for indicator between red as weak and green as strong password.
+ */
+const passwordStrengthColor = computed((): string => {
+    return PASSWORD_STRENGTH_COLORS[passwordStrength.value] || PASSWORD_STRENGTH_COLORS.default;
+});
+
+/**
+ * Fills password strength indicator bar.
+ */
+const barWidth = computed((): string => {
+    return BAR_WIDTH[passwordStrength.value] || BAR_WIDTH.default;
+});
+
+const strengthLabelColor = computed((): { color: string } => {
+    return { color: passwordStrengthColor.value };
+});
+
+const hasLowerAndUpperCaseLetters = computed((): boolean => {
+    return /[a-z]/.test(props.passwordString) && /[A-Z]/.test(props.passwordString);
+});
+
+const hasSpecialCharacter = computed((): boolean => {
+    return /\W/.test(props.passwordString);
+});
+
+const barFillStyle = computed((): BarFillStyle => {
+    return new BarFillStyle(passwordStrengthColor.value, barWidth.value);
+});
+
+/**
+ * Returns password strength score depends on length, case variations and special characters.
+ */
+function scorePassword(): number {
+    const password: string = props.passwordString;
+    let score = 0;
+
+    const letters: number[] = [];
+    for (let i = 0; i < password.length; i++) {
+        letters[password[i]] = (letters[password[i]] || 0) + 1;
+        score += 5 / letters[password[i]];
     }
 
-    public get hasLowerAndUpperCaseLetters(): boolean {
-        return /[a-z]/.test(this.passwordString) && /[A-Z]/.test(this.passwordString);
-    }
+    const variations: boolean[] = [
+        /\d/.test(password),
+        /[a-z]/.test(password),
+        /[A-Z]/.test(password),
+        /\W/.test(password),
+    ];
 
-    public get hasSpecialCharacter(): boolean {
-        return /\W/.test(this.passwordString);
-    }
+    let variationCount = 0;
+    variations.forEach((check) => {
+        variationCount += check ? 1 : 0;
+    });
 
-    /**
-     * Returns password strength score depends on length, case variations and special characters.
-     */
-    private scorePassword(): number {
-        const password: string = this.passwordString;
-        let score = 0;
+    score += variationCount * 10;
 
-        const letters: number[] = [];
-        for (let i = 0; i < password.length; i++) {
-            letters[password[i]] = (letters[password[i]] || 0) + 1;
-            score += 5 / letters[password[i]];
-        }
-
-        const variations: boolean[] = [
-            /\d/.test(password),
-            /[a-z]/.test(password),
-            /[A-Z]/.test(password),
-            /\W/.test(password),
-        ];
-
-        let variationCount = 0;
-        variations.forEach((check) => {
-            variationCount += check ? 1 : 0;
-        });
-
-        score += variationCount * 10;
-
-        return score;
-    }
-
-    /**
-     * Color for indicator between red as weak and green as strong password.
-     */
-    private get passwordStrengthColor(): string {
-        switch (this.passwordStrength) {
-        case 'Good':
-            return '#ffff00';
-        case 'Strong':
-            return '#bfff00';
-        case 'Very Strong':
-            return '#00ff40';
-        }
-
-        return '#e16c58';
-    }
-
-    /**
-     * Fills password strength indicator bar.
-     */
-    private get barWidth(): string {
-        switch (this.passwordStrength) {
-        case 'Weak':
-            return '81px';
-        case 'Good':
-            return '162px';
-        case 'Strong':
-            return '243px';
-        case 'Very Strong':
-            return '325px';
-        }
-
-        return '0px';
-    }
+    return score;
 }
 </script>
 
@@ -198,9 +185,8 @@ export default class PasswordStrength extends Vue {
         top: 96px;
         right: -3px;
         padding: 25px 20px;
-        opacity: 0.97;
-        border: 1px solid rgba(193, 193, 193, 0.3);
-        box-shadow: 0 4px 20px rgba(204, 208, 214, 0.25);
+        border: 1px solid rgb(193 193 193 / 30%);
+        box-shadow: 0 4px 20px rgb(204 208 214 / 25%);
         border-radius: 6px;
         background-color: #fff;
         height: 220px;
@@ -225,7 +211,7 @@ export default class PasswordStrength extends Vue {
             width: 100%;
             border-radius: 17px;
             background-color: #afb7c1;
-            margin: 5px 0 0 0;
+            margin: 5px 0 0;
             position: relative;
 
             &__fill {
@@ -241,14 +227,15 @@ export default class PasswordStrength extends Vue {
             font-size: 12px;
             line-height: 16px;
             color: #afb7c1;
-            margin: 10px 0 0 0;
+            margin: 10px 0 0;
+            text-align: left;
         }
 
         &__rule-area {
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            margin: 10px 0 0 0;
+            margin: 10px 0 0;
 
             &__checkbox {
                 height: 20px;

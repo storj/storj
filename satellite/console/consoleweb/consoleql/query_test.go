@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/accounting"
@@ -23,10 +22,11 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/rewards"
 )
 
 func TestGraphqlQuery(t *testing.T) {
@@ -34,11 +34,6 @@ func TestGraphqlQuery(t *testing.T) {
 		sat := planet.Satellites[0]
 		db := sat.DB
 		log := zaptest.NewLogger(t)
-
-		partnersService := rewards.NewPartnersService(
-			log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
 
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
@@ -51,46 +46,65 @@ func TestGraphqlQuery(t *testing.T) {
 
 		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute, -10*time.Second)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, *sat.Metabase.DB, 5*time.Minute, -10*time.Second)
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{
-			StorageTBPrice: "10",
-			EgressTBPrice:  "45",
-			SegmentPrice:   "0.0000022",
+			UsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "10",
+				EgressTB:  "45",
+				Segment:   "0.0000022",
+			},
 		}
+
+		prices, err := pc.UsagePrice.ToModel()
+		require.NoError(t, err)
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		require.NoError(t, err)
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
 			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
+			db.Console().Users(),
 			db.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
 			log.Named("console"),
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
-			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
+			db.Billing(),
 			analyticsService,
+			consoleauth.NewService(consoleauth.Config{
+				TokenExpirationTime: 24 * time.Hour,
+			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				TokenExpirationTime: 24 * time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -117,10 +131,11 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			FullName:  "John",
-			ShortName: "",
-			Email:     "mtest@mail.test",
-			Password:  "123a123",
+			FullName:        "John",
+			ShortName:       "",
+			Email:           "mtest@mail.test",
+			Password:        "123a123",
+			SignupPromoCode: "promo1",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 2)
@@ -129,8 +144,12 @@ func TestGraphqlQuery(t *testing.T) {
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
 
-		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
+		couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)
+
+		var signupCouponType payments.CouponType = payments.SignupCoupon
+
 		require.NoError(t, err)
+		assert.Equal(t, signupCouponType, couponType)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken, err := service.GenerateActivationToken(
@@ -144,18 +163,16 @@ func TestGraphqlQuery(t *testing.T) {
 			rootUser.Email = "mtest@mail.test"
 		})
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx := console.WithAuth(ctx, sauth)
 
 		testQuery := func(t *testing.T, query string) interface{} {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
-				Context:       authCtx,
+				Context:       userCtx,
 				RequestString: query,
 				RootObject:    rootObject,
 			})
@@ -168,7 +185,7 @@ func TestGraphqlQuery(t *testing.T) {
 			return result.Data
 		}
 
-		createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
+		createdProject, err := service.CreateProject(userCtx, console.ProjectInfo{
 			Name: "TestProject",
 		})
 		require.NoError(t, err)
@@ -176,7 +193,7 @@ func TestGraphqlQuery(t *testing.T) {
 		// "query {project(id:\"%s\"){id,name,members(offset:0, limit:50){user{fullName,shortName,email}},apiKeys{name,id,createdAt,projectID}}}"
 		t.Run("Project query base info", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {project(id:\"%s\"){id,name,description,createdAt}}",
+				"query {project(id:\"%s\"){id,name,publicId,description,createdAt}}",
 				createdProject.ID.String(),
 			)
 
@@ -186,6 +203,7 @@ func TestGraphqlQuery(t *testing.T) {
 			project := data[consoleql.ProjectQuery].(map[string]interface{})
 
 			assert.Equal(t, createdProject.ID.String(), project[consoleql.FieldID])
+			assert.Equal(t, createdProject.PublicID.String(), project[consoleql.FieldPublicID])
 			assert.Equal(t, createdProject.Name, project[consoleql.FieldName])
 			assert.Equal(t, createdProject.Description, project[consoleql.FieldDescription])
 
@@ -194,12 +212,26 @@ func TestGraphqlQuery(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.True(t, createdProject.CreatedAt.Equal(createdAt))
+
+			// test getting by publicId
+			query = fmt.Sprintf(
+				"query {project(publicId:\"%s\"){id,name,publicId,description,createdAt}}",
+				createdProject.PublicID.String(),
+			)
+
+			result = testQuery(t, query)
+
+			data = result.(map[string]interface{})
+			project = data[consoleql.ProjectQuery].(map[string]interface{})
+
+			assert.Equal(t, createdProject.ID.String(), project[consoleql.FieldID])
+			assert.Equal(t, createdProject.PublicID.String(), project[consoleql.FieldPublicID])
 		})
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		user1, err := service.CreateUser(authCtx, console.CreateUser{
+		user1, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName:  "Mickey Last",
 			ShortName: "Last",
 			Password:  "123a123",
@@ -222,7 +254,7 @@ func TestGraphqlQuery(t *testing.T) {
 		regTokenUser2, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		user2, err := service.CreateUser(authCtx, console.CreateUser{
+		user2, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName:  "Dubas Name",
 			ShortName: "Name",
 			Email:     "muu2@mail.test",
@@ -242,7 +274,7 @@ func TestGraphqlQuery(t *testing.T) {
 			user2.Email = "muu2@mail.test"
 		})
 
-		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
+		users, err := service.AddProjectMembers(userCtx, createdProject.ID, []string{
 			user1.Email,
 			user2.Email,
 		})
@@ -305,10 +337,10 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundU2)
 		})
 
-		keyInfo1, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key1")
+		keyInfo1, _, err := service.CreateAPIKey(userCtx, createdProject.ID, "key1")
 		require.NoError(t, err)
 
-		keyInfo2, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key2")
+		keyInfo2, _, err := service.CreateAPIKey(userCtx, createdProject.ID, "key2")
 		require.NoError(t, err)
 
 		t.Run("Project query api keys", func(t *testing.T) {
@@ -361,14 +393,14 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundKey2)
 		})
 
-		project2, err := service.CreateProject(authCtx, console.ProjectInfo{
+		project2, err := service.CreateProject(userCtx, console.ProjectInfo{
 			Name:        "Project2",
 			Description: "Test desc",
 		})
 		require.NoError(t, err)
 
 		t.Run("MyProjects query", func(t *testing.T) {
-			query := "query {myProjects{id,name,description,createdAt}}"
+			query := "query {myProjects{id,publicId,name,description,createdAt}}"
 
 			result := testQuery(t, query)
 
@@ -379,6 +411,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.PublicID.String(), actual[consoleql.FieldPublicID])
 				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
 				createdAt := time.Time{}
@@ -409,7 +442,7 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 		t.Run("OwnedProjects query", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
+				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, publicId, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
 				5,
 				1,
 			)
@@ -430,6 +463,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project, expectedNumMembers int) {
 				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.PublicID.String(), actual[consoleql.FieldPublicID])
 				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
 				createdAt := time.Time{}

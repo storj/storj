@@ -146,7 +146,7 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
 
                 commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, heldHistory);
             },
-            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({commit}: PayoutContext, satelliteId = ''): Promise<void> {
+            [PAYOUT_ACTIONS.GET_PERIODS]: async function ({ commit }: PayoutContext, satelliteId = ''): Promise<void> {
                 const periods = await service.availablePeriods(satelliteId);
 
                 commit(PAYOUT_MUTATIONS.SET_PERIODS, periods);

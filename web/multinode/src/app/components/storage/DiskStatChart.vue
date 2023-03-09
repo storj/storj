@@ -42,10 +42,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import DoughnutChart from '@/app/components/common/DoughnutChart.vue';
-
 import { DiskStatChartData, DiskStatDataSet } from '@/app/types/chart';
 import { DiskSpace } from '@/storage';
+
+import DoughnutChart from '@/app/components/common/DoughnutChart.vue';
 
 // @vue/component
 @Component({
@@ -80,7 +80,6 @@ export default class DiskStatChart extends Vue {
 </script>
 
 <style lang="scss">
-
     .disk-stat-area {
         width: 400px;
         height: 336px;

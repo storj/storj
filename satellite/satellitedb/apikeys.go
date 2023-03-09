@@ -34,8 +34,12 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		cursor.Limit = 50
 	}
 
+	if cursor.Limit == 0 {
+		return nil, console.ErrAPIKeyRequest.New("limit cannot be 0")
+	}
+
 	if cursor.Page == 0 {
-		return nil, errs.New("page cannot be 0")
+		return nil, console.ErrAPIKeyRequest.New("page cannot be 0")
 	}
 
 	page := &console.APIKeyPage{
@@ -66,11 +70,11 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 		return page, nil
 	}
 	if page.Offset > page.TotalCount-1 {
-		return nil, errs.New("page is out of range")
+		return nil, console.ErrAPIKeyRequest.New("page is out of range")
 	}
 
 	repoundQuery := keys.db.Rebind(`
-		SELECT ak.id, ak.project_id, ak.name, ak.partner_id, ak.created_at
+		SELECT ak.id, ak.project_id, ak.name, ak.user_agent, ak.created_at
 		FROM api_keys ak
 		WHERE ak.project_id = ?
 		AND lower(ak.name) LIKE ?
@@ -93,14 +97,12 @@ func (keys *apikeys) GetPagedByProjectID(ctx context.Context, projectID uuid.UUI
 	var apiKeys []console.APIKeyInfo
 	for rows.Next() {
 		ak := console.APIKeyInfo{}
-		var partnerID uuid.NullUUID
 
-		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &partnerID, &ak.CreatedAt)
+		err = rows.Scan(&ak.ID, &ak.ProjectID, &ak.Name, &ak.UserAgent, &ak.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
 
-		ak.PartnerID = partnerID.UUID
 		apiKeys = append(apiKeys, ak)
 	}
 
@@ -172,10 +174,6 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 	}
 
 	optional := dbx.ApiKey_Create_Fields{}
-	if !info.PartnerID.IsZero() {
-		optional.PartnerId = dbx.ApiKey_PartnerId(info.PartnerID[:])
-	}
-
 	if info.UserAgent != nil {
 		optional.UserAgent = dbx.ApiKey_UserAgent(info.UserAgent)
 	}
@@ -234,14 +232,8 @@ func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo,
 		ProjectID: projectID,
 		Name:      key.Name,
 		CreatedAt: key.CreatedAt,
+		Head:      key.Head,
 		Secret:    key.Secret,
-	}
-
-	if key.PartnerId != nil {
-		result.PartnerID, err = uuid.FromBytes(key.PartnerId)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if key.UserAgent != nil {

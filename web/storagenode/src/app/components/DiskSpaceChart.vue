@@ -3,7 +3,7 @@
 
 <template>
     <div class="chart">
-        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
+        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="disk-space-chart"
             :key="chartKey"
@@ -18,30 +18,32 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/BaseChart.vue';
-import VChart from '@/app/components/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
 import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storagenode/sno/sno';
+
+import VChart from '@/app/components/VChart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
 
 /**
  * stores stamp data for disc space chart's tooltip
  */
 class StampTooltip {
     public atRestTotal: string;
+    public atRestTotalBytes: string;
     public date: string;
 
     public constructor(stamp: Stamp) {
         this.atRestTotal = Size.toBase10String(stamp.atRestTotal);
+        this.atRestTotalBytes = Size.toBase10String(stamp.atRestTotalBytes);
         this.date = stamp.intervalStart.toUTCString().slice(0, 16);
     }
 }
 
 // @vue/component
 @Component({
-    components: { VChart }
+    components: { VChart },
 })
 export default class DiskSpaceChart extends BaseChart {
     private get chartBackgroundColor(): string {
@@ -58,7 +60,7 @@ export default class DiskSpaceChart extends BaseChart {
         }
 
         return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
-            return elem.atRestTotal;
+            return elem.atRestTotalBytes;
         }));
     }
 
@@ -70,7 +72,7 @@ export default class DiskSpaceChart extends BaseChart {
         const chartBorderWidth = 1;
 
         if (this.allStamps.length) {
-            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
+            data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotalBytes));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
@@ -93,7 +95,7 @@ export default class DiskSpaceChart extends BaseChart {
         const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
         return `<div class='tooltip-body'>
-                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
+                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotalBytes}</b></p>
                     <p class='tooltip-body__footer'>${dataPoint.date}</p>
                 </div>`;
     }

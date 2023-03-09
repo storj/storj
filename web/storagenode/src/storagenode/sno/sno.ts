@@ -17,6 +17,9 @@ export class Node {
         public wallet: string = '',
         public walletFeatures: string[] = [],
         public isLastVersion: boolean = false,
+        public quicStatus: string = '',
+        public configuredPort: string = '',
+        public lastQuicPingedAt: Date = new Date(),
     ) {}
 }
 
@@ -73,6 +76,9 @@ export class Dashboard {
         public version: string,
         public allowedVersion: string,
         public isUpToDate: boolean,
+        public quicStatus: string,
+        public configuredPort: string,
+        public lastQuicPingedAt: Date,
     ) { }
 }
 
@@ -100,6 +106,7 @@ export class Satellite {
         public egressDaily: EgressUsed[] = [],
         public ingressDaily: IngressUsed[] = [],
         public storageSummary: number = 0,
+        public averageUsageBytes: number = 0,
         public bandwidthSummary: number = 0,
         public egressSummary: number = 0,
         public ingressSummary: number = 0,
@@ -113,10 +120,12 @@ export class Satellite {
  */
 export class Stamp {
     public atRestTotal: number;
+    public atRestTotalBytes: number;
     public intervalStart: Date;
 
-    public constructor(atRestTotal = 0, intervalStart: Date = new Date()) {
+    public constructor(atRestTotal = 0, atRestTotalBytes = 0, intervalStart: Date = new Date()) {
         this.atRestTotal = atRestTotal;
+        this.atRestTotalBytes = atRestTotalBytes;
         this.intervalStart = intervalStart;
     }
 
@@ -130,7 +139,7 @@ export class Stamp {
         now.setUTCDate(date);
         now.setUTCHours(0, 0, 0, 0);
 
-        return new Stamp(0, now);
+        return new Stamp(0, 0, now);
     }
 }
 
@@ -276,6 +285,7 @@ export class Satellites {
         public egressDaily: EgressUsed[] = [],
         public ingressDaily: IngressUsed[] = [],
         public storageSummary: number = 0,
+        public averageUsageBytes: number = 0,
         public bandwidthSummary: number = 0,
         public egressSummary: number = 0,
         public ingressSummary: number = 0,
@@ -326,9 +336,9 @@ export class Score {
     public label: string;
     public statusClassName: string;
 
-    private readonly WARNING_MINIMUM_SCORE: number = 0.95;
+    private readonly WARNING_MINIMUM_SCORE: number = 0.99;
     private readonly WARNING_CLASSNAME: string = 'warning';
-    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
+    private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.96;
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(
@@ -366,7 +376,7 @@ export class SatelliteByDayInfo {
         const bandwidthDailyJson = data.bandwidthDaily || [];
 
         this.storageDaily = storageDailyJson.map((stamp: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
+            return new Stamp(stamp.atRestTotal, stamp.atRestTotalBytes, new Date(stamp.intervalStart));
         });
 
         this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any

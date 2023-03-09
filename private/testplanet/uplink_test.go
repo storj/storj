@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
@@ -147,6 +148,9 @@ func (mock *piecestoreMock) Retain(ctx context.Context, retain *pb.RetainRequest
 func (mock *piecestoreMock) RestoreTrash(context.Context, *pb.RestoreTrashRequest) (*pb.RestoreTrashResponse, error) {
 	return nil, nil
 }
+func (mock *piecestoreMock) Exists(context.Context, *pb.ExistsRequest) (*pb.ExistsResponse, error) {
+	return nil, nil
+}
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -196,6 +200,8 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		require.NoError(t, err)
 
 		err = pb.DRPCRegisterPiecestore(server.DRPC(), &piecestoreMock{})
+		require.NoError(t, err)
+		err = pb.DRPCRegisterReplaySafePiecestore(server.ReplaySafeDRPC(), &piecestoreMock{})
 		require.NoError(t, err)
 
 		defer ctx.Check(server.Close)
@@ -264,5 +270,25 @@ func TestUplinkOpenProject(t *testing.T) {
 
 		_, err = project.EnsureBucket(ctx, "bucket-name")
 		require.NoError(t, err)
+	})
+}
+
+func TestUplinkDifferentPathCipher(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.DefaultPathCipher = storj.EncNull
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object-name", []byte("data"))
+		require.NoError(t, err)
+
+		objects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		require.EqualValues(t, "object-name", objects[0].ObjectKey)
 	})
 }

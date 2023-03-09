@@ -6,28 +6,45 @@ package metabase
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // UpdateObjectMetadata contains arguments necessary for replacing an object metadata.
 type UpdateObjectMetadata struct {
-	ObjectStream
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	StreamID   uuid.UUID
 
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 }
 
+// Verify object stream fields.
+func (obj *UpdateObjectMetadata) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	case obj.StreamID.IsZero():
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
+}
+
 // UpdateObjectMetadata updates an object metadata.
 func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadata) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.ObjectStream.Verify(); err != nil {
+	if err := opts.Verify(); err != nil {
 		return err
-	}
-
-	if opts.ObjectStream.Version <= 0 {
-		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
 	}
 
 	// TODO So the issue is that during a multipart upload of an object,
@@ -37,17 +54,24 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 	// during commit object.
 	result, err := db.db.ExecContext(ctx, `
 		UPDATE objects SET
-			encrypted_metadata_nonce         = $6,
-			encrypted_metadata               = $7,
-			encrypted_metadata_encrypted_key = $8
+			encrypted_metadata_nonce         = $5,
+			encrypted_metadata               = $6,
+			encrypted_metadata_encrypted_key = $7
 		WHERE
 			project_id   = $1 AND
 			bucket_name  = $2 AND
 			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
+			version IN (SELECT version FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				status       = `+committedStatus+` AND
+				(expires_at IS NULL OR expires_at > now())
+				ORDER BY version desc
+			) AND
+			stream_id    = $4 AND
 			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return Error.New("unable to update object metadata: %w", err)
@@ -59,12 +83,17 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 	}
 
 	if affected == 0 {
-		return storj.ErrObjectNotFound.Wrap(
-			Error.New("object with specified version and committed status is missing"),
-		)
+		return storj.ErrObjectNotFound.New("object with specified version and committed status is missing")
 	}
 
-	mon.Meter("object_update_metadata").Mark(1)
+	if affected > 1 {
+		db.log.Warn("object with multiple committed versions were found!",
+			zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+			zap.String("Object Key", string(opts.ObjectKey)), zap.Stringer("Stream ID", opts.StreamID))
+		mon.Meter("multiple_committed_versions").Mark(1)
+	}
+
+	mon.Meter("object_update_metadata").Mark(int(affected))
 
 	return nil
 }

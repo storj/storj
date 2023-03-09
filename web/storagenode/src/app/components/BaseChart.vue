@@ -13,15 +13,15 @@ import VChart from '@/app/components/VChart.vue';
     },
 })
 export default class BaseChart extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public width: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public height: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     public isDarkMode: boolean;
 
-    public chartWidth: number = this.width;
-    public chartHeight: number = this.height;
+    public chartWidth = 0;
+    public chartHeight = 0;
     /**
      * Used for chart re rendering.
      */
@@ -30,6 +30,13 @@ export default class BaseChart extends Vue {
     public $refs: {
         chartContainer: HTMLElement;
     };
+
+    /**
+     * Rebuilds chart after type switch.
+     */
+    public mounted(): void {
+        this.rebuildChart();
+    }
 
     @Watch('width')
     @Watch('isDarkMode')

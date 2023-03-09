@@ -1,42 +1,32 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2022 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="container">
-        <TopArrowIcon :class="{ active: isActive && isTop }" />
-        <BottomArrowIcon :class="{ active: isActive && isBottom }" />
+        <TopArrowIcon :class="`${ isActive && isTop?'active':'inactive' }`" />
+        <BottomArrowIcon :class="`${ isActive && isBottom?'active':'inactive' }`" />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+
+import { computed } from 'vue';
+
+import { SortingDirectionEnum } from '@/types/sortingArrows';
 
 import BottomArrowIcon from '@/../static/images/common/bottomArrow.svg';
 import TopArrowIcon from '@/../static/images/common/topArrow.svg';
 
-import { SortingDirectionEnum } from '@/types/sortingArrows';
+const props = withDefaults(defineProps<{
+    isActive?: boolean;
+    direction?: SortingDirectionEnum;
+}>(), {
+    isActive: false,
+    direction: SortingDirectionEnum.BOTTOM,
+});
 
-// @vue/component
-@Component({
-    components: {
-        TopArrowIcon,
-        BottomArrowIcon,
-    },
-})
-export default class VerticalArrows extends Vue {
-    @Prop({default: false})
-    private isActive: boolean;
-    @Prop({default: SortingDirectionEnum.BOTTOM})
-    private direction: SortingDirectionEnum;
-
-    public get isTop(): boolean {
-        return this.direction === SortingDirectionEnum.TOP;
-    }
-
-    public get isBottom(): boolean {
-        return this.direction === SortingDirectionEnum.BOTTOM;
-    }
-}
+const isTop = computed((): boolean => props.direction === SortingDirectionEnum.TOP);
+const isBottom = computed((): boolean => props.direction === SortingDirectionEnum.BOTTOM);
 </script>
 
 <style scoped lang="scss">
@@ -48,10 +38,16 @@ export default class VerticalArrows extends Vue {
         height: 17px;
     }
 
-    .active {
+    .inactive {
+        opacity: 0.5;
+    }
 
-        .arrow-svg-path {
+    .active {
+        opacity: 1;
+
+        :deep(path) {
             fill: #2683ff !important;
         }
     }
+
 </style>

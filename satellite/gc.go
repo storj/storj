@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -22,9 +23,8 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
-	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -55,12 +55,8 @@ type GarbageCollection struct {
 		DB overlay.DB
 	}
 
-	Metainfo struct {
-		SegmentLoop *segmentloop.Service
-	}
-
 	GarbageCollection struct {
-		Service *gc.Service
+		Sender *sender.Service
 	}
 }
 
@@ -127,37 +123,20 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Overlay.DB = peer.DB.OverlayCache()
 	}
 
-	{ // setup metainfo
-		// Garbage Collection creates its own instance of the loop here. Since
-		// GC runs infrequently, this shouldn't add too much extra load on the metabase db.
-		// As long as garbage collection is the only observer joining the loop, then by default
-		// the loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.SegmentLoop = segmentloop.New(
-			log.Named("segmentloop"),
-			config.Metainfo.SegmentLoop,
-			metabaseDB,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:segmentloop",
-			Run:   peer.Metainfo.SegmentLoop.Run,
-			Close: peer.Metainfo.SegmentLoop.Close,
-		})
-	}
-
 	{ // setup garbage collection
-		peer.GarbageCollection.Service = gc.NewService(
-			peer.Log.Named("garbage-collection"),
+		peer.GarbageCollection.Sender = sender.NewService(
+			peer.Log.Named("gc-sender"),
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
-			peer.Metainfo.SegmentLoop,
 		)
+
 		peer.Services.Add(lifecycle.Item{
-			Name: "garbage-collection",
-			Run:  peer.GarbageCollection.Service.Run,
+			Name: "gc-sender",
+			Run:  peer.GarbageCollection.Sender.Run,
 		})
 		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
+			debug.Cycle("Garbage Collection", peer.GarbageCollection.Sender.Loop))
 	}
 
 	return peer, nil
@@ -169,10 +148,15 @@ func (peer *GarbageCollection) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "gc"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

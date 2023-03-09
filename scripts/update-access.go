@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:build ignore
 // +build ignore
 
 package main
@@ -10,9 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/base58"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"

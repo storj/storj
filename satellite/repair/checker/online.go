@@ -53,8 +53,6 @@ func (cache *ReliabilityCache) LastUpdate() time.Time {
 // reliability cache after returning; it is just a best-effort count and should be treated as an
 // estimate.
 func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	state, err := cache.loadFast(ctx, time.Time{})
 	if err != nil {
 		return 0, err
@@ -64,8 +62,6 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 
 // MissingPieces returns piece indices that are unreliable with the given staleness period.
 func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ []metabase.Piece, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	state, err := cache.loadFast(ctx, created)
 	if err != nil {
 		return nil, err
@@ -80,8 +76,6 @@ func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.T
 }
 
 func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	// This code is designed to be very fast in the case where a refresh is not needed: just an
 	// atomic load from rarely written to bit of shared memory. The general strategy is to first
 	// read if the state suffices to answer the query. If not (due to it not existing, being

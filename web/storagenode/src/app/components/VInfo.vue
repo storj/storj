@@ -31,19 +31,19 @@ export default class VInfo extends Vue {
     private isVisible = false;
     private height = '5px';
 
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly text: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly boldText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly extraBoldText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly greenText: string;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     private readonly extraGreenText: string;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isExtraPadding: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     private readonly isCustomPosition: boolean;
 
     public toggleVisibility(): void {
@@ -96,7 +96,7 @@ export default class VInfo extends Vue {
             background-image: var(--info-image-arrow-middle-path);
             background-size: 100% 100%;
             z-index: 101;
-            padding: 11px 18px 20px 18px;
+            padding: 11px 18px 20px;
 
             &__text {
                 display: flex;
@@ -130,7 +130,7 @@ export default class VInfo extends Vue {
     }
 
     .extraPadding {
-        padding: 11px 18px 31px 18px;
+        padding: 11px 18px 31px;
     }
 
     .customPosition {

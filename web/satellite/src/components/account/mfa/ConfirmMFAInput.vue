@@ -13,6 +13,7 @@
             class="confirm-mfa__input"
             :placeholder="isRecovery ? 'Code' : '000000'"
             :type="isRecovery ? 'text' : 'number'"
+            autofocus
             @input="event => onInput(event.target.value)"
         >
     </div>
@@ -24,11 +25,11 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class ConfirmMFAInput extends Vue {
-    @Prop({default: () => false})
+    @Prop({ default: () => () => {} })
     public readonly onInput: (value: string) => void;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isRecovery: boolean;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isError: boolean;
 
     public code = '';
@@ -80,7 +81,7 @@ export default class ConfirmMFAInput extends Vue {
 
             &::-webkit-outer-spin-button,
             &::-webkit-inner-spin-button {
-                -webkit-appearance: none;
+                appearance: none;
                 margin: 0;
             }
         }
@@ -88,7 +89,7 @@ export default class ConfirmMFAInput extends Vue {
 
     /* Firefox */
 
-    input[type=number] {
-        -moz-appearance: textfield;
+    input[type='number'] {
+        appearance: textfield;
     }
 </style>

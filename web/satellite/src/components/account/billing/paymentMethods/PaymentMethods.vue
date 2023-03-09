@@ -13,7 +13,7 @@
                             label="Add STORJ"
                             width="123px"
                             height="46px"
-                            is-blue-white="true"
+                            :is-blue-white="true"
                             :on-press="onAddSTORJ"
                         />
                     </div>
@@ -85,6 +85,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
 import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjForm.vue';
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
@@ -94,10 +99,6 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
-import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 interface AddCardConfirm {
     onConfirmAddStripe(): Promise<void>;
@@ -134,7 +135,7 @@ export default class PaymentMethods extends Vue {
 
             this.areCardsFetching = false;
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS);
         }
     }
 
@@ -297,9 +298,6 @@ export default class PaymentMethods extends Vue {
         line-height: 23px;
         color: #fff;
         user-select: none;
-        -webkit-transition: top 0.5s ease-in-out;
-        -moz-transition: top 0.5s ease-in-out;
-        -o-transition: top 0.5s ease-in-out;
         transition: top 0.5s ease-in-out;
 
         &:hover {
@@ -322,9 +320,6 @@ export default class PaymentMethods extends Vue {
         &__functional-area {
             position: relative;
             height: 192px;
-            -webkit-transition: all 0.3s ease-in-out;
-            -moz-transition: all 0.3s ease-in-out;
-            -o-transition: all 0.3s ease-in-out;
             transition: all 0.3s ease-in-out;
 
             &__top-container {
@@ -406,7 +401,7 @@ export default class PaymentMethods extends Vue {
             height: 100%;
             width: 100%;
             border-radius: 8px;
-            background-color: rgba(229, 229, 229, 0.2);
+            background-color: rgb(229 229 229 / 20%);
             z-index: 100;
         }
     }
@@ -422,7 +417,9 @@ export default class PaymentMethods extends Vue {
     }
 
     .extended {
-        height: 300px;
+        height: 200px; // TODO: should be based on whether storj payment is allowed or not
+        // see https://github.com/storj/storj-private/issues/43
+        // height: 300px;
     }
 
     .reduced {

@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { Paystub, TotalPayments } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -22,7 +22,7 @@ const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
 const payoutModule = newPayoutModule(payoutService);
 
-const store = new Vuex.Store({ modules: { payoutModule }});
+const store = new Vuex.Store({ modules: { payoutModule } });
 
 describe('TotalPayoutArea', (): void => {
     it('renders correctly', (): void => {

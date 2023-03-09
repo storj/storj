@@ -4,10 +4,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
+
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
-
-import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 // @vue/component
 @Component({

@@ -27,7 +27,7 @@ import (
 // TestDisqualificationTooManyFailedAudits does the following:
 //   - Create a failed audit report for a storagenode
 //   - Record the audit report several times and check that the node isn't
-//	   disqualified until the audit reputation reaches the cut-off value.
+//     disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var (
 		auditDQCutOff = 0.4
@@ -39,6 +39,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 				config.Reputation.AuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = auditDQCutOff
+				// disable reputation write cache so changes are immediate
+				config.Reputation.FlushInterval = 0
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -56,10 +58,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 		require.Nil(t, dossier.Disqualified)
 
-		_, err = satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
+		satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
 			Successes: storj.NodeIDList{nodeID},
 		})
-		require.NoError(t, err)
 
 		reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -70,25 +71,24 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
-			require.NoError(t, err)
+			satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 
 			reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
 
 			reputation := calcReputation(reputationInfo)
-			require.Truef(t, prevReputation >= reputation,
-				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
-				iterations, prevReputation, reputation,
+			require.LessOrEqual(t, reputation, prevReputation,
+				"(%d) expected reputation to remain or decrease (current <= previous)",
+				iterations,
 			)
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
 				require.NotNilf(t, reputationInfo.Disqualified,
-					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
+					"Not disqualified, but should have been (iteration %d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 
-				require.True(t, time.Since(*reputationInfo.Disqualified) >= 0,
+				require.GreaterOrEqual(t, time.Since(*reputationInfo.Disqualified), time.Duration(0),
 					"Disqualified should be in the past",
 				)
 
@@ -99,7 +99,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			prevReputation = reputation
 		}
 
-		require.True(t, iterations > 1, "the number of iterations must be at least 2")
+		require.Greater(t, iterations, 1, "the number of iterations must be at least 2")
 	})
 }
 
@@ -137,10 +137,10 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		segment := segments[0]
 		disqualifiedNode := segment.Pieces[0].StorageNode
 
-		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode)
+		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode, overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0, 0)
 		require.NoError(t, err)
 
 		notNilLimits := []*pb.AddressedOrderLimit{}
@@ -170,7 +170,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
-		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
@@ -213,7 +213,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
-		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		info := overlay.NodeCheckInInfo{
@@ -233,7 +233,9 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
-		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), reputation.AuditSuccess)
+		node, err := satellitePeer.Overlay.Service.Get(ctx, disqualifiedNode.ID())
+		require.NoError(t, err)
+		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), overlay.ReputationStatus{Disqualified: node.Disqualified}, reputation.AuditSuccess)
 		require.NoError(t, err)
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})

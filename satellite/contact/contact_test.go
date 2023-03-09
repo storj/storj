@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
@@ -102,5 +103,69 @@ func TestSatellitePingBack_Failure(t *testing.T) {
 		require.NotEmpty(t, pingErrorMessage)
 		require.False(t, pingNodeSuccess)
 		require.False(t, pingNodeSuccessQUIC)
+	})
+}
+
+func TestSatellitePingMeEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeInfo := planet.StorageNodes[0].Contact.Service.Local()
+		ident := planet.StorageNodes[0].Identity
+
+		peer := rpcpeer.Peer{
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP(nodeInfo.Address),
+				Port: 5,
+			},
+			State: tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+			},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &peer)
+		resp, err := planet.Satellites[0].Contact.Endpoint.PingMe(peerCtx, &pb.PingMeRequest{
+			Address:   nodeInfo.Address,
+			Transport: pb.NodeTransport_TCP_TLS_RPC,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+}
+
+func TestSatellitePingMeEndpoint_QUIC(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeInfo := planet.StorageNodes[0].Contact.Service.Local()
+		ident := planet.StorageNodes[0].Identity
+
+		peer := rpcpeer.Peer{
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP(nodeInfo.Address),
+				Port: 5,
+			},
+			State: tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+			},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &peer)
+		resp, err := planet.Satellites[0].Contact.Endpoint.PingMe(peerCtx, &pb.PingMeRequest{
+			Address:   nodeInfo.Address,
+			Transport: pb.NodeTransport_QUIC_RPC,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+	})
+}
+
+func TestSatellitePingMe_Failure(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		resp, err := planet.Satellites[0].Contact.Endpoint.PingMe(ctx, &pb.PingMeRequest{})
+
+		require.NotNil(t, err)
+		require.Equal(t, rpcstatus.Code(err), rpcstatus.Unknown)
+		require.Nil(t, resp)
 	})
 }

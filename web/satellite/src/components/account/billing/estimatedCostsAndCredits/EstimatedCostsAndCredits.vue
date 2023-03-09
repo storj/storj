@@ -24,65 +24,69 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
-import VLoader from '@/components/common/VLoader.vue';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { MONTHS_NAMES } from '@/utils/constants/date';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
-// @vue/component
-@Component({
-    components: {
-        UsageAndChargesItem,
-        VLoader,
-    },
-})
-export default class EstimatedCostsAndCredits extends Vue {
-    public isDataFetching = true;
+import VLoader from '@/components/common/VLoader.vue';
+import UsageAndChargesItem from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem.vue';
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches projects and usage rollup.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+const store = useStore();
+const notify = useNotify();
 
-            this.isDataFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
+const isDataFetching = ref<boolean>(true);
+
+/**
+ * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+ */
+const projectUsageAndCharges = computed((): ProjectUsageAndCharges[] => {
+    return store.state.paymentsModule.usageAndCharges;
+});
+
+/**
+ * priceSummary returns price summary of usages for all the projects.
+ */
+const priceSummary = computed((): number => {
+    return store.state.paymentsModule.priceSummary;
+});
+
+/**
+ * chosenPeriod returns billing period chosen by user.
+ */
+const chosenPeriod = computed((): string => {
+    const dateFromStore = store.state.paymentsModule.startDate;
+
+    return `${MONTHS_NAMES[dateFromStore.getUTCMonth()]} ${dateFromStore.getUTCFullYear()}`;
+});
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches projects and usage rollup.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+    } catch (error) {
+        isDataFetching.value = false;
+        notify.error(error.message, AnalyticsErrorEventSource.BILLING_ESTIMATED_COSTS_AND_CREDITS);
+        return;
     }
 
-    /**
-     * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
-     */
-    public get projectUsageAndCharges(): ProjectUsageAndCharges[] {
-        return this.$store.state.paymentsModule.usageAndCharges;
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_ESTIMATED_COSTS_AND_CREDITS);
     }
 
-    /**
-     * priceSummary returns price summary of usages for all the projects.
-     */
-    public get priceSummary(): number {
-        return this.$store.state.paymentsModule.priceSummary;
-    }
-
-    /**
-     * chosenPeriod returns billing period chosen by user.
-     */
-    public get chosenPeriod(): string {
-        const dateFromStore = this.$store.state.paymentsModule.startDate;
-
-        return `${MONTHS_NAMES[dateFromStore.getUTCMonth()]} ${dateFromStore.getUTCFullYear()}`;
-    }
-}
+    isDataFetching.value = false;
+});
 </script>
 
 <style scoped lang="scss">
@@ -96,7 +100,7 @@ export default class EstimatedCostsAndCredits extends Vue {
 
     .current-month-area {
         margin-bottom: 32px;
-        padding: 40px 40px 0 40px;
+        padding: 40px 40px 0;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;
@@ -118,7 +122,7 @@ export default class EstimatedCostsAndCredits extends Vue {
             font-size: 14px;
             line-height: 20px;
             color: #909090;
-            margin: 15px 0 0 0;
+            margin: 15px 0 0;
         }
 
         &__content {
@@ -134,7 +138,7 @@ export default class EstimatedCostsAndCredits extends Vue {
             }
 
             &__usage-charges {
-                margin: 18px 0 0 0;
+                margin: 18px 0 0;
                 background-color: #f5f6fa;
                 border-radius: 12px;
                 cursor: pointer;

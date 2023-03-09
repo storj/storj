@@ -16,38 +16,37 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
-import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
-import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { useRouter, useStore } from '@/utils/hooks';
 
-// @vue/component
-@Component({
-    components: {
-        PaymentsItem,
-        SortingHeader,
-    },
-})
-export default class SmallDepositHistory extends Vue {
-    /**
-     * Changes location to deposit history route.
-     */
-    public onViewAllClick(): void {
-        this.$router.push(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
-    }
+import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
+import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 
-    /**
-     * Returns first 3 of deposit history items.
-     */
-    public get depositHistoryItems(): PaymentsHistoryItem[] {
-        return this.$store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-            return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
-        }).slice(0, 3);
-    }
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+const store = useStore();
+const router = useRouter();
+
+/**
+ * Returns first 3 of deposit history items.
+ */
+const depositHistoryItems = computed((): PaymentsHistoryItem[] => {
+    return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+        return item.type === PaymentsHistoryItemType.Transaction || item.type === PaymentsHistoryItemType.DepositBonus;
+    }).slice(0, 3);
+});
+
+/**
+ * Changes location to deposit history route.
+ */
+function onViewAllClick(): void {
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
+    router.push(RouteConfig.Account.with(RouteConfig.DepositHistory).path);
 }
 </script>
 
@@ -59,7 +58,7 @@ export default class SmallDepositHistory extends Vue {
     }
 
     .deposit-area {
-        padding: 40px 40px 10px 40px;
+        padding: 40px 40px 10px;
         background-color: #fff;
         border-radius: 8px;
         font-family: 'font_regular', sans-serif;

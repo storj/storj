@@ -2,114 +2,118 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="grants-item-container">
-        <div class="grants-item-container__common-info">
-            <div class="checkbox-container">
-                <CheckboxIcon class="checkbox-container__image" />
+    <table-item
+        :item="itemToRender"
+        :on-click="onClick"
+    >
+        <th slot="options" v-click-outside="closeDropdown" class="grant-item__functional options overflow-visible" @click.stop="openDropdown">
+            <dots-icon />
+            <div v-if="isDropdownOpen" class="grant-item__functional__dropdown">
+                <div class="grant-item__functional__dropdown__item" @click.stop="onDeleteClick">
+                    <delete-icon />
+                    <p class="grant-item__functional__dropdown__item__label">Delete Access</p>
+                </div>
             </div>
-            <div class="name-container" :title="itemData.name">
-                <p class="name">{{ itemData.name }}</p>
-            </div>
-        </div>
-        <div class="grants-item-container__common-info date-item-container">
-            <p class="date">{{ itemData.localDate() }}</p>
-        </div>
-    </div>
+        </th>
+    </table-item>
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop } from 'vue-property-decorator';
 
-import CheckboxIcon from '@/../static/images/accessGrants/vector.svg';
+import DeleteIcon from '../../../static/images/objects/delete.svg';
+import DotsIcon from '../../../static/images/objects/dots.svg';
 
 import { AccessGrant } from '@/types/accessGrants';
+
+import Resizable from '@/components/common/Resizable.vue';
+import TableItem from '@/components/common/TableItem.vue';
 
 // @vue/component
 @Component({
     components: {
-        CheckboxIcon,
+        TableItem,
+        DeleteIcon,
+        DotsIcon,
     },
 })
-export default class AccessGrantsItem extends Vue {
+export default class AccessGrantsItem extends Resizable {
     @Prop({ default: new AccessGrant('', '', new Date(), '') })
     private readonly itemData: AccessGrant;
+    @Prop({ default: () => () => {} })
+    public readonly onClick: () => void;
+    @Prop({ default: false })
+    public readonly isDropdownOpen: boolean;
+    @Prop({ default: -1 })
+    public readonly dropdownKey: number;
+
+    public get itemToRender(): { [key: string]: string | string[] } {
+        if (!this.isMobile) return { name: this.itemData.name, date: this.itemData.localDate() };
+
+        return { info: [ this.itemData.name, `Created ${this.itemData.localDate()}` ] };
+    }
+
+    /**
+     * Closes dropdown.
+     */
+    public closeDropdown(): void {
+        this.$emit('openDropdown', -1);
+    }
+
+    /**
+     * Opens dropdown.
+     */
+    public openDropdown(): void {
+        this.$emit('openDropdown', this.dropdownKey);
+    }
+
+    public async onDeleteClick(): Promise<void> {
+        this.$emit('deleteClick', this.itemData);
+        this.closeDropdown();
+    }
 }
 </script>
 
 <style scoped lang="scss">
-    .grants-item-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        height: 83px;
-        background-color: #fff;
-        cursor: pointer;
-        width: 100%;
+    .grant-item {
 
-        &:hover {
-            background-color: rgba(242, 244, 247, 0.6);
-        }
+        &__functional {
+            padding: 0 10px;
+            position: relative;
+            cursor: pointer;
 
-        &__common-info {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            width: 60%;
-        }
-    }
+            &__dropdown {
+                position: absolute;
+                top: 55px;
+                right: 15px;
+                background: #fff;
+                box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
+                border-radius: 6px;
+                width: 255px;
+                z-index: 100;
+                overflow: hidden;
 
-    .checkbox-container {
-        margin-left: 28px;
-        min-width: 21px;
-        min-height: 21px;
-        border-radius: 4px;
-        border: 1px solid #1b2533;
+                &__item {
+                    display: flex;
+                    align-items: center;
+                    padding: 20px 25px;
+                    width: calc(100% - 50px);
 
-        &__image {
-            display: none;
-        }
-    }
+                    &__label {
+                        margin: 0 0 0 10px;
+                    }
 
-    .name-container {
-        max-width: calc(100% - 131px);
-        margin-right: 15px;
-    }
+                    &:hover {
+                        background-color: #f4f5f7;
+                        font-family: 'font_medium', sans-serif;
+                        color: var(--c-blue-3);
 
-    .name {
-        font-family: 'font_bold', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        margin-left: 17px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .date {
-        font-family: 'font_regular', sans-serif;
-        font-size: 16px;
-        line-height: 21px;
-        color: #354049;
-        margin: 0;
-    }
-
-    .grants-item-container.selected {
-        background-color: rgba(242, 244, 247, 0.6);
-
-        .grants-item-container__common-info {
-
-            .checkbox-container {
-                border: none;
-
-                &__image {
-                    display: block;
+                        svg :deep(path) {
+                            fill: var(--c-blue-3);
+                        }
+                    }
                 }
             }
         }
-    }
-
-    .date-item-container {
-        width: 40%;
     }
 </style>

@@ -145,7 +145,7 @@ func (c *service) TransferPiece(ctx context.Context, satelliteID storj.NodeID, t
 	putCtx, cancel := context.WithTimeout(ctx, maxTransferTime)
 	defer cancel()
 
-	pieceHash, peerID, err := c.ecClient.PutPiece(putCtx, ctx, addrLimit, pk, reader)
+	pieceHash, _, err := c.ecClient.PutPiece(putCtx, ctx, addrLimit, pk, reader)
 	if err != nil {
 		if piecestore.ErrVerifyUntrusted.Has(err) {
 			return failMessage("failed hash verification", err, pb.TransferFailed_HASH_VERIFICATION)
@@ -161,12 +161,6 @@ func (c *service) TransferPiece(ctx context.Context, satelliteID storj.NodeID, t
 	if pieceHash.PieceId != addrLimit.Limit.PieceId {
 		msg := "piece id from new storagenode does not match order limit"
 		return failMessage(msg, Error.New(msg), pb.TransferFailed_HASH_VERIFICATION)
-	}
-
-	signee := signing.SigneeFromPeerIdentity(peerID)
-	err = signing.VerifyPieceHashSignature(ctx, signee, pieceHash)
-	if err != nil {
-		return failMessage("invalid piece hash signature from new storagenode", err, pb.TransferFailed_HASH_VERIFICATION)
 	}
 
 	success := &pb.StorageNodeMessage{

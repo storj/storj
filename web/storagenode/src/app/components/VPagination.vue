@@ -41,9 +41,9 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-import PagesBlock from '@/app/components/PagesBlock.vue';
-
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
+
+import PagesBlock from '@/app/components/PagesBlock.vue';
 
 // @vue/component
 @Component({
@@ -61,9 +61,9 @@ export default class VPagination extends Vue {
     public middleBlockPages: Page[] = [];
     public lastBlockPages: Page[] = [];
 
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     private readonly totalPageCount: number;
-    @Prop({default: () => new Promise(() => false)})
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     /**
@@ -130,7 +130,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(page);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;
@@ -155,7 +155,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(this.currentPageNumber + 1);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;
@@ -180,7 +180,7 @@ export default class VPagination extends Vue {
             await this.onPageClickCallback(this.currentPageNumber - 1);
         } catch (error) {
             // TODO: add notification here
-            console.error(error.message);
+            console.error(error);
             this.isLoading = false;
 
             return;

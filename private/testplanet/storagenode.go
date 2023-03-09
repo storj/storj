@@ -39,7 +39,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/retain"
-	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -76,7 +76,7 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 	for _, u := range whitelistedSatellites {
 		source, err := trust.NewStaticURLSource(u.String())
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		sources = append(sources, source)
 	}
@@ -93,7 +93,7 @@ func (planet *Planet) newStorageNodes(ctx context.Context, count int, whiteliste
 			system, err = planet.newStorageNode(ctx, prefix, index, count, log, sources)
 		})
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
@@ -108,18 +108,18 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	identity, err := planet.NewIdentity()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	config := storagenode.Config{
 		Server: server.Config{
-			Address:        "127.0.0.1:0",
-			PrivateAddress: "127.0.0.1:0",
+			Address:        planet.NewListenAddress(),
+			PrivateAddress: planet.NewListenAddress(),
 
 			Config: tlsopts.Config{
 				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
@@ -157,7 +157,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			StorageSync:    defaultInterval,
 		},
 		Console: consoleserver.Config{
-			Address:   "127.0.0.1:0",
+			Address:   planet.NewListenAddress(),
 			StaticDir: filepath.Join(developmentRoot, "web/storagenode/"),
 		},
 		Storage2: piecestore.Config{
@@ -169,6 +169,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			ReportCapacityThreshold: 100 * memory.MB,
 			DeleteQueueSize:         10000,
 			DeleteWorkers:           1,
+			ExistsCheckWorkers:      5,
 			Orders: orders.Config{
 				SenderInterval:  defaultInterval,
 				SenderTimeout:   10 * time.Minute,
@@ -226,20 +227,22 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	verisonInfo := planet.NewVersionInfo()
 
+	dbconfig := config.DatabaseConfig()
+	dbconfig.TestingDisableWAL = true
 	var db storagenode.DB
-	db, err = storagenodedb.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
+	db, err = storagenodedbtest.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if err := db.Pieces().CreateVerificationFile(ctx, identity.ID); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if planet.config.Reconfigure.StorageNodeDB != nil {
 		db, err = planet.config.Reconfigure.StorageNodeDB(index, db, planet.log)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 	}
 
@@ -251,7 +254,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	peer, err := storagenode.New(log, identity, db, revocationDB, config, verisonInfo, nil)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
@@ -259,7 +262,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, db)
 

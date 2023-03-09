@@ -3,6 +3,7 @@
 
 <template>
     <DatePicker
+        aria-roledescription="datepicker"
         range
         :open="isOpen"
         :inline="true"
@@ -12,28 +13,23 @@
     />
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+<script setup lang="ts">
 import DatePicker from 'vue2-datepicker';
-import 'vue2-datepicker/index.css';
 
-// @vue/component
-@Component({
-    components: {
-        DatePicker,
-    },
-})
-export default class VDateRangePicker extends Vue {
-    @Prop({ default: false })
-    public readonly isOpen: boolean
-    @Prop({ default: () => false })
-    public readonly onDatePick: (dateRange: Date[]) => void
-    @Prop({ default: undefined })
-    public readonly dateRange: Date[]
-}
+const props = withDefaults(defineProps<{
+    isOpen?: boolean;
+    onDatePick?: (dateRange: Date[]) => void;
+    dateRange?: Date[];
+}>(), {
+    isOpen: false,
+    onDatePick: () => () => false,
+    dateRange: () => [],
+});
 </script>
 
 <style lang="scss">
+    @import '~vue2-datepicker/scss/index';
+
     .picker,
     .mx-datepicker,
     .mx-range-wrapper {
@@ -44,7 +40,7 @@ export default class VDateRangePicker extends Vue {
     }
 
     .mx-calendar {
-        width: 50%;
+        width: 100%;
     }
 
     .mx-date-row {
@@ -52,11 +48,11 @@ export default class VDateRangePicker extends Vue {
     }
 
     .mx-table th {
-        color: #c8d3de;
+        color: var(--c-grey-4);
     }
 
     .mx-table-date .cell.not-current-month {
-        color: #929fb1;
+        color: var(--c-grey-5);
     }
 
     .mx-calendar-content .cell {
@@ -67,12 +63,12 @@ export default class VDateRangePicker extends Vue {
 
     .mx-calendar-content .cell.in-range {
         color: #000;
-        background-color: #e6edf7;
+        background-color: var(--c-blue-1);
         border-radius: 999px;
     }
 
     .mx-calendar-content .cell.active {
-        background-color: #0149ff;
+        background-color: var(--c-blue-3);
         border-radius: 999px;
     }
 
@@ -104,5 +100,21 @@ export default class VDateRangePicker extends Vue {
         width: 20px;
         height: 20px;
         border-width: 4px 0 0 4px;
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .range-selection__popup {
+            width: 320px !important;
+        }
+
+        .mx-range-wrapper {
+            flex-direction: column;
+        }
+
+        .mx-calendar + .mx-calendar {
+            border-left: none;
+            border-top: 1px solid #e8e8e8;
+        }
     }
 </style>

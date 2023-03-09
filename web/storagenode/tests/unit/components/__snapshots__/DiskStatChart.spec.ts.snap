@@ -3,7 +3,7 @@
 exports[`DiskStatChart renders correctly 1`] = `
 <div class="disk-stat-area">
   <p class="disk-stat-area__title">Total Disk Space</p>
-  <p class="disk-stat-area__amount">1B</p>
+  <p class="disk-stat-area__amount">1.00B</p>
   <doughnutchart-stub chartid="doughnut-chart" width="400" height="400" cssclasses="" plugins="" chartdata="[object Object]" class="disk-stat-area__chart"></doughnutchart-stub>
   <div class="disk-stat-area__info-area">
     <div class="disk-stat-area__info-area__item">
@@ -18,7 +18,7 @@ exports[`DiskStatChart renders correctly 1`] = `
         <div class="disk-stat-area__info-area__item__labels-area__circle free"></div>
         <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
       </div>
-      <p class="disk-stat-area__info-area__item__labels-area__amount">1B</p>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">1.00B</p>
     </div>
     <div class="disk-stat-area__info-area__item">
       <div class="disk-stat-area__info-area__item__labels-area">

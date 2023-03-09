@@ -6,7 +6,7 @@ package trust_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,11 +40,11 @@ func TestFileSourceFetchEntries(t *testing.T) {
 		%s
 	`, url1.String(), url2.String())
 	goodPath := ctx.File("good.txt")
-	require.NoError(t, ioutil.WriteFile(goodPath, []byte(goodData), 0644))
+	require.NoError(t, os.WriteFile(goodPath, []byte(goodData), 0644))
 
 	badData := `BAD`
 	badPath := ctx.File("bad.txt")
-	require.NoError(t, ioutil.WriteFile(badPath, []byte(badData), 0644))
+	require.NoError(t, os.WriteFile(badPath, []byte(badData), 0644))
 
 	missingPath := ctx.File("missing.txt")
 

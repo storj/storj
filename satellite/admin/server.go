@@ -7,9 +7,8 @@ package admin
 import (
 	"context"
 	"crypto/subtle"
-	"embed"
 	"errors"
-	"io/fs"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -20,23 +19,29 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/accounting"
+	adminui "storj.io/storj/satellite/admin/ui"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
-//go:embed ui/assets/*
-var ui embed.FS
-
 // Config defines configuration for debug server.
 type Config struct {
-	Address   string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
-	StaticDir string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	Address          string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
+	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
+	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication."`
+	Groups           Groups
 
 	AuthorizationToken string `internal:"true"`
+}
 
-	ConsoleConfig console.Config
+// Groups defines permission groups.
+type Groups struct {
+	LimitUpdate string `help:"the group which is only allowed to update user and project limits and freeze and unfreeze accounts."`
 }
 
 // DB is databases needed for the admin server.
@@ -45,6 +50,8 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// Console returns database for satellite console
 	Console() console.DB
+	// OIDC returns the database for OIDC and OAuth information.
+	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
 	StripeCoinPayments() stripecoinpayments.DB
 }
@@ -56,41 +63,55 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 
-	db       DB
-	payments payments.Accounts
-	buckets  *buckets.Service
+	db             DB
+	payments       payments.Accounts
+	buckets        *buckets.Service
+	restKeys       *restkeys.Service
+	freezeAccounts *console.AccountFreezeService
 
 	nowFn func() time.Time
 
-	config Config
+	console consoleweb.Config
+	config  Config
 }
 
 // NewServer returns a new administration Server.
-func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, accounts payments.Accounts, config Config) *Server {
+func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.Service, restKeys *restkeys.Service, freezeAccounts *console.AccountFreezeService, accounts payments.Accounts, console consoleweb.Config, config Config) *Server {
 	server := &Server{
 		log: log,
 
 		listener: listener,
 
-		db:       db,
-		payments: accounts,
-		buckets:  buckets,
+		db:             db,
+		payments:       accounts,
+		buckets:        buckets,
+		restKeys:       restKeys,
+		freezeAccounts: freezeAccounts,
 
 		nowFn: time.Now,
 
-		config: config,
+		console: console,
+		config:  config,
 	}
 
 	root := mux.NewRouter()
 
 	api := root.PathPrefix("/api/").Subrouter()
-	api.Use(allowedAuthorization(config.AuthorizationToken))
+	api.Use(allowedAuthorization(log, config))
 
 	// When adding new options, also update README.md
 	api.HandleFunc("/users", server.addUser).Methods("POST")
 	api.HandleFunc("/users/{useremail}", server.updateUser).Methods("PUT")
 	api.HandleFunc("/users/{useremail}", server.userInfo).Methods("GET")
+	api.HandleFunc("/users/{useremail}/limits", server.userLimits).Methods("GET")
 	api.HandleFunc("/users/{useremail}", server.deleteUser).Methods("DELETE")
+	api.HandleFunc("/users/{useremail}/limits", server.updateLimits).Methods("PUT")
+	api.HandleFunc("/users/{useremail}/mfa", server.disableUserMFA).Methods("DELETE")
+	api.HandleFunc("/users/{useremail}/freeze", server.freezeUser).Methods("PUT")
+	api.HandleFunc("/users/{useremail}/freeze", server.unfreezeUser).Methods("DELETE")
+	api.HandleFunc("/oauth/clients", server.createOAuthClient).Methods("POST")
+	api.HandleFunc("/oauth/clients/{id}", server.updateOAuthClient).Methods("PUT")
+	api.HandleFunc("/oauth/clients/{id}", server.deleteOAuthClient).Methods("DELETE")
 	api.HandleFunc("/projects", server.addProject).Methods("POST")
 	api.HandleFunc("/projects/{project}/usage", server.checkProjectUsage).Methods("GET")
 	api.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
@@ -105,16 +126,13 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, buckets *buckets.S
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.createGeofenceForBucket).Methods("POST")
 	api.HandleFunc("/projects/{project}/buckets/{bucket}/geofence", server.deleteGeofenceForBucket).Methods("DELETE")
 	api.HandleFunc("/apikeys/{apikey}", server.deleteAPIKey).Methods("DELETE")
+	api.HandleFunc("/restkeys/{useremail}", server.addRESTKey).Methods("POST")
+	api.HandleFunc("/restkeys/{apikey}/revoke", server.revokeRESTKey).Methods("PUT")
 
 	// This handler must be the last one because it uses the root as prefix,
 	// otherwise will try to serve all the handlers set after this one.
 	if config.StaticDir == "" {
-		uiAssets, err := fs.Sub(ui, "ui/assets")
-		if err != nil {
-			log.Error("invalid embbeded static assets directory, the Admin UI is not enabled")
-		} else {
-			root.PathPrefix("/").Handler(http.FileServer(http.FS(uiAssets))).Methods("GET")
-		}
+		root.PathPrefix("/").Handler(http.FileServer(http.FS(adminui.Assets))).Methods("GET")
 	} else {
 		root.PathPrefix("/").Handler(http.FileServer(http.Dir(config.StaticDir))).Methods("GET")
 	}
@@ -128,7 +146,6 @@ func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil
 	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 	group.Go(func() error {
@@ -156,24 +173,36 @@ func (server *Server) Close() error {
 	return Error.Wrap(server.server.Close())
 }
 
-func allowedAuthorization(token string) func(next http.Handler) http.Handler {
+func allowedAuthorization(log *zap.Logger, config Config) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token == "" {
-				sendJSONError(w, "Authorization not enabled.",
-					"", http.StatusForbidden)
-				return
+
+			if r.Host != config.AllowedOauthHost {
+				// not behind the proxy; use old authentication method.
+				if config.AuthorizationToken == "" {
+					sendJSONError(w, "Authorization not enabled.",
+						"", http.StatusForbidden)
+					return
+				}
+
+				equality := subtle.ConstantTimeCompare(
+					[]byte(r.Header.Get("Authorization")),
+					[]byte(config.AuthorizationToken),
+				)
+				if equality != 1 {
+					sendJSONError(w, "Forbidden",
+						"", http.StatusForbidden)
+					return
+				}
 			}
 
-			equality := subtle.ConstantTimeCompare(
-				[]byte(r.Header.Get("Authorization")),
-				[]byte(token),
+			log.Info(
+				"admin action",
+				zap.String("host", r.Host),
+				zap.String("user", r.Header.Get("X-Forwarded-Email")),
+				zap.String("action", fmt.Sprintf("%s-%s", r.Method, r.RequestURI)),
+				zap.String("queries", r.URL.Query().Encode()),
 			)
-			if equality != 1 {
-				sendJSONError(w, "Forbidden",
-					"", http.StatusForbidden)
-				return
-			}
 
 			r.Header.Set("Cache-Control", "must-revalidate")
 			next.ServeHTTP(w, r)

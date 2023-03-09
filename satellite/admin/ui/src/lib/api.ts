@@ -49,8 +49,11 @@ export class Admin {
 					['Project ID', new InputText('text', true)],
 					['Bucket name', new InputText('text', true)]
 				],
-				func: async (projectId: string, bucketName: string): Promise<Record<string, unknown>> => {
-					return this.fetch('DELETE', `projects/${projectId}/buckets/${bucketName}/geofence`);
+				func: async (projectId: string, bucketName: string): Promise<null> => {
+					return this.fetch(
+						'DELETE',
+						`projects/${projectId}/buckets/${bucketName}/geofence`
+					) as Promise<null>;
 				}
 			},
 			{
@@ -69,17 +72,79 @@ export class Admin {
 						])
 					]
 				],
-				func: async (
-					projectId: string,
-					bucketName: string,
-					region: string
-				): Promise<Record<string, unknown>> => {
+				func: async (projectId: string, bucketName: string, region: string): Promise<null> => {
 					const query = this.urlQueryFromObject({ region });
 					if (query === '') {
 						throw new APIError('region cannot be empty');
 					}
 
-					return this.fetch('POST', `projects/${projectId}/buckets/${bucketName}/geofence`, query);
+					return this.fetch(
+						'POST',
+						`projects/${projectId}/buckets/${bucketName}/geofence`,
+						query
+					) as Promise<null>;
+				}
+			}
+		],
+		oauth_clients: [
+			{
+				name: 'create',
+				desc: 'Add a new oauth client',
+				params: [
+					['Client ID', new InputText('text', true)],
+					['Client Secret', new InputText('text', true)],
+					['Owner ID (userID)', new InputText('text', true)],
+					['Redirect URL', new InputText('text', true)],
+					['Application Name', new InputText('text', true)],
+					['Application Logo URL', new InputText('text', false)]
+				],
+				func: async (
+					id: string,
+					secret: string,
+					ownerID: string,
+					redirectURL: string,
+					appName: string,
+					appLogoURL: string
+				): Promise<null> => {
+					return this.fetch('POST', `oauth/clients`, null, {
+						id,
+						secret,
+						userID: ownerID,
+						redirectURL,
+						appName,
+						appLogoURL
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'update',
+				desc: 'Update an existing oauth client',
+				params: [
+					['Client ID', new InputText('text', true)],
+					['Redirect URL', new InputText('text', false)],
+					['Application Name', new InputText('text', false)],
+					['Application Logo URL', new InputText('text', false)]
+				],
+				func: async (
+					id: string,
+					redirectURL: string,
+					appName: string,
+					appLogoURL: string
+				): Promise<null> => {
+					return this.fetch('PUT', `oauth/clients/${id}`, null, {
+						id,
+						redirectURL,
+						appName,
+						appLogoURL
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'delete',
+				desc: 'Remove an oauth client',
+				params: [['Client ID', new InputText('text', true)]],
+				func: async (clientID: string): Promise<null> => {
+					return this.fetch('DELETE', `oauth/clients/${clientID}`, null) as Promise<null>;
 				}
 			}
 		],
@@ -189,20 +254,26 @@ export class Admin {
 					['Storage (in bytes)', new InputText('number', false)],
 					['Bandwidth (in bytes)', new InputText('number', false)],
 					['Rate (requests per second)', new InputText('number', false)],
-					['Buckets (maximum number)', new InputText('number', false)]
+					['Buckets (maximum number)', new InputText('number', false)],
+					['Burst (max concurrent requests)', new InputText('number', false)],
+					['Segments (maximum number)', new InputText('number', false)]
 				],
 				func: async (
 					projectId: string,
 					usage: number,
 					bandwidth: number,
 					rate: number,
-					buckets: number
+					buckets: number,
+					burst: number,
+					segments: number
 				): Promise<null> => {
 					const query = this.urlQueryFromObject({
 						usage,
 						bandwidth,
 						rate,
-						buckets
+						buckets,
+						burst,
+						segments
 					});
 
 					if (query === '') {
@@ -251,6 +322,14 @@ export class Admin {
 				}
 			},
 			{
+				name: 'get user limits',
+				desc: 'Get the current limits for a user',
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<Record<string, unknown>> => {
+					return this.fetch('GET', `users/${email}/limits`);
+				}
+			},
+			{
 				name: 'update',
 				desc: `Update the information of a user's account.
 Blank fields will not be updated.`,
@@ -259,24 +338,113 @@ Blank fields will not be updated.`,
 					['new email', new InputText('email', false)],
 					['full name', new InputText('text', false)],
 					['short name', new InputText('text', false)],
-					['partner ID', new InputText('text', false)],
-					['password hash', new InputText('text', false)]
+					['password hash', new InputText('text', false)],
+					['project limit (max number)', new InputText('number', false)],
+					['project storage limit (in bytes)', new InputText('number', false)],
+					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					['project segment limit (max number)', new InputText('number', false)],
+					[
+						'paid tier',
+						new Select(false, false, [
+							{ text: '', value: '' },
+							{ text: 'true', value: 'true' },
+							{ text: 'false', value: 'false' }
+						])
+					]
 				],
 				func: async (
 					currentEmail: string,
 					email?: string,
 					fullName?: string,
 					shortName?: string,
-					partnerID?: string,
-					passwordHash?: string
+					passwordHash?: string,
+					projectLimit?: number,
+					projectStorageLimit?: number,
+					projectBandwidthLimit?: number,
+					projectSegmentLimit?: number,
+					paidTierStr?: boolean
 				): Promise<null> => {
 					return this.fetch('PUT', `users/${currentEmail}`, null, {
 						email,
 						fullName,
 						shortName,
-						partnerID,
-						passwordHash
+						passwordHash,
+						projectLimit,
+						projectStorageLimit,
+						projectBandwidthLimit,
+						projectSegmentLimit,
+						paidTierStr
 					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'update user and project limits',
+				desc: `Update limits for all of user's existing and future projects.
+				Blank fields will not be updated.`,
+				params: [
+					["current user's email", new InputText('email', true)],
+					['project storage limit (in bytes)', new InputText('number', false)],
+					['project bandwidth limit (in bytes)', new InputText('number', false)],
+					['project segment limit (max number)', new InputText('number', false)]
+				],
+				func: async (
+					currentEmail: string,
+					projectStorageLimit?: number,
+					projectBandwidthLimit?: number,
+					projectSegmentLimit?: number
+				): Promise<null> => {
+					return this.fetch('PUT', `users/${currentEmail}/limits`, null, {
+						projectStorageLimit,
+						projectBandwidthLimit,
+						projectSegmentLimit
+					}) as Promise<null>;
+				}
+			},
+			{
+				name: 'disable MFA',
+				desc: "Disable user's mulifactor authentication",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/mfa`) as Promise<null>;
+				}
+			},
+			{
+				name: 'freeze user',
+				desc: "insert user into account_freeze_events and set user's limits to zero",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('PUT', `users/${email}/freeze`) as Promise<null>;
+				}
+			},
+			{
+				name: 'unfreeze user',
+				desc: "remove user from account_freeze_events and reset user's limits to what is stored in account_freeze_events",
+				params: [['email', new InputText('email', true)]],
+				func: async (email: string): Promise<null> => {
+					return this.fetch('DELETE', `users/${email}/freeze`) as Promise<null>;
+				}
+			}
+		],
+		rest_api_keys: [
+			{
+				name: 'create',
+				desc: 'Create a REST key',
+				params: [
+					["user's email", new InputText('text', true)],
+					['expiration', new InputText('text', false)]
+				],
+				func: async (useremail: string, expiration?: string): Promise<Record<string, unknown>> => {
+					return this.fetch('POST', `restkeys/${useremail}`, null, {
+						expiration
+					});
+				}
+			},
+			{
+				name: 'revoke',
+				desc: 'Revoke a REST key',
+				params: [['api key', new InputText('text', true)]],
+				func: async (apikey: string): Promise<Record<string, unknown>> => {
+					return this.fetch('PUT', `restkeys/${apikey}/revoke`);
 				}
 			}
 		]
@@ -284,7 +452,7 @@ Blank fields will not be updated.`,
 
 	private readonly baseURL: string;
 
-	constructor(baseURL: string, private readonly authToken: string) {
+	constructor(baseURL: string, private readonly authToken: string = '') {
 		this.baseURL = baseURL.endsWith('/') ? baseURL.substring(0, baseURL.length - 1) : baseURL;
 	}
 
@@ -295,9 +463,11 @@ Blank fields will not be updated.`,
 		data?: Record<string, unknown>
 	): Promise<Record<string, unknown> | null> {
 		const url = this.apiURL(path, query);
-		const headers = new window.Headers({
-			Authorization: this.authToken
-		});
+		const headers = new window.Headers();
+
+		if (this.authToken) {
+			headers.set('Authorization', this.authToken);
+		}
 
 		let body: string;
 		if (data) {

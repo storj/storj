@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
+import { StoreModule } from '@/types/store';
 
 export const USER_ACTIONS = {
+    LOGIN: 'loginUser',
     UPDATE: 'updateUser',
     GET: 'getUser',
     ENABLE_USER_MFA: 'enableUserMFA',
@@ -13,6 +14,7 @@ export const USER_ACTIONS = {
     GENERATE_USER_MFA_SECRET: 'generateUserMFASecret',
     GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
     CLEAR: 'clearUser',
+    GET_FROZEN_STATUS: 'getFrozenStatus',
 };
 
 export const USER_MUTATIONS = {
@@ -21,6 +23,7 @@ export const USER_MUTATIONS = {
     SET_USER_MFA_RECOVERY_CODES: 'setUserMFARecoveryCodes',
     UPDATE_USER: 'updateUser',
     CLEAR: 'clearUser',
+    SET_FROZEN_STATUS: 'setFrozenStatus',
 };
 
 export class UsersState {
@@ -36,6 +39,7 @@ const {
     DISABLE_USER_MFA,
     GENERATE_USER_MFA_SECRET,
     GENERATE_USER_MFA_RECOVERY_CODES,
+    GET_FROZEN_STATUS,
 } = USER_ACTIONS;
 
 const {
@@ -44,6 +48,7 @@ const {
     SET_USER_MFA_SECRET,
     SET_USER_MFA_RECOVERY_CODES,
     CLEAR,
+    SET_FROZEN_STATUS,
 } = USER_MUTATIONS;
 
 interface UsersContext {
@@ -74,9 +79,14 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
 
                 state.user.projectLimit = user.projectLimit;
             },
+            [SET_FROZEN_STATUS](state: UsersState, status: boolean): void {
+                state.user.isFrozen = status;
+            },
             [CLEAR](state: UsersState): void {
                 state.user = new User();
                 state.user.projectLimit = 1;
+                state.userMFASecret = '';
+                state.userMFARecoveryCodes = [];
             },
             [UPDATE_USER](state: UsersState, user: UpdatedUser): void {
                 state.user.fullName = user.fullName;
@@ -92,17 +102,22 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
         },
 
         actions: {
-            [UPDATE]: async function ({commit}: UsersContext, userInfo: UpdatedUser): Promise<void> {
+            [UPDATE]: async function ({ commit }: UsersContext, userInfo: UpdatedUser): Promise<void> {
                 await api.update(userInfo);
 
                 commit(UPDATE_USER, userInfo);
             },
-            [GET]: async function ({commit}: UsersContext): Promise<User> {
+            [GET]: async function ({ commit }: UsersContext): Promise<User> {
                 const user = await api.get();
 
                 commit(SET_USER, user);
 
                 return user;
+            },
+            [GET_FROZEN_STATUS]: async function ({ commit }: UsersContext): Promise<void> {
+                const frozenStatus = await api.getFrozenStatus();
+
+                commit(SET_FROZEN_STATUS, frozenStatus);
             },
             [DISABLE_USER_MFA]: async function (_, request: DisableMFARequest): Promise<void> {
                 await api.disableUserMFA(request.passcode, request.recoveryCode);
@@ -110,17 +125,17 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
             [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
                 await api.enableUserMFA(passcode);
             },
-            [GENERATE_USER_MFA_SECRET]: async function ({commit}: UsersContext): Promise<void> {
+            [GENERATE_USER_MFA_SECRET]: async function ({ commit }: UsersContext): Promise<void> {
                 const secret = await api.generateUserMFASecret();
 
                 commit(SET_USER_MFA_SECRET, secret);
             },
-            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: UsersContext): Promise<void> {
+            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({ commit }: UsersContext): Promise<void> {
                 const codes = await api.generateUserMFARecoveryCodes();
 
                 commit(SET_USER_MFA_RECOVERY_CODES, codes);
             },
-            [CLEAR]: function({commit}: UsersContext) {
+            [CLEAR]: function({ commit }: UsersContext) {
                 commit(CLEAR);
             },
         },

@@ -90,7 +90,7 @@ var (
 	}
 	issueAPITokenCmd = &cobra.Command{
 		Use:   "issue-apikey",
-		Short: "Issue apikey for mnd",
+		Short: "Issue apikey for multinode",
 		RunE:  cmdIssue,
 	}
 
@@ -267,6 +267,11 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("storagenode configuration already exists (%v)", setupDir)
 	}
 
+	identity, err := setupCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(setupDir, 0700)
 	if err != nil {
 		return err
@@ -297,11 +302,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 	// create db
 	db, err := storagenodedb.OpenNew(ctx, zap.L().Named("db"), setupCfg.DatabaseConfig())
-	if err != nil {
-		return err
-	}
-
-	identity, err := setupCfg.Identity.Load()
 	if err != nil {
 		return err
 	}
@@ -385,11 +385,10 @@ func cmdInfo(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if nodeInfoCfg.JSON {
-
 		node := nodes.Node{
 			ID:            identity.ID,
-			APISecret:     apiKey.Secret[:],
-			PublicAddress: nodeInfoCfg.Server.Address,
+			APISecret:     apiKey.Secret,
+			PublicAddress: nodeInfoCfg.Contact.ExternalAddress,
 		}
 
 		data, err := json.Marshal(node)
@@ -405,7 +404,7 @@ func cmdInfo(cmd *cobra.Command, args []string) (err error) {
 ID: %s
 API Secret: %s
 Public Address: %s
-`, identity.ID, apiKey.Secret, nodeInfoCfg.Server.Address)
+`, identity.ID, apiKey.Secret, nodeInfoCfg.Contact.ExternalAddress)
 
 	return nil
 }
@@ -471,5 +470,10 @@ func main() {
 	if startAsService() {
 		return
 	}
-	process.ExecCustomDebug(rootCmd)
+
+	loggerFunc := func(logger *zap.Logger) *zap.Logger {
+		return logger.With(zap.String("Process", rootCmd.Use))
+	}
+
+	process.ExecWithCustomConfigAndLogger(rootCmd, false, process.LoadConfig, loggerFunc)
 }

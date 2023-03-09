@@ -9,9 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vivint/infectious"
+
 	"storj.io/common/memory"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/uplink/private/eestream"
 )
 
 const (
@@ -90,10 +94,20 @@ func (rs *RSConfig) Set(s string) error {
 	return nil
 }
 
+// RedundancyStrategy creates eestream.RedundancyStrategy from config values.
+func (rs *RSConfig) RedundancyStrategy() (eestream.RedundancyStrategy, error) {
+	fec, err := infectious.NewFEC(rs.Min, rs.Total)
+	if err != nil {
+		return eestream.RedundancyStrategy{}, err
+	}
+	erasureScheme := eestream.NewRSScheme(fec, rs.ErasureShareSize.Int())
+	return eestream.NewRedundancyStrategy(erasureScheme, rs.Repair, rs.Success)
+}
+
 // RateLimiterConfig is a configuration struct for endpoint rate limiting.
 type RateLimiterConfig struct {
 	Enabled         bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
-	Rate            float64       `help:"request rate per project per second." releaseDefault:"1000" devDefault:"100" testDefault:"1000"`
+	Rate            float64       `help:"request rate per project per second." releaseDefault:"100" devDefault:"100" testDefault:"1000"`
 	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
@@ -122,4 +136,21 @@ type Config struct {
 	RateLimiter                 RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
+	// TODO remove this flag when server-side copy implementation will be finished
+	ServerSideCopy         bool `help:"enable code for server-side copy, deprecated. please leave this to true." default:"true"`
+	ServerSideCopyDisabled bool `help:"disable already enabled server-side copy. this is because once server side copy is enabled, delete code should stay changed, even if you want to disable server side copy" default:"false"`
+	MultipleVersions       bool `help:"feature flag to enable using multple objects versions in the system internally" default:"true"`
+	// TODO remove when we benchmarking are done and decision is made.
+	TestListingQuery bool `default:"false" help:"test the new query for non-recursive listing"`
+}
+
+// Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.
+func (c Config) Metabase(applicationName string) metabase.Config {
+	return metabase.Config{
+		ApplicationName:  applicationName,
+		MinPartSize:      c.MinPartSize,
+		MaxNumberOfParts: c.MaxNumberOfParts,
+		ServerSideCopy:   c.ServerSideCopy,
+		MultipleVersions: c.MultipleVersions,
+	}
 }

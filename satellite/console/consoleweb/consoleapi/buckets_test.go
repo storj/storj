@@ -5,7 +5,7 @@ package consoleapi_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -64,42 +64,51 @@ func Test_AllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}
 
-		req, err := http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/buckets/bucket-names?projectID="+project.ID.String(), nil)
-		require.NoError(t, err)
+		testRequest := func(req *http.Request) {
+			expire := time.Now().AddDate(0, 0, 1)
+			cookie := http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   tokenInfo.Token.String(),
+				Expires: expire,
+			}
 
-		expire := time.Now().AddDate(0, 0, 1)
-		cookie := http.Cookie{
-			Name:    "_tokenKey",
-			Path:    "/",
-			Value:   token,
-			Expires: expire,
+			req.AddCookie(&cookie)
+
+			result, err := client.Do(req)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, result.StatusCode)
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+
+			var output []string
+
+			err = json.Unmarshal(body, &output)
+			require.NoError(t, err)
+
+			require.Equal(t, bucket1.Name, output[0])
+			require.Equal(t, bucket2.Name, output[1])
+
+			defer func() {
+				err = result.Body.Close()
+				require.NoError(t, err)
+			}()
 		}
 
-		req.AddCookie(&cookie)
-
-		result, err := client.Do(req)
+		// test using Project.ID
+		req, err := http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/buckets/bucket-names?projectID="+project.ID.String(), nil)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, result.StatusCode)
+		testRequest(req)
 
-		body, err := ioutil.ReadAll(result.Body)
+		// test using Project.PublicID
+		req, err = http.NewRequestWithContext(ctx, "GET", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/buckets/bucket-names?publicID="+project.PublicID.String(), nil)
 		require.NoError(t, err)
-
-		var output []string
-
-		err = json.Unmarshal(body, &output)
-		require.NoError(t, err)
-
-		require.Equal(t, bucket1.Name, output[0])
-		require.Equal(t, bucket2.Name, output[1])
-
-		defer func() {
-			err = result.Body.Close()
-			require.NoError(t, err)
-		}()
+		testRequest(req)
 	})
 }

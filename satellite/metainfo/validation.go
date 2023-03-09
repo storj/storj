@@ -8,26 +8,35 @@ import (
 	"context"
 	"crypto/subtle"
 	"regexp"
+	"strconv"
 	"time"
 
+	"github.com/jtolio/eventkit"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
 	"storj.io/common/encryption"
+	"storj.io/common/errs2"
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
 )
 
+const encryptedKeySize = 48
+
 var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 )
+
+var ek = eventkit.Package()
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -107,6 +116,34 @@ func (endpoint *Endpoint) validateAuthN(ctx context.Context, header *pb.RequestH
 	return keyInfo, nil
 }
 
+// validateAuthAny validates things like API keys, rate limit and user permissions.
+// At least one of the action from actions must be permitted to return successfully.
+// It always returns valid RPC errors.
+func (endpoint *Endpoint) validateAuthAny(ctx context.Context, header *pb.RequestHeader, actions ...macaroon.Action) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	key, keyInfo, err := endpoint.validateBasic(ctx, header)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(actions) == 0 {
+		return nil, rpcstatus.Error(rpcstatus.Internal, "No action to validate")
+	}
+
+	var combinedErrs error
+	for _, action := range actions {
+		err = key.Check(ctx, keyInfo.Secret, action, endpoint.revocations)
+		if err == nil {
+			return keyInfo, nil
+		}
+		combinedErrs = errs.Combine(combinedErrs, err)
+	}
+
+	endpoint.log.Debug("unauthorized request", zap.Error(combinedErrs))
+	return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
+}
+
 func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestHeader) (_ *macaroon.APIKey, _ *console.APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -121,6 +158,16 @@ func (endpoint *Endpoint) validateBasic(ctx context.Context, header *pb.RequestH
 		endpoint.log.Debug("unauthorized request", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 	}
+
+	userAgent := ""
+	if keyInfo.UserAgent != nil {
+		userAgent = string(keyInfo.UserAgent)
+	}
+	ek.Event("auth",
+		eventkit.String("user-agent", userAgent),
+		eventkit.String("project", keyInfo.ProjectID.String()),
+		eventkit.String("partner", string(keyInfo.UserAgent)),
+	)
 
 	if err = endpoint.checkRate(ctx, keyInfo.ProjectID); err != nil {
 		endpoint.log.Debug("rate check failed", zap.Error(err))
@@ -285,6 +332,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 
 	pieceNums := make(map[uint16]struct{})
 	nodeIds := make(map[storj.NodeID]struct{})
+	deriver := commitRequest.RootPieceID.Deriver()
 	for _, piece := range commitRequest.Pieces {
 		if int(piece.Number) >= len(originalLimits) {
 			return Error.New("invalid piece number")
@@ -305,7 +353,7 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 			return Error.New("Segment not committed before max commit interval of %f minutes.", endpoint.config.MaxCommitInterval.Minutes())
 		}
 
-		derivedPieceID := commitRequest.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		derivedPieceID := deriver.Derive(piece.StorageNode, int32(piece.Number))
 		if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 			return Error.New("invalid order limit piece id")
 		}
@@ -325,5 +373,122 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 		nodeIds[piece.StorageNode] = struct{}{}
 	}
 
+	return nil
+}
+
+func (endpoint *Endpoint) checkUploadLimits(ctx context.Context, projectID uuid.UUID) error {
+	return endpoint.checkUploadLimitsForNewObject(ctx, projectID, 1, 1)
+}
+
+func (endpoint *Endpoint) checkUploadLimitsForNewObject(
+	ctx context.Context, projectID uuid.UUID, newObjectSize int64, newObjectSegmentCount int64,
+) error {
+	if limit, err := endpoint.projectUsage.ExceedsUploadLimits(ctx, projectID, newObjectSize, newObjectSegmentCount); err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		endpoint.log.Error(
+			"Retrieving project upload limit failed; limit won't be enforced",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	} else {
+		if limit.ExceedsSegments {
+			endpoint.log.Warn("Segment limit exceeded",
+				zap.String("Limit", strconv.Itoa(int(limit.SegmentsLimit))),
+				zap.Stringer("Project ID", projectID),
+			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Segments Limit")
+		}
+
+		if limit.ExceedsStorage {
+			endpoint.log.Warn("Storage limit exceeded",
+				zap.String("Limit", strconv.Itoa(limit.StorageLimit.Int())),
+				zap.Stringer("Project ID", projectID),
+			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Storage Limit")
+		}
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, projectID uuid.UUID, segmentSize int64) error {
+	return endpoint.addToUploadLimits(ctx, projectID, segmentSize, 1)
+}
+
+func (endpoint *Endpoint) addToUploadLimits(ctx context.Context, projectID uuid.UUID, size int64, segmentCount int64) error {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, projectID, size); err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth and storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	}
+
+	err := endpoint.projectUsage.UpdateProjectSegmentUsage(ctx, projectID, segmentCount)
+	if err != nil {
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// segment limits.
+		endpoint.log.Error(
+			"Could not track the new project's segment usage when committing",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	}
+
+	return nil
+}
+
+func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, storage int64, segments int64) (err error) {
+	err = endpoint.projectUsage.AddProjectUsageUpToLimit(ctx, projectID, storage, segments)
+
+	if err != nil {
+		if accounting.ErrProjectLimitExceeded.Has(err) {
+			endpoint.log.Warn("Upload limit exceeded",
+				zap.Stringer("Project ID", projectID),
+				zap.Error(err),
+			)
+			return rpcstatus.Error(rpcstatus.ResourceExhausted, err.Error())
+		}
+
+		if errs2.IsCanceled(err) {
+			return rpcstatus.Wrap(rpcstatus.Canceled, err)
+		}
+
+		endpoint.log.Error(
+			"Updating project upload limits failed; limits won't be enforced",
+			zap.Stringer("Project ID", projectID),
+			zap.Error(err),
+		)
+	}
+
+	return nil
+}
+
+// checkEncryptedMetadata checks encrypted metadata and it's encrypted key sizes. Metadata encrypted key nonce
+// is serialized to storj.Nonce automatically.
+func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encryptedKey []byte) error {
+	metadataSize := memory.Size(len(encryptedMetadata))
+	if metadataSize > endpoint.config.MaxMetadataSize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
+	}
+
+	// verify key only if any metadata was set
+	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
+		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
+	}
 	return nil
 }

@@ -23,14 +23,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { PayoutInfoRange } from '@/app/types/payout';
 import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
+
+import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
 // @vue/component
 @Component({
@@ -76,7 +76,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
             this.fetchPayoutInfo(id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -93,7 +93,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, null);
             this.fetchPayoutInfo();
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -117,7 +117,7 @@ export default class SatelliteSelectionDropdown extends Vue {
             try {
                 await this.$store.dispatch(PAYOUT_ACTIONS.SET_PERIODS_RANGE, new PayoutInfoRange(null, new PayoutPeriod()));
             } catch (error) {
-                console.error(error.message);
+                console.error(error);
             }
         }
 
@@ -130,13 +130,13 @@ export default class SatelliteSelectionDropdown extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }
@@ -149,8 +149,8 @@ export default class SatelliteSelectionDropdown extends Vue {
         left: 0;
         width: 100%;
         border-radius: 8px;
-        padding: 7px 0 7px 0;
-        box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+        padding: 7px 0;
+        box-shadow: 0 4px 4px rgb(0 0 0 / 25%);
         background-color: var(--block-background-color);
         z-index: 103;
     }

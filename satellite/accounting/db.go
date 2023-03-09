@@ -36,15 +36,16 @@ type StoragenodeBandwidthRollup struct {
 
 // Rollup mirrors dbx.AccountingRollup, allowing us to use that struct without leaking dbx.
 type Rollup struct {
-	ID             int64
-	NodeID         storj.NodeID
-	StartTime      time.Time
-	PutTotal       int64
-	GetTotal       int64
-	GetAuditTotal  int64
-	GetRepairTotal int64
-	PutRepairTotal int64
-	AtRestTotal    float64
+	ID              int64
+	NodeID          storj.NodeID
+	StartTime       time.Time
+	PutTotal        int64
+	GetTotal        int64
+	GetAuditTotal   int64
+	GetRepairTotal  int64
+	PutRepairTotal  int64
+	AtRestTotal     float64
+	IntervalEndTime time.Time
 }
 
 // StorageNodePeriodUsage represents a statement for a node for a compensation period.
@@ -63,7 +64,8 @@ type StorageNodeUsage struct {
 	NodeID      storj.NodeID
 	StorageUsed float64
 
-	Timestamp time.Time
+	Timestamp       time.Time
+	IntervalEndTime time.Time
 }
 
 // ProjectUsage consist of period total storage, egress
@@ -89,6 +91,19 @@ type ProjectLimits struct {
 	Usage     *int64
 	Bandwidth *int64
 	Segments  *int64
+}
+
+// ProjectDailyUsage holds project daily usage.
+type ProjectDailyUsage struct {
+	StorageUsage            []ProjectUsageByDay `json:"storageUsage"`
+	AllocatedBandwidthUsage []ProjectUsageByDay `json:"allocatedBandwidthUsage"`
+	SettledBandwidthUsage   []ProjectUsageByDay `json:"settledBandwidthUsage"`
+}
+
+// ProjectUsageByDay holds project daily usage.
+type ProjectUsageByDay struct {
+	Date  time.Time `json:"date"`
+	Value int64     `json:"value"`
 }
 
 // BucketUsage consist of total bucket usage for period.
@@ -129,21 +144,27 @@ type BucketUsagePage struct {
 // BucketUsageRollup is total bucket usage info
 // for certain period.
 type BucketUsageRollup struct {
-	ProjectID  uuid.UUID
-	BucketName []byte
+	ProjectID  uuid.UUID `json:"projectID"`
+	BucketName string    `json:"bucketName"`
 
-	TotalStoredData float64
+	TotalStoredData float64 `json:"totalStoredData"`
 
-	TotalSegments float64
-	ObjectCount   float64
-	MetadataSize  float64
+	TotalSegments float64 `json:"totalSegments"`
+	ObjectCount   float64 `json:"objectCount"`
+	MetadataSize  float64 `json:"metadataSize"`
 
-	RepairEgress float64
-	GetEgress    float64
-	AuditEgress  float64
+	RepairEgress float64 `json:"repairEgress"`
+	GetEgress    float64 `json:"getEgress"`
+	AuditEgress  float64 `json:"auditEgress"`
 
-	Since  time.Time
-	Before time.Time
+	Since  time.Time `json:"since"`
+	Before time.Time `json:"before"`
+}
+
+// Usage contains project's usage split on segments and storage.
+type Usage struct {
+	Storage  int64
+	Segments int64
 }
 
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
@@ -169,7 +190,7 @@ type StoragenodeAccounting interface {
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
-	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time, batchSize int) error
 	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.
 	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedNodeBW int, err error)
 	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
@@ -184,18 +205,20 @@ type StoragenodeAccounting interface {
 type ProjectAccounting interface {
 	// SaveTallies saves the latest project info
 	SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[metabase.BucketLocation]*BucketTally) error
-	// GetTallies retrieves all tallies
+	// GetTallies retrieves all tallies ordered by interval start desc
 	GetTallies(ctx context.Context) ([]BucketTally, error)
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
-	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
-	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
+	// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
+	GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
 	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int, asOfSystemInterval time.Duration) (int64, error)
 	// GetProjectDailyBandwidth returns bandwidth (allocated and settled) for the specified day.
 	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
+	// GetProjectDailyUsageByDateRange returns daily allocated, settled bandwidth and storage usage for the specified date range.
+	GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (*ProjectDailyUsage, error)
 
 	// UpdateProjectUsageLimit updates project usage limit.
 	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
@@ -213,12 +236,17 @@ type ProjectAccounting interface {
 	GetProjectLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error)
 	// GetProjectTotal returns project usage summary for specified period of time.
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
+	// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
+	// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+	GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]ProjectUsage, err error)
 	// GetProjectObjectsSegments returns project objects and segments for specified period of time.
 	GetProjectObjectsSegments(ctx context.Context, projectID uuid.UUID) (*ProjectObjectsSegments, error)
 	// GetBucketUsageRollups returns usage rollup per each bucket for specified period of time.
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
-	// GetBucketTotals returns per bucket usage summary for specified period of time.
-	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
+	// GetSingleBucketUsageRollup returns usage rollup per single bucket for specified period of time.
+	GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*BucketUsageRollup, error)
+	// GetBucketTotals returns per bucket total usage summary since bucket creation.
+	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error)
 	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
 	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedBucketBW int, err error)
 	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
@@ -254,20 +282,29 @@ type Cache interface {
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
 	// GetProjectSegmentUsage returns the project's segment usage.
 	GetProjectSegmentUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error)
-	// UpdateProjectBandthUsage updates the project's bandwidth usage increasing
+	// AddProjectSegmentUsageUpToLimit increases segment usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectSegmentUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, segmentLimit int64) error
+	// InsertProjectBandwidthUsage inserts a project bandwidth usage if it
+	// doesn't exist. It returns true if it's inserted, otherwise false.
+	InsertProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, value int64, ttl time.Duration, now time.Time) (inserted bool, _ error)
+	// UpdateProjectBandwidthUsage updates the project's bandwidth usage increasing
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
 	// UpdateProjectSegmentUsage updates the project's segment usage increasing
 	// it. The projectID is inserted to the increment when it doesn't exists,
 	// hence this method will never return ErrKeyNotFound error's class.
-	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration) error
+	UpdateProjectSegmentUsage(ctx context.Context, projectID uuid.UUID, increment int64) error
 	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
 	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
 	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
-	// GetAllProjectTotals return the total projects' storage used space.
-	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
+	// AddProjectStorageUsageUpToLimit increases storage usage up to the limit.
+	// If the limit is exceeded, the usage is not increased and accounting.ErrProjectLimitExceeded is returned.
+	AddProjectStorageUsageUpToLimit(ctx context.Context, projectID uuid.UUID, increment int64, spaceLimit int64) error
+	// GetAllProjectTotals return the total projects' storage and segments used space.
+	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
 	// Close the client, releasing any open resources. Once it's called any other
 	// method must be called.
 	Close() error

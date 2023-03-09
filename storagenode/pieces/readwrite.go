@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
@@ -73,7 +72,7 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
+func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
 	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
@@ -90,7 +89,9 @@ func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blo
 		}
 	}
 	w.blob = blobWriter
-	w.hash = pkcrypto.NewHash()
+
+	w.hash = pb.NewHashFromAlgorithm(hashAlgorithm)
+
 	w.blobs = blobs
 	w.satellite = satellite
 	return w, nil

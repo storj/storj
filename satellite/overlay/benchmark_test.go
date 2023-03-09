@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
@@ -198,7 +199,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 		twoHoursAgo := now.Add(-2 * time.Hour)
 
 		overlaydb := db.OverlayCache()
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
 			NewNodeFraction:  newNodeFraction,
@@ -265,7 +267,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 						err := overlaydb.TestSuspendNodeUnknownAudit(ctx, nodeID, now)
 						require.NoError(b, err)
 					case 1:
-						err := overlaydb.DisqualifyNode(ctx, nodeID)
+						_, err := overlaydb.DisqualifyNode(ctx, nodeID, time.Now(), overlay.DisqualificationReasonUnknown)
 						require.NoError(b, err)
 					case 2:
 						err := overlaydb.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
@@ -288,7 +290,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedNetworks:   nil,
 			MinimumVersion:     "v1.0.0",
 			OnlineWindow:       time.Hour,
-			DistinctIP:         false,
 			AsOfSystemInterval: -time.Microsecond,
 		}
 		excludedCriteria := &overlay.NodeCriteria{
@@ -297,7 +298,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 			ExcludedNetworks:   excludedNets,
 			MinimumVersion:     "v1.0.0",
 			OnlineWindow:       time.Hour,
-			DistinctIP:         false,
 			AsOfSystemInterval: -time.Microsecond,
 		}
 
@@ -357,13 +357,19 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), "", "", overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
 			},
 		})
 		require.NoError(b, err)
+
+		var background errgroup.Group
+		serviceCtx, serviceCancel := context.WithCancel(ctx)
+		background.Go(func() error { return errs.Wrap(service.Run(serviceCtx)) })
+		defer func() { require.NoError(b, background.Wait()) }()
+		defer func() { serviceCancel(); _ = service.Close() }()
 
 		b.Run("FindStorageNodesWithPreference", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {

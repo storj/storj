@@ -36,14 +36,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+import { PayoutsState } from '@/app/store/payouts';
+
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
 import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
-
-import { UnauthorizedError } from '@/api';
-import { PayoutsState } from '@/app/store/payouts';
 
 // @vue/component
 @Component({

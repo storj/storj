@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+import { ProjectMembersApiMock } from '../mock/api/projectMembers';
+import { ProjectsApiMock } from '../mock/api/projects';
 
 import { appStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -23,7 +23,7 @@ const projectMembersModule = makeProjectMembersModule(pmApi);
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const { FETCH } = PROJECT_MEMBER_MUTATIONS;
-const store = new Vuex.Store({modules: { projectsModule, projectMembersModule, appStateModule }});
+const store = new Vuex.Store({ modules: { projectsModule, projectMembersModule, appStateModule } });
 
 describe('ProjectMembersArea.vue', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
@@ -40,7 +40,7 @@ describe('ProjectMembersArea.vue', () => {
     pmApi.setMockPage(testProjectMembersPage);
 
     it('renders correctly', async (): Promise<void> => {
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -53,7 +53,7 @@ describe('ProjectMembersArea.vue', () => {
     it('function fetchProjectMembers works correctly', () => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -64,7 +64,7 @@ describe('ProjectMembersArea.vue', () => {
     it('team area renders correctly', async (): Promise<void> => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -74,14 +74,8 @@ describe('ProjectMembersArea.vue', () => {
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(0);
 
-        const teamContainer = wrapper.findAll('.team-area__container');
+        const teamContainer = wrapper.findAll('.team-area__table');
         expect(teamContainer.length).toBe(1);
-
-        const sortingListHeaderStub = wrapper.findAll('sortinglistheader-stub');
-        expect(sortingListHeaderStub.length).toBe(1);
-
-        const listStub = wrapper.findAll('vlist-stub');
-        expect(listStub.length).toBe(1);
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -89,12 +83,12 @@ describe('ProjectMembersArea.vue', () => {
     it('action on toggle works correctly', () => {
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onMemberClick(projectMember1);
+        wrapper.vm.onMemberCheckChange(projectMember1);
 
         expect(store.getters.selectedProjectMembers.length).toBe(1);
     });
@@ -109,12 +103,12 @@ describe('ProjectMembersArea.vue', () => {
         testProjectMembersPage.pageCount = 1;
         store.commit(FETCH, testProjectMembersPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
 
-        wrapper.vm.onMemberClick(projectMember3);
+        wrapper.vm.onMemberCheckChange(projectMember3);
 
         expect(store.getters.selectedProjectMembers.length).toBe(0);
     });
@@ -128,7 +122,7 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(FETCH, testPage);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });
@@ -152,7 +146,7 @@ describe('ProjectMembersArea.vue', () => {
 
         store.commit(FETCH, testPage1);
 
-        const wrapper = shallowMount(ProjectMembersArea, {
+        const wrapper = shallowMount<ProjectMembersArea>(ProjectMembersArea, {
             store,
             localVue,
         });

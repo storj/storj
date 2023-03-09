@@ -22,9 +22,10 @@
             </div>
             <div v-else class="payment-methods-container__card-container__dots-container">
                 <div @click.stop="toggleSelection">
-                    <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="20" height="4" viewBox="0 0 20 4" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="4" height="4" rx="2" fill="#354049" />
                         <rect x="8" width="4" height="4" rx="2" fill="#354049" />
+                        <rect x="16" width="4" height="4" rx="2" fill="#354049" />
                     </svg>
                 </div>
                 <CardDialog
@@ -40,6 +41,9 @@
 import Vue, { VueConstructor } from 'vue';
 import { Component, Prop } from 'vue-property-decorator';
 
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { CreditCard } from '@/types/payments';
+
 import CardDialog from '@/components/account/billing/paymentMethods/CardDialog.vue';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
@@ -50,9 +54,6 @@ import JCBIcon from '@/../static/images/payments/cardIcons/jcb.svg';
 import MastercardIcon from '@/../static/images/payments/cardIcons/mastercard.svg';
 import UnionPayIcon from '@/../static/images/payments/cardIcons/unionpay.svg';
 import VisaIcon from '@/../static/images/payments/cardIcons/visa.svg';
-
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { CreditCard } from '@/types/payments';
 
 const {
     TOGGLE_CARD_SELECTION,
@@ -73,7 +74,7 @@ const {
     },
 })
 export default class CardComponent extends Vue {
-    @Prop({default: () => new CreditCard()})
+    @Prop({ default: () => new CreditCard() })
     private readonly creditCard: CreditCard;
 
     // TODO: move to CreditCard

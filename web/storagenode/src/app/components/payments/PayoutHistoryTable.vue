@@ -27,11 +27,11 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
-import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
-
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+
+import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
+import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
 // @vue/component
 @Component ({
@@ -69,7 +69,7 @@ export default class PayoutHistoryTable extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }
@@ -79,7 +79,7 @@ export default class PayoutHistoryTable extends Vue {
     .payout-history-table {
         display: flex;
         flex-direction: column;
-        padding: 20px 40px 20px 40px;
+        padding: 20px 40px;
         background: var(--block-background-color);
         border: 1px solid var(--block-border-color);
         box-sizing: border-box;
@@ -140,7 +140,7 @@ export default class PayoutHistoryTable extends Vue {
     @media screen and (max-width: 640px) {
 
         .payout-history-table {
-            padding: 28px 20px 28px 20px;
+            padding: 28px 20px;
 
             &__divider {
                 display: none;

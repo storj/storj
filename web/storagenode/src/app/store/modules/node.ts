@@ -30,6 +30,12 @@ export const NODE_ACTIONS = {
 export const StatusOnline = 'Online';
 export const StatusOffline = 'Offline';
 
+export const QUIC_STATUS = {
+    StatusOk: 'OK',
+    StatusMisconfigured: 'Misconfigured',
+    StatusRefreshing: 'Refreshing',
+};
+
 const {
     POPULATE_STORE,
     SELECT_SATELLITE,
@@ -61,6 +67,9 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     nodeInfo.wallet,
                     nodeInfo.walletFeatures,
                     nodeInfo.isUpToDate,
+                    nodeInfo.quicStatus,
+                    nodeInfo.configuredPort,
+                    nodeInfo.lastQuicPingedAt,
                 );
 
                 state.utilization = new Utilization(
@@ -109,15 +118,16 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 state.egressSummary = satelliteInfo.egressSummary;
                 state.ingressSummary = satelliteInfo.ingressSummary;
                 state.storageSummary = satelliteInfo.storageSummary;
+                state.averageUsageBytes = satelliteInfo.averageUsageBytes;
             },
         },
         actions: {
-            [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: StorageNodeContext): Promise<void> {
+            [NODE_ACTIONS.GET_NODE_INFO]: async function ({ commit }: StorageNodeContext): Promise<void> {
                 const dashboard = await service.dashboard();
 
                 commit(NODE_MUTATIONS.POPULATE_STORE, dashboard);
             },
-            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}: StorageNodeContext, id?: string): Promise<void> {
+            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({ commit }: StorageNodeContext, id?: string): Promise<void> {
                 let response: Satellite | Satellites;
                 if (id) {
                     response = await service.satellite(id);

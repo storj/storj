@@ -8,8 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/mail"
-	"net/smtp"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -26,33 +25,33 @@ import (
 	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
-	"storj.io/storj/private/post"
-	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/restkeys"
+	"storj.io/storj/satellite/console/userinfo"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
 
@@ -108,6 +107,10 @@ type API struct {
 		Endpoint      *metainfo.Endpoint
 	}
 
+	Userinfo struct {
+		Endpoint *userinfo.Endpoint
+	}
+
 	Inspector struct {
 		Endpoint *inspector.Endpoint
 	}
@@ -129,24 +132,33 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts   payments.Accounts
-		Conversion *stripecoinpayments.ConversionService
-		Service    *stripecoinpayments.Service
-		Stripe     stripecoinpayments.StripeClient
+		Accounts       payments.Accounts
+		DepositWallets payments.DepositWallets
+
+		StorjscanService *storjscan.Service
+		StorjscanClient  *storjscan.Client
+
+		StripeService *stripecoinpayments.Service
+		StripeClient  stripecoinpayments.StripeClient
+	}
+
+	REST struct {
+		Keys *restkeys.Service
 	}
 
 	Console struct {
-		Listener net.Listener
-		Service  *console.Service
-		Endpoint *consoleweb.Server
-	}
-
-	Marketing struct {
-		PartnersService *rewards.PartnersService
+		Listener   net.Listener
+		Service    *console.Service
+		Endpoint   *consoleweb.Server
+		AuthTokens *consoleauth.Service
 	}
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
+	}
+
+	OIDC struct {
+		Service *oidc.Service
 	}
 
 	SNOPayouts struct {
@@ -161,6 +173,10 @@ type API struct {
 
 	Analytics struct {
 		Service *analytics.Service
+	}
+
+	ABTesting struct {
+		Service *abtesting.Service
 	}
 
 	Buckets struct {
@@ -258,22 +274,43 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup mailservice
+		peer.Mail.Service, err = setupMailService(peer.Log, *config)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
+			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
 	}
 
 	{ // setup reputation
-		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.DB, peer.DB.Reputation(), config.Reputation)
-
+		reputationDB := peer.DB.Reputation()
+		if config.Reputation.FlushInterval > 0 {
+			cachingDB := reputation.NewCachingDB(log.Named("reputation:writecache"), reputationDB, config.Reputation)
+			peer.Services.Add(lifecycle.Item{
+				Name: "reputation:writecache",
+				Run:  cachingDB.Manage,
+			})
+			reputationDB = cachingDB
+		}
+		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.Service, reputationDB, config.Reputation)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "reputation",
 			Close: peer.Reputation.Service.Close,
@@ -326,9 +363,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
 			peer.ProjectLimits.Cache,
+			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
+	}
+
+	{ // setup oidc
+		peer.OIDC.Service = oidc.NewService(db.OIDC())
 	}
 
 	{ // setup orders
@@ -347,7 +389,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
-			peer.Buckets.Service,
 			config.Orders,
 		)
 		if err != nil {
@@ -369,13 +410,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup marketing partners service
-		peer.Marketing.PartnersService = rewards.NewPartnersService(
-			peer.Log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
-	}
-
 	{ // setup analytics service
 		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
 
@@ -386,13 +420,22 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup AB test service
+		peer.ABTesting.Service = abtesting.NewService(peer.Log.Named("abtesting:service"), config.Console.ABTesting)
+
+		peer.Services.Add(lifecycle.Item{
+			Name: "abtesting:service",
+		})
+	}
+
 	{ // setup metainfo
 		peer.Metainfo.Metabase = metabaseDB
 
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
 			peer.Log.Named("metainfo:piecedeletion"),
 			peer.Dialer,
-			peer.Overlay.Service,
+			// TODO use cache designed for deletion
+			peer.Overlay.Service.DownloadSelectionCache,
 			config.Metainfo.PieceDeletion,
 		)
 		if err != nil {
@@ -412,7 +455,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
-			peer.Marketing.PartnersService,
 			peer.DB.PeerIdentities(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
@@ -435,6 +477,33 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup userinfo.
+		if config.Userinfo.Enabled {
+
+			peer.Userinfo.Endpoint, err = userinfo.NewEndpoint(
+				peer.Log.Named("userinfo:endpoint"),
+				peer.DB.Console().Users(),
+				peer.DB.Console().APIKeys(),
+				peer.DB.Console().Projects(),
+				config.Userinfo,
+			)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			if err := pb.DRPCRegisterUserInfo(peer.Server.DRPC(), peer.Userinfo.Endpoint); err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "userinfo:endpoint",
+				Close: peer.Userinfo.Endpoint.Close,
+			})
+		} else {
+			peer.Log.Named("userinfo:endpoint").Info("disabled")
+		}
+	}
+
 	{ // setup inspector
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
@@ -446,120 +515,74 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup mailservice
-		// TODO(yar): test multiple satellites using same OAUTH credentials
-		mailConfig := config.Mail
-
-		// validate from mail address
-		from, err := mail.ParseAddress(mailConfig.From)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		// validate smtp server address
-		host, _, err := net.SplitHostPort(mailConfig.SMTPServerAddress)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		var sender mailservice.Sender
-		switch mailConfig.AuthType {
-		case "oauth2":
-			creds := oauth2.Credentials{
-				ClientID:     mailConfig.ClientID,
-				ClientSecret: mailConfig.ClientSecret,
-				TokenURI:     mailConfig.TokenURI,
-			}
-			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: &oauth2.Auth{
-					UserEmail: from.Address,
-					Storage:   oauth2.NewTokenStore(creds, *token),
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "plain":
-			sender = &post.SMTPSender{
-				From:          *from,
-				Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		case "login":
-			sender = &post.SMTPSender{
-				From: *from,
-				Auth: post.LoginAuth{
-					Username: mailConfig.Login,
-					Password: mailConfig.Password,
-				},
-				ServerAddress: mailConfig.SMTPServerAddress,
-			}
-		default:
-			sender = simulate.NewDefaultLinkClicker()
-		}
-
-		peer.Mail.Service, err = mailservice.New(
-			peer.Log.Named("mail:service"),
-			sender,
-			mailConfig.TemplatePath,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "mail:service",
-			Close: peer.Mail.Service.Close,
-		})
-	}
-
 	{ // setup payments
 		pc := config.Payments
 
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
-		default:
+		case "": // just new mock, only used in testing binaries
 			stripeClient = stripecoinpayments.NewStripeMock(
-				peer.ID(),
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
+		case "mock":
+			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		default:
+			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
 
-		peer.Payments.Service, err = stripecoinpayments.NewService(
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.StripeService, err = stripecoinpayments.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
+			peer.DB.Console().Users(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Payments.Stripe = stripeClient
-		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
-			peer.Log.Named("payments.stripe:version"),
-			peer.Payments.Service,
-			pc.StripeCoinPayments.ConversionRatesCycleInterval)
+		peer.Payments.StripeClient = stripeClient
+		peer.Payments.Accounts = peer.Payments.StripeService.Accounts()
 
-		peer.Services.Add(lifecycle.Item{
-			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Conversion.Run,
-			Close: peer.Payments.Conversion.Close,
-		})
+		peer.Payments.StorjscanClient = storjscan.NewClient(
+			pc.Storjscan.Endpoint,
+			pc.Storjscan.Auth.Identifier,
+			pc.Storjscan.Auth.Secret)
+
+		peer.Payments.StorjscanService = storjscan.NewService(log.Named("storjscan-service"),
+			peer.DB.Wallets(),
+			peer.DB.StorjscanPayments(),
+			peer.Payments.StorjscanClient)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Payments.DepositWallets = peer.Payments.StorjscanService
+	}
+
+	{ // setup account management api keys
+		peer.REST.Keys = restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.RESTKeys)
 	}
 
 	{ // setup console
@@ -572,39 +595,48 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
+		peer.Console.AuthTokens = consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)})
+
+		externalAddress := consoleConfig.ExternalAddress
+		if externalAddress == "" {
+			externalAddress = "http://" + peer.Console.Listener.Addr().String()
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.REST.Keys,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.Buckets.Service,
-			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Payments.DepositWallets,
+			peer.DB.Billing(),
 			peer.Analytics.Service,
+			peer.Console.AuthTokens,
+			peer.Mail.Service,
+			externalAddress,
 			consoleConfig.Config,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		pricing := paymentsconfig.PricingValues{
-			StorageTBPrice: config.Payments.StorageTBPrice,
-			EgressTBPrice:  config.Payments.EgressTBPrice,
-			SegmentPrice:   config.Payments.SegmentPrice,
-		}
+		accountFreezeService := console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
 
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
 			peer.Console.Service,
+			peer.OIDC.Service,
 			peer.Mail.Service,
-			peer.Marketing.PartnersService,
 			peer.Analytics.Service,
+			peer.ABTesting.Service,
+			accountFreezeService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
-			pricing,
 			peer.URL(),
+			config.Payments.PackagePlans,
 		)
 
 		peer.Servers.Add(lifecycle.Item{
@@ -673,10 +705,15 @@ func (peer *API) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "api"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

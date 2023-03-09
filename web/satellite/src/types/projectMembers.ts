@@ -121,6 +121,6 @@ export class ProjectMember {
      * Returns joined at date as a local date string.
      */
     public localDate(): string {
-        return this.joinedAt.toLocaleDateString();
+        return this.joinedAt.toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
     }
 }

@@ -16,13 +16,13 @@
             </div>
             <EditIcon
                 class="edit-svg"
-                @click="toggleEditProfilePopup"
+                @click="toggleEditProfileModal"
             />
         </div>
         <div class="settings__secondary-container">
             <div class="settings__secondary-container__change-password">
                 <div class="settings__edit-profile__row">
-                    <ChangePasswordIcon class="settings__secondary-container__img" />
+                    <ChangePasswordIcon class="settings__secondary-container__change-password__img" />
                     <div class="settings__secondary-container__change-password__text-container">
                         <h2 class="profile-bold-text">Change Password</h2>
                         <h3 class="profile-regular-text">6 or more characters</h3>
@@ -30,11 +30,11 @@
                 </div>
                 <EditIcon
                     class="edit-svg"
-                    @click="toggleChangePasswordPopup"
+                    @click="toggleChangePasswordModal"
                 />
             </div>
             <div class="settings__secondary-container__email-container">
-                <div class="settings__edit-profile__row">
+                <div class="settings__secondary-container__email-container__row">
                     <EmailIcon class="settings__secondary-container__img" />
                     <div class="settings__secondary-container__email-container__text-container">
                         <h2 class="profile-bold-text email">{{ user.email }}</h2>
@@ -65,175 +65,136 @@
                         label="Disable 2FA"
                         width="173px"
                         height="44px"
-                        :on-press="toggleDisableMFAPopup"
-                        is-deletion="true"
+                        :on-press="toggleDisableMFAModal"
+                        :is-deletion="true"
                     />
                     <VButton
                         label="Regenerate Recovery Codes"
                         width="240px"
                         height="44px"
                         :on-press="generateNewMFARecoveryCodes"
-                        is-blue-white="true"
+                        :is-blue-white="true"
                         :is-disabled="isLoading"
                     />
                 </div>
             </div>
         </div>
-        <ChangePasswordPopup v-if="isChangePasswordPopupShown" />
-        <EditProfilePopup v-if="isEditProfilePopupShown" />
-        <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup" />
-        <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup" />
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted } from 'vue';
 
-import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
-import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
-import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
-import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
-import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { User } from '@/types/users';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useNotify, useStore } from '@/utils/hooks';
+import { useLoading } from '@/composables/useLoading';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+
 import VButton from '@/components/common/VButton.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
 
-import { USER_ACTIONS } from '@/store/modules/users';
-import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+const store = useStore();
+const notify = useNotify();
+const { isLoading, withLoading } = useLoading();
 
-// @vue/component
-@Component({
-    components: {
-        EditIcon,
-        ChangePasswordIcon,
-        EmailIcon,
-        VButton,
-        ChangePasswordPopup,
-        EditProfilePopup,
-        EnableMFAPopup,
-        DisableMFAPopup,
-        MFARecoveryCodesPopup,
-    },
-})
-export default class SettingsArea extends Vue {
-    public isLoading = false;
-    public isEnableMFAPopup = false;
-    public isDisableMFAPopup = false;
-    public isMFACodesPopup = false;
+/**
+ * Returns user info from store.
+ */
+const user = computed((): User => {
+    return store.getters.user;
+});
 
-    /**
-     * Lifecycle hook after initial render where user info is fetching.
-     */
-    public mounted(): void {
-        this.$store.dispatch(USER_ACTIONS.GET);
-    }
+/**
+ * Returns first letter of user name.
+ */
+const avatarLetter = computed((): string => {
+    return store.getters.userName.slice(0, 1).toUpperCase();
+});
 
-    /**
-     * Generates user's MFA secret and opens popup.
-     */
-    public async enableMFA(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
-            this.toggleEnableMFAPopup();
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Toggles generate new MFA recovery codes popup visibility.
-     */
-    public async generateNewMFARecoveryCodes(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
-            this.toggleMFACodesPopup();
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Toggles enable MFA popup visibility.
-     */
-    public toggleEnableMFAPopup(): void {
-        this.isEnableMFAPopup = !this.isEnableMFAPopup;
-    }
-
-    /**
-     * Toggles disable MFA popup visibility.
-     */
-    public toggleDisableMFAPopup(): void {
-        this.isDisableMFAPopup = !this.isDisableMFAPopup;
-    }
-
-    /**
-     * Toggles MFA recovery codes popup visibility.
-     */
-    public toggleMFACodesPopup(): void {
-        this.isMFACodesPopup = !this.isMFACodesPopup;
-    }
-
-    /**
-     * Opens change password popup.
-     */
-    public toggleChangePasswordPopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-    }
-
-    /**
-     * Opens edit account info popup.
-     */
-    public toggleEditProfilePopup(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-    }
-
-    /**
-     * Returns user info from store.
-     */
-    public get user(): User {
-        return this.$store.getters.user;
-    }
-
-    /**
-     * Indicates if edit user info popup is shown.
-     */
-    public get isEditProfilePopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
-    }
-
-    /**
-     * Indicates if change password popup is shown.
-     */
-    public get isChangePasswordPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
-    }
-
-    /**
-     * Returns first letter of user name.
-     */
-    public get avatarLetter(): string {
-        return this.$store.getters.userName.slice(0, 1).toUpperCase();
-    }
+/**
+ * Toggles enable MFA modal visibility.
+ */
+function toggleEnableMFAModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
 }
+
+/**
+ * Toggles disable MFA modal visibility.
+ */
+function toggleDisableMFAModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
+}
+
+/**
+ * Toggles MFA recovery codes modal visibility.
+ */
+function toggleMFACodesModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+}
+
+/**
+ * Opens change password popup.
+ */
+function toggleChangePasswordModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
+}
+
+/**
+ * Opens edit account info modal.
+ */
+function toggleEditProfileModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editProfile);
+}
+
+/**
+ * Generates user's MFA secret and opens popup.
+ */
+async function enableMFA(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            toggleEnableMFAModal();
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        }
+    });
+}
+
+/**
+ * Toggles generate new MFA recovery codes popup visibility.
+ */
+async function generateNewMFARecoveryCodes(): Promise<void> {
+    await withLoading(async () => {
+        try {
+            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            toggleMFACodesModal();
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
+        }
+    });
+}
+
+/**
+ * Lifecycle hook after initial render where user info is fetching.
+ */
+onMounted(() => {
+    store.dispatch(USER_ACTIONS.GET);
+});
 </script>
 
 <style scoped lang="scss">
+    h3 {
+        margin-block-start: 0;
+        margin-block-end: 0;
+    }
+
     .settings {
         position: relative;
         font-family: 'font_regular', sans-serif;
@@ -244,12 +205,13 @@ export default class SettingsArea extends Vue {
             font-size: 32px;
             line-height: 39px;
             color: #263549;
-            margin: 40px 0 25px 0;
+            margin: 40px 0 25px;
         }
 
         &__edit-profile {
-            height: 66px;
-            width: calc(100% - 80px);
+            height: 137px;
+            box-sizing: border-box;
+            width: 100%;
             border-radius: 6px;
             display: flex;
             justify-content: space-between;
@@ -261,6 +223,7 @@ export default class SettingsArea extends Vue {
                 display: flex;
                 justify-content: flex-start;
                 align-items: center;
+                max-width: calc(100% - 40px);
             }
 
             &__avatar {
@@ -289,14 +252,15 @@ export default class SettingsArea extends Vue {
             margin-top: 40px;
 
             &__change-password {
-                height: 66px;
+                height: 137px;
                 border-radius: 6px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 padding: 37px 40px;
                 background-color: #fff;
-                width: calc(48% - 80px);
+                width: 48%;
+                box-sizing: border-box;
 
                 &__text-container {
                     margin-left: 32px;
@@ -304,14 +268,22 @@ export default class SettingsArea extends Vue {
             }
 
             &__email-container {
-                height: 66px;
+                height: 137px;
                 border-radius: 6px;
                 display: flex;
                 justify-content: flex-start;
                 align-items: center;
                 padding: 37px 40px;
                 background-color: #fff;
-                width: calc(48% - 80px);
+                width: 48%;
+                box-sizing: border-box;
+
+                &__row {
+                    display: flex;
+                    justify-content: flex-start;
+                    align-items: center;
+                    width: 100%;
+                }
 
                 &__text-container {
                     margin-left: 32px;
@@ -385,19 +357,20 @@ export default class SettingsArea extends Vue {
 
     @media screen and (max-width: 1300px) {
 
-        .profile-container {
+        .settings {
 
             &__secondary-container {
                 flex-direction: column;
                 justify-content: center;
 
-                &__change-password {
-                    width: calc(100% - 80px);
+                &__change-password,
+                &__email-container {
+                    height: auto;
+                    width: 100%;
                 }
 
                 &__email-container {
                     margin-top: 40px;
-                    width: calc(100% - 80px);
                 }
             }
         }
@@ -405,7 +378,7 @@ export default class SettingsArea extends Vue {
 
     @media screen and (max-height: 825px) {
 
-        .profile-container {
+        .settings {
             height: 535px;
             overflow-y: scroll;
 
@@ -420,6 +393,27 @@ export default class SettingsArea extends Vue {
             &__button-area {
                 margin-top: 20px;
             }
+        }
+    }
+
+    @media screen and (max-width: 650px) {
+
+        .settings__secondary-container__change-password__text-container {
+            margin: 0;
+        }
+
+        .settings__edit-profile__avatar,
+        .settings__secondary-container__change-password__img {
+            display: none;
+        }
+    }
+
+    @media screen and (max-width: 460px) {
+
+        .settings__edit-profile,
+        .settings__secondary-container__change-password,
+        .settings__secondary-container__email-container {
+            padding: 25px;
         }
     }
 </style>

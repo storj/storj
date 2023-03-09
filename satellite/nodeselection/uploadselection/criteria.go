@@ -5,13 +5,15 @@ package uploadselection
 
 import (
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 )
 
 // Criteria to filter nodes.
 type Criteria struct {
-	ExcludeNodeIDs     []storj.NodeID
-	AutoExcludeSubnets map[string]struct{} // initialize it with empty map to keep only one node per subnet.
-	Placement          storj.PlacementConstraint
+	ExcludeNodeIDs       []storj.NodeID
+	AutoExcludeSubnets   map[string]struct{} // initialize it with empty map to keep only one node per subnet.
+	Placement            storj.PlacementConstraint
+	ExcludedCountryCodes []location.CountryCode
 }
 
 // MatchInclude returns with true if node is selected.
@@ -30,6 +32,16 @@ func (c *Criteria) MatchInclude(node *Node) bool {
 		}
 		c.AutoExcludeSubnets[node.LastNet] = struct{}{}
 	}
+
+	for _, code := range c.ExcludedCountryCodes {
+		if code.String() == "" {
+			continue
+		}
+		if node.CountryCode == code {
+			return false
+		}
+	}
+
 	return true
 }
 

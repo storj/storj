@@ -6,7 +6,7 @@ package piecestore_test
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
 
@@ -256,7 +256,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 				downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
 				require.NoError(t, err)
 
-				buffer, readErr := ioutil.ReadAll(downloader)
+				buffer, readErr := io.ReadAll(downloader)
 				closeErr := downloader.Close()
 				err = errs.Combine(readErr, closeErr)
 				if tt.err != "" {

@@ -2,8 +2,7 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
+import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
 import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
@@ -13,7 +12,8 @@ import { Paystub, TotalPayments } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Satellite, SatelliteScores, Stamp } from '@/storagenode/sno/sno';
-import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -29,7 +29,7 @@ const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
 const nodeModule = newNodeModule(nodeService);
 
-const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule }});
+const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule } });
 
 describe('TotalHeldArea', (): void => {
     it('renders correctly', (): void => {
@@ -56,6 +56,7 @@ describe('TotalHeldArea', (): void => {
             [],
             [],
             111,
+            11,
             222,
             50,
             70,

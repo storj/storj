@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -53,7 +52,7 @@ func TestPieces(t *testing.T) {
 	source := testrand.Bytes(8000)
 
 	{ // write data
-		writer, err := store.Writer(ctx, satelliteID, pieceID)
+		writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 
 		n, err := io.Copy(writer, bytes.NewReader(source))
@@ -123,7 +122,7 @@ func TestPieces(t *testing.T) {
 
 	{ // write cancel
 		cancelledPieceID := storj.NewPieceID()
-		writer, err := store.Writer(ctx, satelliteID, cancelledPieceID)
+		writer, err := store.Writer(ctx, satelliteID, cancelledPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 
 		n, err := io.Copy(writer, bytes.NewReader(source))
@@ -144,7 +143,7 @@ func TestPieces(t *testing.T) {
 
 func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion storage.FormatVersion) {
 	tStore := &pieces.StoreForTest{store}
-	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion)
+	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
 
 	_, err = writer.Write(data)
@@ -341,7 +340,7 @@ func TestTrashAndRestore(t *testing.T) {
 				}
 
 				for _, file := range piece.files {
-					w, err := tStore.WriterForFormatVersion(ctx, satellite.satelliteID, piece.pieceID, file.formatVer)
+					w, err := tStore.WriterForFormatVersion(ctx, satellite.satelliteID, piece.pieceID, file.formatVer, pb.PieceHashAlgorithm_SHA256)
 					require.NoError(t, err)
 
 					_, err = w.Write(file.data)
@@ -419,12 +418,14 @@ func TestTrashAndRestore(t *testing.T) {
 
 		// Empty trash by running the chore once
 		trashDur := 4 * 24 * time.Hour
+		chorectx, chorecancel := context.WithCancel(ctx)
 		chore := pieces.NewTrashChore(zaptest.NewLogger(t), 24*time.Hour, trashDur, trust, store)
 		ctx.Go(func() error {
-			return chore.Run(ctx)
+			return chore.Run(chorectx)
 		})
-		chore.TriggerWait(ctx)
+		chore.Cycle.TriggerWait()
 		require.NoError(t, chore.Close())
+		chorecancel()
 
 		// Restore all pieces in the first satellite
 		require.NoError(t, store.RestoreTrash(ctx, satellites[0].satelliteID))
@@ -493,7 +494,7 @@ func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.Store, sat
 	require.NoError(t, signing.VerifyUplinkPieceHashSignature(ctx, publicKey, pieceHash))
 
 	// Require piece data to match expected
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	require.NoError(t, err)
 	require.NoError(t, r.Close())
 	assert.True(t, bytes.Equal(buf, expected))
@@ -560,7 +561,7 @@ func TestPieceVersionMigrate(t *testing.T) {
 
 		// write as a v0 piece
 		tStore := &pieces.StoreForTest{store}
-		writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, filestore.FormatV0)
+		writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, filestore.FormatV0, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(t, err)
 		_, err = writer.Write(data)
 		require.NoError(t, err)
@@ -789,7 +790,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v0Data)), reader.Size())
 			assert.Equal(t, filestore.FormatV0, reader.StorageFormatVersion())
-			gotData, err := ioutil.ReadAll(reader)
+			gotData, err := io.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v0Data, gotData)
 			require.NoError(t, reader.Close())
@@ -821,7 +822,7 @@ func TestOverwriteV0WithV1(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, int64(len(v1Data)), reader.Size())
 			assert.Equal(t, filestore.FormatV1, reader.StorageFormatVersion())
-			gotData, err := ioutil.ReadAll(reader)
+			gotData, err := io.ReadAll(reader)
 			require.NoError(t, err)
 			assert.Equal(t, v1Data, gotData)
 			require.NoError(t, reader.Close())

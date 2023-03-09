@@ -8,7 +8,10 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
+    ProjectUsagePriceModel,
     TokenDeposit,
+    NativePaymentHistoryItem,
+    Wallet,
 } from '@/types/payments';
 
 /**
@@ -21,7 +24,7 @@ export class PaymentsMock implements PaymentsApi {
         this.mockCoupon = coupon;
     }
 
-    setupAccount(): Promise<void> {
+    setupAccount(): Promise<string> {
         throw new Error('Method not implemented');
     }
 
@@ -31,6 +34,10 @@ export class PaymentsMock implements PaymentsApi {
 
     projectsUsageAndCharges(): Promise<ProjectUsageAndCharges[]> {
         return Promise.resolve([]);
+    }
+
+    projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+        return Promise.resolve(new ProjectUsagePriceModel('1', '1', '1'));
     }
 
     addCreditCard(_token: string): Promise<void> {
@@ -53,6 +60,10 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
+    nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
+        return Promise.resolve([]);
+    }
+
     makeTokenDeposit(amount: number): Promise<TokenDeposit> {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
@@ -63,5 +74,21 @@ export class PaymentsMock implements PaymentsApi {
 
     getCoupon(): Promise<Coupon | null> {
         return Promise.resolve(this.mockCoupon);
+    }
+
+    getWallet(): Promise<Wallet> {
+        return Promise.resolve(new Wallet());
+    }
+
+    claimWallet(): Promise<Wallet> {
+        return Promise.resolve(new Wallet());
+    }
+
+    purchasePricingPackage(_: string): Promise<void> {
+        throw new Error('Method not implemented');
+    }
+
+    pricingPackageAvailable(): Promise<boolean> {
+        throw new Error('Method not implemented');
     }
 }

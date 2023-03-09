@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
@@ -26,10 +25,11 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/rewards"
 )
 
 // discardSender discard sending of an actual email.
@@ -51,11 +51,6 @@ func TestGraphqlMutation(t *testing.T) {
 		db := sat.DB
 		log := zaptest.NewLogger(t)
 
-		partnersService := rewards.NewPartnersService(
-			log.Named("partners"),
-			rewards.DefaultPartnersDB,
-		)
-
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
 		redis, err := testredis.Mini(ctx)
@@ -67,46 +62,65 @@ func TestGraphqlMutation(t *testing.T) {
 
 		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute, -10*time.Second)
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, *sat.Metabase.DB, 5*time.Minute, -10*time.Second)
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{
-			StorageTBPrice: "10",
-			EgressTBPrice:  "45",
-			SegmentPrice:   "0.0000022",
+			UsagePrice: paymentsconfig.ProjectUsagePrice{
+				StorageTB: "10",
+				EgressTB:  "45",
+				Segment:   "0.0000022",
+			},
 		}
+
+		prices, err := pc.UsagePrice.ToModel()
+		require.NoError(t, err)
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		require.NoError(t, err)
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
 			stripecoinpayments.NewStripeMock(
-				testrand.NodeID(),
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
+			db.Wallets(),
+			db.Billing(),
 			db.Console().Projects(),
+			db.Console().Users(),
 			db.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
 			log.Named("console"),
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			restkeys.NewService(db.OIDC().OAuthTokens(), planet.Satellites[0].Config.RESTKeys),
 			db.ProjectAccounting(),
 			projectUsage,
 			sat.API.Buckets.Service,
-			partnersService,
 			paymentsService.Accounts(),
+			// TODO: do we need a payment deposit wallet here?
+			nil,
+			db.Billing(),
 			analyticsService,
+			consoleauth.NewService(consoleauth.Config{
+				TokenExpirationTime: 24 * time.Hour,
+			}, &consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")}),
+			nil,
+			"",
 			console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
-				TokenExpirationTime: 24 * time.Hour,
+				Session: console.SessionConfig{
+					Duration: time.Hour,
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -127,11 +141,12 @@ func TestGraphqlMutation(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			FullName:  "John Roll",
-			ShortName: "Roll",
-			Email:     "test@mail.test",
-			UserAgent: []byte("120bf202-8252-437e-ac12-0e364bee852e"),
-			Password:  "123a123",
+			FullName:        "John Roll",
+			ShortName:       "Roll",
+			Email:           "test@mail.test",
+			UserAgent:       []byte("120bf202-8252-437e-ac12-0e364bee852e"),
+			Password:        "123a123",
+			SignupPromoCode: "promo1",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 1)
@@ -141,8 +156,12 @@ func TestGraphqlMutation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, createUser.UserAgent, rootUser.UserAgent)
 
-		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
+		couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)
+
+		var signupCouponType payments.CouponType = payments.SignupCoupon
+
 		require.NoError(t, err)
+		assert.Equal(t, signupCouponType, couponType)
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -150,18 +169,16 @@ func TestGraphqlMutation(t *testing.T) {
 		_, err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
+		tokenInfo, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err := service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx := console.WithAuth(ctx, sauth)
 
 		testQuery := func(t *testing.T, query string) (interface{}, error) {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
-				Context:       authCtx,
+				Context:       userCtx,
 				RequestString: query,
 				RootObject:    rootObject,
 			})
@@ -176,15 +193,14 @@ func TestGraphqlMutation(t *testing.T) {
 			return result.Data, nil
 		}
 
-		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
+		tokenInfo, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
-		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
+		userCtx, err = service.TokenAuth(ctx, tokenInfo.Token, time.Now())
 		require.NoError(t, err)
-
-		authCtx = console.WithAuth(ctx, sauth)
 
 		var projectIDField string
+		var projectPublicIDField string
 		t.Run("Create project mutation", func(t *testing.T) {
 			projectInfo := console.ProjectInfo{
 				Name:        "Project name",
@@ -192,7 +208,7 @@ func TestGraphqlMutation(t *testing.T) {
 			}
 
 			query := fmt.Sprintf(
-				"mutation {createProject(input:{name:\"%s\",description:\"%s\"}){name,description,id,createdAt}}",
+				"mutation {createProject(input:{name:\"%s\",description:\"%s\"}){name,description,id,publicId,createdAt}}",
 				projectInfo.Name,
 				projectInfo.Description,
 			)
@@ -207,19 +223,23 @@ func TestGraphqlMutation(t *testing.T) {
 			assert.Equal(t, projectInfo.Description, project[consoleql.FieldDescription])
 
 			projectIDField = project[consoleql.FieldID].(string)
+			projectPublicIDField = project[consoleql.FieldPublicID].(string)
+
+			_, err = uuid.FromString(projectPublicIDField)
+			require.NoError(t, err)
 		})
 
 		projectID, err := uuid.FromString(projectIDField)
 		require.NoError(t, err)
 
-		project, err := service.GetProject(authCtx, projectID)
+		project, err := service.GetProject(userCtx, projectID)
 		require.NoError(t, err)
-		require.Equal(t, rootUser.PartnerID, project.PartnerID)
+		require.Equal(t, rootUser.UserAgent, project.UserAgent)
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		user1, err := service.CreateUser(authCtx, console.CreateUser{
+		user1, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName: "User1",
 			Email:    "u1@mail.test",
 			Password: "123a123",
@@ -243,7 +263,7 @@ func TestGraphqlMutation(t *testing.T) {
 		regTokenUser2, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		user2, err := service.CreateUser(authCtx, console.CreateUser{
+		user2, err := service.CreateUser(userCtx, console.CreateUser{
 			FullName: "User1",
 			Email:    "u2@mail.test",
 			Password: "123a123",
@@ -264,14 +284,31 @@ func TestGraphqlMutation(t *testing.T) {
 			user2.Email = "u2@mail.test"
 		})
 
-		t.Run("Add project members mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
-				project.ID.String(),
-				user1.Email,
-				user2.Email,
-			)
+		regTokenUser3, err := service.CreateRegToken(ctx, 1)
+		require.NoError(t, err)
 
+		user3, err := service.CreateUser(userCtx, console.CreateUser{
+			FullName: "User3",
+			Email:    "u3@mail.test",
+			Password: "123a123",
+		}, regTokenUser3.Secret)
+		require.NoError(t, err)
+
+		t.Run("Activation", func(t *testing.T) {
+			activationToken3, err := service.GenerateActivationToken(
+				ctx,
+				user3.ID,
+				"u3@mail.test",
+			)
+			require.NoError(t, err)
+
+			_, err = service.ActivateAccount(ctx, activationToken3)
+			require.NoError(t, err)
+
+			user3.Email = "u3@mail.test"
+		})
+
+		testAdd := func(query string, expectedMembers int) {
 			result, err := testQuery(t, query)
 			require.NoError(t, err)
 
@@ -282,16 +319,50 @@ func TestGraphqlMutation(t *testing.T) {
 			projectMembers := members[consoleql.FieldProjectMembers].([]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, project.PublicID.String(), proj[consoleql.FieldPublicID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
-			assert.Equal(t, 3, len(projectMembers))
+			assert.Equal(t, expectedMembers, len(projectMembers))
+		}
+
+		t.Run("Add project members mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				project.ID.String(),
+				user1.Email,
+				user2.Email,
+			)
+
+			testAdd(query, 3)
+		})
+
+		t.Run("Add project members mutation with publicId", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(publicId:\"%s\",email:[\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				project.PublicID.String(),
+				user3.Email,
+			)
+
+			testAdd(query, 4)
+		})
+
+		t.Run("Fail add project members mutation without ID", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {addProjectMembers(email:[\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{joinedAt}}}}",
+				user1.Email,
+				user2.Email,
+			)
+
+			_, err = testQuery(t, query)
+			require.Error(t, err)
 		})
 
 		t.Run("Delete project members mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\"]){id,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
+				"mutation {deleteProjectMembers(projectID:\"%s\",email:[\"%s\",\"%s\",\"%s\"]){id,publicId,name,members(cursor: { limit: 50, search: \"\", page: 1, order: 1, orderDirection: 2 }){projectMembers{user{id}}}}}",
 				project.ID.String(),
 				user1.Email,
 				user2.Email,
+				user3.Email,
 			)
 
 			result, err := testQuery(t, query)
@@ -305,6 +376,7 @@ func TestGraphqlMutation(t *testing.T) {
 			rootMember := projectMembers[0].(map[string]interface{})[consoleql.UserType].(map[string]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, project.PublicID.String(), proj[consoleql.FieldPublicID])
 			assert.Equal(t, project.Name, proj[consoleql.FieldName])
 			assert.Equal(t, 1, len(members))
 
@@ -315,7 +387,7 @@ func TestGraphqlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID}}}",
 				project.ID.String(),
 				keyName,
 			)
@@ -333,7 +405,6 @@ func TestGraphqlMutation(t *testing.T) {
 
 			assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
-			assert.Equal(t, rootUser.PartnerID.String(), keyInfo[consoleql.FieldPartnerID])
 
 			keyID = keyInfo[consoleql.FieldID].(string)
 		})
@@ -342,7 +413,7 @@ func TestGraphqlMutation(t *testing.T) {
 			id, err := uuid.FromString(keyID)
 			require.NoError(t, err)
 
-			info, err := service.GetAPIKeyInfo(authCtx, id)
+			info, err := service.GetAPIKeyInfo(userCtx, id)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
@@ -369,16 +440,7 @@ func TestGraphqlMutation(t *testing.T) {
 		const StorageLimit = "100"
 		const BandwidthLimit = "100"
 
-		t.Run("Update project mutation", func(t *testing.T) {
-			query := fmt.Sprintf(
-				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,name,description}}",
-				project.ID.String(),
-				testName,
-				testDescription,
-				StorageLimit,
-				BandwidthLimit,
-			)
-
+		testUpdate := func(query string) {
 			result, err := testQuery(t, query)
 			require.NoError(t, err)
 
@@ -386,8 +448,48 @@ func TestGraphqlMutation(t *testing.T) {
 			proj := data[consoleql.UpdateProjectMutation].(map[string]interface{})
 
 			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
+			assert.Equal(t, project.PublicID.String(), proj[consoleql.FieldPublicID])
 			assert.Equal(t, testName, proj[consoleql.FieldName])
 			assert.Equal(t, testDescription, proj[consoleql.FieldDescription])
+		}
+
+		t.Run("Update project mutation", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				project.ID.String(),
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			testUpdate(query)
+		})
+
+		t.Run("Update project mutation with publicId", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(publicId:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				project.PublicID.String(),
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			testUpdate(query)
+		})
+
+		t.Run("Fail update project mutation without ID", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"mutation {updateProject(projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,publicId,name,description}}",
+				testName,
+				testDescription,
+				StorageLimit,
+				BandwidthLimit,
+			)
+
+			_, err := testQuery(t, query)
+			require.Error(t, err)
 		})
 
 		t.Run("Delete project mutation", func(t *testing.T) {

@@ -46,6 +46,7 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 		expiredObjects := make([]ObjectStream, 0, batchsize)
 
+		scanErrClass := errs.Class("DB rows scan has failed")
 		err = withRows(db.db.QueryContext(ctx, query,
 			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
 			opts.ExpiredBefore,
@@ -57,7 +58,7 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 					&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID,
 					&expiresAt)
 				if err != nil {
-					return Error.New("unable to delete expired objects: %w", err)
+					return scanErrClass.Wrap(err)
 				}
 
 				db.log.Info("Deleting expired object",
@@ -74,12 +75,18 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 			return nil
 		})
 		if err != nil {
-			return ObjectStream{}, Error.New("unable to delete expired objects: %w", err)
+			if scanErrClass.Has(err) {
+				return ObjectStream{}, Error.New("unable to select expired objects for deletion: %w", err)
+			}
+
+			db.log.Warn("unable to select expired objects for deletion", zap.Error(Error.Wrap(err)))
+			return ObjectStream{}, nil
 		}
 
 		err = db.deleteObjectsAndSegments(ctx, expiredObjects)
 		if err != nil {
-			return ObjectStream{}, err
+			db.log.Warn("delete from DB expired objects", zap.Error(err))
+			return ObjectStream{}, nil
 		}
 
 		return last, nil
@@ -99,6 +106,8 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 	defer mon.Task()(&ctx)(&err)
 
 	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
+		// pending objects migrated to metabase didn't have zombie_deletion_deadline column set, because
+		// of that we need to get into account also object with zombie_deletion_deadline set to NULL
 		query := `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
@@ -107,12 +116,13 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 				AND status = ` + pendingStatus + `
-				AND zombie_deletion_deadline < $5
+				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < $5)
 				ORDER BY project_id, bucket_name, object_key, version
 			LIMIT $6;`
 
 		objects := make([]ObjectStream, 0, batchsize)
 
+		scanErrClass := errs.Class("DB rows scan has failed")
 		err = withRows(db.db.QueryContext(ctx, query,
 			startAfter.ProjectID, []byte(startAfter.BucketName), []byte(startAfter.ObjectKey), startAfter.Version,
 			opts.DeadlineBefore,
@@ -121,10 +131,10 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			for rows.Next() {
 				err = rows.Scan(&last.ProjectID, &last.BucketName, &last.ObjectKey, &last.Version, &last.StreamID)
 				if err != nil {
-					return Error.New("unable to delete zombie objects: %w", err)
+					return scanErrClass.Wrap(err)
 				}
 
-				db.log.Debug("Deleting zombie object",
+				db.log.Debug("selected zombie object for deleting it",
 					zap.Stringer("Project", last.ProjectID),
 					zap.String("Bucket", last.BucketName),
 					zap.String("Object Key", string(last.ObjectKey)),
@@ -137,12 +147,18 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			return nil
 		})
 		if err != nil {
-			return ObjectStream{}, Error.New("unable to delete zombie objects: %w", err)
+			if scanErrClass.Has(err) {
+				return ObjectStream{}, Error.New("unable to select zombie objects for deletion: %w", err)
+			}
+
+			db.log.Warn("unable to select zombie objects for deletion", zap.Error(Error.Wrap(err)))
+			return ObjectStream{}, nil
 		}
 
 		err = db.deleteInactiveObjectsAndSegments(ctx, objects, opts.InactiveDeadline)
 		if err != nil {
-			return ObjectStream{}, err
+			db.log.Warn("delete from DB zombie objects", zap.Error(err))
+			return ObjectStream{}, nil
 		}
 
 		return last, nil

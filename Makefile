@@ -1,15 +1,17 @@
-GO_VERSION ?= 1.17.5
+GO_VERSION ?= 1.19.6
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
+NODE_VERSION ?= 16.11.1
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+GIT_TAG := $(shell git rev-parse --short HEAD)
 ifeq (${BRANCH_NAME},main)
-TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
+TAG    := ${GIT_TAG}-go${GO_VERSION}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+TAG    := ${GIT_TAG}-${BRANCH_NAME}-go${GO_VERSION}
 ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
 LATEST_TAG := ${BRANCH_NAME}-latest
@@ -24,6 +26,8 @@ endif
 
 DOCKER_BUILD := docker build \
 	--build-arg TAG=${TAG}
+
+DOCKER_BUILDX := docker buildx build
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -44,14 +48,8 @@ help:
 .PHONY: build-dev-deps
 build-dev-deps: ## Install dependencies for builds
 	go get golang.org/x/tools/cover
-	go get github.com/go-bindata/go-bindata/go-bindata
 	go get github.com/josephspurrier/goversioninfo/cmd/goversioninfo
 	go get github.com/github-release/github-release
-
-.PHONY: lint
-lint: ## Analyze and find programs in source code
-	@echo "Running ${@}"
-	@golangci-lint run
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -99,22 +97,133 @@ install-sim: ## install storj-sim
 	## install the latest stable version of Gateway-ST
 	go install -race -v storj.io/gateway@latest
 
+##@ Lint
+
+LINT_TARGET="./..."
+
+.PHONY: .lint
+.lint:
+	go run ./scripts/lint.go \
+		-parallel 4 \
+		-race \
+		-modules \
+		-copyright \
+		-imports \
+		-peer-constraints \
+		-atomic-align \
+		-monkit \
+		-errs \
+		-staticcheck \
+		-golangci \
+		-monitoring \
+		-wasm-size \
+		-protolock \
+		$(LINT_TARGET)
+
+.PHONY: lint
+lint:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci-slim \
+		make .lint LINT_TARGET="$(LINT_TARGET)"
+
+.PHONY: .lint/testsuite/ui
+.lint/testsuite/ui:
+	go run ./scripts/lint.go \
+		-work-dir testsuite/ui \
+		-parallel 4 \
+		-imports \
+		-atomic-align \
+		-errs \
+		-staticcheck \
+		-golangci \
+		$(LINT_TARGET)
+
+.PHONY: lint/testsuite/ui
+lint/testsuite/ui:
+	docker run --rm -it \
+		-v ${GOPATH}/pkg:/go/pkg \
+		-v ${PWD}:/storj \
+		-w /storj \
+		storjlabs/ci \
+		make .lint/testsuite/ui LINT_TARGET="$(LINT_TARGET)"
+
 ##@ Test
 
+TEST_TARGET ?= "./..."
+
+.PHONY: test/setup
+test/setup:
+	@docker compose -f docker-compose.tests.yaml down -v --remove-orphans ## cleanup previous data
+	@docker compose -f docker-compose.tests.yaml up -d
+	@sleep 3
+	@docker compose -f docker-compose.tests.yaml exec crdb1 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb2 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb3 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb5 bash -c 'cockroach sql --insecure -e "create database testcockroach;"'
+	@docker compose -f docker-compose.tests.yaml exec crdb4 bash -c 'cockroach sql --insecure -e "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database teststorj;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "create database testmetabase;"'
+	@docker compose -f docker-compose.tests.yaml exec postgres bash -c 'echo "postgres" | psql -U postgres -c "ALTER ROLE postgres CONNECTION LIMIT -1;"'
+
+.PHONY: test/postgres
+test/postgres: test/setup ## Run tests against Postgres (developer)
+	@env \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
+		STORJ_TEST_COCKROACH='omit' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml down -v; \
+		}
+	@docker compose -f docker-compose.tests.yaml down -v
+	@echo done
+
+.PHONY: test/cockroach
+test/cockroach: test/setup ## Run tests against CockroachDB (developer)
+	@env \
+		STORJ_TEST_COCKROACH_NODROP='true' \
+		STORJ_TEST_POSTGRES='omit' \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26358/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml down -v; \
+		}
+	@docker compose -f docker-compose.tests.yaml down -v
+	@echo done
+
 .PHONY: test
-test: ## Run tests on source code (jenkins)
-	go test -race -v -cover -coverprofile=.coverprofile ./...
+test: test/setup ## Run tests against CockroachDB and Postgres (developer)
+	@env \
+		STORJ_TEST_COCKROACH_NODROP='true' \
+		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
+		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26358/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26359/testcockroach?sslmode=disable" \
+		STORJ_TEST_COCKROACH_ALT='cockroach://root@localhost:26360/testcockroach?sslmode=disable' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -tags noembed -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
+			docker compose -f docker-compose.tests.yaml rm -fs; \
+		}
+	@docker compose -f docker-compose.tests.yaml rm -fs
 	@echo done
 
 .PHONY: test-sim
 test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim.sh
+	@./scripts/tests/integration/test-sim.sh
 
 .PHONY: test-sim-redis-unavailability
 test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-redis-up-and-down.sh
+	@./scripts/tests/redis/test-sim-redis-up-and-down.sh
 
 
 .PHONY: test-certificates
@@ -125,7 +234,7 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
-	@./scripts/test-sim-backwards.sh
+	@./scripts/tests/backwardcompatibility/test-sim-backwards.sh
 
 .PHONY: check-monitoring
 check-monitoring: ## Check for locked monkit calls that have changed
@@ -151,13 +260,8 @@ storagenode-console:
 		-w /go/src/storj.io/storj/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
+		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
-	# embed web assets into go
-	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
-	# configure existing go code to know about the new assets
-	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
-	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
 .PHONY: multinode-console
 multinode-console:
@@ -169,26 +273,19 @@ multinode-console:
 		-w /go/src/storj.io/storj/web/multinode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
+		node:${NODE_VERSION} \
 	  /bin/bash -c "npm ci && npm run build"
-	# embed web assets into go
-	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
-	# configure existing go code to know about the new assets
-	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> multinode/console/consoleassets/bindata.resource.go
-	gofmt -w -s multinode/console/consoleassets/bindata.resource.go
 
 .PHONY: satellite-admin-ui
 satellite-admin-ui:
-	# remove the file that keep the assets directory for not breaking in development due to the `go:embed` directive
-	rm -rf satellite/admin/ui/assets/.gitignore
 	# install npm dependencies for being embedded by Go embed.
 	docker run --rm -i \
 		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
 		-w /go/src/storj.io/storj/satellite/admin/ui \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:16.11.1 \
-	  /bin/bash -c "npm ci && npm run build && cp -r build/* assets"
+		node:${NODE_VERSION} \
+	  /bin/bash -c "npm ci && npm run build"
 
 .PHONY: satellite-wasm
 satellite-wasm:
@@ -199,46 +296,48 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: satellite-image storagenode-image uplink-image versioncontrol-image ## Build satellite, storagenode, uplink, and versioncontrol Docker images
+images: multinode-image satellite-image uplink-image versioncontrol-image ## Build multinode, satellite and versioncontrol Docker images
 	echo Built version: ${TAG}
+
+.PHONY: multinode-image
+multinode-image: multinode_linux_arm multinode_linux_arm64 multinode_linux_amd64 ## Build multinode Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/multinode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/multinode/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/multinode:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		-f cmd/multinode/Dockerfile .
+
+.PHONY: uplink-image
+uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink-cli Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
+		-f cmd/uplink/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
+		-f cmd/uplink/Dockerfile .
 
 .PHONY: satellite-image
 satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/satellite/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
 		-f cmd/satellite/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/satellite/Dockerfile .
 
-.PHONY: storagenode-image
-storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
-		-f cmd/storagenode/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/storagenode/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/storagenode/Dockerfile .
-.PHONY: uplink-image
-uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-amd64 \
-		-f cmd/uplink/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
-		-f cmd/uplink/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
-		-f cmd/uplink/Dockerfile .
 .PHONY: versioncontrol-image
 versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/versioncontrol/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm32v5 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
 		-f cmd/versioncontrol/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm64v8 \
 		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
@@ -301,6 +400,9 @@ identity_%:
 .PHONY: inspector_%
 inspector_%:
 	$(MAKE) binary-check COMPONENT=inspector GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONE: multinode_%
+multinode_%: multinode-console
+	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: satellite_%
 satellite_%: satellite-admin-ui
 	$(MAKE) binary-check COMPONENT=satellite GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -319,16 +421,13 @@ versioncontrol_%:
 .PHONY: multinode_%
 multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
-.PHONY: uplinkng_%
-uplinkng_%:
-	$(MAKE) binary-check COMPONENT=uplinkng GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode uplinkng
+COMPONENTLIST := certificates identity inspector multinode satellite storagenode storagenode-updater uplink versioncontrol
 OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, inspector, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -339,18 +438,17 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	# satellite
-	for c in satellite storagenode uplink versioncontrol ; do \
+	for c in multinode satellite uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
-		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
 			docker manifest create storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
-			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
+			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
@@ -386,9 +484,8 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
+	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
-	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
 
 ##@ Tooling
@@ -413,7 +510,7 @@ diagrams-graphml:
 bump-dependencies:
 	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
-	cd testsuite;\
+	cd testsuite/ui;\
 		go get storj.io/common@main storj.io/storj@main storj.io/uplink@main;\
 		go mod tidy;
 

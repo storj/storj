@@ -67,12 +67,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { SatelliteInfo } from '@/storagenode/sno/sno';
+
 import CopyIcon from '@/../static/images/Copy.svg';
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
 import EyeIcon from '@/../static/images/Eye.svg';
 import SuspensionIcon from '@/../static/images/suspend.svg';
-
-import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 // @vue/component
 @Component({
@@ -84,7 +84,7 @@ import { SatelliteInfo } from '@/storagenode/sno/sno';
     },
 })
 export default class SatelliteSelectionDropdownItem extends Vue {
-    @Prop({default: () => new SatelliteInfo()})
+    @Prop({ default: () => new SatelliteInfo() })
     public readonly satellite: SatelliteInfo;
 
     /**
@@ -165,11 +165,8 @@ export default class SatelliteSelectionDropdownItem extends Vue {
                     cursor: pointer;
                     color: #133e9c;
 
-                    .svg {
-
-                        path {
-                            fill: #133e9c !important;
-                        }
+                    .svg ::v-deep path {
+                        fill: #133e9c !important;
                     }
                 }
             }

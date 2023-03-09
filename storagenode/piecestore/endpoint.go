@@ -7,7 +7,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,6 +29,8 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/drpc"
+	"storj.io/drpc/drpcctx"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -57,8 +61,10 @@ type Config struct {
 	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
 	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
 	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
+	ExistsCheckWorkers      int           `help:"how many workers to use to check if satellite pieces exists" default:"5"`
 	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+	PieceScanOnStartup      bool          `help:"if set to true, all pieces disk usage is recalculated on startup" default:"true"`
 	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
@@ -87,13 +93,14 @@ type Endpoint struct {
 	log    *zap.Logger
 	config Config
 
-	signer    signing.Signer
+	ident     *identity.FullIdentity
 	trust     *trust.Pool
 	monitor   *monitor.Service
 	retain    *retain.Service
 	pingStats pingStatsSource
 
 	store        *pieces.Store
+	trashChore   *pieces.TrashChore
 	ordersStore  *orders.FileStore
 	usage        bandwidth.DB
 	usedSerials  *usedserials.Table
@@ -103,18 +110,19 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, trashChore *pieces.TrashChore, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
 
-		signer:    signer,
+		ident:     ident,
 		trust:     trust,
 		monitor:   monitor,
 		retain:    retain,
 		pingStats: pingStats,
 
 		store:        store,
+		trashChore:   trashChore,
 		ordersStore:  ordersStore,
 		usage:        usage,
 		usedSerials:  usedSerials,
@@ -147,6 +155,8 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
 	}
 
+	remoteAddrLogField := zap.String("Remote Address", getRemoteAddr(ctx))
+
 	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
 
@@ -154,9 +164,9 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 		// report rpc status of internal server error or not found error,
 		// e.g. not found might happen when we get a deletion request after garbage
 		// collection has deleted it
-		endpoint.log.Error("delete failed", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
+		endpoint.log.Error("delete failed", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), remoteAddrLogField, zap.Error(err))
 	} else {
-		endpoint.log.Info("deleted", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId))
+		endpoint.log.Info("deleted", zap.Stringer("Satellite ID", delete.Limit.SatelliteId), zap.Stringer("Piece ID", delete.Limit.PieceId), remoteAddrLogField)
 	}
 
 	return &pb.PieceDeleteResponse{}, nil
@@ -182,6 +192,71 @@ func (endpoint *Endpoint) DeletePieces(
 
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
+	}, nil
+}
+
+// Exists check if pieces from the list exists on storage node. Request will
+// accept only connections from trusted satellite and will check pieces only
+// for that satellite.
+func (endpoint *Endpoint) Exists(
+	ctx context.Context, req *pb.ExistsRequest,
+) (_ *pb.ExistsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "piecestore.exists called with untrusted ID")
+	}
+
+	if len(req.PieceIds) == 0 {
+		return &pb.ExistsResponse{}, nil
+	}
+
+	if endpoint.config.ExistsCheckWorkers < 1 {
+		endpoint.config.ExistsCheckWorkers = 1
+	}
+
+	limiter := sync2.NewLimiter(endpoint.config.ExistsCheckWorkers)
+	var mu sync.Mutex
+
+	missing := make([]uint32, 0, 100)
+
+	addMissing := func(index int) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		missing = append(missing, uint32(index))
+	}
+
+	for index, pieceID := range req.PieceIds {
+		index := index
+		pieceID := pieceID
+
+		ok := limiter.Go(ctx, func() {
+			_, err := endpoint.store.Stat(ctx, peer.ID, pieceID)
+			if err != nil {
+				if errs.Is(err, os.ErrNotExist) {
+					addMissing(index)
+				}
+				endpoint.log.Debug("failed to stat piece", zap.String("Piece ID", pieceID.String()), zap.String("Satellite ID", peer.ID.String()), zap.Error(err))
+				return
+			}
+		})
+		if !ok {
+			limiter.Wait()
+			return nil, rpcstatus.Wrap(rpcstatus.Canceled, ctx.Err())
+		}
+	}
+
+	limiter.Wait()
+
+	return &pb.ExistsResponse{
+		Missing: missing,
 	}, nil
 }
 
@@ -225,6 +300,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "expected order limit as the first message")
 	}
 	limit := message.Limit
+	hashAlgorithm := message.HashAlgorithm
 
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "expected put or put repair action got %v", limit.Action)
@@ -248,6 +324,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	if availableSpace < limit.Limit {
 		return rpcstatus.Errorf(rpcstatus.Aborted, "not enough available disk space, have: %v, need: %v", availableSpace, limit.Limit)
 	}
+
+	remoteAddrLogField := zap.String("Remote Address", getRemoteAddr(ctx))
 
 	var pieceWriter *pieces.Writer
 	// committed is set to true when the piece is committed.
@@ -273,21 +351,21 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize))
-		} else if errs2.IsCanceled(err) && !committed {
+			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
+		} else if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize))
+			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize), remoteAddrLogField)
 		} else {
 			mon.Counter("upload_success_count").Inc(1)
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize), remoteAddrLogField)
 		}
 	}()
 
@@ -295,10 +373,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		zap.Stringer("Piece ID", limit.PieceId),
 		zap.Stringer("Satellite ID", limit.SatelliteId),
 		zap.Stringer("Action", limit.Action),
-		zap.Int64("Available Space", availableSpace))
+		zap.Int64("Available Space", availableSpace),
+		remoteAddrLogField)
 	mon.Counter("upload_started_count").Inc(1)
 
-	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId, hashAlgorithm)
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -328,14 +407,110 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		limit: endpoint.config.MinUploadSpeed,
 	}
 
-	for {
+	handleMessage := func(ctx context.Context, message *pb.PieceUploadRequest) (done bool, err error) {
+		if message.Order != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
+				return true, err
+			}
+			largestOrder = *message.Order
+		}
 
+		if message.Chunk != nil {
+			if message.Chunk.Offset != pieceWriter.Size() {
+				return true, rpcstatus.Error(rpcstatus.InvalidArgument, "chunk out of order")
+			}
+
+			chunkSize := int64(len(message.Chunk.Data))
+			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
+				// TODO: should we write currently and give a chance for uplink to remedy the situation?
+				return true, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+					"not enough allocated, allocated=%v writing=%v",
+					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
+			}
+
+			availableSpace -= chunkSize
+			if availableSpace < 0 {
+				return true, rpcstatus.Error(rpcstatus.Internal, "out of space")
+			}
+			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
+				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+			}
+		}
+
+		if message.Done == nil {
+			return false, nil
+		}
+
+		if message.Done.HashAlgorithm != hashAlgorithm {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, errs.New("Hash algorithm in the first and last upload message are different %s %s", hashAlgorithm, message.Done.HashAlgorithm))
+		}
+
+		calculatedHash := pieceWriter.Hash()
+		if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+		if message.Done.PieceSize != pieceWriter.Size() {
+			return true, rpcstatus.Errorf(rpcstatus.InvalidArgument,
+				"Size of finished piece does not match size declared by uplink! %d != %d",
+				message.Done.PieceSize, pieceWriter.Size())
+		}
+
+		{
+			info := &pb.PieceHeader{
+				Hash:          calculatedHash,
+				HashAlgorithm: hashAlgorithm,
+				CreationTime:  message.Done.Timestamp,
+				Signature:     message.Done.GetSignature(),
+				OrderLimit:    *limit,
+			}
+			if err := pieceWriter.Commit(ctx, info); err != nil {
+				return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+			}
+			committed = true
+			if !limit.PieceExpiration.IsZero() {
+				err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
+				if err != nil {
+					return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+				}
+			}
+		}
+
+		storageNodeHash, err := signing.SignPieceHash(ctx, signing.SignerFromFullIdentity(endpoint.ident), &pb.PieceHash{
+			PieceId:       limit.PieceId,
+			Hash:          calculatedHash,
+			HashAlgorithm: hashAlgorithm,
+			PieceSize:     pieceWriter.Size(),
+			Timestamp:     time.Now(),
+		})
+		if err != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+			return stream.SendAndClose(&pb.PieceUploadResponse{
+				Done:          storageNodeHash,
+				NodeCertchain: identity.EncodePeerIdentity(endpoint.ident.PeerIdentity())})
+		})
+		if errs.Is(closeErr, io.EOF) {
+			closeErr = nil
+		}
+		if closeErr != nil {
+			return true, rpcstatus.Wrap(rpcstatus.Internal, closeErr)
+		}
+		return true, nil
+	}
+
+	// handle any data in the first message we already received.
+	if done, err := handleMessage(ctx, message); err != nil || done {
+		return err
+	}
+
+	for {
 		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
 			return rpcstatus.Wrap(rpcstatus.Aborted, err)
 		}
 
 		// TODO: reuse messages to avoid allocations
-
 		// N.B.: we are only allowed to use message if the returned error is nil. it would be
 		// a race condition otherwise as Run does not wait for the closure to exit.
 		err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
@@ -347,93 +522,12 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		} else if err != nil {
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
-
 		if message == nil {
 			return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
 		}
-		if message.Order == nil && message.Chunk == nil && message.Done == nil {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "expected a message")
-		}
 
-		if message.Order != nil {
-			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
-				return err
-			}
-			largestOrder = *message.Order
-		}
-
-		if message.Chunk != nil {
-			if message.Chunk.Offset != pieceWriter.Size() {
-				return rpcstatus.Error(rpcstatus.InvalidArgument, "chunk out of order")
-			}
-
-			chunkSize := int64(len(message.Chunk.Data))
-			if largestOrder.Amount < pieceWriter.Size()+chunkSize {
-				// TODO: should we write currently and give a chance for uplink to remedy the situation?
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"not enough allocated, allocated=%v writing=%v",
-					largestOrder.Amount, pieceWriter.Size()+int64(len(message.Chunk.Data)))
-			}
-
-			availableSpace -= chunkSize
-			if availableSpace < 0 {
-				return rpcstatus.Error(rpcstatus.Internal, "out of space")
-			}
-			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-		}
-
-		if message.Done != nil {
-			calculatedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-			if message.Done.PieceSize != pieceWriter.Size() {
-				return rpcstatus.Errorf(rpcstatus.InvalidArgument,
-					"Size of finished piece does not match size declared by uplink! %d != %d",
-					message.Done.PieceSize, pieceWriter.Size())
-			}
-
-			{
-				info := &pb.PieceHeader{
-					Hash:         calculatedHash,
-					CreationTime: message.Done.Timestamp,
-					Signature:    message.Done.GetSignature(),
-					OrderLimit:   *limit,
-				}
-				if err := pieceWriter.Commit(ctx, info); err != nil {
-					return rpcstatus.Wrap(rpcstatus.Internal, err)
-				}
-				committed = true
-				if !limit.PieceExpiration.IsZero() {
-					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, limit.PieceExpiration)
-					if err != nil {
-						return rpcstatus.Wrap(rpcstatus.Internal, err)
-					}
-				}
-			}
-
-			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
-				PieceId:   limit.PieceId,
-				Hash:      calculatedHash,
-				PieceSize: pieceWriter.Size(),
-				Timestamp: time.Now(),
-			})
-			if err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			closeErr := rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				return stream.SendAndClose(&pb.PieceUploadResponse{Done: storageNodeHash})
-			})
-			if errs.Is(closeErr, io.EOF) {
-				closeErr = nil
-			}
-			if closeErr != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, closeErr)
-			}
-			return nil
+		if done, err := handleMessage(ctx, message); err != nil || done {
+			return err
 		}
 	}
 }
@@ -491,51 +585,62 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 	actionSeriesTag := monkit.NewSeriesTag("action", limit.Action.String())
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+	remoteAddr := getRemoteAddr(ctx)
+	endpoint.log.Info("download started",
+		zap.Stringer("Piece ID", limit.PieceId),
+		zap.Stringer("Satellite ID", limit.SatelliteId),
+		zap.Stringer("Action", limit.Action),
+		zap.Int64("Offset", chunk.Offset),
+		zap.Int64("Size", chunk.ChunkSize),
+		zap.String("Remote Address", remoteAddr))
+
 	mon.Counter("download_started_count", actionSeriesTag).Inc(1)
 
 	if err := endpoint.verifyOrderLimit(ctx, limit); err != nil {
 		mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 		mon.Meter("download_verify_orderlimit_failed", actionSeriesTag).Mark(1)
-		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+		endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.String("Remote Address", remoteAddr), zap.Error(err))
 		return err
 	}
 
 	var pieceReader *pieces.Reader
+	downloadedBytes := make(chan int64, 1)
+	largestOrder := pb.Order{}
 	defer func() {
 		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
-		downloadSize := int64(0)
-		if pieceReader != nil {
-			downloadSize = pieceReader.Size()
-		}
 		downloadRate := float64(0)
+		downloadSize := <-downloadedBytes
 		if dt.Seconds() > 0 {
 			downloadRate = float64(downloadSize) / dt.Seconds()
 		}
 		downloadDuration := dt.Nanoseconds()
-		if errs2.IsCanceled(err) {
+		if errs2.IsCanceled(err) || drpc.ClosedError.Has(err) || (err == nil && chunk.ChunkSize != downloadSize) {
 			mon.Counter("download_cancel_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_cancel_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_cancel_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_cancel_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_cancel_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("download canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr))
 		} else if err != nil {
 			mon.Counter("download_failure_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_failure_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_failure_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Error("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr), zap.Error(err))
 		} else {
 			mon.Counter("download_success_count", actionSeriesTag).Inc(1)
 			mon.Meter("download_success_byte_meter", actionSeriesTag).Mark64(downloadSize)
 			mon.IntVal("download_success_size_bytes", actionSeriesTag).Observe(downloadSize)
 			mon.IntVal("download_success_duration_ns", actionSeriesTag).Observe(downloadDuration)
 			mon.FloatVal("download_success_rate_bytes_per_sec", actionSeriesTag).Observe(downloadRate)
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Offset", chunk.Offset), zap.Int64("Size", downloadSize), zap.String("Remote Address", remoteAddr))
 		}
+		mon.IntVal("download_orders_amount", actionSeriesTag).Observe(largestOrder.Amount)
+	}()
+	defer func() {
+		close(downloadedBytes)
 	}()
 
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
@@ -591,6 +696,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
+
+		defer func() {
+			downloadedBytes <- chunk.ChunkSize - unsentAmount
+		}()
+
 		for unsentAmount > 0 {
 			tryToSend := min(unsentAmount, maximumChunkSize)
 
@@ -598,7 +708,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
 				// this can happen only because uplink decided to close the connection
-				return nil //nolint: nilerr // We don't need to return an error when client cancels.
+				return nil // We don't need to return an error when client cancels.
 			}
 
 			chunkData := make([]byte, chunkSize)
@@ -643,11 +753,29 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		if err != nil {
 			return err
 		}
-		largestOrder := pb.Order{}
 		defer commitOrderToStore(ctx, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
+
+		handleOrder := func(order *pb.Order) error {
+			if err := endpoint.VerifyOrder(ctx, limit, order, largestOrder.Amount); err != nil {
+				return err
+			}
+			chunkSize := order.Amount - largestOrder.Amount
+			if err := throttle.Produce(chunkSize); err != nil {
+				// shouldn't happen since only receiving side is calling Fail
+				return rpcstatus.Wrap(rpcstatus.Internal, err)
+			}
+			largestOrder = *order
+			return nil
+		}
+
+		if message.Order != nil {
+			if err = handleOrder(message.Order); err != nil {
+				return err
+			}
+		}
 
 		for {
 			// N.B.: we are only allowed to use message if the returned error is nil. it would be
@@ -671,16 +799,9 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				return rpcstatus.Error(rpcstatus.InvalidArgument, "expected order as the message")
 			}
 
-			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
+			if err = handleOrder(message.Order); err != nil {
 				return err
 			}
-
-			chunkSize := message.Order.Amount - largestOrder.Amount
-			if err := throttle.Produce(chunkSize); err != nil {
-				// shouldn't happen since only receiving side is calling Fail
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-			largestOrder = *message.Order
 		}
 	}()
 
@@ -741,13 +862,10 @@ func (endpoint *Endpoint) RestoreTrash(ctx context.Context, restoreTrashReq *pb.
 		return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "RestoreTrash called with untrusted ID")
 	}
 
-	endpoint.log.Info("restore trash started", zap.Stringer("Satellite ID", peer.ID))
-	err = endpoint.store.RestoreTrash(ctx, peer.ID)
+	err = endpoint.trashChore.StartRestore(ctx, peer.ID)
 	if err != nil {
-		endpoint.log.Error("restore trash failed", zap.Stringer("Satellite ID", peer.ID), zap.Error(err))
-		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		return nil, rpcstatus.Error(rpcstatus.Internal, "failed to start restore")
 	}
-	endpoint.log.Info("restore trash finished", zap.Stringer("Satellite ID", peer.ID))
 
 	return &pb.RestoreTrashResponse{}, nil
 }
@@ -846,4 +964,14 @@ func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested 
 	}
 
 	return nil
+}
+
+// getRemoteAddr returns the remote address from the request context.
+func getRemoteAddr(ctx context.Context) string {
+	if transport, ok := drpcctx.Transport(ctx); ok {
+		if conn, ok := transport.(net.Conn); ok {
+			return conn.RemoteAddr().String()
+		}
+	}
+	return ""
 }

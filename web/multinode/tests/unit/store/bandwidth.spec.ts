@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
-
-import { RootState } from '@/app/store';
-import { BandwidthRollup, BandwidthTraffic, Egress, Ingress } from '@/bandwidth';
 import { createLocalVue } from '@vue/test-utils';
 
 import store, { bandwidthService } from '../mock/store';
+
+import { RootState } from '@/app/store';
+import { BandwidthRollup, BandwidthTraffic, Egress, Ingress } from '@/bandwidth';
 
 const state = store.state as RootState;
 

@@ -16,8 +16,16 @@ import (
 	"storj.io/common/uuid"
 )
 
-// Error is the default error for metabase.
-var Error = errs.Class("metabase")
+var (
+	// Error is the default error for metabase.
+	Error = errs.Class("metabase")
+	// ErrObjectAlreadyExists is used to indicate that object already exists.
+	ErrObjectAlreadyExists = errs.Class("object already exists")
+	// ErrPendingObjectMissing is used to indicate a pending object is no longer accessible.
+	ErrPendingObjectMissing = errs.Class("pending object missing")
+	// ErrPermissionDenied general error for denying permission.
+	ErrPermissionDenied = errs.Class("permission denied")
+)
 
 // Common constants for segment keys.
 const (
@@ -29,8 +37,11 @@ const (
 // ListLimit is the maximum number of items the client can request for listing.
 const ListLimit = intLimitRange(1000)
 
-// MoveLimit is the maximum number of segments that can be moved.
-const MoveLimit = int64(10000)
+// MoveSegmentLimit is the maximum number of segments that can be moved.
+const MoveSegmentLimit = int64(10000)
+
+// CopySegmentLimit is the maximum number of segments that can be copied.
+const CopySegmentLimit = int64(10000)
 
 // batchsizeLimit specifies up to how many items fetch from the storage layer at
 // a time.
@@ -308,6 +319,10 @@ const NextVersion = Version(0)
 // DefaultVersion represents default version 1.
 const DefaultVersion = Version(1)
 
+// MaxVersion represents maximum version.
+// Version in DB is represented as INT4.
+const MaxVersion = Version(math.MaxInt32)
+
 // ObjectStatus defines the statuses that the object might be in.
 type ObjectStatus byte
 
@@ -455,4 +470,15 @@ func (p Pieces) Update(piecesToAdd, piecesToRemove Pieces) (Pieces, error) {
 	sort.Sort(newPieces)
 
 	return newPieces, nil
+}
+
+// FindByNum finds a piece among the Pieces with the given piece number.
+// If no such piece is found, `found` will be returned false.
+func (p Pieces) FindByNum(pieceNum int) (_ Piece, found bool) {
+	for _, piece := range p {
+		if int(piece.Number) == pieceNum {
+			return piece, true
+		}
+	}
+	return Piece{}, false
 }

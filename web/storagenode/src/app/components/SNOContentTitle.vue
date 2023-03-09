@@ -18,6 +18,38 @@
                 <p v-else class="title-area__info-container__info-item__content offline-status">Offline</p>
             </div>
             <div class="title-area-divider" />
+
+            <VInfo
+                v-if="info.quicStatus === quicStatusRefreshing"
+                text="Testing connection to node via QUIC"
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content">{{ quicStatusRefreshing }}</p>
+                </div>
+            </VInfo>
+            <VInfo
+                v-if="info.quicStatus === quicStatusOk"
+                :text="'QUIC is configured to use UDP port ' + info.configuredPort"
+                :bold-text="'Last pinged ' + lastQuicPingedAt + ' ago'"
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content online-status">{{ quicStatusOk }}</p>
+                </div>
+            </VInfo>
+            <VInfo
+                v-if="info.quicStatus === quicStatusMisconfigured"
+                :text="'QUIC is misconfigured. You must forward port ' + info.configuredPort + ' for both TCP and UDP to enable QUIC.'"
+                bold-text="See https://docs.storj.io/node/dependencies/port-forwarding on how to do this"
+            >
+                <div class="title-area__info-container__info-item">
+                    <p class="title-area__info-container__info-item__title">QUIC</p>
+                    <p class="title-area__info-container__info-item__content offline-status">Misconfigured</p>
+                </div>
+            </VInfo>
+
+            <div class="title-area-divider" />
             <div class="title-area__info-container__info-item">
                 <p class="title-area__info-container__info-item__title">UPTIME</p>
                 <p class="title-area__info-container__info-item__content">{{ uptime }}</p>
@@ -60,12 +92,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { StatusOnline, QUIC_STATUS } from '@/app/store/modules/node';
+import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
+
 import VInfo from '@/app/components/VInfo.vue';
 
 import CopyIcon from '@/../static/images/Copy.svg';
-
-import { StatusOnline } from '@/app/store/modules/node';
-import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.
@@ -77,14 +109,18 @@ class NodeInfo {
     public allowedVersion: string;
     public wallet: string;
     public isLastVersion: boolean;
+    public quicStatus: string;
+    public configuredPort: string;
 
-    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean) {
+    public constructor(id: string, status: string, version: string, allowedVersion: string, wallet: string, isLastVersion: boolean, quicStatus: string, port: string) {
         this.id = id;
         this.status = status;
         this.version = this.toVersionString(version);
         this.allowedVersion = this.toVersionString(allowedVersion);
         this.wallet = wallet;
         this.isLastVersion = isLastVersion;
+        this.quicStatus = quicStatus;
+        this.configuredPort = port;
     }
 
     private toVersionString(version: string): string {
@@ -116,11 +152,23 @@ export default class SNOContentTitle extends Vue {
         const nodeInfo = this.$store.state.node.info;
 
         return new NodeInfo(nodeInfo.id, nodeInfo.status, nodeInfo.version, nodeInfo.allowedVersion, nodeInfo.wallet,
-            nodeInfo.isLastVersion);
+            nodeInfo.isLastVersion, nodeInfo.quicStatus, nodeInfo.configuredPort);
     }
 
     public get online(): boolean {
         return this.$store.state.node.info.status === StatusOnline;
+    }
+
+    public get quicStatusOk(): string {
+        return QUIC_STATUS.StatusOk;
+    }
+
+    public get quicStatusRefreshing(): string {
+        return QUIC_STATUS.StatusRefreshing;
+    }
+
+    public get quicStatusMisconfigured(): string {
+        return QUIC_STATUS.StatusMisconfigured;
     }
 
     public get uptime(): string {
@@ -129,6 +177,10 @@ export default class SNOContentTitle extends Vue {
 
     public get lastPinged(): string {
         return this.timePassed(this.$store.state.node.info.lastPinged);
+    }
+
+    public get lastQuicPingedAt(): string {
+        return this.timePassed(this.$store.state.node.info.lastQuicPingedAt);
     }
 
     public get currentMonth(): string {
@@ -156,11 +208,8 @@ export default class SNOContentTitle extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
     .title-area {
@@ -199,18 +248,15 @@ export default class SNOContentTitle extends Vue {
                 border-color: var(--node-id-border-hover-color);
                 color: var(--node-id-hover-text-color);
 
-                .svg {
-
-                    path {
-                        fill: var(--node-id-border-hover-color) !important;
-                    }
+                .svg ::v-deep path {
+                    fill: var(--node-id-border-hover-color) !important;
                 }
             }
         }
 
         &__title {
             font-family: 'font_bold', sans-serif;
-            margin: 0 0 21px 0;
+            margin: 0 0 21px;
             font-size: 32px;
             line-height: 57px;
             color: var(--regular-text-color);
@@ -229,7 +275,7 @@ export default class SNOContentTitle extends Vue {
                     font-size: 12px;
                     line-height: 20px;
                     color: #9ca5b6;
-                    margin: 0 0 5px 0;
+                    margin: 0 0 5px;
                 }
 
                 &__content {
@@ -261,7 +307,7 @@ export default class SNOContentTitle extends Vue {
         background-image: var(--info-image-arrow-left-path);
         bottom: 100%;
         left: 220%;
-        padding: 20px 20px 25px 20px;
+        padding: 20px 20px 25px;
 
         &__text {
             align-items: flex-start;
@@ -280,7 +326,7 @@ export default class SNOContentTitle extends Vue {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                margin: 0 0 20px 0;
+                margin: 0 0 20px;
                 height: auto;
 
                 &__id {

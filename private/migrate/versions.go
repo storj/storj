@@ -206,7 +206,7 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			return nil
 		})
 		if err != nil {
-			return Error.Wrap(err)
+			return Error.New("v%d: %w", step.Version, err)
 		}
 	}
 

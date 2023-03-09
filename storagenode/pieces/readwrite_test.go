@@ -43,7 +43,7 @@ func BenchmarkReadWrite(b *testing.B) {
 	b.Run("Write", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			pieceID := testrand.PieceID()
-			writer, err := store.Writer(ctx, satelliteID, pieceID)
+			writer, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 			require.NoError(b, err)
 
 			data := source
@@ -63,7 +63,7 @@ func BenchmarkReadWrite(b *testing.B) {
 
 	testPieceID := storj.PieceID{1}
 	{ // write a test piece
-		writer, err := store.Writer(ctx, satelliteID, testPieceID)
+		writer, err := store.Writer(ctx, satelliteID, testPieceID, pb.PieceHashAlgorithm_SHA256)
 		require.NoError(b, err)
 		_, err = writer.Write(source)
 		require.NoError(b, err)
@@ -110,7 +110,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	expirationTime := time.Unix(1595898827, 18364029)
 
 	// write a V1 format piece
-	w, err := store.Writer(ctx, satelliteID, pieceID)
+	w, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
 	if len(content) > 0 {
 		_, err = w.Write(content)

@@ -97,9 +97,7 @@ export default class HeaderlessInput extends Vue {
     @Prop({ default: false })
     private readonly isWhite: boolean;
 
-    public constructor() {
-        super();
-
+    public created() {
         this.type = this.isPassword ? this.passwordType : this.textType;
     }
 
@@ -123,7 +121,7 @@ export default class HeaderlessInput extends Vue {
      * triggers on input.
      */
     public onInput(event: Event): void {
-        if(!event.target) { return; }
+        if (!event.target) { return; }
         const target = event.target as HTMLInputElement;
         if (!target || !target.value) { return; }
 
@@ -137,7 +135,7 @@ export default class HeaderlessInput extends Vue {
     }
 
     public onPaste(event: ClipboardEvent): void {
-        if(!event || !event.clipboardData) { return; }
+        if (!event || !event.clipboardData) { return; }
         const clipped: string = event.clipboardData.getData('text');
 
         if (clipped.length > this.maxSymbols) {
@@ -190,7 +188,6 @@ export default class HeaderlessInput extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .input-wrap {
         position: relative;
         width: 100%;
@@ -229,7 +226,7 @@ export default class HeaderlessInput extends Vue {
             margin-left: 5px;
             font-size: 16px;
             line-height: 21px;
-            color: rgba(56, 75, 101, 0.4);
+            color: rgb(56 75 101 / 40%);
         }
 
         &__error {
@@ -252,7 +249,7 @@ export default class HeaderlessInput extends Vue {
         width: 100%;
         height: 100%;
         text-indent: 20px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         border-radius: 6px;
     }
 

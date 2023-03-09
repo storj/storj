@@ -5,14 +5,12 @@ package audit
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
@@ -126,12 +124,14 @@ func TestCreatePendingAudits(t *testing.T) {
 	testNodeID := testrand.NodeID()
 
 	ctx := context.Background()
+	const pieceNum = 1
 	contained := make(map[int]storj.NodeID)
-	contained[1] = testNodeID
+	contained[pieceNum] = testNodeID
 
 	segment := testSegment()
 	segmentInfo := metabase.Segment{
 		StreamID:    segment.StreamID,
+		Position:    segment.Position,
 		RootPieceID: testrand.PieceID(),
 		Redundancy: storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,
@@ -140,15 +140,22 @@ func TestCreatePendingAudits(t *testing.T) {
 			ShareSize:      int32(len(shares[0].Data)),
 		},
 	}
-	randomIndex := rand.Int31n(10)
 
-	pending, err := createPendingAudits(ctx, contained, shares, segment, segmentInfo, randomIndex)
+	pending, err := createPendingAudits(ctx, contained, segment)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pending))
-	assert.Equal(t, testNodeID, pending[0].NodeID)
-	assert.Equal(t, segmentInfo.RootPieceID, pending[0].PieceID)
-	assert.Equal(t, randomIndex, pending[0].StripeIndex)
-	assert.Equal(t, segmentInfo.Redundancy.ShareSize, pending[0].ShareSize)
-	assert.Equal(t, pkcrypto.SHA256Hash(shares[1].Data), pending[0].ExpectedShareHash)
+	assert.Equal(t, testNodeID, pending[0].Locator.NodeID)
+	assert.Equal(t, segmentInfo.StreamID, pending[0].Locator.StreamID)
+	assert.Equal(t, segmentInfo.Position, pending[0].Locator.Position)
+	assert.Equal(t, pieceNum, pending[0].Locator.PieceNum)
 	assert.EqualValues(t, 0, pending[0].ReverifyCount)
+}
+
+func testSegment() Segment {
+	return Segment{
+		StreamID: testrand.UUID(),
+		Position: metabase.SegmentPosition{
+			Index: uint32(testrand.Intn(100)),
+		},
+	}
 }

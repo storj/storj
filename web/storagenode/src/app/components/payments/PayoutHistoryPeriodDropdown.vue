@@ -17,13 +17,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { monthNames } from '@/app/types/payout';
+
 import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { monthNames } from '@/app/types/payout';
 
 // @vue/component
 @Component({
@@ -102,10 +102,7 @@ export default class PayoutHistoryPeriodDropdown extends Vue {
         }
     }
 
-    .arrow {
-
-        path {
-            fill: var(--period-selection-arrow-color);
-        }
+    .arrow ::v-deep path {
+        fill: var(--period-selection-arrow-color);
     }
 </style>

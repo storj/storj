@@ -43,4 +43,6 @@ type DB interface {
 	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error)
 	// CountBuckets returns the number of buckets a project currently has
 	CountBuckets(ctx context.Context, projectID uuid.UUID) (int, error)
+	// IterateBucketLocations iterates through all buckets from some point with limit.
+	IterateBucketLocations(ctx context.Context, projectID uuid.UUID, bucketName string, limit int, fn func([]metabase.BucketLocation) error) (more bool, err error)
 }

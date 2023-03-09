@@ -49,6 +49,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
+
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
 import HeldProgress from '@/app/components/payments/HeldProgress.vue';
@@ -58,12 +64,6 @@ import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
 // @vue/component
 @Component ({
@@ -119,7 +119,7 @@ export default class PayoutArea extends Vue {
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -263,7 +263,7 @@ export default class PayoutArea extends Vue {
     @media screen and (max-width: 640px) {
 
         .payout-area-container-overflow {
-            padding: 0 15px 80px 15px;
+            padding: 0 15px 80px;
             width: calc(100% - 30px);
         }
 

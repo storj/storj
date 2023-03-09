@@ -53,8 +53,14 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
+import { RouteConfig } from '@/app/router';
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+import { NODE_ACTIONS } from '@/app/store/modules/node';
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
+
 import OptionsDropdown from '@/app/components/OptionsDropdown.vue';
+import NotificationsPopup from '@/app/components/notifications/NotificationsPopup.vue';
 
 import CopyIcon from '@/../static/images/Copy.svg';
 import StorjIconWithoutText from '@/../static/images/LogoWithoutText.svg';
@@ -62,12 +68,6 @@ import BellIcon from '@/../static/images/notifications/bell.svg';
 import RefreshIcon from '@/../static/images/refresh.svg';
 import SettingsIcon from '@/../static/images/SettingsDots.svg';
 import StorjIcon from '@/../static/images/storjIcon.svg';
-
-import { RouteConfig } from '@/app/router';
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { NODE_ACTIONS } from '@/app/store/modules/node';
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
 
 const {
     GET_NODE_INFO,
@@ -103,7 +103,7 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
@@ -172,13 +172,13 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(GET_NODE_INFO);
             await this.$store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
         } catch (error) {
-            console.error(`${error.message} satellite data.`);
+            console.error('fetching satellite data', error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
@@ -193,37 +193,31 @@ export default class SNOHeader extends Vue {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }
 </script>
 
 <style scoped lang="scss">
-    .svg {
-
-        path {
-            fill: var(--node-id-copy-icon-color);
-        }
+    .svg ::v-deep path {
+        fill: var(--node-id-copy-icon-color);
     }
 
-    .storj-logo {
-
-        path {
-            fill: var(--icon-color) !important;
-        }
+    .storj-logo ::v-deep path {
+        fill: var(--icon-color) !important;
     }
 
     .settings-icon {
@@ -233,11 +227,8 @@ export default class SNOHeader extends Vue {
         }
     }
 
-    .notifications-bell-icon {
-
-        path {
-            fill: var(--regular-icon-color) !important;
-        }
+    .notifications-bell-icon ::v-deep path {
+        fill: var(--regular-icon-color) !important;
     }
 
     .header {
@@ -305,7 +296,7 @@ export default class SNOHeader extends Vue {
                 &__node-id-container {
                     color: var(--node-id-text-color);
                     height: 44px;
-                    padding: 0 14px 0 14px;
+                    padding: 0 14px;
                     display: flex;
                     align-items: center;
                     border: 1px solid var(--node-id-border-color);
@@ -329,11 +320,8 @@ export default class SNOHeader extends Vue {
                         border-color: var(--node-id-border-hover-color);
                         color: var(--node-id-hover-text-color);
 
-                        .svg {
-
-                            path {
-                                fill: var(--node-id-border-hover-color) !important;
-                            }
+                        .svg ::v-deep path {
+                            fill: var(--node-id-border-hover-color) !important;
                         }
                     }
                 }

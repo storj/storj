@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
@@ -25,6 +24,9 @@ import (
 var (
 	// Error is the default filestore error class.
 	Error = errs.Class("filestore error")
+	// ErrIsDir is the error returned when we encounter a directory named like a blob file
+	// while traversing a blob namespace.
+	ErrIsDir = Error.New("file is a directory")
 
 	mon = monkit.Package()
 
@@ -261,7 +263,7 @@ func (store *blobStore) FreeSpace(ctx context.Context) (int64, error) {
 
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
 func (store *blobStore) CheckWritability(ctx context.Context) error {
-	f, err := ioutil.TempFile(store.dir.Path(), "write-test")
+	f, err := os.CreateTemp(store.dir.Path(), "write-test")
 	if err != nil {
 		return err
 	}

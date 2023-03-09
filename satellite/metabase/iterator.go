@@ -46,36 +46,6 @@ type iterateCursor struct {
 	Inclusive bool
 }
 
-func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	it := &objectsIterator{
-		db: db,
-
-		projectID:             opts.ProjectID,
-		bucketName:            []byte(opts.BucketName),
-		prefix:                opts.Prefix,
-		prefixLimit:           prefixLimit(opts.Prefix),
-		batchSize:             opts.BatchSize,
-		recursive:             true,
-		includeCustomMetadata: true,
-		includeSystemMetadata: true,
-
-		curIndex:    0,
-		cursor:      firstIterateCursor(true, opts.Cursor, opts.Prefix),
-		doNextQuery: doNextQueryAllVersionsWithoutStatus,
-	}
-
-	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
-		it.cursor.Key = opts.Prefix
-		it.cursor.Version = -1
-		it.cursor.Inclusive = true
-	}
-
-	return iterate(ctx, it, fn)
-}
-
 func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -128,6 +98,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		recursive:             true,
 		includeCustomMetadata: true,
 		includeSystemMetadata: true,
+		status:                Pending,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -169,11 +140,6 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 
 	// TODO: implement this on the database side
 
-	ok := it.next(ctx, item)
-	if !ok {
-		return false
-	}
-
 	// skip until we are past the prefix we returned before.
 	if it.skipPrefix != "" {
 		for strings.HasPrefix(string(item.ObjectKey), string(it.skipPrefix)) {
@@ -182,6 +148,11 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 			}
 		}
 		it.skipPrefix = ""
+	} else {
+		ok := it.next(ctx, item)
+		if !ok {
+			return false
+		}
 	}
 
 	// should this be treated as a prefix?
@@ -210,6 +181,16 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			return false
 		}
 
+		if !it.recursive {
+			afterPrefix := it.cursor.Key[len(it.prefix):]
+			p := bytes.IndexByte([]byte(afterPrefix), Delimiter)
+			if p >= 0 {
+				it.cursor.Key = it.prefix + prefixLimit(afterPrefix[:p+1])
+				it.cursor.StreamID = uuid.UUID{}
+				it.cursor.Version = 0
+			}
+		}
+
 		rows, err := it.doNextQuery(ctx, it)
 		if err != nil {
 			it.failErr = errs.Combine(it.failErr, err)
@@ -235,23 +216,14 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	}
 
 	it.curIndex++
-	it.cursor.Key = item.ObjectKey
+	it.cursor.Key = it.prefix + item.ObjectKey
 	it.cursor.Version = item.Version
 	it.cursor.StreamID = item.StreamID
-
-	if it.prefix != "" {
-		if !strings.HasPrefix(string(item.ObjectKey), string(it.prefix)) {
-			return false
-		}
-	}
-
-	// TODO this should be done with SQL query
-	item.ObjectKey = item.ObjectKey[len(it.prefix):]
 
 	return true
 }
 
-func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -260,63 +232,60 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	}
 
 	if it.prefixLimit == "" {
+		querySelectFields := querySelectorFields("object_key", it)
 		return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, encryption, status,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+				`+querySelectFields+`
 			FROM objects
 			WHERE
-				project_id = $1 AND bucket_name = $2
-				AND (object_key, version) `+cursorCompare+` ($3, $4)
-			ORDER BY object_key ASC, version ASC
-			LIMIT $5
+				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
+				AND (project_id, bucket_name) < ($1, $7)
+				AND status = $3
+				AND (expires_at IS NULL OR expires_at > now())
+				ORDER BY (project_id, bucket_name, object_key, version) ASC
+			LIMIT $6
 			`, it.projectID, it.bucketName,
+			it.status,
 			[]byte(it.cursor.Key), int(it.cursor.Version),
 			it.batchSize,
+			nextBucket(it.bucketName),
 		)
 	}
 
-	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
-	// works with CRDB.
+	fromSubstring := 1
+	if it.prefix != "" {
+		fromSubstring = len(it.prefix) + 1
+	}
+
+	querySelectFields := querySelectorFields("SUBSTRING(object_key FROM $8)", it)
 	return it.db.db.QueryContext(ctx, `
 		SELECT
-			object_key, stream_id, version, encryption, status,
-			created_at, expires_at,
-			segment_count,
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key
+			`+querySelectFields+`
 		FROM objects
 		WHERE
-			project_id = $1 AND bucket_name = $2
-			AND (object_key, version) `+cursorCompare+` ($3, $4)
-			AND object_key < $5
-		ORDER BY object_key ASC, version ASC
-		LIMIT $6
-	`, it.projectID, it.bucketName,
+			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
+			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
+			AND status = $3
+			AND (expires_at IS NULL OR expires_at > now())
+			ORDER BY (project_id, bucket_name, object_key, version) ASC
+		LIMIT $7
+		`, it.projectID, it.bucketName,
+		it.status,
 		[]byte(it.cursor.Key), int(it.cursor.Version),
 		[]byte(it.prefixLimit),
 		it.batchSize,
-
-		// len(it.prefix)+1, // TODO uncomment when CRDB issue will be fixed
+		fromSubstring,
 	)
 }
 
-func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// minimum needed for cursor
-	querySelectFields := `
-		object_key
+func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
+	querySelectFields := objectKeyColumn + `
 		,stream_id
 		,version
 		,encryption`
 
 	if it.includeSystemMetadata {
 		querySelectFields += `
-			,status
 			,created_at
 			,expires_at
 			,segment_count
@@ -332,49 +301,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 			,encrypted_metadata_encrypted_key`
 	}
 
-	cursorCompare := ">"
-	if it.cursor.Inclusive {
-		cursorCompare = ">="
-	}
-
-	if it.prefixLimit == "" {
-		return it.db.db.QueryContext(ctx, `
-			SELECT
-				`+querySelectFields+`
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-				AND (project_id, bucket_name) < ($1, $7)
-				AND status = $3
-				ORDER BY (project_id, bucket_name, object_key, version) ASC
-			LIMIT $6
-			`, it.projectID, it.bucketName,
-			it.status,
-			[]byte(it.cursor.Key), int(it.cursor.Version),
-			it.batchSize,
-			nextBucket(it.bucketName),
-		)
-	}
-
-	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
-	// works with CRDB.
-	return it.db.db.QueryContext(ctx, `
-		SELECT
-			`+querySelectFields+`
-		FROM objects
-		WHERE
-			(project_id, bucket_name, object_key, version) `+cursorCompare+` ($1, $2, $4, $5)
-			AND (project_id, bucket_name, object_key) < ($1, $2, $6)
-			AND status = $3
-			ORDER BY (project_id, bucket_name, object_key, version) ASC
-		LIMIT $7
-	`, it.projectID, it.bucketName,
-		it.status,
-		[]byte(it.cursor.Key), int(it.cursor.Version),
-		[]byte(it.prefixLimit),
-		it.batchSize,
-		// len(it.prefix)+1, // TODO uncomment when CRDB issue will be fixed
-	)
+	return querySelectFields
 }
 
 // nextBucket returns the lexicographically next bucket.
@@ -390,7 +317,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 
 	return it.db.db.QueryContext(ctx, `
 			SELECT
-				object_key, stream_id, version, encryption, status,
+				object_key, stream_id, version, encryption,
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
@@ -413,6 +340,7 @@ func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql
 // scanItem scans doNextQuery results into ObjectEntry.
 func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
+	item.Status = it.status
 
 	fields := []interface{}{
 		&item.ObjectKey,
@@ -423,7 +351,6 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 
 	if it.includeSystemMetadata {
 		fields = append(fields,
-			&item.Status,
 			&item.CreatedAt,
 			&item.ExpiresAt,
 			&item.SegmentCount,

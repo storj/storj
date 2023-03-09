@@ -11,6 +11,7 @@ import (
 
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -64,11 +65,11 @@ func (opts *BeginObjectNextVersion) Verify() error {
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
-func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (committed Version, err error) {
+func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
-		return -1, err
+		return Object{}, err
 	}
 
 	if opts.ZombieDeletionDeadline == nil {
@@ -76,7 +77,19 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		opts.ZombieDeletionDeadline = &deadline
 	}
 
-	row := db.db.QueryRowContext(ctx, `
+	object = Object{
+		ObjectStream: ObjectStream{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+			StreamID:   opts.StreamID,
+		},
+		ExpiresAt:              opts.ExpiresAt,
+		Encryption:             opts.Encryption,
+		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
+	}
+
+	if err := db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -94,21 +107,18 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 			$4, $5, $6,
 			$7,
 			$8, $9, $10)
-		RETURNING version
+		RETURNING status, version, created_at
 	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	)
-
-	var v int64
-	if err := row.Scan(&v); err != nil {
-		return -1, Error.New("unable to insert object: %w", err)
+	).Scan(&object.Status, &object.Version, &object.CreatedAt); err != nil {
+		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
 	mon.Meter("object_begin").Mark(1)
 
-	return Version(v), nil
+	return object, nil
 }
 
 // BeginObjectExactVersion contains arguments necessary for starting an object upload.
@@ -182,17 +192,16 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			$9, $10, $11
 		)
 		RETURNING status, created_at
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline,
 		opts.EncryptedMetadata, opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey,
-	).
-		Scan(
-			&object.Status, &object.CreatedAt,
-		)
+	).Scan(
+		&object.Status, &object.CreatedAt,
+	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return Object{}, ErrConflict.New("object already exists")
+			return Object{}, Error.Wrap(ErrObjectAlreadyExists.New(""))
 		}
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}
@@ -206,9 +215,12 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 type BeginSegment struct {
 	ObjectStream
 
-	Position    SegmentPosition
+	Position SegmentPosition
+
+	// TODO: unused field, can remove
 	RootPieceID storj.PieceID
-	Pieces      Pieces
+
+	Pieces Pieces
 }
 
 // BeginSegment verifies, whether a new segment upload can be started.
@@ -244,7 +256,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID).Scan(&value)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to query object status: %w", err)
 	}
@@ -312,7 +324,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("number of pieces is less than redundancy optimal shares value")
 	}
 
-	aliasPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.Pieces)
+	aliasPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.Pieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
 	}
@@ -360,7 +372,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -446,7 +458,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
-			return Error.New("pending object missing")
+			return ErrPendingObjectMissing.New("")
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
@@ -463,9 +475,20 @@ type CommitObject struct {
 
 	Encryption storj.EncryptionParameters
 
+	// this flag controls if we want to set metadata fields with CommitObject
+	// it's possible to set metadata with BeginObject request so we need to
+	// be explicit if we would like to set it with CommitObject which will
+	// override any existing metadata.
+	OverrideEncryptedMetadata     bool
 	EncryptedMetadata             []byte // optional
 	EncryptedMetadataNonce        []byte // optional
 	EncryptedMetadataEncryptedKey []byte // optional
+
+	DisallowDelete bool
+	// OnDelete will be triggered when/if existing object will be overwritten on commit.
+	// Wil be only executed after succesfull commit + delete DB operation.
+	// Error on this function won't revert back committed object.
+	OnDelete func(segments []DeletedSegmentInfo)
 }
 
 // Verify verifies reqest fields.
@@ -478,21 +501,26 @@ func (c *CommitObject) Verify() error {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
-	if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
-	} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
-		return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+	if c.OverrideEncryptedMetadata {
+		if c.EncryptedMetadata == nil && (c.EncryptedMetadataNonce != nil || c.EncryptedMetadataEncryptedKey != nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be not set if EncryptedMetadata is not set")
+		} else if c.EncryptedMetadata != nil && (c.EncryptedMetadataNonce == nil || c.EncryptedMetadataEncryptedKey == nil) {
+			return ErrInvalidRequest.New("EncryptedMetadataNonce and EncryptedMetadataEncryptedKey must be set if EncryptedMetadata is set")
+		}
 	}
 	return nil
 }
 
-// CommitObject adds a pending object to the database.
+// CommitObject adds a pending object to the database. If another committed object is under target location
+// it will be deleted.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
+
+	deletedSegments := []DeletedSegmentInfo{}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
@@ -532,15 +560,17 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		args := []interface{}{opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
+		args := []interface{}{
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version, opts.StreamID,
 			len(segments),
 			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
-			encryptionParameters{&opts.Encryption}}
+			encryptionParameters{&opts.Encryption},
+		}
 
 		metadataColumns := ""
-		if len(opts.EncryptedMetadata) != 0 {
+		if opts.OverrideEncryptedMetadata {
 			args = append(args,
 				opts.EncryptedMetadataNonce,
 				opts.EncryptedMetadata,
@@ -551,6 +581,41 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				encrypted_metadata               = $12,
 				encrypted_metadata_encrypted_key = $13
 			`
+		}
+
+		versionsToDelete := []Version{}
+		if err := withRows(tx.QueryContext(ctx, `
+			SELECT version
+			FROM objects
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				status       = `+committedStatus,
+			opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var version Version
+				if err := rows.Scan(&version); err != nil {
+					return Error.New("failed to scan previous object: %w", err)
+				}
+
+				versionsToDelete = append(versionsToDelete, version)
+			}
+			return nil
+		}); err != nil {
+			return Error.New("failed to find previous objects: %w", err)
+		}
+
+		if len(versionsToDelete) > 1 {
+			db.log.Warn("object with multiple committed versions were found!",
+				zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+				zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("deleted", len(versionsToDelete)))
+
+			mon.Meter("multiple_committed_versions").Mark(1)
+		}
+
+		if len(versionsToDelete) != 0 && opts.DisallowDelete {
+			return ErrPermissionDenied.New("no permissions to delete existing object")
 		}
 
 		err = tx.QueryRowContext(ctx, `
@@ -579,9 +644,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				status       = `+pendingStatus+`
 			RETURNING
 				created_at, expires_at,
-				encryption;
-		`, args...).Scan(
+				encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+				encryption
+			`, args...).Scan(
 			&object.CreatedAt, &object.ExpiresAt,
+			&object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedMetadataNonce,
 			encryptionParameters{&object.Encryption},
 		)
 		if err != nil {
@@ -594,6 +661,22 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			return Error.New("failed to update object: %w", err)
 		}
 
+		for _, version := range versionsToDelete {
+			deleteResult, err := db.deleteObjectExactVersion(ctx, DeleteObjectExactVersion{
+				ObjectLocation: ObjectLocation{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  opts.ObjectKey,
+				},
+				Version: version,
+			}, tx)
+			if err != nil {
+				return Error.New("failed to delete existing object: %w", err)
+			}
+
+			deletedSegments = append(deletedSegments, deleteResult.Segments...)
+		}
+
 		object.StreamID = opts.StreamID
 		object.ProjectID = opts.ProjectID
 		object.BucketName = opts.BucketName
@@ -601,9 +684,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		object.Version = opts.Version
 		object.Status = Committed
 		object.SegmentCount = int32(len(segments))
-		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
-		object.EncryptedMetadata = opts.EncryptedMetadata
-		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.TotalPlainSize = totalPlainSize
 		object.TotalEncryptedSize = totalEncryptedSize
 		object.FixedSegmentSize = fixedSegmentSize
@@ -611,6 +691,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	})
 	if err != nil {
 		return Object{}, err
+	}
+
+	// we can execute this only when whole transaction is committed without any error
+	if len(deletedSegments) > 0 && opts.OnDelete != nil {
+		opts.OnDelete(deletedSegments)
 	}
 
 	mon.Meter("object_commit").Mark(1)

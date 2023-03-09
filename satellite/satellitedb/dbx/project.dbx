@@ -1,0 +1,191 @@
+// project contains information about a user project.
+model project (
+    key id
+
+    index (
+        name projects_public_id_index
+        fields public_id
+    )
+
+    // id is a UUID used for identifying the project.
+    field id                                blob
+    // public_id is a UUID that's used in web requests.
+    field public_id                         blob      ( nullable )
+
+    // name is a identifier that's shown to the user.
+    field name                              text      ( updatable )
+    // description helps users to clarify what the project is for.
+    field description                       text      ( updatable )
+    // usage_limit defines maximum allowed bytes that can be stored.
+    field usage_limit                       int64     ( nullable, updatable )
+    // bandwidth_limit defines maximum allowed bandwidth per month in bytes.
+    field bandwidth_limit                   int64     ( nullable, updatable )
+    // user_specified_usage_limit is set by the user to limit their bytes that can be stored.
+    field user_specified_usage_limit        int64     ( nullable, updatable )
+    // user_specified_bandwidth_limit is set by the user to limit their bytes that downloaded.
+    field user_specified_bandwidth_limit    int64     ( nullable, updatable )
+    // segment_limit specifies how many segments can be stored in the project.
+    field segment_limit                     int64     ( nullable, updatable, default 1000000)
+    // rate_limit defines maximum requests per second the project can use.
+    // See golang.org/x/time/rate#Limiter for details.
+    field rate_limit                        int       ( nullable, updatable )
+    // burst_limit defines number of requests that are not throttled by rate_limit.
+    // See golang.org/x/time/rate#Limiter for details.
+    field burst_limit                       int       ( nullable, updatable )
+    // max_buckets is the maximum number of buckets that can be created for the project.
+    field max_buckets                       int       ( nullable, updatable )
+    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
+    // deprecated: use user_agent instead.
+    field partner_id                        blob      ( nullable )
+    // user_agent is the referred partner who created the project.
+    field user_agent                        blob      ( nullable )
+    // owner_id refers to the user UUID in user.id.
+    field owner_id                          blob
+    // salt is used for salting the user passphrase for the content.
+    field salt                              blob      ( nullable )
+
+    // created_at indicates when the project was created.
+    field created_at                        timestamp ( autoinsert )
+)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
+read one (
+    select project.salt
+    where project.id = ?
+)
+read one (
+    select project
+    where project.public_id = ?
+)
+read one (
+    select project
+    where project.id = ?
+)
+read one (
+    select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.user_specified_bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.segment_limit
+    where  project.id = ?
+)
+read one (
+    select project.max_buckets
+    where project.id = ?
+)
+read one (
+    select project.bandwidth_limit project.usage_limit project.segment_limit
+    where  project.id = ?
+)
+
+read all (
+    select project
+)
+read all (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
+read all (
+    select project
+    where project.owner_id = ?
+    orderby asc project.created_at
+)
+read all (
+    select project
+    join project.id = project_member.project_id
+    where project_member.member_id = ?
+    orderby asc project.name
+)
+
+read limitoffset (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
+
+// project_member is an association table between projects and users.
+// It indicates which users have access to the specific project.
+model project_member (
+    key member_id project_id
+
+    // member_id is the user that can access the project.
+    field member_id            user.id      cascade
+    // project_id is the project that can be accessed.
+    field project_id           project.id   cascade
+
+    // created_at indicates when the user was added as a member.
+    field created_at           timestamp ( autoinsert )
+)
+
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
+read all (
+    select project_member
+    where project_member.member_id = ?
+)
+
+// api_key is used to authenticate in requests.
+model api_key (
+    key    id
+    unique head
+    unique name project_id
+
+    // id is a UUID for the api key.
+    field  id          blob
+    // project_id is a UUID that refers to project.id.
+    field  project_id  project.id cascade
+    // head is restrictions for the api key.
+    field  head        blob
+    // name helps users to identify the purpose of the api key.
+    field  name        text       (updatable)
+    // secret is the macaroon secret.
+    field  secret      blob
+    // partner_id is an UUID that refers to rewards.PartnersStaticDB.
+    // deprecated: use user_agent instead.
+    field  partner_id  blob       (nullable)
+    // user_agent is the referred partner who created the project.
+    field  user_agent  blob       (nullable)
+    // created_at indicates when the api key was added.
+    field  created_at  timestamp  (autoinsert)
+)
+
+create api_key ( )
+update api_key (
+    where api_key.id = ?
+    noreturn
+)
+delete api_key ( where api_key.id = ? )
+
+read one (
+    select api_key
+    where api_key.id = ?
+)
+read one (
+    select api_key
+    where api_key.head = ?
+)
+read one (
+    select api_key
+    where api_key.name = ?
+    where api_key.project_id = ?
+)

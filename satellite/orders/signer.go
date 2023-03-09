@@ -29,7 +29,8 @@ type Signer struct {
 	Bucket metabase.BucketLocation
 
 	// TODO: use a Template pb.OrderLimit here?
-	RootPieceID storj.PieceID
+	RootPieceID        storj.PieceID
+	rootPieceIDDeriver storj.PieceIDDeriver
 
 	PieceExpiration time.Time
 	OrderCreation   time.Time
@@ -69,6 +70,7 @@ func NewSigner(service *Service, rootPieceID storj.PieceID, pieceExpiration time
 	signer.Bucket = bucket
 
 	signer.RootPieceID = rootPieceID
+	signer.rootPieceIDDeriver = rootPieceID.Deriver()
 
 	signer.PieceExpiration = pieceExpiration
 	signer.OrderCreation = orderCreation
@@ -138,7 +140,7 @@ func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCre
 }
 
 // Sign signs an order limit for the specified node.
-func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
+func (signer *Signer) Sign(ctx context.Context, node *pb.Node, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(signer.EncryptedMetadata) == 0 {
@@ -164,9 +166,9 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 		SerialNumber:    signer.Serial,
 		SatelliteId:     signer.Service.satellite.ID(),
 		UplinkPublicKey: signer.PublicKey,
-		StorageNodeId:   node.ID,
+		StorageNodeId:   node.Id,
 
-		PieceId: signer.RootPieceID.Derive(node.ID, pieceNum),
+		PieceId: signer.rootPieceIDDeriver.Derive(node.Id, pieceNum),
 		Limit:   signer.Limit,
 		Action:  signer.Action,
 
@@ -184,10 +186,8 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 	}
 
 	addressedLimit := &pb.AddressedOrderLimit{
-		Limit: signedLimit,
-		StorageNodeAddress: &pb.NodeAddress{
-			Address: node.Address,
-		},
+		Limit:              signedLimit,
+		StorageNodeAddress: node.Address,
 	}
 
 	signer.AddressedLimits = append(signer.AddressedLimits, addressedLimit)

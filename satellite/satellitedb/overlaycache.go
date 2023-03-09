@@ -57,9 +57,9 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port, vetted_at, country_code
+		SELECT id, address, last_net, last_ip_port, vetted_at, country_code, noise_proto, noise_public_key
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.Interval()) + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
@@ -101,13 +101,15 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
 		var vettedAt *time.Time
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode)
+		var noise noiseScanner
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &vettedAt, &node.CountryCode, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		if vettedAt == nil {
 			newNodes = append(newNodes, &node)
@@ -139,9 +141,9 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 	defer mon.Task()(&ctx)(&err)
 
 	query := `
-		SELECT id, address, last_net, last_ip_port
+		SELECT id, address, last_net, last_ip_port, noise_proto, noise_public_key
 			FROM nodes
-			` + cache.db.impl.AsOfSystemInterval(asOfConfig.DefaultInterval) + `
+			` + cache.db.impl.AsOfSystemInterval(asOfConfig.Interval()) + `
 			WHERE disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $1
@@ -162,13 +164,15 @@ func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, on
 		var node overlay.SelectedNode
 		node.Address = &pb.NodeAddress{}
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 		nodes = append(nodes, &node)
 	}
 	return nodes, Error.Wrap(rows.Err())
@@ -235,9 +239,9 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *o
 }
 
 // GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
 	for {
-		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow)
+		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow, asOf)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
@@ -250,13 +254,14 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 	return nodes, err
 }
 
-func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port
+		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key
 		FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(asOf.Interval())+`
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
@@ -270,16 +275,74 @@ func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeI
 	nodes := make(map[storj.NodeID]*overlay.SelectedNode)
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return nil, err
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
+
+		nodes[node.ID] = &node
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
+// GetOnlineNodesForAuditRepair returns a map of nodes for the supplied nodeIDs.
+func (cache *overlaycache) GetOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.NodeReputation, err error) {
+	for {
+		nodes, err = cache.getOnlineNodesForAuditRepair(ctx, nodeIDs, onlineWindow)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) getOnlineNodesForAuditRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, email, last_ip_port, noise_proto, noise_public_key, vetted_at,
+			unknown_audit_suspended, offline_suspended
+		FROM nodes
+		WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > $2
+	`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
+	for rows.Next() {
+		var node overlay.NodeReputation
+		node.Address = &pb.NodeAddress{}
+
+		var lastIPPort sql.NullString
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &node.Reputation.Email, &lastIPPort, &noise.Proto, &noise.PublicKey, &node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		nodes[node.ID] = &node
 	}
@@ -351,6 +414,131 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, err
 }
 
+// GetOfflineNodesForEmail gets nodes that we want to send an email to. These are non-disqualified, non-exited nodes where
+// last_contact_success is between two points: the point where it is considered offline (offlineWindow), and the point where we don't want
+// to send more emails (cutoff). It also filters nodes where last_offline_email is too recent (cooldown).
+func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineWindow, cutoff, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	nodes = make(map[storj.NodeID]string)
+	rows, err := cache.db.QueryContext(ctx, `
+		SELECT id, email
+		FROM nodes
+		WHERE last_contact_success < $1
+			AND last_contact_success > $2
+			AND (last_offline_email IS NULL OR last_offline_email < $3)
+			AND email != ''
+			AND disqualified is NULL
+			AND exit_finished_at is NULL
+		LIMIT $4
+	`, now.Add(-offlineWindow), now.Add(-cutoff), now.Add(-cooldown), limit)
+	if err != nil {
+		return
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var idBytes []byte
+	var email string
+	var nodeID storj.NodeID
+	for rows.Next() {
+		err = rows.Scan(&idBytes, &email)
+		nodeID, err = storj.NodeIDFromBytes(idBytes)
+		if err != nil {
+			return
+		}
+		nodes[nodeID] = email
+	}
+
+	return nodes, Error.Wrap(rows.Err())
+}
+
+// UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
+func (cache *overlaycache) UpdateLastOfflineEmail(ctx context.Context, nodeIDs storj.NodeIDList, timestamp time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET last_offline_email = $1
+		WHERE id = any($2::bytea[])
+	`, timestamp, pgutil.NodeIDArray(nodeIDs))
+	return err
+}
+
+// KnownReliableInExcludedCountries filters healthy nodes that are in excluded countries.
+func (cache *overlaycache) KnownReliableInExcludedCountries(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	for {
+		reliableInExcluded, err = cache.knownReliableInExcludedCountries(ctx, criteria, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return reliableInExcluded, err
+		}
+		break
+	}
+
+	return reliableInExcluded, err
+}
+
+func (cache *overlaycache) knownReliableInExcludedCountries(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (reliableInExcluded storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIDs) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	args := []interface{}{
+		pgutil.NodeIDArray(nodeIDs),
+		time.Now().Add(-criteria.OnlineWindow),
+	}
+
+	// When this config is not set, it's a string slice with one empty string. This is a sanity check just
+	// in case for some reason it's nil or has no elements.
+	if criteria.ExcludedCountries == nil || len(criteria.ExcludedCountries) == 0 {
+		return reliableInExcluded, nil
+	}
+
+	var excludedCountriesCondition string
+	if criteria.ExcludedCountries[0] == "" {
+		return reliableInExcluded, nil
+	}
+
+	excludedCountriesCondition = "AND country_code IN (SELECT UNNEST($3::TEXT[]))"
+	args = append(args, pgutil.TextArray(criteria.ExcludedCountries))
+
+	// get reliable and online nodes
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+			SELECT id
+			FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
+			WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
+			AND exit_finished_at IS  NULL
+			AND last_contact_success > $2
+			`+excludedCountriesCondition+`
+		`), args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		reliableInExcluded = append(reliableInExcluded, id)
+	}
+
+	return reliableInExcluded, Error.Wrap(rows.Err())
+}
+
 func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -419,7 +607,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 
 	// get online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id, last_net, last_ip_port, address, protocol
+		SELECT id, last_net, last_ip_port, address, protocol, noise_proto, noise_public_key
 			FROM nodes
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
@@ -436,7 +624,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 
 	for rows.Next() {
 		row := &dbx.Node{}
-		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol)
+		err = rows.Scan(&row.Id, &row.LastNet, &row.LastIpPort, &row.Address, &row.Protocol, &row.NoiseProto, &row.NoisePublicKey)
 		if err != nil {
 			return nil, err
 		}
@@ -466,6 +654,18 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	args := []interface{}{
+		time.Now().Add(-criteria.OnlineWindow),
+	}
+
+	// When this config is not set, it's a string slice with one empty string. I added some sanity checks to make sure we don't
+	// dereference a nil pointer or index an element that doesn't exist.
+	var excludedCountriesCondition string
+	if criteria.ExcludedCountries != nil && len(criteria.ExcludedCountries) != 0 && criteria.ExcludedCountries[0] != "" {
+		excludedCountriesCondition = "AND country_code NOT IN (SELECT UNNEST($2::TEXT[]))"
+		args = append(args, pgutil.TextArray(criteria.ExcludedCountries))
+	}
+
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
 		SELECT id
@@ -475,8 +675,9 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		AND unknown_audit_suspended IS NULL
 		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
-		AND last_contact_success > ?
-	`), time.Now().Add(-criteria.OnlineWindow))
+		AND last_contact_success > $1
+		`+excludedCountriesCondition+`
+	`), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -495,15 +696,19 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
-// UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
-func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
+// UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request overlay.ReputationUpdate) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
-	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
 	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
 	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+
+	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+	if request.Disqualified != nil {
+		updateFields.DisqualificationReason = dbx.Node_DisqualificationReason(int(request.DisqualificationReason))
+	}
 
 	err = cache.db.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, dbx.Node_Id(id.Bytes()), updateFields)
 	return Error.Wrap(err)
@@ -555,19 +760,20 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason overlay.DisqualificationReason) (email string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	updateFields.Disqualified = dbx.Node_Disqualified(disqualifiedAt.UTC())
+	updateFields.DisqualificationReason = dbx.Node_DisqualificationReason(int(reason))
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if dbNode == nil {
-		return errs.New("unable to get node by ID: %v", nodeID)
+		return "", errs.New("unable to get node by ID: %v", nodeID)
 	}
-	return nil
+	return dbNode.Email, nil
 }
 
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
@@ -604,7 +810,7 @@ func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, no
 
 // AllPieceCounts returns a map of node IDs to piece counts from the db.
 // NB: a valid, partial piece map can be returned even if node ID parsing error(s) are returned.
-func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int, err error) {
+func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// NB: `All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number` selects node
@@ -614,7 +820,7 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	pieceCounts := make(map[storj.NodeID]int)
+	pieceCounts := make(map[storj.NodeID]int64)
 	nodeIDErrs := errs.Group{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.Id)
@@ -622,13 +828,13 @@ func (cache *overlaycache) AllPieceCounts(ctx context.Context) (_ map[storj.Node
 			nodeIDErrs.Add(err)
 			continue
 		}
-		pieceCounts[nodeID] = int(row.PieceCount)
+		pieceCounts[nodeID] = row.PieceCount
 	}
 
 	return pieceCounts, nodeIDErrs.Err()
 }
 
-func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int) (err error) {
+func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts map[storj.NodeID]int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(pieceCounts) == 0 {
 		return nil
@@ -644,7 +850,7 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 	for nodeid, count := range pieceCounts {
 		counts = append(counts, NodeCount{
 			ID:    nodeid,
-			Count: int64(count),
+			Count: count,
 		})
 	}
 	sort.Slice(counts, func(i, k int) bool {
@@ -891,6 +1097,14 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		return nil, err
 	}
 
+	var noiseInfo *pb.NoiseInfo
+	if info.NoiseProto != nil && len(info.NoisePublicKey) > 0 {
+		noiseInfo = &pb.NoiseInfo{
+			Proto:     pb.NoiseProtocol(*info.NoiseProto),
+			PublicKey: info.NoisePublicKey,
+		}
+	}
+
 	exitStatus := overlay.ExitStatus{NodeID: id}
 	exitStatus.ExitInitiatedAt = info.ExitInitiatedAt
 	exitStatus.ExitLoopCompletedAt = info.ExitLoopCompletedAt
@@ -902,7 +1116,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Id: id,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
-				Transport: pb.NodeTransport(info.Protocol),
+				NoiseInfo: noiseInfo,
 			},
 		},
 		Type: pb.NodeType(info.Type),
@@ -921,20 +1135,26 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
-		Disqualified:          info.Disqualified,
-		UnknownAuditSuspended: info.UnknownAuditSuspended,
-		OfflineSuspended:      info.OfflineSuspended,
-		OfflineUnderReview:    info.UnderReview,
-		PieceCount:            info.PieceCount,
-		ExitStatus:            exitStatus,
-		CreatedAt:             info.CreatedAt,
-		LastNet:               info.LastNet,
+		Disqualified:            info.Disqualified,
+		DisqualificationReason:  (*overlay.DisqualificationReason)(info.DisqualificationReason),
+		UnknownAuditSuspended:   info.UnknownAuditSuspended,
+		OfflineSuspended:        info.OfflineSuspended,
+		OfflineUnderReview:      info.UnderReview,
+		PieceCount:              info.PieceCount,
+		ExitStatus:              exitStatus,
+		CreatedAt:               info.CreatedAt,
+		LastNet:                 info.LastNet,
+		LastOfflineEmail:        info.LastOfflineEmail,
+		LastSoftwareUpdateEmail: info.LastSoftwareUpdateEmail,
 	}
 	if info.LastIpPort != nil {
 		node.LastIPPort = *info.LastIpPort
 	}
 	if info.CountryCode != nil {
 		node.CountryCode = location.ToCountryCode(*info.CountryCode)
+	}
+	if info.Contained != nil {
+		node.Contained = true
 	}
 
 	return node, nil
@@ -967,34 +1187,38 @@ func decodeWalletFeatures(encoded string) []string {
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
-		Latency90:             dbNode.Latency90,
-		VettedAt:              dbNode.VettedAt,
-		LastContactSuccess:    dbNode.LastContactSuccess,
-		LastContactFailure:    dbNode.LastContactFailure,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineUnderReview:    dbNode.UnderReview,
-		OfflineSuspended:      dbNode.OfflineSuspended,
+		Latency90:          dbNode.Latency90,
+		LastContactSuccess: dbNode.LastContactSuccess,
+		LastContactFailure: dbNode.LastContactFailure,
+		OfflineUnderReview: dbNode.UnderReview,
+		Status: overlay.ReputationStatus{
+			Email:                 dbNode.Email,
+			VettedAt:              dbNode.VettedAt,
+			Disqualified:          dbNode.Disqualified,
+			UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
+			OfflineSuspended:      dbNode.OfflineSuspended,
+		},
 	}
 	return nodeStats
 }
 
 // DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 // or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
-func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodeEmails map[storj.NodeID]string, count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodeIDs []storj.NodeID
+	nodeEmails = make(map[storj.NodeID]string)
 	for {
 		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue
 			}
-			return 0, err
+			return nil, 0, err
 		}
 		if len(nodeIDs) == 0 {
-			return 0, nil
+			return nil, 0, nil
 		}
 		break
 	}
@@ -1002,34 +1226,36 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
 		UPDATE nodes
-		SET disqualified = current_timestamp
+		SET disqualified = current_timestamp,
+            disqualification_reason = $3
 		WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
 			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
-		RETURNING id, last_contact_success;
-	`), pgutil.NodeIDArray(nodeIDs), cutoff)
+		RETURNING id, email, last_contact_success;
+	`), pgutil.NodeIDArray(nodeIDs), cutoff, overlay.DisqualificationReasonNodeOffline)
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var id storj.NodeID
+		var email string
 		var lcs time.Time
-		err = rows.Scan(&id, &lcs)
+		err = rows.Scan(&id, &email, &lcs)
 		if err != nil {
-			return count, err
+			return nil, count, err
 		}
 		cache.db.log.Info("Disqualified",
 			zap.String("DQ type", "stray node"),
 			zap.Stringer("Node ID", id),
 			zap.Stringer("Last contacted", lcs))
-
+		nodeEmails[id] = email
 		count++
 	}
-	return count, rows.Err()
+	return nodeEmails, count, rows.Err()
 }
 
 func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {
@@ -1061,22 +1287,15 @@ func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cuto
 	return nodeIDs, rows.Err()
 }
 
-// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
-func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if node.Address.GetAddress() == "" {
-		return Error.New("error UpdateCheckIn: missing the storage node address")
-	}
-
-	semVer, err := version.NewSemVer(node.Version.GetVersion())
-	if err != nil {
-		return Error.New("unable to convert version to semVer")
-	}
-
-	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
-	if err != nil {
-		return Error.Wrap(err)
+func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
+		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
 	}
 
 	// First try the fast path.
@@ -1101,10 +1320,21 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			END,
 			last_ip_port=$16,
 			wallet_features=$17,
-			country_code=$18
+			country_code=$18,
+			noise_proto=$21,
+			noise_public_key=$22,
+			last_software_update_email = CASE
+				WHEN $19::bool IS TRUE THEN $15::timestamptz
+				WHEN $20::bool IS FALSE THEN NULL
+				ELSE nodes.last_software_update_email
+			END,
+			last_offline_email = CASE WHEN $8::bool IS TRUE
+				THEN NULL
+				ELSE nodes.last_offline_email
+			END
 		WHERE id = $1
 	`, // args $1 - $4
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC,
 		// args $5 - $7
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $8
@@ -1119,13 +1349,56 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		walletFeatures,
 		// args $18,
 		node.CountryCode.String(),
+		// args $19 - $20
+		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $21 - $22
+		noiseProto, noisePublicKey,
 	)
 
-	if err == nil {
-		affected, affectedErr := res.RowsAffected()
-		if affectedErr == nil && affected > 0 {
-			return nil
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	affected, affectedErr := res.RowsAffected()
+	if affectedErr != nil {
+		return false, Error.Wrap(err)
+	}
+	return affected > 0, nil
+}
+
+// UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
+func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if node.Address.GetAddress() == "" {
+		return Error.New("error UpdateCheckIn: missing the storage node address")
+	}
+
+	semVer, err := version.NewSemVer(node.Version.GetVersion())
+	if err != nil {
+		return Error.New("unable to convert version to semVer")
+	}
+
+	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	updated, err := cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if updated {
+		return nil
+	}
+
+	var noiseProto sql.NullInt32
+	var noisePublicKey []byte
+	if node.Address.NoiseInfo != nil {
+		noiseProto = sql.NullInt32{
+			Int32: int32(node.Address.NoiseInfo.Proto),
+			Valid: true,
 		}
+		noisePublicKey = node.Address.NoiseInfo.PublicKey
 	}
 
 	_, err = cache.db.ExecContext(ctx, `
@@ -1136,9 +1409,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				last_contact_success,
 				last_contact_failure,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port,
-				wallet_features,
-				country_code
+				last_ip_port, wallet_features, country_code,
+				noise_proto, noise_public_key
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1150,9 +1422,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
 				$10, $11, $12, $13, $14, $15,
-				$17,
-				$18,
-				$19
+				$17, $18, $19,
+				$22, $23
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1174,10 +1445,21 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				last_ip_port=$17,
 				wallet_features=$18,
-				country_code=$19;
+				country_code=$19,
+				noise_proto=$22,
+				noise_public_key=$23,
+				last_software_update_email = CASE
+					WHEN $20::bool IS TRUE THEN $16::timestamptz
+					WHEN $21::bool IS FALSE THEN NULL
+					ELSE nodes.last_software_update_email
+				END,
+				last_offline_email = CASE WHEN $9::bool IS TRUE
+					THEN NULL
+					ELSE nodes.last_offline_email
+				END;
 			`,
 		// args $1 - $5
-		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, pb.NodeTransport_TCP_TLS_RPC, int(pb.NodeType_STORAGE),
 		// args $6 - $8
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $9
@@ -1186,18 +1468,70 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
 		// args $16
 		timestamp,
-		// args $17
-		node.LastIPPort,
-		// args $18,
-		walletFeatures,
-		// args $19,
-		node.CountryCode.String(),
+		// args $17 - $19
+		node.LastIPPort, walletFeatures, node.CountryCode.String(),
+		// args $20 - $21
+		node.SoftwareUpdateEmailSent, node.VersionBelowMin,
+		// args $22 - $23
+		noiseProto, noisePublicKey,
 	)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	return nil
+}
+
+// SetNodeContained updates the contained field for the node record. If
+// `contained` is true, the contained field in the record is set to the current
+// database time, if it is not already set. If `contained` is false, the
+// contained field in the record is set to NULL. All other fields are left
+// alone.
+func (cache *overlaycache) SetNodeContained(ctx context.Context, nodeID storj.NodeID, contained bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+	if contained {
+		// only update the timestamp if it's not already set
+		query = `
+			UPDATE nodes SET contained = current_timestamp
+			WHERE id = $1 AND contained IS NULL
+		`
+	} else {
+		query = `
+			UPDATE nodes SET contained = NULL
+			WHERE id = $1
+		`
+	}
+	_, err = cache.db.DB.ExecContext(ctx, query, nodeID[:])
+	return Error.Wrap(err)
+}
+
+// SetAllContainedNodes updates the contained field for all nodes, as necessary.
+// containedNodes is expected to be a set of all nodes that should be contained.
+// All nodes which are in this set but do not already have a non-NULL contained
+// field will be updated to be contained as of the current time, and all nodes
+// which are not in this set but are contained in the table will be updated to
+// have a NULL contained field.
+func (cache *overlaycache) SetAllContainedNodes(ctx context.Context, containedNodes []storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateQuery := `
+		WITH should_be AS (
+			SELECT nodes.id, EXISTS (SELECT 1 FROM unnest($1::BYTEA[]) sb(i) WHERE sb.i = id) AS contained
+			FROM nodes
+		)
+		UPDATE nodes n SET contained =
+		    CASE WHEN should_be.contained
+		        THEN current_timestamp
+		        ELSE NULL
+		    END
+		FROM should_be
+		WHERE n.id = should_be.id
+			AND (n.contained IS NOT NULL) != should_be.contained
+	`
+	_, err = cache.db.DB.ExecContext(ctx, updateQuery, pgutil.NodeIDArray(containedNodes))
+	return Error.Wrap(err)
 }
 
 var (
@@ -1243,14 +1577,32 @@ func (cache *overlaycache) TestSuspendNodeOffline(ctx context.Context, nodeID st
 	return nil
 }
 
-// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
-func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+// TestNodeCountryCode sets node country code.
+func (cache *overlaycache) TestNodeCountryCode(ctx context.Context, nodeID storj.NodeID, countryCode string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.CountryCode = dbx.Node_CountryCode(countryCode)
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to set node country code: %v", nodeID)
+	}
+	return nil
+}
+
+// IterateAllContactedNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
+	// 2018-04-06 is the date of the first storj v3 commit.
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT last_net, id, address, last_ip_port
+		SELECT last_net, id, address, last_ip_port, noise_proto, noise_public_key
 		FROM nodes
+		WHERE last_contact_success >= timestamp '2018-04-06'
 	`))
 	if err != nil {
 		return Error.Wrap(err)
@@ -1259,16 +1611,18 @@ func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.
 
 	for rows.Next() {
 		var node overlay.SelectedNode
-		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+		node.Address = &pb.NodeAddress{}
 
 		var lastIPPort sql.NullString
-		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		var noise noiseScanner
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort, &noise.Proto, &noise.PublicKey)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		if lastIPPort.Valid {
 			node.LastIPPort = lastIPPort.String
 		}
+		node.Address.NoiseInfo = noise.Convert()
 
 		err = cb(ctx, &node)
 		if err != nil {
@@ -1306,5 +1660,24 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 		if cont == nil {
 			return nil
 		}
+	}
+}
+
+func (cache *overlaycache) TestUpdateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
+	return cache.updateCheckInDirectUpdate(ctx, node, timestamp, semVer, walletFeatures)
+}
+
+type noiseScanner struct {
+	Proto     sql.NullInt32
+	PublicKey []byte
+}
+
+func (n *noiseScanner) Convert() *pb.NoiseInfo {
+	if !n.Proto.Valid || len(n.PublicKey) == 0 {
+		return nil
+	}
+	return &pb.NoiseInfo{
+		Proto:     pb.NoiseProtocol(n.Proto.Int32),
+		PublicKey: n.PublicKey,
 	}
 }

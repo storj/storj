@@ -1,7 +1,9 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
+import { ErrorConflict } from './errors/ErrorConflict';
+import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
+
 import {
     AccountBalance,
     Coupon,
@@ -9,11 +11,13 @@ import {
     PaymentsApi,
     PaymentsHistoryItem,
     ProjectUsageAndCharges,
-    TokenDeposit
+    ProjectUsagePriceModel,
+    TokenAmount,
+    NativePaymentHistoryItem,
+    Wallet,
 } from '@/types/payments';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
-import { ErrorTooManyRequests } from './errors/ErrorTooManyRequests';
 
 /**
  * PaymentsHttpApi is a http implementation of Payments API.
@@ -34,10 +38,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('Can not get account balance');
         }
 
@@ -54,16 +54,13 @@ export class PaymentsHttpApi implements PaymentsApi {
      *
      * @throws Error
      */
-    public async setupAccount(): Promise<void> {
+    public async setupAccount(): Promise<string> {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.client.post(path, null);
+        const couponType = await response.json();
 
         if (response.ok) {
-            return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+            return couponType;
         }
 
         throw new Error('can not setup account');
@@ -79,10 +76,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('can not get projects charges');
         }
 
@@ -107,6 +100,25 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
+     * projectUsagePriceModel returns usage and how much money current user will be charged for each project which he owns.
+     */
+    public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
+        const path = `${this.ROOT_PATH}/pricing`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            throw new Error('cannot get project usage price model');
+        }
+
+        const model = await response.json();
+        if (model) {
+            return new ProjectUsagePriceModel(model.storageMBMonthCents, model.egressMBCents, model.segmentMonthCents);
+        }
+
+        return new ProjectUsagePriceModel();
+    }
+
+    /**
      * Add credit card.
      *
      * @param token - stripe token used to add a credit card as a payment method
@@ -118,10 +130,6 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         if (response.ok) {
             return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('can not add credit card');
@@ -141,10 +149,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not remove credit card');
     }
 
@@ -159,9 +163,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
             throw new Error('can not list credit cards');
         }
 
@@ -188,10 +189,6 @@ export class PaymentsHttpApi implements PaymentsApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('can not make credit card default');
     }
 
@@ -206,9 +203,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
             throw new Error('can not list billing history');
         }
 
@@ -234,26 +228,37 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * makeTokenDeposit process coin payments.
+     * Returns a list of native token payments.
      *
-     * @param amount
+     * @returns list of native token payment history items
      * @throws Error
      */
-    public async makeTokenDeposit(amount: number): Promise<TokenDeposit> {
-        const path = `${this.ROOT_PATH}/tokens/deposit`;
-        const response = await this.client.post(path, JSON.stringify({ amount }));
+    public async nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/wallet/payments`;
+        const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
-            throw new Error('can not process coin payment');
+            throw new Error('Can not list token payment history');
         }
 
-        const result = await response.json();
+        const json = await response.json();
+        if (!json) return  [];
+        if (json.payments) {
+            return json.payments.map(item =>
+                new NativePaymentHistoryItem(
+                    item.ID,
+                    item.Wallet,
+                    item.Type,
+                    new TokenAmount(item.Amount.value, item.Amount.currency),
+                    new TokenAmount(item.Received.value, item.Received.currency),
+                    item.Status,
+                    item.Link,
+                    new Date(item.Timestamp),
+                ),
+            );
+        }
 
-        return new TokenDeposit(result.amount, result.address, result.link);
+        return [];
     }
 
     /**
@@ -267,33 +272,33 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.patch(path, couponCode);
         const errMsg = `Could not apply coupon code "${couponCode}"`;
 
-        if (response.ok) {
-            const coupon = await response.json();
-
-            if (!coupon) {
+        if (!response.ok) {
+            switch (response.status) {
+            case 409:
+                throw new ErrorConflict('You currently have an active coupon. Please try again when your coupon is no longer active, or contact Support for further help.');
+            case 429:
+                throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
+            default:
                 throw new Error(errMsg);
             }
-
-            return new Coupon(
-                coupon.id,
-                coupon.promoCode,
-                coupon.name,
-                coupon.amountOff,
-                coupon.percentOff,
-                new Date(coupon.addedAt),
-                coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-                coupon.duration
-            );
         }
 
-        switch (response.status) {
-        case 429:
-            throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
-        default:
+        const coupon = await response.json();
+
+        if (!coupon) {
             throw new Error(errMsg);
         }
+
+        return new Coupon(
+            coupon.id,
+            coupon.promoCode,
+            coupon.name,
+            coupon.amountOff,
+            coupon.percentOff,
+            new Date(coupon.addedAt),
+            coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+            coupon.duration,
+        );
     }
 
     /**
@@ -305,10 +310,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const path = `${this.ROOT_PATH}/coupon`;
         const response = await this.client.get(path);
         if (!response.ok) {
-            if (response.status === 401) {
-                throw new ErrorUnauthorized();
-            }
-
             throw new Error('cannot retrieve coupon');
         }
 
@@ -326,7 +327,89 @@ export class PaymentsHttpApi implements PaymentsApi {
             coupon.percentOff,
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
-            coupon.duration
+            coupon.duration,
         );
+    }
+
+    /**
+     * Get native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    public async getWallet(): Promise<Wallet> {
+        const path = `${this.ROOT_PATH}/wallet`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            switch (response.status) {
+            case 404:
+                return new Wallet();
+            default:
+                throw new Error('Can not get wallet');
+            }
+        }
+
+        const wallet = await response.json();
+        if (wallet) {
+            return new Wallet(wallet.address, wallet.balance);
+        }
+
+        throw new Error('Can not get wallet');
+    }
+
+    /**
+     * Claim new native storj token wallet.
+     *
+     * @returns wallet
+     * @throws Error
+     */
+    public async claimWallet(): Promise<Wallet> {
+        const path = `${this.ROOT_PATH}/wallet`;
+        const response = await this.client.post(path, null);
+
+        if (!response.ok) {
+            throw new Error('Can not claim new wallet');
+        }
+
+        const wallet = await response.json();
+        if (wallet) {
+            return new Wallet(wallet.address, wallet.balance);
+        }
+
+        return new Wallet();
+    }
+
+    /**
+     * Purchases the pricing package associated with the user's partner.
+     *
+     * @param token - the Stripe token used to add a credit card as a payment method
+     * @throws Error
+     */
+    public async purchasePricingPackage(token: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/purchase-package`;
+        const response = await this.client.post(path, token);
+
+        if (response.ok) {
+            return;
+        }
+
+        throw new Error('Could not purchase pricing package');
+    }
+
+    /**
+     * Returns whether there is a pricing package configured for the user's partner.
+     *
+     * @throws Error
+     */
+    public async pricingPackageAvailable(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/package-available`;
+        const response = await this.client.get(path);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        throw new Error('Could not check pricing package availability');
     }
 }

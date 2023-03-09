@@ -269,6 +269,36 @@ func TestListSegments(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
+
+		t.Run("segments from copy", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			for _, numberOfSegments := range []byte{0, 1, 2, 10} {
+				originalObjectStream := metabasetest.RandObjectStream()
+				originalObject, _ := metabasetest.CreateTestObject{}.
+					Run(ctx, t, db, originalObjectStream, numberOfSegments)
+
+				copyStream := metabasetest.RandObjectStream()
+				_, _, copySegments := metabasetest.CreateObjectCopy{
+					OriginalObject:   originalObject,
+					CopyObjectStream: &copyStream,
+				}.Run(ctx, t, db)
+
+				expectedSegments := []metabase.Segment{}
+				for _, segment := range copySegments {
+					expectedSegments = append(expectedSegments, metabase.Segment(segment))
+				}
+
+				metabasetest.ListSegments{
+					Opts: metabase.ListSegments{
+						StreamID: copyStream.StreamID,
+					},
+					Result: metabase.ListSegmentsResult{
+						Segments: expectedSegments,
+					},
+				}.Check(ctx, t, db)
+			}
+		})
 	})
 }
 

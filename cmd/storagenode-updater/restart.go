@@ -1,8 +1,8 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-//go:build !service || (!windows && !linux && service)
-// +build !service !windows,!linux,service
+//go:build !service || (!windows && !linux && !freebsd && !dragonfly && !netbsd && !openbsd && !solaris && !darwin && service)
+// +build !service !windows,!linux,!freebsd,!dragonfly,!netbsd,!openbsd,!solaris,!darwin,service
 
 package main
 

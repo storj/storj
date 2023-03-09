@@ -37,13 +37,13 @@ import { UINotification } from '@/app/types/notifications';
 // @vue/component
 @Component
 export default class SNONotification extends Vue {
-    @Prop({default: () => new UINotification()})
+    @Prop({ default: () => new UINotification() })
     public readonly notification: UINotification;
 
     /**
      * isSmall props indicates if component used in popup.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     public isSmall: boolean;
 
     /**
@@ -87,7 +87,7 @@ export default class SNONotification extends Vue {
             this.$store.dispatch(NOTIFICATIONS_ACTIONS.MARK_AS_READ, this.notification.id);
         } catch (error) {
             // TODO: implement UI notification system.
-            console.error(error.message);
+            console.error(error);
         }
     }
 }

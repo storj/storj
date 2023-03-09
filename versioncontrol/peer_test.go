@@ -6,8 +6,7 @@ package versioncontrol_test
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
-	"math/rand"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -205,7 +205,7 @@ func TestPeerEndpoint(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 
-				b, err := ioutil.ReadAll(resp.Body)
+				b, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
 				require.NotNil(t, b)
 				require.NoError(t, resp.Body.Close())
@@ -363,7 +363,7 @@ func randRollout(t *testing.T) versioncontrol.RolloutConfig {
 
 	return versioncontrol.RolloutConfig{
 		Seed:   randSeedString(t),
-		Cursor: rand.Intn(101),
+		Cursor: testrand.Intn(101),
 	}
 }
 
@@ -371,8 +371,6 @@ func randSeedString(t *testing.T) string {
 	t.Helper()
 
 	seed := make([]byte, 32)
-	_, err := rand.Read(seed)
-	require.NoError(t, err)
-
+	testrand.Read(seed)
 	return hex.EncodeToString(seed)
 }

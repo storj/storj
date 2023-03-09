@@ -66,7 +66,7 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = controller.service.Add(ctx, nodes.Node{ID: id, APISecret: apiSecret[:], PublicAddress: payload.PublicAddress}); err != nil {
+	if err = controller.service.Add(ctx, nodes.Node{ID: id, APISecret: apiSecret, PublicAddress: payload.PublicAddress}); err != nil {
 		switch {
 		case nodes.ErrNodeNotReachable.Has(err):
 			controller.serveError(w, http.StatusNotFound, ErrNodes.Wrap(err))

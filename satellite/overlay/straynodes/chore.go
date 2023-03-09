@@ -27,14 +27,14 @@ type Config struct {
 // Chore disqualifies stray nodes.
 type Chore struct {
 	log                       *zap.Logger
-	cache                     overlay.DB
+	cache                     *overlay.Service
 	maxDurationWithoutContact time.Duration
 	limit                     int
 	Loop                      *sync2.Cycle
 }
 
 // NewChore creates a new stray nodes Chore.
-func NewChore(log *zap.Logger, cache overlay.DB, config Config) *Chore {
+func NewChore(log *zap.Logger, cache *overlay.Service, config Config) *Chore {
 	return &Chore{
 		log:                       log,
 		cache:                     cache,

@@ -26,6 +26,10 @@ type Projects interface {
 	GetOwn(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*Project, error)
+	// GetSalt returns the project's salt.
+	GetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+	// GetByPublicID is a method for querying project from the database by public_id.
+	GetByPublicID(ctx context.Context, publicID uuid.UUID) (*Project, error)
 	// Insert is a method for inserting project into the database.
 	Insert(ctx context.Context, project *Project) (*Project, error)
 	// Delete is a method for deleting project by Id from the database.
@@ -47,6 +51,16 @@ type Projects interface {
 	GetMaxBuckets(ctx context.Context, id uuid.UUID) (*int, error)
 	// UpdateBucketLimit is a method for updating projects bucket limit.
 	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
+
+	// UpdateUsageLimits is a method for updating project's usage limits.
+	UpdateUsageLimits(ctx context.Context, id uuid.UUID, limits UsageLimits) error
+
+	// TestGetSalt returns the value (whether null or hashed project ID) from project's salt column in db.
+	TestGetSalt(ctx context.Context, id uuid.UUID) ([]byte, error)
+
+	// TestNullifySalt is a temporary method for nullifying the salt column
+	// for testing a migration tool (TODO lizzy delete after migration).
+	TestNullifySalt(ctx context.Context, id uuid.UUID) error
 }
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
@@ -54,6 +68,7 @@ type UsageLimitsConfig struct {
 	Storage   StorageLimitConfig
 	Bandwidth BandwidthLimitConfig
 	Segment   SegmentLimitConfig
+	Project   ProjectLimitConfig
 }
 
 // StorageLimitConfig is a configuration struct for default storage per-project usage limits.
@@ -70,36 +85,43 @@ type BandwidthLimitConfig struct {
 
 // SegmentLimitConfig is a configuration struct for default segments per-project usage limits.
 type SegmentLimitConfig struct {
-	Free int64 `help:"the default free-tier segment usage limit" default:"140000"`
-	Paid int64 `help:"the default paid-tier segment usage limit" default:"1000000"`
+	Free int64 `help:"the default free-tier segment usage limit" default:"150000"`
+	Paid int64 `help:"the default paid-tier segment usage limit" default:"100000000"`
+}
+
+// ProjectLimitConfig is a configuration struct for default project limits.
+type ProjectLimitConfig struct {
+	Free int `help:"the default free-tier project limit" default:"1"`
+	Paid int `help:"the default paid-tier project limit" default:"3"`
 }
 
 // Project is a database object that describes Project entity.
 type Project struct {
-	ID uuid.UUID `json:"id"`
+	ID       uuid.UUID `json:"id"`
+	PublicID uuid.UUID `json:"publicId"`
 
-	Name           string       `json:"name"`
-	Description    string       `json:"description"`
-	PartnerID      uuid.UUID    `json:"partnerId"`
-	UserAgent      []byte       `json:"userAgent"`
-	OwnerID        uuid.UUID    `json:"ownerId"`
-	RateLimit      *int         `json:"rateLimit"`
-	BurstLimit     *int         `json:"burstLimit"`
-	MaxBuckets     *int         `json:"maxBuckets"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	MemberCount    int          `json:"memberCount"`
-	StorageLimit   *memory.Size `json:"storageLimit"`
-	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
-	SegmentLimit   *int64       `json:"segmentLimit"`
+	Name                        string       `json:"name"`
+	Description                 string       `json:"description"`
+	UserAgent                   []byte       `json:"userAgent"`
+	OwnerID                     uuid.UUID    `json:"ownerId"`
+	RateLimit                   *int         `json:"rateLimit"`
+	BurstLimit                  *int         `json:"burstLimit"`
+	MaxBuckets                  *int         `json:"maxBuckets"`
+	CreatedAt                   time.Time    `json:"createdAt"`
+	MemberCount                 int          `json:"memberCount"`
+	StorageLimit                *memory.Size `json:"storageLimit"`
+	BandwidthLimit              *memory.Size `json:"bandwidthLimit"`
+	UserSpecifiedStorageLimit   *memory.Size `json:"userSpecifiedStorageLimit"`
+	UserSpecifiedBandwidthLimit *memory.Size `json:"userSpecifiedBandwidthLimit"`
+	SegmentLimit                *int64       `json:"segmentLimit"`
 }
 
 // ProjectInfo holds data needed to create/update Project.
 type ProjectInfo struct {
 	Name           string      `json:"name"`
 	Description    string      `json:"description"`
-	StorageLimit   memory.Size `json:"project specific storage limit"`
-	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
-	SegmentLimit   int64       `json:"project specific segment limit"`
+	StorageLimit   memory.Size `json:"storageLimit"`
+	BandwidthLimit memory.Size `json:"bandwidthLimit"`
 	CreatedAt      time.Time   `json:"createdAt"`
 }
 

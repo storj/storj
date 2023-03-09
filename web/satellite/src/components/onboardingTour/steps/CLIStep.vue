@@ -2,24 +2,22 @@
 // See LICENSE for copying information.
 
 <template>
-    <router-view />
+    <div>
+        <ProgressBar />
+        <router-view />
+    </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { RouteConfig } from "@/router";
+
+import ProgressBar from '@/components/onboardingTour/steps/cliFlow/ProgressBar.vue';
 
 // @vue/component
-@Component
-export default class OnbCLIStep extends Vue {
-    /**
-     * Mounted hook before initial render.
-     * Checks CLI flow status and redirects if needed.
-     */
-    public beforeMount(): void {
-        if (!this.$store.state.appStateModule.isNewOnbCLIFlow) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OldOverviewStep).path)
-        }
-    }
-}
+@Component({
+    components: {
+        ProgressBar,
+    },
+})
+export default class OnbCLIStep extends Vue {}
 </script>

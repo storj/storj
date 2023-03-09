@@ -315,9 +315,7 @@ func TestRecvTimeout(t *testing.T) {
 
 		// run the SN chore again to start processing transfers.
 		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
-		defer ctx.Check(worker.Close)
-
-		err = worker.Run(ctx, func() {})
+		err = worker.Run(ctx)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.DeadlineExceeded))
 	})
@@ -409,7 +407,7 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[0]
 
-		err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
+		_, err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 		require.NoError(t, err)
 
 		conn, err := exitingNode.Dialer.DialNodeURL(ctx, satellite.NodeURL())
@@ -452,7 +450,7 @@ func TestExitDisqualifiedNodeFailEventually(t *testing.T) {
 			}
 
 			if !isDisqualified {
-				err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID())
+				_, err := satellite.DB.OverlayCache().DisqualifyNode(ctx, exitingNode.ID(), time.Now(), overlay.DisqualificationReasonUnknown)
 				require.NoError(t, err)
 			}
 

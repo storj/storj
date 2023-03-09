@@ -26,13 +26,13 @@ func TestDB_PieceCounts(t *testing.T) {
 
 		type TestNode struct {
 			ID         storj.NodeID
-			PieceCount int // TODO: fix to int64
+			PieceCount int64
 		}
 
 		nodes := make([]TestNode, 100)
 		for i := range nodes {
 			nodes[i].ID = testrand.NodeID()
-			nodes[i].PieceCount = int(math.Pow10(i + 1))
+			nodes[i].PieceCount = int64(math.Pow10(i + 1))
 		}
 
 		for i, node := range nodes {
@@ -40,7 +40,7 @@ func TestDB_PieceCounts(t *testing.T) {
 			lastNet := fmt.Sprintf("127.0.%d", i)
 			d := overlay.NodeCheckInInfo{
 				NodeID:     node.ID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},
@@ -57,7 +57,7 @@ func TestDB_PieceCounts(t *testing.T) {
 		// since it will keep the logic slightly clearer.
 
 		// update counts
-		counts := make(map[storj.NodeID]int)
+		counts := make(map[storj.NodeID]int64)
 		for _, node := range nodes {
 			counts[node.ID] = node.PieceCount
 		}
@@ -89,9 +89,9 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 
 		overlaydb := db.OverlayCache()
 
-		counts := make(map[storj.NodeID]int)
+		counts := make(map[storj.NodeID]int64)
 		for i := 0; i < NumberOfNodes; i++ {
-			counts[testrand.NodeID()] = testrand.Intn(100000)
+			counts[testrand.NodeID()] = testrand.Int63n(100000)
 		}
 
 		var i int
@@ -101,7 +101,7 @@ func BenchmarkDB_PieceCounts(b *testing.B) {
 			i++
 			d := overlay.NodeCheckInInfo{
 				NodeID:     nodeID,
-				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				Address:    &pb.NodeAddress{Address: addr},
 				LastIPPort: addr,
 				LastNet:    lastNet,
 				Version:    &pb.NodeVersion{Version: "v1.0.0"},

@@ -39,27 +39,48 @@ func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB
 	sortRawObjects(step.Objects)
 	sortRawSegments(state.Segments)
 	sortRawSegments(step.Segments)
+	sortRawCopies(state.Copies)
+	sortRawCopies(step.Copies)
 
 	diff := cmp.Diff(metabase.RawState(step), *state,
-		cmpopts.EquateApproxTime(5*time.Second))
+		DefaultTimeDiff(),
+		cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
 func sortObjects(objects []metabase.Object) {
 	sort.Slice(objects, func(i, j int) bool {
-		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+		return objects[i].StreamID.Less(objects[j].StreamID)
+	})
+}
+
+func sortBucketTallies(tallies []metabase.BucketTally) {
+	sort.Slice(tallies, func(i, j int) bool {
+		if tallies[i].ProjectID == tallies[j].ProjectID {
+			return tallies[i].BucketName < tallies[j].BucketName
+		}
+		return tallies[i].ProjectID.Less(tallies[j].ProjectID)
 	})
 }
 
 func sortRawObjects(objects []metabase.RawObject) {
 	sort.Slice(objects, func(i, j int) bool {
-		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+		return objects[i].StreamID.Less(objects[j].StreamID)
 	})
 }
 
 func sortRawSegments(segments []metabase.RawSegment) {
 	sort.Slice(segments, func(i, j int) bool {
-		return bytes.Compare(segments[i].StreamID[:], segments[j].StreamID[:]) < 0
+		if segments[i].StreamID == segments[j].StreamID {
+			return segments[i].Position.Less(segments[j].Position)
+		}
+		return segments[i].StreamID.Less(segments[j].StreamID)
+	})
+}
+
+func sortRawCopies(copies []metabase.RawCopy) {
+	sort.Slice(copies, func(i, j int) bool {
+		return copies[i].StreamID.Less(copies[j].StreamID)
 	})
 }
 
@@ -69,7 +90,7 @@ func sortDeletedSegments(segments []metabase.DeletedSegmentInfo) {
 	})
 }
 
-func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
+func checkError(t require.TestingT, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)
 	}
@@ -79,4 +100,9 @@ func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)
 	}
+}
+
+// DefaultTimeDiff is the central place to adjust test sql "timeout" (accepted diff between start and end of the test).
+func DefaultTimeDiff() cmp.Option {
+	return cmpopts.EquateApproxTime(20 * time.Second)
 }

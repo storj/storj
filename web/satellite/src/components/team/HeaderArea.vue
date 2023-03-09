@@ -28,7 +28,7 @@
                         label="+ Add"
                         width="122px"
                         height="48px"
-                        :on-press="onAddUsersClick"
+                        :on-press="toggleTeamMembersModal"
                         :is-disabled="isAddButtonDisabled"
                     />
                 </div>
@@ -45,7 +45,7 @@
                         label="Cancel"
                         width="122px"
                         height="48px"
-                        is-transparent="true"
+                        :is-transparent="true"
                         :on-press="onClearSelection"
                     />
                     <span class="header-selected-members__info-text"><b>{{ selectedProjectMembersCount }}</b> users selected</span>
@@ -65,7 +65,7 @@
                             label="Cancel"
                             width="122px"
                             height="48px"
-                            is-transparent="true"
+                            :is-transparent="true"
                             :on-press="onClearSelection"
                         />
                     </div>
@@ -74,25 +74,27 @@
             <div v-if="isDeleteClicked" class="blur-content" />
             <div v-if="isDeleteClicked" class="blur-search" />
         </div>
-        <AddUserPopup v-if="isAddTeamMembersPopupShown" />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VButton from '@/components/common/VButton.vue';
-import VHeader from '@/components/common/VHeader.vue';
-import VInfo from '@/components/common/VInfo.vue';
-import AddUserPopup from '@/components/team/AddUserPopup.vue';
-
-import InfoIcon from '@/../static/images/team/infoTooltip.svg';
-
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { MODALS } from '@/utils/constants/appStatePopUps';
+
+import VInfo from '@/components/common/VInfo.vue';
+import VHeader from '@/components/common/VHeader.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import InfoIcon from '@/../static/images/team/infoTooltip.svg';
 
 declare interface ClearSearch {
     clearSearch(): void;
@@ -103,20 +105,21 @@ declare interface ClearSearch {
     components: {
         VButton,
         VHeader,
-        AddUserPopup,
         VInfo,
         InfoIcon,
     },
 })
 export default class HeaderArea extends Vue {
-    @Prop({default: ProjectMemberHeaderState.DEFAULT})
+    @Prop({ default: ProjectMemberHeaderState.DEFAULT })
     private readonly headerState: ProjectMemberHeaderState;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public readonly selectedProjectMembersCount: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly isAddButtonDisabled: boolean;
 
     private FIRST_PAGE = 1;
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Indicates if state after first delete click is active.
@@ -141,10 +144,10 @@ export default class HeaderArea extends Vue {
     }
 
     /**
-     * Opens add team members popup.
+     * Opens add team members modal.
      */
-    public onAddUsersClick(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+    public toggleTeamMembersModal(): void {
+        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
     }
 
     public onFirstDeleteClick(): void {
@@ -169,7 +172,7 @@ export default class HeaderArea extends Vue {
             await this.$store.dispatch(PM_ACTIONS.DELETE);
             await this.setProjectState();
         } catch (error) {
-            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`);
+            await this.$notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
             this.isDeleteClicked = false;
 
             return;
@@ -189,15 +192,8 @@ export default class HeaderArea extends Vue {
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
+            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
         }
-    }
-
-    /**
-     * Indicates if add team member popup should be rendered.
-     */
-    public get isAddTeamMembersPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
     }
 
     public get isDefaultState(): boolean {
@@ -215,7 +211,10 @@ export default class HeaderArea extends Vue {
     private async setProjectState(): Promise<void> {
         const projects: Project[] = await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
         if (!projects.length) {
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+            this.analytics.pageVisit(onboardingPath);
+            await this.$router.push(onboardingPath);
 
             return;
         }
@@ -358,7 +357,7 @@ export default class HeaderArea extends Vue {
         }
     }
 
-    ::v-deep .info__box__message {
+    :deep(.info__box__message) {
         min-width: 300px;
     }
 </style>

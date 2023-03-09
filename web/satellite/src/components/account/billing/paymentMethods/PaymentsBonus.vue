@@ -18,7 +18,7 @@
                 Add a Payment Method to Get Started
             </p>
             <p class="payments-bonus-container__text-container__additional-text">
-                Your first 50GB are free. You will not be charged until you use more than 50GB.
+                Your first 150GB are free. You will not be charged until you use more than 150GB.
             </p>
         </div>
     </div>
@@ -41,7 +41,7 @@ export default class PaymentsBonus extends Vue {
     /**
      * Indicates if any credit card is attached to account.
      */
-    @Prop({default: false})
+    @Prop({ default: false })
     public readonly anyCreditCards: boolean;
 }
 </script>
@@ -76,7 +76,7 @@ export default class PaymentsBonus extends Vue {
                 font-family: 'font_regular', sans-serif;
                 font-size: 14px;
                 line-height: 20px;
-                margin: 12px 0 0 0;
+                margin: 12px 0 0;
                 color: #717e92;
             }
         }
@@ -84,6 +84,8 @@ export default class PaymentsBonus extends Vue {
 
     .banner-logo-svg {
         min-width: 54px;
+        width: 207px;
+        height: 37px;
     }
 
     .banner-gift-svg {

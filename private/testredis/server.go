@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -71,7 +70,7 @@ func Start(ctx context.Context) (Server, error) {
 
 // Process starts a redis-server test process.
 func Process(ctx context.Context) (Server, error) {
-	tmpdir, err := ioutil.TempDir("", "storj-redis")
+	tmpdir, err := os.MkdirTemp("", "storj-redis")
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func Process(ctx context.Context) (Server, error) {
 	}
 
 	conf := strings.Join(arguments, "\n") + "\n"
-	err = ioutil.WriteFile(confpath, []byte(conf), 0755)
+	err = os.WriteFile(confpath, []byte(conf), 0755)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +129,7 @@ func Process(ctx context.Context) (Server, error) {
 			}
 		}
 		waitForReady <- scanner.Err()
-		_, _ = io.Copy(ioutil.Discard, read)
+		_, _ = io.Copy(io.Discard, read)
 	}()
 
 	select {

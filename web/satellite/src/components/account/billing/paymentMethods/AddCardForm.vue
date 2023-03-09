@@ -16,11 +16,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
+import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 
 const {
     ADD_CREDIT_CARD,
@@ -42,6 +44,8 @@ export default class AddCardForm extends Vue {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     /**
      * Adds card after Stripe confirmation.
      *
@@ -55,19 +59,22 @@ export default class AddCardForm extends Vue {
 
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
+
+            await this.$store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ADD_STRIPE_CC_FORM);
 
             this.$emit('toggleIsLoading');
 
             return;
         }
 
-        await this.$notify.success('Card successfully added');
+        await this.$notify.success('Card successfully added. There can be a delay before changes related to changing your limits will take effect.');
+
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_ADD_STRIPE_CC_FORM);
             this.$emit('toggleIsLoading');
         }
 
@@ -80,6 +87,7 @@ export default class AddCardForm extends Vue {
 
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
+                    this.analytics.pageVisit(RouteConfig.CreateProject.path);
                     this.$router.push(RouteConfig.CreateProject.path);
                 }
             }, 500);

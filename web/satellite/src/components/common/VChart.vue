@@ -3,7 +3,7 @@
 
 <script lang="ts">
 import { Line } from 'vue-chartjs';
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import { ChartData, RenderChart } from '@/types/chart';
 
@@ -34,7 +34,7 @@ class DayShowingConditions {
     extends: Line,
 })
 export default class VChart extends Vue {
-    @Prop({ default: () => { console.error('Tooltip constructor is undefined'); } })
+    @Prop({ default: () => () => { console.error('Tooltip constructor is undefined'); } })
     private tooltipConstructor: (tooltipModel) => void;
     @Prop({ default: {} })
     private readonly chartData: ChartData;
@@ -63,8 +63,16 @@ export default class VChart extends Vue {
                     ctx.stroke();
                     ctx.restore();
                 }
-            }
+            },
         });
+        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
+    }
+
+    @Watch('chartData')
+    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>) {
+        /**
+         * renderChart method is inherited from BaseChart which is extended by VChart.Line
+         */
         (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
     }
 
@@ -77,24 +85,47 @@ export default class VChart extends Vue {
         return {
             responsive: false,
             maintainAspectRatios: false,
+            animation: false,
+            hover: {
+                animationDuration: 0,
+            },
+            responsiveAnimationDuration: 0,
             legend: {
                 display: false,
             },
             layout: {
                 padding: {
                     top: 40,
-                }
+                },
             },
             elements: {
                 point: {
-                    radius: this.chartData.datasets.length === 1 ? 10 : 0,
+                    radius: this.chartData.labels.length === 1 ? 10 : 0,
                     hoverRadius: 10,
                     hitRadius: 8,
+                },
+                line: {
+                    tension: 0,
                 },
             },
             scales: {
                 yAxes: [{
-                    display: false,
+                    display: true,
+                    ticks: {
+                        callback: function(value, _, ticks) {
+                            const numDigits = ticks[ticks.length - 2].toString().length;
+
+                            const power = Math.floor((numDigits - 1) / 3);
+                            const result = value / Math.pow(1000, power);
+                            return result;
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 150,
+                        maxTicksLimit: 7,
+                    },
+                    gridLines: {
+                        display: false,
+                    },
                 }],
                 xAxes: [{
                     display: true,
@@ -112,13 +143,9 @@ export default class VChart extends Vue {
             },
             tooltips: {
                 enabled: false,
-
+                axis: 'x',
                 custom: (tooltipModel) => {
                     this.tooltipConstructor(tooltipModel);
-                },
-
-                labels: {
-                    enabled: true,
                 },
             },
         };

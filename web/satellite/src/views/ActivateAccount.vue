@@ -4,27 +4,53 @@
 <template>
     <div class="activate-area">
         <div class="activate-area__logo-wrapper">
-            <LogoIcon class="activate-area__logo-wrapper_logo" @click="onLogoClick" />
+            <LogoIcon class="activate-area__logo-wrapper__logo" @click="onLogoClick" />
         </div>
         <div class="activate-area__content-area">
-            <RegistrationSuccess v-if="isRegistrationSuccessShown" :email="email" />
+            <div v-if="isMessageShowing && isActivationExpired && !isResendSuccessShown" class="activate-area__content-area__message-banner">
+                <div class="activate-area__content-area__message-banner__content">
+                    <div class="activate-area__content-area__message-banner__content__left">
+                        <InfoIcon class="activate-area__content-area__message-banner__content__left__icon" />
+                        <span class="activate-area__content-area__message-banner__content__left__message">
+                            The verification link you clicked on has expired. Request a new link.
+                        </span>
+                    </div>
+                    <CloseIcon class="activate-area__content-area__message-banner__content__right" @click="closeMessage" />
+                </div>
+            </div>
+            <RegistrationSuccess v-if="isResendSuccessShown" :email="email" />
             <div v-else class="activate-area__content-area__container">
-                <h1 class="activate-area__content-area__container__title">Activate Account</h1>
+                <h1 class="activate-area__content-area__container__title">Verify Account</h1>
+                <p class="login-area__content-area__activation-banner__message">
+                    If you haven’t verified your account yet, input your email to receive a new verification link. Make sure you’re signing in to the right satellite.
+                </p>
                 <div class="activate-area__content-area__container__input-wrapper">
-                    <HeaderlessInput
+                    <VInput
                         label="Email Address"
-                        placeholder="example@email.com"
+                        placeholder="user@example.com"
                         :error="emailError"
                         height="46px"
                         width="100%"
                         @setData="setEmail"
                     />
                 </div>
-                <p class="activate-area__content-area__container__button" @click.prevent="onActivateClick">Activate</p>
+                <v-button
+                    class="activate-area__content-area__container__button"
+                    width="100%"
+                    height="48px"
+                    label="Activate Account"
+                    border-radius="8px"
+                    :is-disabled="isLoading"
+                    :on-press="onActivateClick"
+                >
+                    Reset Password
+                </v-button>
+                <div class="activate-area__content-area__container__login-row">
+                    <router-link :to="loginPath" class="activate-area__content-area__container__login-row__link">
+                        Back to Login
+                    </router-link>
+                </div>
             </div>
-            <router-link :to="loginPath" class="activate-area__content-area__login-link">
-                Back to Login
-            </router-link>
         </div>
     </div>
 </template>
@@ -32,46 +58,67 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
-
-import LogoIcon from '@/../static/images/logo.svg';
-
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { Validator } from '@/utils/validation';
+import { MetaUtils } from '@/utils/meta';
+
+import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
+import VInput from '@/components/common/VInput.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import LogoIcon from '@/../static/images/logo.svg';
+import InfoIcon from '@/../static/images/notifications/info.svg';
+import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
 // @vue/component
 @Component({
     components: {
         LogoIcon,
-        HeaderlessInput,
+        InfoIcon,
+        CloseIcon,
+        VButton,
+        VInput,
         RegistrationSuccess,
     },
 })
 export default class ActivateAccount extends Vue {
     private email = '';
     private emailError = '';
-    private isRegistrationSuccessShown = false;
+    private isResendSuccessShown = false;
+    private isActivationExpired = false;
+    private isMessageShowing = true;
+    private isLoading = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    public mounted(): void {
+        this.isActivationExpired = this.$route.query.expired === 'true';
+    }
+
+    /**
+     * Close the expiry message banner.
+     */
+    public closeMessage() {
+        this.isMessageShowing = false;
+    }
 
     /**
      * onActivateClick validates input fields and requests resending of activation email.
      */
     public async onActivateClick(): Promise<void> {
         if (!Validator.email(this.email)) {
-            this.emailError = "Invalid email";
+            this.emailError = 'Invalid email';
             return;
         }
 
         try {
             await this.auth.resendEmail(this.email);
-            this.isRegistrationSuccessShown = true;
+            this.isResendSuccessShown = true;
         } catch (error) {
-            this.$notify.error(error.message);
+            this.$notify.error(error.message, null);
         }
     }
 
@@ -84,10 +131,11 @@ export default class ActivateAccount extends Vue {
     }
 
     /**
-     * onLogoClick reloads the page.
+     * Redirects to storj.io homepage.
      */
     public onLogoClick(): void {
-        location.reload();
+        const homepageURL = MetaUtils.getMetaContent('homepage-url');
+        window.location.href = homepageURL;
     }
 }
 </script>
@@ -114,6 +162,8 @@ export default class ActivateAccount extends Vue {
 
             &__logo {
                 cursor: pointer;
+                width: 207px;
+                height: 37px;
             }
         }
 
@@ -148,28 +198,54 @@ export default class ActivateAccount extends Vue {
 
                 &__button {
                     margin-top: 40px;
+                }
+
+                &__login-row {
                     display: flex;
                     justify-content: center;
-                    align-items: center;
-                    background-color: #376fff;
-                    border-radius: 50px;
-                    color: #fff;
-                    cursor: pointer;
-                    width: 100%;
-                    height: 48px;
+                    margin-top: 1.5rem;
 
-                    &:hover {
-                        background-color: #0059d0;
+                    &__link {
+                        font-family: 'font_medium', sans-serif;
+                        text-decoration: none;
+                        font-size: 14px;
+                        color: #0149ff;
                     }
                 }
             }
 
-            &__login-link {
-                font-family: 'font_medium', sans-serif;
-                text-decoration: none;
-                font-size: 14px;
-                color: #376fff;
-                margin-top: 50px;
+            &__message-banner {
+                padding: 1.5rem;
+                border-radius: 0.6rem;
+                width: 570px;
+                margin-bottom: 2.5rem;
+                background-color: #ffe0e7;
+                border: 1px solid #ffc0cf;
+                box-shadow: 0 7px 20px rgb(0 0 0 / 15%);
+                color: #000;
+
+                &__content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+
+                    &__left {
+                        display: flex;
+                        align-items: center;
+                        justify-content: flex-start;
+                        gap: 1.5rem;
+
+                        &__message {
+                            font-size: 0.95rem;
+                            line-height: 1.4px;
+                            margin: 0;
+                        }
+
+                        &__icon {
+                            fill: #ff458b;
+                        }
+                    }
+                }
             }
         }
     }
@@ -200,8 +276,7 @@ export default class ActivateAccount extends Vue {
                 padding: 0;
 
                 &__container {
-                    padding: 20px;
-                    padding-top: 0;
+                    padding: 0 20px 20px;
                     background: transparent;
                 }
             }

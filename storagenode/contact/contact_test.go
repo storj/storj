@@ -19,6 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode/contact"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
@@ -158,5 +159,18 @@ func TestLocalAndUpdateSelf(t *testing.T) {
 		})
 		node.Contact.Service.UpdateSelf(&pb.NodeCapacity{})
 		_ = group.Wait()
+	})
+}
+
+func TestServiceRequestPingMeQUIC(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		quicStats, err := node.Contact.Service.RequestPingMeQUIC(ctx)
+		require.NoError(t, err)
+		require.Equal(t, contact.NetworkStatusOk, quicStats.Status())
 	})
 }

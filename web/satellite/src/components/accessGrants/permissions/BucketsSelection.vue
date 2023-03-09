@@ -13,14 +13,19 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown v-if="isDropdownShown" />
+        <BucketsDropdown
+            v-if="isDropdownShown"
+            :show-scrollbar="showScrollbar"
+        />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
 
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
@@ -33,18 +38,20 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
     },
 })
 export default class BucketsSelection extends Vue {
+    @Prop({ default: false })
+    private readonly showScrollbar: boolean;
     /**
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_BUCKET_NAMES_DROPDOWN);
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.BUCKET_NAMES);
     }
 
     /**
      * Indicates if dropdown is shown.
      */
     public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.isBucketNamesDropdownShown;
+        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
     }
 
     /**
@@ -75,7 +82,7 @@ export default class BucketsSelection extends Vue {
         cursor: pointer;
         margin-left: 20px;
         border-radius: 6px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         font-family: 'font_regular', sans-serif;
         width: 235px;
         position: relative;

@@ -6,7 +6,7 @@
         <div class="label-container">
             <p v-if="label" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
         </div>
-        <InputCaret v-if="optionsList.length > 0" class="select-input__caret" />
+        <input-caret v-if="optionsList.length > 0" class="select-input__caret" />
         <select
             v-model="value"
             :style="style.inputStyle"
@@ -25,64 +25,56 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, ref } from 'vue';
 
 import InputCaret from '@/../static/images/common/caret.svg';
 
-// Custom input component for login page
-// @vue/component
-@Component({
-    components: {
-        InputCaret,
-    },
-})
-export default class SelectInput extends Vue {
+const props = withDefaults(defineProps<{
+    label?: string;
+    height?: string;
+    width?: string;
+    optionsList?: string[];
+    isWhite?: boolean;
+}>(), {
+    label: '',
+    height: '48px',
+    width: '100%',
+    optionsList: () => [],
+    isWhite: false,
+});
 
-    protected value = '';
+const emit = defineEmits(['setData']);
 
-    @Prop({default: ''})
-    protected readonly label: string;
-    @Prop({default: '48px'})
-    protected readonly height: string;
-    @Prop({default: '100%'})
-    protected readonly width: string;
-    @Prop({default: () => []})
-    protected readonly optionsList: string[];
+const value = ref<string>('');
 
-    @Prop({default: false})
-    private readonly isWhite: boolean;
+/**
+ * Returns style objects depends on props.
+ */
+const style = computed((): Record<string, unknown> => {
+    return {
+        inputStyle: {
+            width: props.width,
+            height: props.height,
+        },
+        labelStyle: {
+            color: props.isWhite ? 'white' : '#354049',
+        },
+    };
+});
 
-    public constructor() {
-        super();
-
-        this.value = this.optionsList ? this.optionsList[0] : '';
-        this.$emit('setData', this.value);
-    }
-
-    /**
-     * triggers on input.
-     */
-    public onInput(event: Event): void {
-        const target = event.target as HTMLSelectElement;
-        this.$emit('setData', target.value);
-    }
-
-    /**
-     * Returns style objects depends on props.
-     */
-    protected get style(): Record<string, unknown> {
-        return {
-            inputStyle: {
-                width: this.width,
-                height: this.height,
-            },
-            labelStyle: {
-                color: this.isWhite ? 'white' : '#354049',
-            },
-        };
-    }
+/**
+ * triggers on input.
+ */
+function onInput(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    emit('setData', target.value);
 }
+
+onBeforeMount(() => {
+    value.value = props.optionsList ? props.optionsList[0] : '';
+    emit('setData', value.value);
+});
 </script>
 
 <style scoped lang="scss">
@@ -98,13 +90,9 @@ export default class SelectInput extends Vue {
             height: 46px;
             padding: 0 30px 0 0;
             text-indent: 20px;
-            border: 1px solid rgba(56, 75, 101, 0.4);
+            border: 1px solid rgb(56 75 101 / 40%);
             border-radius: 6px;
-            -webkit-box-sizing: border-box;
-            -moz-box-sizing: border-box;
             box-sizing: border-box;
-            -webkit-appearance: none;
-            -moz-appearance: none;
             appearance: none;
 
             &__caret {

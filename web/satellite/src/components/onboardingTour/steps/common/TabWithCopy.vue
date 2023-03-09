@@ -11,7 +11,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CopyIcon from '@/../static/images/onboardingTour/copy.svg';
+import CopyIcon from '@/../static/images/common/copy.svg';
 
 // @vue/component
 @Component({
@@ -20,9 +20,9 @@ import CopyIcon from '@/../static/images/onboardingTour/copy.svg';
     },
 })
 export default class TabWithCopy extends Vue {
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly value: string;
-    @Prop({ default: ''})
+    @Prop({ default: '' })
     public readonly ariaRoleDescription: string;
 
     /**
@@ -43,7 +43,7 @@ export default class TabWithCopy extends Vue {
         justify-content: space-between;
         padding: 24px 30px;
         background: #183055;
-        border-radius: 0 6px 6px 6px;
+        border-radius: 0 6px 6px;
 
         &__value {
             font-size: 14px;

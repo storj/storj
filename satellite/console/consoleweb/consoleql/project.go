@@ -42,6 +42,8 @@ const (
 	APIKeysPageType = "apiKeysPage"
 	// APIKeysCursorInputType is a graphql type name for api keys.
 	APIKeysCursorInputType = "apiKeysCursor"
+	// FieldPublicID is a field name for "publicId".
+	FieldPublicID = "publicId"
 	// FieldOwnerID is a field name for "ownerId".
 	FieldOwnerID = "ownerId"
 	// FieldName is a field name for "name".
@@ -110,6 +112,9 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			FieldID: &graphql.Field{
 				Type: graphql.String,
 			},
+			FieldPublicID: &graphql.Field{
+				Type: graphql.String,
+			},
 			FieldName: &graphql.Field{
 				Type: graphql.String,
 			},
@@ -135,7 +140,7 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					_, err := console.GetAuth(p.Context)
+					_, err := console.GetUser(p.Context)
 					if err != nil {
 						return nil, err
 					}
@@ -182,11 +187,6 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
-
-					_, err := console.GetAuth(p.Context)
-					if err != nil {
-						return nil, err
-					}
 
 					cursor := cursorArgsToAPIKeysCursor(p.Args[CursorArg].(map[string]interface{}))
 					page, err := service.GetAPIKeys(p.Context, project.ID, cursor)

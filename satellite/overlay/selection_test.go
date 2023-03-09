@@ -6,6 +6,7 @@ package overlay_test
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"net"
 	"runtime"
 	"strings"
@@ -38,7 +39,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 			UniqueIPCount: 2,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
-				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
+				config.Overlay.NodeSelectionCache.Staleness = lowStaleness
 				config.Overlay.NodeCheckInWaitPeriod = 0
 			},
 		},
@@ -156,9 +157,13 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			UniqueIPCount: 5,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
+				config.Reputation.AuditCount = 1
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
 			},
 		},
@@ -191,14 +196,16 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 0; i < 5; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
+		err := repService.TestFlushAllNodeInfo(ctx)
+		require.NoError(t, err)
 
 		t.Run("request 5, where 1 new", func(t *testing.T) {
 			requestedCount, newCount := 5, 1
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -211,7 +218,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		t.Run("request 5, all new", func(t *testing.T) {
 			requestedCount, newCount := 5, 5
 			newNodeFraction := float64(newCount) / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
 			req := overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
 			}
@@ -229,15 +236,15 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		for i := 5; i < 10; i++ {
 			node := planet.StorageNodes[i]
 			reputable[node.ID()] = true
-			err := repService.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+			err := repService.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 
 		t.Run("no new nodes", func(t *testing.T) {
 			requestedCount, newCount := 5, 1.0
 			newNodeFraction := newCount / float64(requestedCount)
-			preferences := testNodeSelectionConfig(newNodeFraction, false)
-			satellite.Config.Overlay.Node = testNodeSelectionConfig(newNodeFraction, false)
+			preferences := testNodeSelectionConfig(newNodeFraction)
+			satellite.Config.Overlay.Node = testNodeSelectionConfig(newNodeFraction)
 
 			nodes, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
 				RequestedCount: requestedCount,
@@ -354,7 +361,7 @@ func TestNodeSelection(t *testing.T) {
 					require.NoError(t, err)
 				}
 			}
-			config := testNodeSelectionConfig(tt.newNodeFraction, false)
+			config := testNodeSelectionConfig(tt.newNodeFraction)
 			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{RequestedCount: tt.requestCount, ExcludedIDs: excludedNodes}, &config)
 			if tt.shouldFailWith != nil {
 				require.Error(t, err)
@@ -380,10 +387,14 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 5 // need 5 audits to be vetted
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -397,7 +408,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 		// nodes at indices 0, 2, 4, 6, 8 are gracefully exiting
 		for i, node := range planet.StorageNodes {
 			for k := 0; k < i; k++ {
-				err := satellite.Reputation.Service.ApplyAudit(ctx, node.ID(), reputation.AuditSuccess)
+				err := satellite.Reputation.Service.ApplyAudit(ctx, node.ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 				require.NoError(t, err)
 			}
 
@@ -412,6 +423,8 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			}
 		}
 
+		// There are now 5 new nodes, and 5 reputable (vetted) nodes. 3 of the
+		// new nodes are gracefully exiting, and 2 of the reputable nodes.
 		type test struct {
 			Preferences    overlay.NodeSelectionConfig
 			ExcludeCount   int
@@ -422,36 +435,36 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 
 		for i, tt := range []test{
 			{ // reputable and new nodes, happy path
-				Preferences:   testNodeSelectionConfig(0.5, false),
+				Preferences:   testNodeSelectionConfig(0.5),
 				RequestCount:  5,
-				ExpectedCount: 5,
+				ExpectedCount: 5, // 2 new + 3 vetted
 			},
 			{ // all reputable nodes, happy path
-				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				Preferences:   testNodeSelectionConfig(0),
+				RequestCount:  3,
+				ExpectedCount: 3,
 			},
 			{ // all new nodes, happy path
-				Preferences:   testNodeSelectionConfig(1, false),
-				RequestCount:  5,
-				ExpectedCount: 5,
+				Preferences:   testNodeSelectionConfig(1),
+				RequestCount:  2,
+				ExpectedCount: 2,
 			},
 			{ // reputable and new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(0.5, false),
+				Preferences:    testNodeSelectionConfig(0.5),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  5, // 2 new + 3 vetted
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all reputable nodes, requested too many
-				Preferences:    testNodeSelectionConfig(1, false),
+				Preferences:    testNodeSelectionConfig(0),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  3,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 			{ // all new nodes, requested too many
-				Preferences:    testNodeSelectionConfig(1, false),
+				Preferences:    testNodeSelectionConfig(1),
 				RequestCount:   10,
-				ExpectedCount:  5,
+				ExpectedCount:  2,
 				ShouldFailWith: &overlay.ErrNotEnoughNodes,
 			},
 		} {
@@ -620,17 +633,22 @@ func TestDistinctIPs(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			UniqueIPCount: 3,
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
+				config.Overlay.Node.DistinctIP = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
@@ -647,17 +665,22 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			UniqueIPCount: 3, // creates 3 additional unique ip addresses, totaling to 4 IPs
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.UpdateStatsBatchSize = 1
+				config.Reputation.InitialAlpha = 1
 				config.Reputation.AuditLambda = 1
+				config.Reputation.UnknownAuditLambda = 1
 				config.Reputation.AuditWeight = 1
 				config.Reputation.AuditDQ = 0.5
+				config.Reputation.UnknownAuditDQ = 0.5
 				config.Reputation.AuditHistory = testAuditHistoryConfig()
+				config.Reputation.AuditCount = 1
+				config.Overlay.Node.DistinctIP = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// Vets nodes[8] and nodes[9].
 		for i := 9; i > 7; i-- {
-			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), reputation.AuditSuccess)
+			err := satellite.Reputation.Service.ApplyAudit(ctx, planet.StorageNodes[i].ID(), overlay.ReputationStatus{}, reputation.AuditSuccess)
 			assert.NoError(t, err)
 		}
 		testDistinctIPs(t, ctx, planet)
@@ -676,16 +699,12 @@ func testDistinctIPs(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 		{ // test only distinct IPs with half new nodes
 			// expect 2 new and 2 vetted
 			requestCount: 4,
-			preferences:  testNodeSelectionConfig(0.5, true),
+			preferences:  testNodeSelectionConfig(0.5),
 		},
 		{ // test not enough distinct IPs
 			requestCount:   5, // expect 3 new, 2 old but fails because only 4 distinct IPs, not 5
-			preferences:    testNodeSelectionConfig(0.6, true),
+			preferences:    testNodeSelectionConfig(0.6),
 			shouldFailWith: &overlay.ErrNotEnoughNodes,
-		},
-		{ // test distinct flag false allows duplicate IP addresses
-			requestCount: 5, // expect 3 new, 2 old
-			preferences:  testNodeSelectionConfig(0.6, false),
 		},
 	}
 
@@ -720,17 +739,28 @@ func TestAddrtoNetwork_Conversion(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ip := "8.8.8.8:28967"
-	resolvedIPPort, network, err := overlay.ResolveIPAndNetwork(ctx, ip)
-	require.Equal(t, "8.8.8.0", network)
-	require.Equal(t, ip, resolvedIPPort)
-	require.NoError(t, err)
+	runTest := func(t *testing.T, ipAddr, port string, distinctIPEnabled bool, ipv4Mask, ipv6Mask int, expectedNetwork string) {
+		t.Run(fmt.Sprintf("%s-%s-%v-%d-%d", ipAddr, port, distinctIPEnabled, ipv4Mask, ipv6Mask), func(t *testing.T) {
+			ipAndPort := net.JoinHostPort(ipAddr, port)
+			config := overlay.NodeSelectionConfig{
+				DistinctIP:        distinctIPEnabled,
+				NetworkPrefixIPv4: ipv4Mask,
+				NetworkPrefixIPv6: ipv6Mask,
+			}
+			resolvedIP, resolvedPort, network, err := overlay.ResolveIPAndNetwork(ctx, ipAndPort, config, overlay.MaskOffLastNet)
+			require.NoError(t, err)
+			assert.Equal(t, expectedNetwork, network)
+			assert.Equal(t, ipAddr, resolvedIP.String())
+			assert.Equal(t, port, resolvedPort)
+		})
+	}
 
-	ipv6 := "[fc00::1:200]:28967"
-	resolvedIPPort, network, err = overlay.ResolveIPAndNetwork(ctx, ipv6)
-	require.Equal(t, "fc00::", network)
-	require.Equal(t, ipv6, resolvedIPPort)
-	require.NoError(t, err)
+	runTest(t, "8.8.255.8", "28967", true, 17, 128, "8.8.128.0")
+	runTest(t, "8.8.255.8", "28967", false, 0, 0, "8.8.255.8:28967")
+
+	runTest(t, "fc00::1:200", "28967", true, 0, 64, "fc00::")
+	runTest(t, "fc00::1:200", "28967", true, 0, 128-16, "fc00::1:0")
+	runTest(t, "fc00::1:200", "28967", false, 0, 0, "[fc00::1:200]:28967")
 }
 
 func TestCacheSelectionVsDBSelection(t *testing.T) {

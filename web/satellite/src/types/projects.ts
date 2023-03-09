@@ -46,11 +46,26 @@ export interface ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits>;
 
     /**
+     * Get project salt
+     *
+     * @param projectID - project ID
+     * throws Error
+     */
+    getSalt(projectID: string): Promise<string>;
+
+    /**
      * Get project limits.
      *
      * throws Error
      */
     getTotalLimits(): Promise<ProjectLimits>;
+
+    /**
+     * Get project daily usage by specific date range.
+     *
+     * throws Error
+     */
+    getDailyUsage(projectID: string, start: Date, end: Date): Promise<ProjectsStorageBandwidthDaily>;
 
     /**
      * Fetch owned projects.
@@ -90,9 +105,7 @@ export class Project {
      */
     public createdDate(): string {
         const createdAt = new Date(this.createdAt);
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-
-        return createdAt.toLocaleString('en-US', options);
+        return createdAt.toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: 'numeric' });
     }
 }
 
@@ -110,12 +123,8 @@ export class ProjectFields {
      * checkName checks if project name is valid.
      */
     public checkName(): void {
-        try {
-            this.nameIsNotEmpty();
-            this.nameHasLessThenTwentySymbols();
-        } catch (error) {
-            throw new Error(error.message);
-        }
+        this.nameIsNotEmpty();
+        this.nameHasLessThenTwentySymbols();
     }
 
     /**
@@ -144,6 +153,8 @@ export class ProjectLimits {
         public storageUsed: number = 0,
         public objectCount: number = 0,
         public segmentCount: number = 0,
+        public segmentLimit: number = 0,
+        public segmentUsed: number = 0,
     ) {}
 }
 
@@ -184,25 +195,18 @@ export class ProjectsCursor {
  * DataStamp is storage/bandwidth usage stamp for satellite at some point in time
  */
 export class DataStamp {
-    public value: number;
-    public intervalStart: Date;
-
-    public constructor(value = 0, intervalStart: Date = new Date()) {
-        this.value = value;
-        this.intervalStart = intervalStart;
-    }
+    public constructor(
+        public value = 0,
+        public intervalStart = new Date(),
+    ) {}
 
     /**
      * Creates new empty instance of stamp with defined date
-     * @param date - holds specific date of the month
+     * @param date - holds specific date of the date range
      * @returns Stamp - new empty instance of stamp with defined date
      */
-    public static emptyWithDate(date: number): DataStamp {
-        const now = new Date();
-        now.setUTCDate(date);
-        now.setUTCHours(0, 0, 0, 0);
-
-        return new DataStamp(0, now);
+    public static emptyWithDate(date: Date): DataStamp {
+        return new DataStamp(0, date);
     }
 }
 
@@ -211,17 +215,16 @@ export class DataStamp {
  */
 export class ProjectsStorageBandwidthDaily {
     public constructor(
-        public bandwidth: DataStamp[] = [],
         public storage: DataStamp[] = [],
+        public allocatedBandwidth: DataStamp[] = [],
+        public settledBandwidth: DataStamp[] = [],
     ) {}
 }
 
 /**
  * ProjectUsageDateRange is used to describe project's usage by date range.
  */
-export class ProjectUsageDateRange {
-    public constructor(
-        public since: Date,
-        public before: Date,
-    ) {}
+export interface ProjectUsageDateRange {
+    since: Date;
+    before: Date;
 }

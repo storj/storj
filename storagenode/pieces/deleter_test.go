@@ -61,7 +61,7 @@ func TestDeleter(t *testing.T) {
 				pieceID := testrand.PieceID()
 
 				data := testrand.Bytes(memory.KB)
-				w, err := store.Writer(ctx, satelliteID, pieceID)
+				w, err := store.Writer(ctx, satelliteID, pieceID, pb.PieceHashAlgorithm_SHA256)
 				require.NoError(t, err)
 				_, err = w.Write(data)
 				require.NoError(t, err)

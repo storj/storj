@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -115,7 +117,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object1 := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 			metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj2,
@@ -123,7 +125,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Run(ctx, t, db, obj2, 1)
-			object3 := metabasetest.CreateTestObject{
+			object3, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj3,
 					ExpiresAt:    &futureTime,
@@ -398,7 +400,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 		t.Run("committed objects", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object1 := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+			object1, _ := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
 
 			object2 := object1
 			object2.ObjectStream = obj2
@@ -410,7 +412,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 				},
 			}.Run(ctx, t, db, object2.ObjectStream, 1)
 
-			object3 := metabasetest.CreateTestObject{
+			object3, _ := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream:           obj3,
 					ZombieDeletionDeadline: &futureTime,
@@ -455,6 +457,35 @@ func TestDeleteZombieObjects(t *testing.T) {
 					metabase.RawSegment(expectedObj3Segment),
 				},
 			}.Check(ctx, t, db)
+		})
+
+		// pending objects migrated to metabase doesn't have zombie_deletion_deadline
+		// column set correctly but we need to delete them too
+		t.Run("migrated objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream: obj1,
+			})
+			require.NoError(t, err)
+
+			// metabase is always setting default value for zombie_deletion_deadline
+			// so we need to set it manually
+			_, err = db.UnderlyingTagSQL().Exec(ctx, "UPDATE objects SET zombie_deletion_deadline = NULL")
+			require.NoError(t, err)
+
+			objects, err := db.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Nil(t, objects[0].ZombieDeletionDeadline)
+
+			metabasetest.DeleteZombieObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now,
+					InactiveDeadline: now.Add(1 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 	})
 }

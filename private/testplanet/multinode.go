@@ -11,6 +11,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
@@ -65,7 +66,7 @@ func (planet *Planet) newMultinodes(ctx context.Context, prefix string, count in
 			system, err = planet.newMultinode(ctx, name, index, log)
 		})
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
@@ -80,12 +81,12 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 
 	storageDir := filepath.Join(planet.directory, prefix)
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	identity, err := planet.NewIdentity()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	config := multinode.Config{
@@ -106,24 +107,24 @@ func (planet *Planet) newMultinode(ctx context.Context, prefix string, index int
 	var db multinode.DB
 	db, err = multinodedb.Open(ctx, log.Named("db"), database)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	if planet.config.Reconfigure.MultinodeDB != nil {
 		db, err = planet.config.Reconfigure.MultinodeDB(index, db, planet.log)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 	}
 
 	peer, err := multinode.New(log, identity, config, db)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	planet.databases = append(planet.databases, db)

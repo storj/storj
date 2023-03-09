@@ -11,12 +11,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/repair/checker"
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
@@ -154,8 +157,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedLocation.ObjectKey = "piece"
-		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+		_, err = planet.Satellites[0].Metabase.DB.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: expectedLocation.Object(),
+			Version:        metabase.DefaultVersion,
 		})
 		require.NoError(t, err)
 
@@ -255,6 +259,62 @@ func TestCleanRepairQueue(t *testing.T) {
 	})
 }
 
+func TestIgnoringCopiedSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplink := planet.Uplinks[0]
+		metabaseDB := satellite.Metabase.DB
+
+		checker := satellite.Repair.Checker
+		repairQueue := satellite.DB.RepairQueue()
+
+		checker.Loop.Pause()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		err := uplink.CreateBucket(ctx, satellite, "test-bucket")
+		require.NoError(t, err)
+
+		testData := testrand.Bytes(8 * memory.KiB)
+		err = uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		project, err := uplink.OpenProject(ctx, satellite)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		segments, err := metabaseDB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+
+		_, err = project.CopyObject(ctx, "testbucket", "test/path", "testbucket", "empty", nil)
+		require.NoError(t, err)
+
+		segmentsAfterCopy, err := metabaseDB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segmentsAfterCopy, 2)
+
+		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(segments[0].Pieces[0].StorageNode))
+		require.NoError(t, err)
+
+		checker.Loop.TriggerWait()
+
+		// check that injured segment in repair queue streamID is same that in original segment.
+		injuredSegment, err := repairQueue.Select(ctx)
+		require.NoError(t, err)
+		require.Equal(t, segments[0].StreamID, injuredSegment.StreamID)
+
+		// check that repair queue has only original segment, and not copied one.
+		injuredSegments, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, injuredSegments)
+	})
+}
+
 func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
 	pieces := make(metabase.Pieces, rs.OptimalShares)
 	for i := range pieces {
@@ -331,4 +391,36 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	require.NoError(t, err)
 
 	return obj.StreamID
+}
+
+func BenchmarkRemoteSegment(b *testing.B) {
+	testplanet.Bench(b, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(b *testing.B, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(10*memory.KiB))
+		require.NoError(b, err)
+
+		observer := checker.NewCheckerObserver(planet.Satellites[0].Repair.Checker)
+		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(b, err)
+
+		loopSegment := &segmentloop.Segment{
+			StreamID:   segments[0].StreamID,
+			Position:   segments[0].Position,
+			CreatedAt:  segments[0].CreatedAt,
+			ExpiresAt:  segments[0].ExpiresAt,
+			Redundancy: segments[0].Redundancy,
+			Pieces:     segments[0].Pieces,
+		}
+
+		b.Run("healthy segment", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				err := observer.RemoteSegment(ctx, loopSegment)
+				if err != nil {
+					b.FailNow()
+				}
+			}
+		})
+	})
+
 }

@@ -49,11 +49,8 @@ export default class LoadingScreen extends Vue {}
         }
     }
 
-    .storj-logo {
-
-        path {
-            fill: var(--loader-logo-color);
-        }
+    .storj-logo ::v-deep path {
+        fill: var(--loader-logo-color);
     }
 
     .loader {
@@ -72,7 +69,7 @@ export default class LoadingScreen extends Vue {}
 
     .background {
         fill: none;
-        stroke: rgba(206, 206, 206, 0.2);
+        stroke: rgb(206 206 206 / 20%);
         stroke-width: 20;
     }
 

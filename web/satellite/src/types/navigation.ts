@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vue, {VueConstructor} from 'vue';
+import Vue, { VueConstructor } from 'vue';
 
 export class NavigationLink {
     private readonly _path: string;

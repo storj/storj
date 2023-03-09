@@ -19,7 +19,7 @@ func TestNavigation(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		signupPageURL := planet.Satellites[0].ConsoleURL() + "/signup"
 		fullName := "John Doe"
-		emailAddress := "test@email.com"
+		emailAddress := "test@email.test"
 		password := "qazwsx123"
 
 		page := openPage(browser, signupPageURL)
@@ -44,7 +44,7 @@ func TestNavigation(t *testing.T) {
 		waitVueTick(page)
 
 		// skip onboarding process
-		page.MustElement("[href=\"/project-dashboard\"]").MustClick()
+		page.MustElement("[href=\"/new-project-dashboard\"]").MustClick()
 		dashboardTitle := page.MustElement("[aria-roledescription=title]").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
 
@@ -60,9 +60,9 @@ func TestNavigation(t *testing.T) {
 		page.MustElement("[aria-roledescription=project-selection]").MustClick()
 		page.MustElementR("p", "Create new").MustClick()
 		waitVueTick(page)
-		createProjectTitle := page.MustElement("[aria-roledescription=title]").MustText()
-		require.Contains(t, createProjectTitle, "Create a Project")
-		page.MustNavigateBack()
+		createProjectPromptTitle := page.MustElement("[aria-roledescription=modal-title]").MustText()
+		require.Contains(t, createProjectPromptTitle, "Get more projects\nwhen you upgrade")
+		page.MustElement(".close-cross-container").MustClick()
 
 		// project dashboard route
 		page.MustElementR("p", "Dashboard").MustClick()

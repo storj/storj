@@ -7,8 +7,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 /**
  * BarFillStyle class holds info for BarFillStyle entity.
@@ -23,26 +23,25 @@ class BarFillStyle {
     }
 }
 
-// @vue/component
-@Component
-export default class VBar extends Vue {
-    @Prop({default: 0})
-    private readonly current: number;
-    @Prop({default: 0})
-    private readonly max: number;
-    @Prop({default: '#0068DC'})
-    private readonly color: string;
+const props = withDefaults(defineProps<{
+    current?: number;
+    max?: number;
+    color?: string;
+}>(), {
+    current: 0,
+    max: 0,
+    color: '#0068DC',
+});
 
-    public get barFillStyle(): BarFillStyle {
-        if (this.current > this.max) {
-            return new BarFillStyle(this.color, '100%');
-        }
-
-        const width = (this.current / this.max) * 100 + '%';
-
-        return new BarFillStyle(this.color, width);
+const barFillStyle = computed((): BarFillStyle => {
+    if (props.current > props.max) {
+        return new BarFillStyle(props.color, '100%');
     }
-}
+
+    const width = (props.current / props.max) * 100 + '%';
+
+    return new BarFillStyle(props.color, width);
+});
 </script>
 
 <style scoped lang="scss">

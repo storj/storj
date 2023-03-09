@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
 )
 
@@ -33,6 +34,7 @@ func NewAPIKeys(log *zap.Logger, service *console.Service) *APIKeys {
 }
 
 // DeleteByNameAndProjectID deletes specific api key by it's name and project ID.
+// ID here may be project.publicID or project.ID.
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -40,15 +42,28 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 	name := r.URL.Query().Get("name")
 	projectIDString := r.URL.Query().Get("projectID")
+	publicIDString := r.URL.Query().Get("publicID")
 
 	if name == "" {
 		keys.serveJSONError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	projectID, err := uuid.FromString(projectIDString)
-	if err != nil {
-		keys.serveJSONError(w, http.StatusBadRequest, err)
+	var projectID uuid.UUID
+	if projectIDString != "" {
+		projectID, err = uuid.FromString(projectIDString)
+		if err != nil {
+			keys.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
+	} else if publicIDString != "" {
+		projectID, err = uuid.FromString(publicIDString)
+		if err != nil {
+			keys.serveJSONError(w, http.StatusBadRequest, err)
+			return
+		}
+	} else {
+		keys.serveJSONError(w, http.StatusBadRequest, errs.New("Project ID was not provided."))
 		return
 	}
 
@@ -71,5 +86,5 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 // serveJSONError writes JSON error to response output stream.
 func (keys *APIKeys) serveJSONError(w http.ResponseWriter, status int, err error) {
-	serveJSONError(keys.log, w, status, err)
+	web.ServeJSONError(keys.log, w, status, err)
 }

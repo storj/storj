@@ -2,13 +2,12 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccessGrant,
     AccessGrantCursor,
     AccessGrantsApi,
     AccessGrantsPage,
-    GatewayCredentials,
+    EdgeCredentials,
 } from '@/types/accessGrants';
 import { HttpClient } from '@/utils/httpClient';
 import { MetaUtils } from '@/utils/meta';
@@ -31,7 +30,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const query =
             `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
                 project (
-                    id: $projectId,
+                    publicId: $projectId,
                 ) {
                     apiKeys (
                         cursor: {
@@ -83,7 +82,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const query =
             `mutation($projectId: String!, $name: String!) {
                 createAPIKey(
-                    projectID: $projectId,
+                    publicId: $projectId,
                     name: $name
                 ) {
                     key,
@@ -138,15 +137,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @throws Error
      */
     public async deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&projectID=${projectID}`;
+        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&publicID=${projectID}`;
         const response = await this.client.delete(path);
 
         if (response.ok || response.status === 204) {
             return;
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('can not delete access grant');
@@ -160,7 +155,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * @param isPublic - optional status
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<GatewayCredentials> {
+    public async getGatewayCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
         const requestURL: string = optionalURL || MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (!requestURL) throw new Error('Cannot get gateway credentials: request URL is not provided');
 
@@ -176,7 +171,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
 
         const result = await response.json();
 
-        return new GatewayCredentials(
+        return new EdgeCredentials(
             result.id,
             new Date(result.created_at),
             result.access_key_id,

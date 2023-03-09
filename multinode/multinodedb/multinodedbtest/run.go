@@ -122,7 +122,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db mult
 		t.Run(dbConfig.Name, func(t *testing.T) {
 			t.Parallel()
 
-			if dbConfig.URL == "" {
+			if dbConfig.URL == "" || dbConfig.URL == "omit" {
 				t.Skipf("Database %s connection string not provided. %s", dbConfig.Name, dbConfig.Message)
 			}
 

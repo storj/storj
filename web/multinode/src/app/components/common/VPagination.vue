@@ -37,9 +37,9 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-import PagesBlock from '@/app/components/common/PagesBlock.vue';
-
 import { OnPageClickCallback, Page } from '@/app/types/pagination';
+
+import PagesBlock from '@/app/components/common/PagesBlock.vue';
 
 // @vue/component
 @Component({
@@ -52,7 +52,7 @@ export default class VPagination extends Vue {
     private readonly totalPageCount: number;
     @Prop({ default: 1 })
     private preselectedCurrentPageNumber: number;
-    @Prop({ default: () => new Promise(() => false) })
+    @Prop({ default: () => () => new Promise(() => false) })
     private readonly onPageClickCallback: OnPageClickCallback;
 
     // TODO: place to config.

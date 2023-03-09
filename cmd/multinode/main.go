@@ -5,17 +5,21 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/text/encoding/unicode"
+	"golang.org/x/text/transform"
 
 	"storj.io/common/fpath"
+	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
@@ -88,10 +92,15 @@ func main() {
 
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "multinode")
-	defaultIdentityDir := fpath.ApplicationDir("storj", "identity", "multinode")
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for multinode configuration")
-	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for multinode identity credentials")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", "", "main directory for multinode identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
+
+	// Ignoring errors since MarkDeprecated only errors if the flag
+	// doesn't exist or no deprecated message is provided.
+	// and MarkHidden only errors if the flag doesn't exist.
+	_ = rootCmd.PersistentFlags().MarkDeprecated("identity-dir", "multinode no longer requires an identity key")
+	_ = rootCmd.PersistentFlags().MarkHidden("identity-dir")
 
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(runCmd)
@@ -127,7 +136,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	runCfg.Debug.Address = *process.DebugAddrFlag
 
-	identity, err := runCfg.Identity.Load()
+	identity, err := getIdentity(ctx, &runCfg)
 	if err != nil {
 		log.Error("failed to load identity", zap.Error(err))
 		return errs.New("failed to load identity: %+v", err)
@@ -154,18 +163,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	return errs.Combine(runError, closeError)
 }
 
-type nodeInfo struct {
-	NodeID        storj.NodeID `json:"id"`
-	PublicAddress string       `json:"publicAddress"`
-	APISecret     string       `json:"apiSecret"`
-	Name          string       `json:"name"`
-}
-
 func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	identity, err := addCfg.Identity.Load()
+	identity, err := getIdentity(ctx, &addCfg.Config)
 	if err != nil {
 		return errs.New("failed to load identity: %+v", err)
 	}
@@ -187,7 +189,7 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	var nodeList []nodeInfo
+	var nodeList []nodes.Node
 
 	hasRequiredFlags := addCfg.NodeID != "" && addCfg.APISecret != "" && addCfg.PublicAddress != ""
 
@@ -200,54 +202,48 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-		nodeList = []nodeInfo{
+		apiSecret, err := multinodeauth.SecretFromBase64(addCfg.APISecret)
+		if err != nil {
+			return err
+		}
+		nodeList = []nodes.Node{
 			{
-				NodeID:        nodeID,
+				ID:            nodeID,
 				PublicAddress: addCfg.PublicAddress,
-				APISecret:     addCfg.APISecret,
+				APISecret:     apiSecret,
 				Name:          addCfg.Name,
 			},
 		}
 	} else {
 		path := args[0]
-		var nodesData []byte
+		var nodesJSONData []byte
 		if path == "-" {
 			stdin := cmd.InOrStdin()
-			data, err := ioutil.ReadAll(stdin)
+			data, err := io.ReadAll(stdin)
 			if err != nil {
 				return err
 			}
-			nodesData = data
+			nodesJSONData = data
 		} else {
-			nodesData, err = os.ReadFile(path)
+			nodesJSONData, err = os.ReadFile(path)
 			if err != nil {
 				return err
 			}
 		}
 
-		nodeList, err = unmarshalJSONNodes(nodesData)
+		nodeList, err = unmarshalJSONNodes(nodesJSONData)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, node := range nodeList {
-		if _, err := db.Nodes().Get(ctx, node.NodeID); err == nil {
-			return errs.New("Node with ID %s is already added to the multinode dashboard", node.NodeID)
-		}
-
-		apiSecret, err := multinodeauth.SecretFromBase64(node.APISecret)
-		if err != nil {
-			return err
+		if _, err := db.Nodes().Get(ctx, node.ID); err == nil {
+			return errs.New("Node with ID %s is already added to the multinode dashboard", node.ID)
 		}
 
 		service := nodes.NewService(log, dialer, db.Nodes())
-		err = service.Add(ctx, nodes.Node{
-			ID:            node.NodeID,
-			APISecret:     apiSecret[:],
-			PublicAddress: node.PublicAddress,
-			Name:          node.Name,
-		})
+		err = service.Add(ctx, node)
 		if err != nil {
 			return err
 		}
@@ -256,26 +252,57 @@ func cmdAdd(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func unmarshalJSONNodes(nodesData []byte) ([]nodeInfo, error) {
-	var nodes []nodeInfo
-	nodesData = bytes.TrimLeft(nodesData, " \t\r\n")
+// decodeUTF16or8 decodes the b as UTF-16 if the special byte order mark is present.
+func decodeUTF16or8(b []byte) ([]byte, error) {
+	r := bytes.NewReader(b)
+	// fallback to r if no BOM sequence is located in the source text.
+	t := unicode.BOMOverride(transform.Nop)
+	return io.ReadAll(transform.NewReader(r, t))
+}
+
+func unmarshalJSONNodes(nodesJSONData []byte) ([]nodes.Node, error) {
+	var nodesInfo []nodes.Node
+	var err error
+
+	nodesJSONData, err = decodeUTF16or8(nodesJSONData)
+	if err != nil {
+		return nil, err
+	}
+	nodesJSONData = bytes.TrimLeft(nodesJSONData, " \t\r\n")
 
 	switch {
-	case len(nodesData) > 0 && nodesData[0] == '[': // data is json array
-		err := json.Unmarshal(nodesData, &nodes)
+	case len(nodesJSONData) > 0 && nodesJSONData[0] == '[': // data is json array
+		err := json.Unmarshal(nodesJSONData, &nodesInfo)
 		if err != nil {
 			return nil, err
 		}
-	case len(nodesData) > 0 && nodesData[0] == '{': // data is json object
-		var singleNode nodeInfo
-		err := json.Unmarshal(nodesData, &singleNode)
+	case len(nodesJSONData) > 0 && nodesJSONData[0] == '{': // data is json object
+		var singleNode nodes.Node
+		err := json.Unmarshal(nodesJSONData, &singleNode)
 		if err != nil {
 			return nil, err
 		}
-		nodes = []nodeInfo{singleNode}
+		nodesInfo = []nodes.Node{singleNode}
 	default:
 		return nil, errs.New("invalid JSON format")
 	}
 
-	return nodes, nil
+	return nodesInfo, nil
+}
+
+func getIdentity(ctx context.Context, cfg *Config) (*identity.FullIdentity, error) {
+	// for backwards compatibility reasons, check if an identity was provided.
+	if cfgstruct.FindIdentityDirParam() != "" {
+		ident, err := cfg.Identity.Load()
+		if err == nil {
+			return ident, nil
+		}
+		zap.L().Error("failed to load identity.", zap.Error(err))
+		zap.L().Info("generating new identity.")
+	}
+	// generate new identity
+	return identity.NewFullIdentity(ctx, identity.NewCAOptions{
+		Difficulty:  0,
+		Concurrency: 1,
+	})
 }

@@ -6,9 +6,10 @@ package consoleserver
 import (
 	"context"
 	"errors"
+	"io"
+	"io/fs"
 	"net"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -17,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/storj/private/web"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/notifications"
@@ -45,16 +47,18 @@ type Server struct {
 	notifications *notifications.Service
 	payout        *payouts.Service
 	listener      net.Listener
+	assets        fs.FS
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets fs.FS, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
 	server := Server{
 		log:           logger,
 		service:       service,
 		listener:      listener,
+		assets:        assets,
 		notifications: notifications,
 		payout:        payout,
 	}
@@ -86,21 +90,33 @@ func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifi
 	payoutRouter.HandleFunc("/periods", payoutController.HeldAmountPeriods).Methods(http.MethodGet)
 	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
 
-	if assets != nil {
-		fs := http.FileServer(assets)
-		router.PathPrefix("/static/").Handler(server.cacheMiddleware(http.StripPrefix("/static", fs)))
-		router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			req := r.Clone(r.Context())
-			req.URL.Path = "/dist/"
-			fs.ServeHTTP(w, req)
-		}))
-	}
+	staticServer := http.FileServer(http.FS(server.assets))
+	router.PathPrefix("/static/").Handler(web.CacheHandler(staticServer))
+	router.PathPrefix("/").HandlerFunc(server.appHandler)
 
 	server.server = http.Server{
 		Handler: router,
 	}
 
 	return &server
+}
+
+// appHandler is web app http handler function.
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin")
+
+	f, err := server.assets.Open("index.html")
+	if err != nil {
+		http.Error(w, `web/storagenode unbuilt, run "npm install && npm run build" in web/storagenode.`, http.StatusNotFound)
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	_, _ = io.Copy(w, f)
 }
 
 // Run starts the server that host webapp and api endpoints.
@@ -128,24 +144,4 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return server.server.Close()
-}
-
-// cacheMiddleware is a middleware for caching static files.
-func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// "mime" package, which http.FileServer uses, depends on Operating System
-		// configuration for mime-types. When a system has hardcoded mime-types to
-		// something else, they might serve ".js" as a "plain/text".
-		//
-		// Override any of that default behavior to ensure we get the correct types for
-		// common files.
-		if contentType, ok := CommonContentType(filepath.Ext(r.URL.Path)); ok {
-			w.Header().Set("Content-Type", contentType)
-		}
-
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-
-		fn.ServeHTTP(w, r)
-	})
 }

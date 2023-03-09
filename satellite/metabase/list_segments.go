@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
 
@@ -44,6 +45,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		SELECT
 			position,
 			created_at,
+			expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
@@ -53,7 +55,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		WHERE
 			stream_id = $1 AND
 			($2 = 0::INT8 OR position > $2)
-		ORDER BY position ASC
+		ORDER BY stream_id, position ASC
 		LIMIT $3
 	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -61,7 +63,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.Position,
-				&segment.CreatedAt,
+				&segment.CreatedAt, &segment.ExpiresAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 				&segment.EncryptedETag,
@@ -87,6 +89,59 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			return ListSegmentsResult{}, nil
 		}
 		return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
+	}
+
+	if db.config.ServerSideCopy {
+		copies := make([]Segment, 0, len(result.Segments))
+		copiesPositions := make([]int64, 0, len(result.Segments))
+		for _, segment := range result.Segments {
+			if segment.PiecesInAncestorSegment() {
+				copies = append(copies, segment)
+				copiesPositions = append(copiesPositions, int64(segment.Position.Encode()))
+			}
+		}
+
+		if len(copies) > 0 {
+			index := 0
+			err = withRows(db.db.QueryContext(ctx, `
+					SELECT
+						root_piece_id,
+						remote_alias_pieces
+					FROM segments as segments
+					LEFT JOIN segment_copies as copies
+					ON copies.ancestor_stream_id = segments.stream_id
+					WHERE
+						copies.stream_id = $1 AND segments.position IN (SELECT position FROM UNNEST($2::INT8[]) as position)
+					ORDER BY segments.stream_id, segments.position ASC
+				`, opts.StreamID, pgutil.Int8Array(copiesPositions)))(func(rows tagsql.Rows) error {
+
+				for rows.Next() {
+					var aliasPieces AliasPieces
+					err = rows.Scan(
+						&copies[index].RootPieceID,
+						&aliasPieces,
+					)
+					if err != nil {
+						return Error.New("failed to scan segments: %w", err)
+					}
+
+					copies[index].Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+					if err != nil {
+						return Error.New("failed to convert aliases to pieces: %w", err)
+					}
+					index++
+				}
+				return nil
+			})
+			if err != nil {
+				return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
+			}
+
+			if index != len(copies) {
+				return ListSegmentsResult{}, Error.New("number of ancestor segments is different than copies: want %d got %d",
+					len(copies), index)
+			}
+		}
 	}
 
 	if len(result.Segments) > opts.Limit {

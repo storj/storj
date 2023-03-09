@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/common/storj/location"
 )
 
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
@@ -22,12 +23,7 @@ type State struct {
 	stats Stats
 	// netByID returns subnet based on storj.NodeID
 	netByID map[storj.NodeID]string
-	// nonDistinct contains selectors for non-distinct selection.
-	nonDistinct struct {
-		Reputable SelectByID
-		New       SelectByID
-	}
-	// distinct contains selectors for distinct slection.
+	// distinct contains selectors for distinct selection.
 	distinct struct {
 		Reputable SelectBySubnet
 		New       SelectBySubnet
@@ -38,9 +34,6 @@ type State struct {
 type Stats struct {
 	New       int
 	Reputable int
-
-	NewDistinct       int
-	ReputableDistinct int
 }
 
 // Selector defines interface for selecting nodes.
@@ -64,18 +57,12 @@ func NewState(reputableNodes, newNodes []*Node) *State {
 		state.netByID[node.ID] = node.LastNet
 	}
 
-	state.nonDistinct.Reputable = SelectByID(reputableNodes)
-	state.nonDistinct.New = SelectByID(newNodes)
-
 	state.distinct.Reputable = SelectBySubnetFromNodes(reputableNodes)
 	state.distinct.New = SelectBySubnetFromNodes(newNodes)
 
 	state.stats = Stats{
-		New:       state.nonDistinct.New.Count(),
-		Reputable: state.nonDistinct.Reputable.Count(),
-
-		NewDistinct:       state.distinct.New.Count(),
-		ReputableDistinct: state.distinct.Reputable.Count(),
+		New:       state.distinct.New.Count(),
+		Reputable: state.distinct.Reputable.Count(),
 	}
 
 	return state
@@ -83,11 +70,11 @@ func NewState(reputableNodes, newNodes []*Node) *State {
 
 // Request contains arguments for State.Request.
 type Request struct {
-	Count       int
-	NewFraction float64
-	Distinct    bool
-	ExcludedIDs []storj.NodeID
-	Placement   storj.PlacementConstraint
+	Count                int
+	NewFraction          float64
+	ExcludedIDs          []storj.NodeID
+	Placement            storj.PlacementConstraint
+	ExcludedCountryCodes []string
 }
 
 // Select selects requestedCount nodes where there will be newFraction nodes.
@@ -111,21 +98,20 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 		criteria.ExcludeNodeIDs = request.ExcludedIDs
 	}
 
+	for _, code := range request.ExcludedCountryCodes {
+		criteria.ExcludedCountryCodes = append(criteria.ExcludedCountryCodes, location.ToCountryCode(code))
+	}
+
 	criteria.Placement = request.Placement
 
-	if request.Distinct {
-		criteria.AutoExcludeSubnets = make(map[string]struct{})
-		for _, id := range request.ExcludedIDs {
-			if net, ok := state.netByID[id]; ok {
-				criteria.AutoExcludeSubnets[net] = struct{}{}
-			}
+	criteria.AutoExcludeSubnets = make(map[string]struct{})
+	for _, id := range request.ExcludedIDs {
+		if net, ok := state.netByID[id]; ok {
+			criteria.AutoExcludeSubnets[net] = struct{}{}
 		}
-		reputableNodes = state.distinct.Reputable
-		newNodes = state.distinct.New
-	} else {
-		reputableNodes = state.nonDistinct.Reputable
-		newNodes = state.nonDistinct.New
 	}
+	reputableNodes = state.distinct.Reputable
+	newNodes = state.distinct.New
 
 	// Get a random selection of new nodes out of the cache first so that if there aren't
 	// enough new nodes on the network, we can fall back to using reputable nodes instead.

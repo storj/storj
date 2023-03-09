@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -126,7 +126,7 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 		}
 
 		// ensure that no requests return an error
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, nil, percentExp)
+		err := satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, nil, percentExp)
 		require.NoError(t, err)
 
 		var (
@@ -152,7 +152,7 @@ func TestService_DeletePieces_AllNodesUp(t *testing.T) {
 			requests = append(requests, nodePieces)
 		}
 
-		err = satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, percentExp)
+		err = satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, requests, percentExp)
 		require.NoError(t, err)
 
 		planet.WaitForStorageNodeDeleters(ctx)
@@ -217,7 +217,7 @@ func TestService_DeletePieces_SomeNodesDown(t *testing.T) {
 			}
 		}
 
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.9999)
+		err := satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, requests, 0.9999)
 		require.NoError(t, err)
 
 		planet.WaitForStorageNodeDeleters(ctx)
@@ -280,7 +280,7 @@ func TestService_DeletePieces_AllNodesDown(t *testing.T) {
 			require.NoError(t, planet.StopPeer(sn))
 		}
 
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.9999)
+		err := satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, requests, 0.9999)
 		require.NoError(t, err)
 
 		planet.WaitForStorageNodeDeleters(ctx)
@@ -318,7 +318,7 @@ func TestService_DeletePieces_DisproportionateNumberOfRequestsAndNodes(t *testin
 			}
 		}
 
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, percentExp)
+		err := satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, requests, percentExp)
 		require.NoError(t, err)
 	})
 }
@@ -333,7 +333,7 @@ func TestService_DeletePieces_Invalid(t *testing.T) {
 			{Pieces: make([]storj.PieceID, 1)},
 			{Pieces: make([]storj.PieceID, 1)},
 		}
-		err := service.Delete(ctx, nodesPieces, 1)
+		err := service.DeleteWithCustomThreshold(ctx, nodesPieces, 1)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "request #0 is invalid")
 	})
@@ -392,7 +392,7 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 			storageNodeDB.SetLatency(delay)
 		}
 
-		err := satelliteSys.API.Metainfo.PieceDeletion.Delete(ctx, requests, 0.75)
+		err := satelliteSys.API.Metainfo.PieceDeletion.DeleteWithCustomThreshold(ctx, requests, 0.75)
 		require.NoError(t, err)
 		// A timeout error won't be propagated up to the service level
 		// but we'll know that the deletes didn't happen based on usedSpace
@@ -412,6 +412,6 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 
 type nodesDB struct{}
 
-func (n *nodesDB) KnownReliable(ctx context.Context, nodesID storj.NodeIDList) ([]*pb.Node, error) {
+func (n *nodesDB) GetNodes(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	return nil, nil
 }

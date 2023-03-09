@@ -3,7 +3,7 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot name="icon" />
+        <slot name="icon" :on-space="toggleVisibility" />
         <div v-if="isVisible" class="info__box">
             <div class="info__box__arrow" />
             <div class="info__box__message">
@@ -15,7 +15,7 @@
                     :label="buttonLabel"
                     height="42px"
                     border-radius="52px"
-                    is-uppercase="true"
+                    :is-uppercase="true"
                     :on-press="onClick"
                 />
             </div>
@@ -23,41 +23,36 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import VButton from '@/components/common/VButton.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-    }
-})
-export default class VInfo extends Vue {
-    @Prop({default: ''})
-    private readonly title: string;
-    @Prop({default: ''})
-    private readonly buttonLabel: string;
-    @Prop({default: () => false})
-    private readonly onButtonClick: () => unknown;
+const props = withDefaults(defineProps<{
+    title?: string;
+    buttonLabel?: string;
+    onButtonClick?: () => unknown;
+}>(), {
+    title: '',
+    buttonLabel: '',
+    onButtonClick: () => () => false,
+});
 
-    public isVisible = false;
+const isVisible = ref<boolean>(false);
 
-    /**
-     * Holds on button click logic.
-     */
-    public onClick(): void {
-        this.onButtonClick();
-        this.toggleVisibility();
-    }
+/**
+ * Toggles bubble visibility.
+ */
+function toggleVisibility(): void {
+    isVisible.value = !isVisible.value;
+}
 
-    /**
-     * Toggles bubble visibility.
-     */
-    public toggleVisibility(): void {
-        this.isVisible = !this.isVisible;
-    }
+/**
+ * Holds on button click logic.
+ */
+function onClick(): void {
+    props.onButtonClick();
+    toggleVisibility();
 }
 </script>
 
@@ -76,16 +71,11 @@ export default class VInfo extends Vue {
             filter: drop-shadow(0 0 34px #0a1b2c47);
             z-index: 1;
 
-            &__click-mock {
-                height: 2px;
-                background: transparent;
-            }
-
             &__arrow {
                 background-color: white;
                 width: 40px;
                 height: 40px;
-                border-radius: 4px 0 0 0;
+                border-radius: 4px 0 0;
                 transform: scale(1, 0.85) translate(0, 20%) rotate(45deg);
                 margin-bottom: -15px;
             }

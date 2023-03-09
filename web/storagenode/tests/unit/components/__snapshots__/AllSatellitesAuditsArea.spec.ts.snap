@@ -38,7 +38,7 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       </div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Online</p>
-        <p class="audits-area__content__item__info__value warning">70 %</p>
+        <p class="audits-area__content__item__info__value warning">97 %</p>
       </div>
     </div>
     <div class="audits-area__content__item">
@@ -53,7 +53,7 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       </div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Audit</p>
-        <p class="audits-area__content__item__info__value warning">70 %</p>
+        <p class="audits-area__content__item__info__value warning">97 %</p>
       </div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Online</p>

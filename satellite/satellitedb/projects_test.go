@@ -1,37 +1,77 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package satellitedb_test
 
 import (
-	"context"
+	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestProjectFromDbx(t *testing.T) {
-	ctx := context.Background()
+func TestProjectsGetByPublicID(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
 
-	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		project, err := projectFromDBX(ctx, nil)
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, prj)
 
-		assert.Nil(t, project)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
+		pubID := prj.PublicID
+		require.NotNil(t, pubID)
+		require.False(t, pubID.IsZero())
+
+		prj, err = projects.GetByPublicID(ctx, pubID)
+		require.NoError(t, err)
+		require.Equal(t, pubID, prj.PublicID)
 	})
+}
 
-	t.Run("can't create dbo from dbx model with invalid ID", func(t *testing.T) {
-		dbxProject := dbx.Project{
-			Id: []byte("qweqwe"),
-		}
+func TestProjectsGetSalt(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projects := db.Console().Projects()
 
-		project, err := projectFromDBX(ctx, &dbxProject)
+		prj, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, prj)
 
-		assert.Nil(t, project)
-		assert.NotNil(t, err)
-		assert.Error(t, err)
+		salt, err := projects.GetSalt(ctx, prj.ID)
+		require.NoError(t, err)
+
+		_, err = uuid.FromBytes(salt)
+		require.NoError(t, err)
+	})
+}
+
+func TestUpdateProjectUsageLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		limits := console.UsageLimits{Storage: rand.Int63(), Bandwidth: rand.Int63(), Segment: rand.Int63()}
+		projectsRepo := db.Console().Projects()
+
+		proj, err := projectsRepo.Insert(ctx, &console.Project{})
+		require.NoError(t, err)
+		require.NotNil(t, proj)
+
+		err = projectsRepo.UpdateUsageLimits(ctx, proj.ID, limits)
+		require.NoError(t, err)
+
+		proj, err = projectsRepo.Get(ctx, proj.ID)
+		require.NoError(t, err)
+		require.Equal(t, limits.Bandwidth, proj.BandwidthLimit.Int64())
+		require.Equal(t, limits.Storage, proj.StorageLimit.Int64())
+		require.Equal(t, limits.Segment, *proj.SegmentLimit)
 	})
 }

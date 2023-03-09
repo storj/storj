@@ -24,12 +24,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
+
 import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
-
-import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 
 // @vue/component
 @Component({
@@ -109,11 +109,8 @@ export default class EstimationPeriodDropdown extends Vue {
         }
     }
 
-    .arrow {
-
-        path {
-            fill: var(--period-selection-arrow-color);
-        }
+    .arrow ::v-deep path {
+        fill: var(--period-selection-arrow-color);
     }
 
     .short-text {
@@ -129,11 +126,8 @@ export default class EstimationPeriodDropdown extends Vue {
             }
         }
 
-        .arrow {
-
-            path {
-                fill: #909bad !important;
-            }
+        .arrow ::v-deep path {
+            fill: #909bad !important;
         }
     }
 

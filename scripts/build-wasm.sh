@@ -13,7 +13,7 @@ cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" release/$TAG/wasm/
 brotli -k release/$TAG/wasm/wasm_exec.js
 
 # Build wasm code
-go build -o release/$TAG/wasm/access.wasm storj.io/storj/satellite/console/wasm
+GOOS=js GOARCH=wasm go build -o release/$TAG/wasm/access.wasm storj.io/storj/satellite/console/wasm
 
 # Compress wasm code using brotli
 brotli -k release/$TAG/wasm/access.wasm

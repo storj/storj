@@ -5,6 +5,7 @@ package retain
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -367,7 +368,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_filter_size").Observe(filter.Size())
 	mon.IntVal("garbage_collection_started").Observe(started.Unix())
 
-	s.log.Debug("Prepared to run a Retain request.",
+	s.log.Info("Prepared to run a Retain request.",
 		zap.Time("Created Before", createdBefore),
 		zap.Int64("Filter Size", filter.Size()),
 		zap.Stringer("Satellite ID", satelliteID))
@@ -379,40 +380,52 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		defer runtime.Gosched()
+
+		pieceID := access.PieceID()
+		if filter.Contains(pieceID) {
+			// This piece is explicitly not trash. Move on.
+			return nil
+		}
+
+		// If the blob's mtime is at or after the createdBefore line, we can't safely delete it;
+		// it might not be trash. If it is, we can expect to get it next time.
+		//
 		// See the comment above the retainPieces() function for a discussion on the correctness
 		// of using ModTime in place of the more precise CreationTime.
 		mTime, err := access.ModTime(ctx)
 		if err != nil {
+			if os.IsNotExist(err) {
+				// piece was deleted while we were scanning.
+				return nil
+			}
+
 			piecesSkipped++
 			s.log.Warn("failed to determine mtime of blob", zap.Error(err))
 			// but continue iterating.
 			return nil
 		}
-
 		if !mTime.Before(createdBefore) {
 			return nil
 		}
-		pieceID := access.PieceID()
-		if !filter.Contains(pieceID) {
-			s.log.Debug("About to move piece to trash",
-				zap.Stringer("Satellite ID", satelliteID),
-				zap.Stringer("Piece ID", pieceID),
-				zap.String("Status", s.config.Status.String()))
 
-			piecesToDeleteCount++
+		s.log.Debug("About to move piece to trash",
+			zap.Stringer("Satellite ID", satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.String("Status", s.config.Status.String()))
 
-			// if retain status is enabled, delete pieceid
-			if s.config.Status == Enabled {
-				if err = s.trash(ctx, satelliteID, pieceID); err != nil {
-					s.log.Warn("failed to delete piece",
-						zap.Stringer("Satellite ID", satelliteID),
-						zap.Stringer("Piece ID", pieceID),
-						zap.Error(err))
-					return nil
-				}
+		piecesToDeleteCount++
+
+		// if retain status is enabled, delete pieceid
+		if s.config.Status == Enabled {
+			if err = s.trash(ctx, satelliteID, pieceID); err != nil {
+				s.log.Warn("failed to delete piece",
+					zap.Stringer("Satellite ID", satelliteID),
+					zap.Stringer("Piece ID", pieceID),
+					zap.Error(err))
+				return nil
 			}
-			numDeleted++
 		}
+		numDeleted++
 
 		select {
 		case <-ctx.Done():
@@ -430,7 +443,7 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 	mon.IntVal("garbage_collection_pieces_to_delete_count").Observe(piecesToDeleteCount)
 	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
 	mon.DurationVal("garbage_collection_loop_duration").Observe(time.Now().UTC().Sub(started))
-	s.log.Debug("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
+	s.log.Info("Moved pieces to trash during retain", zap.Int("num deleted", numDeleted), zap.String("Retain Status", s.config.Status.String()))
 
 	return nil
 }
@@ -439,4 +452,9 @@ func (s *Service) retainPieces(ctx context.Context, req Request) (err error) {
 func (s *Service) trash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx, satelliteID)(&err)
 	return s.store.Trash(ctx, satelliteID, pieceID)
+}
+
+// HowManyQueued peeks at the number of bloom filters queued.
+func (s *Service) HowManyQueued() int {
+	return len(s.queued)
 }

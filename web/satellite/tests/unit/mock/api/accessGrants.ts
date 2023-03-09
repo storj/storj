@@ -6,7 +6,7 @@ import {
     AccessGrantCursor,
     AccessGrantsApi,
     AccessGrantsPage,
-    GatewayCredentials,
+    EdgeCredentials,
 } from '@/types/accessGrants';
 
 /**
@@ -36,7 +36,7 @@ export class AccessGrantsMock implements AccessGrantsApi {
         return Promise.resolve();
     }
 
-    getGatewayCredentials(_accessGrant: string, _optionalURL?: string): Promise<GatewayCredentials> {
-        return Promise.resolve(new GatewayCredentials('testCredId', new Date(), 'testAccessKeyId', 'testSecret', 'testEndpoint'));
+    getGatewayCredentials(_accessGrant: string, _optionalURL?: string): Promise<EdgeCredentials> {
+        return Promise.resolve(new EdgeCredentials('testCredId', new Date(), 'testAccessKeyId', 'testSecret', 'testEndpoint'));
     }
 }

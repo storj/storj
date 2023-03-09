@@ -48,13 +48,13 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
+import { UINotification } from '@/app/types/notifications';
+
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 import VPagination from '@/app/components/VPagination.vue';
 
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
-
-import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { UINotification } from '@/app/types/notifications';
 
 // @vue/component
 @Component ({
@@ -95,7 +95,7 @@ export default class NotificationsArea extends Vue {
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 
@@ -106,7 +106,7 @@ export default class NotificationsArea extends Vue {
         try {
             await this.$store.dispatch(NOTIFICATIONS_ACTIONS.READ_ALL);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
     }
 }
@@ -221,7 +221,7 @@ export default class NotificationsArea extends Vue {
         background-color: var(--disabled-background-color);
         pointer-events: none;
 
-        .notifications-container__header__button__svg path {
+        .notifications-container__header__button__svg ::v-deep path {
             fill: #979ba7 !important;
         }
 

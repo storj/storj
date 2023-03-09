@@ -65,8 +65,9 @@
                             <h3 class="payouts-by-node__content-area__main-info__totals-area__information__title">Minimal threshold & distributed payout system</h3>
                             <p class="payouts-by-node__content-area__main-info__totals-area__information__description">Short description how minimal threshold system works.</p>
                             <!--                            TODO: consider moving link to config-->
-                            <a href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
-                               class="payouts-by-node__content-area__main-info__totals-area__information__link"
+                            <a
+                                href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
+                                class="payouts-by-node__content-area__main-info__totals-area__information__link"
                             >
                                 Learn more
                             </a>
@@ -85,15 +86,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { UnauthorizedError } from '@/api';
+import { Config as RouterConfig } from '@/app/router';
+import { NodePayouts } from '@/payouts';
+
 import InfoBlock from '@/app/components/common/InfoBlock.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import HeldHistory from '@/app/components/payouts/tables/heldHistory/HeldHistory.vue';
 import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/PayoutsByNodeTable.vue';
-
-import { UnauthorizedError } from '@/api';
-import { Config as RouterConfig } from '@/app/router';
-import { NodePayouts } from '@/payouts';
 
 // @vue/component
 @Component({

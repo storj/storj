@@ -15,11 +15,11 @@
 <script lang="ts">
 import { Component, Vue, Watch } from 'vue-property-decorator';
 
-import MoonIcon from '@/../static/images/DarkMoon.svg';
-import SunIcon from '@/../static/images/LightSun.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { SNO_THEME } from '@/app/types/theme';
+
+import MoonIcon from '@/../static/images/DarkMoon.svg';
+import SunIcon from '@/../static/images/LightSun.svg';
 
 // @vue/component
 @Component({
@@ -92,8 +92,6 @@ export default class OptionsDropdown extends Vue {
         background-color: var(--block-background-color);
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
-        -webkit-border-bottom-left-radius: 12px;
-        -webkit-border-bottom-right-radius: 12px;
         font-family: 'font_regular', sans-serif;
         font-size: 14px;
         color: var(--regular-text-color);

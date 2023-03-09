@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 
 set -ueo pipefail
-set +x
+set -x
+
+if ! command -v go1.16.15 &> /dev/null
+then
+    echo "Installing old Go version"
+    go install golang.org/dl/go1.16.15@latest && go1.16.15 download
+fi
 
 cleanup(){
     ret=$?
@@ -18,6 +24,11 @@ populate_sno_versions(){
     local version=$1
     local number_of_nodes=$2
     seq $number_of_nodes | xargs -n1 -I{} echo $version
+}
+
+# version_ge returns true if version $1 is greater than or equal to $2
+version_ge(){
+    [ "$( ( echo "$1"; echo "$2" ) | sort -V | head -n 1 )" = "$2" ]
 }
 
 # set this var to anything else than `jenkins` to run tests locally
@@ -207,7 +218,6 @@ for version in ${unique_versions}; do
 
         if [[ $version = $current_release_version || $version = "main" ]]
         then
-
             echo "Installing storj-sim for ${version} in ${dir}."
             install_sim ${dir} ${bin_dir}
             echo "finished installing"
@@ -225,7 +235,11 @@ for version in ${unique_versions}; do
             pushd ${dir}
             mkdir -p ${bin_dir}
 
-            go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+            if version_ge "$version" "v1.64.0"; then
+                go build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+            else
+                go1.16.15 build -race -v -o ${bin_dir}/uplink storj.io/storj/cmd/uplink >/dev/null 2>&1
+            fi
 
             popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})

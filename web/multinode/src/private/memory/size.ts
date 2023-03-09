@@ -40,7 +40,7 @@ export class Size {
         case _size >= SizeBreakpoints.KB * 2 / 3:
             return `${parseFloat((size / SizeBreakpoints.KB).toFixed(decimals))}KB`;
         default:
-            return `${size}B`;
+            return `${size ? size.toFixed(decimals) : size}B`;
         }
     }
 }

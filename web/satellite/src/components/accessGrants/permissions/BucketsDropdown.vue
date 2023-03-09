@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-click-outside="closeDropdown" class="buckets-dropdown">
-        <div class="buckets-dropdown__container">
+    <div v-click-outside="closeDropdown" :class="`buckets-dropdown ${showScrollbar ? 'show-scroll' : ''}`">
+        <div :class="`buckets-dropdown__container ${showScrollbar ? 'show-scroll' : ''}`">
             <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
                 All
             </p>
@@ -26,7 +26,9 @@
                     @click.stop="toggleBucketSelection(name)"
                 >
                     <div class="buckets-dropdown__container__choices__item__left">
-                        <SelectionIcon class="buckets-dropdown__container__choices__item__left__icon" />
+                        <div class="check-icon">
+                            <SelectionIcon v-if="isNameSelected(name)" />
+                        </div>
                         <p class="buckets-dropdown__container__choices__item__left__label">{{ name }}</p>
                     </div>
                     <UnselectIcon
@@ -43,13 +45,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Vue, Prop } from 'vue-property-decorator';
+
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
-
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
 
 // @vue/component
 @Component({
@@ -59,6 +61,8 @@ import { APP_STATE_ACTIONS } from "@/utils/constants/actionNames";
     },
 })
 export default class BucketsDropdown extends Vue {
+    @Prop({ default: false })
+    private readonly showScrollbar: boolean;
     public bucketSearch = '';
 
     /**
@@ -125,10 +129,10 @@ export default class BucketsDropdown extends Vue {
         z-index: 2;
         left: 0;
         top: calc(100% + 5px);
-        box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+        box-shadow: 0 20px 34px rgb(10 27 44 / 28%);
         border-radius: 6px;
         background-color: #fff;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         width: 100%;
         padding: 10px 0;
         cursor: default;
@@ -194,10 +198,6 @@ export default class BucketsDropdown extends Vue {
                 .selected {
                     background-color: #f5f6fa;
 
-                    .bucket-name-selection-path {
-                        stroke: #0068dc !important;
-                    }
-
                     &:hover {
 
                         .buckets-dropdown__container__choices__item__unselect-icon {
@@ -219,10 +219,6 @@ export default class BucketsDropdown extends Vue {
                         align-items: center;
                         max-width: 100%;
 
-                        &__icon {
-                            min-width: 14px;
-                        }
-
                         &__label {
                             margin: 0 0 0 15px;
                             text-overflow: ellipsis;
@@ -233,13 +229,28 @@ export default class BucketsDropdown extends Vue {
 
                     &:hover {
                         background-color: #ecedf2;
-
-                        .bucket-name-selection-path {
-                            stroke: #d4d9e1;
-                        }
                     }
                 }
             }
         }
+    }
+
+    .check-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 11px;
+        max-width: 14px;
+        max-height: 11px;
+    }
+
+    .show-scroll {
+        padding-right: 2px;
+        width: calc(100% - 2px);
+    }
+
+    .show-scroll::-webkit-scrollbar {
+        width: 4px;
     }
 </style>

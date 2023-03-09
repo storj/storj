@@ -106,12 +106,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
+
 import ExpandIcon from '@/../static/images/BlueArrowRight.svg';
 import DisqualifyIcon from '@/../static/images/largeDisqualify.svg';
 import OKIcon from '@/../static/images/payments/OKIcon.svg';
 import ShareIcon from '@/../static/images/payments/Share.svg';
-
-import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
 // @vue/component
 @Component ({
@@ -123,7 +123,7 @@ import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
     },
 })
 export default class PayoutHistoryTableItem extends Vue {
-    @Prop({default: () => new SatellitePayoutForPeriod()})
+    @Prop({ default: () => new SatellitePayoutForPeriod() })
     public readonly historyItem: SatellitePayoutForPeriod;
 
     /**
@@ -313,7 +313,7 @@ export default class PayoutHistoryTableItem extends Vue {
                         &__icon {
                             margin-left: 7px;
 
-                            path {
+                            ::v-deep path {
                                 stroke: var(--navigation-link-color);
                             }
                         }
@@ -367,7 +367,7 @@ export default class PayoutHistoryTableItem extends Vue {
         min-width: 40px;
         min-height: 40px;
 
-        path {
+        ::v-deep path {
             fill: #909bad;
         }
     }
@@ -382,7 +382,7 @@ export default class PayoutHistoryTableItem extends Vue {
     @media screen and (max-width: 800px) {
 
         .payout-history-item {
-            padding: 17px 10px 12px 10px;
+            padding: 17px 10px 12px;
             width: calc(100% - 20px);
 
             &__header {

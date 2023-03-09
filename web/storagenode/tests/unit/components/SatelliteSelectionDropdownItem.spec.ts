@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import VueClipboard from 'vue-clipboard2';
-
-import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
+import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { SatelliteInfo } from '@/storagenode/sno/sno';
-import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
+
+import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
 const localVue = createLocalVue();
 localVue.use(VueClipboard);

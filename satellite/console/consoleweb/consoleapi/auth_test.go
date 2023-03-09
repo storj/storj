@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/common/uuid"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -41,6 +40,7 @@ func TestAuth_Register(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -56,28 +56,30 @@ func TestAuth_Register(t *testing.T) {
 		} {
 			func() {
 				registerData := struct {
-					FullName       string `json:"fullName"`
-					ShortName      string `json:"shortName"`
-					Email          string `json:"email"`
-					Partner        string `json:"partner"`
-					UserAgent      []byte `json:"userAgent"`
-					Password       string `json:"password"`
-					SecretInput    string `json:"secret"`
-					ReferrerUserID string `json:"referrerUserId"`
-					IsProfessional bool   `json:"isProfessional"`
-					Position       string `json:"Position"`
-					CompanyName    string `json:"CompanyName"`
-					EmployeeCount  string `json:"EmployeeCount"`
+					FullName        string `json:"fullName"`
+					ShortName       string `json:"shortName"`
+					Email           string `json:"email"`
+					Partner         string `json:"partner"`
+					UserAgent       string `json:"userAgent"`
+					Password        string `json:"password"`
+					SecretInput     string `json:"secret"`
+					ReferrerUserID  string `json:"referrerUserId"`
+					IsProfessional  bool   `json:"isProfessional"`
+					Position        string `json:"Position"`
+					CompanyName     string `json:"CompanyName"`
+					EmployeeCount   string `json:"EmployeeCount"`
+					SignupPromoCode string `json:"signupPromoCode"`
 				}{
-					FullName:       "testuser" + strconv.Itoa(i),
-					ShortName:      "test",
-					Email:          "user@test" + strconv.Itoa(i),
-					Partner:        test.Partner,
-					Password:       "abc123",
-					IsProfessional: true,
-					Position:       "testposition",
-					CompanyName:    "companytestname",
-					EmployeeCount:  "0",
+					FullName:        "testuser" + strconv.Itoa(i),
+					ShortName:       "test",
+					Email:           "user@test" + strconv.Itoa(i) + ".test",
+					Partner:         test.Partner,
+					Password:        "abc123",
+					IsProfessional:  true,
+					Position:        "testposition",
+					CompanyName:     "companytestname",
+					EmployeeCount:   "0",
+					SignupPromoCode: "STORJ50",
 				}
 
 				jsonBody, err := json.Marshal(registerData)
@@ -89,23 +91,17 @@ func TestAuth_Register(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 				result, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, result.StatusCode)
-
 				defer func() {
 					err = result.Body.Close()
 					require.NoError(t, err)
 				}()
-
-				body, err := ioutil.ReadAll(result.Body)
+				require.Equal(t, http.StatusOK, result.StatusCode)
+				require.Len(t, planet.Satellites, 1)
+				// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
+				_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, registerData.Email)
 				require.NoError(t, err)
-
-				var userID uuid.UUID
-				err = json.Unmarshal(body, &userID)
-				require.NoError(t, err)
-
-				user, err := planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
-				require.NoError(t, err)
-				require.Equal(t, []byte(test.Partner), user.UserAgent)
+				require.Len(t, users, 1)
+				require.Equal(t, []byte(test.Partner), users[0].UserAgent)
 			}()
 		}
 	})
@@ -118,11 +114,13 @@ func TestAuth_Register_CORS(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		jsonBody := []byte(`{"email":"user@test.com","fullName":"testuser","password":"abc123","shortName":"test"}`)
-
+		email := "user@test.com"
+		fullName := "testuser"
+		jsonBody := []byte(fmt.Sprintf(`{"email":"%s","fullName":"%s","password":"abc123","shortName":"test"}`, email, fullName))
 		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 		require.NoError(t, err)
@@ -180,6 +178,10 @@ func TestAuth_Register_CORS(t *testing.T) {
 		req.Method = http.MethodPost
 		resp, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
+		defer func() {
+			err = resp.Body.Close()
+			require.NoError(t, err)
+		}()
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, "https://www.storj.io", resp.Header.Get("Access-Control-Allow-Origin"))
 		require.Equal(t, "POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
@@ -193,25 +195,18 @@ func TestAuth_Register_CORS(t *testing.T) {
 			"Authorization",
 		})
 
-		defer func() {
-			err = resp.Body.Close()
-			require.NoError(t, err)
-		}()
-
-		body, err := ioutil.ReadAll(resp.Body)
+		require.Len(t, planet.Satellites, 1)
+		// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
+		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
-
-		var userID uuid.UUID
-		err = json.Unmarshal(body, &userID)
-		require.NoError(t, err)
-
-		_, err = planet.Satellites[0].API.Console.Service.GetUser(ctx, userID)
-		require.NoError(t, err)
+		require.Len(t, users, 1)
+		require.Equal(t, fullName, users[0].FullName)
 	})
 }
 
 func TestDeleteAccount(t *testing.T) {
 	ctx := testcontext.New(t)
+	log := testplanet.NewLogger(t)
 
 	// We do a black box testing because currently we don't allow to delete
 	// accounts through the API hence we must always return an error response.
@@ -298,7 +293,7 @@ func TestDeleteAccount(t *testing.T) {
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
 		rr := httptest.NewRecorder()
-		authController := consoleapi.NewAuth(zap.L(), nil, nil, nil, nil, nil, "", "", "", "")
+		authController := consoleapi.NewAuth(log, nil, nil, nil, nil, nil, "", "", "", "", "", "")
 		authController.DeleteAccount(rr, r)
 
 		//nolint:bodyclose
@@ -308,7 +303,7 @@ func TestDeleteAccount(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		body, err := ioutil.ReadAll(result.Body)
+		body, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
 		return result.StatusCode, body
@@ -346,9 +341,9 @@ func TestMFAEndpoints(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
-		require.NotEmpty(t, token)
+		require.NotEmpty(t, tokenInfo.Token)
 
 		type data struct {
 			Passcode     string `json:"passcode"`
@@ -374,7 +369,7 @@ func TestMFAEndpoints(t *testing.T) {
 			req.AddCookie(&http.Cookie{
 				Name:    "_tokenKey",
 				Path:    "/",
-				Value:   token,
+				Value:   tokenInfo.Token.String(),
 				Expires: time.Now().AddDate(0, 0, 1),
 			})
 
@@ -526,9 +521,14 @@ func TestMFAEndpoints(t *testing.T) {
 func TestResetPasswordEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		newPass := "123a123"
 		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
@@ -536,17 +536,23 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
-		require.NoError(t, err)
-		require.NotNil(t, token)
-		tokenStr := token.Secret.String()
+		newPass := user.FullName
 
-		tryReset := func(token, password string) int {
+		getNewResetToken := func() *console.ResetPasswordToken {
+			token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, token)
+			return token
+		}
+
+		tryPasswordReset := func(tokenStr, password, mfaPasscode, mfaRecoveryCode string) (int, bool) {
 			url := sat.ConsoleURL() + "/api/v0/auth/reset-password"
 
 			bodyBytes, err := json.Marshal(map[string]string{
-				"password": password,
-				"token":    token,
+				"password":        password,
+				"token":           tokenStr,
+				"mfaPasscode":     mfaPasscode,
+				"mfaRecoveryCode": mfaRecoveryCode,
 			})
 			require.NoError(t, err)
 
@@ -557,13 +563,63 @@ func TestResetPasswordEndpoint(t *testing.T) {
 
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
+
+			var response struct {
+				Code string `json:"code"`
+			}
+
+			if result.ContentLength > 0 {
+				err = json.NewDecoder(result.Body).Decode(&response)
+				require.NoError(t, err)
+			}
+
 			require.NoError(t, result.Body.Close())
-			return result.StatusCode
+
+			return result.StatusCode, response.Code == "mfa_required"
 		}
 
-		require.Equal(t, http.StatusUnauthorized, tryReset("badToken", newPass))
-		require.Equal(t, http.StatusBadRequest, tryReset(tokenStr, "bad"))
-		require.Equal(t, http.StatusOK, tryReset(tokenStr, newPass))
+		token := getNewResetToken()
+
+		status, mfaError := tryPasswordReset("badToken", newPass, "", "")
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.False(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), "bad", "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.False(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), string(testrand.RandAlphaNumeric(129)), "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.False(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusOK, status)
+		require.False(t, mfaError)
+		token = getNewResetToken()
+
+		// Enable MFA.
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		key, err := service.ResetMFASecretKey(userCtx)
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		passcode, err := console.NewMFAPasscode(key, token.CreatedAt)
+		require.NoError(t, err)
+
+		err = service.EnableUserMFA(userCtx, passcode, token.CreatedAt)
+		require.NoError(t, err)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.True(t, mfaError)
+
+		status, mfaError = tryPasswordReset(token.Secret.String(), newPass, "", "")
+		require.Equal(t, http.StatusBadRequest, status)
+		require.True(t, mfaError)
 	})
 }
 
@@ -589,16 +645,16 @@ func TestRegistrationEmail(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-
+		email := "test@mail.test"
 		jsonBody, err := json.Marshal(map[string]interface{}{
 			"fullName":  "Test User",
 			"shortName": "Test",
-			"email":     "test@mail.test",
+			"email":     email,
 			"password":  "123a123",
 		})
 		require.NoError(t, err)
 
-		register := func() string {
+		register := func() {
 			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
 			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
 			require.NoError(t, err)
@@ -607,44 +663,39 @@ func TestRegistrationEmail(t *testing.T) {
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, result.StatusCode)
-
-			var userID string
-			require.NoError(t, json.NewDecoder(result.Body).Decode(&userID))
 			require.NoError(t, result.Body.Close())
-
-			return userID
 		}
 
 		sender := &EmailVerifier{Context: ctx}
 		sat.API.Mail.Service.Sender = sender
 
 		// Registration attempts using new e-mail address should send activation e-mail.
-		userID := register()
+		register()
 		body, err := sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
 
 		// Registration attempts using existing but unverified e-mail address should send activation e-mail.
-		newUserID := register()
-		require.Equal(t, userID, newUserID)
+		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
 
-		// Registration attempts using existing and verified e-mail address should send password reset e-mail.
-		userUUID, err := uuid.FromString(userID)
-		require.NoError(t, err)
-		user, err := sat.DB.Console().Users().Get(ctx, userUUID)
+		// Registration attempts using existing and verified e-mail address should send account already exists e-mail.
+		_, users, err := sat.DB.Console().Users().GetByEmailWithUnverified(ctx, email)
 		require.NoError(t, err)
 
-		user.Status = console.Active
-		require.NoError(t, sat.DB.Console().Users().Update(ctx, user))
+		users[0].Status = console.Active
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, users[0].ID, console.UpdateUserRequest{
+			Status: &users[0].Status,
+		}))
 
-		newUserID = register()
-		require.Equal(t, userID, newUserID)
+		register()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
-		require.Contains(t, body, "/password-recovery")
+		require.Contains(t, body, "/login")
+		require.Contains(t, body, "/forgot-password")
+		require.Contains(t, body, "/signup")
 	})
 }
 
@@ -683,11 +734,184 @@ func TestResendActivationEmail(t *testing.T) {
 
 		// Expect activation e-mail to be sent when using unverified e-mail address.
 		user.Status = console.Inactive
-		require.NoError(t, usersRepo.Update(ctx, user))
+		require.NoError(t, usersRepo.Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &user.Status,
+		}))
 
 		resendEmail()
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
 		require.Contains(t, body, "/activation")
+	})
+}
+
+func TestAuth_Register_NameSpecialChars(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Mail.AuthType = "nomail"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		inputName := "The website has been changed to https://evil.com/login.html<> - Enter Login ' \" Details,"
+		filteredName := "The website has been changed to https---evil-com-login-html\\u0026lt;\\u0026gt; - Enter Login \\u0026#39; \\u0026#34; Details,"
+		email := "user@mail.test"
+		registerData := struct {
+			FullName  string `json:"fullName"`
+			ShortName string `json:"shortName"`
+			Email     string `json:"email"`
+			Password  string `json:"password"`
+		}{
+			FullName:  inputName,
+			ShortName: inputName,
+			Email:     email,
+			Password:  "abc123",
+		}
+
+		jsonBody, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer func() {
+			err = result.Body.Close()
+			require.NoError(t, err)
+		}()
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.Len(t, planet.Satellites, 1)
+		// this works only because we configured 'nomail' above. Mail send simulator won't click to activation link.
+		_, users, err := planet.Satellites[0].API.Console.Service.GetUserByEmailWithUnverified(ctx, email)
+		require.NoError(t, err)
+		require.Len(t, users, 1)
+		require.Equal(t, filteredName, users[0].FullName)
+		require.Equal(t, filteredName, users[0].ShortName)
+	})
+}
+
+func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		type registerData struct {
+			FullName        string `json:"fullName"`
+			Email           string `json:"email"`
+			Password        string `json:"password"`
+			Partner         string `json:"partner"`
+			SignupPromoCode string `json:"signupPromoCode"`
+		}
+
+		reqURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+
+		jsonBodyCorrect, err := json.Marshal(&registerData{
+			FullName:        "test",
+			Email:           "user@mail.test",
+			Password:        "abc123",
+			Partner:         string(testrand.RandAlphaNumeric(100)),
+			SignupPromoCode: string(testrand.RandAlphaNumeric(100)),
+		})
+		require.NoError(t, err)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(jsonBodyCorrect))
+		require.NoError(t, err)
+
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		err = result.Body.Close()
+		require.NoError(t, err)
+
+		jsonBodyPartnerInvalid, err := json.Marshal(&registerData{
+			FullName: "test",
+			Email:    "user1@mail.test",
+			Password: "abc123",
+			Partner:  string(testrand.RandAlphaNumeric(101)),
+		})
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(jsonBodyPartnerInvalid))
+		require.NoError(t, err)
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+
+		err = result.Body.Close()
+		require.NoError(t, err)
+
+		jsonBodyPromoInvalid, err := json.Marshal(&registerData{
+			FullName:        "test",
+			Email:           "user1@mail.test",
+			Password:        "abc123",
+			SignupPromoCode: string(testrand.RandAlphaNumeric(101)),
+		})
+		require.NoError(t, err)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewBuffer(jsonBodyPromoInvalid))
+		require.NoError(t, err)
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+
+		defer func() {
+			err = result.Body.Close()
+			require.NoError(t, err)
+		}()
+	})
+}
+
+func TestAuth_Register_PasswordLength(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for i, tt := range []struct {
+			Name   string
+			Length int
+			Ok     bool
+		}{
+			{"Length below minimum must be rejected", 5, false},
+			{"Length as minimum must be accepted", 6, true},
+			{"Length as maximum must be accepted", 72, true},
+			{"Length above maximum must be rejected", 73, false},
+		} {
+			tt := tt
+			t.Run(tt.Name, func(t *testing.T) {
+				jsonBody, err := json.Marshal(map[string]string{
+					"fullName": "test",
+					"email":    "user" + strconv.Itoa(i) + "@mail.test",
+					"password": string(testrand.RandAlphaNumeric(tt.Length)),
+				})
+				require.NoError(t, err)
+
+				url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+				require.NoError(t, err)
+
+				result, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+
+				err = result.Body.Close()
+				require.NoError(t, err)
+
+				status := http.StatusOK
+				if !tt.Ok {
+					status = http.StatusBadRequest
+				}
+				require.Equal(t, status, result.StatusCode)
+			})
+		}
 	})
 }

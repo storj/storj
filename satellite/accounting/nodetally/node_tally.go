@@ -141,8 +141,8 @@ func (observer *Observer) LoopStarted(context.Context, segmentloop.LoopInfo) (er
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (observer *Observer) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) error {
+	// we are expliticy not adding monitoring here as we are tracking loop observers separately
 
 	if segment.Expired(observer.now) {
 		return nil

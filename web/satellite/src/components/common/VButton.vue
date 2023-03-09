@@ -3,75 +3,167 @@
 
 <template>
     <!-- if isDisabled check onPress in parent element -->
-    <div
+    <a
+        v-if="link"
+        class="container"
+        :href="link"
         :class="containerClassName"
         :style="style"
+        tabindex="0"
+        target="_blank"
+        rel="noopener noreferrer"
         @click="onPress"
     >
-        <slot name="icon" />
-        <span class="label" :class="{uppercase: isUppercase}">{{ label }}</span>
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
+    </a>
+    <div
+        v-else
+        class="container"
+        :class="containerClassName"
+        :style="style"
+        tabindex="0"
+        @click="handleClick"
+        @keyup.enter="handleClick"
+    >
+        <div class="icon-wrapper">
+            <slot name="icon" />
+        </div>
+        <span class="label" :class="{uppercase: isUppercase}">
+            <CopyIcon v-if="icon.toLowerCase() === 'copy'" />
+            <DownloadIcon v-if="icon.toLowerCase() === 'download'" />
+            <LockIcon v-if="icon.toLowerCase() === 'lock'" />
+            <CreditCardIcon v-if="icon.toLowerCase() === 'credit-card'" />
+            <DocumentIcon v-if="icon.toLowerCase() === 'document'" />
+            <TrashIcon v-if="icon.toLowerCase() === 'trash'" />
+            <FolderIcon v-if="icon.toLowerCase() === 'folder'" />
+            <resources-icon v-if="icon.toLowerCase() === 'resources'" />
+            <add-circle-icon v-if="icon.toLowerCase() === 'addcircle'" />
+            <span v-if="icon !== 'none'">&nbsp;&nbsp;</span>
+            {{ label }}
+        </span>
+        <div class="icon-wrapper-right">
+            <slot name="icon-right" />
+        </div>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+
+import { computed } from 'vue';
+
+import AddCircleIcon from '@/../static/images/common/addCircle.svg';
+import CopyIcon from '@/../static/images/common/copyButtonIcon.svg';
+import TrashIcon from '@/../static/images/accessGrants/trashIcon.svg';
+import LockIcon from '@/../static/images/common/lockIcon.svg';
+import CreditCardIcon from '@/../static/images/common/creditCardIcon-white.svg';
+import DocumentIcon from '@/../static/images/common/documentIcon.svg';
+import DownloadIcon from '@/../static/images/common/download.svg';
+import FolderIcon from '@/../static/images/objects/newFolder.svg';
+import ResourcesIcon from '@/../static/images/navigation/resources.svg';
+
+const props = withDefaults(defineProps<{
+    link?: string;
+    label?: string;
+    width?: string;
+    height?: string;
+    fontSize?: string;
+    borderRadius?: string;
+    icon?: string;
+    isOrange?: boolean;
+    isWhite?: boolean;
+    isSolidDelete?: boolean;
+    isTransparent?: boolean;
+    isDeletion?: boolean;
+    isGreyBlue?: boolean;
+    isBlueWhite?: boolean;
+    isWhiteGreen?: boolean;
+    isGreen?: boolean;
+    isDisabled?: boolean;
+    isUppercase?: boolean;
+    onPress?: () => void;
+}>(), {
+    link: undefined,
+    label: 'Default',
+    width: 'inherit',
+    height: 'inherit',
+    fontSize: '16px',
+    borderRadius: '6px',
+    icon: 'none',
+    isOrange: false,
+    isWhite: false,
+    isSolidDelete: false,
+    isTransparent: false,
+    isDeletion: false,
+    isGreyBlue: false,
+    isBlueWhite: false,
+    isWhiteGreen: false,
+    isGreen: false,
+    isDisabled: false,
+    isUppercase: false,
+    onPress: () => {},
+});
+
+const containerClassName = computed((): string => {
+    if (props.isDisabled) return 'disabled';
+
+    if (props.isWhite) return 'white';
+
+    if (props.isOrange) return 'orange';
+
+    if (props.isSolidDelete) return 'solid-red';
+
+    if (props.isTransparent) return 'transparent';
+
+    if (props.isDeletion) return 'red';
+
+    if (props.isGreyBlue) return 'grey-blue';
+
+    if (props.isBlueWhite) return 'blue-white';
+
+    if (props.isWhiteGreen) return 'white-green';
+
+    if (props.isGreen) return 'green';
+
+    return '';
+});
+
+const style = computed(() => {
+    return { width: props.width, height: props.height, borderRadius: props.borderRadius, fontSize: props.fontSize };
+});
 
 /**
- * Custom button component with label.
+ * This wrapper handles button's disabled state for accessibility purposes.
  */
-// @vue/component
-@Component
-export default class VButton extends Vue {
-    @Prop({default: 'Default'})
-    private readonly label: string;
-    @Prop({default: 'inherit'})
-    private readonly width: string;
-    @Prop({default: 'inherit'})
-    private readonly height: string;
-    @Prop({default: '16px'})
-    private readonly fontSize: string;
-    @Prop({default: '6px'})
-    private readonly borderRadius: string;
-    @Prop({default: false})
-    private readonly isWhite: boolean;
-    @Prop({default: false})
-    private readonly isTransparent: boolean;
-    @Prop({default: false})
-    private readonly isDeletion: boolean;
-    @Prop({default: false})
-    private readonly isGreyBlue: boolean;
-    @Prop({default: false})
-    private readonly isBlueWhite: boolean;
-    @Prop({default: false})
-    private isDisabled: boolean;
-    @Prop({default: false})
-    private readonly isUppercase: boolean;
-    @Prop({default: () => { return; }})
-    private readonly onPress: () => void;
-
-    public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height, borderRadius: this.borderRadius, fontSize: this.fontSize };
-    }
-
-    public get containerClassName(): string {
-        if (this.isDisabled) return 'container disabled';
-
-        if (this.isWhite) return 'container white';
-
-        if (this.isTransparent) return 'container transparent';
-
-        if (this.isDeletion) return 'container red';
-
-        if (this.isGreyBlue) return 'container grey-blue';
-
-        if (this.isBlueWhite) return 'container blue-white';
-
-        return 'container';
+function handleClick(): void {
+    if (!props.isDisabled) {
+        props.onPress();
     }
 }
 </script>
 
 <style scoped lang="scss">
+    .label {
+        display: flex;
+        align-items: center;
+    }
+
     .transparent {
         background-color: transparent !important;
         border: 1px solid #afb7c1 !important;
@@ -81,12 +173,31 @@ export default class VButton extends Vue {
         }
     }
 
+    .solid-red {
+        background-color: var(--c-red-3) !important;
+        border: 1px solid var(--c-red-3) !important;
+
+        .label {
+            color: #fff !important;
+        }
+
+        &:hover {
+            background-color: #790000 !important;
+            border: 1px solid #790000 !important;
+        }
+    }
+
     .white {
         background-color: #fff !important;
-        border: 1px solid #d8dee3 !important;
+        border: 1px solid var(--c-grey-3) !important;
 
         .label {
             color: #354049 !important;
+        }
+
+        :deep(path),
+        :deep(rect) {
+            fill: #354049;
         }
     }
 
@@ -99,12 +210,25 @@ export default class VButton extends Vue {
         }
     }
 
+    .white-green {
+        background-color: transparent !important;
+        border: 1px solid #d8dee3 !important;
+
+        .label {
+            color: var(--c-green-5) !important;
+        }
+    }
+
+    .green {
+        background-color: var(--c-green-5) !important;
+    }
+
     .grey-blue {
         background-color: #fff !important;
         border: 2px solid #d9dbe9 !important;
 
         .label {
-            color: #0149ff !important;
+            color: var(--c-blue-3) !important;
         }
     }
 
@@ -127,12 +251,38 @@ export default class VButton extends Vue {
         }
     }
 
+    .orange {
+        background-color: #ff8a00 !important;
+        border: 2px solid #ff8a00 !important;
+    }
+
     .container {
         display: flex;
         align-items: center;
         justify-content: center;
-        background-color: #2683ff;
+        background-color: var(--c-blue-3);
         cursor: pointer;
+        box-sizing: border-box;
+
+        .trash-icon {
+            margin-right: 5px;
+        }
+
+        .icon-wrapper {
+            display: flex;
+
+            &:not(:empty) {
+                margin-right: 8px;
+            }
+        }
+
+        .icon-wrapper-right {
+            display: flex;
+
+            &:not(:empty) {
+                margin-left: 8px;
+            }
+        }
 
         .label {
             font-family: 'font_medium', sans-serif;
@@ -151,6 +301,12 @@ export default class VButton extends Vue {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;
+
+                :deep(path),
+                :deep(rect) {
+                    stroke: white;
+                    fill: white;
+                }
 
                 .label {
                     color: white !important;
@@ -177,6 +333,19 @@ export default class VButton extends Vue {
                 .label {
                     color: #eb5757 !important;
                 }
+            }
+
+            &.orange {
+                background-color: #c16900 !important;
+                border-color: #c16900 !important;
+            }
+
+            &.white-green {
+                background-color: var(--c-green-4) !important;
+            }
+
+            &.green {
+                background-color: #008a1e !important;
             }
 
             &.disabled {

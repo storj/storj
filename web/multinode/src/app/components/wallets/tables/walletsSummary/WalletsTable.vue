@@ -49,10 +49,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { Operator } from '@/operators';
+
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import VLink from '@/app/components/common/VLink.vue';
-
-import { Operator } from '@/operators';
 
 // @vue/component
 @Component({

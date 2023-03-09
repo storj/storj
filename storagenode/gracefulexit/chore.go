@@ -6,6 +6,7 @@ package gracefulexit
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -22,7 +23,7 @@ type Chore struct {
 	dialer rpc.Dialer
 	config Config
 
-	service         Service
+	service         *Service
 	transferService piecetransfer.Service
 
 	exitingMap sync.Map
@@ -31,7 +32,7 @@ type Chore struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, service Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
+func NewChore(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
 	return &Chore{
 		log:             log,
 		dialer:          dialer,
@@ -46,73 +47,71 @@ func NewChore(log *zap.Logger, service Service, transferService piecetransfer.Se
 // Run starts the chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
-		defer mon.Task()(&ctx)(&err)
-
-		geSatellites, err := chore.service.ListPendingExits(ctx)
-		if err != nil {
-			chore.log.Error("error retrieving satellites.", zap.Error(err))
-			return nil
-		}
-
-		if len(geSatellites) == 0 {
-			return nil
-		}
-		chore.log.Debug("exiting", zap.Int("satellites", len(geSatellites)))
-
-		for _, satellite := range geSatellites {
-			mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
-			satellite := satellite
-
-			worker := NewWorker(chore.log, chore.service, chore.transferService, chore.dialer, satellite.NodeURL, chore.config)
-			if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
-				// already running a worker for this satellite
-				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))
-				continue
-			}
-
-			chore.limiter.Go(ctx, func() {
-				err := worker.Run(ctx, func() {
-					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satellite.SatelliteID))
-					chore.exitingMap.Delete(satellite.SatelliteID)
-				})
-
-				if err != nil {
-					chore.log.Error("worker failed", zap.Error(err))
-				}
-
-				if err := worker.Close(); err != nil {
-					chore.log.Error("closing worker failed", zap.Error(err))
-				}
-			})
-		}
-
-		return nil
-	})
-
-	chore.limiter.Wait()
-
-	return err
+	defer chore.limiter.Wait()
+	return chore.Loop.Run(ctx, chore.AddMissing)
 }
 
-// TestWaitForWorkers waits for any pending worker to finish.
-func (chore *Chore) TestWaitForWorkers() {
-	chore.limiter.Wait()
+// AddMissing starts any missing satellite chore.
+func (chore *Chore) AddMissing(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	geSatellites, err := chore.service.ListPendingExits(ctx)
+	if err != nil {
+		chore.log.Error("error retrieving satellites.", zap.Error(err))
+		return nil
+	}
+
+	if len(geSatellites) == 0 {
+		return nil
+	}
+	chore.log.Debug("exiting", zap.Int("satellites", len(geSatellites)))
+
+	for _, satellite := range geSatellites {
+		mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
+		satellite := satellite
+
+		worker := NewWorker(chore.log, chore.service, chore.transferService, chore.dialer, satellite.NodeURL, chore.config)
+		if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
+			// already running a worker for this satellite
+			chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))
+			continue
+		}
+
+		started := chore.limiter.Go(ctx, func() {
+			defer chore.exitingMap.Delete(satellite.SatelliteID)
+			if err := worker.Run(ctx); err != nil {
+				chore.log.Error("worker failed", zap.Error(err))
+			}
+		})
+		if !started {
+			chore.exitingMap.Delete(satellite.SatelliteID)
+			return ctx.Err()
+		}
+	}
+
+	return nil
+}
+
+// TestWaitForNoWorkers waits for any pending worker to finish.
+func (chore *Chore) TestWaitForNoWorkers(ctx context.Context) error {
+	for {
+		if !sync2.Sleep(ctx, 100*time.Millisecond) {
+			return ctx.Err()
+		}
+
+		found := false
+		chore.exitingMap.Range(func(key, value interface{}) bool {
+			found = true
+			return false
+		})
+		if !found {
+			return nil
+		}
+	}
 }
 
 // Close closes chore.
 func (chore *Chore) Close() error {
 	chore.Loop.Close()
-	chore.exitingMap.Range(func(key interface{}, value interface{}) bool {
-		worker := value.(*Worker)
-		err := worker.Close()
-		if err != nil {
-			worker.log.Error("worker failed on close.", zap.Error(err))
-		}
-		chore.exitingMap.Delete(key)
-		return true
-	})
-
 	return nil
 }

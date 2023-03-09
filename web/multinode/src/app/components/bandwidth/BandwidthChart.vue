@@ -18,13 +18,13 @@
 <script lang="ts">
 import { Component } from 'vue-property-decorator';
 
-import BaseChart from '@/app/components/common/BaseChart.vue';
-import VChart from '@/app/components/common/VChart.vue';
-
 import { ChartData, Tooltip, TooltipParams, TooltipModel } from '@/app/types/chart';
 import { Chart as ChartUtils } from '@/app/utils/chart';
 import { BandwidthRollup } from '@/bandwidth';
 import { Size } from '@/private/memory/size';
+
+import VChart from '@/app/components/common/VChart.vue';
+import BaseChart from '@/app/components/common/BaseChart.vue';
 
 /**
  * stores bandwidth data for bandwidth chart's tooltip
@@ -49,7 +49,7 @@ class BandwidthTooltip {
 
 // @vue/component
 @Component({
-    components: {VChart},
+    components: { VChart },
 })
 export default class BandwidthChart extends BaseChart {
     private get allBandwidth(): BandwidthRollup[] {
@@ -201,7 +201,7 @@ export default class BandwidthChart extends BaseChart {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 0 16px 0;
+        padding: 10px 0 16px;
         color: var(--c-title);
     }
 </style>

@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/context2"
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
 	"storj.io/common/pb"
@@ -26,7 +27,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/uplink/private/eestream"
 )
 
 // millis for the transfer queue building ticker.
@@ -174,6 +174,9 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	var geSuccess bool
+	var geSuccessMutex sync.Mutex
+
 	group.Go(func() error {
 		incompleteLoop := sync2.NewCycle(endpoint.interval)
 
@@ -195,6 +198,9 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 				if len(incomplete) == 0 {
 					endpoint.log.Debug("no more pieces to transfer for node", zap.Stringer("Node ID", nodeID))
+					geSuccessMutex.Lock()
+					geSuccess = true
+					geSuccessMutex.Unlock()
 					cancel()
 					return pending.DoneSending(nil)
 				}
@@ -222,6 +228,20 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 		// if there is no more work to receive send complete
 		if finished {
+			// This point is reached both when an exit is entirely successful and
+			// when the satellite is being shut down. geSuccess
+			// differentiates these cases.
+			geSuccessMutex.Lock()
+			wasSuccessful := geSuccess
+			geSuccessMutex.Unlock()
+
+			if !wasSuccessful {
+				return rpcstatus.Error(rpcstatus.Canceled, "graceful exit processing interrupted (node should reconnect and continue)")
+			}
+
+			// ignore cancelled context which was triggered to finish loop but we still need to do some DB operations
+			ctx = context2.WithoutCancellation(ctx)
+
 			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -698,7 +718,7 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 		message = &pb.SatelliteMessage{Message: &pb.SatelliteMessage_ExitFailed{
 			ExitFailed: signed,
 		}}
-		err = endpoint.overlay.DisqualifyNode(ctx, nodeID)
+		err = endpoint.overlay.DisqualifyNode(ctx, nodeID, overlay.DisqualificationReasonUnknown)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -847,19 +867,13 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, segment metabase.Segment, incomplete *TransferQueueItem) (int64, error) {
 	nodeID := incomplete.NodeID
 
-	// calculate piece size
-	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	if len(segment.Pieces) > redundancy.OptimalThreshold() {
+	if len(segment.Pieces) > int(segment.Redundancy.OptimalShares) {
 		endpoint.log.Debug("segment has more pieces than required. removing node from segment.", zap.Stringer("node ID", nodeID), zap.Int32("piece num", incomplete.PieceNum))
 
 		return 0, ErrAboveOptimalThreshold.New("")
 	}
 
-	return eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy), nil
+	return segment.PieceSize(), nil
 }
 
 func (endpoint *Endpoint) getValidSegment(ctx context.Context, streamID uuid.UUID, position metabase.SegmentPosition, originalRootPieceID storj.PieceID) (metabase.Segment, error) {

@@ -12,11 +12,12 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NotificationArea from '@/components/notifications/NotificationArea.vue';
-
-import { PartneredSatellite } from '@/types/common.ts';
+import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
+
+import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 // @vue/component
 @Component({
@@ -32,29 +33,24 @@ export default class App extends Vue {
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
-        let partneredSatellitesJson = [];
+        let partneredSatellitesJSON = [];
         if (partneredSatellitesData) {
-            partneredSatellitesJson = JSON.parse(partneredSatellitesData);
+            partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
         }
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
-        const isNewProjectDashboard = MetaUtils.getMetaContent('new-project-dashboard');
-        const isNewOnboardingFlow = MetaUtils.getMetaContent('new-onboarding-flow');
-        const isNewNavStructure = MetaUtils.getMetaContent('new-navigation-structure');
-        const isNewObjectsFlow = MetaUtils.getMetaContent('new-objects-flow');
+        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
 
-            if (partneredSatellitesJson) {
+            if (partneredSatellitesJSON.length) {
                 const partneredSatellites: PartneredSatellite[] = [];
-                partneredSatellitesJson.forEach((partner) => {
-                    const name = partner[0];
-                    const address = partner[1];
+                partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
                     // skip current satellite
-                    if (name !== satelliteName) {
-                        partneredSatellites.push(new PartneredSatellite(name, address));
+                    if (sat.name !== satelliteName) {
+                        partneredSatellites.push(sat);
                     }
                 });
                 this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
@@ -73,33 +69,63 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
         }
 
-        if (isNewProjectDashboard) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_PROJECT_DASHBOARD_STATUS, isNewProjectDashboard === 'true');
+        if (isNewAccessGrantFlow) {
+            this.$store.commit(APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS, isNewAccessGrantFlow === 'true');
         }
 
-        if (isNewOnboardingFlow) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_ONB_CLI_FLOW_STATUS, isNewOnboardingFlow === 'true');
-        }
+        this.fixViewportHeight();
+    }
 
-        if (isNewNavStructure) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_NAV_STRUCTURE_STATUS, isNewNavStructure === 'true');
-        }
+    public beforeDestroy(): void {
+        window.removeEventListener('resize', this.updateViewportVariable);
+    }
 
-        if (isNewObjectsFlow) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_OBJECTS_FLOW_STATUS, isNewObjectsFlow === 'true');
+    /**
+     * Fixes the issue where view port height is taller than the visible viewport on
+     * mobile Safari/Webkit. See: https://bugs.webkit.org/show_bug.cgi?id=141832
+     * Specifically for us, this issue is seen in Safari and Google Chrome, both on iOS
+     */
+    private fixViewportHeight(): void {
+        const agent = window.navigator.userAgent.toLowerCase();
+        const isMobile = screen.width <= 500;
+        const isIOS = agent.includes('applewebkit') && agent.includes('iphone');
+        // We don't want to apply this fix on FxIOS because it introduces strange behavior
+        // while not fixing the issue because it doesn't exist here.
+        const isFirefoxIOS = window.navigator.userAgent.toLowerCase().includes('fxios');
+
+        if (isMobile && isIOS && !isFirefoxIOS) {
+            // Set the custom --vh variable to the root of the document.
+            document.documentElement.style.setProperty('--vh', `${window.innerHeight}px`);
+            window.addEventListener('resize', this.updateViewportVariable);
         }
+    }
+
+    /**
+     * Update the viewport height variable "--vh".
+     * This is called everytime there is a viewport change; e.g.: orientation change.
+     */
+    private updateViewportVariable(): void {
+        document.documentElement.style.setProperty('--vh', `${window.innerHeight}px`);
     }
 }
 </script>
 
 <style lang="scss">
+    @import 'static/styles/variables';
+
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
     html {
         overflow: hidden;
+        font-size: 14px;
     }
 
     body {
         margin: 0 !important;
-        height: 100vh;
+        height: var(--vh, 100vh);
         zoom: 100%;
         overflow: hidden;
     }
@@ -158,7 +184,7 @@ export default class App extends Vue {
     input,
     textarea {
         font-family: inherit;
-        border: 1px solid rgba(56, 75, 101, 0.4);
+        border: 1px solid rgb(56 75 101 / 40%);
         color: #354049;
         caret-color: #2683ff;
     }

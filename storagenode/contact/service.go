@@ -5,6 +5,7 @@ package contact
 
 import (
 	"context"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -41,33 +42,38 @@ type Config struct {
 
 // NodeInfo contains information necessary for introducing storagenode to satellite.
 type NodeInfo struct {
-	ID       storj.NodeID
-	Address  string
-	Version  pb.NodeVersion
-	Capacity pb.NodeCapacity
-	Operator pb.NodeOperator
+	ID                  storj.NodeID
+	Address             string
+	Version             pb.NodeVersion
+	Capacity            pb.NodeCapacity
+	Operator            pb.NodeOperator
+	NoiseKeyAttestation *pb.NoiseKeyAttestation
 }
 
 // Service is the contact service between storage nodes and satellites.
 type Service struct {
 	log    *zap.Logger
+	rand   *rand.Rand
 	dialer rpc.Dialer
 
 	mu   sync.Mutex
 	self NodeInfo
 
-	trust *trust.Pool
+	trust     *trust.Pool
+	quicStats *QUICStats
 
 	initialized sync2.Fence
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool) *Service {
+func NewService(log *zap.Logger, dialer rpc.Dialer, self NodeInfo, trust *trust.Pool, quicStats *QUICStats) *Service {
 	return &Service{
-		log:    log,
-		dialer: dialer,
-		trust:  trust,
-		self:   self,
+		log:       log,
+		rand:      rand.New(rand.NewSource(time.Now().UnixNano())),
+		dialer:    dialer,
+		trust:     trust,
+		self:      self,
+		quicStats: quicStats,
 	}
 }
 
@@ -116,12 +122,7 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx, id)(&err)
 
-	nodeurl, err := service.trust.GetNodeURL(ctx, id)
-	if err != nil {
-		return errPingSatellite.Wrap(err)
-	}
-
-	conn, err := service.dialer.DialNodeURL(ctx, nodeurl)
+	conn, err := service.dialSatellite(ctx, id)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
@@ -129,21 +130,95 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 
 	self := service.Local()
 	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-		Address:  self.Address,
-		Version:  &self.Version,
-		Capacity: &self.Capacity,
-		Operator: &self.Operator,
+		Address:             self.Address,
+		Version:             &self.Version,
+		Capacity:            &self.Capacity,
+		Operator:            &self.Operator,
+		NoiseKeyAttestation: self.NoiseKeyAttestation,
 	})
+	service.quicStats.SetStatus(false)
 	if err != nil {
 		return errPingSatellite.Wrap(err)
 	}
-	if resp != nil && !resp.PingNodeSuccess {
-		return errPingSatellite.New("%s", resp.PingErrorMessage)
+	if resp != nil {
+		service.quicStats.SetStatus(resp.PingNodeSuccessQuic)
+
+		if !resp.PingNodeSuccess {
+			return errPingSatellite.New("%s", resp.PingErrorMessage)
+		}
 	}
 	if resp.PingErrorMessage != "" {
 		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
 	}
 	return nil
+}
+
+// RequestPingMeQUIC sends pings request to satellite for a pingBack via QUIC.
+func (service *Service) RequestPingMeQUIC(ctx context.Context) (stats *QUICStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stats = NewQUICStats(true)
+
+	satellites := service.trust.GetSatellites(ctx)
+	if len(satellites) < 1 {
+		return nil, errPingSatellite.New("no trusted satellite available")
+	}
+
+	// Shuffle the satellites
+	// All the Storagenodes get a default list of trusted satellites (The Storj DCS ones) and
+	// most of the SN operators don't change the list, hence if it always starts with
+	// the same satellite we are going to put always more pressure on the first trusted
+	// satellite on the list. So we iterate over the list of trusted satellites in a
+	// random order to avoid putting pressure on the first trusted on the list
+	service.rand.Shuffle(len(satellites), func(i, j int) {
+		satellites[i], satellites[j] = satellites[j], satellites[i]
+	})
+
+	for _, satellite := range satellites {
+		err = service.requestPingMeOnce(ctx, satellite)
+		if err != nil {
+			stats.SetStatus(false)
+			// log warning and try the next trusted satellite
+			service.log.Warn("failed PingMe request to satellite", zap.Stringer("Satellite ID", satellite), zap.Error(err))
+			continue
+		}
+
+		stats.SetStatus(true)
+
+		return stats, nil
+	}
+
+	return stats, errPingSatellite.New("failed to ping storage node using QUIC: %q", err)
+}
+
+func (service *Service) requestPingMeOnce(ctx context.Context, satellite storj.NodeID) (err error) {
+	defer mon.Task()(&ctx, satellite)(&err)
+
+	conn, err := service.dialSatellite(ctx, satellite)
+	if err != nil {
+		return errPingSatellite.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, conn.Close()) }()
+
+	node := service.Local()
+	_, err = pb.NewDRPCNodeClient(conn).PingMe(ctx, &pb.PingMeRequest{
+		Address:   node.Address,
+		Transport: pb.NodeTransport_QUIC_RPC,
+	})
+	if err != nil {
+		return errPingSatellite.Wrap(err)
+	}
+
+	return nil
+}
+
+func (service *Service) dialSatellite(ctx context.Context, id storj.NodeID) (*rpc.Conn, error) {
+	nodeurl, err := service.trust.GetNodeURL(ctx, id)
+	if err != nil {
+		return nil, errPingSatellite.Wrap(err)
+	}
+
+	return service.dialer.DialNodeURL(ctx, nodeurl)
 }
 
 // Local returns the storagenode info.

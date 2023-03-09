@@ -1,17 +1,18 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import {
     AccessGrant,
     AccessGrantCursor,
     AccessGrantsApi,
     AccessGrantsOrderBy,
     AccessGrantsPage,
+    AccessGrantsWorkerFactory,
     DurationPermission,
-    GatewayCredentials,
+    EdgeCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
+import { StoreModule } from '@/types/store';
 
 export const ACCESS_GRANTS_ACTIONS = {
     FETCH: 'fetchAccessGrants',
@@ -82,7 +83,7 @@ export class AccessGrantsState {
     public isUpload = true;
     public isList = true;
     public isDelete = true;
-    public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
+    public gatewayCredentials: EdgeCredentials = new EdgeCredentials();
     public accessGrantsWebWorker: Worker | null = null;
     public isAccessGrantsWebWorkerReady = false;
 }
@@ -102,7 +103,7 @@ interface AccessGrantsContext {
  *
  * @param api - accessGrants api
  */
-export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState, AccessGrantsContext> {
+export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: AccessGrantsWorkerFactory): StoreModule<AccessGrantsState, AccessGrantsContext> {
     return {
         state: new AccessGrantsState(),
         mutations: {
@@ -125,7 +126,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                     return accessGrant;
                 });
             },
-            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: GatewayCredentials) {
+            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: EdgeCredentials) {
                 state.gatewayCredentials = credentials;
             },
             [SET_PAGE_NUMBER](state: AccessGrantsState, pageNumber: number) {
@@ -204,13 +205,23 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.selectedBucketNames = [];
                 state.permissionNotBefore = null;
                 state.permissionNotAfter = null;
-                state.gatewayCredentials = new GatewayCredentials();
+                state.gatewayCredentials = new EdgeCredentials();
+                state.isDownload = true;
+                state.isUpload = true;
+                state.isList = true;
+                state.isDelete = true;
+                state.accessGrantsWebWorker = null;
+                state.isAccessGrantsWebWorkerReady = false;
             },
         },
         actions: {
-            setAccessGrantsWebWorker: async function ({commit}: AccessGrantsContext): Promise<void> {
-                const worker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
-                worker.postMessage({'type': 'Setup'})
+            setAccessGrantsWebWorker: async function ({ commit }: AccessGrantsContext): Promise<void> {
+                if (!workerFactory) {
+                    throw new Error('Worker not supported');
+                }
+
+                const worker = workerFactory.create();
+                worker.postMessage({ 'type': 'Setup' });
 
                 const event: MessageEvent = await new Promise(resolve => worker.onmessage = resolve);
                 if (event.data.error) {
@@ -225,12 +236,12 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                     throw new Error(`Failed to configure access grants web worker. ${error.message}`);
                 };
 
-                commit(SET_ACCESS_GRANTS_WEB_WORKER, worker)
+                commit(SET_ACCESS_GRANTS_WEB_WORKER, worker);
             },
-            stopAccessGrantsWebWorker: function({commit}: AccessGrantsContext): void {
+            stopAccessGrantsWebWorker: function({ commit }: AccessGrantsContext): void {
                 commit(STOP_ACCESS_GRANTS_WEB_WORKER);
             },
-            fetchAccessGrants: async function ({commit, rootGetters, state}: AccessGrantsContext, pageNumber: number): Promise<AccessGrantsPage> {
+            fetchAccessGrants: async function ({ commit, rootGetters, state }: AccessGrantsContext, pageNumber: number): Promise<AccessGrantsPage> {
                 const projectId = rootGetters.selectedProject.id;
                 commit(SET_PAGE_NUMBER, pageNumber);
 
@@ -239,50 +250,51 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
 
                 return accessGrantsPage;
             },
-            createAccessGrant: async function ({rootGetters}: AccessGrantsContext, name: string): Promise<AccessGrant> {
+            createAccessGrant: async function ({ rootGetters }: AccessGrantsContext, name: string): Promise<AccessGrant> {
                 return await api.create(rootGetters.selectedProject.id, name);
             },
-            deleteAccessGrants: async function({state}: AccessGrantsContext): Promise<void> {
+            deleteAccessGrants: async function({ state }: AccessGrantsContext): Promise<void> {
                 await api.delete(state.selectedAccessGrantsIds);
             },
-            deleteAccessGrantsByNameAndProjectID: async function({rootGetters}: AccessGrantsContext, name: string): Promise<void> {
+            deleteAccessGrantsByNameAndProjectID: async function({ rootGetters }: AccessGrantsContext, name: string): Promise<void> {
                 await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
             },
-            getGatewayCredentials: async function({commit}: AccessGrantsContext, payload): Promise<GatewayCredentials> {
-                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
+            getGatewayCredentials: async function({ commit }: AccessGrantsContext, payload): Promise<EdgeCredentials> {
+                const credentials: EdgeCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
 
                 return credentials;
             },
-            setAccessGrantsSearchQuery: function ({commit}: AccessGrantsContext, search: string) {
+            setAccessGrantsSearchQuery: function ({ commit }: AccessGrantsContext, search: string) {
                 commit(SET_SEARCH_QUERY, search);
             },
-            setAccessGrantsSortingBy: function ({commit}: AccessGrantsContext, order: AccessGrantsOrderBy) {
+            setAccessGrantsSortingBy: function ({ commit }: AccessGrantsContext, order: AccessGrantsOrderBy) {
                 commit(CHANGE_SORT_ORDER, order);
             },
-            setAccessGrantsSortingDirection: function ({commit}: AccessGrantsContext, direction: SortDirection) {
+            setAccessGrantsSortingDirection: function ({ commit }: AccessGrantsContext, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
-            setAccessGrantsDurationPermission: function ({commit}: AccessGrantsContext, permission: DurationPermission) {
+            setAccessGrantsDurationPermission: function ({ commit }: AccessGrantsContext, permission: DurationPermission) {
                 commit(SET_DURATION_PERMISSION, permission);
             },
-            toggleAccessGrantsSelection: function ({commit}: AccessGrantsContext, accessGrant: AccessGrant): void {
+            toggleAccessGrantsSelection: function ({ commit }: AccessGrantsContext, accessGrant: AccessGrant): void {
                 commit(TOGGLE_SELECTION, accessGrant);
             },
-            toggleBucketSelection: function ({commit}: AccessGrantsContext, bucketName: string): void {
+            toggleBucketSelection: function ({ commit }: AccessGrantsContext, bucketName: string): void {
                 commit(TOGGLE_BUCKET_SELECTION, bucketName);
             },
-            clearAccessGrantsSelection: function ({commit}: AccessGrantsContext): void {
+            clearAccessGrantsSelection: function ({ commit }: AccessGrantsContext): void {
                 commit(CLEAR_SELECTION);
             },
-            clearAccessGrants: function ({commit}: AccessGrantsContext): void {
+            clearAccessGrants: function ({ commit }: AccessGrantsContext): void {
                 commit(CLEAR);
                 commit(CLEAR_SELECTION);
             },
         },
         getters: {
             selectedAccessGrants: (state: AccessGrantsState) => state.page.accessGrants.filter((grant: AccessGrant) => grant.isSelected),
+            worker: (state: AccessGrantsState) => state.accessGrantsWebWorker,
         },
     };
 }

@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { StoreModule } from '@/store';
 import { SortDirection } from '@/types/common';
 import {
     ProjectMember,
@@ -10,6 +9,7 @@ import {
     ProjectMembersApi,
     ProjectMembersPage,
 } from '@/types/projectMembers';
+import { StoreModule } from '@/types/store';
 
 export const PROJECT_MEMBER_MUTATIONS = {
     FETCH: 'fetchProjectMembers',
@@ -103,19 +103,19 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
             },
         },
         actions: {
-            addProjectMembers: async function ({rootGetters}: ProjectMembersContext, emails: string[]): Promise<void> {
+            addProjectMembers: async function ({ rootGetters }: ProjectMembersContext, emails: string[]): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
                 await api.add(projectId, emails);
             },
-            deleteProjectMembers: async function ({rootGetters, state, commit}: ProjectMembersContext): Promise<void> {
+            deleteProjectMembers: async function ({ rootGetters, state, commit }: ProjectMembersContext): Promise<void> {
                 const projectId = rootGetters.selectedProject.id;
 
                 await api.delete(projectId, state.selectedProjectMembersEmails);
 
                 commit(CLEAR_SELECTION);
             },
-            fetchProjectMembers: async function ({commit, rootGetters, state}: ProjectMembersContext, page: number): Promise<ProjectMembersPage> {
+            fetchProjectMembers: async function ({ commit, rootGetters, state }: ProjectMembersContext, page: number): Promise<ProjectMembersPage> {
                 const projectID = rootGetters.selectedProject.id;
 
                 commit(SET_PAGE, page);
@@ -126,23 +126,23 @@ export function makeProjectMembersModule(api: ProjectMembersApi): StoreModule<Pr
 
                 return projectMembersPage;
             },
-            setProjectMembersSearchQuery: function ({commit}: ProjectMembersContext, search: string) {
+            setProjectMembersSearchQuery: function ({ commit }: ProjectMembersContext, search: string) {
                 commit(SET_SEARCH_QUERY, search);
             },
-            setProjectMembersSortingBy: function ({commit}: ProjectMembersContext, order: ProjectMemberOrderBy) {
+            setProjectMembersSortingBy: function ({ commit }: ProjectMembersContext, order: ProjectMemberOrderBy) {
                 commit(CHANGE_SORT_ORDER, order);
             },
-            setProjectMembersSortingDirection: function ({commit}: ProjectMembersContext, direction: SortDirection) {
+            setProjectMembersSortingDirection: function ({ commit }: ProjectMembersContext, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
-            clearProjectMembers: function ({commit}: ProjectMembersContext) {
+            clearProjectMembers: function ({ commit }: ProjectMembersContext) {
                 commit(CLEAR);
                 commit(CLEAR_SELECTION);
             },
-            toggleProjectMemberSelection: function ({commit}: ProjectMembersContext, projectMember: ProjectMember) {
+            toggleProjectMemberSelection: function ({ commit }: ProjectMembersContext, projectMember: ProjectMember) {
                 commit(TOGGLE_SELECTION, projectMember);
             },
-            clearProjectMemberSelection: function ({commit}: ProjectMembersContext) {
+            clearProjectMemberSelection: function ({ commit }: ProjectMembersContext) {
                 commit(CLEAR_SELECTION);
             },
         },

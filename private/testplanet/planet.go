@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +25,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -56,10 +57,15 @@ type Config struct {
 	MultinodeCount   int
 
 	IdentityVersion *storj.IDVersion
+	LastNetFunc     overlay.LastNetFunc
 	Reconfigure     Reconfigure
 
 	Name        string
+	Host        string
 	NonParallel bool
+	Timeout     time.Duration
+
+	applicationName string
 }
 
 // DatabaseConfig defines connection strings for database.
@@ -132,6 +138,18 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 		config.IdentityVersion = &version
 	}
 
+	if config.Host == "" {
+		config.Host = "127.0.0.1"
+		if hostlist := os.Getenv("STORJ_TEST_HOST"); hostlist != "" {
+			hosts := strings.Split(hostlist, ";")
+			config.Host = hosts[testrand.Intn(len(hosts))]
+		}
+	}
+
+	if config.applicationName == "" {
+		config.applicationName = "testplanet"
+	}
+
 	planet := &Planet{
 		ctx:    ctx,
 		log:    log,
@@ -146,14 +164,14 @@ func NewCustom(ctx *testcontext.Context, log *zap.Logger, config Config, satelli
 	}
 
 	var err error
-	planet.directory, err = ioutil.TempDir("", "planet")
+	planet.directory, err = os.MkdirTemp("", "planet")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	whitelistPath, err := planet.WriteWhitelist(*config.IdentityVersion)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	planet.whitelistPath = whitelistPath
 
@@ -346,7 +364,13 @@ func (planet *Planet) Shutdown() error {
 	errlist.Add(planet.VersionControl.Close())
 
 	errlist.Add(os.RemoveAll(planet.directory))
-	return errlist.Err()
+
+	// workaround for not being able to catch context.Canceled error from net package
+	err := errlist.Err()
+	if err != nil && strings.Contains(err.Error(), "operation was canceled") {
+		return nil
+	}
+	return err
 }
 
 // Identities returns the identity provider for this planet.
@@ -359,9 +383,14 @@ func (planet *Planet) NewIdentity() (*identity.FullIdentity, error) {
 	return planet.identities.NewIdentity()
 }
 
+// NewListenAddress returns an address for listening.
+func (planet *Planet) NewListenAddress() string {
+	return net.JoinHostPort(planet.config.Host, "0")
+}
+
 // NewListener creates a new listener.
 func (planet *Planet) NewListener() (net.Listener, error) {
-	return net.Listen("tcp", "127.0.0.1:0")
+	return net.Listen("tcp", planet.NewListenAddress())
 }
 
 // WriteWhitelist writes the pregenerated signer's CA cert to a "CA whitelist", PEM-encoded.

@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/tagsql"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.
@@ -25,8 +27,8 @@ type Object RawObject
 // IsMigrated returns whether the object comes from PointerDB.
 // Pointer objects are special that they are missing some information.
 //
-//   * TotalPlainSize = 0 and FixedSegmentSize = 0.
-//   * Segment.PlainOffset = 0, Segment.PlainSize = 0
+//   - TotalPlainSize = 0 and FixedSegmentSize = 0.
+//   - Segment.PlainOffset = 0, Segment.PlainSize = 0
 func (obj *Object) IsMigrated() bool {
 	return obj.TotalPlainSize <= 0
 }
@@ -40,9 +42,19 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
+// PiecesInAncestorSegment returns true if remote alias pieces are to be found in an ancestor segment.
+func (s Segment) PiecesInAncestorSegment() bool {
+	return s.EncryptedSize != 0 && len(s.InlineData) == 0 && len(s.Pieces) == 0
+}
+
 // Expired checks if segment is expired relative to now.
 func (s Segment) Expired(now time.Time) bool {
 	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
+// PieceSize returns calculated piece size for segment.
+func (s Segment) PieceSize() int64 {
+	return s.Redundancy.PieceSize(int64(s.EncryptedSize))
 }
 
 // GetObjectExactVersion contains arguments necessary for fetching an information
@@ -52,7 +64,7 @@ type GetObjectExactVersion struct {
 	ObjectLocation
 }
 
-// Verify verifies get object reqest fields.
+// Verify verifies get object request fields.
 func (obj *GetObjectExactVersion) Verify() error {
 	if err := obj.ObjectLocation.Verify(); err != nil {
 		return err
@@ -86,7 +98,8 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			version      = $4 AND
-			status       = `+committedStatus,
+			status       = `+committedStatus+` AND
+			(expires_at IS NULL OR expires_at > now())`,
 		opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID,
@@ -113,22 +126,23 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	return object, nil
 }
 
-// GetObjectLatestVersion contains arguments necessary for fetching
-// an object information for latest version.
-type GetObjectLatestVersion struct {
+// GetObjectLastCommitted contains arguments necessary for fetching
+// an object information for last committed version.
+type GetObjectLastCommitted struct {
 	ObjectLocation
 }
 
-// GetObjectLatestVersion returns object information for latest version.
-func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVersion) (_ Object, err error) {
+// GetObjectLastCommitted returns object information for last committed version.
+func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
 
-	object := Object{}
-	err = db.db.QueryRowContext(ctx, `
+	var object Object
+
+	err = withRows(db.db.QueryContext(ctx, `
 		SELECT
 			stream_id, version,
 			created_at, expires_at,
@@ -141,29 +155,54 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			project_id   = $1 AND
 			bucket_name  = $2 AND
 			object_key   = $3 AND
-			status       = `+committedStatus+`
+			status       = `+committedStatus+` AND
+			(expires_at IS NULL OR expires_at > now())
 		ORDER BY version desc
-		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey).
-		Scan(
-			&object.StreamID, &object.Version,
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
-		)
+		`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey))(func(rows tagsql.Rows) error {
+		objectFound := false
+		for rows.Next() {
+			var scannedObject Object
+			if err = rows.Scan(
+				&scannedObject.StreamID, &scannedObject.Version,
+				&scannedObject.CreatedAt, &scannedObject.ExpiresAt,
+				&scannedObject.SegmentCount,
+				&scannedObject.EncryptedMetadataNonce, &scannedObject.EncryptedMetadata, &scannedObject.EncryptedMetadataEncryptedKey,
+				&scannedObject.TotalPlainSize, &scannedObject.TotalEncryptedSize, &scannedObject.FixedSegmentSize,
+				encryptionParameters{&scannedObject.Encryption},
+			); err != nil {
+				return Error.New("unable to query object status: %w", err)
+			}
+
+			if objectFound {
+				db.log.Warn("object with multiple committed versions were found!",
+					zap.Stringer("Project ID", opts.ProjectID), zap.String("Bucket Name", opts.BucketName),
+					zap.ByteString("Object Key", []byte(opts.ObjectKey)), zap.Int("Version", int(scannedObject.Version)),
+					zap.Stringer("Stream ID", scannedObject.StreamID), zap.Stack("stacktrace"))
+				mon.Meter("multiple_committed_versions").Mark(1)
+				continue
+			}
+			object = scannedObject
+
+			objectFound = true
+		}
+
+		if !objectFound {
+			return sql.ErrNoRows
+		}
+
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
+
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
 
 	object.ProjectID = opts.ProjectID
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
-
 	object.Status = Committed
 
 	return object, nil
@@ -222,13 +261,22 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
 
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
 	}
 
 	segment.StreamID = opts.StreamID
 	segment.Position = opts.Position
+
+	if db.config.ServerSideCopy {
+		err = db.updateWithAncestorSegment(ctx, &segment)
+		if err != nil {
+			return Segment{}, err
+		}
+	}
 
 	return segment, nil
 }
@@ -287,79 +335,57 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
 
-	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	if len(aliasPieces) > 0 {
+		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		}
+	}
+
+	if db.config.ServerSideCopy {
+		err = db.updateWithAncestorSegment(ctx, &segment)
+		if err != nil {
+			return Segment{}, err
+		}
 	}
 
 	return segment, nil
 }
 
-// GetSegmentByOffset contains arguments necessary for fetching a segment information.
-type GetSegmentByOffset struct {
-	ObjectLocation
-	PlainOffset int64
-}
-
-// GetSegmentByOffset returns an object segment information.
-func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (segment Segment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Segment{}, err
-	}
-
-	if opts.PlainOffset < 0 {
-		return Segment{}, ErrInvalidRequest.New("Invalid PlainOffset: %d", opts.PlainOffset)
+func (db *DB) updateWithAncestorSegment(ctx context.Context, segment *Segment) (err error) {
+	if !segment.PiecesInAncestorSegment() {
+		return nil
 	}
 
 	var aliasPieces AliasPieces
+
 	err = db.db.QueryRowContext(ctx, `
-		SELECT
-			stream_id, position,
-			created_at, expires_at, repaired_at,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
-			encrypted_etag,
-			redundancy,
-			inline_data, remote_alias_pieces
-		FROM segments
-		WHERE
-			stream_id IN (SELECT stream_id FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+committedStatus+`
-				ORDER BY version DESC
-				LIMIT 1
-			) AND
-			plain_offset <= $4 AND
-			(plain_size + plain_offset) > $4
-		ORDER BY plain_offset ASC
-		LIMIT 1
-	`, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey, opts.PlainOffset).
-		Scan(
-			&segment.StreamID, &segment.Position,
-			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
-			&segment.EncryptedETag,
-			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &aliasPieces,
-		)
+			SELECT
+				root_piece_id,
+				repaired_at,
+				remote_alias_pieces
+			FROM segments
+			WHERE
+				stream_id IN (SELECT ancestor_stream_id FROM segment_copies WHERE stream_id = $1)
+				AND position = $2
+			`, segment.StreamID, segment.Position.Encode()).Scan(
+		&segment.RootPieceID,
+		&segment.RepairedAt,
+		&aliasPieces,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return ErrSegmentNotFound.New("segment missing")
 		}
-		return Segment{}, Error.New("unable to query segment: %w", err)
+		return Error.New("unable to query segment: %w", err)
 	}
 
 	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+		return Error.New("unable to convert aliases to pieces: %w", err)
 	}
 
-	return segment, nil
+	return nil
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
@@ -447,7 +473,7 @@ func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID
 func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	object, err := db.GetObjectLatestVersion(ctx, GetObjectLatestVersion{
+	object, err := db.GetObjectLastCommitted(ctx, GetObjectLastCommitted{
 		ObjectLocation: objectLocation,
 	})
 	if err != nil {

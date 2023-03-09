@@ -20,10 +20,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import { NodePayoutsSummary } from '@/payouts';
+
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryItem.vue';
-
-import { NodePayoutsSummary } from '@/payouts';
 
 // @vue/component
 @Component({

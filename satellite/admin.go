@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -21,6 +22,8 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
@@ -63,6 +66,14 @@ type Admin struct {
 	Buckets struct {
 		Service *buckets.Service
 	}
+
+	REST struct {
+		Keys *restkeys.Service
+	}
+
+	FreezeAccounts struct {
+		Service *console.AccountFreezeService
+	}
 }
 
 // NewAdmin creates a new satellite admin peer.
@@ -80,6 +91,10 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 	{
 		peer.Buckets.Service = buckets.NewService(db.Buckets(), metabaseDB)
+	}
+
+	{ // setup rest keys
+		peer.REST.Keys = restkeys.NewService(db.OIDC().OAuthTokens(), config.RESTKeys)
 	}
 
 	{ // setup debug
@@ -123,16 +138,28 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		pc := config.Payments
 
 		var stripeClient stripecoinpayments.StripeClient
-		var err error
 		switch pc.Provider {
-		default:
+		case "": // just new mock, only used in testing binaries
 			stripeClient = stripecoinpayments.NewStripeMock(
-				peer.ID(),
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
+		case "mock":
+			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+		default:
+			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
+		}
+
+		prices, err := pc.UsagePrice.ToModel()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Payments.Service, err = stripecoinpayments.NewService(
@@ -140,11 +167,14 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			stripeClient,
 			pc.StripeCoinPayments,
 			peer.DB.StripeCoinPayments(),
+			peer.DB.Wallets(),
+			peer.DB.Billing(),
 			peer.DB.Console().Projects(),
+			peer.DB.Console().Users(),
 			peer.DB.ProjectAccounting(),
-			pc.StorageTBPrice,
-			pc.EgressTBPrice,
-			pc.SegmentPrice,
+			prices,
+			priceOverrides,
+			pc.PackagePlans.Packages,
 			pc.BonusRate)
 
 		if err != nil {
@@ -153,7 +183,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+		peer.FreezeAccounts.Service = console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
 	}
+
 	{ // setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
@@ -164,7 +196,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		adminConfig := config.Admin
 		adminConfig.AuthorizationToken = config.Console.AuthToken
 
-		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.Payments.Accounts, adminConfig)
+		peer.Admin.Server = admin.NewServer(log.Named("admin"), peer.Admin.Listener, peer.DB, peer.Buckets.Service, peer.REST.Keys, peer.FreezeAccounts.Service, peer.Payments.Accounts, config.Console, adminConfig)
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "admin",
 			Run:   peer.Admin.Server.Run,
@@ -181,10 +213,15 @@ func (peer *Admin) Run(ctx context.Context) (err error) {
 
 	group, ctx := errgroup.WithContext(ctx)
 
-	peer.Servers.Run(ctx, group)
-	peer.Services.Run(ctx, group)
+	pprof.Do(ctx, pprof.Labels("subsystem", "admin"), func(ctx context.Context) {
+		peer.Servers.Run(ctx, group)
+		peer.Services.Run(ctx, group)
 
-	return group.Wait()
+		pprof.Do(ctx, pprof.Labels("name", "subsystem-wait"), func(ctx context.Context) {
+			err = group.Wait()
+		})
+	})
+	return err
 }
 
 // Close closes all the resources.

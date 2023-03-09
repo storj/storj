@@ -7,30 +7,30 @@
             <input id="checkbox" v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
             <span class="checkmark" :class="{'error': isCheckboxError}" />
         </label>
-        <label class="label" for="checkbox">{{ label }}</label>
+        <label v-if="label" class="label" for="checkbox">{{ label }}</label>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
-// Custom checkbox component
-// @vue/component
-@Component
-export default class VCheckbox extends Vue {
-    @Prop({default: false})
-    private readonly isCheckboxError: boolean;
-    @Prop({default: ''})
-    private readonly label: string;
+const props = withDefaults(defineProps<{
+    isCheckboxError?: boolean;
+    label?: string;
+}>(), {
+    isCheckboxError: false,
+    label: '',
+});
 
-    private checked = false;
+const emit = defineEmits(['setData']);
 
-    /**
-     * Emits value to parent component.
-     */
-    public onChange(): void {
-        this.$emit('setData', this.checked);
-    }
+const checked = ref<boolean>(false);
+
+/**
+ * Emits value to parent component.
+ */
+function onChange(): void {
+    emit('setData', checked.value);
 }
 </script>
 
@@ -48,9 +48,6 @@ export default class VCheckbox extends Vue {
         height: 20px;
         width: 20px;
         cursor: pointer;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
         outline: none;
     }
@@ -69,7 +66,7 @@ export default class VCheckbox extends Vue {
         left: 0;
         height: 20px;
         width: 20px;
-        border: 2px solid rgba(56, 75, 101, 0.4);
+        border: 2px solid rgb(56 75 101 / 40%);
         border-radius: 4px;
         box-sizing: border-box;
     }
@@ -87,8 +84,6 @@ export default class VCheckbox extends Vue {
         height: 10px;
         border: solid white;
         border-width: 0 3px 3px 0;
-        -webkit-transform: rotate(45deg);
-        -ms-transform: rotate(45deg);
         transform: rotate(45deg);
     }
 

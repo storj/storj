@@ -144,10 +144,6 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
-
-import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
-
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
@@ -161,6 +157,10 @@ import {
 } from '@/app/types/payout';
 import { Size } from '@/private/memory/size';
 import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
+
+import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
+
+import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 /**
  * Describes table row data item.
@@ -214,7 +214,7 @@ export default class EstimationArea extends Vue {
     public get isLastPeriodWithoutPaystub(): boolean {
         const joinedAt: Date = this.$store.state.node.selectedSatellite.joinDate;
         const isNodeStartedBeforeCurrentPeriod =
-            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1 , 0, 0, 1).getTime();
+            joinedAt.getTime() < new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 1).getTime();
 
         if (!isNodeStartedBeforeCurrentPeriod) {
             return false;
@@ -448,7 +448,7 @@ export default class EstimationArea extends Vue {
     .estimation-container {
         display: flex;
         flex-direction: column;
-        padding: 28px 40px 28px 40px;
+        padding: 28px 40px;
         background: var(--block-background-color);
         border: 1px solid var(--block-border-color);
         box-sizing: border-box;
@@ -713,7 +713,7 @@ export default class EstimationArea extends Vue {
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        padding: 50px 0 80px 0;
+        padding: 50px 0 80px;
         font-family: 'font_regular', sans-serif;
         color: var(--regular-text-color);
 
@@ -762,7 +762,7 @@ export default class EstimationArea extends Vue {
             width: 0;
             height: 0;
             border-style: solid;
-            border-width: 11.5px 11.5px 0 11.5px;
+            border-width: 11.5px 11.5px 0;
             border-color: var(--tooltip-background-color) transparent transparent transparent;
         }
     }
@@ -774,7 +774,7 @@ export default class EstimationArea extends Vue {
             fill: var(--info-icon-background);
         }
 
-        path {
+        ::v-deep path {
             fill: var(--info-icon-letter);
         }
     }
@@ -809,7 +809,7 @@ export default class EstimationArea extends Vue {
     @media screen and (max-width: 640px) {
 
         .estimation-container {
-            padding: 28px 20px 28px 20px;
+            padding: 28px 20px;
         }
 
         .column-2,

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.
@@ -54,6 +55,55 @@ export class AnalyticsHttpApi {
             console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
         } catch (error) {
             console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
+
+    /**
+     * Used to notify the satellite about arbitrary page visits that occur.
+     * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
+     *
+     * @param pageName - name of the page
+     */
+    public async pageVisit(pageName: string): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/page`;
+            const body = {
+                pageName: pageName,
+            };
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error('Attempted to notify Satellite that ' + pageName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + pageName + ' event occurrence (most likely blocked by browser).');
+        }
+    }
+
+    /**
+     * Used to notify the satellite about error events that occur.
+     * Does not throw any errors so that expected UI behavior is not interrupted if the API call fails.
+     *
+     * @param source - place where event happened
+     */
+    public async errorEventTriggered(source: AnalyticsErrorEventSource): Promise<void> {
+        try {
+            const path = `${this.ROOT_PATH}/event`;
+            const body = {
+                eventName: AnalyticsEvent.UI_ERROR,
+            };
+
+            if (source) {
+                body['errorEventSource'] = source;
+            }
+
+            const response = await this.http.post(path, JSON.stringify(body));
+            if (response.ok) {
+                return;
+            }
+            console.error(`Attempted to notify Satellite that UI error occurred here: ${source}. Got bad response status code: ${response.status}`);
+        } catch (error) {
+            console.error(`Could not notify satellite about UI error here: ${source} (most likely blocked by browser).`);
         }
     }
 }

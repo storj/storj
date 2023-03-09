@@ -21,7 +21,7 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 // @vue/component
 @Component
 export default class MFARecoveryCodeBar extends Vue {
-    @Prop({default: () => {}})
+    @Prop({ default: () => () => {} })
     public readonly openGenerateModal: () => void;
 
     /**
@@ -35,11 +35,13 @@ export default class MFARecoveryCodeBar extends Vue {
 
 <style scoped lang="scss">
     .recovery-bar {
+        width: 100%;
+        box-sizing: border-box;
         font-family: 'font_regular', sans-serif;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        background: #ffc600;
+        background: var(--c-yellow-3);
         font-size: 14px;
         line-height: 18px;
         color: #000;

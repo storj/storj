@@ -8,13 +8,23 @@ Requires setting `Authorization` header for requests.
 <!-- toc -->
 - [satellite/admin](#satelliteadmin)
     * [API design](#api-design)
+        * [Successful responses](#successful-responses)
         * [Error responses](#error-responses)
     * [API Endpoints](#api-endpoints)
         * [User Management](#user-management)
             * [POST /api/users](#post-apiusers)
             * [PUT /api/users/{user-email}](#put-apiusersuser-email)
             * [GET /api/users/{user-email}](#get-apiusersuser-email)
+            * [GET /api/users/{user-email}/limits](#get-apiusersuser-emaillimits)
             * [DELETE /api/users/{user-email}](#delete-apiusersuser-email)
+            * [PUT /api/users/{user-email}/limits](#put-apiusersuser-emaillimits)
+            * [DELETE /api/users/{user-email}/mfa](#delete-apiusersuser-emailmfa)
+            * [PUT /api/users/{user-email}/freeze](#put-apiusersuser-emailfreeze)
+            * [DELETE /api/users/{user-email}/freeze](#delete-apiusersuser-emailfreeze)
+        * [OAuth Client Management](#oauth-client-management)
+            * [POST /api/oauth/clients](#post-apioauthclients)
+            * [PUT /api/oauth/clients/{id}](#put-apioauthclientsid)
+            * [DELETE /api/oauth/clients/{id}](#delete-apioauthclientsid)
         * [Project Management](#project-management)
             * [POST /api/projects](#post-apiprojects)
             * [GET /api/projects/{project-id}](#get-apiprojectsproject-id)
@@ -30,6 +40,8 @@ Requires setting `Authorization` header for requests.
                 * [POST /api/projects/{project-id}/limit?bandwidth={value}](#post-apiprojectsproject-idlimitbandwidthvalue)
                 * [POST /api/projects/{project-id}/limit?rate={value}](#post-apiprojectsproject-idlimitratevalue)
                 * [POST /api/projects/{project-id}/limit?buckets={value}](#post-apiprojectsproject-idlimitbucketsvalue)
+                * [POST /api/projects/{project-id}/limit?burst={value}](#post-apiprojectsproject-idlimitburstvalue)
+                * [POST /api/projects/{project-id}/limit?segments={value}](#post-apiprojectsproject-idlimitsegmentsvalue)
         * [Bucket Management](#bucket-management)
             * [GET /api/projects/{project-id}/buckets/{bucket-name}](#get-apiprojectsproject-idbucketsbucket-name)
             * [Geofencing](#geofencing)
@@ -41,6 +53,11 @@ Requires setting `Authorization` header for requests.
 <!-- tocstop -->
 
 ## API design
+
+### Successful responses
+
+For non-get requests (`PUT`, `POST`, `DELETE`), endpoints should return an empty response body on success. `GET`
+requests can return a non-empty body for the resource that we're interacting with.
 
 ### Error responses
 
@@ -137,9 +154,68 @@ A successful response body:
 }
 ```
 
+#### GET /api/users/{user-email}/limits
+
+This endpoint returns information about users limits.
+
 #### DELETE /api/users/{user-email}
 
 Deletes the user.
+
+#### PUT /api/users/{user-email}/limits
+
+Updates the limits of the user and user's existing project(s) limits found by its email.
+
+#### DELETE /api/users/{user-email}/mfa
+
+Disables the user's mfa.
+
+#### PUT /api/users/{user-email}/freeze
+
+Freezes a user account so no uploads or downloads may occur.
+
+#### DELETE /api/users/{user-email}/freeze
+
+Unfreezes a user account so uploads and downloads may resume.
+
+### OAuth Client Management
+
+Manages oauth clients known to the Satellite.
+
+#### POST /api/oauth/clients
+
+Create a new OAuthClient. A client ID and clientSecret will be returned upon creation.
+
+Example request:
+
+```json
+{
+  "id": "uuid-of-the-client",
+  "secret": "shh-this-should-be-kept-safe",
+  "redirectURL": "http://localhost:8888/oauth/storj/callback",
+  "userID": "uuid-of-the-owner",
+  "appName": "Example App",
+  "appLogoURL": "http://localhost:8888/logo.png"
+}
+```
+
+#### PUT /api/oauth/clients/{id}
+
+Update an existing oauth client.
+
+Example request:
+
+```json
+{
+  "redirectURL": "http://localhost:8888/oauth/storj/callback",
+  "appName": "Example App",
+  "appLogoURL": "http://localhost:8888/logo.png"
+}
+```
+
+#### DELETE /api/oauth/clients/{id}
+
+Delete the identified oauth client.
 
 ### Project Management
 
@@ -259,7 +335,9 @@ A successful response body:
   },
   "rate": {
     "rps": 0
-  }
+  },
+  "maxBuckets": 1000,
+  "maxSegments": 1000000000
 }
 ```
 
@@ -282,7 +360,15 @@ Updates rate limit for a project.
 
 ##### POST /api/projects/{project-id}/limit?buckets={value}
 
-Updates bucket limit for a project.
+Updates number of buckets limit for a project.
+
+##### POST /api/projects/{project-id}/limit?burst={value}
+
+Updates burst limit for a project.
+
+##### POST /api/projects/{project-id}/limit?segments={value}
+
+Updates number of segments limit for a project.
 
 ### Bucket Management
 

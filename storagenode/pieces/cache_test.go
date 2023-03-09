@@ -115,6 +115,7 @@ func TestCacheInit(t *testing.T) {
 			cache,
 			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
+			true,
 		)
 
 		// Confirm that when we call init before the cache has been persisted.
@@ -153,6 +154,7 @@ func TestCacheInit(t *testing.T) {
 			cache,
 			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
+			true,
 		)
 		err = cacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
@@ -163,6 +165,7 @@ func TestCacheInit(t *testing.T) {
 			cache,
 			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
+			true,
 		)
 		// Confirm that when we call Init after the cache has been persisted
 		// that the cache gets initialized with the values from the database
@@ -226,6 +229,7 @@ func TestCachServiceRun(t *testing.T) {
 			cache,
 			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
+			true,
 		)
 
 		// Init the cache service, to read the values from the db (should all be 0)
@@ -312,6 +316,7 @@ func TestPersistCacheTotals(t *testing.T) {
 			cache,
 			pieces.NewStore(log, cache, nil, nil, spaceUsedDB, pieces.DefaultConfig),
 			1*time.Hour,
+			true,
 		)
 		err = cacheService.PersistCacheTotals(ctx)
 		require.NoError(t, err)
@@ -599,7 +604,7 @@ func TestCacheCreateDeleteAndTrash(t *testing.T) {
 		for _, ref := range refs {
 			blob, err := cache.Create(ctx, ref, int64(4096))
 			require.NoError(t, err)
-			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID)
+			blobWriter, err := pieces.NewWriter(zaptest.NewLogger(t), blob, cache, satelliteID, pb.PieceHashAlgorithm_SHA256)
 			require.NoError(t, err)
 			_, err = blobWriter.Write(pieceContent)
 			require.NoError(t, err)

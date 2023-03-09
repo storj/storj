@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import Vuex from 'vuex';
+import { createLocalVue } from '@vue/test-utils';
 
 import { AuthHttpApi } from '@/api/auth';
 import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
-import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const authApi = new AuthHttpApi();
@@ -22,7 +22,7 @@ describe('mutations', () => {
         createLocalVue().use(Vuex);
     });
     it('Set user', () => {
-        const user = new User('1', 'fullName', 'shortName', 'example@email.com');
+        const user = new User('1', 'fullName', 'shortName', 'user@example.com');
 
         store.commit(USER_MUTATIONS.SET_USER, user);
 
@@ -88,12 +88,11 @@ describe('actions', () => {
         expect(store.state.user.fullName).toBe('');
         expect(store.state.user.shortName).toBe('');
         expect(store.state.user.email).toBe('');
-        expect(store.state.user.partnerId).toBe('');
         expect(store.state.user.id).toBe('');
     });
 
     it('success get user', async () => {
-        const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
+        const user = new User('2', 'newFullName', 'newShortName', 'user2@example.com');
 
         jest.spyOn(authApi, 'get').mockReturnValue(
             Promise.resolve(user),

@@ -51,7 +51,7 @@ export default class NodeOptions extends Vue {
         try {
             await this.$copyText(this.id);
         } catch (error) {
-            console.error(error.message);
+            console.error(error);
         }
 
         this.closeOptions();

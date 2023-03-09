@@ -10,13 +10,18 @@ import (
 	"fmt"
 	"time"
 
+	pgxerrcode "github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v4"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
+	"storj.io/private/dbutil/pgxutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -72,11 +77,11 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	return Error.Wrap(err)
 }
 
-// GetTallies saves the latest bucket info.
+// GetTallies retrieves all tallies ordered by interval start (descending).
 func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxTallies, err := db.db.All_BucketStorageTally(ctx)
+	dbxTallies, err := db.db.All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -139,11 +144,11 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 	return Error.Wrap(err)
 }
 
-// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame.
-func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
+// GetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
+func (db *ProjectAccounting) GetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
-	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
+	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = $1 AND action = $2 AND interval_start >= $3;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from.UTC()).Scan(&sum)
 	if errors.Is(err, sql.ErrNoRows) || sum == nil {
 		return 0, nil
@@ -197,6 +202,168 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	}
 
 	return allocated, settled, dead, err
+}
+
+// GetProjectDailyUsageByDateRange returns project daily allocated, settled bandwidth and storage usage by specific date range.
+func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context, projectID uuid.UUID, from, to time.Time, crdbInterval time.Duration) (_ *accounting.ProjectDailyUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	nowBeginningOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	fromBeginningOfDay := time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
+
+	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
+	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
+	storage := make([]accounting.ProjectUsageByDay, 0)
+
+	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+		var batch pgx.Batch
+
+		expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
+
+		storageQuery := db.db.Rebind(`
+			WITH project_usage AS (
+			SELECT
+				interval_start,
+				DATE_TRUNC('day',interval_start) AS interval_day,
+				project_id,
+				bucket_name,
+				total_bytes
+			FROM bucket_storage_tallies
+			WHERE project_id = $1 AND
+				interval_start >= $2 AND
+				interval_start <= $3
+			)
+			-- Sum all buckets usage in the same project.
+			SELECT
+				interval_day,
+				SUM(total_bytes) AS total_bytes
+			FROM
+				(SELECT 
+					DISTINCT ON (project_id, bucket_name, interval_day)
+					project_id,
+					bucket_name,
+					total_bytes,
+					interval_day,
+					interval_start
+				FROM project_usage
+				ORDER BY project_id, bucket_name, interval_day, interval_start DESC) pu
+			` + db.db.impl.AsOfSystemInterval(crdbInterval) + `
+			GROUP BY project_id, bucket_name, interval_day
+		`)
+		batch.Queue(storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
+
+		batch.Queue(db.db.Rebind(`
+			SELECT interval_day, egress_settled,
+				CASE WHEN interval_day < $1
+					THEN egress_settled
+					ELSE egress_allocated-egress_dead 
+				END AS allocated
+			FROM project_bandwidth_daily_rollups
+			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
+		`), expiredSince, projectID, fromBeginningOfDay, toEndOfDay)
+
+		results := conn.SendBatch(ctx, &batch)
+		defer func() { err = errs.Combine(err, results.Close()) }()
+
+		storageRows, err := results.Query()
+		if err != nil {
+			if pgerrcode.FromError(err) == pgxerrcode.InvalidCatalogName {
+				// this error may happen if database is created in the last 5 minutes (`as of systemtime` points to a time before Genesis).
+				// in this case we can ignore the database not found error and return with no usage.
+				// if the database is really missing --> we have more serious problems than getting 0s from here.
+				return nil
+			}
+			return err
+		}
+
+		var current time.Time
+		var index int
+
+		for storageRows.Next() {
+			var day time.Time
+			var amount int64
+
+			err = storageRows.Scan(&day, &amount)
+			if err != nil {
+				storageRows.Close()
+				return err
+			}
+
+			if len(storage) == 0 {
+				current = day
+				storage = append(storage, accounting.ProjectUsageByDay{
+					Date:  day.UTC(),
+					Value: amount,
+				})
+				continue
+			}
+
+			if current == day {
+				storage[index].Value += amount
+				continue
+			}
+
+			current = day
+			index++
+
+			storage = append(storage, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: amount,
+			})
+		}
+
+		storageRows.Close()
+		err = storageRows.Err()
+		if err != nil {
+			return err
+		}
+
+		bandwidthRows, err := results.Query()
+		if err != nil {
+			return err
+		}
+
+		for bandwidthRows.Next() {
+			var day time.Time
+			var settled int64
+			var allocated int64
+
+			err = bandwidthRows.Scan(&day, &settled, &allocated)
+			if err != nil {
+				bandwidthRows.Close()
+				return err
+			}
+
+			settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: settled,
+			})
+
+			allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
+				Date:  day.UTC(),
+				Value: allocated,
+			})
+		}
+
+		bandwidthRows.Close()
+		err = bandwidthRows.Err()
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, Error.New("unable to get project daily usage: %w", err)
+	}
+
+	return &accounting.ProjectDailyUsage{
+		StorageUsage:            storage,
+		AllocatedBandwidthUsage: allocatedBandwidth,
+		SettledBandwidthUsage:   settledBandwidth,
+	}, nil
 }
 
 // DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time.
@@ -339,7 +506,21 @@ func (db *ProjectAccounting) GetProjectSegmentLimit(ctx context.Context, project
 }
 
 // GetProjectTotal retrieves project usage for a given period.
-func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
+func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *accounting.ProjectUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+	usages, err := db.GetProjectTotalByPartner(ctx, projectID, nil, since, before)
+	if err != nil {
+		return nil, err
+	}
+	if usage, ok := usages[""]; ok {
+		return &usage, nil
+	}
+	return &accounting.ProjectUsage{Since: since, Before: before}, nil
+}
+
+// GetProjectTotalByPartner retrieves project usage for a given period categorized by partner name.
+// Unpartnered usage or usage for a partner not present in partnerNames is mapped to the empty string.
+func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, projectID uuid.UUID, partnerNames []string, since, before time.Time) (usages map[string]accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
@@ -361,20 +542,58 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			bucket_storage_tallies.project_id = ? AND
 			bucket_storage_tallies.bucket_name = ? AND
 			bucket_storage_tallies.interval_start >= ? AND
-			bucket_storage_tallies.interval_start <= ?
+			bucket_storage_tallies.interval_start < ?
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
-	bucketsTallies := make(map[string][]*accounting.BucketStorageTally)
+	totalEgressQuery := db.db.Rebind(`
+		SELECT
+			COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM
+			bucket_bandwidth_rollups
+		WHERE
+			project_id = ? AND
+			bucket_name = ? AND
+			interval_start >= ? AND
+			interval_start < ? AND
+			action = ?;
+	`)
+
+	usages = make(map[string]accounting.ProjectUsage)
 
 	for _, bucket := range bucketNames {
-		storageTallies := make([]*accounting.BucketStorageTally, 0)
+		userAgentRow, err := db.db.Get_BucketMetainfo_UserAgent_By_ProjectId_And_Name(ctx,
+			dbx.BucketMetainfo_ProjectId(projectID[:]),
+			dbx.BucketMetainfo_Name([]byte(bucket)))
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+
+		var partner string
+		if userAgentRow != nil && userAgentRow.UserAgent != nil {
+			entries, err := useragent.ParseEntries(userAgentRow.UserAgent)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, iterPartner := range partnerNames {
+				if entries[0].Product == iterPartner {
+					partner = iterPartner
+					break
+				}
+			}
+		}
+		if _, ok := usages[partner]; !ok {
+			usages[partner] = accounting.ProjectUsage{Since: since, Before: before}
+		}
+		usage := usages[partner]
 
 		storageTalliesRows, err := db.db.QueryContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
-		// generating tallies for each bucket name.
+
+		var prevTally *accounting.BucketStorageTally
 		for storageTalliesRows.Next() {
 			tally := accounting.BucketStorageTally{}
 
@@ -387,8 +606,17 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 				tally.TotalBytes = inline + remote
 			}
 
-			tally.BucketName = bucket
-			storageTallies = append(storageTallies, &tally)
+			if prevTally == nil {
+				prevTally = &tally
+				continue
+			}
+
+			hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
+			usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
+			usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
+			usage.ObjectCount += float64(tally.ObjectCount) * hours
+
+			prevTally = &tally
 		}
 
 		err = errs.Combine(storageTalliesRows.Err(), storageTalliesRows.Close())
@@ -396,53 +624,21 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 			return nil, err
 		}
 
-		bucketsTallies[bucket] = storageTallies
-	}
-
-	totalEgress, err := db.getTotalEgress(ctx, projectID, since, before)
-	if err != nil {
-		return nil, err
-	}
-
-	usage = new(accounting.ProjectUsage)
-	usage.Egress = memory.Size(totalEgress).Int64()
-	// sum up storage, objects, and segments
-	for _, tallies := range bucketsTallies {
-		for i := len(tallies) - 1; i > 0; i-- {
-			current := (tallies)[i]
-			hours := (tallies)[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-			usage.Storage += memory.Size(current.Bytes()).Float64() * hours
-			usage.SegmentCount += float64(current.TotalSegmentCount) * hours
-			usage.ObjectCount += float64(current.ObjectCount) * hours
+		totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
+		if err != nil {
+			return nil, err
 		}
+
+		var egress int64
+		if err = totalEgressRow.Scan(&egress); err != nil {
+			return nil, err
+		}
+		usage.Egress += egress
+
+		usages[partner] = usage
 	}
 
-	usage.Since = since
-	usage.Before = before
-	return usage, nil
-}
-
-// getTotalEgress returns total egress (settled + inline) of each bucket_bandwidth_rollup
-// in selected time period, project id.
-// only process PieceAction_GET.
-func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
-	totalEgressQuery := db.db.Rebind(`
-		SELECT
-			COALESCE(SUM(settled) + SUM(inline), 0)
-		FROM
-			bucket_bandwidth_rollups
-		WHERE
-			project_id = ? AND
-			interval_start >= ? AND
-			interval_start <= ? AND
-			action = ?;
-	`)
-
-	totalEgressRow := db.db.QueryRowContext(ctx, totalEgressQuery, projectID[:], since, before, pb.PieceAction_GET)
-
-	err = totalEgressRow.Scan(&totalEgress)
-
-	return totalEgress, err
+	return usages, nil
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
@@ -456,6 +652,34 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 		return nil, err
 	}
 
+	var bucketUsageRollups []accounting.BucketUsageRollup
+	for _, bucket := range buckets {
+		bucketRollup, err := db.getSingleBucketRollup(ctx, projectID, bucket, since, before)
+		if err != nil {
+			return nil, err
+		}
+
+		bucketUsageRollups = append(bucketUsageRollups, *bucketRollup)
+	}
+
+	return bucketUsageRollups, nil
+}
+
+// GetSingleBucketUsageRollup retrieves usage rollup for a single bucket of particular project for a given period.
+func (db *ProjectAccounting) GetSingleBucketUsageRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (_ *accounting.BucketUsageRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+	since = timeTruncateDown(since.UTC())
+	before = before.UTC()
+
+	bucketRollup, err := db.getSingleBucketRollup(ctx, projectID, bucket, since, before)
+	if err != nil {
+		return nil, err
+	}
+
+	return bucketRollup, nil
+}
+
+func (db *ProjectAccounting) getSingleBucketRollup(ctx context.Context, projectID uuid.UUID, bucket string, since, before time.Time) (*accounting.BucketUsageRollup, error) {
 	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
@@ -464,89 +688,78 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 	// TODO: should be optimized
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
-	var bucketUsageRollups []accounting.BucketUsageRollup
-	for _, bucket := range buckets {
-		err := func() error {
-			bucketRollup := accounting.BucketUsageRollup{
-				ProjectID:  projectID,
-				BucketName: []byte(bucket),
-				Since:      since,
-				Before:     before,
-			}
+	bucketRollup := &accounting.BucketUsageRollup{
+		ProjectID:  projectID,
+		BucketName: bucket,
+		Since:      since,
+		Before:     before,
+	}
 
-			// get bucket_bandwidth_rollups
-			rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
-			if err != nil {
-				return err
-			}
-			defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
+	// get bucket_bandwidth_rollup
+	rollupRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rollupRows.Close()) }()
 
-			// fill egress
-			for rollupsRows.Next() {
-				var action pb.PieceAction
-				var settled, inline int64
+	// fill egress
+	for rollupRows.Next() {
+		var action pb.PieceAction
+		var settled, inline int64
 
-				err = rollupsRows.Scan(&settled, &inline, &action)
-				if err != nil {
-					return err
-				}
-
-				switch action {
-				case pb.PieceAction_GET:
-					bucketRollup.GetEgress += memory.Size(settled + inline).GB()
-				case pb.PieceAction_GET_AUDIT:
-					bucketRollup.AuditEgress += memory.Size(settled + inline).GB()
-				case pb.PieceAction_GET_REPAIR:
-					bucketRollup.RepairEgress += memory.Size(settled + inline).GB()
-				default:
-					continue
-				}
-			}
-			if err := rollupsRows.Err(); err != nil {
-				return err
-			}
-
-			bucketStorageTallies, err := storageQuery(ctx,
-				dbx.BucketStorageTally_ProjectId(projectID[:]),
-				dbx.BucketStorageTally_BucketName([]byte(bucket)),
-				dbx.BucketStorageTally_IntervalStart(since),
-				dbx.BucketStorageTally_IntervalStart(before))
-
-			if err != nil {
-				return err
-			}
-
-			// fill metadata, objects and stored data
-			// hours calculated from previous tallies,
-			// so we skip the most recent one
-			for i := len(bucketStorageTallies) - 1; i > 0; i-- {
-				current := bucketStorageTallies[i]
-
-				hours := bucketStorageTallies[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-
-				if current.TotalBytes > 0 {
-					bucketRollup.TotalStoredData += memory.Size(current.TotalBytes).GB() * hours
-				} else {
-					bucketRollup.TotalStoredData += memory.Size(current.Remote+current.Inline).GB() * hours
-				}
-				bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB() * hours
-				if current.TotalSegmentsCount > 0 {
-					bucketRollup.TotalSegments += float64(current.TotalSegmentsCount) * hours
-				} else {
-					bucketRollup.TotalSegments += float64(current.RemoteSegmentsCount+current.InlineSegmentsCount) * hours
-				}
-				bucketRollup.ObjectCount += float64(current.ObjectCount) * hours
-			}
-
-			bucketUsageRollups = append(bucketUsageRollups, bucketRollup)
-			return nil
-		}()
+		err = rollupRows.Scan(&settled, &inline, &action)
 		if err != nil {
 			return nil, err
 		}
+
+		switch action {
+		case pb.PieceAction_GET:
+			bucketRollup.GetEgress += memory.Size(settled + inline).GB()
+		case pb.PieceAction_GET_AUDIT:
+			bucketRollup.AuditEgress += memory.Size(settled + inline).GB()
+		case pb.PieceAction_GET_REPAIR:
+			bucketRollup.RepairEgress += memory.Size(settled + inline).GB()
+		default:
+			continue
+		}
+	}
+	if err := rollupRows.Err(); err != nil {
+		return nil, err
 	}
 
-	return bucketUsageRollups, nil
+	bucketStorageTallies, err := storageQuery(ctx,
+		dbx.BucketStorageTally_ProjectId(projectID[:]),
+		dbx.BucketStorageTally_BucketName([]byte(bucket)),
+		dbx.BucketStorageTally_IntervalStart(since),
+		dbx.BucketStorageTally_IntervalStart(before))
+
+	if err != nil {
+		return nil, err
+	}
+
+	// fill metadata, objects and stored data
+	// hours calculated from previous tallies,
+	// so we skip the most recent one
+	for i := len(bucketStorageTallies) - 1; i > 0; i-- {
+		current := bucketStorageTallies[i]
+
+		hours := bucketStorageTallies[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
+
+		if current.TotalBytes > 0 {
+			bucketRollup.TotalStoredData += memory.Size(current.TotalBytes).GB() * hours
+		} else {
+			bucketRollup.TotalStoredData += memory.Size(current.Remote+current.Inline).GB() * hours
+		}
+		bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB() * hours
+		if current.TotalSegmentsCount > 0 {
+			bucketRollup.TotalSegments += float64(current.TotalSegmentsCount) * hours
+		} else {
+			bucketRollup.TotalSegments += float64(current.RemoteSegmentsCount+current.InlineSegmentsCount) * hours
+		}
+		bucketRollup.ObjectCount += float64(current.ObjectCount) * hours
+	}
+
+	return bucketRollup, nil
 }
 
 // prefixIncrement returns the lexicographically lowest byte string which is
@@ -555,11 +768,11 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 // bytes), returns false for ok.
 //
 // examples: prefixIncrement([]byte("abc"))          -> ([]byte("abd", true)
-//           prefixIncrement([]byte("ab\xff\xff"))   -> ([]byte("ac", true)
-//           prefixIncrement([]byte(""))             -> (nil, false)
-//           prefixIncrement([]byte("\x00"))         -> ([]byte("\x01", true)
-//           prefixIncrement([]byte("\xff\xff\xff")) -> (nil, false)
 //
+//	prefixIncrement([]byte("ab\xff\xff"))   -> ([]byte("ac", true)
+//	prefixIncrement([]byte(""))             -> (nil, false)
+//	prefixIncrement([]byte("\x00"))         -> ([]byte("\x01", true)
+//	prefixIncrement([]byte("\xff\xff\xff")) -> (nil, false)
 func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
 	incremented = make([]byte, len(origPrefix))
 	copy(incremented, origPrefix)
@@ -607,9 +820,8 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 }
 
 // GetBucketTotals retrieves bucket usage totals for period of time.
-func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, since, before time.Time) (_ *accounting.BucketUsagePage, err error) {
+func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor accounting.BucketUsageCursor, before time.Time) (_ *accounting.BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
-	since = timeTruncateDown(since)
 	bucketPrefix := []byte(cursor.Search)
 
 	if cursor.Limit > 50 {
@@ -654,8 +866,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	var buckets []string
-	bucketsQuery := db.db.Rebind(`SELECT name FROM bucket_metainfos
+	bucketsQuery := db.db.Rebind(`SELECT name, created_at FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -673,14 +884,24 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
 
+	type bucketWithCreationDate struct {
+		name      string
+		createdAt time.Time
+	}
+
+	var buckets []bucketWithCreationDate
 	for bucketRows.Next() {
 		var bucket string
-		err = bucketRows.Scan(&bucket)
+		var createdAt time.Time
+		err = bucketRows.Scan(&bucket, &createdAt)
 		if err != nil {
 			return nil, err
 		}
 
-		buckets = append(buckets, bucket)
+		buckets = append(buckets, bucketWithCreationDate{
+			name:      bucket,
+			createdAt: createdAt,
+		})
 	}
 	if err := bucketRows.Err(); err != nil {
 		return nil, err
@@ -700,13 +921,13 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	for _, bucket := range buckets {
 		bucketUsage := accounting.BucketUsage{
 			ProjectID:  projectID,
-			BucketName: bucket,
-			Since:      since,
+			BucketName: bucket.name,
+			Since:      bucket.createdAt,
 			Before:     before,
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket), since, before, pb.PieceAction_GET)
+		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before, pb.PieceAction_GET)
 
 		var egress int64
 		err = rollupRow.Scan(&egress)
@@ -718,7 +939,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 		bucketUsage.Egress = memory.Size(egress).GB()
 
-		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
+		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket.name), bucket.createdAt, before)
 
 		var tally accounting.BucketStorageTally
 		var inline, remote int64
@@ -819,31 +1040,45 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 }
 
 // getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
-func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []string, err error) {
+func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time) (buckets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
-		FROM bucket_storage_tallies
+
+	queryFormat := `SELECT DISTINCT bucket_name
+		FROM %s
 		WHERE project_id = ?
 		AND interval_start >= ?
-		AND interval_start <= ?`)
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errs.Combine(err, bucketRows.Close()) }()
+		AND interval_start < ?`
 
-	var buckets []string
-	for bucketRows.Next() {
-		var bucket string
-		err = bucketRows.Scan(&bucket)
+	bucketMap := make(map[string]struct{})
+
+	for _, tableName := range []string{"bucket_storage_tallies", "bucket_bandwidth_rollups"} {
+		query := db.db.Rebind(fmt.Sprintf(queryFormat, tableName))
+
+		rows, err := db.db.QueryContext(ctx, query, projectID[:], since, before)
 		if err != nil {
 			return nil, err
 		}
 
+		for rows.Next() {
+			var bucket string
+			err = rows.Scan(&bucket)
+			if err != nil {
+				return nil, errs.Combine(err, rows.Close())
+			}
+			bucketMap[bucket] = struct{}{}
+		}
+
+		err = errs.Combine(rows.Err(), rows.Close())
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for bucket := range bucketMap {
 		buckets = append(buckets, bucket)
 	}
 
-	return buckets, bucketRows.Err()
+	return buckets, nil
 }
 
 // timeTruncateDown truncates down to the hour before to be in sync with orders endpoint.

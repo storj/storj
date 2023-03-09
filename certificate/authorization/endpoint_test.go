@@ -4,7 +4,7 @@
 package authorization
 
 import (
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -50,7 +50,7 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 
 	require.Equal(t, http.StatusCreated, res.StatusCode)
 
-	tokenBytes, err := ioutil.ReadAll(res.Body)
+	tokenBytes, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 	require.NotEmpty(t, tokenBytes)
 	require.NoError(t, res.Body.Close())

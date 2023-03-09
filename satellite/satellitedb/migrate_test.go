@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -30,12 +30,14 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/private/migrate"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
+const maxMigrationsToTest = 10
+
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
-func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Snapshots, *dbschema.Schema, error) {
+func loadSnapshots(ctx context.Context, connstr, dbxscript string, maxSnapshots int) (*dbschema.Snapshots, *dbschema.Schema, error) {
 	snapshots := &dbschema.Snapshots{}
 
 	// find all postgres sql files
@@ -45,13 +47,10 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	}
 	sort.Strings(matches)
 
-	// Limit the number of snapshots we are checking for Cockroach
+	// Limit the number of snapshots we are checking
 	// because the database creation is not as fast.
-	if strings.Contains(connstr, "cockroach") {
-		const cockroachSnapshotLimit = 10
-		if len(matches) > cockroachSnapshotLimit {
-			matches = matches[len(matches)-cockroachSnapshotLimit:]
-		}
+	if len(matches) > maxSnapshots {
+		matches = matches[len(matches)-maxSnapshots:]
 	}
 
 	snapshots.List = make([]*dbschema.Snapshot, len(matches))
@@ -75,7 +74,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 				return errs.New("invalid testdata file %q: %v", match, err)
 			}
 
-			scriptData, err := ioutil.ReadFile(match)
+			scriptData, err := os.ReadFile(match)
 			if err != nil {
 				return errs.New("could not read testdata file for version %d: %v", version, err)
 			}
@@ -84,7 +83,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 			if err != nil {
 				var pgErr *pgconn.PgError
 				if errors.As(err, &pgErr) {
-					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
+					return fmt.Errorf("Version %d error: %w\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
 				return fmt.Errorf("Version %d error: %w", version, err)
 			}
@@ -186,16 +185,6 @@ func TestMigrateCockroach(t *testing.T) {
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
 
-type migrationTestingAccess interface {
-	// MigrationTestingDefaultDB assists in testing migrations themselves
-	// against the default database.
-	MigrationTestingDefaultDB() interface {
-		TestDBAccess() *dbx.DB
-		TestPostgresMigration() *migrate.Migration
-		PostgresMigration() *migrate.Migration
-	}
-}
-
 func migrateTest(t *testing.T, connStr string) {
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
@@ -213,13 +202,15 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	rawdb := db.(migrationTestingAccess).MigrationTestingDefaultDB().TestDBAccess()
+	rawdb := db.Testing().RawDB()
 
-	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
+	loadingStart := time.Now()
+	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, db.Testing().Schema(), maxMigrationsToTest)
 	require.NoError(t, err)
+	t.Logf("snapshot loading %v", time.Since(loadingStart))
 
 	// get migration for this database
-	migrations := db.(migrationTestingAccess).MigrationTestingDefaultDB().PostgresMigration()
+	migrations := db.Testing().ProductionMigration()
 
 	// find the first matching migration step for the snapshots
 	firstSnapshot := snapshots.List[0]
@@ -284,16 +275,6 @@ func migrateTest(t *testing.T, connStr string) {
 		finalSchema = currentSchema
 	}
 
-	// TODO(cam): remove this check with the migration step to drop the columns
-	nodes, ok := finalSchema.FindTable("nodes")
-	if ok {
-		nodes.RemoveColumn("contained")
-	}
-	reps, ok := finalSchema.FindTable("reputations")
-	if ok {
-		reps.RemoveColumn("contained")
-	}
-
 	// verify that we also match the dbx version
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }
@@ -303,12 +284,12 @@ func migrateGeneratedTest(t *testing.T, connStrProd, connStrTest string) {
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
 
-	prodVersion, prodSnapshot := schemaFromMigration(t, ctx, connStrProd, func(db migrationTestingAccess) *migrate.Migration {
-		return db.MigrationTestingDefaultDB().PostgresMigration()
+	prodVersion, prodSnapshot := schemaFromMigration(t, ctx, connStrProd, func(db satellite.DB) *migrate.Migration {
+		return db.Testing().ProductionMigration()
 	})
 
-	testVersion, testSnapshot := schemaFromMigration(t, ctx, connStrTest, func(db migrationTestingAccess) *migrate.Migration {
-		return db.MigrationTestingDefaultDB().TestPostgresMigration()
+	testVersion, testSnapshot := schemaFromMigration(t, ctx, connStrTest, func(db satellite.DB) *migrate.Migration {
+		return db.Testing().TestMigration()
 	})
 
 	assert.Equal(t, prodVersion, testVersion, "migratez version does not match migration. Run `go generate` to update.")
@@ -320,7 +301,7 @@ func migrateGeneratedTest(t *testing.T, connStrProd, connStrTest string) {
 	require.Equal(t, prodSnapshot.Data, testSnapshot.Data, "migratez data does not match migration. Run `go generate` to update.")
 }
 
-func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string, getMigration func(migrationTestingAccess) *migrate.Migration) (version int, _ *dbschema.Snapshot) {
+func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string, getMigration func(db satellite.DB) *migrate.Migration) (version int, _ *dbschema.Snapshot) {
 	// create tempDB
 	log := zaptest.NewLogger(t)
 
@@ -335,13 +316,10 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string,
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
-	testAccess := db.(migrationTestingAccess)
-
-	migration := getMigration(testAccess)
+	migration := getMigration(db)
 	require.NoError(t, migration.Run(ctx, log))
 
-	rawdb := testAccess.MigrationTestingDefaultDB().TestDBAccess()
-	snapshot, err := pgutil.QuerySnapshot(ctx, rawdb)
+	snapshot, err := pgutil.QuerySnapshot(ctx, db.Testing().RawDB())
 	require.NoError(t, err)
 
 	return migration.Steps[len(migration.Steps)-1].Version, snapshot
@@ -384,7 +362,7 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			defer func() { require.NoError(b, db.Close()) }()
 
 			if merged {
-				err = db.TestingMigrateToLatest(ctx)
+				err = db.Testing().TestMigrateToLatest(ctx)
 				require.NoError(b, err)
 			} else {
 				err = db.MigrateToLatest(ctx)

@@ -7,7 +7,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
+)
+
+var (
+	// ErrInvalidCoupon defines invalid coupon code error.
+	ErrInvalidCoupon = errs.Class("invalid coupon code")
+	// ErrCouponConflict occurs when attempting to replace a protected coupon.
+	ErrCouponConflict = errs.Class("coupon conflict")
 )
 
 // Coupons exposes all needed functionality to manage coupons.
@@ -16,7 +25,10 @@ import (
 type Coupons interface {
 	// GetByUserID returns the coupon applied to the specified user.
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*Coupon, error)
-
+	// ApplyFreeTierCoupon applies the free tier coupon to the specified user.
+	ApplyFreeTierCoupon(ctx context.Context, userID uuid.UUID) (*Coupon, error)
+	// ApplyCoupon applies coupon to user based on coupon ID.
+	ApplyCoupon(ctx context.Context, userID uuid.UUID, couponID string) (*Coupon, error)
 	// ApplyCouponCode attempts to apply a coupon code to the user.
 	ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (*Coupon, error)
 }
@@ -44,3 +56,22 @@ const (
 	// CouponForever indicates that a coupon is applied every billing period forever.
 	CouponForever = "forever"
 )
+
+// CouponType is an enum representing the outcome a coupon validation check.
+type CouponType string
+
+const (
+	// NoCoupon represents an invalid coupon registration attempt.
+	NoCoupon CouponType = "noCoupon"
+	// FreeTierCoupon represents the default free tier coupon.
+	FreeTierCoupon = "freeTierCoupon"
+	// SignupCoupon represents a valid promo code coupon.
+	SignupCoupon = "signupCoupon"
+)
+
+// PackagePlan is an amount to charge a user one time in exchange for a coupon of greater value.
+// Price is in cents USD.
+type PackagePlan struct {
+	CouponID string
+	Price    int64
+}

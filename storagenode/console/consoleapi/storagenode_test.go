@@ -6,7 +6,7 @@ package consoleapi_test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -22,7 +22,7 @@ import (
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 var (
@@ -69,26 +69,25 @@ func TestStorageNodeApi(t *testing.T) {
 			reputationdb := sno.DB.Reputation()
 			baseURL := fmt.Sprintf("http://%s/api/sno", console.Listener.Addr())
 
-			// pause nodestats reputation cache because later tests assert a specific joinedat.
+			// pause node stats reputation cache because later tests assert a specific join date.
 			sno.NodeStats.Cache.Reputation.Pause()
-
-			now := time.Now().UTC().Add(-2 * time.Hour)
+			startingPoint := time.Now().UTC().Add(-2 * time.Hour)
 
 			for _, action := range actions {
-				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, now)
+				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
 				require.NoError(t, err)
 			}
 			var satellites []storj.NodeID
 
 			satellites = append(satellites, satellite.ID())
-			stamps, _ := makeStorageUsageStamps(satellites)
+			stamps := storagenodedbtest.MakeStorageUsageStamps(satellites, 30, time.Now().UTC())
 
 			err := storageusagedb.Store(ctx, stamps)
 			require.NoError(t, err)
 
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    now.AddDate(0, -2, 0),
+				JoinedAt:    startingPoint.AddDate(0, -2, 0),
 			})
 			require.NoError(t, err)
 
@@ -103,10 +102,14 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			t.Run("test EstimatedPayout", func(t *testing.T) {
+			t.Run("EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/estimated-payout", baseURL), nil)
 				require.NoError(t, err)
+
+				// setting now here to cache closest to api all timestamp, so service call
+				// would not have difference in passed "now" that can distort result
+				now := time.Now()
 				res, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -116,47 +119,23 @@ func TestStorageNodeApi(t *testing.T) {
 					err = res.Body.Close()
 					require.NoError(t, err)
 				}()
-				body, err := ioutil.ReadAll(res.Body)
+				body, err := io.ReadAll(res.Body)
 				require.NoError(t, err)
+				require.NotNil(t, body)
 
 				bodyPayout := &estimatedpayouts.EstimatedPayout{}
 				require.NoError(t, json.Unmarshal(body, bodyPayout))
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, now)
 				require.NoError(t, err)
+
 				expectedPayout := &estimatedpayouts.EstimatedPayout{
 					CurrentMonth:             estimation.CurrentMonth,
 					PreviousMonth:            estimation.PreviousMonth,
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				}
-				require.NoError(t, err)
-
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
 		},
 	)
-}
-
-// makeStorageUsageStamps creates storage usage stamps and expected summaries for provided satellites.
-// Creates one entry per day for 30 days with last date as beginning of provided endDate.
-func makeStorageUsageStamps(satellites []storj.NodeID) ([]storageusage.Stamp, map[storj.NodeID]float64) {
-	var stamps []storageusage.Stamp
-	summary := make(map[storj.NodeID]float64)
-
-	now := time.Now().UTC().Day()
-
-	for _, satellite := range satellites {
-		for i := 0; i < now; i++ {
-			stamp := storageusage.Stamp{
-				SatelliteID:   satellite,
-				AtRestTotal:   30000000000000,
-				IntervalStart: time.Now().UTC().Add(time.Hour * -24 * time.Duration(i)),
-			}
-
-			summary[satellite] += stamp.AtRestTotal
-			stamps = append(stamps, stamp)
-		}
-	}
-
-	return stamps, summary
 }

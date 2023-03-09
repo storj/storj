@@ -5,9 +5,7 @@ exports[`SNONotification renders correctly 1`] = `
   <div class="row">
     <div class="notification-item__new-indicator-container"><span class="notification-item__new-indicator-container__circle"></span></div>
     <div class="notification-item__icon-container">
-      <div class="icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65" class="close-cross-svg-path"></path>
-        </svg></div>
+      <div class="icon"><svg></svg></div>
     </div>
     <div class="notification-item__text-container">
       <p class="notification-item__text-container__message"><b class="notification-item__text-container__message__bold">title1:</b> message1
@@ -26,9 +24,7 @@ exports[`SNONotification renders correctly with default props 1`] = `
   <div class="row">
     <div class="notification-item__new-indicator-container"><span class="notification-item__new-indicator-container__circle"></span></div>
     <div class="notification-item__icon-container">
-      <div class="icon"><svg width="15" height="18" viewBox="0 0 15 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path fill-rule="evenodd" clip-rule="evenodd" d="M6.09394 2.14899C3.66843 2.80225 1.87523 5.10849 1.87523 7.85462V11.7819C1.87523 12.1437 1.59447 12.4364 1.25145 12.4364C0.560552 12.4364 0.000244141 13.0245 0.000244141 13.7455C0.000244141 14.469 0.560552 15.0546 1.25389 15.0546H13.7466C14.4387 15.0546 15.0002 14.4665 15.0002 13.7455C15.0002 13.0219 14.4375 12.4364 13.749 12.4364C13.4048 12.4364 13.1253 12.1449 13.1253 11.7819V7.85462C13.1253 5.1099 11.3333 2.80353 8.90655 2.14899V1.47272C8.90655 0.657093 8.27668 0 7.50031 0C6.72516 0 6.09407 0.659646 6.09407 1.47272L6.09394 2.14899ZM5.3127 15.7091H9.68766C9.68766 16.9747 8.70867 18 7.50018 18C6.29169 18 5.3127 16.9747 5.3127 15.7091Z" fill="#535F77"></path>
-        </svg></div>
+      <div class="icon"><svg></svg></div>
     </div>
     <div class="notification-item__text-container">
       <p class="notification-item__text-container__message"><b class="notification-item__text-container__message__bold">:</b>

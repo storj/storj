@@ -24,8 +24,12 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeevents"
+	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/billing"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
@@ -78,7 +82,10 @@ var safelyPartitionableDBs = map[string]bool{
 	// WARNING: only list additional db names here after they have been
 	// validated to be safely partitionable and that they do not do
 	// cross-db queries.
-	"repairqueue": true,
+	"repairqueue":   true,
+	"nodeevents":    true,
+	"verifyqueue":   true,
+	"reverifyqueue": true,
 }
 
 // Open creates instance of satellite.DB.
@@ -157,20 +164,6 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 	return dbc.dbs[""]
 }
 
-// TestDBAccess for raw database access,
-// should not be used outside of migration tests.
-func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
-
-// MigrationTestingDefaultDB assists in testing migrations themselves against
-// the default database.
-func (dbc *satelliteDBCollection) MigrationTestingDefaultDB() interface {
-	TestDBAccess() *dbx.DB
-	TestPostgresMigration() *migrate.Migration
-	PostgresMigration() *migrate.Migration
-} {
-	return dbc.getByName("")
-}
-
 // PeerIdentities returns a storage for peer identities.
 func (dbc *satelliteDBCollection) PeerIdentities() overlay.PeerIdentities {
 	return &peerIdentities{db: dbc.getByName("peeridentities")}
@@ -186,6 +179,11 @@ func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 	return &overlaycache{db: dbc.getByName("overlaycache")}
 }
 
+// NodeEvents is a getter for node events repository.
+func (dbc *satelliteDBCollection) NodeEvents() nodeevents.DB {
+	return &nodeEvents{db: dbc.getByName("nodeevents")}
+}
+
 // Reputation is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 	return &reputations{db: dbc.getByName("reputations")}
@@ -194,6 +192,16 @@ func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 // RepairQueue is a getter for RepairQueue repository.
 func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: dbc.getByName("repairqueue")}
+}
+
+// VerifyQueue is a getter for VerifyQueue database.
+func (dbc *satelliteDBCollection) VerifyQueue() audit.VerifyQueue {
+	return &verifyQueue{db: dbc.getByName("verifyqueue")}
+}
+
+// ReverifyQueue is a getter for ReverifyQueue database.
+func (dbc *satelliteDBCollection) ReverifyQueue() audit.ReverifyQueue {
+	return &reverifyQueue{db: dbc.getByName("reverifyqueue")}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage.
@@ -236,6 +244,12 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	return db.consoleDB
 }
 
+// OIDC returns the database for storing OAuth and OIDC information.
+func (dbc *satelliteDBCollection) OIDC() oidc.DB {
+	db := dbc.getByName("oidc")
+	return oidc.NewDB(db.DB)
+}
+
 // Orders returns database for storing orders.
 func (dbc *satelliteDBCollection) Orders() orders.DB {
 	db := dbc.getByName("orders")
@@ -243,8 +257,9 @@ func (dbc *satelliteDBCollection) Orders() orders.DB {
 }
 
 // Containment returns database for storing pending audit info.
+// It does all of its work by way of the ReverifyQueue.
 func (dbc *satelliteDBCollection) Containment() audit.Containment {
-	return &containment{db: dbc.getByName("containment")}
+	return &containment{reverifyQueue: dbc.ReverifyQueue()}
 }
 
 // GracefulExit returns database for graceful exit.
@@ -257,12 +272,22 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 
+// Billing returns database for billing and payment transactions.
+func (dbc *satelliteDBCollection) Billing() billing.TransactionsDB {
+	return &billingDB{db: dbc.getByName("billing")}
+}
+
+// Wallets returns database for storjscan wallets.
+func (dbc *satelliteDBCollection) Wallets() storjscan.WalletsDB {
+	return &storjscanWalletsDB{db: dbc.getByName("storjscan")}
+}
+
 // SNOPayouts returns database for storagenode payStubs and payments info.
 func (dbc *satelliteDBCollection) SNOPayouts() snopayouts.DB {
 	return &snopayoutsDB{db: dbc.getByName("snopayouts")}
 }
 
-// Compenstation returns database for storage node compensation.
+// Compensation returns database for storage node compensation.
 func (dbc *satelliteDBCollection) Compensation() compensation.DB {
 	return &compensationDB{db: dbc.getByName("compensation")}
 }
@@ -275,6 +300,11 @@ func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
 // Buckets returns database for interacting with buckets.
 func (dbc *satelliteDBCollection) Buckets() buckets.DB {
 	return &bucketsDB{db: dbc.getByName("buckets")}
+}
+
+// StorjscanPayments returns database for storjscan payments.
+func (dbc *satelliteDBCollection) StorjscanPayments() storjscan.PaymentsDB {
+	return &storjscanPayments{db: dbc.getByName("storjscan_payments")}
 }
 
 // CheckVersion confirms all databases are at the desired version.
@@ -295,15 +325,6 @@ func (dbc *satelliteDBCollection) MigrateToLatest(ctx context.Context) error {
 	return eg.Err()
 }
 
-// TestingMigrateToLatest is a method for creating all tables for all database for testing.
-func (dbc *satelliteDBCollection) TestingMigrateToLatest(ctx context.Context) error {
-	var eg errs.Group
-	for _, db := range dbc.dbs {
-		eg.Add(db.TestingMigrateToLatest(ctx))
-	}
-	return eg.Err()
-}
-
 // Close closes all satellite dbs.
 func (dbc *satelliteDBCollection) Close() error {
 	var eg errs.Group
@@ -311,4 +332,67 @@ func (dbc *satelliteDBCollection) Close() error {
 		eg.Add(db.Close())
 	}
 	return eg.Err()
+}
+
+// Testing provides access to testing facilities. These should not be used in production code.
+func (db *satelliteDB) Testing() satellite.TestingDB {
+	return &satelliteDBTesting{satelliteDB: db}
+}
+
+type satelliteDBTesting struct{ *satelliteDB }
+
+// RawDB returns the underlying database connection to the primary database.
+func (db *satelliteDBTesting) RawDB() tagsql.DB {
+	return db.satelliteDB.DB
+}
+
+// Schema returns the full schema for the database.
+func (db *satelliteDBTesting) Schema() string {
+	return db.satelliteDB.Schema()
+}
+
+// ProductionMigration returns the primary migration.
+func (db *satelliteDBTesting) ProductionMigration() *migrate.Migration {
+	return db.satelliteDB.ProductionMigration()
+}
+
+// TestMigration returns the migration used for tests.
+func (db *satelliteDBTesting) TestMigration() *migrate.Migration {
+	return db.satelliteDB.TestMigration()
+}
+
+// Testing provides access to testing facilities. These should not be used in production code.
+func (dbc *satelliteDBCollection) Testing() satellite.TestingDB {
+	return &satelliteDBCollectionTesting{satelliteDBCollection: dbc}
+}
+
+type satelliteDBCollectionTesting struct{ *satelliteDBCollection }
+
+// RawDB returns the underlying database connection to the primary database.
+func (dbc *satelliteDBCollectionTesting) RawDB() tagsql.DB {
+	return dbc.getByName("").DB.DB
+}
+
+// Schema returns the full schema for the database.
+func (dbc *satelliteDBCollectionTesting) Schema() string {
+	return dbc.getByName("").Schema()
+}
+
+// MigrateToLatest initializes the database for testplanet.
+func (dbc *satelliteDBCollectionTesting) TestMigrateToLatest(ctx context.Context) error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.Testing().TestMigrateToLatest(ctx))
+	}
+	return eg.Err()
+}
+
+// ProductionMigration returns the primary migration.
+func (dbc *satelliteDBCollectionTesting) ProductionMigration() *migrate.Migration {
+	return dbc.getByName("").ProductionMigration()
+}
+
+// TestMigration returns the migration used for tests.
+func (dbc *satelliteDBCollectionTesting) TestMigration() *migrate.Migration {
+	return dbc.getByName("").TestMigration()
 }

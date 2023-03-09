@@ -47,10 +47,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { Config as RouterConfig } from '@/app/router';
+
 import VLink from '@/app/components/common/VLink.vue';
 import WalletDetailsTable from '@/app/components/wallets/tables/walletDetails/WalletDetailsTable.vue';
-
-import { Config as RouterConfig } from '@/app/router';
 
 // @vue/component
 @Component({

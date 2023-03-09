@@ -33,9 +33,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import DisqualifyIcon from '@/../static/images/disqualify.svg';
-
 import { SatelliteScores } from '@/storagenode/sno/sno';
+
+import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
 // @vue/component
 @Component({
@@ -164,7 +164,7 @@ export default class AllSatellitesAuditsArea extends Vue {
     .disqualification {
         color: var(--critical-color);
 
-        path {
+        ::v-deep path {
             fill: var(--critical-color);
         }
     }
@@ -172,7 +172,7 @@ export default class AllSatellitesAuditsArea extends Vue {
     .warning {
         color: var(--warning-color);
 
-        path {
+        ::v-deep path {
             fill: var(--warning-color);
         }
     }

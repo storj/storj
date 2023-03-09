@@ -5,6 +5,7 @@
     <input
         ref="input"
         v-model="searchQuery"
+        readonly
         class="common-search-input"
         :placeholder="`Search ${placeholder}`"
         :style="style"
@@ -13,83 +14,82 @@
         @mouseenter="onMouseEnter"
         @mouseleave="onMouseLeave"
         @input="processSearchQuery"
+        @focus="removeReadOnly"
+        @blur="addReadOnly"
     >
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
-declare type searchCallback = (search: string) => Promise<void>;
-declare interface SearchStyle {
+import { useDOM } from '@/composables/DOM';
+
+type searchCallback = (search: string) => Promise<void>;
+interface SearchStyle {
     width: string;
 }
 
-// @vue/component
-@Component
-export default class VSearch extends Vue {
-    @Prop({default: ''})
-    private readonly placeholder: string;
-    @Prop({default: () => ''})
-    private readonly search: searchCallback;
+const props = withDefaults(defineProps<{
+    search: searchCallback;
+    placeholder?: string;
+}>(), {
+    placeholder: '',
+});
 
-    private inputWidth = '56px';
-    private searchQuery = '';
+const { removeReadOnly, addReadOnly } = useDOM();
 
-    public $refs!: {
-        input: HTMLElement;
-    };
+const inputWidth = ref<string>('56px');
+const searchQuery = ref<string>('');
+const input = ref<HTMLInputElement>();
 
-    public get style(): SearchStyle {
-        return { width: this.inputWidth };
-    }
+const style = computed((): SearchStyle => {
+    return { width: inputWidth.value };
+});
 
-    public get searchString(): string {
-        return this.searchQuery;
-    }
+/**
+ * Expands search input.
+ */
+function onMouseEnter(): void {
+    inputWidth.value = '540px';
+    input.value.focus();
+}
 
-    /**
-     * Expands search input.
-     */
-    public onMouseEnter(): void {
-        this.inputWidth = '540px';
-
-        this.$refs.input.focus();
-    }
-
-    /**
-     * Collapses search input if no search query.
-     */
-    public onMouseLeave(): void {
-        if (!this.searchQuery) {
-            this.inputWidth = '56px';
-            this.$refs.input.blur();
-        }
-    }
-
-    /**
-     * Clears search query and collapses input.
-     */
-    public clearSearch(): void {
-        this.searchQuery = '';
-        this.processSearchQuery();
-        this.inputWidth = '56px';
-    }
-
-    public async processSearchQuery(): Promise<void> {
-        await this.search(this.searchQuery);
+/**
+ * Collapses search input if no search query.
+ */
+function onMouseLeave(): void {
+    if (!searchQuery.value) {
+        inputWidth.value = '56px';
+        input.value.blur();
     }
 }
+
+/**
+ * Clears search query and collapses input.
+ */
+function clearSearch(): void {
+    searchQuery.value = '';
+    processSearchQuery();
+    inputWidth.value = '56px';
+}
+
+async function processSearchQuery(): Promise<void> {
+    await props.search(searchQuery.value);
+}
+
+defineExpose({ clearSearch });
 </script>
 
 <style scoped lang="scss">
     .common-search-input {
         position: absolute;
         right: 0;
-        bottom: 0;
+        bottom: 50%;
+        transform: translateY(50%);
         padding: 0 38px 0 18px;
         border: 1px solid #f2f2f2;
         box-sizing: border-box;
-        box-shadow: 0 4px 4px rgba(231, 232, 238, 0.6);
+        box-shadow: 0 4px 4px rgb(231 232 238 / 60%);
         outline: none;
         border-radius: 36px;
         height: 56px;
@@ -102,7 +102,10 @@ export default class VSearch extends Vue {
         background-position: top 16px right 16px;
     }
 
-    ::-webkit-input-placeholder {
-        color: #afb7c1;
+    @media screen and (max-width: 1150px) {
+
+        .common-search-input {
+            width: 100% !important;
+        }
     }
 </style>

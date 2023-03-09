@@ -14,6 +14,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -28,6 +29,8 @@ type Config struct {
 	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
+	UseObjectsLoop      bool          `help:"flag to switch between calculating bucket tallies using objects loop or custom query" default:"false"`
+	UseRangedLoop       bool          `help:"flag whether to use ranged loop instead of segment loop" default:"false"`
 
 	ListLimit          int           `help:"how many objects to query in a batch" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
@@ -42,6 +45,7 @@ type Service struct {
 	Loop   *sync2.Cycle
 
 	metabase                *metabase.DB
+	bucketsDB               buckets.DB
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -49,13 +53,14 @@ type Service struct {
 }
 
 // New creates a new tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, config Config) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, bucketsDB buckets.DB, config Config) *Service {
 	return &Service{
 		log:    log,
 		config: config,
 		Loop:   sync2.NewCycle(config.Interval),
 
 		metabase:                metabase,
+		bucketsDB:               bucketsDB,
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -112,7 +117,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// No-op unless that there isn't an error getting the
 	// liveAccounting.GetAllProjectTotals
-	updateLiveAccountingTotals := func(_ map[uuid.UUID]int64) {}
+	updateLiveAccountingTotals := func(_ map[uuid.UUID]accounting.Usage) {}
 
 	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
@@ -121,7 +126,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			zap.Error(err),
 		)
 	} else {
-		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]int64) {
+		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]accounting.Usage) {
 			latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 			if err != nil {
 				service.log.Error(
@@ -136,19 +141,19 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			// Thus, we add them and set the total to 0.
 			for projectID := range latestLiveTotals {
 				if _, ok := tallyProjectTotals[projectID]; !ok {
-					tallyProjectTotals[projectID] = 0
+					tallyProjectTotals[projectID] = accounting.Usage{}
 				}
 			}
 
 			for projectID, tallyTotal := range tallyProjectTotals {
-				delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
+				delta := latestLiveTotals[projectID].Storage - initialLiveTotals[projectID].Storage
 				if delta < 0 {
 					delta = 0
 				}
 
 				// read the method documentation why the increase passed to this method
 				// is calculated in this way
-				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
+				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID].Storage+tallyTotal.Storage+(delta/2))
 				if err != nil {
 					if accounting.ErrSystemOrNetError.Has(err) {
 						service.log.Error(
@@ -160,8 +165,28 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 					service.log.Error(
 						"tally isn't updating the live accounting storage usage of the project in this cycle",
-						zap.Error(err),
 						zap.String("projectID", projectID.String()),
+						zap.Error(err),
+					)
+				}
+
+				// difference between cached project totals and latest tally collector
+				increment := tallyTotal.Segments - latestLiveTotals[projectID].Segments
+
+				err = service.liveAccounting.UpdateProjectSegmentUsage(ctx, projectID, increment)
+				if err != nil {
+					if accounting.ErrSystemOrNetError.Has(err) {
+						service.log.Error(
+							"tally isn't updating the live accounting segment usages of the projects in this cycle",
+							zap.Error(err),
+						)
+						return
+					}
+
+					service.log.Error(
+						"tally isn't updating the live accounting segment usage of the project in this cycle",
+						zap.String("projectID", projectID.String()),
+						zap.Error(err),
 					)
 				}
 			}
@@ -169,7 +194,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// add up all buckets
-	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.config)
+	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.bucketsDB, service.config)
 	err = collector.Run(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -208,11 +233,14 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
 		monAccounting.IntVal("total_bytes").Observe(total.Bytes())       //mon:locked
+		monAccounting.IntVal("total_pending_objects").Observe(total.PendingObjectCount)
 	}
 
 	// return errors if something went wrong.
 	return errAtRest
 }
+
+var objectFunc = mon.Task()
 
 // BucketTallyCollector collects and adds up tallies for buckets.
 type BucketTallyCollector struct {
@@ -220,20 +248,22 @@ type BucketTallyCollector struct {
 	Log    *zap.Logger
 	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 
-	metabase *metabase.DB
-	config   Config
+	metabase  *metabase.DB
+	bucketsDB buckets.DB
+	config    Config
 }
 
-// NewBucketTallyCollector returns an collector that adds up totals for buckets.
+// NewBucketTallyCollector returns a collector that adds up totals for buckets.
 // The now argument controls when the collector considers objects to be expired.
-func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, config Config) *BucketTallyCollector {
+func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, bucketsDB buckets.DB, config Config) *BucketTallyCollector {
 	return &BucketTallyCollector{
 		Now:    now,
 		Log:    log,
 		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 
-		metabase: db,
-		config:   config,
+		metabase:  db,
+		bucketsDB: bucketsDB,
+		config:    config,
 	}
 }
 
@@ -244,6 +274,10 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	startingTime, err := observer.metabase.Now(ctx)
 	if err != nil {
 		return err
+	}
+
+	if !observer.config.UseObjectsLoop {
+		return observer.fillBucketTallies(ctx, startingTime)
 	}
 
 	return observer.metabase.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
@@ -262,8 +296,51 @@ func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
 	})
 }
 
+// fillBucketTallies collects all bucket tallies and fills observer's buckets map with results.
+func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context, startingTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var lastBucketLocation metabase.BucketLocation
+	for {
+		more, err := observer.bucketsDB.IterateBucketLocations(ctx, lastBucketLocation.ProjectID, lastBucketLocation.BucketName, observer.config.ListLimit, func(bucketLocations []metabase.BucketLocation) (err error) {
+			tallies, err := observer.metabase.CollectBucketTallies(ctx, metabase.CollectBucketTallies{
+				From:               bucketLocations[0],
+				To:                 bucketLocations[len(bucketLocations)-1],
+				AsOfSystemTime:     startingTime,
+				AsOfSystemInterval: observer.config.AsOfSystemInterval,
+				Now:                observer.Now,
+			})
+			if err != nil {
+				return err
+			}
+
+			for _, tally := range tallies {
+				bucket := observer.ensureBucket(metabase.ObjectLocation{
+					ProjectID:  tally.ProjectID,
+					BucketName: tally.BucketName,
+				})
+				bucket.TotalSegments = tally.TotalSegments
+				bucket.TotalBytes = tally.TotalBytes
+				bucket.MetadataSize = tally.MetadataSize
+				bucket.ObjectCount = tally.ObjectCount
+			}
+
+			lastBucketLocation = bucketLocations[len(bucketLocations)-1]
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if !more {
+			break
+		}
+	}
+
+	return nil
+}
+
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *BucketTallyCollector) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
+func (observer *BucketTallyCollector) ensureBucket(location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
@@ -276,26 +353,32 @@ func (observer *BucketTallyCollector) ensureBucket(ctx context.Context, location
 }
 
 // Object is called for each object once.
-func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) error {
+	defer objectFunc(&ctx)(nil)
 
 	if object.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, object.ObjectStream.Location())
+	bucket := observer.ensureBucket(object.ObjectStream.Location())
 	bucket.TotalSegments += int64(object.SegmentCount)
 	bucket.TotalBytes += object.TotalEncryptedSize
 	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
 	bucket.ObjectCount++
+	if object.Status == metabase.Pending {
+		bucket.PendingObjectCount++
+	}
 
 	return nil
 }
 
-func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]int64 {
-	projectTallyTotals := make(map[uuid.UUID]int64)
+func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]accounting.Usage {
+	projectTallyTotals := make(map[uuid.UUID]accounting.Usage)
 	for _, bucket := range buckets {
-		projectTallyTotals[bucket.ProjectID] += bucket.TotalBytes
+		projectUsage := projectTallyTotals[bucket.ProjectID]
+		projectUsage.Storage += bucket.TotalBytes
+		projectUsage.Segments += bucket.TotalSegments
+		projectTallyTotals[bucket.ProjectID] = projectUsage
 	}
 	return projectTallyTotals
 }

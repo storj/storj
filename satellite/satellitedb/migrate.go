@@ -63,7 +63,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		// since we merged migration steps 0-69, the current db version should never be
 		// less than 69 unless the migration hasn't run yet
 		const minDBVersion = 69
@@ -83,8 +83,8 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	}
 }
 
-// TestingMigrateToLatest is a method for creating all tables for database for testing.
-func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
+// TestMigrateToLatest is a method for creating all tables for database for testing.
+func (db *satelliteDBTesting) TestMigrateToLatest(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
@@ -113,17 +113,17 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 
 		dbVersion, err := migration.CurrentVersion(ctx, db.log, db.DB)
 		if err != nil {
 			return ErrMigrateMinVersion.Wrap(err)
 		}
-		if dbVersion > -1 {
-			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
-		}
 
-		testMigration := db.TestPostgresMigration()
+		testMigration := db.TestMigration()
+		if dbVersion != -1 && dbVersion != testMigration.Steps[0].Version {
+			return ErrMigrateMinVersion.New("the database must be empty, or be on the latest version (%d)", dbVersion)
+		}
 		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
@@ -134,7 +134,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		migration := db.PostgresMigration()
+		migration := db.ProductionMigration()
 		return migration.ValidateVersions(ctx, db.log)
 
 	default:
@@ -142,13 +142,13 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// TestPostgresMigration returns steps needed for migrating test postgres database.
-func (db *satelliteDB) TestPostgresMigration() *migrate.Migration {
+// TestMigration returns steps needed for migrating test postgres database.
+func (db *satelliteDB) TestMigration() *migrate.Migration {
 	return db.testMigration()
 }
 
-// PostgresMigration returns steps needed for migrating postgres database.
-func (db *satelliteDB) PostgresMigration() *migrate.Migration {
+// ProductionMigration returns steps needed for migrating postgres database.
+func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{
@@ -767,8 +767,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 							) >= 10
 							OR comp_at_rest < 0
 						)
-						AND codes not like '%O%'
-						AND codes not like '%D%'
+						AND codes NOT LIKE '%O%'
+						AND codes NOT LIKE '%D%'
 						AND period < '2020-03'
 				`},
 			},
@@ -918,7 +918,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "enable multiple projects for existing users",
 				Version:     127,
 				Action: migrate.SQL{
-					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 AND project_limit > 0;`,
 				},
 			},
 			{
@@ -1712,9 +1712,9 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     181,
 				SeparateTx:  true,
 				Action: migrate.SQL{
-					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000 
+					`UPDATE users SET project_bandwidth_limit = 50000000000, project_storage_limit = 50000000000
                                          WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = false);`,
-					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000 
+					`UPDATE users SET project_bandwidth_limit = 100000000000000, project_storage_limit = 25000000000000
                                          WHERE (project_bandwidth_limit = 0 AND project_storage_limit = 0 AND paid_tier = true);`,
 					`UPDATE users SET project_limit = 3 WHERE project_limit = 0;`,
 				},
@@ -1735,7 +1735,556 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN project_segment_limit bigint NOT NULL DEFAULT 0`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add last_verification_reminder to the users table",
+				Version:     184,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN last_verification_reminder timestamp with time zone`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add oauth_clients table and user index",
+				Version:     185,
+				Action: migrate.SQL{
+					`CREATE TABLE oauth_clients (
+						id bytea NOT NULL,
+						encrypted_secret bytea NOT NULL,
+						redirect_url text NOT NULL,
+						user_id bytea NOT NULL,
+						app_name text NOT NULL,
+						app_logo_url text NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX oauth_clients_user_id_index ON oauth_clients ( user_id ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add oauth_codes and oauth_tokens table",
+				Version:     186,
+				Action: migrate.SQL{
+					`CREATE TABLE oauth_codes (
+						client_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						scope text NOT NULL,
+						redirect_url text NOT NULL,
+						challenge text NOT NULL,
+						challenge_method text NOT NULL,
+						code text NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						claimed_at timestamp with time zone,
+						PRIMARY KEY ( code )
+					);`,
+					`CREATE INDEX oauth_codes_user_id_index ON oauth_codes ( user_id ) ;`,
+					`CREATE INDEX oauth_codes_client_id_index ON oauth_codes ( client_id ) ;`,
+					`CREATE TABLE oauth_tokens (
+						client_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						scope text NOT NULL,
+						kind integer NOT NULL,
+						token bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( token )
+					)`,
+					`CREATE INDEX oauth_tokens_user_id_index ON oauth_tokens ( user_id ) ;`,
+					`CREATE INDEX oauth_tokens_client_id_index ON oauth_tokens ( client_id ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop contained from nodes and reputations",
+				Version:     187,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN contained;`,
+					`ALTER TABLE reputations DROP COLUMN contained;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate users/projects to correct segment limit",
+				Version:     188,
+				Action: migrate.SQL{
+					`UPDATE users SET
+						project_segment_limit = CASE WHEN paid_tier = true THEN 1000000 ELSE 150000 END;`,
+					`UPDATE projects SET segment_limit = 150000
+						WHERE owner_id NOT IN (SELECT id FROM users WHERE paid_tier = true);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to coinpayments tables to replace gob-encoded big.Floats",
+				Version:     189,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN amount DROP NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN received DROP NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions RENAME COLUMN amount TO amount_gob;`,
+					`ALTER TABLE coinpayments_transactions RENAME COLUMN received TO received_gob;`,
+					`ALTER TABLE coinpayments_transactions ADD COLUMN amount_numeric int8;`,
+					`ALTER TABLE coinpayments_transactions ADD COLUMN received_numeric int8;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate DROP NOT NULL;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates RENAME COLUMN rate TO rate_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ADD COLUMN rate_numeric double precision;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "change segment limit default value to 100M for users from paid tier",
+				Version:     190,
+				Action: migrate.SQL{
+					`UPDATE users SET project_segment_limit = 100000000 WHERE paid_tier = true`,
+					`UPDATE projects SET segment_limit = 100000000
+						WHERE owner_id IN (SELECT id FROM users WHERE paid_tier = true);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make _numeric fields not null (all are now populated)",
+				Version:     191,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN amount_numeric SET NOT NULL;`,
+					`ALTER TABLE coinpayments_transactions ALTER COLUMN received_numeric SET NOT NULL;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates ALTER COLUMN rate_numeric SET NOT NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns to users table to control failed login attempts (disallow brute forcing)",
+				Version:     192,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN failed_login_count integer;`,
+					`ALTER TABLE users ADD COLUMN login_lockout_expiration timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "make zero project related columns to have default values",
+				Version:     193,
+				Action: migrate.SQL{
+					`UPDATE users SET
+						project_bandwidth_limit = 150000000000,
+						project_storage_limit = 150000000000,
+						project_segment_limit = 150000,
+						project_limit = 1
+					WHERE (
+						project_bandwidth_limit = 0 AND
+						project_storage_limit = 0 AND
+						project_limit = 0 AND
+						paid_tier = false
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop suspended column on reputations and nodes",
+				Version:     194,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations DROP COLUMN suspended;`,
+					`ALTER TABLE nodes DROP COLUMN suspended;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create webapp_sessions table",
+				Version:     195,
+				Action: migrate.SQL{
+					`CREATE TABLE webapp_sessions (
+						id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						ip_address text NOT NULL,
+						user_agent text NOT NULL,
+						status integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX webapp_sessions_user_id_index ON webapp_sessions ( user_id ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add verification_reminders column to users",
+				Version:     196,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN verification_reminders INTEGER NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add disqualification_reason to reputations",
+				Version:     197,
+				Action: migrate.SQL{
+					`ALTER TABLE reputations ADD COLUMN disqualification_reason integer`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_wallets",
+				Version:     198,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_wallets (
+						user_id bytea NOT NULL,
+						wallet_address bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id, wallet_address )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing_transactions",
+				Version:     199,
+				Action: migrate.SQL{
+					`CREATE TABLE billing_transactions (
+						tx_id bytea NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						currency text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						timestamp timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tx_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storjscan_payments table and index on block number and log index",
+				Version:     200,
+				Action: migrate.SQL{
+					`CREATE TABLE storjscan_payments (
+						 block_hash bytea NOT NULL,
+						 block_number bigint NOT NULL,
+						 transaction bytea NOT NULL,
+						 log_index integer NOT NULL,
+						 from_address bytea NOT NULL,
+						 to_address bytea NOT NULL,
+						 token_value bigint NOT NULL,
+						 usd_value bigint NOT NULL,
+						 status text NOT NULL,
+						 timestamp timestamp with time zone NOT NULL,
+						 created_at timestamp with time zone NOT NULL,
+						 PRIMARY KEY ( block_hash, log_index )
+					); `,
+					`CREATE INDEX storjscan_payments_block_number_log_index_index ON storjscan_payments ( block_number, log_index );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.public_id",
+				Version:     201,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN public_id bytea;`,
+					`CREATE INDEX IF NOT EXISTS projects_public_id_index ON projects ( public_id );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add accounting_rollups.interval_end_time column",
+				Version:     202,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE accounting_rollups ADD COLUMN interval_end_time TIMESTAMP WITH TIME ZONE;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Backfill accounting_rollups.interval_end_time with start_time",
+				Version:     203,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE accounting_rollups SET interval_end_time = start_time WHERE interval_end_time = NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop billing table to change primary key.",
+				Version:     204,
+				Action: migrate.SQL{
+					`DROP TABLE billing_transactions;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add billing tables for user balances and transactions",
+				Version:     205,
+				Action: migrate.SQL{
+					`CREATE TABLE billing_balances (
+						user_id bytea NOT NULL,
+						balance bigint NOT NULL,
+						last_updated timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id )
+                    ); `,
+					`CREATE TABLE billing_transactions (
+						id bigserial NOT NULL,
+						user_id bytea NOT NULL,
+						amount bigint NOT NULL,
+						currency text NOT NULL,
+						description text NOT NULL,
+						source text NOT NULL,
+						status text NOT NULL,
+						type text NOT NULL,
+						metadata jsonb NOT NULL,
+						timestamp timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					); `,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add projects.salt",
+				Version:     206,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN salt bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on wallet address to improve queries.",
+				Version:     207,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS storjscan_wallets_wallet_address_index ON storjscan_wallets ( wallet_address );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on billing transaction timestamp to improve queries.",
+				Version:     208,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS billing_transactions_timestamp_index ON billing_transactions ( timestamp );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "reset all non-DQ'd node audit reputations for new system",
+				Version:     209,
+				Action: migrate.SQL{
+					`UPDATE reputations SET audit_reputation_alpha = 1000, audit_reputation_beta = 0
+						WHERE disqualified IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add signup_captcha column to users table",
+				Version:     210,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN signup_captcha double precision;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Drop now-unused gob-encoded columns",
+				Version:     211,
+				Action: migrate.SQL{
+					`ALTER TABLE coinpayments_transactions DROP COLUMN amount_gob, DROP COLUMN received_gob;`,
+					`ALTER TABLE stripecoinpayments_tx_conversion_rates DROP COLUMN rate_gob;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add user_specified_usage_limit and user_specified_bandwidth_limit columns",
+				Version:     212,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN user_specified_usage_limit bigint;`,
+					`ALTER TABLE projects ADD COLUMN user_specified_bandwidth_limit bigint;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for pending reverification audits",
+				Version:     213,
+				Action: migrate.SQL{
+					`CREATE TABLE reverification_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						last_attempt timestamp with time zone,
+						reverify_count bigint NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position )
+    				);`,
+					`CREATE INDEX IF NOT EXISTS reverification_audits_inserted_at_index ON reverification_audits ( inserted_at );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for node events",
+				Version:     214,
+				Action: migrate.SQL{
+					`CREATE TABLE node_events (
+						id bytea NOT NULL,
+						node_id bytea NOT NULL,
+						email text NOT NULL,
+						event integer NOT NULL,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						email_sent timestamp with time zone,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX IF NOT EXISTS node_events_email_event_created_at_index ON node_events ( email, event, created_at )
+						WHERE email_sent IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create table for verification queue",
+				Version:     215,
+				Action: migrate.SQL{
+					`CREATE TABLE verification_audits (
+					    inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+					    stream_id bytea NOT NULL,
+					    position bigint NOT NULL,
+					    expires_at timestamp with time zone,
+					    encrypted_size integer NOT NULL,
+					    PRIMARY KEY ( inserted_at, stream_id, position )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column contained to nodes table",
+				Version:     216,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN contained timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add columns last_offline_email and last_software_update_email",
+				Version:     217,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN last_offline_email timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN last_software_update_email timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Add column last_attempted to node_events",
+				Version:     218,
+				Action: migrate.SQL{
+					`ALTER TABLE node_events ADD COLUMN last_attempted timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create account_freeze_events table",
+				Version:     219,
+				Action: migrate.SQL{
+					`CREATE TABLE account_freeze_events (
+						user_id bytea NOT NULL,
+						event integer NOT NULL,
+						limits jsonb,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						PRIMARY KEY ( user_id, event )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop tables related to coupons, offers, and credits",
+				Version:     220,
+				Action: migrate.SQL{
+					`DROP TABLE user_credits;`,
+					`DROP TABLE coupon_usages;`,
+					`DROP TABLE coupon_codes;`,
+					`DROP TABLE coupons;`,
+					`DROP TABLE offers;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop project_bandwidth_rollups table",
+				Version:     221,
+				Action: migrate.SQL{
+					`DROP TABLE project_bandwidth_rollups`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add noise columns to nodes table",
+				Version:     222,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN noise_proto integer;`,
+					`ALTER TABLE nodes ADD COLUMN noise_public_key bytea;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create index for interval_day column for project_bandwidth_daily_rollup",
+				Version:     223,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "Create user_settings table",
+				Version:     224,
+				Action: migrate.SQL{
+					`CREATE TABLE user_settings (
+						user_id bytea NOT NULL,
+						session_minutes integer,
+						PRIMARY KEY ( user_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused column last_verification_reminder on users table",
+				Version:     225,
+				Action: migrate.SQL{
+					`ALTER TABLE users DROP COLUMN last_verification_reminder;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add passphrase_prompt column to user_settings table",
+				Version:     226,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN passphrase_prompt boolean;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "fix bucket_bandwidth_rollups primary key",
+				Version:     227,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					alterPrimaryKey := true
+					// for crdb lets check if key was already altered, for pg we will do migration always
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						var primaryKey string
+						err := db.QueryRow(ctx,
+							`WITH constraints AS (SHOW CONSTRAINTS FROM bucket_bandwidth_rollups) SELECT details FROM constraints WHERE constraint_type = 'PRIMARY KEY';`,
+						).Scan(&primaryKey)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
 
+						// alter primary key only if it was not adjusted manually
+						alterPrimaryKey = primaryKey != "PRIMARY KEY (project_id ASC, bucket_name ASC, interval_start ASC, action ASC)"
+					}
+
+					if alterPrimaryKey {
+						_, err := tx.ExecContext(ctx, `
+							ALTER TABLE bucket_bandwidth_rollups DROP CONSTRAINT bucket_bandwidth_rollups_pk;
+							ALTER TABLE bucket_bandwidth_rollups ADD CONSTRAINT bucket_bandwidth_rollups_pk PRIMARY KEY ( project_id, bucket_name, interval_start, action );
+						`)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+					}
+
+					return nil
+				}),
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

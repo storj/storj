@@ -17,7 +17,8 @@ import (
 
 var useAbsTime = os.Getenv("STORJ_TESTPLANET_ABSTIME")
 
-func newLogger(t *testing.T) *zap.Logger {
+// NewLogger creates a zaptest logger with nice defaults for tests.
+func NewLogger(t *testing.T) *zap.Logger {
 	if useAbsTime != "" {
 		return zaptest.NewLogger(t)
 	}
@@ -34,10 +35,17 @@ func newLogger(t *testing.T) *zap.Logger {
 
 		enc.AppendString(fmt.Sprintf("%02d:%02d.%03d", minutes, seconds, nanos/1e6))
 	}
+
 	enc := zapcore.NewConsoleEncoder(cfg)
 	writer := newTestingWriter(t)
+	level := zapcore.DebugLevel
+
+	if l := os.Getenv("STORJ_TEST_LOG_LEVEL"); l != "" {
+		_ = level.Set(l)
+	}
+
 	return zap.New(
-		zapcore.NewCore(enc, writer, zapcore.DebugLevel),
+		zapcore.NewCore(enc, writer, level),
 		zap.ErrorOutput(writer.WithMarkFailed(true)),
 	)
 }

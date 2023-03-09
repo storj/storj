@@ -12,25 +12,25 @@
                 >
             </div>
             <h2 class="create-project__container__title" aria-roledescription="title">Create a Project</h2>
-            <HeaderedInput
+            <VInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
                 placeholder="Enter Project Name"
                 class="full-input"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="projectName.length"
                 :max-symbols="20"
                 :error="nameError"
                 @setData="setProjectName"
             />
-            <HeaderedInput
+            <VInput
                 label="Description"
                 placeholder="Enter Project Description"
                 additional-label="Optional"
                 class="full-input"
-                is-multiline="true"
+                is-multiline
                 height="100px"
-                is-limit-shown="true"
+                is-limit-shown
                 :current-limit="description.length"
                 :max-symbols="100"
                 @setData="setProjectDescription"
@@ -42,7 +42,7 @@
                     width="210px"
                     height="48px"
                     :on-press="onCancelClick"
-                    is-transparent="true"
+                    :is-transparent="true"
                 />
                 <VButton
                     label="Create Project +"
@@ -62,19 +62,21 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import VButton from '@/components/common/VButton.vue';
-import VLoader from "@/components/common/VLoader.vue";
-
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+
+import VLoader from '@/components/common/VLoader.vue';
+import VButton from '@/components/common/VButton.vue';
+import VInput from '@/components/common/VInput.vue';
 
 // @vue/component
 @Component({
     components: {
-        HeaderedInput,
+        VInput,
         VButton,
         VLoader,
     },
@@ -86,6 +88,8 @@ export default class NewProjectPopup extends Vue {
 
     public projectName = '';
     public nameError = '';
+
+    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Sets project name from input value.
@@ -133,6 +137,7 @@ export default class NewProjectPopup extends Vue {
         } catch (error) {
             this.isLoading = false;
             this.nameError = error.message;
+            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
 
             return;
         }
@@ -141,8 +146,8 @@ export default class NewProjectPopup extends Vue {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
         } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_MODAL);
             this.isLoading = false;
-            await this.$notify.error(error.message);
 
             return;
         }
@@ -153,6 +158,7 @@ export default class NewProjectPopup extends Vue {
 
         this.isLoading = false;
 
+        this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);
     }
 
@@ -176,7 +182,7 @@ export default class NewProjectPopup extends Vue {
         &__container {
             margin: 0 auto;
             max-width: 440px;
-            padding: 70px 50px 55px 50px;
+            padding: 70px 50px 55px;
             background-color: #fff;
             border-radius: 8px;
             position: relative;
@@ -198,7 +204,7 @@ export default class NewProjectPopup extends Vue {
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
                 text-align: center;
-                margin: 15px 0 30px 0;
+                margin: 15px 0 30px;
             }
 
             &__button-container {
@@ -219,7 +225,7 @@ export default class NewProjectPopup extends Vue {
                 left: 0;
                 height: 100%;
                 width: 100%;
-                background-color: rgba(229, 229, 229, 0.2);
+                background-color: rgb(229 229 229 / 20%);
                 border-radius: 8px;
                 z-index: 100;
 

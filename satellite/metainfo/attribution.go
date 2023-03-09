@@ -23,15 +23,17 @@ import (
 // MaxUserAgentLength is the maximum allowable length of the User Agent.
 const MaxUserAgentLength = 500
 
-// ensureAttribution ensures that the bucketName has the partner information specified by keyInfo partner ID or the header user agent.
+// ensureAttribution ensures that the bucketName has the partner information specified by project-level user agent, header user agent, or keyInfo partner ID.
 // PartnerID from keyInfo is a value associated with registered user and prevails over header user agent.
 //
 // Assumes that the user has permissions sufficient for authenticating.
-func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName []byte) error {
+func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.RequestHeader, keyInfo *console.APIKeyInfo, bucketName, projectUserAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
-	if len(header.UserAgent) == 0 && keyInfo.PartnerID.IsZero() && keyInfo.UserAgent == nil {
+	if len(header.UserAgent) == 0 && len(keyInfo.UserAgent) == 0 && len(projectUserAgent) == 0 {
 		return nil
 	}
 
@@ -45,23 +47,23 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
-	partnerID := keyInfo.PartnerID
 	userAgent := keyInfo.UserAgent
-	// first check keyInfo (user) attribution
-	if partnerID.IsZero() && userAgent == nil {
-		// otherwise, use header (partner tool) as attribution
-		userAgent = header.UserAgent
-		if userAgent == nil {
-			return nil
-		}
+	if len(projectUserAgent) > 0 {
+		userAgent = projectUserAgent
 	}
 
-	userAgent, err := TrimUserAgent(userAgent)
+	// first check keyInfo (user) attribution
+	if userAgent == nil {
+		// otherwise, use header (partner tool) as attribution
+		userAgent = header.UserAgent
+	}
+
+	userAgent, err = TrimUserAgent(userAgent)
 	if err != nil {
 		return err
 	}
 
-	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, partnerID, userAgent)
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent)
 	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
 		return nil
 	}
@@ -109,13 +111,15 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 	return userAgent, nil
 }
 
-func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, partnerID uuid.UUID, userAgent []byte) error {
+func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header *pb.RequestHeader, projectID uuid.UUID, bucketName []byte, userAgent []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if header == nil {
 		return rpcstatus.Error(rpcstatus.InvalidArgument, "header is nil")
 	}
 
 	// check if attribution is set for given bucket
-	_, err := endpoint.attributions.Get(ctx, projectID, bucketName)
+	_, err = endpoint.attributions.Get(ctx, projectID, bucketName)
 	if err == nil {
 		// bucket has already an attribution, no need to update
 		return nil
@@ -132,7 +136,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		return rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 	if !empty {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, PartnerID %q cannot be attributed", bucketName, partnerID)
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q is not empty, Partner %q cannot be attributed", bucketName, userAgent)
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
@@ -144,12 +148,11 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to set bucket attribution")
 	}
-	if !bucket.PartnerID.IsZero() || bucket.UserAgent != nil {
-		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q already has attribution, PartnerID %q cannot be attributed", bucketName, partnerID)
+	if bucket.UserAgent != nil {
+		return rpcstatus.Errorf(rpcstatus.AlreadyExists, "bucket %q already has attribution, Partner %q cannot be attributed", bucketName, userAgent)
 	}
 
 	// update bucket information
-	bucket.PartnerID = partnerID
 	bucket.UserAgent = userAgent
 	_, err = endpoint.buckets.UpdateBucket(ctx, bucket)
 	if err != nil {
@@ -161,7 +164,6 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	_, err = endpoint.attributions.Insert(ctx, &attribution.Info{
 		ProjectID:  projectID,
 		BucketName: bucketName,
-		PartnerID:  partnerID,
 		UserAgent:  userAgent,
 	})
 	if err != nil {

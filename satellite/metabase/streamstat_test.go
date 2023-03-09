@@ -150,5 +150,72 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("segments copy", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			testNodeIDs := make([]storj.NodeID, 3)
+			for i := range testNodeIDs {
+				testNodeIDs[i] = testrand.NodeID()
+			}
+
+			// each segment will have one test node ID
+			originalObj, _ := metabasetest.CreateTestObject{
+				CreateSegment: func(object metabase.Object, index int) metabase.Segment {
+					metabasetest.CommitSegment{
+						Opts: metabase.CommitSegment{
+							ObjectStream: obj,
+							Position:     metabase.SegmentPosition{Part: 0, Index: uint32(index)},
+							RootPieceID:  testrand.PieceID(),
+
+							Pieces: metabase.Pieces{
+								{Number: 1, StorageNode: testNodeIDs[index]},
+							},
+
+							EncryptedKey:      encryptedKey,
+							EncryptedKeyNonce: encryptedKeyNonce,
+
+							EncryptedSize: 1024,
+							PlainSize:     512,
+							PlainOffset:   0,
+							Redundancy:    metabasetest.DefaultRedundancy,
+						},
+					}.Check(ctx, t, db)
+
+					return metabase.Segment{}
+				},
+			}.Run(ctx, t, db, obj, byte(len(testNodeIDs)))
+
+			copyStream := metabasetest.RandObjectStream()
+			_, _, _ = metabasetest.CreateObjectCopy{
+				OriginalObject:   originalObj,
+				CopyObjectStream: &copyStream,
+			}.Run(ctx, t, db)
+
+			metabasetest.GetStreamPieceCountByNodeID{
+				Opts: metabase.GetStreamPieceCountByNodeID{
+					StreamID: obj.StreamID,
+				},
+				Result: map[storj.NodeID]int64{
+					testNodeIDs[0]: 1,
+					testNodeIDs[1]: 1,
+					testNodeIDs[2]: 1,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetStreamPieceCountByNodeID{
+				Opts: metabase.GetStreamPieceCountByNodeID{
+					StreamID: copyStream.StreamID,
+				},
+				Result: map[storj.NodeID]int64{
+					testNodeIDs[0]: 1,
+					testNodeIDs[1]: 1,
+					testNodeIDs[2]: 1,
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }

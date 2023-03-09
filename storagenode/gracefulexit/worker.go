@@ -23,33 +23,36 @@ import (
 type Worker struct {
 	log *zap.Logger
 
-	service         Service
+	service         *Service
 	transferService piecetransfer.Service
 
-	dialer       rpc.Dialer
-	limiter      *sync2.Limiter
-	satelliteURL storj.NodeURL
+	dialer              rpc.Dialer
+	satelliteURL        storj.NodeURL
+	concurrentTransfers int
 }
 
 // NewWorker instantiates Worker.
-func NewWorker(log *zap.Logger, service Service, transferService piecetransfer.Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
+func NewWorker(log *zap.Logger, service *Service, transferService piecetransfer.Service, dialer rpc.Dialer, satelliteURL storj.NodeURL, config Config) *Worker {
 	return &Worker{
-		log:             log,
-		service:         service,
-		transferService: transferService,
-		dialer:          dialer,
-		limiter:         sync2.NewLimiter(config.NumConcurrentTransfers),
-		satelliteURL:    satelliteURL,
+		log:                 log.Named(satelliteURL.String()),
+		service:             service,
+		transferService:     transferService,
+		dialer:              dialer,
+		satelliteURL:        satelliteURL,
+		concurrentTransfers: config.NumConcurrentTransfers,
 	}
 }
 
 // Run calls the satellite endpoint, transfers pieces, validates, and responds with success or failure.
 // It also marks the satellite finished once all the pieces have been transferred.
-func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
+func (worker *Worker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer done()
 
-	worker.log.Debug("running worker")
+	worker.log.Debug("started")
+	defer worker.log.Debug("finished")
+
+	limiter := sync2.NewLimiter(worker.concurrentTransfers)
+	defer limiter.Wait()
 
 	conn, err := worker.dialer.DialNodeURL(ctx, worker.satelliteURL)
 	if err != nil {
@@ -93,9 +96,10 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 		case *pb.SatelliteMessage_TransferPiece:
 			transferPieceMsg := msg.TransferPiece
-			worker.limiter.Go(ctx, func() {
+			limiter.Go(ctx, func() {
 				resp := worker.transferService.TransferPiece(ctx, worker.satelliteURL.ID, transferPieceMsg)
-				if err := c.Send(resp); err != nil {
+				err := c.Send(resp)
+				if err != nil {
 					worker.log.Error("failed to send notification about piece transfer.",
 						zap.Stringer("Satellite ID", worker.satelliteURL.ID),
 						zap.Error(errs.Wrap(err)))
@@ -104,7 +108,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 
 		case *pb.SatelliteMessage_DeletePiece:
 			deletePieceMsg := msg.DeletePiece
-			worker.limiter.Go(ctx, func() {
+			limiter.Go(ctx, func() {
 				pieceID := deletePieceMsg.OriginalPieceId
 				err := worker.service.DeletePiece(ctx, worker.satelliteURL.ID, pieceID)
 				if err != nil {
@@ -135,16 +139,17 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 				worker.log.Error("failed to marshal exit completed message.")
 			}
 
-			return errs.Wrap(worker.service.ExitCompleted(ctx, worker.satelliteURL.ID, exitCompletedBytes, worker.limiter.Wait))
+			err = worker.service.ExitCompleted(ctx, worker.satelliteURL.ID, exitCompletedBytes)
+			if err != nil {
+				return errs.Wrap(err)
+			}
+
+			limiter.Wait()
+
+			return errs.Wrap(worker.service.DeleteSatelliteData(ctx, worker.satelliteURL.ID))
 		default:
 			// TODO handle err
 			worker.log.Error("unknown graceful exit message.", zap.Stringer("Satellite ID", worker.satelliteURL.ID))
 		}
 	}
-}
-
-// Close halts the worker.
-func (worker *Worker) Close() error {
-	worker.limiter.Wait()
-	return nil
 }

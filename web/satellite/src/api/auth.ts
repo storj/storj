@@ -4,9 +4,9 @@
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
-import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
+import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -15,7 +15,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi implements UsersApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly rateLimitErrMsg = 'You\'ve exceeded limit of attempts, try again in 5 minutes';
 
     /**
      * Used to resend an registration confirmation email.
@@ -30,11 +29,14 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status == 429) {
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+        const result = await response.json();
+        const errMsg = result.error || 'Failed to send email';
+        switch (response.status) {
+        case 429:
+            throw new ErrorTooManyRequests(errMsg);
+        default:
+            throw new Error(errMsg);
         }
-        
-        throw new Error('Failed to send email');
     }
 
     /**
@@ -42,36 +44,38 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param email - email of the user
      * @param password - password of the user
+     * @param captchaResponse - captcha response token
      * @param mfaPasscode - MFA passcode
      * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
+    public async token(email: string, password: string, captchaResponse: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<TokenInfo> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
             email,
             password,
-            mfaPasscode: mfaPasscode ? mfaPasscode : null,
-            mfaRecoveryCode: mfaRecoveryCode ? mfaRecoveryCode : null,
+            captchaResponse,
+            mfaPasscode: mfaPasscode || null,
+            mfaRecoveryCode: mfaRecoveryCode || null,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             const result = await response.json();
-            if (typeof result !== 'string') {
+            if (result.error) {
                 throw new ErrorMFARequired();
             }
 
-            return result;
+            return new TokenInfo(result.token, new Date(result.expiresAt));
         }
 
         const result = await response.json();
         const errMsg = result.error || 'Failed to receive authentication token';
         switch (response.status) {
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
+        case 400:
+            throw new ErrorBadRequest(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -90,10 +94,6 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('Can not logout. Please try again later');
     }
 
@@ -101,11 +101,16 @@ export class AuthHttpApi implements UsersApi {
      * Used to restore password.
      *
      * @param email - email of the user
+     * @param captchaResponse - captcha response token
      * @throws Error
      */
-    public async forgotPassword(email: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/forgot-password/${email}`;
-        const response = await this.http.post(path, email);
+    public async forgotPassword(email: string, captchaResponse: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/forgot-password`;
+        const body = {
+            email,
+            captchaResponse,
+        };
+        const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
             return;
         }
@@ -113,10 +118,8 @@ export class AuthHttpApi implements UsersApi {
         const result = await response.json();
         const errMsg = result.error || 'Failed to send password reset link';
         switch (response.status) {
-        case 404:
-            throw new ErrorUnauthorized(errMsg);
         case 429:
-            throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+            throw new ErrorTooManyRequests(errMsg);
         default:
             throw new Error(errMsg);
         }
@@ -159,7 +162,6 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.shortName,
                 userResponse.email,
                 userResponse.partner,
-                userResponse.partnerId,
                 userResponse.password,
                 userResponse.projectLimit,
                 userResponse.paidTier,
@@ -170,11 +172,8 @@ export class AuthHttpApi implements UsersApi {
                 userResponse.employeeCount,
                 userResponse.haveSalesContact,
                 userResponse.mfaRecoveryCodeCount,
+                userResponse.createdAt,
             );
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('can not get user data');
@@ -198,14 +197,8 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        switch (response.status) {
-        case 401: {
-            throw new Error('old password is incorrect, please try again');
-        }
-        default: {
-            throw new Error('can not change password');
-        }
-        }
+        const result = await response.json();
+        throw new Error(result.error);
     }
 
     /**
@@ -224,11 +217,24 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
+        throw new Error('can not delete user');
+    }
+
+    /**
+     * Fetches user frozen status.
+     *
+     * @throws Error
+     */
+    public async getFrozenStatus(): Promise<boolean> {
+        const path = `${this.ROOT_PATH}/account/freezestatus`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return responseData.frozen;
         }
 
-        throw new Error('can not delete user');
+        throw new Error('can not get user frozen status');
     }
 
     // TODO: remove secret after Vanguard release
@@ -237,11 +243,11 @@ export class AuthHttpApi implements UsersApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
-     * @param recaptchaResponse - recaptcha response
+     * @param captchaResponse - captcha response
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<void> {
+    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -249,15 +255,16 @@ export class AuthHttpApi implements UsersApi {
             fullName: user.fullName,
             shortName: user.shortName,
             email: user.email,
-            partner: user.partner ? user.partner : '',
-            partnerId: user.partnerId ? user.partnerId : '',
+            partner: user.partner || '',
             isProfessional: user.isProfessional,
             position: user.position,
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
-            recaptchaResponse: recaptchaResponse,
+            captchaResponse: captchaResponse,
+            signupPromoCode: user.signupPromoCode,
         };
+
         const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             const result = await response.json();
@@ -265,10 +272,8 @@ export class AuthHttpApi implements UsersApi {
             switch (response.status) {
             case 400:
                 throw new ErrorBadRequest(errMsg);
-            case 401:
-                throw new ErrorUnauthorized(errMsg);
             case 429:
-                throw new ErrorTooManyRequests(this.rateLimitErrMsg);
+                throw new ErrorTooManyRequests(errMsg);
             default:
                 throw new Error(errMsg);
             }
@@ -286,10 +291,6 @@ export class AuthHttpApi implements UsersApi {
 
         if (response.ok) {
             return await response.json();
-        }
-
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
         }
 
         throw new Error('Can not generate MFA secret. Please try again later');
@@ -312,10 +313,6 @@ export class AuthHttpApi implements UsersApi {
             return;
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('Can not enable MFA. Please try again later');
     }
 
@@ -336,17 +333,10 @@ export class AuthHttpApi implements UsersApi {
         if (response.ok) {
             return;
         }
-        
+
         const result = await response.json();
-        if (!response.ok) {
-            const errMsg = result.error || 'Cannot disable MFA. Please try again later';
-            switch (response.status) {
-            case 401:
-                throw new ErrorUnauthorized(errMsg);
-            default:
-                throw new Error(errMsg);
-            }
-        }
+        const errMsg = result.error || 'Cannot disable MFA. Please try again later';
+        throw new Error(errMsg);
     }
 
     /**
@@ -362,41 +352,71 @@ export class AuthHttpApi implements UsersApi {
             return await response.json();
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-
         throw new Error('Can not generate MFA recovery codes. Please try again later');
     }
 
     /**
      * Used to reset user's password.
      *
+     * @param token - user's password reset token
+     * @param password - user's new password
+     * @param mfaPasscode - MFA passcode
+     * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async resetPassword(token: string, password: string): Promise<void> {
+    public async resetPassword(token: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<void> {
         const path = `${this.ROOT_PATH}/reset-password`;
 
         const body = {
             token: token,
             password: password,
+            mfaPasscode: mfaPasscode || null,
+            mfaRecoveryCode: mfaRecoveryCode || null,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));
+        const text = await response.text();
+        let errMsg = 'Cannot reset password';
+
+        if (text) {
+            const result = JSON.parse(text);
+            if (result.code === 'mfa_required') {
+                throw new ErrorMFARequired();
+            }
+            if (result.code === 'token_expired') {
+                throw new ErrorTokenExpired();
+            }
+            if (result.error) {
+                errMsg = result.error;
+            }
+        }
 
         if (response.ok) {
             return;
         }
 
-        const result = await response.json();
-        const errMsg = result.error || 'Cannot reset password';
         switch (response.status) {
         case 400:
             throw new ErrorBadRequest(errMsg);
-        case 401:
-            throw new ErrorUnauthorized(errMsg);
         default:
             throw new Error(errMsg);
         }
+    }
+
+    /**
+     * Used to refresh the expiration time of the current session.
+     *
+     * @returns new expiration timestamp
+     * @throws Error
+     */
+    public async refreshSession(): Promise<Date> {
+        const path = `${this.ROOT_PATH}/refresh-session`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return new Date(await response.json());
+        }
+
+        throw new Error('Unable to refresh session.');
     }
 }
