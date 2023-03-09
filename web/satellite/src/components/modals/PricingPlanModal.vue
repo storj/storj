@@ -17,14 +17,11 @@
                             {{ plan.title }}
                             <span v-if="plan.activationSubtitle"> / {{ plan.activationSubtitle }}</span>
                         </p>
-                        <p>{{ plan.activationDescription }}</p>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <p class="content__middle__description" v-html="plan.activationDescriptionHTML" />
                     </div>
-                    <p class="content__middle__price">
-                        <template v-if="plan.price">
-                            <s v-if="plan.oldPrice">{{ plan.oldPrice }}</s>&nbsp;{{ plan.price }}
-                        </template>
-                        <template v-else>No charge</template>
-                    </p>
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <p v-if="plan.activationPriceHTML" class="content__middle__price" v-html="plan.activationPriceHTML" />
                 </div>
                 <div class="content__bottom">
                     <div v-if="!isFree" class="content__bottom__card-area">
@@ -37,7 +34,7 @@
                     </div>
                     <VButton
                         class="content__bottom__button"
-                        :label="'Activate ' + plan.title"
+                        :label="plan.activationButtonText || ('Activate ' + plan.title)"
                         width="100%"
                         font-size="13px"
                         icon="lock"
@@ -50,7 +47,7 @@
                         label="Cancel"
                         width="100%"
                         font-size="13px"
-                        :is-transparent="true"
+                        :is-white="true"
                         :on-press="onClose"
                     />
                 </div>
@@ -235,21 +232,28 @@ async function onCardAdded(token: string): Promise<void> {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: 16px;
         background-color: #fff;
 
         &__name {
             font-family: 'font_bold', sans-serif;
         }
 
+        &__description :deep(a) {
+            color: var(--c-blue-3);
+            text-decoration: underline;
+        }
+
         &__price {
-            display: flex;
-            font-family: 'font_bold', sans-serif;
+            font-family: 'font_medium', sans-serif;
             line-height: 22px;
 
-            s {
+            :deep(s) {
                 font-family: 'font_regular', sans-serif;
-                color: var(--c-grey-6);
+            }
+
+            :deep(b) {
+                font-family: 'font_bold', sans-serif;
             }
         }
     }
