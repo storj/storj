@@ -533,6 +533,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
+	if planet.config.LastNetFunc != nil {
+		peer.Overlay.Service.LastNetFunc = planet.config.LastNetFunc
+	}
+
 	err = db.Testing().TestMigrateToLatest(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
