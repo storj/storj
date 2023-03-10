@@ -1063,7 +1063,7 @@ func TestMissingPieceDataRepair(t *testing.T) {
 }
 
 // TestCorruptDataRepair_Succeed does the following:
-//   - Uploads test data
+//   - Uploads test data using different hash algorithms (Blake3 and SHA256)
 //   - Kills some nodes carrying the uploaded segment but keep it above minimum requirement
 //   - On one of the remaining nodes, corrupt the piece data being stored by that node
 //   - Triggers data repair, which attempts to repair the data from the remaining nodes to
@@ -1073,108 +1073,126 @@ func TestMissingPieceDataRepair(t *testing.T) {
 func TestCorruptDataRepair_Succeed(t *testing.T) {
 	const RepairMaxExcessRateOptimalThreshold = 0.05
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 15,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.Combine(
-				func(log *zap.Logger, index int, config *satellite.Config) {
-					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-					config.Repairer.InMemoryRepair = true
-					config.Repairer.ReputationUpdateEnabled = true
-					config.Reputation.InitialAlpha = 1
-					config.Reputation.AuditLambda = 0.95
-				},
-				testplanet.ReconfigureRS(3, 4, 9, 9),
-			),
+	for _, tt := range []struct {
+		name     string
+		hashAlgo pb.PieceHashAlgorithm
+	}{
+		{
+			name:     "BLAKE3",
+			hashAlgo: pb.PieceHashAlgorithm_BLAKE3,
 		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		uplinkPeer := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
-		// stop audit to prevent possible interactions i.e. repair timeout problems
-		satellite.Audit.Worker.Loop.Pause()
+		{
+			name:     "SHA256",
+			hashAlgo: pb.PieceHashAlgorithm_SHA256,
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount:   1,
+				StorageNodeCount: 15,
+				UplinkCount:      1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: testplanet.Combine(
+						func(log *zap.Logger, index int, config *satellite.Config) {
+							config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+							config.Repairer.InMemoryRepair = true
+							config.Repairer.ReputationUpdateEnabled = true
+							config.Reputation.InitialAlpha = 1
+							config.Reputation.AuditLambda = 0.95
+						},
+						testplanet.ReconfigureRS(3, 4, 9, 9),
+					),
+				},
+			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Repairer.Loop.Pause()
+				uplinkPeer := planet.Uplinks[0]
+				satellite := planet.Satellites[0]
+				// stop audit to prevent possible interactions i.e. repair timeout problems
+				satellite.Audit.Worker.Loop.Pause()
 
-		var testData = testrand.Bytes(8 * memory.KiB)
-		// first, upload some remote data
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
-		require.NoError(t, err)
+				satellite.Repair.Checker.Loop.Pause()
+				satellite.Repair.Repairer.Loop.Pause()
 
-		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-		require.Equal(t, 9, len(segment.Pieces))
-		require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
-		toKill := 5
+				var testData = testrand.Bytes(8 * memory.KiB)
+				// first, upload some remote data
+				err := uplinkPeer.Upload(piecestore.WithPieceHashAlgo(ctx, tt.hashAlgo), satellite, "testbucket", "test/path", testData)
+				require.NoError(t, err)
 
-		// kill nodes and track lost pieces
-		var availablePieces metabase.Pieces
+				segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+				require.Equal(t, 9, len(segment.Pieces))
+				require.Equal(t, 3, int(segment.Redundancy.RequiredShares))
+				toKill := 5
 
-		for i, piece := range segment.Pieces {
-			if i >= toKill {
-				availablePieces = append(availablePieces, piece)
-				continue
-			}
+				// kill nodes and track lost pieces
+				var availablePieces metabase.Pieces
 
-			err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
-			require.NoError(t, err)
-		}
-		require.Equal(t, 4, len(availablePieces))
+				for i, piece := range segment.Pieces {
+					if i >= toKill {
+						availablePieces = append(availablePieces, piece)
+						continue
+					}
 
-		// choose first piece for corruption, for it to always be in the first limiter batch
-		corruptedPiece := availablePieces[0]
+					err := planet.StopNodeAndUpdate(ctx, planet.FindNode(piece.StorageNode))
+					require.NoError(t, err)
+				}
+				require.Equal(t, 4, len(availablePieces))
 
-		// corrupt piece data
-		corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
-		require.NotNil(t, corruptedNode)
-		corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
-		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
+				// choose first piece for corruption, for it to always be in the first limiter batch
+				corruptedPiece := availablePieces[0]
 
-		reputationService := satellite.Repairer.Reputation
+				// corrupt piece data
+				corruptedNode := planet.FindNode(corruptedPiece.StorageNode)
+				require.NotNil(t, corruptedNode)
+				corruptedPieceID := segment.RootPieceID.Derive(corruptedPiece.StorageNode, int32(corruptedPiece.Number))
+				corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
-		nodesReputation := make(map[storj.NodeID]reputation.Info)
-		for _, piece := range availablePieces {
-			info, err := reputationService.Get(ctx, piece.StorageNode)
-			require.NoError(t, err)
-			nodesReputation[piece.StorageNode] = *info
-		}
+				reputationService := satellite.Repairer.Reputation
 
-		satellite.Repair.Checker.Loop.Restart()
-		satellite.Repair.Checker.Loop.TriggerWait()
-		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Repairer.Loop.Restart()
-		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
-		satellite.Repair.Repairer.WaitForPendingRepairs()
+				nodesReputation := make(map[storj.NodeID]reputation.Info)
+				for _, piece := range availablePieces {
+					info, err := reputationService.Get(ctx, piece.StorageNode)
+					require.NoError(t, err)
+					nodesReputation[piece.StorageNode] = *info
+				}
 
-		nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
-		for _, piece := range availablePieces {
-			info, err := reputationService.Get(ctx, piece.StorageNode)
-			require.NoError(t, err)
-			nodesReputationAfter[piece.StorageNode] = *info
-		}
+				satellite.Repair.Checker.Loop.Restart()
+				satellite.Repair.Checker.Loop.TriggerWait()
+				satellite.Repair.Checker.Loop.Pause()
+				satellite.Repair.Repairer.Loop.Restart()
+				satellite.Repair.Repairer.Loop.TriggerWait()
+				satellite.Repair.Repairer.Loop.Pause()
+				satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// repair should update audit status
-		for _, piece := range availablePieces[1:] {
-			successfulNodeReputation := nodesReputation[piece.StorageNode]
-			successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
-			require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
-			require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
-			require.GreaterOrEqual(t, reputationRatio(successfulNodeReputationAfter), reputationRatio(successfulNodeReputation))
-		}
+				nodesReputationAfter := make(map[storj.NodeID]reputation.Info)
+				for _, piece := range availablePieces {
+					info, err := reputationService.Get(ctx, piece.StorageNode)
+					require.NoError(t, err)
+					nodesReputationAfter[piece.StorageNode] = *info
+				}
 
-		corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
-		corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
-		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
-		require.Less(t, reputationRatio(corruptedNodeReputationAfter), reputationRatio(corruptedNodeReputation))
+				// repair should update audit status
+				for _, piece := range availablePieces[1:] {
+					successfulNodeReputation := nodesReputation[piece.StorageNode]
+					successfulNodeReputationAfter := nodesReputationAfter[piece.StorageNode]
+					require.Equal(t, successfulNodeReputation.TotalAuditCount+1, successfulNodeReputationAfter.TotalAuditCount)
+					require.Equal(t, successfulNodeReputation.AuditSuccessCount+1, successfulNodeReputationAfter.AuditSuccessCount)
+					require.GreaterOrEqual(t, reputationRatio(successfulNodeReputationAfter), reputationRatio(successfulNodeReputation))
+				}
 
-		// repair succeeded, so segment should not contain corrupted piece
-		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
-		for _, piece := range segmentAfter.Pieces {
-			require.NotEqual(t, piece.Number, corruptedPiece.Number, "there should be no corrupted piece in pointer")
-		}
-	})
+				corruptedNodeReputation := nodesReputation[corruptedPiece.StorageNode]
+				corruptedNodeReputationAfter := nodesReputationAfter[corruptedPiece.StorageNode]
+				require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, corruptedNodeReputationAfter.TotalAuditCount)
+				require.Less(t, reputationRatio(corruptedNodeReputationAfter), reputationRatio(corruptedNodeReputation))
+
+				// repair succeeded, so segment should not contain corrupted piece
+				segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+				for _, piece := range segmentAfter.Pieces {
+					require.NotEqual(t, piece.Number, corruptedPiece.Number, "there should be no corrupted piece in pointer")
+				}
+			})
+		})
+	}
 }
 
 // TestCorruptDataRepair_Failed does the following:
