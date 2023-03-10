@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
+	"storj.io/uplink/private/piecestore"
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
@@ -77,18 +78,20 @@ func TestSuccess(t *testing.T) {
 
 					orderLimit := header.OrderLimit
 					originalPieceHash := &pb.PieceHash{
-						PieceId:   orderLimit.PieceId,
-						Hash:      header.GetHash(),
-						PieceSize: pieceReader.Size(),
-						Timestamp: header.GetCreationTime(),
-						Signature: header.GetSignature(),
+						PieceId:       orderLimit.PieceId,
+						Hash:          header.GetHash(),
+						PieceSize:     pieceReader.Size(),
+						Timestamp:     header.GetCreationTime(),
+						Signature:     header.GetSignature(),
+						HashAlgorithm: header.GetHashAlgorithm(),
 					}
 
 					newPieceHash := &pb.PieceHash{
-						PieceId:   m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
-						Hash:      originalPieceHash.Hash,
-						PieceSize: originalPieceHash.PieceSize,
-						Timestamp: time.Now(),
+						PieceId:       m.TransferPiece.AddressedOrderLimit.Limit.PieceId,
+						Hash:          originalPieceHash.Hash,
+						PieceSize:     originalPieceHash.PieceSize,
+						HashAlgorithm: originalPieceHash.HashAlgorithm,
+						Timestamp:     time.Now(),
 					}
 
 					receivingNodeID := nodeFullIDs[m.TransferPiece.AddressedOrderLimit.Limit.StorageNodeId]
@@ -1466,7 +1469,7 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		}
 
 		for i := 0; i < objects; i++ {
-			err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
+			err := uplinkPeer.Upload(piecestore.WithPieceHashAlgo(ctx, pb.PieceHashAlgorithm_BLAKE3), satellite, "testbucket", "test/path"+strconv.Itoa(i), testrand.Bytes(5*memory.KiB))
 			require.NoError(t, err)
 		}
 
