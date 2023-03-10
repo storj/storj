@@ -1685,11 +1685,30 @@ func (n *noiseScanner) Convert() *pb.NoiseInfo {
 // OneTimeFixLastNets updates the last_net values for all node records to be equal to their
 // last_ip_port values.
 //
-// This is only appropriate to do when the satellite has DistinctIP=false and has been upgraded from
-// before changeset I0e7e92498c3da768df5b4d5fb213dcd2d4862924. It is only necessary to run this
-// once, after all satellite peers are upgraded (otherwise some nodes may be inserted with truncated
-// last_net values, and those nodes could be unfairly disadvantaged in node selection).
+// This is only appropriate to do when the satellite has DistinctIP=false, the satelliteDB is
+// running on PostgreSQL (not CockroachDB), and has been upgraded from before changeset
+// I0e7e92498c3da768df5b4d5fb213dcd2d4862924. These are not common circumstances, but they do
+// exist. It is only necessary to run this once. When all satellite peer processes are upgraded,
+// the function and trigger can be dropped if desired.
 func (cache *overlaycache) OneTimeFixLastNets(ctx context.Context) error {
-	_, err := cache.db.ExecContext(ctx, "UPDATE nodes SET last_net = last_ip_port")
+	_, err := cache.db.ExecContext(ctx, `
+		CREATE OR REPLACE FUNCTION fix_last_nets()
+			RETURNS TRIGGER
+			LANGUAGE plpgsql AS $$
+		BEGIN
+			NEW.last_net = NEW.last_ip_port;
+			RETURN NEW;
+		END
+		$$;
+
+		CREATE TRIGGER nodes_fix_last_nets
+			BEFORE INSERT OR UPDATE ON nodes
+			FOR EACH ROW
+			EXECUTE PROCEDURE fix_last_nets();
+	`)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	_, err = cache.db.ExecContext(ctx, "UPDATE nodes SET last_net = last_ip_port")
 	return Error.Wrap(err)
 }
