@@ -42,7 +42,7 @@ require (
 	github.com/zeebo/assert v1.3.1
 	github.com/zeebo/clingy v0.0.0-20220926155919-717640cb8ccd
 	github.com/zeebo/errs v1.3.0
-	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
+	github.com/zeebo/ini v0.0.0-20210514163846-cc8fbd8d9599
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.5.0
