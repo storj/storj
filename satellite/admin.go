@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restkeys"
@@ -183,7 +184,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.FreezeAccounts.Service = console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects())
+		peer.FreezeAccounts.Service = console.NewAccountFreezeService(
+			db.Console().AccountFreezeEvents(),
+			db.Console().Users(),
+			db.Console().Projects(),
+			analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName),
+		)
 	}
 
 	{ // setup admin endpoint

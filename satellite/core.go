@@ -592,13 +592,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
+			analyticService := analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
 			peer.Payments.AccountFreeze = accountfreeze.NewChore(
 				peer.Log.Named("payments.accountfreeze:chore"),
 				peer.DB.StripeCoinPayments(),
 				peer.Payments.Accounts,
 				peer.DB.Console().Users(),
-				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects()),
-				analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName),
+				console.NewAccountFreezeService(db.Console().AccountFreezeEvents(), db.Console().Users(), db.Console().Projects(), analyticService),
+				analyticService,
 				config.AccountFreeze,
 			)
 

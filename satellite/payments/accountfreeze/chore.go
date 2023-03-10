@@ -105,7 +105,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.log.Error("Could not add warning event", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
 					continue
 				}
-				chore.analytics.TrackAccountFreezeWarning(userID, user.Email)
 				continue
 			}
 
@@ -115,7 +114,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 					chore.log.Error("Could not freeze account", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
 					continue
 				}
-				chore.analytics.TrackAccountFrozen(userID, user.Email)
 			}
 		}
 

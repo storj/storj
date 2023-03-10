@@ -33,7 +33,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 		chore := sat.Core.Payments.AccountFreeze
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
