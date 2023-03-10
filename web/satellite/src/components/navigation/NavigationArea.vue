@@ -27,8 +27,11 @@
                 <div class="navigation-area__container__wrap__border" />
                 <div ref="resourcesContainer" class="container-wrapper">
                     <div
+                        role="button"
+                        tabindex="0"
                         class="navigation-area__container__wrap__item-container"
                         :class="{ active: isResourcesDropdownShown }"
+                        @keyup.enter="toggleResourcesDropdown"
                         @click.stop="toggleResourcesDropdown"
                     >
                         <div class="navigation-area__container__wrap__item-container__left">
@@ -48,8 +51,11 @@
                 </div>
                 <div ref="quickStartContainer" class="container-wrapper">
                     <div
+                        role="button"
+                        tabindex="0"
                         class="navigation-area__container__wrap__item-container"
                         :class="{ active: isQuickStartDropdownShown }"
+                        @keyup.enter="toggleQuickStartDropdown"
                         @click.stop="toggleQuickStartDropdown"
                     >
                         <div class="navigation-area__container__wrap__item-container__left">
@@ -348,6 +354,7 @@ export default class NavigationArea extends Vue {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
+                    border: none;
                     border-left: 4px solid #fff;
                     color: var(--c-grey-6);
                     position: static;
@@ -366,6 +373,17 @@ export default class NavigationArea extends Vue {
                     }
 
                     &:hover {
+                        border-color: var(--c-grey-1);
+                        background-color: var(--c-grey-1);
+                        color: var(--c-blue-3);
+
+                        :deep(path) {
+                            fill: var(--c-blue-3);
+                        }
+                    }
+
+                    &:focus {
+                        outline: none;
                         border-color: var(--c-grey-1);
                         background-color: var(--c-grey-1);
                         color: var(--c-blue-3);

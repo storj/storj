@@ -4,9 +4,12 @@
 <template>
     <div ref="projectSelection" class="project-selection">
         <div
+            role="button"
+            tabindex="0"
             class="project-selection__selected"
             :class="{ active: isDropdownShown }"
             aria-roledescription="project-selection"
+            @keyup.enter="toggleSelection"
             @click.stop.prevent="toggleSelection"
         >
             <div class="project-selection__selected__left">
@@ -312,6 +315,8 @@ export default class ProjectSelection extends Vue {
         &__selected {
             box-sizing: border-box;
             padding: 22px 32px;
+            outline: none;
+            border: none;
             border-left: 4px solid #fff;
             width: 100%;
             display: flex;
@@ -344,6 +349,21 @@ export default class ProjectSelection extends Vue {
             &:hover {
                 background-color: var(--c-grey-1);
                 border-color: var(--c-grey-1);
+
+                p {
+                    color: var(--c-blue-3);
+                }
+
+                :deep(path) {
+                    fill: var(--c-blue-3);
+                }
+            }
+
+            &:focus {
+                outline: none;
+                border-color: var(--c-grey-1);
+                background-color: var(--c-grey-1);
+                color: var(--c-blue-3);
 
                 p {
                     color: var(--c-blue-3);

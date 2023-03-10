@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
@@ -103,8 +104,21 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
+	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return payments.Balance{}, Error.Wrap(err)
+	}
+
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, nil)
+	if err != nil {
+		return payments.Balance{}, Error.Wrap(err)
+	}
+
+	// customer.Balance is negative if the user has a balance with us.
+	// https://stripe.com/docs/api/customers/object#customer_object-balance
 	return payments.Balance{
-		Coins: balance.AsDecimal(),
+		Coins:   balance.AsDecimal(),
+		Credits: decimal.NewFromInt(-customer.Balance),
 	}, nil
 }
 

@@ -106,6 +106,10 @@ router.beforeEach(async (to, from, next) => {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
+    if (to.name === RouteConfig.AllProjectsDashboard.name && from.name === RouteConfig.Login.name) {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+    }
+
     // On very first login we try to redirect user to project dashboard
     // but since there is no project we then redirect user to onboarding flow.
     // That's why we toggle this flag here back to false not show create project passphrase modal again

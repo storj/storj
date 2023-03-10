@@ -45,6 +45,12 @@
                         {{ hasZeroCoins ? "Add Funds" : "See Balance" }} →
                     </p>
                 </div>
+
+                <div v-if="balance.credits" class="total-cost__card">
+                    <AvailableBalanceIcon class="total-cost__card__main-icon" />
+                    <p class="total-cost__card__money-text">${{ balance.credits }}</p>
+                    <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
+                </div>
             </div>
         </div>
         <div class="cost-by-project">
@@ -211,19 +217,26 @@ onMounted(async () => {
         }
 
         &__card-container {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+
+            @media screen and (max-width: 786px) {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            @media screen and (max-width: 425px) {
+                grid-template-columns: auto;
+            }
         }
 
         &__card {
-            width: calc(50% - 50px);
-            min-width: 188px;
+            overflow: hidden;
             box-shadow: 0 0 20px rgb(0 0 0 / 4%);
             border-radius: 10px;
             background-color: #fff;
             padding: 20px;
-            margin-top: 20px;
             display: flex;
             flex-direction: column;
             justify-content: left;

@@ -43,22 +43,24 @@ const plans = ref<PricingPlanInfo[]>([
         PricingPlanType.PRO,
         'Pro Account',
         '150 GB Free',
-        'Only pay for what you need at $4/TB storage per month and $7/TB download bandwidth per month.',
+        'Only pay for what you need. $4/TB stored per month* $7/TB for bandwidth.',
+        '*Additional per-segment fee of $0.0000088 applies.',
         null,
         null,
-        null,
-        'Just add a card to activate Pro Account',
+        'Add a credit card to activate your Pro Account.<br><br>Get 150GB free storage and bandwidth. Only pay for what you use beyond that.',
+        'No charge today',
         '150GB Free',
     ),
     new PricingPlanInfo(
         PricingPlanType.FREE,
-        'Starter Package',
+        'Free Account',
         'Limited',
-        'Free usage of 150GB storage and 150GB download bandwidth per month.',
+        'Free usage up to 150GB storage and 150GB bandwidth per month.',
         null,
         null,
         null,
         'Start for free to try Storj and upgrade later.',
+        null,
         'Limited 150',
     ),
 ]);
@@ -96,24 +98,14 @@ onBeforeMount(async () => {
         return;
     }
 
-    const plan = config[user.partner];
+    const plan = config[user.partner] as PricingPlanInfo;
     if (!plan) {
         notify.error(`No pricing plan configuration for partner '${user.partner}'.`, null);
         router.push(nextPath);
         return;
     }
-
-    plans.value.unshift(new PricingPlanInfo(
-        PricingPlanType.PARTNER,
-        plan.title,
-        plan.containerSubtitle,
-        plan.containerDescription,
-        plan.price,
-        plan.oldPrice,
-        plan.activationSubtitle,
-        plan.activationDescription,
-        plan.successSubtitle,
-    ));
+    plan.type = PricingPlanType.PARTNER;
+    plans.value.unshift(plan);
 
     isLoading.value = false;
 });

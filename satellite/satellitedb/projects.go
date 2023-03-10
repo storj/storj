@@ -103,20 +103,6 @@ func (projects *projects) GetSalt(ctx context.Context, id uuid.UUID) (salt []byt
 	return salt, nil
 }
 
-// TestGetSalt returns the project's salt column value from the db.
-func (projects *projects) TestGetSalt(ctx context.Context, id uuid.UUID) (salt []byte, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	res, err := projects.db.Get_Project_Salt_By_Id(ctx, dbx.Project_Id(id[:]))
-	if err != nil {
-		return nil, err
-	}
-
-	salt = res.Salt
-
-	return salt, nil
-}
-
 // GetByPublicID is a method for querying project from the database by public_id.
 func (projects *projects) GetByPublicID(ctx context.Context, publicID uuid.UUID) (_ *console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -470,20 +456,5 @@ func (projects *projects) UpdateUsageLimits(ctx context.Context, id uuid.UUID, l
 			SegmentLimit:   dbx.Project_SegmentLimit(limits.Segment),
 		},
 	)
-	return err
-}
-
-// TestNullifySalt is a temporary method for nullifying the salt column
-// for testing a migration tool (TODO lizzy delete after migration).
-func (projects *projects) TestNullifySalt(ctx context.Context, id uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var salt []byte
-	row := projects.sdb.QueryRow(ctx, `UPDATE projects SET salt = NULL WHERE id = $1 RETURNING salt`, id)
-	err = row.Scan(&salt)
-	if err != nil {
-		return errs.New("error scanning results: %w", err)
-	}
-
 	return err
 }

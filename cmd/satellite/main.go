@@ -21,7 +21,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/context2"
 	"storj.io/common/fpath"
 	"storj.io/common/lrucache"
 	"storj.io/common/pb"
@@ -41,7 +40,6 @@ import (
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
@@ -294,6 +292,11 @@ var (
 		Args:  cobra.RangeArgs(1, 2),
 		RunE:  cmdRepairSegment,
 	}
+	fixLastNetsCmd = &cobra.Command{
+		Use:   "fix-last-nets",
+		Short: "Fix last_net entries in the database for satellites with DistinctIP=false",
+		RunE:  cmdFixLastNets,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -363,6 +366,7 @@ func init() {
 	rootCmd.AddCommand(registerLostSegments)
 	rootCmd.AddCommand(fetchPiecesCmd)
 	rootCmd.AddCommand(repairSegmentCmd)
+	rootCmd.AddCommand(fixLastNetsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -410,6 +414,7 @@ func init() {
 	process.Bind(payCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fixLastNetsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
 		panic(err)
@@ -473,12 +478,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, liveAccounting.Close())
 	}()
 
-	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), runCfg.Orders.FlushBatchSize)
-	defer func() {
-		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
-	}()
-
-	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -980,6 +980,27 @@ func cmdRegisterLostSegments(cmd *cobra.Command, args []string) error {
 	log.Info("lost segment event(s) sent (if metrics are actually enabled)", zap.Int("lost-segments", numLostSegments))
 
 	return nil
+}
+
+func cmdFixLastNets(cmd *cobra.Command, _ []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	if runCfg.Overlay.Node.DistinctIP {
+		log.Info("No fix necessary; DistinctIP=true")
+		return nil
+	}
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName: "satellite-fix-last-nets",
+	})
+	if err != nil {
+		return fmt.Errorf("error opening master database: %w", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	return db.OverlayCache().OneTimeFixLastNets(ctx)
 }
 
 func main() {

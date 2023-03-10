@@ -14,7 +14,7 @@
             </a>
 
             <div v-if="isDropdownOpen" class="project-item__header__dropdown">
-                <div class="project-item__header__dropdown__item" @click.stop.prevent="goToProjectEdit">
+                <div v-if="isOwner" class="project-item__header__dropdown__item" @click.stop.prevent="goToProjectEdit">
                     <gear-icon />
                     <p class="project-item__header__dropdown__item__label">Project settings</p>
                 </div>

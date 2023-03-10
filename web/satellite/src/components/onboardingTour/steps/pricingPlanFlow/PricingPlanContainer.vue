@@ -18,19 +18,17 @@
                     </div>
                 </div>
                 <p class="pricing-container__inner__section__description">{{ plan.containerDescription }}</p>
+                <!-- eslint-disable-next-line vue/no-v-html -->
+                <p v-if="plan.containerFooterHTML" class="pricing-container__inner__section__footer" v-html="plan.containerFooterHTML" />
             </div>
             <div class="pricing-container__inner__section">
-                <p v-if="plan.price" class="pricing-container__inner__section__price">
-                    <span v-if="plan.oldPrice"><s>{{ plan.oldPrice }}</s>&nbsp;</span>
-                    {{ plan.price }}
-                </p>
                 <VButton
                     class="pricing-container__inner__section__button"
-                    :label="'Activate ' + plan.title"
+                    :label="plan.activationButtonText || ('Activate ' + plan.title)"
                     font-size="13px"
                     :on-press="onActivateClick"
                     :is-green="isPartner"
-                    :is-transparent="isFree"
+                    :is-white="isFree"
                 >
                     <template #icon-right>
                         <ArrowIcon :class="{'arrow-dark': isFree}" />
@@ -42,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import { useStore } from '@/utils/hooks';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
@@ -150,12 +148,15 @@ const isFree = computed((): boolean => props.plan.type === PricingPlanType.FREE)
                 }
             }
 
-            &__price {
-                font-family: 'font_bold', sans-serif;
+            &__description {
+                margin-bottom: 20px;
+            }
+
+            &__footer {
                 line-height: 22px;
 
-                s {
-                    font-family: 'font_regular', sans-serif;
+                :deep(b) {
+                    font-family: 'font_bold', sans-serif;
                 }
             }
 
