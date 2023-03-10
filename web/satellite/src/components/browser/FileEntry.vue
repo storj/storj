@@ -19,8 +19,8 @@
             <dots-icon v-else />
             <div v-if="dropdownOpen" class="file-entry__functional__dropdown">
                 <div class="file-entry__functional__dropdown__item" @click.stop="openModal">
-                    <details-icon />
-                    <p class="file-entry__functional__dropdown__item__label">Details</p>
+                    <preview-icon />
+                    <p class="file-entry__functional__dropdown__item__label">Preview</p>
                 </div>
 
                 <div class="file-entry__functional__dropdown__item" @click.stop="download">
@@ -109,7 +109,6 @@ import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
 import type { BrowserFile } from '@/types/browser';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -117,9 +116,9 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 
 import TableItem from '@/components/common/TableItem.vue';
 
+import PreviewIcon from '@/../static/images/objects/preview.svg';
 import DeleteIcon from '@/../static/images/objects/delete.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
-import DetailsIcon from '@/../static/images/objects/details.svg';
 import DownloadIcon from '@/../static/images/objects/download.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
@@ -503,6 +502,10 @@ function cancelDeletion(): void {
                 align-items: center;
                 padding: 20px 25px;
                 width: calc(100% - 50px);
+
+                & > svg {
+                    width: 20px;
+                }
 
                 .dropdown-item.action.p-3.action {
                     font-family: 'Inter', sans-serif;
