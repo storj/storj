@@ -62,8 +62,37 @@ func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidt
 	}
 }
 
-// GetProjectLimits returns current project limit for both storage and bandwidth.
-func (c *ProjectLimitCache) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ ProjectLimits, err error) {
+// GetLimits returns the project limits from cache.
+func (c *ProjectLimitCache) GetLimits(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error) {
+	fn := func() (interface{}, error) {
+		return c.getProjectLimits(ctx, projectID)
+	}
+	projectLimits, err := c.state.Get(projectID.String(), fn)
+	if err != nil {
+		return ProjectLimits{}, ErrGetProjectLimitCache.Wrap(err)
+	}
+	limits, ok := projectLimits.(ProjectLimits)
+	if !ok {
+		return ProjectLimits{}, ErrProjectLimitType.New("cache Get error")
+	}
+	return limits, nil
+}
+
+// GetBandwidthLimit return the bandwidth usage limit for a project ID.
+func (c *ProjectLimitCache) GetBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+	projectLimits, err := c.GetLimits(ctx, projectID)
+	if err != nil {
+		return 0, err
+	}
+	if projectLimits.Bandwidth == nil {
+		return c.defaultMaxBandwidth, nil
+	}
+	return memory.Size(*projectLimits.Bandwidth), nil
+}
+
+// getProjectLimits returns project limits from DB.
+func (c *ProjectLimitCache) getProjectLimits(ctx context.Context, projectID uuid.UUID) (_ ProjectLimits, err error) {
 	defer mon.Task()(&ctx, projectID)(&err)
 
 	projectLimits, err := c.projectLimitDB.GetProjectLimits(ctx, projectID)
@@ -88,33 +117,4 @@ func (c *ProjectLimitCache) GetProjectLimits(ctx context.Context, projectID uuid
 	}
 
 	return projectLimits, nil
-}
-
-// Get returns the storage usage limit for a project ID.
-func (c *ProjectLimitCache) Get(ctx context.Context, projectID uuid.UUID) (ProjectLimits, error) {
-	fn := func() (interface{}, error) {
-		return c.GetProjectLimits(ctx, projectID)
-	}
-	projectLimits, err := c.state.Get(projectID.String(), fn)
-	if err != nil {
-		return ProjectLimits{}, ErrGetProjectLimitCache.Wrap(err)
-	}
-	limits, ok := projectLimits.(ProjectLimits)
-	if !ok {
-		return ProjectLimits{}, ErrProjectLimitType.New("cache Get error")
-	}
-	return limits, nil
-}
-
-// GetProjectBandwidthLimit return the bandwidth usage limit for a project ID.
-func (c *ProjectLimitCache) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
-	defer mon.Task()(&ctx)(&err)
-	projectLimits, err := c.Get(ctx, projectID)
-	if err != nil {
-		return 0, err
-	}
-	if projectLimits.Bandwidth == nil {
-		return c.defaultMaxBandwidth, nil
-	}
-	return memory.Size(*projectLimits.Bandwidth), nil
 }
