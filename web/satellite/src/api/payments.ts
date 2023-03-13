@@ -298,6 +298,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
             coupon.duration,
+            coupon.partnered,
         );
     }
 
@@ -328,6 +329,7 @@ export class PaymentsHttpApi implements PaymentsApi {
             new Date(coupon.addedAt),
             coupon.expiresAt ? new Date(coupon.expiresAt) : null,
             coupon.duration,
+            coupon.partnered,
         );
     }
 
