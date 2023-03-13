@@ -52,7 +52,7 @@ type Satellite struct {
 	DatabaseOptions struct {
 		APIKeysCache struct {
 			Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
-			Capacity   int           `help:"satellite database api key lru capacity" default:"1000"`
+			Capacity   int           `help:"satellite database api key lru capacity" default:"10000"`
 		}
 		RevocationsCache struct {
 			Expiration time.Duration `help:"macaroon revocation cache expiration" default:"5m"`

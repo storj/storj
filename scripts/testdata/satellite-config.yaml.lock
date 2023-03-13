@@ -383,7 +383,7 @@ contact.external-address: ""
 # database: postgres://
 
 # satellite database api key lru capacity
-# database-options.api-keys-cache.capacity: 1000
+# database-options.api-keys-cache.capacity: 10000
 
 # satellite database api key expiration
 # database-options.api-keys-cache.expiration: 1m0s
