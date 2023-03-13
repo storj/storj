@@ -124,151 +124,158 @@ pipeline {
             }
         }
 
-                stage('Cross Compile') {
-                    steps {
-                        // verify most of the commands, we cannot check everything since some of them
-                        // have a C dependency and we don't have cross-compilation in storj/ci image
-                        sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
-                    }
+        stage('Cross Compile') {
+            steps {
+                // verify most of the commands, we cannot check everything since some of them
+                // have a C dependency and we don't have cross-compilation in storj/ci image
+                sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
+                sh 'go-licenses check --ignore "storj.io/storj" ./...'
+            }
+        }
+
+        stage('Check Benchmark') {
+            environment {
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+            }
+            steps {
+                sh 'psql -U postgres -c \'create database benchstorj;\''
+                sh 'go test -tags noembed -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
+            }
+        }
+
+        stage('Integration') {
+            environment {
+                // use different hostname to avoid port conflicts
+                STORJ_NETWORK_HOST4 = '127.0.0.2'
+                STORJ_NETWORK_HOST6 = '127.0.0.2'
+
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj2;\''
+                sh 'make test-sim'
+
+                // sh 'make test-certificates' // flaky
+            }
+        }
+
+        stage('Cockroach Integration') {
+            environment {
+                STORJ_NETWORK_HOST4 = '127.0.0.4'
+                STORJ_NETWORK_HOST6 = '127.0.0.4'
+
+                STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
+                sh 'make test-sim'
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
+            }
+        }
+
+        stage('Integration Redis unavailability') {
+            environment {
+                // use different hostname to avoid port conflicts
+                STORJ_NETWORK_HOST4 = '127.0.0.6'
+                STORJ_NETWORK_HOST6 = '127.0.0.6'
+                STORJ_REDIS_PORT = '7379'
+
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj6;\''
+                sh 'make test-sim-redis-unavailability'
+            }
+        }
+
+        stage('Backwards Compatibility') {
+            environment {
+                STORJ_NETWORK_HOST4 = '127.0.0.3'
+                STORJ_NETWORK_HOST6 = '127.0.0.3'
+
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+            }
+
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj3;\''
+                sh 'make test-sim-backwards-compatible'
+            }
+        }
+
+        stage('Cockroach Backwards Compatibility') {
+            environment {
+                STORJ_NETWORK_HOST4 = '127.0.0.5'
+                STORJ_NETWORK_HOST6 = '127.0.0.5'
+
+                STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
+            }
+
+            steps {
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
+                sh 'make test-sim-backwards-compatible'
+                sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
+            }
+        }
+
+        stage('wasm npm') {
+            steps {
+                dir(".build") {
+                    sh 'cp -r ../satellite/console/wasm/tests/ .'
+                    sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                    sh 'cd tests && npm install && npm run test'
                 }
+            }
+        }
 
-                stage('Check Benchmark') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database benchstorj;\''
-                        sh 'go test -tags noembed -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                    }
+        stage('web/satellite') {
+            steps {
+                dir("web/satellite") {
+                    sh 'npm run lint-ci'
+                    sh script: 'npm audit', returnStatus: true
+                    sh 'npm run test'
                 }
+            }
+        }
 
-                stage('Integration') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.2'
-                        STORJ_NETWORK_HOST6 = '127.0.0.2'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
-                        sh 'make test-sim'
-
-                        // sh 'make test-certificates' // flaky
-                    }
+        stage('web/storagenode') {
+            steps {
+                dir("web/storagenode") {
+                    sh 'npm run lint-ci'
+                    sh script: 'npm audit', returnStatus: true
+                    sh 'npm run test'
                 }
+            }
+        }
 
-                stage('Cockroach Integration') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.4'
-                        STORJ_NETWORK_HOST6 = '127.0.0.4'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        sh 'make test-sim'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
-                    }
+        stage('web/multinode') {
+            steps {
+                dir("web/multinode") {
+                    sh 'npm run lint-ci'
+                    sh script: 'npm audit', returnStatus: true
+                    sh 'npm run test'
                 }
+            }
+        }
 
-                stage('Integration Redis unavailability') {
-                    environment {
-                        // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.6'
-                        STORJ_NETWORK_HOST6 = '127.0.0.6'
-                        STORJ_REDIS_PORT = '7379'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj6;\''
-                        sh 'make test-sim-redis-unavailability'
-                    }
+        stage('satellite/admin/ui') {
+            steps {
+                dir("satellite/admin/ui") {
+                    sh script: 'npm audit', returnStatus: true
                 }
-
-                stage('Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
-                stage('Cockroach Backwards Compatibility') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.5'
-                        STORJ_NETWORK_HOST6 = '127.0.0.5'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                        sh 'make test-sim-backwards-compatible'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
-                    }
-                }
-
-                stage('wasm npm') {
-                    steps {
-                        dir(".build") {
-                            sh 'cp -r ../satellite/console/wasm/tests/ .'
-                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
-                            sh 'cd tests && npm install && npm run test'
-                        }
-                    }
-                }
-
-                stage('web/satellite') {
-                    steps {
-                        dir("web/satellite") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/storagenode') {
-                    steps {
-                        dir("web/storagenode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('web/multinode') {
-                    steps {
-                        dir("web/multinode") {
-                            sh 'npm run lint-ci'
-                            sh script: 'npm audit', returnStatus: true
-                            sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('satellite/admin/ui') {
-                    steps {
-                        dir("satellite/admin/ui") {
-                            sh script: 'npm audit', returnStatus: true
-                        }
-                    }
-                }
+            }
+        }
 
         stage('Post') {
             parallel {

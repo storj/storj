@@ -141,9 +141,6 @@ pipeline {
                 dir("testsuite/storjscan") {
                     sh 'go vet ./...'
                 }
-
-                // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                sh 'go-licenses check --ignore "storj.io/storj" ./...'
             }
         }
 
