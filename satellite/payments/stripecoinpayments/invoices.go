@@ -242,7 +242,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 
 			dc := dcAmt.Discount
 
-			coupon, err := stripeDiscountToPaymentsCoupon(dc)
+			coupon, err := invoices.service.stripeDiscountToPaymentsCoupon(dc)
 			if err != nil {
 				return nil, nil, Error.Wrap(err)
 			}
