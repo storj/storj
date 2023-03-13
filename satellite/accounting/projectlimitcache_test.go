@@ -6,6 +6,7 @@ package accounting_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -184,6 +185,32 @@ func TestProjectLimitCache(t *testing.T) {
 			actualSegmentLimitFromDB, err := accountingDB.GetProjectSegmentLimit(ctx, testProject.ID)
 			require.NoError(t, err)
 			require.EqualValues(t, expectedSegmentLimit, *actualSegmentLimitFromDB)
+		})
+
+		t.Run("cache is used", func(t *testing.T) {
+			require.NoError(t, accountingDB.UpdateProjectUsageLimit(ctx, testProject.ID, 1))
+			require.NoError(t, accountingDB.UpdateProjectBandwidthLimit(ctx, testProject.ID, 2))
+			require.NoError(t, accountingDB.UpdateProjectSegmentLimit(ctx, testProject.ID, 3))
+
+			projectLimitCache := accounting.NewProjectLimitCache(accountingDB, 0, 0, 0, accounting.ProjectLimitConfig{
+				CacheCapacity:   10,
+				CacheExpiration: 60 * time.Second,
+			})
+
+			// fill cache with values from DB
+			beforeCachedLimits, err := projectLimitCache.GetLimits(ctx, testProject.ID)
+			require.NoError(t, err)
+
+			// update limits in DB but not in cache
+			require.NoError(t, accountingDB.UpdateProjectUsageLimit(ctx, testProject.ID, 4))
+			require.NoError(t, accountingDB.UpdateProjectBandwidthLimit(ctx, testProject.ID, 5))
+			require.NoError(t, accountingDB.UpdateProjectSegmentLimit(ctx, testProject.ID, 6))
+
+			// verify that old values are still cached because expiration time was not reached yet
+			afterCachedLimits, err := projectLimitCache.GetLimits(ctx, testProject.ID)
+			require.NoError(t, err)
+
+			require.Equal(t, beforeCachedLimits, afterCachedLimits)
 		})
 	})
 }
