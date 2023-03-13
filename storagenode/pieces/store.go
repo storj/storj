@@ -798,6 +798,10 @@ func (access storedPieceAccess) CreationTime(ctx context.Context) (cTime time.Ti
 	if err != nil {
 		return time.Time{}, err
 	}
+	defer func() {
+		err = errs.Combine(err, reader.Close())
+	}()
+
 	header, err := reader.GetPieceHeader()
 	if err != nil {
 		return time.Time{}, err
