@@ -1090,7 +1090,7 @@ func timeTruncateDown(t time.Time) time.Time {
 func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_By_Id(ctx,
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_Project_SegmentLimit_Project_RateLimit_Project_BurstLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
@@ -1101,6 +1101,9 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 		Usage:     row.UsageLimit,
 		Bandwidth: row.BandwidthLimit,
 		Segments:  row.SegmentLimit,
+
+		RateLimit:  row.RateLimit,
+		BurstLimit: row.BurstLimit,
 	}, nil
 }
 

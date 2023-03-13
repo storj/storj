@@ -86,11 +86,14 @@ type ProjectObjectsSegments struct {
 	ObjectCount  int64 `json:"objectCount"`
 }
 
-// ProjectLimits contains the storage, bandwidth and segments limits.
+// ProjectLimits contains the project limits.
 type ProjectLimits struct {
 	Usage     *int64
 	Bandwidth *int64
 	Segments  *int64
+
+	RateLimit  *int
+	BurstLimit *int
 }
 
 // ProjectDailyUsage holds project daily usage.
