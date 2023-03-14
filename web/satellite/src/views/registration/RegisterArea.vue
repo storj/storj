@@ -278,10 +278,10 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
+import { computed, onBeforeMount, ref } from 'vue';
 
 import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
@@ -295,6 +295,7 @@ import { User } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 
 import SelectInput from '@/components/common/SelectInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -316,467 +317,448 @@ type ViewConfig = {
     tooltip: string;
 }
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VButton,
-        BottomArrowIcon,
-        SelectedCheckIcon,
-        LogoIcon,
-        PasswordStrength,
-        AddCouponCodeInput,
-        SelectInput,
-        VueRecaptcha,
-        VueHcaptcha,
-        LogoWithPartnerIcon,
-        RegisterGlobe,
-        InfoIcon,
-    },
-})
-export default class RegisterArea extends Vue {
-    private readonly user = new User();
-    private viewConfig: ViewConfig;
+const user = ref(new User());
+const viewConfig = ref<ViewConfig | null>(null);
 
-    // DCS logic
-    private secret = '';
+// DCS logic
+const secret = ref('');
 
-    private isTermsAccepted = false;
-    private password = '';
-    private repeatedPassword = '';
+const isTermsAccepted = ref(false);
+const password = ref('');
+const repeatedPassword = ref('');
 
-    // Only for beta sats (like US2).
-    private areBetaTermsAccepted = false;
-    private areBetaTermsAcceptedError = false;
+// Only for beta sats (like US2).
+const areBetaTermsAccepted = ref(false);
+const areBetaTermsAcceptedError = ref(false);
 
-    private fullNameError = '';
-    private emailError = '';
-    private passwordError = '';
-    private repeatedPasswordError = '';
-    private companyNameError = '';
-    private employeeCountError = '';
-    private positionError = '';
-    private isTermsAcceptedError = false;
-    private isLoading = false;
-    private isProfessional = false;
-    private haveSalesContact = false;
+const fullNameError = ref('');
+const emailError = ref('');
+const passwordError = ref('');
+const repeatedPasswordError = ref('');
+const companyNameError = ref('');
+const employeeCountError = ref('');
+const positionError = ref('');
+const isTermsAcceptedError = ref(false);
+const isLoading = ref(false);
+const isProfessional = ref(false);
+const haveSalesContact = ref(false);
 
-    private captchaError = false;
-    private captchaResponseToken = '';
+const captchaError = ref(false);
+const captchaResponseToken = ref('');
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const recaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-recaptcha-enabled') === 'true';
+const recaptchaSiteKey: string = MetaUtils.getMetaContent('registration-recaptcha-site-key');
+const hcaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-hcaptcha-enabled') === 'true';
+const hcaptchaSiteKey: string = MetaUtils.getMetaContent('registration-hcaptcha-site-key');
 
-    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-recaptcha-enabled') === 'true';
-    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('registration-recaptcha-site-key');
-    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-hcaptcha-enabled') === 'true';
-    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('registration-hcaptcha-site-key');
+const isPasswordStrengthShown = ref(false);
 
-    public isPasswordStrengthShown = false;
+// DCS logic
+const isDropdownShown = ref(false);
 
-    // DCS logic
-    public isDropdownShown = false;
+// Employee Count dropdown options
+const employeeCountOptions = ['1-50', '51-1000', '1001+'];
 
-    // Employee Count dropdown options
-    public employeeCountOptions = ['1-50', '51-1000', '1001+'];
+const loginPath = RouteConfig.Login.path;
 
-    public readonly loginPath: string = RouteConfig.Login.path;
+const captcha = ref<VueRecaptcha | VueHcaptcha | null>(null);
 
-    public $refs!: {
-        captcha: VueRecaptcha | VueHcaptcha;
-    };
+const analytics = new AnalyticsHttpApi();
+const auth = new AuthHttpApi();
+const notify = useNotify();
+const router = useRouter();
+const store = useStore();
+const route = useRoute();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Lifecycle hook before initial render.
+ * Sets up variables from route params and loads config.
+ */
+onBeforeMount(() => {
+    if (route.query.token) {
+        secret.value = route.query.token.toString();
+    }
 
-    /**
-     * Lifecycle hook before initial render.
-     * Sets up variables from route params and loads config.
-     */
-    public beforeMount(): void {
-        if (this.$route.query.token) {
-            this.secret = this.$route.query.token.toString();
+    if (route.query.partner) {
+        user.value.partner = route.query.partner.toString();
+    }
+
+    if (route.query.promo) {
+        user.value.signupPromoCode = route.query.promo.toString();
+    }
+
+    try {
+        const config = require('@/views/registration/registrationViewConfig.json');
+        viewConfig.value = user.value.partner && config[user.value.partner] ? config[user.value.partner] : config['default'];
+    } catch (e) {
+        notify.error('No configuration file for registration page.', null);
+    }
+});
+
+/**
+ * Redirects to chosen satellite.
+ */
+function clickSatellite(address): void {
+    window.location.href = address;
+}
+
+/**
+ * Toggles satellite selection dropdown visibility (Tardigrade).
+ */
+function toggleDropdown(): void {
+    isDropdownShown.value = !isDropdownShown.value;
+}
+
+/**
+ * Closes satellite selection dropdown (Tardigrade).
+ */
+function closeDropdown(): void {
+    isDropdownShown.value = false;
+}
+
+/**
+ * Makes password strength container visible.
+ */
+function showPasswordStrength(): void {
+    isPasswordStrengthShown.value = true;
+}
+
+/**
+ * Hides password strength container.
+ */
+function hidePasswordStrength(): void {
+    isPasswordStrengthShown.value = false;
+}
+
+/**
+ * Validates input fields and proceeds user creation.
+ */
+async function onCreateClick(): Promise<void> {
+    if (isLoading.value && !isDropdownShown.value) {
+        return;
+    }
+
+    let activeElement = document.activeElement;
+
+    if (activeElement && activeElement.id === 'registerDropdown') return;
+
+    if (isDropdownShown.value) {
+        isDropdownShown.value = false;
+        return;
+    }
+
+    await createUser();
+}
+
+/**
+ * Redirects to storj.io homepage.
+ */
+function onLogoClick(): void {
+    window.location.href = MetaUtils.getMetaContent('homepage-url');
+}
+
+/**
+ * Sets user's email field from value string.
+ */
+function setEmail(value: string): void {
+    user.value.email = value.trim();
+    emailError.value = '';
+}
+
+/**
+ * Sets user's full name field from value string.
+ */
+function setFullName(value: string): void {
+    user.value.fullName = value.trim();
+    fullNameError.value = '';
+}
+
+/**
+ * Sets user's password field from value string.
+ */
+function setPassword(value: string): void {
+    user.value.password = value;
+    password.value = value;
+    passwordError.value = '';
+}
+
+/**
+ * Sets user's repeat password field from value string.
+ */
+function setRepeatedPassword(value: string): void {
+    repeatedPassword.value = value;
+    repeatedPasswordError.value = '';
+}
+
+/**
+ * Name of the current satellite.
+ */
+const satelliteName = computed((): string => {
+    return store.state.appStateModule.satelliteName;
+});
+
+/**
+ * Information about partnered satellites, including name and signup link.
+ */
+const partneredSatellites = computed((): PartneredSatellite[] => {
+    const satellites = store.state.appStateModule.partneredSatellites;
+    return satellites.map((s: PartneredSatellite) => {
+        s.address = `${s.address}/signup`;
+
+        if (user.value.partner) {
+            s.address = `${s.address}?partner=${user.value.partner}`;
         }
 
-        if (this.$route.query.partner) {
-            this.user.partner = this.$route.query.partner.toString();
-        }
+        return s;
+    });
+});
 
-        if (this.$route.query.promo) {
-            this.user.signupPromoCode = this.$route.query.promo.toString();
-        }
+/**
+ * Indicates if satellite is in beta.
+ */
+const isBetaSatellite = computed((): boolean => {
+    return store.state.appStateModule.isBetaSatellite;
+});
 
-        try {
-            const config = require('@/views/registration/registrationViewConfig.json');
-            this.viewConfig = this.user.partner && config[this.user.partner] ? config[this.user.partner] : config['default'];
-        } catch (e) {
-            this.$notify.error('No configuration file for registration page.', null);
-        }
-    }
+/**
+ * Indicates if coupon code ui is enabled
+ */
+const couponCodeSignupUIEnabled = computed((): boolean => {
+    return store.state.appStateModule.couponCodeSigunpUIEnabled;
+});
 
-    /**
-     * Redirects to chosen satellite.
-     */
-    public clickSatellite(address): void {
-        window.location.href = address;
-    }
+/**
+ * Sets user's company name field from value string.
+ */
+function setCompanyName(value: string): void {
+    user.value.companyName = value.trim();
+    companyNameError.value = '';
+}
 
-    /**
-     * Toggles satellite selection dropdown visibility (Tardigrade).
-     */
-    public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
-    }
+/**
+ * Sets user's company size field from value string.
+ */
+function setEmployeeCount(value: string): void {
+    user.value.employeeCount = value;
+    employeeCountError.value = '';
+}
 
-    /**
-     * Closes satellite selection dropdown (Tardigrade).
-     */
-    public closeDropdown(): void {
-        this.isDropdownShown = false;
-    }
+/**
+ * Sets user's position field from value string.
+ */
+function setPosition(value: string): void {
+    user.value.position = value.trim();
+    positionError.value = '';
+}
 
-    /**
-     * Makes password strength container visible.
-     */
-    public showPasswordStrength(): void {
-        this.isPasswordStrengthShown = true;
-    }
+/**
+ * toggle user account type
+ */
+function toggleAccountType(value: boolean): void {
+    isProfessional.value = value;
+}
 
-    /**
-     * Hides password strength container.
-     */
-    public hidePasswordStrength(): void {
-        this.isPasswordStrengthShown = false;
-    }
+/**
+ * Handles captcha verification response.
+ */
+function onCaptchaVerified(response: string): void {
+    captchaResponseToken.value = response;
+    captchaError.value = false;
+    createUser();
+}
 
-    /**
-     * Validates input fields and proceeds user creation.
-     */
-    public async onCreateClick(): Promise<void> {
-        if (this.isLoading && !this.isDropdownShown) {
-            return;
-        }
+/**
+ * Handles captcha error.
+ */
+function onCaptchaError(): void {
+    captchaResponseToken.value = '';
+    notify.error('The captcha encountered an error. Please try again.', null);
+}
 
-        let activeElement = document.activeElement;
-
-        if (activeElement && activeElement.id === 'registerDropdown') return;
-
-        if (this.isDropdownShown) {
-            this.isDropdownShown = false;
-            return;
-        }
-
-        await this.createUser();
-    }
-
-    /**
-     * Redirects to storj.io homepage.
-     */
-    public onLogoClick(): void {
-        window.location.href = MetaUtils.getMetaContent('homepage-url');
-    }
-
-    /**
-     * Sets user's email field from value string.
-     */
-    public setEmail(value: string): void {
-        this.user.email = value.trim();
-        this.emailError = '';
-    }
-
-    /**
-     * Sets user's full name field from value string.
-     */
-    public setFullName(value: string): void {
-        this.user.fullName = value.trim();
-        this.fullNameError = '';
-    }
-
-    /**
-     * Sets user's password field from value string.
-     */
-    public setPassword(value: string): void {
-        this.user.password = value;
-        this.password = value;
-        this.passwordError = '';
-    }
-
-    /**
-     * Sets user's repeat password field from value string.
-     */
-    public setRepeatedPassword(value: string): void {
-        this.repeatedPassword = value;
-        this.repeatedPasswordError = '';
-    }
-
-    /**
-     * Name of the current satellite.
-     */
-    public get satelliteName(): string {
-        return this.$store.state.appStateModule.satelliteName;
-    }
-
-    /**
-     * Information about partnered satellites, including name and signup link.
-     */
-    public get partneredSatellites(): PartneredSatellite[] {
-        const satellites = this.$store.state.appStateModule.partneredSatellites;
-        return satellites.map((s: PartneredSatellite) => {
-            s.address = `${s.address}/signup`;
-
-            if (this.user.partner) {
-                s.address = `${s.address}?partner=${this.user.partner}`;
-            }
-
-            return s;
-        });
-    }
-
-    /**
-     * Indicates if satellite is in beta.
-     */
-    public get isBetaSatellite(): boolean {
-        return this.$store.state.appStateModule.isBetaSatellite;
-    }
-
-    /**
-     * Indicates if coupon code ui is enabled
-     */
-    public get couponCodeSignupUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeSigunpUIEnabled;
-    }
-
-    /**
-     * Sets user's company name field from value string.
-     */
-    public setCompanyName(value: string): void {
-        this.user.companyName = value.trim();
-        this.companyNameError = '';
-    }
-
-    /**
-     * Sets user's company size field from value string.
-     */
-    public setEmployeeCount(value: string): void {
-        this.user.employeeCount = value;
-        this.employeeCountError = '';
-    }
-
-    /**
-     * Sets user's position field from value string.
-     */
-    public setPosition(value: string): void {
-        this.user.position = value.trim();
-        this.positionError = '';
-    }
-
-    /**
-     * toggle user account type
-     */
-    public toggleAccountType(value: boolean): void {
-        this.isProfessional = value;
-    }
-
-    /**
-     * Handles captcha verification response.
-     */
-    public onCaptchaVerified(response: string): void {
-        this.captchaResponseToken = response;
-        this.captchaError = false;
-        this.createUser();
-    }
-
-    /**
-     * Handles captcha error.
-     */
-    public onCaptchaError(): void {
-        this.captchaResponseToken = '';
-        this.$notify.error('The captcha encountered an error. Please try again.', null);
-    }
-
-    /**
-     * Executes when the Terms of Service checkbox has been toggled.
-     */
-    public onTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
-            const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
-
-            checkbox.checked = !checkbox.checked;
-            checkbox.setAttribute('checked', String(checkbox.checked));
-
-            this.isTermsAccepted = checkbox.checked;
-            this.isTermsAcceptedError = false;
-
-        } else {
-            this.isTermsAccepted = (event.target as HTMLInputElement).checked;
-            this.isTermsAcceptedError = false;
-        }
-
-    }
-
-    /**
-     * Executes when the beta satellite terms checkbox has been toggled.
-     */
-    public onBetaTermsAcceptedToggled(event: KeyboardEvent): void {
-        if (event.key === ' ' || event.code === 'Space' ||  event.keyCode === 32) {
-            const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
-
-            checkbox.checked = !checkbox.checked;
-            checkbox.setAttribute('checked', String(checkbox.checked));
-
-            this.areBetaTermsAccepted = checkbox.checked;
-            this.isTermsAcceptedError = false;
-
-        } else {
-            this.areBetaTermsAccepted = (event.target as HTMLInputElement).checked;
-            this.areBetaTermsAcceptedError = false;
-        }
-    }
-
-    /**
-     * Executes when the space bar is pressed on a focused checkbox.
-     */
-    public toggleCheckbox(event: Event): void {
+/**
+ * Executes when the Terms of Service checkbox has been toggled.
+ */
+function onTermsAcceptedToggled(event: KeyboardEvent): void {
+    if (event.key === ' ' || event.code === 'Space' || event.keyCode === 32) {
         const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
         checkbox.checked = !checkbox.checked;
         checkbox.setAttribute('checked', String(checkbox.checked));
+
+        isTermsAccepted.value = checkbox.checked;
+        isTermsAcceptedError.value = false;
+
+    } else {
+        isTermsAccepted.value = (event.target as HTMLInputElement).checked;
+        isTermsAcceptedError.value = false;
     }
 
-    /**
-     * Validates input values to satisfy expected rules.
-     */
-    private validateFields(): boolean {
-        let isNoErrors = true;
+}
 
-        if (!this.user.fullName) {
-            this.fullNameError = 'Name can\'t be empty';
-            isNoErrors = false;
-        }
+/**
+ * Executes when the beta satellite terms checkbox has been toggled.
+ */
+function onBetaTermsAcceptedToggled(event: KeyboardEvent): void {
+    if (event.key === ' ' || event.code === 'Space' || event.keyCode === 32) {
+        const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
-        if (!this.isEmailValid()) {
-            this.emailError = 'Invalid Email';
-            isNoErrors = false;
-        }
+        checkbox.checked = !checkbox.checked;
+        checkbox.setAttribute('checked', String(checkbox.checked));
 
-        if (!Validator.password(this.password)) {
-            this.passwordError = 'Invalid Password';
-            isNoErrors = false;
-        }
+        areBetaTermsAccepted.value = checkbox.checked;
+        isTermsAcceptedError.value = false;
 
-        if (this.isProfessional) {
+    } else {
+        areBetaTermsAccepted.value = (event.target as HTMLInputElement).checked;
+        areBetaTermsAcceptedError.value = false;
+    }
+}
 
-            if (!this.user.companyName) {
-                this.companyNameError = 'No Company Name filled in';
-                isNoErrors = false;
-            }
+/**
+ * Executes when the space bar is pressed on a focused checkbox.
+ */
+function toggleCheckbox(event: Event): void {
+    const checkbox = ((event.target as HTMLElement).parentElement as HTMLLabelElement).control as HTMLInputElement;
 
-            if (!this.user.position) {
-                this.positionError = 'No Position filled in';
-                isNoErrors = false;
-            }
+    checkbox.checked = !checkbox.checked;
+    checkbox.setAttribute('checked', String(checkbox.checked));
+}
 
-            if (!this.user.employeeCount) {
-                this.employeeCountError = 'No Company Size filled in';
-                isNoErrors = false;
-            }
+/**
+ * Validates input values to satisfy expected rules.
+ */
+function validateFields(): boolean {
+    let isNoErrors = true;
 
-        }
-
-        if (this.repeatedPassword !== this.password) {
-            this.repeatedPasswordError = 'Password doesn\'t match';
-            isNoErrors = false;
-        }
-
-        if (!this.isTermsAccepted) {
-            this.isTermsAcceptedError = true;
-            isNoErrors = false;
-        }
-
-        // only for beta US2 sats.
-        if (this.isBetaSatellite && !this.areBetaTermsAccepted) {
-            this.areBetaTermsAcceptedError = true;
-            isNoErrors = false;
-        }
-
-        if (this.user.partner.length > 100) {
-            this.$notify.error('Partner must be less than or equal to 100 characters', null);
-            return false;
-        }
-
-        if (this.user.signupPromoCode.length > 100) {
-            this.$notify.error('Promo code must be less than or equal to 100 characters', null);
-            return false;
-        }
-
-        return isNoErrors;
+    if (!user.value.fullName) {
+        fullNameError.value = 'Name can\'t be empty';
+        isNoErrors = false;
     }
 
-    /**
-     * Detect if user uses Brave browser
-     */
-    public async detectBraveBrowser(): Promise<boolean> {
-        return (navigator['brave'] && await navigator['brave'].isBrave() || false);
+    if (!isEmailValid()) {
+        emailError.value = 'Invalid Email';
+        isNoErrors = false;
     }
 
-    /**
-     * Validates email string.
-     * We'll have this email validation for new users instead of using regular Validator.email method because of backwards compatibility.
-     * We don't want to block old users who managed to create and verify their accounts with some weird email addresses.
-     */
-    private isEmailValid(): boolean {
-        // This regular expression fulfills our needs to validate international emails.
-        // It was built according to RFC 5322 and then extended to include international characters using these resources
-        // https://emailregex.com/
-        // https://awik.io/international-email-address-validation-javascript/
-        // eslint-disable-next-line no-misleading-character-class
-        const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]+\.)+[a-zA-Z\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]{2,}))$/;
-        return regex.test(this.user.email);
+    if (!Validator.password(password.value)) {
+        passwordError.value = 'Invalid Password';
+        isNoErrors = false;
     }
 
-    /**
-     * Creates user and toggles successful registration area visibility.
-     */
-    private async createUser(): Promise<void> {
+    if (isProfessional.value) {
 
-        let activeElement = document.activeElement;
-
-        if (activeElement && activeElement.classList.contains('account-tab')) {
-            return;
+        if (!user.value.companyName) {
+            companyNameError.value = 'No Company Name filled in';
+            isNoErrors = false;
         }
 
-        if (!this.validateFields()) {
-            return;
+        if (!user.value.position) {
+            positionError.value = 'No Position filled in';
+            isNoErrors = false;
         }
 
-        if (this.$refs.captcha && !this.captchaResponseToken) {
-            this.$refs.captcha.execute();
-            return;
+        if (!user.value.employeeCount) {
+            employeeCountError.value = 'No Company Size filled in';
+            isNoErrors = false;
         }
 
-        this.isLoading = true;
-        this.user.isProfessional = this.isProfessional;
-        this.user.haveSalesContact = this.haveSalesContact;
-
-        try {
-            await this.auth.register(this.user, this.secret, this.captchaResponseToken);
-
-            // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
-            // signups outside of the brave browser may use a configured URL to track conversions
-            // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
-            const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
-            const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
-
-            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(this.user.email)}`;
-            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(this.user.email)}`;
-
-            await this.detectBraveBrowser() ? await this.$router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
-        } catch (error) {
-            await this.$notify.error(error.message, null);
-        }
-
-        this.$refs.captcha?.reset();
-        this.captchaResponseToken = '';
-        this.isLoading = false;
     }
+
+    if (repeatedPassword.value !== password.value) {
+        repeatedPasswordError.value = 'Password doesn\'t match';
+        isNoErrors = false;
+    }
+
+    if (!isTermsAccepted.value) {
+        isTermsAcceptedError.value = true;
+        isNoErrors = false;
+    }
+
+    // only for beta US2 sats.
+    if (isBetaSatellite.value && !areBetaTermsAccepted.value) {
+        areBetaTermsAcceptedError.value = true;
+        isNoErrors = false;
+    }
+
+    if (user.value.partner.length > 100) {
+        notify.error('Partner must be less than or equal to 100 characters', null);
+        return false;
+    }
+
+    if (user.value.signupPromoCode.length > 100) {
+        notify.error('Promo code must be less than or equal to 100 characters', null);
+        return false;
+    }
+
+    return isNoErrors;
+}
+
+/**
+ * Detect if user uses Brave browser
+ */
+async function detectBraveBrowser(): Promise<boolean> {
+    return (navigator['brave'] && await navigator['brave'].isBrave() || false);
+}
+
+/**
+ * Validates email string.
+ * We'll have this email validation for new users instead of using regular Validator.email method because of backwards compatibility.
+ * We don't want to block old users who managed to create and verify their accounts with some weird email addresses.
+ */
+function isEmailValid(): boolean {
+    // This regular expression fulfills our needs to validate international emails.
+    // It was built according to RFC 5322 and then extended to include international characters using these resources
+    // https://emailregex.com/
+    // https://awik.io/international-email-address-validation-javascript/
+    // eslint-disable-next-line no-misleading-character-class
+    const regex = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]+\.)+[a-zA-Z\u0080-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u0300-\u036F\u0370-\u03FF\u0400-\u04FF\u0500-\u052F\u0530-\u058F\u0590-\u05FF\u0600-\u06FF\u0700-\u074F\u0750-\u077F\u0780-\u07BF\u07C0-\u07FF\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF\u0E00-\u0E7F\u0E80-\u0EFF\u0F00-\u0FFF\u1000-\u109F\u10A0-\u10FF\u1100-\u11FF\u1200-\u137F\u1380-\u139F\u13A0-\u13FF\u1400-\u167F\u1680-\u169F\u16A0-\u16FF\u1700-\u171F\u1720-\u173F\u1740-\u175F\u1760-\u177F\u1780-\u17FF\u1800-\u18AF\u1900-\u194F\u1950-\u197F\u1980-\u19DF\u19E0-\u19FF\u1A00-\u1A1F\u1B00-\u1B7F\u1D00-\u1D7F\u1D80-\u1DBF\u1DC0-\u1DFF\u1E00-\u1EFF\u1F00-\u1FFF\u20D0-\u20FF\u2100-\u214F\u2C00-\u2C5F\u2C60-\u2C7F\u2C80-\u2CFF\u2D00-\u2D2F\u2D30-\u2D7F\u2D80-\u2DDF\u2F00-\u2FDF\u2FF0-\u2FFF\u3040-\u309F\u30A0-\u30FF\u3100-\u312F\u3130-\u318F\u3190-\u319F\u31C0-\u31EF\u31F0-\u31FF\u3200-\u32FF\u3300-\u33FF\u3400-\u4DBF\u4DC0-\u4DFF\u4E00-\u9FFF\uA000-\uA48F\uA490-\uA4CF\uA700-\uA71F\uA800-\uA82F\uA840-\uA87F\uAC00-\uD7AF\uF900-\uFAFF]{2,}))$/;
+    return regex.test(user.value.email);
+}
+
+/**
+ * Creates user and toggles successful registration area visibility.
+ */
+async function createUser(): Promise<void> {
+
+    let activeElement = document.activeElement;
+
+    if (activeElement && activeElement.classList.contains('account-tab')) {
+        return;
+    }
+
+    if (!validateFields()) {
+        return;
+    }
+
+    if (captcha.value && !captchaResponseToken.value) {
+        captcha.value?.execute();
+        return;
+    }
+
+    isLoading.value = true;
+    user.value.isProfessional = isProfessional.value;
+    user.value.haveSalesContact = haveSalesContact.value;
+
+    try {
+        await auth.register(user.value, secret.value, captchaResponseToken.value);
+
+        // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
+        // signups outside of the brave browser may use a configured URL to track conversions
+        // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
+        const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
+        const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
+
+        const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
+        const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
+
+        await detectBraveBrowser() ? await router.push(braveSuccessPath) : window.location.href = nonBraveSuccessPath;
+    } catch (error) {
+        await notify.error(error.message, null);
+    }
+
+    captcha.value?.reset();
+    captchaResponseToken.value = '';
+    isLoading.value = false;
 }
 </script>
 
