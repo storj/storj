@@ -301,6 +301,8 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, endpoint.convertMetabaseErr(err)
 	}
 
+	mon.Meter("req_commit_object").Mark(1)
+
 	return &pb.ObjectCommitResponse{}, nil
 }
 
@@ -1152,6 +1154,8 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		reliablePieceCount += count
 	}
 
+	mon.Meter("req_get_object_ips").Mark(1)
+
 	return &pb.ObjectGetIPsResponse{
 		Ips:                nodeIPs,
 		SegmentCount:       int64(object.SegmentCount),
@@ -1213,6 +1217,8 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}
+
+	mon.Meter("req_update_object_metadata").Mark(1)
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
