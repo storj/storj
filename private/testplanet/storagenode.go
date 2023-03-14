@@ -183,6 +183,8 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 				NotifyLowDiskCooldown:     defaultInterval,
 				VerifyDirReadableInterval: defaultInterval,
 				VerifyDirWritableInterval: defaultInterval,
+				VerifyDirReadableTimeout:  10 * time.Second,
+				VerifyDirWritableTimeout:  10 * time.Second,
 			},
 			Trust: trust.Config{
 				Sources:         sources,

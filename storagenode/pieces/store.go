@@ -208,6 +208,25 @@ func (store *Store) VerifyStorageDir(ctx context.Context, id storj.NodeID) error
 	return store.blobs.VerifyStorageDir(ctx, id)
 }
 
+// VerifyStorageDirWithTimeout verifies that the storage directory is correct by checking for the existence and validity
+// of the verification file. It uses the provided timeout for the operation.
+func (store *Store) VerifyStorageDirWithTimeout(ctx context.Context, id storj.NodeID, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ch := make(chan error, 1)
+	go func() {
+		ch <- store.VerifyStorageDir(ctx, id)
+	}()
+
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, hashAlgorithm pb.PieceHashAlgorithm) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -732,6 +751,24 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 // CheckWritability tests writability of the storage directory by creating and deleting a file.
 func (store *Store) CheckWritability(ctx context.Context) error {
 	return store.blobs.CheckWritability(ctx)
+}
+
+// CheckWritabilityWithTimeout tests writability of the storage directory by creating and deleting a file with a timeout.
+func (store *Store) CheckWritabilityWithTimeout(ctx context.Context, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ch := make(chan error, 1)
+	go func() {
+		ch <- store.CheckWritability(ctx)
+	}()
+
+	select {
+	case err := <-ch:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Stat looks up disk metadata on the blob file.
