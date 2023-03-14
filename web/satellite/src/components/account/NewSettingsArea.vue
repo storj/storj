@@ -222,7 +222,7 @@ onMounted(() => {
                 @media screen and (max-width: 500px) {
                     display: flex;
                     flex-direction: column;
-                    align-items: start;
+                    align-items: flex-start;
                     justify-content: center;
                     gap: 10px;
                 }
@@ -243,12 +243,12 @@ onMounted(() => {
                 &__actions {
                     display: flex;
                     align-items: center;
-                    justify-content: end;
+                    justify-content: flex-end;
                     gap: 5px;
 
                     @media screen and (max-width: 500px) {
                         width: 100%;
-                        justify-content: start;
+                        justify-content: flex-start;
                     }
                 }
             }
