@@ -33,6 +33,7 @@ func (coupons *coupons) ApplyFreeTierCoupon(ctx context.Context, userID uuid.UUI
 	}
 
 	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
 		Coupon: stripe.String(coupons.service.StripeFreeTierCouponID),
 	})
 	if err != nil {
@@ -51,7 +52,10 @@ func (coupons *coupons) ApplyCoupon(ctx context.Context, userID uuid.UUID, coupo
 		return nil, Error.Wrap(err)
 	}
 
-	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{Coupon: stripe.String(couponID)})
+	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Coupon: stripe.String(couponID),
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -81,7 +85,8 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 	}
 
 	promoCodeIter := coupons.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
-		Code: stripe.String(couponCode),
+		ListParams: stripe.ListParams{Context: ctx},
+		Code:       stripe.String(couponCode),
 	})
 	if !promoCodeIter.Next() {
 		return nil, payments.ErrInvalidCoupon.New("Invalid coupon code")
@@ -94,6 +99,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 	}
 
 	params := &stripe.CustomerParams{
+		Params:        stripe.Params{Context: ctx},
 		PromotionCode: stripe.String(promoCode.ID),
 	}
 	params.AddExpand("discount.promotion_code")
@@ -119,7 +125,7 @@ func (coupons *coupons) GetByUserID(ctx context.Context, userID uuid.UUID) (_ *p
 		return nil, Error.Wrap(err)
 	}
 
-	params := &stripe.CustomerParams{}
+	params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
 	params.AddExpand("discount.promotion_code")
 
 	customer, err := coupons.service.stripeClient.Customers().Get(customerID, params)

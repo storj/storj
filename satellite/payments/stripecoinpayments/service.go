@@ -367,8 +367,9 @@ func (service *Service) getInvoices(ctx context.Context, cusID string, createdOn
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
-		Customer: stripe.String(cusID),
-		Status:   stripe.String(string(stripe.InvoiceStatusOpen)),
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   stripe.String(cusID),
+		Status:     stripe.String(string(stripe.InvoiceStatusOpen)),
 	}
 	params.Filters.AddFilter("created", "gte", strconv.FormatInt(createdOnAfter.Unix(), 10))
 	invoicesIterator := service.stripeClient.Invoices().List(params)
@@ -398,6 +399,7 @@ func (service *Service) addCreditNoteToInvoice(ctx context.Context, invoiceID, c
 	lineParams = append(lineParams, &lineParam)
 
 	params := &stripe.CreditNoteParams{
+		Params:  stripe.Params{Context: ctx},
 		Invoice: stripe.String(invoiceID),
 		Lines:   lineParams,
 		Memo:    stripe.String("Storjscan Token Payment - Wallet: 0x" + wallet),
@@ -494,6 +496,7 @@ func (service *Service) createInvoiceItems(ctx context.Context, cusID, projName 
 
 	items := service.InvoiceItemsFromProjectUsage(projName, usages)
 	for _, item := range items {
+		item.Params = stripe.Params{Context: ctx}
 		item.Currency = stripe.String(string(stripe.CurrencyUSD))
 		item.Customer = stripe.String(cusID)
 		item.AddMetadata("projectID", record.ProjectID.String())
@@ -579,7 +582,8 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 		nextOffset = customersPage.NextOffset
 
 		for _, c := range customersPage.Customers {
-			stripeCust, err := service.stripeClient.Customers().Get(c.ID, nil)
+			params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+			stripeCust, err := service.stripeClient.Customers().Get(c.ID, params)
 			if err != nil {
 				service.log.Error("Failed to get customer", zap.Error(err))
 				failedUsers = append(failedUsers, c.ID)
@@ -588,6 +592,7 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 			// if customer does not have a coupon, apply the free tier coupon
 			if stripeCust.Discount == nil || stripeCust.Discount.Coupon == nil {
 				params := &stripe.CustomerParams{
+					Params: stripe.Params{Context: ctx},
 					Coupon: stripe.String(service.StripeFreeTierCouponID),
 				}
 				_, err := service.stripeClient.Customers().Update(c.ID, params)
@@ -669,6 +674,7 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 
 	stripeInvoice, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{
+			Params:      stripe.Params{Context: ctx},
 			Customer:    stripe.String(cusID),
 			AutoAdvance: stripe.Bool(service.AutoAdvance),
 			Description: stripe.String(description),
@@ -687,10 +693,11 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 
 	// auto advance the invoice if nothing is due from the customer
 	if !stripeInvoice.AutoAdvance && stripeInvoice.AmountDue == 0 {
-		stripeInvoice, err = service.stripeClient.Invoices().Update(
-			stripeInvoice.ID,
-			&stripe.InvoiceParams{AutoAdvance: stripe.Bool(true)},
-		)
+		params := &stripe.InvoiceParams{
+			Params:      stripe.Params{Context: ctx},
+			AutoAdvance: stripe.Bool(true),
+		}
+		stripeInvoice, err = service.stripeClient.Invoices().Update(stripeInvoice.ID, params)
 		if err != nil {
 			return nil, err
 		}
@@ -730,7 +737,8 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
-		Status: stripe.String("draft"),
+		ListParams: stripe.ListParams{Context: ctx},
+		Status:     stripe.String("draft"),
 	}
 
 	invoicesIterator := service.stripeClient.Invoices().List(params)
@@ -752,7 +760,10 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	params := &stripe.InvoiceFinalizeParams{AutoAdvance: stripe.Bool(false)}
+	params := &stripe.InvoiceFinalizeParams{
+		Params:      stripe.Params{Context: ctx},
+		AutoAdvance: stripe.Bool(false),
+	}
 	_, err = service.stripeClient.Invoices().FinalizeInvoice(invoiceID, params)
 	return err
 }
@@ -763,7 +774,8 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceListParams{
-		Status: stripe.String("open"),
+		ListParams: stripe.ListParams{Context: ctx},
+		Status:     stripe.String("open"),
 	}
 	params.Filters.AddFilter("created", "gte", strconv.FormatInt(createdOnAfter.Unix(), 10))
 
@@ -780,7 +792,7 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 			continue
 		}
 
-		params := &stripe.InvoicePayParams{}
+		params := &stripe.InvoicePayParams{Params: stripe.Params{Context: ctx}}
 		_, err = service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
 			errGrp.Add(Error.New("unable to pay invoice %s", stripeInvoice.ID))

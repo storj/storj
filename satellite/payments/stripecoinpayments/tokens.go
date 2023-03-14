@@ -99,7 +99,8 @@ func (tokens *storjTokens) ListDepositBonuses(ctx context.Context, userID uuid.U
 
 	var bonuses []payments.DepositBonus
 
-	customer, err := tokens.service.stripeClient.Customers().Get(cusID, nil)
+	params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := tokens.service.stripeClient.Customers().Get(cusID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +132,10 @@ func (tokens *storjTokens) ListDepositBonuses(ctx context.Context, userID uuid.U
 		)
 	}
 
-	it := tokens.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{Customer: stripe.String(cusID)})
+	it := tokens.service.stripeClient.CustomerBalanceTransactions().List(&stripe.CustomerBalanceTransactionListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   stripe.String(cusID),
+	})
 	for it.Next() {
 		tx := it.CustomerBalanceTransaction()
 

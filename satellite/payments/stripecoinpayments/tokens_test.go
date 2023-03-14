@@ -40,6 +40,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 
 		// Credit the Stripe balance with a STORJ deposit of $10
 		txParams := stripe.CustomerBalanceTransactionParams{
+			Params:      stripe.Params{Context: ctx},
 			Customer:    stripe.String(customerID),
 			Amount:      stripe.Int64(-1000),
 			Description: stripe.String(stripecoinpayments.StripeDepositTransactionDescription),
@@ -50,6 +51,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 
 		// Credit the Stripe balance with a 13% bonus - $1.30
 		txParams = stripe.CustomerBalanceTransactionParams{
+			Params:      stripe.Params{Context: ctx},
 			Customer:    stripe.String(customerID),
 			Amount:      stripe.Int64(-130),
 			Description: stripe.String(stripecoinpayments.StripeDepositBonusTransactionDescription),
@@ -68,9 +70,13 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 		}
 		b, err := json.Marshal(credit)
 		require.NoError(t, err)
-		customerParams := stripe.CustomerParams{}
-		customerParams.Metadata = map[string]string{
-			"credit_" + credit.TransactionID.String(): string(b),
+		customerParams := stripe.CustomerParams{
+			Params: stripe.Params{
+				Context: ctx,
+				Metadata: map[string]string{
+					"credit_" + credit.TransactionID.String(): string(b),
+				},
+			},
 		}
 		_, err = satellite.API.Payments.StripeClient.Customers().Update(customerID, &customerParams)
 		require.NoError(t, err)
