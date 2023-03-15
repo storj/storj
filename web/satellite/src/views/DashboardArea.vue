@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -112,7 +112,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
-import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -121,7 +120,6 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import eventBus from '@/utils/eventBus';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -160,7 +158,6 @@ const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const resetActivityEvents: string[] = ['keypress', 'mousemove', 'mousedown', 'touchmove'];
 const inactivityModalTime = 60000;
-const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
 const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
 const sessionRefreshInterval: number = sessionDuration / 2;
 const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
@@ -303,13 +300,6 @@ const isProjectListPage = computed((): boolean => {
 });
 
 /**
- * Returns credit cards from store.
- */
-const creditCards = computed((): CreditCard[] => {
-    return store.state.paymentsModule.creditCards;
-});
-
-/**
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
@@ -411,7 +401,12 @@ function restartSessionTimers(): void {
         }
     }, sessionRefreshInterval);
 
-    inactivityTimerId.value = setTimeout(() => {
+    inactivityTimerId.value = setTimeout(async () => {
+        if (store.getters['files/uploadingLength']) {
+            await refreshSession();
+            return;
+        }
+
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
@@ -456,28 +451,6 @@ function selectProject(fetchedProjects: Project[]): void {
 
     // Length of fetchedProjects array is checked before selectProject() function call.
     storeProject(fetchedProjects[0].id);
-}
-
-/**
- * Used to trigger session timer update while doing not UI-related work for a long time.
- */
-async function resetSessionOnLogicRelatedActivity(): Promise<void> {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (!isInactivityTimerEnabled) {
-        return;
-    }
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        const ms = Math.max(0, expiresAt.getTime() - Date.now());
-
-        // Isn't triggered when decent amount of session time is left.
-        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
-            await refreshSession();
-        }
-    }
 }
 
 /**
@@ -603,15 +576,6 @@ async function onSessionActivity(): Promise<void> {
 }
 
 /**
- * Subscribes to activity events to refresh session timers.
- */
-onBeforeMount(() => {
-    eventBus.$on('upload_progress', () => {
-        resetSessionOnLogicRelatedActivity();
-    });
-});
-
-/**
  * Lifecycle hook after initial render.
  * Pre fetches user`s and project information.
  */
@@ -709,7 +673,10 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-    eventBus.$off('upload_progress');
+    clearSessionTimers();
+    resetActivityEvents.forEach((eventName: string) => {
+        document.removeEventListener(eventName, onSessionActivity);
+    });
 });
 </script>
 

@@ -103,8 +103,7 @@
 </template>
 
 <script setup lang="ts">
-
-import { computed, onBeforeMount, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -132,7 +131,6 @@ import { MetaUtils } from '@/utils/meta';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
-import eventBus from '@/utils/eventBus';
 import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
 
@@ -160,7 +158,6 @@ const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const inactivityModalTime = 60000;
-const ACTIVITY_REFRESH_TIME_LIMIT = 180000;
 const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
 const sessionRefreshInterval: number = sessionDuration / 2;
 const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
@@ -448,7 +445,12 @@ function restartSessionTimers(): void {
         }
     }, sessionRefreshInterval);
 
-    inactivityTimerId.value = setTimeout(() => {
+    inactivityTimerId.value = setTimeout(async () => {
+        if (store.getters['files/uploadingLength']) {
+            await refreshSession();
+            return;
+        }
+
         if (isSessionActive.value) return;
         inactivityModalShown.value = true;
         inactivityTimerId.value = setTimeout(async () => {
@@ -475,28 +477,6 @@ function restartSessionTimers(): void {
     };
 
     debugTimer();
-}
-
-/**
- * Used to trigger session timer update while doing not UI-related work for a long time.
- */
-async function resetSessionOnLogicRelatedActivity(): Promise<void> {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (!isInactivityTimerEnabled) {
-        return;
-    }
-
-    const expiresAt = LocalData.getSessionExpirationDate();
-
-    if (expiresAt) {
-        const ms = Math.max(0, expiresAt.getTime() - Date.now());
-
-        // Isn't triggered when decent amount of session time is left.
-        if (ms < ACTIVITY_REFRESH_TIME_LIMIT) {
-            await refreshSession();
-        }
-    }
 }
 
 /**
@@ -609,17 +589,7 @@ onMounted(async () => {
     await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 });
 
-/**
- * Subscribes to activity events to refresh session timers.
- */
-onBeforeMount(() => {
-    eventBus.$on('upload_progress', () => {
-        resetSessionOnLogicRelatedActivity();
-    });
-});
-
 onBeforeUnmount(() => {
-    eventBus.$off('upload_progress');
     clearSessionTimers();
     resetActivityEvents.forEach((eventName: string) => {
         document.removeEventListener(eventName, onSessionActivity);

@@ -203,7 +203,6 @@ import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import eventBus from '@/utils/eventBus';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -439,10 +438,7 @@ function filename(file: BrowserFile): string {
  * Upload the current selected or dragged-and-dropped file.
  */
 async function upload(e: Event): Promise<void> {
-    const callback = () => {
-        eventBus.$emit('upload_progress');
-    };
-    await store.dispatch('files/upload', { e, callback });
+    await store.dispatch('files/upload', { e });
     await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
