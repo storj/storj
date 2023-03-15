@@ -2302,6 +2302,17 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN debounce_limit integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add onboarding columns to user_settings table",
+				SeparateTx:  true,
+				Version:     230,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN onboarding_start boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_end boolean NOT NULL DEFAULT true;`,
+					`ALTER TABLE user_settings ADD COLUMN onboarding_step text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

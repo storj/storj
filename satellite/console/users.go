@@ -252,10 +252,16 @@ type UpdateUserRequest struct {
 // UserSettings contains configurations for a user.
 type UserSettings struct {
 	SessionDuration *time.Duration `json:"sessionDuration"`
+	OnboardingStart bool           `json:"onboardingStart"`
+	OnboardingEnd   bool           `json:"onboardingEnd"`
+	OnboardingStep  *string        `json:"onboardingStep"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
 type UpsertUserSettingsRequest struct {
 	// The DB stores this value with minute granularity. Finer time units are ignored.
 	SessionDuration **time.Duration
+	OnboardingStart *bool
+	OnboardingEnd   *bool
+	OnboardingStep  *string
 }

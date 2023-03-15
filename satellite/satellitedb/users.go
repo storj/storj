@@ -299,6 +299,9 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 	}
 
 	settings = &console.UserSettings{}
+	settings.OnboardingStart = row.OnboardingStart
+	settings.OnboardingEnd = row.OnboardingEnd
+	settings.OnboardingStep = row.OnboardingStep
 	if row.SessionMinutes != nil {
 		dur := time.Duration(*row.SessionMinutes) * time.Minute
 		settings.SessionDuration = &dur
@@ -323,10 +326,30 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 		}
 		fieldCount++
 	}
+	if settings.OnboardingStart != nil {
+		update.OnboardingStart = dbx.UserSettings_OnboardingStart(*settings.OnboardingStart)
+		fieldCount++
+	}
+	if settings.OnboardingEnd != nil {
+		update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(*settings.OnboardingEnd)
+		fieldCount++
+	}
+	if settings.OnboardingStep != nil {
+		update.OnboardingStep = dbx.UserSettings_OnboardingStep(*settings.OnboardingStep)
+		fieldCount++
+	}
 
 	return users.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		_, err := tx.Get_UserSettings_By_UserId(ctx, dbID)
 		if errors.Is(err, sql.ErrNoRows) {
+			if settings.OnboardingStart == nil {
+				// temporarily inserting as false for new users until we make default for this column false.
+				update.OnboardingStart = dbx.UserSettings_OnboardingStart(false)
+			}
+			if settings.OnboardingEnd == nil {
+				// temporarily inserting as false for new users until we make default for this column false.
+				update.OnboardingEnd = dbx.UserSettings_OnboardingEnd(false)
+			}
 			return tx.CreateNoReturn_UserSettings(ctx, dbID, dbx.UserSettings_Create_Fields(update))
 		}
 		if err != nil {

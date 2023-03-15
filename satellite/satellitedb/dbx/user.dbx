@@ -235,6 +235,12 @@ model user_settings (
     field session_minutes uint ( nullable, updatable )
     // passphrase_prompt indicates whether the user would like to be prompted for a passphrase when entering or switching projects.
     field passphrase_prompt bool ( nullable, updatable )
+    // onboarding_start indicates whether the user has started the onboarding flow.
+    field onboarding_start bool ( updatable, default true )
+    // onboarding_end indicates whether the user has finished/skipped the onboarding flow.
+    field onboarding_end bool ( updatable, default true )
+    // onboarding_step indicates the step where a user exited onboarding without finishing.
+    field onboarding_step text ( nullable, updatable )
 )
 
 create user_settings ( noreturn )
