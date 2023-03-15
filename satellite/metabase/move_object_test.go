@@ -527,13 +527,6 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-	})
-}
-
-func TestFinishMoveObject_MultipleVersions(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		db.TestingEnableMultipleVersions(true)
-
 		t.Run("finish move object - different versions reject", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 

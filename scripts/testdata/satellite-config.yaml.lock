@@ -610,9 +610,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
-# feature flag to enable using multple objects versions in the system internally
-# metainfo.multiple-versions: true
-
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 

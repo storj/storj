@@ -2733,16 +2733,7 @@ func TestCommitObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
-}
 
-func TestCommitObject_MultipleVersions(t *testing.T) {
-	metabasetest.RunWithConfig(t, metabase.Config{
-		ApplicationName:  "satellite-test",
-		MinPartSize:      5 * memory.MiB,
-		MaxNumberOfParts: 1000,
-		MultipleVersions: true,
-	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("OnDelete", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -3203,48 +3194,5 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	})
-}
-
-func TestMultipleVersionsBug(t *testing.T) {
-	// test simulates case when we have different configurations for different
-	// API instances in the system (multiple versions flag)
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := metabasetest.RandObjectStream()
-
-		// simulates code WITHOUT multiple versions flag enabled
-		obj.Version = metabase.DefaultVersion
-		_, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-			ObjectStream: obj,
-			Encryption:   metabasetest.DefaultEncryption,
-		})
-		require.NoError(t, err)
-
-		// this commit will be run WITH multiple versions flag enabled
-		_, err = db.CommitObject(ctx, metabase.CommitObject{
-			ObjectStream: obj,
-		})
-		require.NoError(t, err)
-
-		// start overriding object
-
-		// simulates code WITH multiple versions flag enabled
-		obj.Version = metabase.NextVersion
-		pendingObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-			ObjectStream: obj,
-			Encryption:   metabasetest.DefaultEncryption,
-		})
-		require.NoError(t, err)
-
-		obj.Version = pendingObject.Version
-		db.TestingEnableMultipleVersions(false)
-		_, err = db.CommitObject(ctx, metabase.CommitObject{
-			ObjectStream: obj,
-		})
-		require.NoError(t, err)
-
-		objects, err := db.TestingAllObjects(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(objects))
 	})
 }
