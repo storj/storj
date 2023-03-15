@@ -446,8 +446,6 @@ async function login(): Promise<void> {
     await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
     isLoading.value = false;
 
-    LocalData.setServerSideEncryptionBannerHidden(false);
-
     analytics.pageVisit(returnURL.value);
     await router.push(returnURL.value);
 }
