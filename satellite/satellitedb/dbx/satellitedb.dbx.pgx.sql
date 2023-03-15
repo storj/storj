@@ -464,6 +464,9 @@ CREATE TABLE user_settings (
 	user_id bytea NOT NULL,
 	session_minutes integer,
 	passphrase_prompt boolean,
+	onboarding_start boolean NOT NULL DEFAULT true,
+	onboarding_end boolean NOT NULL DEFAULT true,
+	onboarding_step text,
 	PRIMARY KEY ( user_id )
 );
 CREATE TABLE value_attributions (
