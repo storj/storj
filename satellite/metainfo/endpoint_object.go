@@ -88,30 +88,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if !endpoint.config.MultipleVersions {
-		if canDelete {
-			_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-			})
-			if err != nil && !storj.ErrObjectNotFound.Has(err) {
-				return nil, err
-			}
-		} else {
-			_, err = endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-				ObjectLocation: metabase.ObjectLocation{
-					ProjectID:  keyInfo.ProjectID,
-					BucketName: string(req.Bucket),
-					ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				},
-			})
-			if err == nil {
-				return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
-			}
-		}
-	}
-
 	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket, nil); err != nil {
 		return nil, err
 	}
@@ -141,40 +117,21 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		nonce = req.EncryptedMetadataNonce[:]
 	}
 
-	var object metabase.Object
-	if endpoint.config.MultipleVersions {
-		object, err = endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-			ObjectStream: metabase.ObjectStream{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				StreamID:   streamID,
-				Version:    metabase.NextVersion,
-			},
-			ExpiresAt:  expiresAt,
-			Encryption: encryptionParameters,
+	object, err := endpoint.metabase.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			StreamID:   streamID,
+			Version:    metabase.NextVersion,
+		},
+		ExpiresAt:  expiresAt,
+		Encryption: encryptionParameters,
 
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonce,
-		})
-	} else {
-		object, err = endpoint.metabase.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
-			ObjectStream: metabase.ObjectStream{
-				ProjectID:  keyInfo.ProjectID,
-				BucketName: string(req.Bucket),
-				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-				StreamID:   streamID,
-				Version:    metabase.DefaultVersion,
-			},
-			ExpiresAt:  expiresAt,
-			Encryption: encryptionParameters,
-
-			EncryptedMetadata:             req.EncryptedMetadata,
-			EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
-			EncryptedMetadataNonce:        nonce,
-		})
-	}
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+		EncryptedMetadataNonce:        nonce,
+	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
 	}

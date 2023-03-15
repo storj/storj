@@ -111,9 +111,6 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			return err
 		}
 
-		if !db.config.MultipleVersions {
-			nextAvailableVersion = opts.Version
-		}
 		if objectAtDestination != nil && objectAtDestination.StreamID == sourceObject.StreamID {
 			newObject = sourceObject
 			return nil
@@ -212,10 +209,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}
 
 		if objectAtDestination != nil {
-			version := opts.Version
-			if db.config.MultipleVersions {
-				version = objectAtDestination.Version
-			}
+			version := objectAtDestination.Version
 			deletedObjects, err := db.deleteObjectExactVersionServerSideCopy(
 				ctx, DeleteObjectExactVersion{
 					Version: version,

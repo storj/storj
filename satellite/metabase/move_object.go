@@ -156,10 +156,9 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		targetVersion := opts.Version
 
-		if db.config.MultipleVersions {
-			useNewVersion := false
-			highestVersion := Version(0)
-			err = withRows(tx.QueryContext(ctx, `
+		useNewVersion := false
+		highestVersion := Version(0)
+		err = withRows(tx.QueryContext(ctx, `
 			SELECT version, status
 			FROM objects
 			WHERE
@@ -168,32 +167,31 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 				object_key   = $3
 			ORDER BY version ASC
 			`, opts.ProjectID, []byte(opts.NewBucket), opts.NewEncryptedObjectKey))(func(rows tagsql.Rows) error {
-				for rows.Next() {
-					var status ObjectStatus
-					var version Version
+			for rows.Next() {
+				var status ObjectStatus
+				var version Version
 
-					err = rows.Scan(&version, &status)
-					if err != nil {
-						return Error.New("failed to scan objects: %w", err)
-					}
-
-					if status == Committed {
-						return ErrObjectAlreadyExists.New("")
-					} else if status == Pending && version == opts.Version {
-						useNewVersion = true
-					}
-					highestVersion = version
+				err = rows.Scan(&version, &status)
+				if err != nil {
+					return Error.New("failed to scan objects: %w", err)
 				}
 
-				return nil
-			})
-			if err != nil {
-				return Error.Wrap(err)
+				if status == Committed {
+					return ErrObjectAlreadyExists.New("")
+				} else if status == Pending && version == opts.Version {
+					useNewVersion = true
+				}
+				highestVersion = version
 			}
 
-			if useNewVersion {
-				targetVersion = highestVersion + 1
-			}
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if useNewVersion {
+			targetVersion = highestVersion + 1
 		}
 
 		updateObjectsQuery := `

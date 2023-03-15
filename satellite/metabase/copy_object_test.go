@@ -1066,7 +1066,6 @@ func TestFinishCopyObject(t *testing.T) {
 
 			for _, tc := range testCases {
 				metabasetest.DeleteAll{}.Check(ctx, t, db)
-				db.TestingEnableMultipleVersions(false)
 				sourceObjStream.BucketName = tc.Bucket
 				sourceObjStream.ObjectKey = tc.Key
 				destinationObjStream.BucketName = tc.NewBucket
@@ -1138,7 +1137,6 @@ func TestFinishCopyObject(t *testing.T) {
 					}.Run(ctx, t, db, destinationObjStream, 0)
 				}
 
-				db.TestingEnableMultipleVersions(true)
 				copyObj, expectedOriginalSegments, _ := metabasetest.CreateObjectCopy{
 					OriginalObject:   sourceObj,
 					CopyObjectStream: &destinationObjStream,
