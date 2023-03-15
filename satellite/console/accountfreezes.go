@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/analytics"
 )
 
 // ErrAccountFreeze is the class for errors that occur during operation of the account freeze service.
@@ -60,14 +61,16 @@ type AccountFreezeService struct {
 	freezeEventsDB AccountFreezeEvents
 	usersDB        Users
 	projectsDB     Projects
+	analytics      *analytics.Service
 }
 
 // NewAccountFreezeService creates a new account freeze service.
-func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects) *AccountFreezeService {
+func NewAccountFreezeService(freezeEventsDB AccountFreezeEvents, usersDB Users, projectsDB Projects, analytics *analytics.Service) *AccountFreezeService {
 	return &AccountFreezeService{
 		freezeEventsDB: freezeEventsDB,
 		usersDB:        usersDB,
 		projectsDB:     projectsDB,
+		analytics:      analytics,
 	}
 }
 
@@ -161,12 +164,18 @@ func (s *AccountFreezeService) FreezeUser(ctx context.Context, userID uuid.UUID)
 		}
 	}
 
+	s.analytics.TrackAccountFrozen(userID, user.Email)
 	return nil
 }
 
 // UnfreezeUser reverses the freeze placed on the user specified by the given ID.
 func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.usersDB.Get(ctx, userID)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
 
 	event, err := s.freezeEventsDB.Get(ctx, userID, Freeze)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -189,19 +198,34 @@ func (s *AccountFreezeService) UnfreezeUser(ctx context.Context, userID uuid.UUI
 		return ErrAccountFreeze.Wrap(err)
 	}
 
-	return ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteAllByUserID(ctx, userID))
+	err = ErrAccountFreeze.Wrap(s.freezeEventsDB.DeleteAllByUserID(ctx, userID))
+	if err != nil {
+		return err
+	}
+
+	s.analytics.TrackAccountUnfrozen(userID, user.Email)
+	return nil
 }
 
 // WarnUser adds a warning event to the freeze events table.
 func (s *AccountFreezeService) WarnUser(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	user, err := s.usersDB.Get(ctx, userID)
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
+
 	_, err = s.freezeEventsDB.Upsert(ctx, &AccountFreezeEvent{
 		UserID: userID,
 		Type:   Warning,
 	})
+	if err != nil {
+		return ErrAccountFreeze.Wrap(err)
+	}
 
-	return ErrAccountFreeze.Wrap(err)
+	s.analytics.TrackAccountFreezeWarning(userID, user.Email)
+	return nil
 }
 
 // GetAll returns all events for a user.

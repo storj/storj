@@ -349,25 +349,8 @@ export class Coupon {
         public addedAt: Date = new Date(),
         public expiresAt: Date | null = new Date(),
         public duration: CouponDuration = CouponDuration.Once,
+        public partnered: boolean = false,
     ) { }
-
-    /**
-     * getDescription returns the amount and duration of the coupon.
-     */
-    public getDescription(): string {
-        let amtOff = `${parseFloat(this.percentOff.toFixed(2)).toString()}%`;
-        if (this.amountOff !== 0 || this.percentOff === 0) {
-            amtOff = `$${(this.amountOff / 100).toFixed(2).replace('.00', '')}`;
-        }
-        let dur = this.duration.toString();
-        if (this.duration === CouponDuration.Repeating && this.expiresAt !== null) {
-            const months = this.expiresAt.getUTCMonth() - this.addedAt.getUTCMonth() +
-                (this.expiresAt.getUTCFullYear() - this.addedAt.getFullYear()) * 12;
-            dur = `for ${months} month${months !== 1 ? 's' : ''}`;
-        }
-
-        return `${amtOff} off ${dur}`;
-    }
 }
 
 /**

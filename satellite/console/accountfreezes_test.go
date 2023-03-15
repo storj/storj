@@ -41,7 +41,7 @@ func TestAccountFreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -83,7 +83,7 @@ func TestAccountUnfreeze(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -122,7 +122,7 @@ func TestAccountFreezeAlreadyFrozen(t *testing.T) {
 		sat := planet.Satellites[0]
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 
 		userLimits := randUsageLimits()
 		user, err := sat.AddUser(ctx, console.CreateUser{

@@ -3,8 +3,8 @@
 
 <template>
     <VChart
-        id="storage-chart"
         :key="chartKey"
+        chart-id="storage-chart"
         :chart-data="chartData"
         :width="width"
         :height="height"
@@ -14,8 +14,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { ChartType, TooltipModel, ChartData } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
+import { Tooltip, TooltipParams, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 
@@ -44,19 +45,27 @@ const chartData = computed((): ChartData => {
     const data: number[] = props.data.map(el => el.value);
     const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(props.since, props.before);
 
-    return new ChartData(
-        xAxisDateLabels,
-        '#E6EDF7',
-        '#D7E8FF',
-        '#003DC1',
-        data,
-    );
+    return {
+        labels: xAxisDateLabels,
+        datasets: [{
+            data,
+            fill: true,
+            backgroundColor: '#E6EDF7',
+            borderColor: '#D7E8FF',
+            pointHoverBackgroundColor: '#FFFFFF',
+            pointBorderColor: '#003DC1',
+            pointHoverBorderWidth: 4,
+            radius: xAxisDateLabels.length === 1 ? 10 : 0,
+            hoverRadius: 10,
+            hitRadius: 8,
+        }],
+    };
 });
 
 /**
  * Used as constructor of custom tooltip.
  */
-function tooltip(tooltipModel: TooltipModel): void {
+function tooltip(tooltipModel: TooltipModel<ChartType>): void {
     const tooltipParams = new TooltipParams(tooltipModel, 'storage-chart', 'storage-tooltip',
         tooltipMarkUp(tooltipModel), 76, 81);
 
@@ -66,12 +75,12 @@ function tooltip(tooltipModel: TooltipModel): void {
 /**
  * Returns tooltip's html mark up.
  */
-function tooltipMarkUp(tooltipModel: TooltipModel): string {
+function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
     if (!tooltipModel.dataPoints) {
         return '';
     }
 
-    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
     const dataPoint = new ChartTooltipData(props.data[dataIndex]);
 
     return `<div class='tooltip'>

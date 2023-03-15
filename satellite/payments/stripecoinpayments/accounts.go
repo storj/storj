@@ -49,7 +49,8 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	params := &stripe.CustomerParams{
-		Email: stripe.String(email),
+		Params: stripe.Params{Context: ctx},
+		Email:  stripe.String(email),
 	}
 
 	if signupPromoCode == "" {
@@ -66,7 +67,8 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	promoCodeIter := accounts.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
-		Code: stripe.String(signupPromoCode),
+		ListParams: stripe.ListParams{Context: ctx},
+		Code:       stripe.String(signupPromoCode),
 	})
 
 	var promoCode *stripe.PromotionCode
@@ -109,7 +111,8 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	customer, err := accounts.service.stripeClient.Customers().Get(customerID, nil)
+	params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
 	if err != nil {
 		return payments.Balance{}, Error.Wrap(err)
 	}
@@ -250,7 +253,8 @@ func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []pa
 	}
 
 	params := &stripe.ChargeListParams{
-		Customer: stripe.String(customerID),
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   stripe.String(customerID),
 	}
 	params.Filters.AddFilter("limit", "", "100")
 

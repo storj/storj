@@ -33,7 +33,7 @@ func TestAutoFreezeChore(t *testing.T) {
 		customerDB := sat.Core.DB.StripeCoinPayments().Customers()
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
-		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB)
+		service := console.NewAccountFreezeService(sat.DB.Console().AccountFreezeEvents(), usersDB, projectsDB, sat.API.Analytics.Service)
 		chore := sat.Core.Payments.AccountFreeze
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -50,6 +50,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 		t.Run("No freeze event for paid invoice", func(t *testing.T) {
 			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
 				Customer: &cus1,
@@ -63,12 +64,15 @@ func TestAutoFreezeChore(t *testing.T) {
 				Currency:    &curr,
 			})
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:       stripe.Params{Context: ctx},
 				Customer:     &cus1,
 				InvoiceItems: items,
 			})
 			require.NoError(t, err)
 
-			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{})
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params: stripe.Params{Context: ctx},
+			})
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
 
@@ -102,6 +106,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			chore.TestSetNow(time.Now)
 
 			item, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
 				Amount:   &amount,
 				Currency: &curr,
 				Customer: &cus1,
@@ -115,6 +120,7 @@ func TestAutoFreezeChore(t *testing.T) {
 				Currency:    &curr,
 			})
 			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:       stripe.Params{Context: ctx},
 				Customer:     &cus1,
 				InvoiceItems: items,
 			})
@@ -122,6 +128,7 @@ func TestAutoFreezeChore(t *testing.T) {
 
 			paymentMethod := stripecoinpayments.MockInvoicesPayFailure
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
 				PaymentMethod: &paymentMethod,
 			})
 			require.Error(t, err)

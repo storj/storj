@@ -143,7 +143,8 @@ export const makeFilesModule = (): FilesModule => ({
             return groupedFiles;
         },
 
-        isInitialized: (state: FilesState) => state.s3 !== null,
+        isInitialized: (state: FilesState): boolean => state.s3 !== null,
+        uploadingLength: (state: FilesState): number => state.uploading.length,
     },
     mutations: {
         init(
@@ -431,7 +432,7 @@ export const makeFilesModule = (): FilesModule => ({
             commit('setObjectsCount', responseV2.KeyCount === undefined ? 0 : responseV2.KeyCount);
         },
 
-        async upload({ commit, state, dispatch }, { e, callback }: { e: DragEvent, callback: () => void }) {
+        async upload({ commit, state, dispatch }, { e }: { e: DragEvent }) {
             assertIsInitialized(state);
 
             type Item = DataTransferItem | FileSystemEntry;
@@ -525,7 +526,6 @@ export const makeFilesModule = (): FilesModule => ({
                 );
 
                 upload.on('httpUploadProgress', async (progress) => {
-                    await callback();
                     commit('setProgress', {
                         Key: params.Key,
                         progress: Math.round((progress.loaded / progress.total) * 100),

@@ -212,17 +212,17 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		rateLimit := rate.Limit(endpoint.config.RateLimiter.Rate)
 		burstLimit := int(endpoint.config.RateLimiter.Rate)
 
-		project, err := endpoint.projects.Get(ctx, projectID)
+		limits, err := endpoint.projectLimits.GetLimits(ctx, projectID)
 		if err != nil {
 			return false, err
 		}
-		if project.RateLimit != nil {
-			rateLimit = rate.Limit(*project.RateLimit)
-			burstLimit = *project.RateLimit
+		if limits.RateLimit != nil {
+			rateLimit = rate.Limit(*limits.RateLimit)
+			burstLimit = *limits.RateLimit
 		}
 		// use the explicitly set burst value if it's defined
-		if project.BurstLimit != nil {
-			burstLimit = *project.BurstLimit
+		if limits.BurstLimit != nil {
+			burstLimit = *limits.BurstLimit
 		}
 
 		return rate.NewLimiter(rateLimit, burstLimit), nil

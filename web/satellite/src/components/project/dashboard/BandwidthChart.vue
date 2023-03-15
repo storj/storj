@@ -3,8 +3,8 @@
 
 <template>
     <VChart
-        id="bandwidth-chart"
         :key="chartKey"
+        chart-id="bandwidth-chart"
         :chart-data="chartData"
         :width="width"
         :height="height"
@@ -14,8 +14,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { ChartType, TooltipModel, ChartData } from 'chart.js';
 
-import { ChartData, Tooltip, TooltipParams, TooltipModel, ChartTooltipData } from '@/types/chart';
+import { Tooltip, TooltipParams, ChartTooltipData } from '@/types/chart';
 import { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 
@@ -47,23 +48,40 @@ const chartData = computed((): ChartData => {
     const secondaryData: number[] = props.allocatedData.map(el => el.value);
     const xAxisDateLabels: string[] = ChartUtils.daysDisplayedOnChart(props.since, props.before);
 
-    return new ChartData(
-        xAxisDateLabels,
-        'rgba(226, 220, 255, .3)',
-        '#c5baff',
-        '#c5baff',
-        mainData,
-        'rgba(226, 220, 255, .7)',
-        '#a18eff',
-        '#a18eff',
-        secondaryData,
-    );
+    return {
+        labels: xAxisDateLabels,
+        datasets: [{
+            data: mainData,
+            fill: true,
+            backgroundColor: 'rgba(226, 220, 255, .3)',
+            borderColor: '#c5baff',
+            pointHoverBackgroundColor: '#FFFFFF',
+            pointBorderColor: '#c5baff',
+            pointHoverBorderWidth: 4,
+            radius: xAxisDateLabels.length === 1 ? 10 : 0,
+            hoverRadius: 10,
+            hitRadius: 8,
+            order: 0,
+        }, {
+            data: secondaryData,
+            fill: true,
+            backgroundColor: 'rgba(226, 220, 255, .7)',
+            borderColor: '#a18eff',
+            pointHoverBackgroundColor: '#FFFFFF',
+            pointBorderColor: '#a18eff',
+            pointHoverBorderWidth: 4,
+            radius: xAxisDateLabels.length === 1 ? 10 : 0,
+            hoverRadius: 10,
+            hitRadius: 8,
+            order: 0,
+        }],
+    };
 });
 
 /**
  * Used as constructor of custom tooltip.
  */
-function tooltip(tooltipModel: TooltipModel): void {
+function tooltip(tooltipModel: TooltipModel<ChartType>): void {
     if (!tooltipModel.dataPoints) {
         const settledTooltip = Tooltip.createTooltip('settled-bandwidth-tooltip');
         const allocatedTooltip = Tooltip.createTooltip('allocated-bandwidth-tooltip');
@@ -90,12 +108,12 @@ function tooltip(tooltipModel: TooltipModel): void {
 /**
  * Returns allocated bandwidth tooltip's html mark up.
  */
-function allocatedTooltipMarkUp(tooltipModel: TooltipModel): string {
+function allocatedTooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
     if (!tooltipModel.dataPoints) {
         return '';
     }
 
-    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
     const dataPoint = new ChartTooltipData(props.allocatedData[dataIndex]);
 
     return `<div class='allocated-tooltip'>
@@ -108,12 +126,12 @@ function allocatedTooltipMarkUp(tooltipModel: TooltipModel): string {
 /**
  * Returns settled bandwidth tooltip's html mark up.
  */
-function settledTooltipMarkUp(tooltipModel: TooltipModel): string {
+function settledTooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
     if (!tooltipModel.dataPoints) {
         return '';
     }
 
-    const dataIndex = tooltipModel.dataPoints[0].index;
+    const dataIndex = tooltipModel.dataPoints[0].dataIndex;
     const dataPoint = new ChartTooltipData(props.settledData[dataIndex]);
 
     return `<div class='settled-tooltip'>

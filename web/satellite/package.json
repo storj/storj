@@ -17,7 +17,7 @@
     "@hcaptcha/vue-hcaptcha": "0.3.2",
     "aws-sdk": "2.1128.0",
     "bip39": "3.0.4",
-    "chart.js": "2.9.4",
+    "chart.js": "4.2.1",
     "core-js": "3.22.4",
     "graphql": "15.3.0",
     "load-script": "1.0.0",
@@ -29,7 +29,6 @@
     "stripe": "8.215.0",
     "util": "0.12.4",
     "vue": "2.7.10",
-    "vue-chartjs": "3.5.1",
     "vue-class-component": "7.2.6",
     "vue-clipboard2": "0.3.3",
     "vue-fragment": "1.6.0",
@@ -40,7 +39,6 @@
     "vuex": "3.6.2"
   },
   "devDependencies": {
-    "@types/chart.js": "2.9.36",
     "@types/filesystem": "0.0.32",
     "@types/jest": "27.5.0",
     "@types/node": "16.18.14",

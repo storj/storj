@@ -29,17 +29,19 @@ func (creditCards *creditCards) List(ctx context.Context, userID uuid.UUID) (car
 		return nil, Error.Wrap(err)
 	}
 
-	customer, err := creditCards.service.stripeClient.Customers().Get(customerID, nil)
+	cusParams := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := creditCards.service.stripeClient.Customers().Get(customerID, cusParams)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	params := &stripe.PaymentMethodListParams{
-		Customer: &customerID,
-		Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
+	cardParams := &stripe.PaymentMethodListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Type:       stripe.String(string(stripe.PaymentMethodTypeCard)),
 	}
 
-	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(params)
+	paymentMethodsIterator := creditCards.service.stripeClient.PaymentMethods().List(cardParams)
 	for paymentMethodsIterator.Next() {
 		stripeCard := paymentMethodsIterator.PaymentMethod()
 
@@ -75,8 +77,9 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	cardParams := &stripe.PaymentMethodParams{
-		Type: stripe.String(string(stripe.PaymentMethodTypeCard)),
-		Card: &stripe.PaymentMethodCardParams{Token: &cardToken},
+		Params: stripe.Params{Context: ctx},
+		Type:   stripe.String(string(stripe.PaymentMethodTypeCard)),
+		Card:   &stripe.PaymentMethodCardParams{Token: &cardToken},
 	}
 
 	card, err := creditCards.service.stripeClient.PaymentMethods().New(cardParams)
@@ -85,6 +88,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	attachParams := &stripe.PaymentMethodAttachParams{
+		Params:   stripe.Params{Context: ctx},
 		Customer: &customerID,
 	}
 
@@ -94,6 +98,7 @@ func (creditCards *creditCards) Add(ctx context.Context, userID uuid.UUID, cardT
 	}
 
 	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
 		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
 			DefaultPaymentMethod: stripe.String(card.ID),
 		},
@@ -123,6 +128,7 @@ func (creditCards *creditCards) MakeDefault(ctx context.Context, userID uuid.UUI
 	}
 
 	params := &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
 		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
 			DefaultPaymentMethod: stripe.String(cardID),
 		},
@@ -142,7 +148,8 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 		return payments.ErrAccountNotSetup.Wrap(err)
 	}
 
-	customer, err := creditCards.service.stripeClient.Customers().Get(customerID, nil)
+	cusParams := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+	customer, err := creditCards.service.stripeClient.Customers().Get(customerID, cusParams)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -152,7 +159,8 @@ func (creditCards *creditCards) Remove(ctx context.Context, userID uuid.UUID, ca
 		return Error.Wrap(errs.New("can not detach default payment method."))
 	}
 
-	_, err = creditCards.service.stripeClient.PaymentMethods().Detach(cardID, nil)
+	cardParams := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
+	_, err = creditCards.service.stripeClient.PaymentMethods().Detach(cardID, cardParams)
 
 	return Error.Wrap(err)
 }
@@ -166,8 +174,10 @@ func (creditCards *creditCards) RemoveAll(ctx context.Context, userID uuid.UUID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
+
+	params := &stripe.PaymentMethodDetachParams{Params: stripe.Params{Context: ctx}}
 	for _, cc := range ccList {
-		_, err = creditCards.service.stripeClient.PaymentMethods().Detach(cc.ID, nil)
+		_, err = creditCards.service.stripeClient.PaymentMethods().Detach(cc.ID, params)
 		if err != nil {
 			return Error.Wrap(err)
 		}

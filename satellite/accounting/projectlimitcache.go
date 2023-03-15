@@ -33,7 +33,7 @@ type ProjectLimitDB interface {
 
 // ProjectLimitConfig is a configuration struct for project limit.
 type ProjectLimitConfig struct {
-	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"10000" devDefault:"100"`
+	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"20000" devDefault:"100"`
 	CacheExpiration time.Duration `help:"how long to cache the project limits." releaseDefault:"10m" devDefault:"30s"`
 }
 

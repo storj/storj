@@ -409,6 +409,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	// they would always be MaxSegmentSize (64MiB)
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
+	mon.Meter("req_commit_segment").Mark(1)
+
 	return &pb.SegmentCommitResponse{
 		SuccessfulPieces: int32(len(pieces)),
 	}, nil
@@ -554,6 +556,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	response.EncryptionParameters = streamID.EncryptionParameters
+
+	mon.Meter("req_list_segments").Mark(1)
+
 	return response, nil
 }
 

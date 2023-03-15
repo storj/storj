@@ -263,7 +263,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.native-token-payments-enabled: false
 
 # indicates if new access grant flow should be used
-# console.new-access-grant-flow: false
+# console.new-access-grant-flow: true
 
 # indicates if new billing screens should be used
 # console.new-billing-screen: true
@@ -383,7 +383,7 @@ contact.external-address: ""
 # database: postgres://
 
 # satellite database api key lru capacity
-# database-options.api-keys-cache.capacity: 1000
+# database-options.api-keys-cache.capacity: 10000
 
 # satellite database api key expiration
 # database-options.api-keys-cache.expiration: 1m0s
@@ -893,7 +893,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # project-bw-cleanup.retain-months: 2
 
 # number of projects to cache.
-# project-limit.cache-capacity: 10000
+# project-limit.cache-capacity: 20000
 
 # how long to cache the project limits.
 # project-limit.cache-expiration: 10m0s

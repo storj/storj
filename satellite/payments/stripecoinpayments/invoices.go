@@ -29,6 +29,7 @@ func (invoices *invoices) Create(ctx context.Context, userID uuid.UUID, price in
 	}
 
 	inv, err := invoices.service.stripeClient.Invoices().New(&stripe.InvoiceParams{
+		Params:                      stripe.Params{Context: ctx},
 		Customer:                    stripe.String(customerID),
 		Discounts:                   []*stripe.InvoiceDiscountParams{},
 		Description:                 stripe.String(desc),
@@ -39,6 +40,7 @@ func (invoices *invoices) Create(ctx context.Context, userID uuid.UUID, price in
 	}
 
 	item, err := invoices.service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+		Params:      stripe.Params{Context: ctx},
 		Customer:    stripe.String(customerID),
 		Amount:      stripe.Int64(price),
 		Description: stripe.String(desc),
@@ -59,6 +61,7 @@ func (invoices *invoices) Create(ctx context.Context, userID uuid.UUID, price in
 
 func (invoices *invoices) Pay(ctx context.Context, invoiceID, paymentMethodID string) (*payments.Invoice, error) {
 	inv, err := invoices.service.stripeClient.Invoices().Pay(invoiceID, &stripe.InvoicePayParams{
+		Params:        stripe.Params{Context: ctx},
 		PaymentMethod: stripe.String(paymentMethodID),
 	})
 	if err != nil {
@@ -80,6 +83,7 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 	}
 
 	params := &stripe.InvoiceListParams{
+		ListParams:   stripe.ListParams{Context: ctx},
 		Customer:     &customerID,
 		Status:       stripe.String(string(stripe.InvoiceStatusOpen)),
 		DueDateRange: &stripe.RangeQueryParams{LesserThan: time.Now().Unix()},
@@ -91,7 +95,7 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
 
-		params := &stripe.InvoicePayParams{}
+		params := &stripe.InvoicePayParams{Params: stripe.Params{Context: ctx}}
 		invResponse, err := invoices.service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
 			errGrp.Add(Error.New("unable to pay invoice %s: %w", stripeInvoice.ID, err))
@@ -121,7 +125,8 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 	}
 
 	params := &stripe.InvoiceListParams{
-		Customer: &customerID,
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
 	}
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
@@ -162,7 +167,8 @@ func (invoices *invoices) ListFailed(ctx context.Context) (invoicesList []paymen
 
 	status := string(stripe.InvoiceStatusOpen)
 	params := &stripe.InvoiceListParams{
-		Status: &status,
+		ListParams: stripe.ListParams{Context: ctx},
+		Status:     &status,
 	}
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
@@ -208,7 +214,8 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 	}
 
 	params := &stripe.InvoiceListParams{
-		Customer: &customerID,
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
 	}
 	params.AddExpand("data.total_discount_amounts.discount")
 
@@ -242,7 +249,7 @@ func (invoices *invoices) ListWithDiscounts(ctx context.Context, userID uuid.UUI
 
 			dc := dcAmt.Discount
 
-			coupon, err := stripeDiscountToPaymentsCoupon(dc)
+			coupon, err := invoices.service.stripeDiscountToPaymentsCoupon(dc)
 			if err != nil {
 				return nil, nil, Error.Wrap(err)
 			}
@@ -279,8 +286,9 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 	}
 
 	params := &stripe.InvoiceItemListParams{
-		Customer: &customerID,
-		Pending:  stripe.Bool(true),
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Pending:    stripe.Bool(true),
 	}
 
 	itemIterator := invoices.service.stripeClient.InvoiceItems().List(params)
@@ -302,7 +310,8 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 func (invoices *invoices) Delete(ctx context.Context, id string) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stripeInvoice, err := invoices.service.stripeClient.Invoices().Del(id, &stripe.InvoiceParams{})
+	params := &stripe.InvoiceParams{Params: stripe.Params{Context: ctx}}
+	stripeInvoice, err := invoices.service.stripeClient.Invoices().Del(id, params)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -6,6 +6,7 @@ package accounting_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,14 +58,24 @@ func TestProjectLimitCache(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		saPeer := planet.Satellites[0]
 		projectUsageSvc := saPeer.Accounting.ProjectUsage
+		projects := saPeer.DB.Console().Projects()
 		accountingDB := saPeer.DB.ProjectAccounting()
 		projectLimitCache := saPeer.ProjectLimits.Cache
 		defaultUsageLimit := saPeer.Config.Console.UsageLimits.Storage.Free.Int64()
 		defaultBandwidthLimit := saPeer.Config.Console.UsageLimits.Bandwidth.Free.Int64()
 		defaultSegmentLimit := int64(1000000)
-		dbDefaultLimits := accounting.ProjectLimits{Usage: &defaultUsageLimit, Bandwidth: &defaultBandwidthLimit, Segments: &defaultSegmentLimit}
+		dbDefaultLimits := accounting.ProjectLimits{
+			Usage:      &defaultUsageLimit,
+			Bandwidth:  &defaultBandwidthLimit,
+			Segments:   &defaultSegmentLimit,
+			RateLimit:  nil,
+			BurstLimit: nil,
+		}
 
 		testProject, err := saPeer.DB.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
+		require.NoError(t, err)
+
+		secondTestProject, err := saPeer.DB.Console().Projects().Insert(ctx, &console.Project{Name: "second project", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
 
 		const (
@@ -72,6 +83,8 @@ func TestProjectLimitCache(t *testing.T) {
 			expectedUsageLimit     = 1
 			expectedBandwidthLimit = 2
 			expectedSegmentLimit   = 3
+			expectedRateLimit      = 4
+			expectedBurstLimit     = 5
 		)
 
 		t.Run("project ID doesn't exist", func(t *testing.T) {
@@ -184,6 +197,41 @@ func TestProjectLimitCache(t *testing.T) {
 			actualSegmentLimitFromDB, err := accountingDB.GetProjectSegmentLimit(ctx, testProject.ID)
 			require.NoError(t, err)
 			require.EqualValues(t, expectedSegmentLimit, *actualSegmentLimitFromDB)
+
+			// rate and burst limit
+			require.NoError(t, projects.UpdateRateLimit(ctx, secondTestProject.ID, expectedRateLimit))
+			require.NoError(t, projects.UpdateBurstLimit(ctx, secondTestProject.ID, expectedBurstLimit))
+
+			limits, err := projectLimitCache.GetLimits(ctx, secondTestProject.ID)
+			require.NoError(t, err)
+			require.EqualValues(t, expectedRateLimit, *limits.RateLimit)
+			require.EqualValues(t, expectedBurstLimit, *limits.BurstLimit)
+		})
+
+		t.Run("cache is used", func(t *testing.T) {
+			require.NoError(t, accountingDB.UpdateProjectUsageLimit(ctx, testProject.ID, 1))
+			require.NoError(t, accountingDB.UpdateProjectBandwidthLimit(ctx, testProject.ID, 2))
+			require.NoError(t, accountingDB.UpdateProjectSegmentLimit(ctx, testProject.ID, 3))
+
+			projectLimitCache := accounting.NewProjectLimitCache(accountingDB, 0, 0, 0, accounting.ProjectLimitConfig{
+				CacheCapacity:   10,
+				CacheExpiration: 60 * time.Second,
+			})
+
+			// fill cache with values from DB
+			beforeCachedLimits, err := projectLimitCache.GetLimits(ctx, testProject.ID)
+			require.NoError(t, err)
+
+			// update limits in DB but not in cache
+			require.NoError(t, accountingDB.UpdateProjectUsageLimit(ctx, testProject.ID, 4))
+			require.NoError(t, accountingDB.UpdateProjectBandwidthLimit(ctx, testProject.ID, 5))
+			require.NoError(t, accountingDB.UpdateProjectSegmentLimit(ctx, testProject.ID, 6))
+
+			// verify that old values are still cached because expiration time was not reached yet
+			afterCachedLimits, err := projectLimitCache.GetLimits(ctx, testProject.ID)
+			require.NoError(t, err)
+
+			require.Equal(t, beforeCachedLimits, afterCachedLimits)
 		})
 	})
 }

@@ -33,13 +33,14 @@ func (coupons *coupons) ApplyFreeTierCoupon(ctx context.Context, userID uuid.UUI
 	}
 
 	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
 		Coupon: stripe.String(coupons.service.StripeFreeTierCouponID),
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return stripeDiscountToPaymentsCoupon(customer.Discount)
+	return coupons.service.stripeDiscountToPaymentsCoupon(customer.Discount)
 }
 
 // ApplyCoupon applies the coupon to account if it exists.
@@ -51,11 +52,14 @@ func (coupons *coupons) ApplyCoupon(ctx context.Context, userID uuid.UUID, coupo
 		return nil, Error.Wrap(err)
 	}
 
-	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{Coupon: stripe.String(couponID)})
+	customer, err := coupons.service.stripeClient.Customers().Update(customerID, &stripe.CustomerParams{
+		Params: stripe.Params{Context: ctx},
+		Coupon: stripe.String(couponID),
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	return stripeDiscountToPaymentsCoupon(customer.Discount)
+	return coupons.service.stripeDiscountToPaymentsCoupon(customer.Discount)
 }
 
 // ApplyCouponCode attempts to apply a coupon code to the user via Stripe.
@@ -81,7 +85,8 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 	}
 
 	promoCodeIter := coupons.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
-		Code: stripe.String(couponCode),
+		ListParams: stripe.ListParams{Context: ctx},
+		Code:       stripe.String(couponCode),
 	})
 	if !promoCodeIter.Next() {
 		return nil, payments.ErrInvalidCoupon.New("Invalid coupon code")
@@ -94,6 +99,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 	}
 
 	params := &stripe.CustomerParams{
+		Params:        stripe.Params{Context: ctx},
 		PromotionCode: stripe.String(promoCode.ID),
 	}
 	params.AddExpand("discount.promotion_code")
@@ -107,7 +113,7 @@ func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, c
 		return nil, Error.New("invalid discount after coupon code application; user ID:%s, customer ID:%s", userID, customerID)
 	}
 
-	return stripeDiscountToPaymentsCoupon(customer.Discount)
+	return coupons.service.stripeDiscountToPaymentsCoupon(customer.Discount)
 }
 
 // GetByUserID returns the coupon applied to the user.
@@ -119,7 +125,7 @@ func (coupons *coupons) GetByUserID(ctx context.Context, userID uuid.UUID) (_ *p
 		return nil, Error.Wrap(err)
 	}
 
-	params := &stripe.CustomerParams{}
+	params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
 	params.AddExpand("discount.promotion_code")
 
 	customer, err := coupons.service.stripeClient.Customers().Get(customerID, params)
@@ -131,17 +137,25 @@ func (coupons *coupons) GetByUserID(ctx context.Context, userID uuid.UUID) (_ *p
 		return nil, nil
 	}
 
-	return stripeDiscountToPaymentsCoupon(customer.Discount)
+	return coupons.service.stripeDiscountToPaymentsCoupon(customer.Discount)
 }
 
 // stripeDiscountToPaymentsCoupon converts a Stripe discount to a payments.Coupon.
-func stripeDiscountToPaymentsCoupon(dc *stripe.Discount) (coupon *payments.Coupon, err error) {
+func (service *Service) stripeDiscountToPaymentsCoupon(dc *stripe.Discount) (coupon *payments.Coupon, err error) {
 	if dc == nil {
 		return nil, Error.New("discount is nil")
 	}
 
 	if dc.Coupon == nil {
 		return nil, Error.New("discount.Coupon is nil")
+	}
+
+	var partnered bool
+	for _, plan := range service.packagePlans {
+		if plan.CouponID == dc.Coupon.ID {
+			partnered = true
+			break
+		}
 	}
 
 	coupon = &payments.Coupon{
@@ -152,6 +166,7 @@ func stripeDiscountToPaymentsCoupon(dc *stripe.Discount) (coupon *payments.Coupo
 		AddedAt:    time.Unix(dc.Start, 0),
 		ExpiresAt:  time.Unix(dc.End, 0),
 		Duration:   payments.CouponDuration(dc.Coupon.Duration),
+		Partnered:  partnered,
 	}
 
 	if dc.PromotionCode != nil {

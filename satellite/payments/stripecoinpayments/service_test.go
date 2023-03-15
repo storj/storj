@@ -455,7 +455,8 @@ func TestService_GenerateInvoice(t *testing.T) {
 				cusID, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
 				require.NoError(t, err)
 
-				stripeUser, err := payments.StripeClient.Customers().Get(cusID, nil)
+				params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
+				stripeUser, err := payments.StripeClient.Customers().Get(cusID, params)
 				require.NoError(t, err)
 				require.NotNil(t, stripeUser.Discount)
 				require.NotNil(t, stripeUser.Discount.Coupon)
@@ -469,8 +470,8 @@ func TestService_GenerateInvoice(t *testing.T) {
 				require.NotNil(t, rec)
 				require.NoError(t, err)
 
-				invoice, hasInvoice := getCustomerInvoice(payments.StripeClient, cusID)
-				invoiceItems := getCustomerInvoiceItems(payments.StripeClient, cusID)
+				invoice, hasInvoice := getCustomerInvoice(ctx, payments.StripeClient, cusID)
+				invoiceItems := getCustomerInvoiceItems(ctx, payments.StripeClient, cusID)
 
 				// If invoicing empty usage invoices was skipped, then we don't
 				// expect an invoice or invoice items.
@@ -495,16 +496,22 @@ func TestService_GenerateInvoice(t *testing.T) {
 	}
 }
 
-func getCustomerInvoice(stripeClient stripecoinpayments.StripeClient, cusID string) (*stripe.Invoice, bool) {
-	iter := stripeClient.Invoices().List(&stripe.InvoiceListParams{Customer: &cusID})
+func getCustomerInvoice(ctx context.Context, stripeClient stripecoinpayments.StripeClient, cusID string) (*stripe.Invoice, bool) {
+	iter := stripeClient.Invoices().List(&stripe.InvoiceListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &cusID,
+	})
 	if iter.Next() {
 		return iter.Invoice(), true
 	}
 	return nil, false
 }
 
-func getCustomerInvoiceItems(stripeClient stripecoinpayments.StripeClient, cusID string) (items []*stripe.InvoiceItem) {
-	iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{Customer: &cusID})
+func getCustomerInvoiceItems(ctx context.Context, stripeClient stripecoinpayments.StripeClient, cusID string) (items []*stripe.InvoiceItem) {
+	iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &cusID,
+	})
 	for iter.Next() {
 		items = append(items, iter.InvoiceItem())
 	}
@@ -616,7 +623,7 @@ func TestProjectUsagePrice(t *testing.T) {
 				cusID, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
 				require.NoError(t, err)
 
-				items := getCustomerInvoiceItems(sat.API.Payments.StripeClient, cusID)
+				items := getCustomerInvoiceItems(ctx, sat.API.Payments.StripeClient, cusID)
 				require.Len(t, items, 3)
 				storage, _ := tt.expectedPrice.StorageMBMonthCents.Float64()
 				require.Equal(t, storage, items[0].UnitAmountDecimal)
@@ -642,12 +649,14 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 		due := time.Now().Add(14 * 24 * time.Hour).Unix()
 
 		_, err := satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
 			Amount:   &amount,
 			Currency: &curr,
 			Customer: &cus1,
 		})
 		require.NoError(t, err)
 		_, err = satellite.API.Payments.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+			Params:   stripe.Params{Context: ctx},
 			Amount:   &amount,
 			Currency: &curr,
 			Customer: &cus2,
@@ -655,28 +664,34 @@ func TestPayInvoicesSkipDue(t *testing.T) {
 		require.NoError(t, err)
 
 		inv, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:   stripe.Params{Context: ctx},
 			Customer: &cus1,
 		})
 		require.NoError(t, err)
 
-		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, &stripe.InvoiceFinalizeParams{})
+		finalizeParams := &stripe.InvoiceFinalizeParams{Params: stripe.Params{Context: ctx}}
+
+		inv, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(inv.ID, finalizeParams)
 		require.NoError(t, err)
 		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
 
 		invWithDue, err := satellite.API.Payments.StripeClient.Invoices().New(&stripe.InvoiceParams{
+			Params:   stripe.Params{Context: ctx},
 			Customer: &cus2,
 			DueDate:  &due,
 		})
 		require.NoError(t, err)
 
-		invWithDue, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(invWithDue.ID, &stripe.InvoiceFinalizeParams{})
+		invWithDue, err = satellite.API.Payments.StripeClient.Invoices().FinalizeInvoice(invWithDue.ID, finalizeParams)
 		require.NoError(t, err)
 		require.Equal(t, stripe.InvoiceStatusOpen, invWithDue.Status)
 
 		err = satellite.API.Payments.StripeService.PayInvoices(ctx, time.Time{})
 		require.NoError(t, err)
 
-		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{})
+		iter := satellite.API.Payments.StripeClient.Invoices().List(&stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+		})
 		for iter.Next() {
 			i := iter.Invoice()
 			if i.ID == inv.ID {
