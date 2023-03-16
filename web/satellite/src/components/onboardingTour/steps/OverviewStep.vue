@@ -31,11 +31,12 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
@@ -55,7 +56,14 @@ export default class OverviewStep extends Vue {
      * Mounted hook after initial render.
      * Sets correct title label.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+        } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            return;
+        }
+
         const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
         if (!partneredSatellites) {
             this.titleLabel = 'OSP';
