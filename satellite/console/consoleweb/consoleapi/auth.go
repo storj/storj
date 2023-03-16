@@ -912,6 +912,54 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetUserSettings gets a user's settings.
+func (a *Auth) GetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	settings, err := a.service.GetUserSettings(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// SetOnboardingStatus updates a user's onboarding status.
+func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart *bool   `json:"onboardingStart"`
+		OnboardingEnd   *bool   `json:"onboardingEnd"`
+		OnboardingStep  *string `json:"onboardingStep"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart: updateInfo.OnboardingStart,
+		OnboardingEnd:   updateInfo.OnboardingEnd,
+		OnboardingStep:  updateInfo.OnboardingStep,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)

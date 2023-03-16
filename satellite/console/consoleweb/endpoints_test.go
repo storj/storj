@@ -97,6 +97,84 @@ func TestAuth(t *testing.T) {
 			require.False(test.t, freezestatus.Frozen)
 		}
 
+		{ // Test_UserSettings
+			testGetSettings := func(expected struct {
+				SessionDuration *string
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}) {
+				resp, body := test.request(http.MethodGet, "/auth/account/settings", nil)
+
+				var settings struct {
+					SessionDuration *string
+					OnboardingStart bool
+					OnboardingEnd   bool
+					OnboardingStep  *string
+				}
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+				require.NoError(test.t, json.Unmarshal([]byte(body), &settings))
+				require.Equal(test.t, expected.OnboardingStart, settings.OnboardingStart)
+				require.Equal(test.t, expected.OnboardingEnd, settings.OnboardingEnd)
+				require.Equal(test.t, expected.OnboardingStep, settings.OnboardingStep)
+				require.Equal(test.t, expected.SessionDuration, settings.SessionDuration)
+			}
+
+			testGetSettings(struct {
+				SessionDuration *string
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: nil,
+				OnboardingStart: false,
+				OnboardingEnd:   false,
+				OnboardingStep:  nil,
+			})
+
+			resp, _ := test.request(http.MethodPatch, "/auth/account/onboarding",
+				test.toJSON(map[string]interface{}{
+					"onboardingStart": true,
+					"onboardingEnd":   false,
+					"onboardingStep":  "cli",
+				}))
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			step := "cli"
+			testGetSettings(struct {
+				SessionDuration *string
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+			})
+
+			resp, _ = test.request(http.MethodPatch, "/auth/account/onboarding",
+				test.toJSON(map[string]interface{}{
+					"onboardingStart": nil,
+					"onboardingEnd":   nil,
+					"onboardingStep":  nil,
+				}))
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			// having passed nil to /auth/account/onboarding shouldn't have changed existing values.
+			testGetSettings(struct {
+				SessionDuration *string
+				OnboardingStart bool
+				OnboardingEnd   bool
+				OnboardingStep  *string
+			}{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+			})
+		}
+
 		{ // Logout
 			resp, _ := test.request(http.MethodPost, "/auth/logout", nil)
 			cookie := findCookie(resp, "_tokenKey")

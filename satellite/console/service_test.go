@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -1066,6 +1067,67 @@ func TestRefreshSessionToken(t *testing.T) {
 		decreasedExpiration, err := srv.RefreshSession(userCtx, sessionID)
 		require.NoError(t, err)
 		require.Less(t, decreasedExpiration.Sub(now), defaultDuration)
+	})
+}
+
+func TestUserSettings(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		user, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		_, err = userDB.GetSettings(userCtx, user.ID)
+		require.Error(t, err)
+
+		settings, err := srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, false, settings.OnboardingStart)
+		require.Equal(t, false, settings.OnboardingEnd)
+		require.Nil(t, settings.OnboardingStep)
+		require.Nil(t, settings.SessionDuration)
+
+		onboardingBool := true
+		onboardingStep := "Overview"
+		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
+		sessionDurPtr := &sessionDur
+		err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+			SessionDuration: &sessionDurPtr,
+			OnboardingStart: &onboardingBool,
+			OnboardingEnd:   &onboardingBool,
+			OnboardingStep:  &onboardingStep,
+		})
+		require.NoError(t, err)
+
+		settings, err = userDB.GetSettings(userCtx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
+
+		// passing nil should not override existing values
+		err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+			SessionDuration: nil,
+			OnboardingStart: nil,
+			OnboardingEnd:   nil,
+			OnboardingStep:  nil,
+		})
+		require.NoError(t, err)
+
+		settings, err = userDB.GetSettings(userCtx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
 	})
 }
 
