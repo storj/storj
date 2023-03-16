@@ -49,11 +49,15 @@ func TestMonitor(t *testing.T) {
 }
 
 func TestVerifyReadable(t *testing.T) {
+	timeout := 5 * time.Second
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.Monitor.VerifyDirReadableTimeout = timeout
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -65,16 +69,20 @@ func TestVerifyReadable(t *testing.T) {
 		start := time.Now()
 		planet.StorageNodes[0].Storage2.Monitor.VerifyDirReadableLoop.TriggerWait()
 		duration := time.Since(start)
-		require.Less(t, duration, 5*time.Second)
+		require.Equal(t, duration.Round(timeout), timeout)
 	})
 }
 
 func TestVerifyWritable(t *testing.T) {
+	timeout := 5 * time.Second
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 0, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.Monitor.VerifyDirWritableTimeout = timeout
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -86,6 +94,6 @@ func TestVerifyWritable(t *testing.T) {
 		start := time.Now()
 		planet.StorageNodes[0].Storage2.Monitor.VerifyDirWritableLoop.TriggerWait()
 		duration := time.Since(start)
-		require.Less(t, duration, 5*time.Second)
+		require.Equal(t, duration.Round(timeout), timeout)
 	})
 }
