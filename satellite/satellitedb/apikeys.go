@@ -249,5 +249,5 @@ func sanitizedAPIKeyOrderColumnName(pmo console.APIKeyOrder) string {
 		return "ak.created_at"
 	}
 
-	return "ak.name"
+	return "lower(ak.name)"
 }
