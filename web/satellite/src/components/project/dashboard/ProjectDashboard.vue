@@ -224,6 +224,10 @@ export default class ProjectDashboard extends Vue {
         this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
 
         if (!this.$store.getters.selectedProject.id) {
+            if (this.$store.state.appStateModule.isAllProjectsDashboard) {
+                await this.$router.push(RouteConfig.AllProjectsDashboard.path);
+                return;
+            }
             const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
             this.analytics.pageVisit(onboardingPath);

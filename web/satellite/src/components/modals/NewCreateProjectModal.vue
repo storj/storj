@@ -88,6 +88,7 @@ import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -132,7 +133,6 @@ async function onCreateProjectClick(): Promise<void> {
         return;
     }
 
-    const isFirstProject = store.getters.projectsCount === 0;
     isLoading.value = true;
     projectName.value = projectName.value.trim();
 
@@ -171,9 +171,9 @@ async function onCreateProjectClick(): Promise<void> {
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
 
-    if (isFirstProject) {
-        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
-        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
+    if (store.getters.shouldOnboard && store.state.appStateModule.isAllProjectsDashboard) {
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;
     }
     store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
@@ -183,8 +183,11 @@ async function onCreateProjectClick(): Promise<void> {
  * Selects just created project.
  */
 async function selectCreatedProject() {
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
+    await store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId.value);
     LocalData.setSelectedProjectId(createdProjectId.value);
+    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+    store.commit(OBJECTS_MUTATIONS.CLEAR);
 }
 
 /**

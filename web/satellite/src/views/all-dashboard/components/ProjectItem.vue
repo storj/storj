@@ -116,6 +116,11 @@ function closeDropDown() {
  */
 async function onOpenClicked(): Promise<void> {
     await selectProject();
+    if (store.getters.shouldOnboard) {
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        return;
+    }
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
 }

@@ -36,7 +36,8 @@ import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { UserSettings } from '@/types/users';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
@@ -58,10 +59,13 @@ export default class OverviewStep extends Vue {
      */
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+            if (!this.$store.state.usersModule.settings.onboardingStart) {
+                await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+                    onboardingStart: true,
+                } as Partial<UserSettings>);
+            }
         } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
-            return;
+            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
         }
 
         const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
@@ -85,8 +89,9 @@ export default class OverviewStep extends Vue {
     /**
      * Skips onboarding flow.
      */
-    public onSkip(): void {
-        this.$router.push(this.projectDashboardPath);
+    public async onSkip(): Promise<void> {
+        this.endOnboarding();
+        await this.$router.push(this.projectDashboardPath);
         this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
     }
 
@@ -103,8 +108,19 @@ export default class OverviewStep extends Vue {
     /**
      * Redirects to buckets page.
      */
-    public onUploadInBrowserClick(): void {
+    public async onUploadInBrowserClick(): Promise<void> {
+        this.endOnboarding();
         this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    }
+
+    public async endOnboarding(): Promise<void> {
+        try {
+            await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+                onboardingEnd: true,
+            } as Partial<UserSettings>);
+        } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+        }
     }
 
     /**

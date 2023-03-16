@@ -539,6 +539,7 @@ onMounted(async () => {
         await store.dispatch(USER_ACTIONS.GET);
         await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
         await abTestingStore.fetchValues();
+        await store.dispatch(USER_ACTIONS.GET_SETTINGS);
         setupSessionTimers();
     } catch (error) {
         store.subscribeAction((action) => {
@@ -588,6 +589,14 @@ onMounted(async () => {
     }
 
     await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+
+    if (store.getters.shouldOnboard && !store.state.appStateModule.viewsState.hasShownPricingPlan) {
+        store.commit(APP_STATE_MUTATIONS.SET_HAS_SHOWN_PRICING_PLAN, true);
+        // if the user is not legible for a pricing plan, they'll automatically be
+        // navigated back to all projects dashboard.
+        analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
+        await router.push(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);
+    }
 });
 
 onBeforeUnmount(() => {

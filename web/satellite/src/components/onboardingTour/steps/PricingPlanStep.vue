@@ -23,10 +23,12 @@ import { onBeforeMount, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { User } from '@/types/users';
+import { User, UserSettings } from '@/types/users';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MetaUtils } from '@/utils/meta';
 import { PaymentsHttpApi } from '@/api/payments';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -70,7 +72,10 @@ const plans = ref<PricingPlanInfo[]>([
  */
 onBeforeMount(async () => {
     const user: User = store.getters.user;
-    const nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
+    if (store.state.appStateModule.isAllProjectsDashboard) {
+        nextPath = RouteConfig.AllProjectsDashboard.path;
+    }
 
     const pricingPkgsEnabled = Boolean(MetaUtils.getMetaContent('pricing-packages-enabled'));
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
@@ -106,6 +111,16 @@ onBeforeMount(async () => {
     }
     plan.type = PricingPlanType.PARTNER;
     plans.value.unshift(plan);
+
+    if (!store.state.usersModule.settings.onboardingStart) {
+        try {
+            await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+                onboardingStart: true,
+            } as Partial<UserSettings>);
+        } catch (error) {
+            notify.error(error.message, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
+        }
+    }
 
     isLoading.value = false;
 });

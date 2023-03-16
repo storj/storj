@@ -4,7 +4,7 @@
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
-import { TokenInfo, UpdatedUser, User, UsersApi } from '@/types/users';
+import { TokenInfo, UpdatedUser, User, UsersApi, UserSettings } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 
@@ -235,6 +235,41 @@ export class AuthHttpApi implements UsersApi {
         }
 
         throw new Error('can not get user frozen status');
+    }
+
+    /**
+     * Fetches user's settings.
+     *
+     * @throws Error
+     */
+    public async getUserSettings(): Promise<UserSettings> {
+        const path = `${this.ROOT_PATH}/account/settings`;
+        const response = await this.http.get(path);
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return new UserSettings(
+                responseData.sessionDuration,
+                responseData.onboardingStart,
+                responseData.onboardingEnd,
+                responseData.onboardingStep,
+            );
+        }
+
+        throw new Error('can not get user settings');
+    }
+
+    /**
+     * Changes user's onboarding status.
+     *
+     * @throws Error
+     */
+    public async setOnboardingStatus(status: Partial<UserSettings>): Promise<void> {
+        const path = `${this.ROOT_PATH}/account/onboarding`;
+        const response = await this.http.patch(path, JSON.stringify(status));
+        if (!response.ok) {
+            throw new Error('can not set onboarding status');
+        }
     }
 
     // TODO: remove secret after Vanguard release

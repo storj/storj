@@ -1,7 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { DisableMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
+import {
+    DisableMFARequest,
+    UpdatedUser,
+    User,
+    UsersApi,
+    UserSettings,
+} from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 import { StoreModule } from '@/types/store';
 
@@ -15,6 +21,8 @@ export const USER_ACTIONS = {
     GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
     CLEAR: 'clearUser',
     GET_FROZEN_STATUS: 'getFrozenStatus',
+    GET_SETTINGS: 'getSettings',
+    SET_ONBOARDING_STATUS: 'setOnboardingStatus',
 };
 
 export const USER_MUTATIONS = {
@@ -24,10 +32,12 @@ export const USER_MUTATIONS = {
     UPDATE_USER: 'updateUser',
     CLEAR: 'clearUser',
     SET_FROZEN_STATUS: 'setFrozenStatus',
+    SET_SETTINGS: 'setSettings',
 };
 
 export class UsersState {
     public user: User = new User();
+    public settings: UserSettings = new UserSettings();
     public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }
@@ -40,6 +50,8 @@ const {
     GENERATE_USER_MFA_SECRET,
     GENERATE_USER_MFA_RECOVERY_CODES,
     GET_FROZEN_STATUS,
+    GET_SETTINGS,
+    SET_ONBOARDING_STATUS,
 } = USER_ACTIONS;
 
 const {
@@ -49,6 +61,7 @@ const {
     SET_USER_MFA_RECOVERY_CODES,
     CLEAR,
     SET_FROZEN_STATUS,
+    SET_SETTINGS,
 } = USER_MUTATIONS;
 
 interface UsersContext {
@@ -81,6 +94,9 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
             },
             [SET_FROZEN_STATUS](state: UsersState, status: boolean): void {
                 state.user.isFrozen = status;
+            },
+            [SET_SETTINGS](state: UsersState, settings: UserSettings): void {
+                state.settings = settings;
             },
             [CLEAR](state: UsersState): void {
                 state.user = new User();
@@ -119,6 +135,22 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
 
                 commit(SET_FROZEN_STATUS, frozenStatus);
             },
+            [GET_SETTINGS]: async function ({ commit }: UsersContext): Promise<UserSettings> {
+                const settings = await api.getUserSettings();
+
+                commit(SET_SETTINGS, settings);
+
+                return settings;
+            },
+            [SET_ONBOARDING_STATUS]: async function ({ commit, state }: UsersContext, status: Partial<UserSettings>): Promise<void> {
+                await api.setOnboardingStatus(status);
+                const settings = state.settings;
+                for (const statusKey in status) {
+                    settings[statusKey] = status[statusKey];
+                }
+
+                commit(SET_SETTINGS, settings);
+            },
             [DISABLE_USER_MFA]: async function (_, request: DisableMFARequest): Promise<void> {
                 await api.disableUserMFA(request.passcode, request.recoveryCode);
             },
@@ -143,6 +175,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
         getters: {
             user: (state: UsersState): User => state.user,
             userName: (state: UsersState): string => state.user.getFullName(),
+            shouldOnboard: (state: UsersState): boolean => !state.settings.onboardingStart || (state.settings.onboardingStart && !state.settings.onboardingEnd),
         },
     };
 }

@@ -100,11 +100,11 @@ export default store;
 */
 router.beforeEach(async (to, from, next) => {
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.Login.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, true);
     }
 
     if (to.name === RouteConfig.AllProjectsDashboard.name && from.name === RouteConfig.Login.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, true);
     }
 
     // On very first login we try to redirect user to project dashboard
@@ -112,7 +112,10 @@ router.beforeEach(async (to, from, next) => {
     // That's why we toggle this flag here back to false not show create project passphrase modal again
     // if user clicks 'Continue in web'.
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, false);
+    }
+    if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.AllProjectsDashboard.name) {
+        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, false);
     }
 
     if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.viewsState.activeModal !== MODALS.uploadCancelPopup)) {
