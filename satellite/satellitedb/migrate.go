@@ -2285,6 +2285,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on users table to improve get users queries.",
+				Version:     228,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS users_email_status_index ON users ( normalized_email, status );`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -4,6 +4,11 @@
 model user (
     key id
 
+    index (
+        name users_email_status_index
+        fields normalized_email status
+    )
+
     // id is an uuid for the user.
     field id                 blob
     // email is the user specified email.
