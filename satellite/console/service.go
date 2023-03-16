@@ -3239,3 +3239,47 @@ func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken
 	}
 	return true, nil
 }
+
+// GetUserSettings fetches a user's settings. It creates default settings if none exists.
+func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	settings, err = s.store.Users().GetSettings(ctx, user.ID)
+	if err != nil {
+		if !errs.Is(err, sql.ErrNoRows) {
+			return nil, Error.Wrap(err)
+		}
+		err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		settings, err = s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	return settings, nil
+}
+
+// SetUserSettings updates a user's settings.
+func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "get user settings")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.store.Users().UpsertSettings(ctx, user.ID, request)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
