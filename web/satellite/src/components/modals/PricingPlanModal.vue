@@ -135,7 +135,11 @@ const isFree = computed((): boolean => {
 function onClose(): void {
     store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
     if (isSuccess.value) {
-        router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+        if (store.state.appStateModule.isAllProjectsDashboard) {
+            router.push(RouteConfig.AllProjectsDashboard);
+            return;
+        }
+        router.push(RouteConfig.ProjectDashboard.path);
     }
 }
 

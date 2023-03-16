@@ -29,6 +29,9 @@ class ViewsState {
         public activeDropdown = 'none',
         // activeModal could be of VueConstructor type or Object (for composition api components).
         public activeModal: unknown | null = null,
+        // this field is mainly used on the all projects dashboard as an exit condition
+        // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
+        public hasShownPricingPlan = false,
     ) {}
 }
 
@@ -57,8 +60,12 @@ export function makeAppStateModule(configApi: FrontendConfigApi): StoreModule<Ap
             [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: AppState): void {
                 state.viewsState.isSuccessfulPasswordResetShown = !state.viewsState.isSuccessfulPasswordResetShown;
             },
-            [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: AppState): void {
-                state.viewsState.hasJustLoggedIn = !state.viewsState.hasJustLoggedIn;
+            [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: AppState, hasJustLoggedIn: boolean | null = null): void {
+                if (hasJustLoggedIn === null) {
+                    state.viewsState.hasJustLoggedIn = !state.viewsState.hasJustLoggedIn;
+                    return;
+                }
+                state.viewsState.hasJustLoggedIn = hasJustLoggedIn;
             },
             [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: AppState): void {
                 state.viewsState.isBillingNotificationShown = false;
@@ -132,6 +139,9 @@ export function makeAppStateModule(configApi: FrontendConfigApi): StoreModule<Ap
             },
             [APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL](state: AppState): void {
                 state.viewsState.activeModal = null;
+            },
+            [APP_STATE_MUTATIONS.SET_HAS_SHOWN_PRICING_PLAN](state: AppState, value: boolean): void {
+                state.viewsState.hasShownPricingPlan = value;
             },
         },
         actions: {

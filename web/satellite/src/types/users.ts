@@ -28,6 +28,22 @@ export interface UsersApi {
     getFrozenStatus(): Promise<boolean>;
 
     /**
+     * Fetches user frozen status.
+     *
+     * @returns UserSettings
+     * @throws Error
+     */
+    getUserSettings(): Promise<UserSettings>;
+
+    /**
+     * Changes user's onboarding status.
+     *
+     * @returns UserSettings
+     * @throws Error
+     */
+    setOnboardingStatus(status: Partial<UserSettings>): Promise<void>;
+
+    /**
      * Enable user's MFA.
      *
      * @throws Error
@@ -134,4 +150,23 @@ export class TokenInfo {
         public token: string,
         public expiresAt: Date,
     ) {}
+}
+
+/**
+ * UserSettings represents response from GET /auth/account/settings.
+ */
+export class UserSettings {
+    public constructor(
+        private _sessionDuration: string | null = null,
+        public onboardingStart = false,
+        public onboardingEnd = false,
+        public onboardingStep: string | null = null,
+    ) {}
+
+    public get sessionDuration(): Date | null {
+        if (this._sessionDuration) {
+            return new Date(this._sessionDuration);
+        }
+        return null;
+    }
 }

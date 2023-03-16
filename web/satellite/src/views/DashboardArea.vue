@@ -600,10 +600,11 @@ onMounted(async () => {
         await store.dispatch(USER_ACTIONS.GET);
         await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
         await abTestingStore.fetchValues();
+        await store.dispatch(USER_ACTIONS.GET_SETTINGS);
         setupSessionTimers();
     } catch (error) {
         store.subscribeAction((action) => {
-            if (action.type === USER_ACTIONS.LOGIN)setupSessionTimers();
+            if (action.type === USER_ACTIONS.LOGIN) setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
@@ -650,23 +651,27 @@ onMounted(async () => {
         return;
     }
 
-    if (!projects.length) {
+    if (!store.state.appStateModule.isAllProjectsDashboard) {
         try {
-            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+            if (!projects.length) {
+                await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+            } else {
+                selectProject(projects);
+            }
+            if (store.getters.shouldOnboard) {
+                const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
-            await analytics.pageVisit(onboardingPath);
-            await router.push(onboardingPath);
+                await analytics.pageVisit(onboardingPath);
+                await router.push(onboardingPath);
 
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+                await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+                return;
+            }
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             return;
         }
-
-        return;
     }
-
-    selectProject(projects);
 
     await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
 });

@@ -34,6 +34,9 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { USER_ACTIONS } from '@/store/modules/users';
+import { UserSettings } from '@/types/users';
+import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -62,8 +65,19 @@ export default class SuccessScreen extends Vue {
      * Holds on finish button click logic.
      */
     public async onFinishClick(): Promise<void> {
+        this.endOnboarding();
         this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await this.$router.push(RouteConfig.ProjectDashboard.path);
+    }
+
+    public async endOnboarding(): Promise<void> {
+        try {
+            await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+                onboardingEnd: true,
+            } as Partial<UserSettings>);
+        } catch (error) {
+            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+        }
     }
 }
 </script>
