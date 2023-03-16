@@ -651,8 +651,6 @@ onMounted(async () => {
 
     if (!projects.length) {
         try {
-            await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
-
             const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
             await analytics.pageVisit(onboardingPath);
