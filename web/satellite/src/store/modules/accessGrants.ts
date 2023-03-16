@@ -26,6 +26,7 @@ export const ACCESS_GRANTS_ACTIONS = {
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
+    TOGGLE_SORT_DIRECTION: 'toggleAccessGrantsSortingDirection',
     SET_DURATION_PERMISSION: 'setAccessGrantsDurationPermission',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
@@ -238,7 +239,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: Acc
 
                 commit(SET_ACCESS_GRANTS_WEB_WORKER, worker);
             },
-            stopAccessGrantsWebWorker: function({ commit }: AccessGrantsContext): void {
+            stopAccessGrantsWebWorker: function ({ commit }: AccessGrantsContext): void {
                 commit(STOP_ACCESS_GRANTS_WEB_WORKER);
             },
             fetchAccessGrants: async function ({ commit, rootGetters, state }: AccessGrantsContext, pageNumber: number): Promise<AccessGrantsPage> {
@@ -253,13 +254,13 @@ export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: Acc
             createAccessGrant: async function ({ rootGetters }: AccessGrantsContext, name: string): Promise<AccessGrant> {
                 return await api.create(rootGetters.selectedProject.id, name);
             },
-            deleteAccessGrants: async function({ state }: AccessGrantsContext): Promise<void> {
+            deleteAccessGrants: async function ({ state }: AccessGrantsContext): Promise<void> {
                 await api.delete(state.selectedAccessGrantsIds);
             },
-            deleteAccessGrantsByNameAndProjectID: async function({ rootGetters }: AccessGrantsContext, name: string): Promise<void> {
+            deleteAccessGrantsByNameAndProjectID: async function ({ rootGetters }: AccessGrantsContext, name: string): Promise<void> {
                 await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
             },
-            getGatewayCredentials: async function({ commit }: AccessGrantsContext, payload): Promise<EdgeCredentials> {
+            getGatewayCredentials: async function ({ commit }: AccessGrantsContext, payload): Promise<EdgeCredentials> {
                 const credentials: EdgeCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL, payload.isPublic);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
@@ -273,6 +274,13 @@ export function makeAccessGrantsModule(api: AccessGrantsApi, workerFactory?: Acc
                 commit(CHANGE_SORT_ORDER, order);
             },
             setAccessGrantsSortingDirection: function ({ commit }: AccessGrantsContext, direction: SortDirection) {
+                commit(CHANGE_SORT_ORDER_DIRECTION, direction);
+            },
+            toggleAccessGrantsSortingDirection: function ({ commit, state }: AccessGrantsContext) {
+                let direction = SortDirection.DESCENDING;
+                if (state.cursor.orderDirection === SortDirection.DESCENDING) {
+                    direction = SortDirection.ASCENDING;
+                }
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
             setAccessGrantsDurationPermission: function ({ commit }: AccessGrantsContext, permission: DurationPermission) {

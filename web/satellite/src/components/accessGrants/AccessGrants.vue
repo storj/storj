@@ -129,8 +129,7 @@
                 :on-page-click-callback="onPageClick"
             >
                 <template #head>
-                    <th class="align-left">Name</th>
-                    <th class="align-left">Date Created</th>
+                    <access-grants-header />
                 </template>
                 <template #body>
                     <AccessGrantsItem
@@ -162,6 +161,8 @@
 </template>
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+
+import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
