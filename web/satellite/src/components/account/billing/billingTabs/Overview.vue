@@ -46,9 +46,9 @@
                     </p>
                 </div>
 
-                <div v-if="balance.credits" class="total-cost__card">
+                <div v-if="balance.hasCredits()" class="total-cost__card">
                     <AvailableBalanceIcon class="total-cost__card__main-icon" />
-                    <p class="total-cost__card__money-text">${{ balance.credits }}</p>
+                    <p class="total-cost__card__money-text">{{ balance.formattedCredits }}</p>
                     <p class="total-cost__card__label-text">Legacy STORJ Payments and Bonuses</p>
                 </div>
             </div>
