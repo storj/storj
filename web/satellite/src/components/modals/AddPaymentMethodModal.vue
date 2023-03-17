@@ -64,15 +64,16 @@
                             <p class="add-modal__bullets__left__item__label">100 request per second rate limit</p>
                         </div>
                     </div>
-                    <div class="add-modal__bullets__right">
+                    <VLoader v-if="isPriceFetching" class="add-modal__bullets__right-loader" width="90px" height="90px" />
+                    <div v-else class="add-modal__bullets__right">
                         <h2 class="add-modal__bullets__right__title">Storage price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$4</p>
+                            <p class="add-modal__bullets__right__item__price">{{ storagePrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB / month</p>
                         </div>
                         <h2 class="add-modal__bullets__right__title">Bandwidth price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$7</p>
+                            <p class="add-modal__bullets__right__item__price">{{ bandwidthPrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB</p>
                         </div>
                     </div>
@@ -125,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 import { useNotify, useRoute, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
@@ -137,6 +138,8 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { ProjectUsagePriceModel } from '@/types/payments';
+import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -160,8 +163,22 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const isAddModal = ref<boolean>(true);
 const isAddCard = ref<boolean>(true);
 const isLoading = ref<boolean>(false);
+const isPriceFetching = ref<boolean>(true);
 
 const stripeCardInput = ref<StripeCardInput & StripeForm | null>(null);
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches project usage price model.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        isPriceFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+    }
+});
 
 /**
  * Provides card information to Stripe.
@@ -233,6 +250,29 @@ function setIsAddCard(): void {
  */
 const limitsIncreaseRequestURL = computed((): string => {
     return MetaUtils.getMetaContent('project-limits-increase-request-url');
+});
+
+/**
+ * Returns project usage price model from store.
+ */
+const priceModel = computed((): ProjectUsagePriceModel => {
+    return store.state.paymentsModule.usagePriceModel;
+});
+
+/**
+ * Returns the storage price formatted as dollars per terabyte.
+ */
+const storagePrice = computed((): string => {
+    const storage = priceModel.value.storageMBMonthCents.toString();
+    return formatPrice(decimalShift(storage, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
+
+/**
+ * Returns the bandwidth (egress) price formatted as dollars per terabyte.
+ */
+const bandwidthPrice = computed((): string => {
+    const egress = priceModel.value.egressMBCents.toString();
+    return formatPrice(decimalShift(egress, CENTS_MB_TO_DOLLARS_TB_SHIFT));
 });
 </script>
 
@@ -475,6 +515,16 @@ const limitsIncreaseRequestURL = computed((): string => {
                         color: #000;
                         text-align: left;
                     }
+                }
+            }
+
+            &__right-loader {
+                width: 50%;
+                align-items: center;
+
+                @media screen and (max-width: 570px) {
+                    width: 100%;
+                    margin-top: 16px;
                 }
             }
 
