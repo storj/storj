@@ -1030,6 +1030,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # public address to listen on
 server.address: :7777
 
+# whether to debounce incoming messages
+# server.debouncing-enabled: true
+
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true
 
@@ -1048,7 +1051,7 @@ server.private-address: 127.0.0.1:7778
 # url for revocation database (e.g. bolt://some.db OR redis://127.0.0.1:6378?db=2&password=abc123)
 # server.revocation-dburl: bolt://testdata/revocations.db
 
-# enable support for tcp fast open experiment
+# enable support for tcp fast open
 # server.tcp-fast-open: true
 
 # the size of the tcp fast open queue

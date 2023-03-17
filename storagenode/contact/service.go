@@ -48,6 +48,7 @@ type NodeInfo struct {
 	Capacity            pb.NodeCapacity
 	Operator            pb.NodeOperator
 	NoiseKeyAttestation *pb.NoiseKeyAttestation
+	DebounceLimit       int
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -135,6 +136,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 		Capacity:            &self.Capacity,
 		Operator:            &self.Operator,
 		NoiseKeyAttestation: self.NoiseKeyAttestation,
+		DebounceLimit:       int32(self.DebounceLimit),
 	})
 	service.quicStats.SetStatus(false)
 	if err != nil {
