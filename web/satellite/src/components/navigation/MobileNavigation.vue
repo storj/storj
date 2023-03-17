@@ -158,9 +158,8 @@
     </div>
 </template>
 
-<script lang="ts">
-
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -181,11 +180,10 @@ import { MetaUtils } from '@/utils/meta';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
-import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
-import AccountArea from '@/components/navigation/AccountArea.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
 import CrossIcon from '@/../static/images/common/closeCross.svg';
@@ -212,304 +210,271 @@ import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ResourcesLinks,
-        QuickStartLinks,
-        ProjectSelection,
-        AccountArea,
-        LogoIcon,
-        DashboardIcon,
-        AccessGrantsIcon,
-        UsersIcon,
-        BillingIcon,
-        BucketsIcon,
-        ResourcesIcon,
-        QuickStartIcon,
-        ArrowIcon,
-        CheckmarkIcon,
-        ProjectIcon,
-        ManageIcon,
-        PassphraseIcon,
-        CreateProjectIcon,
-        VLoader,
-        CrossIcon,
-        MenuIcon,
-        InfoIcon,
-        SatelliteIcon,
-        AccountIcon,
-        SettingsIcon,
-        LogoutIcon,
-        TierBadgeFree,
-        TierBadgePro,
-    },
-})
-export default class MobileNavigation extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const FIRST_PAGE = 1;
+const navigation: NavigationLink[] = [
+    RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
+    RouteConfig.Buckets.withIcon(BucketsIcon),
+    RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
+    RouteConfig.Users.withIcon(UsersIcon),
+];
 
-    private FIRST_PAGE = 1;
-    public isResourcesDropdownShown = false;
-    public isQuickStartDropdownShown = false;
-    public isProjectDropdownShown = false;
-    public isAccountDropdownShown = false;
-    public isOpened = false;
-    public isLoading = false;
+const store = useStore();
+const router = useRouter();
+const notify = useNotify();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const auth: AuthHttpApi = new AuthHttpApi();
 
-    public navigation: NavigationLink[] = [
-        RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.Buckets.withIcon(BucketsIcon),
-        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
-        RouteConfig.Users.withIcon(UsersIcon),
-    ];
+const isResourcesDropdownShown = ref<boolean>(false);
+const isQuickStartDropdownShown = ref<boolean>(false);
+const isProjectDropdownShown = ref<boolean>(false);
+const isAccountDropdownShown = ref<boolean>(false);
+const isOpened = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Redirects to project dashboard.
-     */
-    public onLogoClick(): void {
-        if (this.isAllProjectsDashboard) {
-            this.$router.push(RouteConfig.AllProjectsDashboard.path);
-            return;
-        }
+/**
+ * Indicates if all projects dashboard should be used.
+ */
+const isAllProjectsDashboard = computed((): boolean => {
+    return store.state.appStateModule.isAllProjectsDashboard;
+});
 
-        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-            return;
-        }
+/**
+ * Returns projects list from store.
+ */
+const projects = computed((): Project[] => {
+    return store.getters.projectsWithoutSelected;
+});
 
-        this.$router.push(RouteConfig.ProjectDashboard.path);
+/**
+ * Indicates if current route is objects view.
+ */
+const isBucketsView = computed((): boolean => {
+    return router.currentRoute.path.includes(RouteConfig.BucketsManagement.path);
+});
+
+/**
+ * Returns selected project from store.
+ */
+const selectedProject = computed((): Project => {
+    return store.getters.selectedProject;
+});
+
+/**
+ * Returns satellite name from store.
+ */
+const satellite = computed((): boolean => {
+    return store.state.appStateModule.satelliteName;
+});
+
+/**
+ * Returns user entity from store.
+ */
+const user = computed((): User => {
+    return store.getters.user;
+});
+
+/**
+ * Redirects to project dashboard.
+ */
+function onLogoClick(): void {
+    if (isAllProjectsDashboard.value) {
+        router.push(RouteConfig.AllProjectsDashboard.path);
+        return;
     }
 
-    public onNavClick(path: string): void {
-        this.trackClickEvent(path);
-        this.isOpened = false;
+    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+        return;
     }
 
-    /**
-     * Toggles navigation content visibility.
-     */
-    public toggleNavigation(): void {
-        this.isOpened = !this.isOpened;
+    router.push(RouteConfig.ProjectDashboard.path);
+}
+
+function onNavClick(path: string): void {
+    trackClickEvent(path);
+    isOpened.value = false;
+}
+
+/**
+ * Toggles navigation content visibility.
+ */
+function toggleNavigation(): void {
+    isOpened.value = !isOpened.value;
+}
+
+/**
+ * Toggles resources dropdown visibility.
+ */
+function toggleResourcesDropdown(): void {
+    isResourcesDropdownShown.value = !isResourcesDropdownShown.value;
+}
+
+/**
+ * Toggles quick start dropdown visibility.
+ */
+function toggleQuickStartDropdown(): void {
+    isQuickStartDropdownShown.value = !isQuickStartDropdownShown.value;
+}
+
+/**
+ * Toggles projects dropdown visibility.
+ */
+function toggleProjectDropdown(): void {
+    isProjectDropdownShown.value = !isProjectDropdownShown.value;
+}
+
+/**
+ * Toggles account dropdown visibility.
+ */
+function toggleAccountDropdown(): void {
+    isAccountDropdownShown.value = !isAccountDropdownShown.value;
+    window.scrollTo(0, document.querySelector('.navigation-area__container__wrap')?.scrollHeight || 0);
+}
+
+/**
+ * Sends new path click event to segment.
+ */
+function trackClickEvent(path: string): void {
+    analytics.pageVisit(path);
+}
+
+/**
+ * Toggles manage passphrase modal shown.
+ */
+function onManagePassphraseClick(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+}
+
+async function onProjectClick(): Promise<void> {
+    toggleProjectDropdown();
+
+    if (isLoading.value || !isProjectDropdownShown.value) return;
+
+    isLoading.value = true;
+
+    try {
+        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+/**
+ * Fetches all project related information.
+ * @param projectID
+ */
+async function onProjectSelected(projectID: string): Promise<void> {
+    await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    LocalData.setSelectedProjectId(projectID);
+    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+    isProjectDropdownShown.value = false;
+
+    if (isBucketsView.value) {
+        await store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        analytics.pageVisit(RouteConfig.Buckets.path);
+        await router.push(RouteConfig.Buckets.path).catch(() => {return; });
     }
 
-    /**
-     * Toggles resources dropdown visibility.
-     */
-    public toggleResourcesDropdown(): void {
-        this.isResourcesDropdownShown = !this.isResourcesDropdownShown;
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+        await store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+    } catch (error) {
+        await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+    }
+}
+
+/**
+ * Route to projects list page.
+ */
+function onProjectsLinkClick(): void {
+    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+        analytics.pageVisit(RouteConfig.ProjectsList.path);
+        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
+        router.push(RouteConfig.ProjectsList.path);
     }
 
-    /**
-     * Toggles quick start dropdown visibility.
-     */
-    public toggleQuickStartDropdown(): void {
-        this.isQuickStartDropdownShown = !this.isQuickStartDropdownShown;
-    }
+    isProjectDropdownShown.value = false;
+}
 
-    /**
-     * Toggles projects dropdown visibility.
-     */
-    public toggleProjectDropdown(): void {
-        this.isProjectDropdownShown = !this.isProjectDropdownShown;
-    }
+/**
+ * Route to create project page.
+ */
+function onCreateLinkClick(): void {
+    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
-    /**
-     * Toggles account dropdown visibility.
-     */
-    public toggleAccountDropdown(): void {
-        this.isAccountDropdownShown = !this.isAccountDropdownShown;
-        window.scrollTo(0, document.querySelector('.navigation-area__container__wrap')?.scrollHeight || 0);
-    }
+        const user: User = store.getters.user;
+        const ownProjectsCount: number = store.getters.projectsCount;
 
-    /**
-     * Indicates if all projects dashboard should be used.
-     */
-    public get isAllProjectsDashboard(): boolean {
-        return this.$store.state.appStateModule.isAllProjectsDashboard;
-    }
-
-    /**
-     * Returns projects list from store.
-     */
-    public get projects(): Project[] {
-        return this.$store.getters.projectsWithoutSelected;
-    }
-
-    /**
-     * Sends new path click event to segment.
-     */
-    public trackClickEvent(path: string): void {
-        this.analytics.pageVisit(path);
-    }
-
-    /**
-     * Toggles manage passphrase modal shown.
-     */
-    public onManagePassphraseClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
-    }
-
-    /**
-     * Indicates if current route is objects view.
-     */
-    private get isBucketsView(): boolean {
-        const currentRoute = this.$route.path;
-
-        return currentRoute.includes(RouteConfig.BucketsManagement.path);
-    }
-
-    /**
-     * Returns selected project from store.
-     */
-    public get selectedProject(): Project {
-        return this.$store.getters.selectedProject;
-    }
-
-    public async onProjectClick(): Promise<void> {
-        this.toggleProjectDropdown();
-
-        if (this.isLoading || !this.isProjectDropdownShown) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    /**
-     * Fetches all project related information.
-     * @param projectID
-     */
-    public async onProjectSelected(projectID: string): Promise<void> {
-        await this.analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-        this.isProjectDropdownShown = false;
-
-        if (this.isBucketsView) {
-            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
-            this.analytics.pageVisit(RouteConfig.Buckets.path);
-            await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-        }
-
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-        } catch (error) {
-            await this.$notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
-        }
-    }
-
-    /**
-     * Route to projects list page.
-     */
-    public onProjectsLinkClick(): void {
-        if (this.$route.name !== RouteConfig.ProjectsList.name) {
-            this.analytics.pageVisit(RouteConfig.ProjectsList.path);
-            this.analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-            this.$router.push(RouteConfig.ProjectsList.path);
-        }
-
-        this.isProjectDropdownShown = false;
-    }
-
-    /**
-     * Route to create project page.
-     */
-    public onCreateLinkClick(): void {
-        if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-            const user: User = this.$store.getters.user;
-            const ownProjectsCount: number = this.$store.getters.projectsCount;
-
-            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-            } else {
-                this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
-            }
-        }
-
-        this.isProjectDropdownShown = false;
-    }
-
-    /**
-     * Navigates user to billing page.
-     */
-    public navigateToBilling(): void {
-        this.isOpened = false;
-        if (this.$route.path.includes(RouteConfig.Billing.path)) return;
-
-        let link = RouteConfig.Account.with(RouteConfig.Billing);
-        if (MetaUtils.getMetaContent('new-billing-screen') === 'true') {
-            link = link.with(RouteConfig.BillingOverview);
-        }
-        this.$router.push(link.path);
-        this.analytics.pageVisit(link.path);
-    }
-
-    /**
-     * Navigates user to account settings page.
-     */
-    public navigateToSettings(): void {
-        this.isOpened = false;
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
-        this.$router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
-    }
-
-    /**
-     * Logouts user and navigates to login page.
-     */
-    public async onLogout(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.Login.path);
-        await this.$router.push(RouteConfig.Login.path);
-
-        await Promise.all([
-            this.$store.dispatch(PM_ACTIONS.CLEAR),
-            this.$store.dispatch(PROJECTS_ACTIONS.CLEAR),
-            this.$store.dispatch(USER_ACTIONS.CLEAR),
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
-            this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-            this.$store.dispatch(BUCKET_ACTIONS.CLEAR),
-            this.$store.dispatch(OBJECTS_ACTIONS.CLEAR),
-            this.$store.dispatch(APP_STATE_ACTIONS.CLEAR),
-            this.$store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-            this.$store.dispatch(AB_TESTING_ACTIONS.RESET),
-            this.$store.dispatch('files/clear'),
-        ]);
-
-        try {
-            this.analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-            await this.auth.logout();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
+        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+        } else {
+            analytics.pageVisit(RouteConfig.CreateProject.path);
+            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
         }
     }
 
-    /**
-     * Returns satellite name from store.
-     */
-    public get satellite(): boolean {
-        return this.$store.state.appStateModule.satelliteName;
-    }
+    isProjectDropdownShown.value = false;
+}
 
-    /**
-     * Returns user entity from store.
-     */
-    public get user(): User {
-        return this.$store.getters.user;
+/**
+ * Navigates user to billing page.
+ */
+function navigateToBilling(): void {
+    isOpened.value = false;
+    if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
+
+    let link = RouteConfig.Account.with(RouteConfig.Billing);
+    if (MetaUtils.getMetaContent('new-billing-screen') === 'true') {
+        link = link.with(RouteConfig.BillingOverview);
+    }
+    router.push(link.path);
+    analytics.pageVisit(link.path);
+}
+
+/**
+ * Navigates user to account settings page.
+ */
+function navigateToSettings(): void {
+    isOpened.value = false;
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Settings).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Settings).path).catch(() => {return;});
+}
+
+/**
+ * Logouts user and navigates to login page.
+ */
+async function onLogout(): Promise<void> {
+    analytics.pageVisit(RouteConfig.Login.path);
+    await router.push(RouteConfig.Login.path);
+
+    await Promise.all([
+        store.dispatch(PM_ACTIONS.CLEAR),
+        store.dispatch(PROJECTS_ACTIONS.CLEAR),
+        store.dispatch(USER_ACTIONS.CLEAR),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
+        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
+        store.dispatch(BUCKET_ACTIONS.CLEAR),
+        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        store.dispatch(APP_STATE_ACTIONS.CLEAR),
+        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        store.dispatch('files/clear'),
+    ]);
+
+    try {
+        analytics.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
+        await auth.logout();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
 }
 </script>

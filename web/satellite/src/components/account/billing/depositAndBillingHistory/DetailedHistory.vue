@@ -32,7 +32,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
@@ -44,18 +44,16 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const store = useStore();
 const notify = useNotify();
-const router = useRouter();
-const nativeRoute = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const isDataFetching = ref<boolean>(true);
-
-const route = reactive(nativeRoute);
 
 /**
  * Indicates if current route is billing history page.
  */
 const isBillingHistory = computed((): boolean => {
-    return route.name === RouteConfig.BillingHistory.name;
+    return router.currentRoute.name === RouteConfig.BillingHistory.name;
 });
 
 /**
