@@ -1,10 +1,16 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { decimalShift } from '@/utils/strings';
+import { decimalShift, formatPrice } from '@/utils/strings';
 
 describe('decimalShift', (): void => {
-    it('shifts integers correctly', function() {
+    it('handles empty strings', (): void => {
+        expect(decimalShift('', 0)).toBe('0');
+        expect(decimalShift('', 2)).toBe('0');
+        expect(decimalShift('', -2)).toBe('0');
+    });
+
+    it('shifts integers correctly', (): void => {
         ['', '-'].forEach(sign => {
             const decimal = sign+'123';
             expect(decimalShift(decimal, 0)).toBe(sign+'123');
@@ -14,7 +20,7 @@ describe('decimalShift', (): void => {
         });
     });
 
-    it('shifts decimals correctly', function() {
+    it('shifts decimals correctly', (): void => {
         ['', '-'].forEach(sign => {
             const decimal = sign+'1.23';
             expect(decimalShift(decimal, 0)).toBe(sign+'1.23');
@@ -24,11 +30,38 @@ describe('decimalShift', (): void => {
         });
     });
 
-    it('trims unnecessary characters', function() {
+    it('trims unnecessary characters', (): void => {
         ['', '-'].forEach(sign => {
             expect(decimalShift(sign+'0.0012300', -2)).toBe(sign+'0.123');
             expect(decimalShift(sign+'12300', 2)).toBe(sign+'123');
             expect(decimalShift(sign+'000.000', 1)).toBe('0');
+        });
+    });
+});
+
+describe('formatPrice', (): void => {
+    it('handles empty strings', (): void => {
+        expect(formatPrice('')).toBe('$0');
+    });
+
+    it('formats correctly', (): void => {
+        ['', '-'].forEach(sign => {
+            expect(formatPrice(sign+'123')).toBe(sign+'$123');
+            expect(formatPrice(sign+'1.002')).toBe(sign+'$1.002');
+        });
+    });
+
+    it('adds zeros when necessary', (): void => {
+        ['', '-'].forEach(sign => {
+            expect(formatPrice(sign+'12.3')).toBe(sign+'$12.30');
+            expect(formatPrice(sign+'.123')).toBe(sign+'$0.123');
+        });
+    });
+
+    it('trims unnecessary characters', (): void => {
+        ['', '-'].forEach(sign => {
+            expect(formatPrice(sign+'0.0')).toBe('$0');
+            expect(formatPrice(sign+'00123.00')).toBe(sign+'$123');
         });
     });
 });

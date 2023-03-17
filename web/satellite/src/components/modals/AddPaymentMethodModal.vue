@@ -64,15 +64,16 @@
                             <p class="add-modal__bullets__left__item__label">100 request per second rate limit</p>
                         </div>
                     </div>
-                    <div class="add-modal__bullets__right">
+                    <VLoader v-if="isPriceFetching" class="add-modal__bullets__right-loader" width="90px" height="90px" />
+                    <div v-else class="add-modal__bullets__right">
                         <h2 class="add-modal__bullets__right__title">Storage price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$4</p>
+                            <p class="add-modal__bullets__right__item__price">{{ storagePrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB / month</p>
                         </div>
                         <h2 class="add-modal__bullets__right__title">Bandwidth price:</h2>
                         <div class="add-modal__bullets__right__item">
-                            <p class="add-modal__bullets__right__item__price">$7</p>
+                            <p class="add-modal__bullets__right__item__price">{{ bandwidthPrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB</p>
                         </div>
                     </div>
@@ -124,9 +125,10 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
+import { useNotify, useRoute, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -136,6 +138,8 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { ProjectUsagePriceModel } from '@/types/payments';
+import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -150,103 +154,126 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-// @vue/component
-@Component({
-    components: {
-        StripeCardInput,
-        VButton,
-        CheckMarkIcon,
-        LockImage,
-        VLoader,
-        VModal,
-        BigCheckMarkIcon,
-    },
-})
-export default class AddPaymentMethodModal extends Vue {
-    public isAddModal = true;
-    public isAddCard = true;
-    public isLoading = false;
+const notify = useNotify();
+const store = useStore();
+const route = useRoute();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
-    };
+const isAddModal = ref<boolean>(true);
+const isAddCard = ref<boolean>(true);
+const isLoading = ref<boolean>(false);
+const isPriceFetching = ref<boolean>(true);
 
-    /**
-     * Provides card information to Stripe.
-     */
-    public async onAddCardClick(): Promise<void> {
-        if (this.isLoading) return;
+const stripeCardInput = ref<StripeCardInput & StripeForm | null>(null);
 
-        this.isLoading = true;
-
-        try {
-            await this.$refs.stripeCardInput.onSubmit();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-        this.isLoading = false;
+/**
+ * Lifecycle hook after initial render.
+ * Fetches project usage price model.
+ */
+onMounted(async () => {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        isPriceFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
+});
 
-    /**
-     * Adds card after Stripe confirmation.
-     *
-     * @param token from Stripe
-     */
-    public async addCardToDB(token: string): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
+/**
+ * Provides card information to Stripe.
+ */
+async function onAddCardClick(): Promise<void> {
+    if (isLoading.value || !stripeCardInput.value) return;
 
-            await this.$notify.success('Card successfully added');
+    isLoading.value = true;
 
-            // We fetch User one more time to update their Paid Tier status.
-            await this.$store.dispatch(USER_ACTIONS.GET);
-            // We fetch Cards one more time to hide Paid Tier banner.
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
-
-            if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-                await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            }
-
-            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
-
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-
-        this.isLoading = false;
-        this.isAddModal = false;
+    try {
+        await stripeCardInput.value.onSubmit();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
-
-    /**
-     * Closes add payment method modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
-    }
-
-    /**
-     * Sets modal state to add STORJ tokens.
-     */
-    public setIsAddToken(): void {
-        this.isAddCard = false;
-    }
-
-    /**
-     * Sets modal state to add credit card.
-     */
-    public setIsAddCard(): void {
-        this.isAddCard = true;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get limitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
+    isLoading.value = false;
 }
+
+/**
+ * Adds card after Stripe confirmation.
+ *
+ * @param token from Stripe
+ */
+async function addCardToDB(token: string): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
+
+        await notify.success('Card successfully added');
+
+        // We fetch User one more time to update their Paid Tier status.
+        await store.dispatch(USER_ACTIONS.GET);
+
+        if (route.name === RouteConfig.ProjectDashboard.name) {
+            await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        }
+
+        await analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+    }
+
+    isLoading.value = false;
+    isAddModal.value = false;
+}
+
+/**
+ * Closes add payment method modal.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+}
+
+/**
+ * Sets modal state to add STORJ tokens.
+ */
+function setIsAddToken(): void {
+    isAddCard.value = false;
+}
+
+/**
+ * Sets modal state to add credit card.
+ */
+function setIsAddCard(): void {
+    isAddCard.value = true;
+}
+
+/**
+ * Returns project limits increase request url from config.
+ */
+const limitsIncreaseRequestURL = computed((): string => {
+    return MetaUtils.getMetaContent('project-limits-increase-request-url');
+});
+
+/**
+ * Returns project usage price model from store.
+ */
+const priceModel = computed((): ProjectUsagePriceModel => {
+    return store.state.paymentsModule.usagePriceModel;
+});
+
+/**
+ * Returns the storage price formatted as dollars per terabyte.
+ */
+const storagePrice = computed((): string => {
+    const storage = priceModel.value.storageMBMonthCents.toString();
+    return formatPrice(decimalShift(storage, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
+
+/**
+ * Returns the bandwidth (egress) price formatted as dollars per terabyte.
+ */
+const bandwidthPrice = computed((): string => {
+    const egress = priceModel.value.egressMBCents.toString();
+    return formatPrice(decimalShift(egress, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
 </script>
 
 <style scoped lang="scss">
@@ -488,6 +515,16 @@ export default class AddPaymentMethodModal extends Vue {
                         color: #000;
                         text-align: left;
                     }
+                }
+            }
+
+            &__right-loader {
+                width: 50%;
+                align-items: center;
+
+                @media screen and (max-width: 570px) {
+                    width: 100%;
+                    margin-top: 16px;
                 }
             }
 
