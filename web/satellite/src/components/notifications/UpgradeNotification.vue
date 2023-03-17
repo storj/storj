@@ -22,8 +22,6 @@ import { ref } from 'vue';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
-import { ABHitAction } from '@/types/abtesting';
 import { useStore } from '@/utils/hooks';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
@@ -51,7 +49,6 @@ function onCloseClick(): void {
 async function openBanner(): Promise<void> {
     props.openAddPMModal();
     await analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
-    await store.dispatch(AB_TESTING_ACTIONS.HIT, ABHitAction.UPGRADE_ACCOUNT_CLICKED);
 }
 </script>
 

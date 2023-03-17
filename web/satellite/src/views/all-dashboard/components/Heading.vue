@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import {
     AnalyticsErrorEventSource,
@@ -113,9 +113,9 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -135,6 +135,7 @@ import MenuIcon from '@/../static/images/navigation/menu.svg';
 
 const router = useRouter();
 const store = useStore();
+const abTestingStore = useABTestingStore();
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 const notify = useNotify();
@@ -242,7 +243,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLEAR),
         store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
 

@@ -125,7 +125,6 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { MetaUtils } from '@/utils/meta';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -133,6 +132,7 @@ import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
 import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
 
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -154,6 +154,7 @@ const {
 const router = useRouter();
 const store = useStore();
 const notify = useNotify();
+const abTestingStore = useABTestingStore();
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
@@ -348,7 +349,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
         store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
 
@@ -537,7 +538,7 @@ onMounted(async () => {
     try {
         await store.dispatch(USER_ACTIONS.GET);
         await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
-        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        await abTestingStore.fetchValues();
         setupSessionTimers();
     } catch (error) {
         store.subscribeAction((action) => {

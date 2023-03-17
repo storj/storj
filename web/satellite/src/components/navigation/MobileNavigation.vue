@@ -177,10 +177,10 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -221,6 +221,7 @@ const navigation: NavigationLink[] = [
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
+const abTestingStore = useABTestingStore();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
@@ -466,7 +467,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLEAR),
         store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
 

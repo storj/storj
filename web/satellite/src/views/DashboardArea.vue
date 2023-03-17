@@ -120,13 +120,13 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useABTestingStore } from '@/store/modules/abTestingStore';
 
 import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -151,6 +151,7 @@ const store = useStore();
 // TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
 const nativeRouter = useRouter();
 const notify = useNotify();
+const abTestingStore = useABTestingStore();
 
 const router = reactive(nativeRouter);
 
@@ -493,7 +494,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
         store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
-        store.dispatch(AB_TESTING_ACTIONS.RESET),
+        abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
 
@@ -598,7 +599,7 @@ onMounted(async () => {
     try {
         await store.dispatch(USER_ACTIONS.GET);
         await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
-        await store.dispatch(AB_TESTING_ACTIONS.FETCH);
+        await abTestingStore.fetchValues();
         setupSessionTimers();
     } catch (error) {
         store.subscribeAction((action) => {
