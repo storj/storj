@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { formatPrice, decimalShift } from '@/utils/strings';
+
 /**
  * Exposes all payments-related functionality
  */
@@ -126,7 +128,7 @@ export class AccountBalance {
         public freeCredits: number = 0,
         // STORJ token balance from storjscan.
         private _coins: string = '0',
-        // STORJ balance from stripe. This may include the following.
+        // STORJ balance (in cents) from stripe. This may include the following.
         // 1. legacy Coinpayments deposit.
         // 2. legacy credit for a manual STORJ deposit.
         // 4. bonus manually credited for a storjscan payment once a month before  invoicing.
@@ -138,12 +140,16 @@ export class AccountBalance {
         return parseFloat(this._coins);
     }
 
-    public get credits(): number {
-        return parseFloat(this._credits);
+    public get formattedCredits(): string {
+        return formatPrice(decimalShift(this._credits, 2));
     }
 
     public get sum(): number {
         return this.freeCredits + this.coins;
+    }
+
+    public hasCredits(): boolean {
+        return parseFloat(this._credits) !== 0;
     }
 }
 

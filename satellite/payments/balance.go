@@ -13,7 +13,7 @@ type Balance struct {
 	FreeCredits int64           `json:"freeCredits"`
 	Coins       decimal.Decimal `json:"coins"` // STORJ token balance from storjscan.
 	Credits     decimal.Decimal `json:"credits"`
-	// Credits is the balance from stripe. This may include the following.
+	// Credits is the balance (in cents) from stripe. This may include the following.
 	// 1. legacy Coinpayments deposit.
 	// 2. legacy credit for a manual STORJ deposit.
 	// 4. bonus manually credited for a storjscan payment once a month before  invoicing.
