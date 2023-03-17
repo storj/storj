@@ -296,14 +296,14 @@ const joinedWhileAgo = computed((): boolean => {
  * Indicates if current route is projects list page.
  */
 const isProjectListPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.ProjectsList.name;
+    return router.currentRoute.name === RouteConfig.ProjectsList.name;
 });
 
 /**
  * Indicates if current route is onboarding tour.
  */
 const isOnboardingTour = computed((): boolean => {
-    return router.history.current?.path.includes(RouteConfig.OnboardingTour.path);
+    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
 });
 
 /**
@@ -339,14 +339,14 @@ const isBillingNotificationShown = computed((): boolean => {
  * Indicates if current route is create project page.
  */
 const isCreateProjectPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.CreateProject.name;
+    return router.currentRoute.name === RouteConfig.CreateProject.name;
 });
 
 /**
  * Indicates if current route is the dashboard page.
  */
 const isDashboardPage = computed((): boolean => {
-    return router.history.current?.name === RouteConfig.ProjectDashboard.name;
+    return router.currentRoute.name === RouteConfig.ProjectDashboard.name;
 });
 
 /**

@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -35,7 +35,7 @@ const props = withDefaults(defineProps<{
 
 const isShown = ref<boolean>(true);
 const bannerWidth = ref<number>(0);
-let resizeObserver = reactive<ResizeObserver>();
+const resizeObserver = ref<ResizeObserver>();
 
 function closeClicked(): void {
     isShown.value = false;
@@ -49,11 +49,11 @@ function onBannerResize(): void {
 }
 
 function setResizable(): void {
-    resizeObserver?.observe(props.dashboardRef);
+    resizeObserver.value?.observe(props.dashboardRef);
 }
 
 onMounted((): void => {
-    resizeObserver = new ResizeObserver(onBannerResize);
+    resizeObserver.value = new ResizeObserver(onBannerResize);
 
     if (props.dashboardRef) {
         setResizable();
@@ -62,7 +62,7 @@ onMounted((): void => {
 });
 
 onUnmounted((): void => {
-    resizeObserver?.unobserve(props.dashboardRef);
+    resizeObserver.value?.unobserve(props.dashboardRef);
 });
 
 watch(() => props.dashboardRef, () => {
