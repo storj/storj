@@ -17,7 +17,7 @@ export function useRouter() {
 }
 
 export function useStore() {
-    return getCurrentInstance()?.proxy.$store || {} as typeof store;
+    return (getCurrentInstance()?.proxy.$store || {}) as typeof store;
 }
 
 export function useNotify() {

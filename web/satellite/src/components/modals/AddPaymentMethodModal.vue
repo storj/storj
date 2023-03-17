@@ -124,9 +124,10 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
+import { useNotify, useRoute, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -150,103 +151,89 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-// @vue/component
-@Component({
-    components: {
-        StripeCardInput,
-        VButton,
-        CheckMarkIcon,
-        LockImage,
-        VLoader,
-        VModal,
-        BigCheckMarkIcon,
-    },
-})
-export default class AddPaymentMethodModal extends Vue {
-    public isAddModal = true;
-    public isAddCard = true;
-    public isLoading = false;
+const notify = useNotify();
+const store = useStore();
+const route = useRoute();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
-    };
+const isAddModal = ref<boolean>(true);
+const isAddCard = ref<boolean>(true);
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Provides card information to Stripe.
-     */
-    public async onAddCardClick(): Promise<void> {
-        if (this.isLoading) return;
+const stripeCardInput = ref<StripeCardInput & StripeForm | null>(null);
 
-        this.isLoading = true;
+/**
+ * Provides card information to Stripe.
+ */
+async function onAddCardClick(): Promise<void> {
+    if (isLoading.value || !stripeCardInput.value) return;
 
-        try {
-            await this.$refs.stripeCardInput.onSubmit();
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-        this.isLoading = false;
+    isLoading.value = true;
+
+    try {
+        await stripeCardInput.value.onSubmit();
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }
-
-    /**
-     * Adds card after Stripe confirmation.
-     *
-     * @param token from Stripe
-     */
-    public async addCardToDB(token: string): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
-
-            await this.$notify.success('Card successfully added');
-
-            // We fetch User one more time to update their Paid Tier status.
-            await this.$store.dispatch(USER_ACTIONS.GET);
-            // We fetch Cards one more time to hide Paid Tier banner.
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
-
-            if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-                await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            }
-
-            await this.analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
-
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
-        }
-
-        this.isLoading = false;
-        this.isAddModal = false;
-    }
-
-    /**
-     * Closes add payment method modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
-    }
-
-    /**
-     * Sets modal state to add STORJ tokens.
-     */
-    public setIsAddToken(): void {
-        this.isAddCard = false;
-    }
-
-    /**
-     * Sets modal state to add credit card.
-     */
-    public setIsAddCard(): void {
-        this.isAddCard = true;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get limitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
+    isLoading.value = false;
 }
+
+/**
+ * Adds card after Stripe confirmation.
+ *
+ * @param token from Stripe
+ */
+async function addCardToDB(token: string): Promise<void> {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
+
+        await notify.success('Card successfully added');
+
+        // We fetch User one more time to update their Paid Tier status.
+        await store.dispatch(USER_ACTIONS.GET);
+
+        if (route.name === RouteConfig.ProjectDashboard.name) {
+            await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        }
+
+        await analytics.eventTriggered(AnalyticsEvent.MODAL_ADD_CARD);
+
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
+    }
+
+    isLoading.value = false;
+    isAddModal.value = false;
+}
+
+/**
+ * Closes add payment method modal.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+}
+
+/**
+ * Sets modal state to add STORJ tokens.
+ */
+function setIsAddToken(): void {
+    isAddCard.value = false;
+}
+
+/**
+ * Sets modal state to add credit card.
+ */
+function setIsAddCard(): void {
+    isAddCard.value = true;
+}
+
+/**
+ * Returns project limits increase request url from config.
+ */
+const limitsIncreaseRequestURL = computed((): string => {
+    return MetaUtils.getMetaContent('project-limits-increase-request-url');
+});
 </script>
 
 <style scoped lang="scss">
