@@ -17,44 +17,41 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AB_TESTING_ACTIONS } from '@/store/modules/abTesting';
 import { ABHitAction } from '@/types/abtesting';
+import { useStore } from '@/utils/hooks';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CloseIcon,
-        SunnyIcon,
-    },
-})
-export default class UpgradeNotification extends Vue {
-    @Prop({ default: () => () => false })
-    public readonly openAddPMModal: () => void;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const props = defineProps<{
+    openAddPMModal: () => void,
+}>();
 
-    public isBannerShowing = true;
+const store = useStore();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Closes notification.
-     */
-    public onCloseClick(): void {
-        this.isBannerShowing = false;
-    }
+const isBannerShowing = ref<boolean>(true);
 
-    // Send analytics event to segment when Upgrade Account banner is clicked.
-    public async openBanner(): Promise<void> {
-        this.openAddPMModal();
-        await this.analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
-        await this.$store.dispatch(AB_TESTING_ACTIONS.HIT, ABHitAction.UPGRADE_ACCOUNT_CLICKED);
-    }
+/**
+ * Closes notification.
+ */
+function onCloseClick(): void {
+    isBannerShowing.value = false;
+}
+
+/**
+ * Send analytics event to segment when Upgrade Account banner is clicked.
+ */
+async function openBanner(): Promise<void> {
+    props.openAddPMModal();
+    await analytics.eventTriggered(AnalyticsEvent.UPGRADE_BANNER_CLICKED);
+    await store.dispatch(AB_TESTING_ACTIONS.HIT, ABHitAction.UPGRADE_ACCOUNT_CLICKED);
 }
 </script>
 
