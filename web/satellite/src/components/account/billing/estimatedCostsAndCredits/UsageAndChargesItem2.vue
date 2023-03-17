@@ -26,9 +26,9 @@
             </div>
             <div class="usage-charges-item-container__detailed-info-container__content-area">
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage <span class="price-per-month">(${{ storagePrice }} per Gigabyte-Month)</span></p>
-                    <p>Egress <span class="price-per-month">(${{ egressPrice }} per GB)</span></p>
-                    <p>Segments <span class="price-per-month">(${{ segmentPrice }} per Segment-Month)</span></p>
+                    <p>Storage <span class="price-per-month">({{ storagePrice }} per Gigabyte-Month)</span></p>
+                    <p>Egress <span class="price-per-month">({{ egressPrice }} per GB)</span></p>
+                    <p>Segments <span class="price-per-month">({{ segmentPrice }} per Segment-Month)</span></p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
@@ -58,7 +58,7 @@ import { ProjectUsageAndCharges, ProjectUsagePriceModel } from '@/types/payments
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { decimalShift } from '@/utils/strings';
+import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_GB_SHIFT } from '@/utils/strings';
 import { useStore } from '@/utils/hooks';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
@@ -67,12 +67,6 @@ import GreyChevron from '@/../static/images/common/greyChevron.svg';
  * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
  */
 const HOURS_IN_MONTH = 720;
-
-/**
- * CENTS_MB_TO_DOLLARS_GB_SHIFT constant represents how many places to the left
- * a decimal point must be shifted to convert from cents/MB to dollars/GB.
- */
-const CENTS_MB_TO_DOLLARS_GB_SHIFT = -1;
 
 const props = withDefaults(defineProps<{
     /**
@@ -144,21 +138,21 @@ const segmentCountFormatted = computed((): string => {
  * Returns storage price per GB.
  */
 const storagePrice = computed((): string => {
-    return decimalShift(priceModel.value.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT);
+    return formatPrice(decimalShift(priceModel.value.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
 });
 
 /**
  * Returns egress price per GB.
  */
 const egressPrice = computed((): string => {
-    return decimalShift(priceModel.value.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT);
+    return formatPrice(decimalShift(priceModel.value.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
 });
 
 /**
  * Returns segment price.
  */
 const segmentPrice = computed((): string => {
-    return decimalShift(priceModel.value.segmentMonthCents, 2);
+    return formatPrice(decimalShift(priceModel.value.segmentMonthCents, 2));
 });
 
 /**
