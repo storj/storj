@@ -92,22 +92,25 @@ pipeline {
                         sh 'go install -race -v storj.io/gateway@latest'
                     }
                 }
+            }
+        }
+        stage('playwright assets') {
+            parallel {
+                stage('install playwright') {
+                    steps {
+                        dir("testsuite/playwright-ui") {
+                            sh 'npm ci'
+                        }
+                    }
+                }
+                stage('start services') {
+                    steps {
+                        sh 'echo starting storj services'
+                    }
+                }
+            }
+        }
 
-                // stage('db') {
-                //    steps {
-                //        sh 'service postgresql start'
-                //        dir('.build') {
-                //            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                //        }
-                //    }
-                // }
-            }
-        }
-        stage('start services') {
-            steps {
-                sh 'echo starting services'
-            }
-        }
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui") {
