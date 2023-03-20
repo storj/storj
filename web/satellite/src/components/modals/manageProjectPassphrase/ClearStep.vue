@@ -27,8 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { useStore } from '@/utils/hooks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { useNotify, useStore } from '@/utils/hooks';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -42,6 +41,7 @@ const props = withDefaults(defineProps<{
 });
 
 const store = useStore();
+const notify = useNotify();
 
 /**
  * Clears passphrase and edge credentials.
@@ -49,6 +49,7 @@ const store = useStore();
 function onClear(): void {
     store.commit(OBJECTS_MUTATIONS.CLEAR);
     store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    notify.success('Passphrase was cleared successfully');
 }
 </script>
 
