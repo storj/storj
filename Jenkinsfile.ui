@@ -105,7 +105,7 @@ pipeline {
         }
         stage('start services') {
             steps {
-
+                'echo starting services'
             }
         }
         stage('execute ui tests') {
@@ -125,6 +125,7 @@ pipeline {
                 stage('report') {
                     steps {
                         //execute the report
+                        sh 'echo reporting for duty'
                     }
                 }
             }
