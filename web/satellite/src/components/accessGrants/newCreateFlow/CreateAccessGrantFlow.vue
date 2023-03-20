@@ -602,6 +602,7 @@ async function setLastStep(): Promise<void> {
             passphraseOption.value === PassphraseOption.SetMyProjectPassphrase &&
             !selectedAccessTypes.value.includes(AccessType.APIKey)
         ) {
+            store.commit(OBJECTS_MUTATIONS.SET_GATEWAY_CREDENTIALS, new EdgeCredentials());
             store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, enteredPassphrase.value);
             store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
         }

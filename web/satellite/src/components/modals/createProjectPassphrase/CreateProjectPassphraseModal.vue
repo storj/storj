@@ -66,6 +66,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { EdgeCredentials } from '@/types/accessGrants';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -185,6 +186,7 @@ async function onContinue(): Promise<void> {
         }
 
         try {
+            store.commit(OBJECTS_MUTATIONS.SET_GATEWAY_CREDENTIALS, new EdgeCredentials());
             store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
             store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
 
