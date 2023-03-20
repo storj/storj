@@ -108,7 +108,13 @@ pipeline {
 
             }
         }
-
+        stage('execute ui tests') {
+            steps {
+                dir("testsuite/playwright-ui") {
+                    sh 'npx playwright test'
+                }
+            }
+        }
         stage('Post') {
             parallel {
                 stage('Lint') {
