@@ -93,23 +93,32 @@ pipeline {
                     }
                 }
 
-                stage('db') {
-                    steps {
-                        sh 'service postgresql start'
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
-                        }
-                    }
-                }
+                // stage('db') {
+                //    steps {
+                //        sh 'service postgresql start'
+                //        dir('.build') {
+                //            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                //        }
+                //    }
+                // }
             }
         }
+        stage('start services') {
+            steps {
 
+            }
+        }
 
         stage('Post') {
             parallel {
                 stage('Lint') {
                     steps {
                         sh 'check-clean-directory'
+                    }
+                }
+                stage('report') {
+                    steps {
+                        //execute the report
                     }
                 }
             }
