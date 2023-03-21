@@ -345,20 +345,20 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		}
 		uploadDuration := dt.Nanoseconds()
 
-		if err != nil && !errs2.IsCanceled(err) {
-			mon.Counter("upload_failure_count").Inc(1)
-			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
-			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
-			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
-			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
-		} else if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
+		if (errs2.IsCanceled(err) || drpc.ClosedError.Has(err)) && !committed {
 			mon.Counter("upload_cancel_count").Inc(1)
 			mon.Meter("upload_cancel_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_cancel_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_cancel_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_cancel_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("upload canceled", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Int64("Size", uploadSize), remoteAddrLogField)
+		} else if err != nil {
+			mon.Counter("upload_failure_count").Inc(1)
+			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Error("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Satellite ID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err), zap.Int64("Size", uploadSize), remoteAddrLogField)
 		} else {
 			mon.Counter("upload_success_count").Inc(1)
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
