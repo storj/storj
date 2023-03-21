@@ -692,17 +692,13 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	spaceChanged := (node.Capacity == nil && oldInfo.Capacity.FreeDisk != 0) ||
 		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
 
-	if oldInfo.CountryCode == location.CountryCode(0) || oldInfo.LastIPPort != node.LastIPPort {
-		node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
-		if err != nil {
-			failureMeter.Mark(1)
-			service.log.Debug("failed to resolve country code for node",
-				zap.String("node address", node.Address.Address),
-				zap.Stringer("Node ID", node.NodeID),
-				zap.Error(err))
-		}
-	} else {
-		node.CountryCode = oldInfo.CountryCode
+	node.CountryCode, err = service.GeoIP.LookupISOCountryCode(node.LastIPPort)
+	if err != nil {
+		failureMeter.Mark(1)
+		service.log.Debug("failed to resolve country code for node",
+			zap.String("node address", node.Address.Address),
+			zap.Stringer("Node ID", node.NodeID),
+			zap.Error(err))
 	}
 
 	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
