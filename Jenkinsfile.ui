@@ -100,7 +100,6 @@ pipeline {
                     steps {
                         dir("testsuite/playwright-ui") {
                             sh 'npm ci'
-                            sh 'npx playwright install --with-deps'
                         }
                     }
                 }
