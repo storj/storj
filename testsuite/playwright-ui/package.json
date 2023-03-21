@@ -8,7 +8,7 @@
     "allure:open": "npx allure open ./allure-report",
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate",
-    "test": "npx playwright test",
+    "test": "npx playwright test ./tests/",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
   "keywords": [],
