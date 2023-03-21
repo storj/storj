@@ -13,7 +13,9 @@ import (
 	"sync"
 	"time"
 
-	progressbar "github.com/cheggaaa/pb/v3"
+	"github.com/VividCortex/ewma"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -183,7 +185,20 @@ func (c *cmdCp) dispatchCopy(ctx context.Context, fs ulfs.Filesystem, source, de
 		fmt.Fprintln(clingy.Stdout(ctx), copyVerb(source, dest), source, "to", dest)
 	}
 
-	return c.copyFile(ctx, fs, source, dest, c.progress)
+	var bar *mpb.Bar
+	if c.progress && !dest.Std() {
+		progress := mpb.New(mpb.WithOutput(clingy.Stdout(ctx)))
+		defer progress.Wait()
+
+		var namer barNamer
+		bar = newProgressBar(progress, namer.NameFor(source, dest), 1, 1)
+		defer func() {
+			bar.Abort(true)
+			bar.Wait()
+		}()
+	}
+
+	return c.copyFile(ctx, fs, source, dest, bar)
 }
 
 func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location) error {
@@ -210,6 +225,12 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 
 		fmt.Fprintln(w, args...)
 	}
+	fprintf := func(w io.Writer, format string, args ...interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		fmt.Fprintf(w, format, args...)
+	}
 
 	addError := func(err error) {
 		if err == nil {
@@ -222,6 +243,15 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		es.Add(err)
 	}
 
+	type copyOp struct {
+		src  ulloc.Location
+		dest ulloc.Location
+	}
+
+	var verb string
+	var verbing string
+	var namer barNamer
+	var ops []copyOp
 	for iter.Next() {
 		item := iter.Item().Loc
 		rel, err := source.RelativeTo(item)
@@ -230,12 +260,42 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 		}
 		dest := joinDestWith(dest, rel)
 
-		ok := limiter.Go(ctx, func() {
-			fprintln(clingy.Stdout(ctx), copyVerb(item, dest), item, "to", dest)
+		verb = copyVerb(item, dest)
+		verbing = copyVerbing(item, dest)
 
-			if err := c.copyFile(ctx, fs, item, dest, false); err != nil {
-				fprintln(clingy.Stdout(ctx), copyVerb(item, dest), "failed:", err.Error())
-				addError(err)
+		namer.Preview(item, dest)
+
+		ops = append(ops, copyOp{src: item, dest: dest})
+	}
+	if err := iter.Err(); err != nil {
+		return errs.Wrap(err)
+	}
+
+	fprintln(clingy.Stdout(ctx), verbing, len(ops), "files...")
+
+	var progress *mpb.Progress
+	if c.progress {
+		progress = mpb.New(mpb.WithOutput(clingy.Stdout(ctx)))
+		defer progress.Wait()
+	}
+
+	for i, op := range ops {
+		i := i
+		op := op
+
+		ok := limiter.Go(ctx, func() {
+			var bar *mpb.Bar
+			if progress != nil {
+				bar = newProgressBar(progress, namer.NameFor(op.src, op.dest), i+1, len(ops))
+				defer func() {
+					bar.Abort(true)
+					bar.Wait()
+				}()
+			} else {
+				fprintf(clingy.Stdout(ctx), "%s %s to %s (%d of %d)\n", verb, op.src, op.dest, i+1, len(ops))
+			}
+			if err := c.copyFile(ctx, fs, op.src, op.dest, bar); err != nil {
+				addError(errs.New("%s %s to %s failed: %w", verb, op.src, op.dest, err))
 			}
 		})
 		if !ok {
@@ -245,15 +305,22 @@ func (c *cmdCp) copyRecursive(ctx context.Context, fs ulfs.Filesystem, source, d
 
 	limiter.Wait()
 
-	if err := iter.Err(); err != nil {
-		return errs.Wrap(err)
-	} else if len(es) > 0 {
-		return es.Err()
+	if progress != nil {
+		// Wait for all of the progress bar output to complete before doing
+		// additional output.
+		progress.Wait()
+	}
+
+	if len(es) > 0 {
+		for _, e := range es {
+			fprintln(clingy.Stdout(ctx), e)
+		}
+		return errs.New("recursive %s failed (%d of %d)", verb, len(es), len(ops))
 	}
 	return nil
 }
 
-func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
+func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest ulloc.Location, bar *mpb.Bar) (err error) {
 	if c.dryrun {
 		return nil
 	}
@@ -281,12 +348,6 @@ func (c *cmdCp) copyFile(ctx context.Context, fs ulfs.Filesystem, source, dest u
 		return err
 	}
 	defer func() { _ = mwh.Abort(ctx) }()
-
-	var bar *progressbar.ProgressBar
-	if progress && !dest.Std() {
-		bar = progressbar.New64(0).SetWriter(clingy.Stdout(ctx))
-		defer bar.Finish()
-	}
 
 	partSize, err := c.calculatePartSize(mrh.Length(), c.parallelismChunkSize.Int64())
 	if err != nil {
@@ -320,7 +381,11 @@ func (c *cmdCp) calculatePartSize(length, preferredSize int64) (requiredSize int
 	}
 }
 
-func copyVerb(source, dest ulloc.Location) string {
+func copyVerbing(source, dest ulloc.Location) (verb string) {
+	return copyVerb(source, dest) + "ing"
+}
+
+func copyVerb(source, dest ulloc.Location) (verb string) {
 	switch {
 	case dest.Remote():
 		return "upload"
@@ -350,7 +415,7 @@ func (c *cmdCp) parallelCopy(
 	src ulfs.MultiReadHandle,
 	p int, chunkSize int64,
 	offset, length int64,
-	bar *progressbar.ProgressBar) error {
+	bar *mpb.Bar) error {
 
 	if offset != 0 {
 		if err := src.SetOffset(offset); err != nil {
@@ -433,8 +498,13 @@ func (c *cmdCp) parallelCopy(
 
 			var w io.Writer = wh
 			if bar != nil {
-				bar.SetTotal(rh.Info().ContentLength).Start()
-				w = bar.NewProxyWriter(w)
+				bar.SetTotal(rh.Info().ContentLength, false)
+				bar.EnableTriggerComplete()
+				pw := bar.ProxyWriter(w)
+				defer func() {
+					_ = pw.Close()
+				}()
+				w = pw
 			}
 
 			_, err := sync2.Copy(ctx, w, rh)
@@ -467,6 +537,30 @@ func (c *cmdCp) parallelCopy(
 	}
 
 	return errs.Wrap(combineErrs(es))
+}
+
+func newProgressBar(progress *mpb.Progress, name string, which, total int) *mpb.Bar {
+	const counterFmt = " % .2f / % .2f"
+	const percentageFmt = "%.2f "
+	const speedFmt = "% .2f"
+
+	movingAverage := ewma.NewMovingAverage()
+
+	prepends := []decor.Decorator{decor.Name(name + " ")}
+	if total > 1 {
+		prepends = append(prepends, decor.Name(fmt.Sprintf("(%d of %d)", which, total)))
+	}
+	prepends = append(prepends, decor.CountersKiloByte(counterFmt))
+
+	appends := []decor.Decorator{
+		decor.NewPercentage(percentageFmt),
+		decor.MovingAverageSpeed(decor.UnitKiB, speedFmt, movingAverage),
+	}
+
+	return progress.AddBar(0,
+		mpb.PrependDecorators(prepends...),
+		mpb.AppendDecorators(appends...),
+	)
 }
 
 func parseRange(r string) (offset, length int64, err error) {
@@ -530,4 +624,39 @@ func combineErrs(group errs.Group) error {
 	}
 
 	return fmt.Errorf("%s", strings.Join(errstrings, "\n"))
+}
+
+type barNamer struct {
+	longestTotalLen int
+}
+
+func (n *barNamer) Preview(src, dst ulloc.Location) {
+	if src.Local() {
+		n.preview(src)
+		return
+	}
+	n.preview(dst)
+}
+
+func (n *barNamer) NameFor(src, dst ulloc.Location) string {
+	if src.Local() {
+		return n.nameFor(src)
+	}
+	return n.nameFor(dst)
+}
+
+func (n *barNamer) preview(loc ulloc.Location) {
+	locLen := len(loc.String())
+	if locLen > n.longestTotalLen {
+		n.longestTotalLen = locLen
+	}
+}
+
+func (n *barNamer) nameFor(loc ulloc.Location) string {
+	name := loc.String()
+	if n.longestTotalLen > 0 {
+		pad := n.longestTotalLen - len(loc.String())
+		name += strings.Repeat(" ", pad)
+	}
+	return name
 }
