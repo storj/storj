@@ -103,6 +103,11 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	var response struct {
+		PriceModels map[string]payments.ProjectUsagePriceModel `json:"priceModels"`
+		Charges     payments.ProjectChargesResponse            `json:"charges"`
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 
 	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
@@ -130,9 +135,23 @@ func (p *Payments) ProjectsCharges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(charges)
+	response.Charges = charges
+	response.PriceModels = make(map[string]payments.ProjectUsagePriceModel)
+
+	seen := make(map[string]struct{})
+	for _, partnerCharges := range charges {
+		for partner := range partnerCharges {
+			if _, ok := seen[partner]; ok {
+				continue
+			}
+			response.PriceModels[partner] = *p.service.Payments().GetProjectUsagePriceModel(partner)
+			seen[partner] = struct{}{}
+		}
+	}
+
+	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		p.log.Error("failed to write json response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+		p.log.Error("failed to write json project usage and charges response", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 
@@ -457,16 +476,13 @@ func (p *Payments) GetProjectUsagePriceModel(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 
-	pricing, err := p.service.Payments().GetProjectUsagePriceModel(ctx)
+	user, err := console.GetUser(ctx)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) {
-			p.serveJSONError(w, http.StatusUnauthorized, err)
-			return
-		}
-
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	pricing := p.service.Payments().GetProjectUsagePriceModel(string(user.UserAgent))
 
 	if err = json.NewEncoder(w).Encode(pricing); err != nil {
 		p.log.Error("failed to encode project usage price model", zap.Error(ErrPaymentsAPI.Wrap(err)))

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { formatPrice, decimalShift } from '@/utils/strings';
+import { JSONRepresentable } from '@/types/json';
 
 /**
  * Exposes all payments-related functionality
@@ -25,7 +26,7 @@ export interface PaymentsApi {
     /**
      * projectsUsagesAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectUsageAndCharges[]>;
+    projectsUsageAndCharges(since: Date, before: Date): Promise<ProjectCharges>;
 
     /**
      * projectUsagePriceModel returns the project usage price model for the user.
@@ -304,16 +305,15 @@ class Amount {
 }
 
 /**
- * ProjectUsageAndCharges shows usage and how much money current project will charge in the end of the month.
+ * ProjectCharge shows usage and how much money current project will charge in the end of the month.
   */
-export class ProjectUsageAndCharges {
+export class ProjectCharge {
     public constructor(
         public since: Date = new Date(),
         public before: Date = new Date(),
         public egress: number = 0,
         public storage: number = 0,
         public segmentCount: number = 0,
-        public projectId: string = '',
         // storage shows how much cents we should pay for storing GB*Hrs.
         public storagePrice: number = 0,
         // egress shows how many cents we should pay for Egress.
@@ -326,6 +326,194 @@ export class ProjectUsageAndCharges {
      */
     public summary(): number {
         return this.storagePrice + this.egressPrice + this.segmentPrice;
+    }
+}
+
+/**
+ * The JSON representation of ProjectCharges returned from the API.
+ */
+type ProjectChargesJSON = {
+    priceModels: {
+        [partner: string]: JSONRepresentable<ProjectUsagePriceModel>
+    }
+    charges: {
+        [projectID: string]: {
+            [partner: string]: JSONRepresentable<ProjectCharge> & {
+                since: string;
+                before: string;
+            };
+        };
+    }
+};
+
+/**
+ * Represents a collection of project usage charges grouped by project ID and partner name
+ * in addition to project usage price models for each partner.
+ */
+export class ProjectCharges {
+    private map = new Map<string, Map<string, ProjectCharge>>();
+    private priceModels = new Map<string, ProjectUsagePriceModel>();
+
+    /**
+     * Set the usage charge for a project and partner.
+     *
+     * @param projectID - The ID of the project.
+     * @param partner - The name of the partner.
+     * @param charge - The usage and charges for the project and partner.
+     */
+    public set(projectID: string, partner: string, charge: ProjectCharge): void {
+        const map = this.map.get(projectID) || new Map<string, ProjectCharge>();
+        map.set(partner, charge);
+        this.map.set(projectID, map);
+    }
+
+    /**
+     * Set the project usage price model for a partner.
+     *
+     * @param partner - The name of the partner.
+     * @param model - The price model for the partner.
+     */
+    public setUsagePriceModel(partner: string, model: ProjectUsagePriceModel): void {
+        this.priceModels.set(partner, model);
+    }
+
+    /**
+     * Returns the usage charge for a project and partner or undefined if it does not exist.
+     *
+     * @param projectID - The ID of the project.
+     * @param partner - The name of the partner.
+     */
+    public get(projectID: string, partner: string): ProjectCharge | undefined {
+        const map = this.map.get(projectID);
+        if (!map) return undefined;
+        return map.get(partner);
+    }
+
+    /**
+     * Returns the project usage price model for a partner or undefined if it does not exist.
+     *
+     * @param partner - The name of the partner.
+     */
+    public getUsagePriceModel(partner: string): ProjectUsagePriceModel | undefined {
+        return this.priceModels.get(partner);
+    }
+
+    /**
+     * Returns the sum of all usage charges.
+     */
+    public getPrice(): number {
+        let sum = 0;
+        this.forEachCharge(charge => {
+            sum += charge.summary();
+        });
+        return sum;
+    }
+
+    /**
+     * Returns the sum of all usage charges for the project ID.
+     *
+     * @param projectID - The ID of the project.
+     */
+    public getProjectPrice(projectID: string): number {
+        let sum = 0;
+        this.forEachProjectCharge(projectID, charge => {
+            sum += charge.summary();
+        });
+        return sum;
+    }
+
+    /**
+     * Returns whether this collection contains information for a project.
+     *
+     * @param projectID - The ID of the project.
+     */
+    public hasProject(projectID: string): boolean {
+        return this.map.has(projectID);
+    }
+
+    /**
+     * Iterate over each usage charge for all projects and partners.
+     *
+     * @param callback - A function to be called for each usage charge.
+     */
+    public forEachCharge(callback: (charge: ProjectCharge, partner: string, projectID: string) => void): void {
+        this.map.forEach((partnerCharges, projectID) => {
+            partnerCharges.forEach((charge, partner) => {
+                callback(charge, partner, projectID);
+            });
+        });
+    }
+
+    /**
+     * Calls a provided function once for each usage charge associated with a given project.
+     *
+     * @param projectID The project ID for which to iterate over usage charges.
+     * @param callback The function to call for each usage charge, taking the charge object, partner name, and project ID as arguments.
+     */
+    public forEachProjectCharge(projectID: string, callback: (charge: ProjectCharge, partner: string) => void): void {
+        const partnerCharges = this.map.get(projectID);
+        if (!partnerCharges) return;
+        partnerCharges.forEach((charge, partner) => {
+            callback(charge, partner);
+        });
+    }
+
+    /**
+     * Returns the collection as an array of nested arrays, where each inner array represents a project and its
+     * associated partner charges. The inner arrays have the format [projectID, [partnerCharge1, partnerCharge2, ...]],
+     * where each partnerCharge is a [partnerName, charge] tuple.
+     */
+    public toArray(): [projectID: string, partnerCharges: [partner: string, charge: ProjectCharge][]][] {
+        const result: [string, [string, ProjectCharge][]][] = [];
+        this.map.forEach((partnerCharges, projectID) => {
+            const partnerChargeArray: [string, ProjectCharge][] = [];
+            partnerCharges.forEach((charge, partner) => {
+                partnerChargeArray.push([partner, charge]);
+            });
+            result.push([projectID, partnerChargeArray]);
+        });
+        return result;
+    }
+
+    /**
+     * Returns an array of all of the project IDs in the collection.
+     */
+    public getProjectIDs(): string[] {
+        return Array.from(this.map.keys()).sort();
+    }
+
+    /**
+     * Returns a new ProjectPartnerCharges instance from a JSON representation.
+     *
+     * @param json - The JSON representation of the ProjectPartnerCharges.
+     */
+    public static fromJSON(json: ProjectChargesJSON): ProjectCharges {
+        const charges = new ProjectCharges();
+
+        Object.entries(json.priceModels).forEach(([partner, model]) => {
+            charges.setUsagePriceModel(partner, new ProjectUsagePriceModel(
+                model.storageMBMonthCents,
+                model.egressMBCents,
+                model.segmentMonthCents,
+            ));
+        });
+
+        Object.entries(json.charges).forEach(([projectID, partnerCharges]) => {
+            Object.entries(partnerCharges).forEach(([partner, charge]) => {
+                charges.set(projectID, partner, new ProjectCharge(
+                    new Date(charge.since),
+                    new Date(charge.before),
+                    charge.egress,
+                    charge.storage,
+                    charge.segmentCount,
+                    charge.storagePrice,
+                    charge.egressPrice,
+                    charge.segmentPrice,
+                ));
+            });
+        });
+
+        return charges;
     }
 }
 

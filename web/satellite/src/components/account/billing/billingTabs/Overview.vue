@@ -77,14 +77,12 @@
                     :on-press="routeToBillingHistory"
                 />
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                <UsageAndChargesItem
-                    v-for="usageAndCharges in projectUsageAndCharges"
-                    :key="usageAndCharges.projectId"
-                    :item="usageAndCharges"
-                    class="cost-by-project__item"
-                />
-            </div>
+            <UsageAndChargesItem
+                v-for="id in projectIDs"
+                :key="id"
+                :project-id="id"
+                class="cost-by-project__item"
+            />
             <router-view />
         </div>
     </div>
@@ -95,7 +93,7 @@ import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { AccountBalance, ProjectUsageAndCharges } from '@/types/payments';
+import { AccountBalance } from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -134,17 +132,20 @@ const hasZeroCoins = computed((): boolean => {
 });
 
 /**
- * projectUsageAndCharges is an array of all stored ProjectUsageAndCharges.
+ * projectIDs is an array of all of the project IDs for which there exist project usage charges.
  */
-const projectUsageAndCharges = computed((): ProjectUsageAndCharges[] => {
-    return store.state.paymentsModule.usageAndCharges;
+const projectIDs = computed((): string[] => {
+    return store.state.projectsModule.projects
+        .filter(proj => store.state.paymentsModule.projectCharges.hasProject(proj.id))
+        .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
+        .map(proj => proj.id);
 });
 
 /**
  * priceSummary returns price summary of usages for all the projects.
  */
 const priceSummary = computed((): number => {
-    return store.state.paymentsModule.priceSummary;
+    return store.state.paymentsModule.projectCharges.getPrice();
 });
 
 function routeToBillingHistory(): void {

@@ -126,11 +126,10 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.
-func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges []payments.ProjectCharge, err error) {
+func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 
-	// to return empty slice instead of nil if there are no projects
-	charges = make([]payments.ProjectCharge, 0)
+	charges = make(payments.ProjectChargesResponse)
 
 	projects, err := accounts.service.projectsDB.GetOwn(ctx, userID)
 	if err != nil {
@@ -138,37 +137,34 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	for _, project := range projects {
-		totalUsage := accounting.ProjectUsage{Since: since, Before: before}
-
 		usages, err := accounts.service.usageDB.GetProjectTotalByPartner(ctx, project.ID, accounts.service.partnerNames, since, before)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		var totalPrice projectUsagePrice
+		partnerCharges := make(map[string]payments.ProjectCharge)
 
 		for partner, usage := range usages {
 			priceModel := accounts.GetProjectUsagePriceModel(partner)
 			price := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, priceModel)
 
-			totalPrice.Egress = totalPrice.Egress.Add(price.Egress)
-			totalPrice.Segments = totalPrice.Segments.Add(price.Segments)
-			totalPrice.Storage = totalPrice.Storage.Add(price.Storage)
+			partnerCharges[partner] = payments.ProjectCharge{
+				ProjectUsage: usage,
 
-			totalUsage.Egress += usage.Egress
-			totalUsage.ObjectCount += usage.ObjectCount
-			totalUsage.SegmentCount += usage.SegmentCount
-			totalUsage.Storage += usage.Storage
+				Egress:       price.Egress.IntPart(),
+				SegmentCount: price.Segments.IntPart(),
+				StorageGbHrs: price.Storage.IntPart(),
+			}
 		}
 
-		charges = append(charges, payments.ProjectCharge{
-			ProjectUsage: totalUsage,
+		// to return unpartnered empty charge if there's no usage
+		if len(partnerCharges) == 0 {
+			partnerCharges[""] = payments.ProjectCharge{
+				ProjectUsage: accounting.ProjectUsage{Since: since, Before: before},
+			}
+		}
 
-			ProjectID:    project.PublicID,
-			Egress:       totalPrice.Egress.IntPart(),
-			SegmentCount: totalPrice.Segments.IntPart(),
-			StorageGbHrs: totalPrice.Storage.IntPart(),
-		})
+		charges[project.PublicID] = partnerCharges
 	}
 
 	return charges, nil

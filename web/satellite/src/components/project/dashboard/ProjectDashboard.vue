@@ -161,6 +161,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { RouteConfig } from '@/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
+import { ProjectCharges } from '@/types/payments';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -378,7 +379,9 @@ export default class ProjectDashboard extends Vue {
      * estimatedCharges returns estimated charges summary for selected project.
      */
     public get estimatedCharges(): number {
-        return this.$store.state.paymentsModule.priceSummaryForSelectedProject;
+        const projID: string = this.$store.getters.selectedProject.id;
+        const charges: ProjectCharges = this.$store.state.paymentsModule.projectCharges;
+        return charges.getProjectPrice(projID);
     }
 
     /**
