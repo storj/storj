@@ -10,7 +10,7 @@ import {
     PaymentsHistoryItem,
     PaymentsHistoryItemStatus,
     PaymentsHistoryItemType,
-    ProjectUsageAndCharges,
+    ProjectCharges,
     ProjectUsagePriceModel,
     NativePaymentHistoryItem,
     Wallet,
@@ -31,8 +31,6 @@ export const PAYMENTS_MUTATIONS = {
     SET_PROJECT_USAGE_PRICE_MODEL: 'SET_PROJECT_USAGE_PRICE_MODEL',
     SET_CURRENT_ROLLUP_PRICE: 'SET_CURRENT_ROLLUP_PRICE',
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
-    SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
-    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
     SET_COUPON: 'SET_COUPON',
 };
 
@@ -71,8 +69,6 @@ const {
     SET_NATIVE_PAYMENTS_HISTORY,
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PROJECT_USAGE_PRICE_MODEL: SET_PROJECT_USAGE_PRICE_MODEL,
-    SET_PRICE_SUMMARY,
-    SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
     SET_COUPON,
 } = PAYMENTS_MUTATIONS;
 
@@ -106,10 +102,8 @@ export class PaymentsState {
     public creditCards: CreditCard[] = [];
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public nativePaymentsHistory: NativePaymentHistoryItem[] = [];
-    public usageAndCharges: ProjectUsageAndCharges[] = [];
+    public projectCharges: ProjectCharges = new ProjectCharges();
     public usagePriceModel: ProjectUsagePriceModel = new ProjectUsagePriceModel();
-    public priceSummary = 0;
-    public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public coupon: Coupon | null = null;
@@ -180,36 +174,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
             [SET_NATIVE_PAYMENTS_HISTORY](state: PaymentsState, paymentsHistory: NativePaymentHistoryItem[]): void {
                 state.nativePaymentsHistory = paymentsHistory;
             },
-            [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, usageAndCharges: ProjectUsageAndCharges[]): void {
-                state.usageAndCharges = usageAndCharges;
+            [SET_PROJECT_USAGE_AND_CHARGES](state: PaymentsState, projectPartnerCharges: ProjectCharges): void {
+                state.projectCharges = projectPartnerCharges;
             },
             [SET_PROJECT_USAGE_PRICE_MODEL](state: PaymentsState, model: ProjectUsagePriceModel): void {
                 state.usagePriceModel = model;
-            },
-            [SET_PRICE_SUMMARY](state: PaymentsState, charges: ProjectUsageAndCharges[]): void {
-                if (charges.length === 0) {
-                    state.priceSummary = 0;
-
-                    return;
-                }
-
-                const usageItemSummaries: number[] = charges.map(item => item.summary());
-
-                state.priceSummary = usageItemSummaries.reduce((accumulator, current) => accumulator + current);
-            },
-            [SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT](state: PaymentsState, selectedProjectId: string): void {
-                let usageAndChargesForSelectedProject: ProjectUsageAndCharges | undefined;
-                if (state.usageAndCharges.length) {
-                    usageAndChargesForSelectedProject = state.usageAndCharges.find(item => item.projectId === selectedProjectId);
-                }
-
-                if (!usageAndChargesForSelectedProject) {
-                    state.priceSummaryForSelectedProject = 0;
-
-                    return;
-                }
-
-                state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
             },
             [SET_COUPON](state: PaymentsState, coupon: Coupon): void {
                 state.coupon = coupon;
@@ -219,10 +188,8 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 state.creditCards = [];
                 state.paymentsHistory = [];
                 state.nativePaymentsHistory = [];
-                state.usageAndCharges = [];
+                state.projectCharges = new ProjectCharges();
                 state.usagePriceModel = new ProjectUsagePriceModel();
-                state.priceSummary = 0;
-                state.priceSummaryForSelectedProject = 0;
                 state.startDate = new Date();
                 state.endDate = new Date();
                 state.coupon = null;
@@ -296,23 +263,20 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState,
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes()));
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0));
 
-                const usageAndCharges: ProjectUsageAndCharges[] = await api.projectsUsageAndCharges(startUTC, endUTC);
+                const projectPartnerCharges: ProjectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
 
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
-                commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
-                commit(SET_PRICE_SUMMARY, usageAndCharges);
-                commit(SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT, rootGetters.selectedProject.id);
+                commit(SET_PROJECT_USAGE_AND_CHARGES, projectPartnerCharges);
             },
             [GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP]: async function({ commit }: PaymentsContext): Promise<void> {
                 const now = new Date();
                 const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0));
                 const endUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0, 23, 59, 59));
 
-                const usageAndCharges: ProjectUsageAndCharges[] = await api.projectsUsageAndCharges(startUTC, endUTC);
+                const projectPartnerCharges: ProjectCharges = await api.projectsUsageAndCharges(startUTC, endUTC);
 
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
-                commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
-                commit(SET_PRICE_SUMMARY, usageAndCharges);
+                commit(SET_PROJECT_USAGE_AND_CHARGES, projectPartnerCharges);
             },
             [GET_PROJECT_USAGE_PRICE_MODEL]: async function({ commit }: PaymentsContext): Promise<void> {
                 const model: ProjectUsagePriceModel = await api.projectUsagePriceModel();

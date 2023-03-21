@@ -12,49 +12,54 @@
                 Estimated Total &nbsp;
                 <span
                     class="usage-charges-item-container__summary__amount"
-                >{{ item.summary() | centsToDollars }}
+                >{{ projectCharges.getProjectPrice(projectId) | centsToDollars }}
                 </span>
             </span>
         </div>
-        <div v-if="isDetailedInfoShown" class="usage-charges-item-container__detailed-info-container">
-            <div class="divider" />
-            <div class="usage-charges-item-container__detailed-info-container__info-header">
-                <span class="resource-header">RESOURCE</span>
-                <span class="period-header">PERIOD</span>
-                <span class="usage-header">USAGE</span>
-                <span class="cost-header">COST</span>
+        <template v-if="isDetailedInfoShown">
+            <div
+                v-for="[partner, charge] in partnerCharges"
+                :key="partner"
+                class="usage-charges-item-container__detailed-info-container"
+            >
+                <p v-if="partnerCharges.length > 1 || partner" class="usage-charges-item-container__detailed-info-container__partner">
+                    {{ partner || 'Standard Usage' }}
+                </p>
+                <div class="usage-charges-item-container__detailed-info-container__info-header">
+                    <span class="resource-header">RESOURCE</span>
+                    <span class="period-header">PERIOD</span>
+                    <span class="usage-header">USAGE</span>
+                    <span class="cost-header">COST</span>
+                </div>
+                <div class="usage-charges-item-container__detailed-info-container__content-area">
+                    <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
+                        <p>Storage <span class="price-per-month">({{ getStoragePrice(partner) }} per Gigabyte-Month)</span></p>
+                        <p>Egress <span class="price-per-month">({{ getEgressPrice(partner) }} per GB)</span></p>
+                        <p>Segments <span class="price-per-month">({{ getSegmentPrice(partner) }} per Segment-Month)</span></p>
+                    </div>
+                    <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
+                        <p v-for="i in 3" :key="i">{{ getPeriod(charge) }}</p>
+                    </div>
+                    <div class="usage-charges-item-container__detailed-info-container__content-area__usage-container">
+                        <p>{{ getStorageFormatted(charge) }} Gigabyte-month</p>
+                        <p>{{ getEgressAmountAndDimension(charge) }}</p>
+                        <p>{{ getSegmentCountFormatted(charge) }} Segment-month</p>
+                    </div>
+                    <div class="usage-charges-item-container__detailed-info-container__content-area__cost-container">
+                        <p class="price">{{ charge.storagePrice | centsToDollars }}</p>
+                        <p class="price">{{ charge.egressPrice | centsToDollars }}</p>
+                        <p class="price">{{ charge.segmentPrice | centsToDollars }}</p>
+                    </div>
+                </div>
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__content-area">
-                <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage <span class="price-per-month">({{ storagePrice }} per Gigabyte-Month)</span></p>
-                    <p>Egress <span class="price-per-month">({{ egressPrice }} per GB)</span></p>
-                    <p>Segments <span class="price-per-month">({{ segmentPrice }} per Segment-Month)</span></p>
-                </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
-                    <p>{{ period }}</p>
-                    <p>{{ period }}</p>
-                    <p>{{ period }}</p>
-                </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__usage-container">
-                    <p>{{ storageFormatted }} Gigabyte-month</p>
-                    <p>{{ egressAmountAndDimension }}</p>
-                    <p>{{ segmentCountFormatted }} Segment-month</p>
-                </div>
-                <div class="usage-charges-item-container__detailed-info-container__content-area__cost-container">
-                    <p class="price">{{ item.storagePrice | centsToDollars }}</p>
-                    <p class="price">{{ item.egressPrice | centsToDollars }}</p>
-                    <p class="price">{{ item.segmentPrice | centsToDollars }}</p>
-                </div>
-            </div>
-            <div class="usage-charges-item-container__detailed-info-container__footer" />
-        </div>
+        </template>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { ProjectUsageAndCharges, ProjectUsagePriceModel } from '@/types/payments';
+import { ProjectCharge, ProjectCharges, ProjectUsagePriceModel } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
@@ -70,11 +75,11 @@ const HOURS_IN_MONTH = 720;
 
 const props = withDefaults(defineProps<{
     /**
-     * item represents usage and charges of current project by period.
+     * The ID of the project for which to show the usage and charge information.
      */
-    item?: ProjectUsageAndCharges;
+    projectId?: string;
 }>(), {
-    item: () => new ProjectUsageAndCharges(),
+    projectId: '',
 });
 
 const store = useStore();
@@ -85,82 +90,100 @@ const store = useStore();
 const isDetailedInfoShown = ref<boolean>(false);
 
 /**
+ * An array of tuples containing the partner name and usage charge for the specified project ID.
+ */
+const partnerCharges = computed((): [partner: string, charge: ProjectCharge][] => {
+    const arr = store.state.paymentsModule.projectCharges.toArray();
+    arr.sort(([partner1], [partner2]) => partner1.localeCompare(partner2));
+    const tuple = arr.find(tuple => tuple[0] === props.projectId);
+    return tuple ? tuple[1] : [];
+});
+
+/**
  * projectName returns project name.
  */
 const projectName = computed((): string => {
     const projects: Project[] = store.state.projectsModule.projects;
-    const project: Project | undefined = projects.find(project => project.id === props.item.projectId);
+    const project: Project | undefined = projects.find(project => project.id === props.projectId);
 
     return project?.name || '';
 });
 
 /**
- * Returns string of date range.
+ * Returns project usage price model from store.
  */
-const period = computed((): string => {
-    const since = `${SHORT_MONTHS_NAMES[props.item.since.getUTCMonth()]} ${props.item.since.getUTCDate()}`;
-    const before = `${SHORT_MONTHS_NAMES[props.item.before.getUTCMonth()]} ${props.item.before.getUTCDate()}`;
-
-    return `${since} - ${before}`;
+const projectCharges = computed((): ProjectCharges => {
+    return store.state.paymentsModule.projectCharges;
 });
 
 /**
  * Returns project usage price model from store.
  */
-const priceModel = computed((): ProjectUsagePriceModel => {
-    return store.state.paymentsModule.usagePriceModel;
-});
+function getPriceModel(partner: string): ProjectUsagePriceModel {
+    return projectCharges.value.getUsagePriceModel(partner) || store.state.paymentsModule.usagePriceModel;
+}
+
+/**
+ * Returns string of date range.
+ */
+function getPeriod(charge: ProjectCharge): string {
+    const since = `${SHORT_MONTHS_NAMES[charge.since.getUTCMonth()]} ${charge.since.getUTCDate()}`;
+    const before = `${SHORT_MONTHS_NAMES[charge.before.getUTCMonth()]} ${charge.before.getUTCDate()}`;
+
+    return `${since} - ${before}`;
+}
 
 /**
  * Returns formatted egress depending on amount of bytes.
  */
-const egressFormatted = computed((): Size => {
-    return new Size(props.item.egress, 2);
-});
+function egressFormatted(charge: ProjectCharge): Size {
+    return new Size(charge.egress, 2);
+}
 
 /**
  * Returns formatted storage used in GB x month dimension.
  */
-const storageFormatted = computed((): string => {
+function getStorageFormatted(charge: ProjectCharge): string {
     const bytesInGB = 1000000000;
 
-    return (props.item.storage / HOURS_IN_MONTH / bytesInGB).toFixed(2);
-});
+    return (charge.storage / HOURS_IN_MONTH / bytesInGB).toFixed(2);
+}
 
 /**
  * Returns formatted segment count in segment x month dimension.
  */
-const segmentCountFormatted = computed((): string => {
-    return (props.item.segmentCount / HOURS_IN_MONTH).toFixed(2);
-});
+function getSegmentCountFormatted(charge: ProjectCharge): string {
+    return (charge.segmentCount / HOURS_IN_MONTH).toFixed(2);
+}
 
 /**
  * Returns storage price per GB.
  */
-const storagePrice = computed((): string => {
-    return formatPrice(decimalShift(priceModel.value.storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
-});
+function getStoragePrice(partner: string): string {
+    return formatPrice(decimalShift(getPriceModel(partner).storageMBMonthCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+}
 
 /**
  * Returns egress price per GB.
  */
-const egressPrice = computed((): string => {
-    return formatPrice(decimalShift(priceModel.value.egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
-});
+function getEgressPrice(partner: string): string {
+    return formatPrice(decimalShift(getPriceModel(partner).egressMBCents, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+}
 
 /**
  * Returns segment price.
  */
-const segmentPrice = computed((): string => {
-    return formatPrice(decimalShift(priceModel.value.segmentMonthCents, 2));
-});
+function getSegmentPrice(partner: string): string {
+    return formatPrice(decimalShift(getPriceModel(partner).segmentMonthCents, 2));
+}
 
 /**
  * Returns string of egress amount and dimension.
  */
-const egressAmountAndDimension = computed((): string => {
-    return `${egressFormatted.value.formattedBytes} ${egressFormatted.value.label}`;
-});
+function getEgressAmountAndDimension(charge: ProjectCharge): string {
+    const egress = egressFormatted(charge);
+    return `${egress.formattedBytes} ${egress.label}`;
+}
 
 /**
  * toggleDetailedInfo expands an area with detailed information about project charges.
@@ -193,12 +216,12 @@ function toggleDetailedInfo(): void {
     }
 
     .usage-charges-item-container {
+        color: var(--c-black);
         font-size: 16px;
         line-height: 21px;
-        padding: 20px;
         margin-top: 10px;
         font-family: 'font_regular', sans-serif;
-        background-color: #fff;
+        background-color: var(--c-white);
         border-radius: 8px;
         box-shadow: 0 0 20px rgb(0 0 0 / 4%);
 
@@ -207,6 +230,7 @@ function toggleDetailedInfo(): void {
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
+            padding: 20px;
             cursor: pointer;
 
             &__name-container {
@@ -230,20 +254,18 @@ function toggleDetailedInfo(): void {
             }
 
             &__text {
-                font-size: 16px;
+                font-size: 17px;
                 line-height: 21px;
                 text-align: right;
-                color: #354049;
                 display: flex;
                 align-items: center;
             }
 
             &__amount {
+                font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 31px;
-                font-weight: 800;
                 text-align: right;
-                color: #000;
             }
         }
 
@@ -252,6 +274,13 @@ function toggleDetailedInfo(): void {
             flex-direction: column;
             align-items: flex-start;
             justify-content: space-between;
+            padding: 24px 20px;
+            border-top: 1px solid var(--c-grey-2);
+
+            &__partner {
+                font-size: 17px;
+                margin-bottom: 16px;
+            }
 
             &__info-header {
                 display: flex;
@@ -263,7 +292,6 @@ function toggleDetailedInfo(): void {
                 font-weight: 600;
                 height: 25px;
                 width: 100%;
-                padding-top: 10px;
             }
 
             &__content-area {
@@ -293,63 +321,6 @@ function toggleDetailedInfo(): void {
 
                 &__resource-container {
                     width: 40%;
-                }
-            }
-
-            &__footer {
-                display: flex;
-                justify-content: space-between;
-                align-content: center;
-                flex-wrap: wrap;
-                padding-top: 10px;
-                width: 100%;
-
-                &__payment-type {
-                    display: flex;
-                    flex-direction: column;
-                    padding-top: 10px;
-
-                    &__method {
-                        color: var(--c-grey-6);
-                        font-weight: 600;
-                        font-size: 12px;
-                    }
-
-                    &__type {
-                        font-weight: 400;
-                        font-size: 16px;
-                    }
-                }
-
-                &__buttons {
-                    display: flex;
-                    align-self: center;
-                    flex-wrap: wrap;
-                    padding-top: 10px;
-
-                    &__assigned {
-                        padding: 5px 10px;
-                    }
-
-                    &__none-assigned {
-                        padding: 5px 10px;
-                        margin-left: 10px;
-                    }
-                }
-            }
-
-            &__link-container {
-                width: 100%;
-                display: flex;
-                justify-content: flex-end;
-                align-items: center;
-                margin-top: 25px;
-
-                &__link {
-                    font-size: 13px;
-                    line-height: 19px;
-                    color: #2683ff;
-                    cursor: pointer;
                 }
             }
         }
@@ -409,14 +380,6 @@ function toggleDetailedInfo(): void {
         .usage-charges-item-container__detailed-info-container__content-area__resource-container,
         .usage-charges-item-container__detailed-info-container__content-area__cost-container {
             width: auto;
-        }
-    }
-
-    @media only screen and (max-width: 507px) {
-
-        .usage-charges-item-container__detailed-info-container__footer__buttons__none-assigned {
-            margin-left: 0;
-            margin-top: 5px;
         }
     }
 </style>

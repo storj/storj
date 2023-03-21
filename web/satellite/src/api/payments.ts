@@ -10,7 +10,7 @@ import {
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
-    ProjectUsageAndCharges,
+    ProjectCharges,
     ProjectUsagePriceModel,
     TokenAmount,
     NativePaymentHistoryItem,
@@ -69,7 +69,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     /**
      * projectsUsageAndCharges returns usage and how much money current user will be charged for each project which he owns.
      */
-    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectUsageAndCharges[]> {
+    public async projectsUsageAndCharges(start: Date, end: Date): Promise<ProjectCharges> {
         const since = Time.toUnixTimestamp(start).toString();
         const before = Time.toUnixTimestamp(end).toString();
         const path = `${this.ROOT_PATH}/account/charges?from=${since}&to=${before}`;
@@ -79,28 +79,11 @@ export class PaymentsHttpApi implements PaymentsApi {
             throw new Error('can not get projects charges');
         }
 
-        const charges = await response.json();
-        if (charges) {
-            return charges.map(charge =>
-                new ProjectUsageAndCharges(
-                    new Date(charge.since),
-                    new Date(charge.before),
-                    charge.egress,
-                    charge.storage,
-                    charge.segmentCount,
-                    charge.projectId,
-                    charge.storagePrice,
-                    charge.egressPrice,
-                    charge.segmentPrice,
-                ),
-            );
-        }
-
-        return [];
+        return ProjectCharges.fromJSON(await response.json());
     }
 
     /**
-     * projectUsagePriceModel returns usage and how much money current user will be charged for each project which he owns.
+     * projectUsagePriceModel returns the user's default price model for project usage.
      */
     public async projectUsagePriceModel(): Promise<ProjectUsagePriceModel> {
         const path = `${this.ROOT_PATH}/pricing`;

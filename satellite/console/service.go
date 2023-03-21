@@ -400,7 +400,7 @@ func (payment Payments) MakeCreditCardDefault(ctx context.Context, cardID string
 }
 
 // ProjectsCharges returns how much money current user will be charged for each project which he owns.
-func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ []payments.ProjectCharge, err error) {
+func (payment Payments) ProjectsCharges(ctx context.Context, since, before time.Time) (_ payments.ProjectChargesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := payment.service.getUserAndAuditLog(ctx, "project charges")
@@ -3217,17 +3217,10 @@ func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc stri
 	return nil
 }
 
-// GetProjectUsagePriceModel returns the project usage price model for the user.
-func (payment Payments) GetProjectUsagePriceModel(ctx context.Context) (_ *payments.ProjectUsagePriceModel, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := GetUser(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	model := payment.service.accounts.GetProjectUsagePriceModel(string(user.UserAgent))
-	return &model, nil
+// GetProjectUsagePriceModel returns the project usage price model for the partner.
+func (payment Payments) GetProjectUsagePriceModel(partner string) (_ *payments.ProjectUsagePriceModel) {
+	model := payment.service.accounts.GetProjectUsagePriceModel(partner)
+	return &model
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
