@@ -456,7 +456,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if config.Tally.UseRangedLoop {
 			nodeTallyLog.Info("using ranged loop")
 		} else {
-			peer.Accounting.NodeTally = nodetally.New(nodeTallyLog, peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+			peer.Accounting.NodeTally = nodetally.New(nodeTallyLog, peer.DB.StoragenodeAccounting(), peer.Metainfo.Metabase, peer.Metainfo.SegmentLoop, config.Tally.Interval)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accounting:nodetally",
 				Run:   peer.Accounting.NodeTally.Run,

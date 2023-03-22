@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 )
@@ -27,18 +28,21 @@ type RangedLoopObserver struct {
 	log        *zap.Logger
 	accounting accounting.StoragenodeAccounting
 
+	metabaseDB *metabase.DB
+
 	nowFn         func() time.Time
 	lastTallyTime time.Time
-	Node          map[storj.NodeID]float64
+	Node          map[metabase.NodeAlias]float64
 }
 
 // NewRangedLoopObserver creates new RangedLoopObserver.
-func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting) *RangedLoopObserver {
+func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB) *RangedLoopObserver {
 	return &RangedLoopObserver{
 		log:        log,
 		accounting: accounting,
+		metabaseDB: metabaseDB,
 		nowFn:      time.Now,
-		Node:       map[storj.NodeID]float64{},
+		Node:       map[metabase.NodeAlias]float64{},
 	}
 }
 
@@ -46,7 +50,7 @@ func NewRangedLoopObserver(log *zap.Logger, accounting accounting.StoragenodeAcc
 func (observer *RangedLoopObserver) Start(ctx context.Context, time time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	observer.Node = map[storj.NodeID]float64{}
+	observer.Node = map[metabase.NodeAlias]float64{}
 	observer.lastTallyTime, err = observer.accounting.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return err
@@ -73,8 +77,8 @@ func (observer *RangedLoopObserver) Join(ctx context.Context, partial rangedloop
 		return Error.New("expected partial type %T but got %T", tallyPartial, partial)
 	}
 
-	for nodeID, val := range tallyPartial.Node {
-		observer.Node[nodeID] += val
+	for alias, val := range tallyPartial.Node {
+		observer.Node[alias] += val
 	}
 
 	return nil
@@ -91,16 +95,28 @@ func (observer *RangedLoopObserver) Finish(ctx context.Context) (err error) {
 
 	// calculate byte hours, not just bytes
 	hours := finishTime.Sub(observer.lastTallyTime).Hours()
-	byteHours := make(map[storj.NodeID]float64)
 	var totalSum float64
-	for id, pieceSize := range observer.Node {
+	nodeIDs := make([]storj.NodeID, 0, len(observer.Node))
+	byteHours := make([]float64, 0, len(observer.Node))
+	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return err
+	}
+
+	for alias, pieceSize := range observer.Node {
 		totalSum += pieceSize
-		byteHours[id] = pieceSize * hours
+		nodeID, ok := nodeAliasMap.Node(alias)
+		if !ok {
+			observer.log.Error("unrecognized node alias in ranged-loop tally", zap.Int32("node-alias", int32(alias)))
+			continue
+		}
+		nodeIDs = append(nodeIDs, nodeID)
+		byteHours = append(byteHours, pieceSize*hours)
 	}
 
 	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
-	err = observer.accounting.SaveTallies(ctx, finishTime, byteHours)
+	err = observer.accounting.SaveTallies(ctx, finishTime, nodeIDs, byteHours)
 	if err != nil {
 		return Error.New("StorageNodeAccounting.SaveTallies failed: %v", err)
 	}
@@ -118,7 +134,7 @@ type RangedLoopPartial struct {
 	log   *zap.Logger
 	nowFn func() time.Time
 
-	Node map[storj.NodeID]float64
+	Node map[metabase.NodeAlias]float64
 }
 
 // NewRangedLoopPartial creates new node tally ranged loop partial.
@@ -126,7 +142,7 @@ func NewRangedLoopPartial(log *zap.Logger, nowFn func() time.Time) *RangedLoopPa
 	return &RangedLoopPartial{
 		log:   log,
 		nowFn: nowFn,
-		Node:  map[storj.NodeID]float64{},
+		Node:  map[metabase.NodeAlias]float64{},
 	}
 }
 
@@ -160,7 +176,7 @@ func (partial *RangedLoopPartial) processSegment(now time.Time, segment segmentl
 
 	pieceSize := float64(segment.EncryptedSize / int32(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
 
-	for _, piece := range segment.Pieces {
-		partial.Node[piece.StorageNode] += pieceSize
+	for _, piece := range segment.AliasPieces {
+		partial.Node[piece.Alias] += pieceSize
 	}
 }
