@@ -62,6 +62,24 @@
                             </v-banner>
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
+                        <div class="banner-container__bottom dashboard__wrap__main-area__content-wrap__container__content">
+                            <UploadNotification
+                                v-if="isLargeUploadNotificationShown && !isLargeUploadWarningNotificationShown && isBucketsView"
+                                wording-bold="The web browser is best for uploads up to 1GB."
+                                wording="To upload larger files, check our recommendations"
+                                :notification-icon="CloudIcon"
+                                :warning-notification="false"
+                                :on-close-click="onNotificationCloseClick"
+                            />
+                            <UploadNotification
+                                v-if="isLargeUploadWarningNotificationShown"
+                                wording-bold="Trying to upload a large file?"
+                                wording="Check the recommendations for your use case"
+                                :notification-icon="WarningIcon"
+                                :warning-notification="true"
+                                :on-close-click="onWarningNotificationCloseClick"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -122,6 +140,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
+import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -134,7 +153,11 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
+import CloudIcon from '@/../static/images/notifications/cloudAlert.svg';
+import WarningIcon from '@/../static/images/notifications/circleWarning.svg';
+
 const bucketsStore = useBucketsStore();
+
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
@@ -351,6 +374,20 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 });
 
 /**
+ * Indicates whether the large upload notification should be shown.
+ */
+const isLargeUploadNotificationShown = computed((): boolean => {
+    return appStore.state.viewsState.isLargeUploadNotificationShown;
+});
+
+/**
+ * Indicates whether the large upload warning notification should be shown (file uploading exceeds 1GB).
+ */
+const isLargeUploadWarningNotificationShown = computed((): boolean => {
+    return appStore.state.viewsState.isLargeUploadWarningNotificationShown;
+});
+
+/**
  * Indicates if current route is create project page.
  */
 const isCreateProjectPage = computed((): boolean => {
@@ -363,6 +400,28 @@ const isCreateProjectPage = computed((): boolean => {
 const isDashboardPage = computed((): boolean => {
     return router.currentRoute.name === RouteConfig.ProjectDashboard.name;
 });
+
+/**
+ * Indicates if current route is the bucketsView page.
+ */
+const isBucketsView = computed((): boolean => {
+    return router.currentRoute.name === RouteConfig.BucketsManagement.name;
+});
+
+/**
+ * Closes upload notification and persists state in local storage.
+ */
+function onNotificationCloseClick(): void {
+    appStore.setLargeUploadNotification(false);
+    LocalData.setLargeUploadNotificationDismissed();
+}
+
+/**
+ * Closes upload large files warning notification.
+ */
+function onWarningNotificationCloseClick(): void {
+    appStore.setLargeUploadWarningNotification(false);
+}
 
 /**
  * Stores project to vuex store and browser's local storage.
@@ -596,6 +655,10 @@ onMounted(async () => {
         if (action.name === 'clear') clearSessionTimers();
     });
 
+    if (LocalData.getLargeUploadNotificationDismissed()) {
+        appStore.setLargeUploadNotification(false);
+    }
+
     try {
         await usersStore.getUser();
         await usersStore.getFrozenStatus();
@@ -690,6 +753,16 @@ onBeforeUnmount(() => {
         margin-top: 1rem;
     }
 
+    .banner-container {
+
+        &__bottom {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+    }
+
     .banner-container:empty {
         display: none;
     }
@@ -723,11 +796,15 @@ onBeforeUnmount(() => {
                     &__container {
                         height: 100%;
                         overflow-y: auto;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
 
                         &__content {
                             max-width: 1200px;
-                            margin: 0 auto;
                             padding: 48px 48px 0;
+                            box-sizing: border-box;
+                            width: 100%;
                         }
                     }
                 }

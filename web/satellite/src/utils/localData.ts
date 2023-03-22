@@ -11,6 +11,7 @@ export class LocalData {
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
+    private static largeUploadNotificationDismissed = 'largeUploadNotificationDismissed';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
 
@@ -82,6 +83,14 @@ export class LocalData {
     public static getServerSideEncryptionModalHidden(): boolean {
         const value = localStorage.getItem(LocalData.serverSideEncryptionModalHidden);
         return value === 'true';
+    }
+
+    public static getLargeUploadNotificationDismissed(): boolean {
+        return Boolean(localStorage.getItem(LocalData.largeUploadNotificationDismissed));
+    }
+
+    public static setLargeUploadNotificationDismissed(): void {
+        localStorage.setItem(LocalData.largeUploadNotificationDismissed, 'true');
     }
 
     public static getSessionExpirationDate(): Date | null {

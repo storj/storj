@@ -519,6 +519,12 @@ export const makeFilesModule = (): FilesModule => ({
                     Body: file,
                 };
 
+                // If file size exceeds 1 GB, show warning notification
+                if (file.size > (1024 * 1024 * 1024)) {
+                    const appStore = useAppStore();
+                    appStore.setLargeUploadWarningNotification(true);
+                }
+
                 const upload = state.s3.upload(
                     { ...params },
                     { partSize: 64 * 1024 * 1024 },

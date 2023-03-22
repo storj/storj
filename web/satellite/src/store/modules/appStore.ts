@@ -30,6 +30,8 @@ class ViewsState {
     // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
     public hasShownPricingPlan = false;
     public error: ErrorPageState = new ErrorPageState();
+    public isLargeUploadNotificationShown = true;
+    public isLargeUploadWarningNotificationShown = false;
 }
 
 class ErrorPageState {
@@ -132,6 +134,14 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.hasShownPricingPlan = value;
     }
 
+    function setLargeUploadWarningNotification(value: boolean): void {
+        state.viewsState.isLargeUploadWarningNotificationShown = value;
+    }
+
+    function setLargeUploadNotification(value: boolean): void {
+        state.viewsState.isLargeUploadNotificationShown = value;
+    }
+
     function closeDropdowns(): void {
         state.viewsState.activeDropdown = '';
     }
@@ -179,6 +189,8 @@ export const useAppStore = defineStore('app', () => {
         setPricingPlan,
         setManagePassphraseStep,
         setHasShownPricingPlan,
+        setLargeUploadWarningNotification,
+        setLargeUploadNotification,
         closeDropdowns,
         setErrorPage,
         removeErrorPage,

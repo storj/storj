@@ -262,6 +262,5 @@ watch(passphrase, async () => {
 <style scoped>
     .file-browser {
         font-family: 'font_regular', sans-serif;
-        padding-bottom: 200px;
     }
 </style>
