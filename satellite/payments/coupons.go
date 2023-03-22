@@ -43,7 +43,6 @@ type Coupon struct {
 	AddedAt    time.Time      `json:"addedAt"`
 	ExpiresAt  time.Time      `json:"expiresAt"`
 	Duration   CouponDuration `json:"duration"`
-	Partnered  bool           `json:"partnered"`
 }
 
 // CouponDuration represents how many billing periods a coupon is applied.
