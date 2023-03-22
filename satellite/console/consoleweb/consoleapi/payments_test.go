@@ -25,7 +25,6 @@ import (
 
 func Test_PurchasePackage(t *testing.T) {
 	partner := "partner1"
-	partner2 := "partner2"
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
@@ -35,8 +34,7 @@ func Test_PurchasePackage(t *testing.T) {
 				config.Console.RateLimit.Burst = 10
 				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
 				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
-					partner:  {CouponID: stripecoinpayments.MockCouponID2, Price: 1000},
-					partner2: {CouponID: "invalidCouponID", Price: 1000},
+					partner: {Credit: 2000, Price: 1000},
 				}
 			},
 		},
@@ -54,12 +52,6 @@ func Test_PurchasePackage(t *testing.T) {
 				http.StatusNotFound,
 			},
 			{
-				// partner2's coupon ID configured above in Reconfigure does not exist in underlying
-				// stipe mock coupons list.
-				"Coupon doesn't exist", validCardToken, partner2,
-				http.StatusInternalServerError,
-			},
-			{
 				"Add credit card fails", stripecoinpayments.TestPaymentMethodsNewFailure, partner,
 				http.StatusInternalServerError,
 			},
@@ -69,6 +61,10 @@ func Test_PurchasePackage(t *testing.T) {
 			},
 			{
 				"Success", validCardToken, partner,
+				http.StatusOK,
+			},
+			{
+				"Subsequent request succeeds", validCardToken, partner,
 				http.StatusOK,
 			},
 		}
@@ -88,7 +84,7 @@ func Test_PurchasePackage(t *testing.T) {
 				tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 				require.NoError(t, err)
 
-				req, err := http.NewRequestWithContext(userCtx, "POST", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/payments/purchase-package", strings.NewReader(tt.cardToken))
+				req, err := http.NewRequestWithContext(userCtx, "POST", "http://"+sat.API.Console.Listener.Addr().String()+"/api/v0/payments/purchase-package", strings.NewReader(tt.cardToken))
 				require.NoError(t, err)
 
 				expire := time.Now().AddDate(0, 0, 1)
@@ -119,7 +115,7 @@ func Test_PackageAvailable(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
-					pkgPartner: {CouponID: stripecoinpayments.MockCouponID1, Price: 1000},
+					pkgPartner: {Credit: 2000, Price: 1000},
 				}
 			},
 		},

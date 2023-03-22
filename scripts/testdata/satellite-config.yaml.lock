@@ -826,7 +826,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price node receive for storing TB of repair in cents
 # payments.node-repair-bandwidth-price: 1000
 
-# semicolon-separated partner package plans in the format partner:couponID,price. Price is in cents USD.
+# semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""
 
 # payments provider to use
