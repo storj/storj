@@ -26,15 +26,21 @@ type CustomersDB interface {
 	GetUserID(ctx context.Context, customerID string) (uuid.UUID, error)
 	// List returns page with customers ids created before specified date.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
+	// UpdatePackage updates the customer's package plan and purchase time.
+	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (*Customer, error)
+	// GetPackageInfo returns the package plan and time of purchase for a user.
+	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
 
 	// TODO: get rid of this.
 	Raw() *dbx.DB
 }
 
-// Customer holds customer id and user id.
+// Customer holds customer id, user id, and package information.
 type Customer struct {
-	ID     string
-	UserID uuid.UUID
+	ID                 string
+	UserID             uuid.UUID
+	PackagePlan        *string
+	PackagePurchasedAt *time.Time
 }
 
 // CustomersPage holds customers and

@@ -722,6 +722,8 @@ CREATE TABLE storjscan_wallets (
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
+	package_plan text,
+	purchased_package_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
@@ -1393,6 +1395,8 @@ CREATE TABLE storjscan_wallets (
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
+	package_plan text,
+	purchased_package_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
@@ -8761,14 +8765,23 @@ func (f StorjscanWallet_CreatedAt_Field) value() interface{} {
 func (StorjscanWallet_CreatedAt_Field) _Column() string { return "created_at" }
 
 type StripeCustomer struct {
-	UserId     []byte
-	CustomerId string
-	CreatedAt  time.Time
+	UserId             []byte
+	CustomerId         string
+	PackagePlan        *string
+	PurchasedPackageAt *time.Time
+	CreatedAt          time.Time
 }
 
 func (StripeCustomer) _Table() string { return "stripe_customers" }
 
+type StripeCustomer_Create_Fields struct {
+	PackagePlan        StripeCustomer_PackagePlan_Field
+	PurchasedPackageAt StripeCustomer_PurchasedPackageAt_Field
+}
+
 type StripeCustomer_Update_Fields struct {
+	PackagePlan        StripeCustomer_PackagePlan_Field
+	PurchasedPackageAt StripeCustomer_PurchasedPackageAt_Field
 }
 
 type StripeCustomer_UserId_Field struct {
@@ -8808,6 +8821,72 @@ func (f StripeCustomer_CustomerId_Field) value() interface{} {
 }
 
 func (StripeCustomer_CustomerId_Field) _Column() string { return "customer_id" }
+
+type StripeCustomer_PackagePlan_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func StripeCustomer_PackagePlan(v string) StripeCustomer_PackagePlan_Field {
+	return StripeCustomer_PackagePlan_Field{_set: true, _value: &v}
+}
+
+func StripeCustomer_PackagePlan_Raw(v *string) StripeCustomer_PackagePlan_Field {
+	if v == nil {
+		return StripeCustomer_PackagePlan_Null()
+	}
+	return StripeCustomer_PackagePlan(*v)
+}
+
+func StripeCustomer_PackagePlan_Null() StripeCustomer_PackagePlan_Field {
+	return StripeCustomer_PackagePlan_Field{_set: true, _null: true}
+}
+
+func (f StripeCustomer_PackagePlan_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f StripeCustomer_PackagePlan_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomer_PackagePlan_Field) _Column() string { return "package_plan" }
+
+type StripeCustomer_PurchasedPackageAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func StripeCustomer_PurchasedPackageAt(v time.Time) StripeCustomer_PurchasedPackageAt_Field {
+	return StripeCustomer_PurchasedPackageAt_Field{_set: true, _value: &v}
+}
+
+func StripeCustomer_PurchasedPackageAt_Raw(v *time.Time) StripeCustomer_PurchasedPackageAt_Field {
+	if v == nil {
+		return StripeCustomer_PurchasedPackageAt_Null()
+	}
+	return StripeCustomer_PurchasedPackageAt(*v)
+}
+
+func StripeCustomer_PurchasedPackageAt_Null() StripeCustomer_PurchasedPackageAt_Field {
+	return StripeCustomer_PurchasedPackageAt_Field{_set: true, _null: true}
+}
+
+func (f StripeCustomer_PurchasedPackageAt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f StripeCustomer_PurchasedPackageAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StripeCustomer_PurchasedPackageAt_Field) _Column() string { return "purchased_package_at" }
 
 type StripeCustomer_CreatedAt_Field struct {
 	_set   bool
@@ -11787,6 +11866,11 @@ type Metadata_Row struct {
 	Metadata []byte
 }
 
+type PackagePlan_PurchasedPackageAt_Row struct {
+	PackagePlan        *string
+	PurchasedPackageAt *time.Time
+}
+
 type Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation struct {
 	_value_bucket_name    []byte
 	_value_project_id     []byte
@@ -12027,25 +12111,28 @@ func (obj *pgxImpl) Create_ReverificationAudits(ctx context.Context,
 
 func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
-	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field,
+	optional StripeCustomer_Create_Fields) (
 	stripe_customer *StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	__now := obj.db.Hooks.Now().UTC()
 	__user_id_val := stripe_customer_user_id.value()
 	__customer_id_val := stripe_customer_customer_id.value()
+	__package_plan_val := optional.PackagePlan.value()
+	__purchased_package_at_val := optional.PurchasedPackageAt.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __customer_id_val, __created_at_val)
+	__values = append(__values, __user_id_val, __customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13918,6 +14005,28 @@ func (obj *pgxImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_StreamId_As
 
 }
 
+func (obj *pgxImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *PackagePlan_PurchasedPackageAt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PackagePlan_PurchasedPackageAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PackagePlan, &row.PurchasedPackageAt)
+	if err != nil {
+		return (*PackagePlan_PurchasedPackageAt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -13968,7 +14077,7 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 	rows []*StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, stripe_customer_created_at_less_or_equal.value())
@@ -13988,7 +14097,7 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 
 			for __rows.Next() {
 				stripe_customer := &StripeCustomer{}
-				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -16594,6 +16703,52 @@ func (obj *pgxImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Cont
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	update StripeCustomer_Update_Fields) (
+	stripe_customer *StripeCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PackagePlan._set {
+		__values = append(__values, update.PackagePlan.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("package_plan = ?"))
+	}
+
+	if update.PurchasedPackageAt._set {
+		__values = append(__values, update.PurchasedPackageAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("purchased_package_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripe_customer_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripe_customer = &StripeCustomer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customer, nil
 }
 
 func (obj *pgxImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
@@ -19699,25 +19854,28 @@ func (obj *pgxcockroachImpl) Create_ReverificationAudits(ctx context.Context,
 
 func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
-	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field,
+	optional StripeCustomer_Create_Fields) (
 	stripe_customer *StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	__now := obj.db.Hooks.Now().UTC()
 	__user_id_val := stripe_customer_user_id.value()
 	__customer_id_val := stripe_customer_customer_id.value()
+	__package_plan_val := optional.PackagePlan.value()
+	__purchased_package_at_val := optional.PurchasedPackageAt.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, created_at ) VALUES ( ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripe_customers ( user_id, customer_id, package_plan, purchased_package_at, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __user_id_val, __customer_id_val, __created_at_val)
+	__values = append(__values, __user_id_val, __customer_id_val, __package_plan_val, __purchased_package_at_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -21590,6 +21748,28 @@ func (obj *pgxcockroachImpl) First_ReverificationAudits_By_NodeId_OrderBy_Asc_St
 
 }
 
+func (obj *pgxcockroachImpl) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *PackagePlan_PurchasedPackageAt_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.package_plan, stripe_customers.purchased_package_at FROM stripe_customers WHERE stripe_customers.user_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, stripe_customer_user_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &PackagePlan_PurchasedPackageAt_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.PackagePlan, &row.PurchasedPackageAt)
+	if err != nil {
+		return (*PackagePlan_PurchasedPackageAt_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -21640,7 +21820,7 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 	rows []*StripeCustomer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, stripe_customer_created_at_less_or_equal.value())
@@ -21660,7 +21840,7 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 
 			for __rows.Next() {
 				stripe_customer := &StripeCustomer{}
-				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -24266,6 +24446,52 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_AccountingTimestamps_By_Name(ctx con
 		return obj.makeErr(err)
 	}
 	return nil
+}
+
+func (obj *pgxcockroachImpl) Update_StripeCustomer_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	update StripeCustomer_Update_Fields) (
+	stripe_customer *StripeCustomer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripe_customers SET "), __sets, __sqlbundle_Literal(" WHERE stripe_customers.user_id = ? RETURNING stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PackagePlan._set {
+		__values = append(__values, update.PackagePlan.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("package_plan = ?"))
+	}
+
+	if update.PurchasedPackageAt._set {
+		__values = append(__values, update.PurchasedPackageAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("purchased_package_at = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripe_customer_user_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripe_customer = &StripeCustomer{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripe_customer, nil
 }
 
 func (obj *pgxcockroachImpl) Update_BillingBalance_By_UserId_And_Balance(ctx context.Context,
@@ -27842,13 +28068,14 @@ func (rx *Rx) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 func (rx *Rx) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
-	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+	stripe_customer_customer_id StripeCustomer_CustomerId_Field,
+	optional StripeCustomer_Create_Fields) (
 	stripe_customer *StripeCustomer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_StripeCustomer(ctx, stripe_customer_user_id, stripe_customer_customer_id)
+	return tx.Create_StripeCustomer(ctx, stripe_customer_user_id, stripe_customer_customer_id, optional)
 
 }
 
@@ -28576,6 +28803,16 @@ func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	return tx.Get_StripeCustomer_CustomerId_By_UserId(ctx, stripe_customer_user_id)
 }
 
+func (rx *Rx) Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field) (
+	row *PackagePlan_PurchasedPackageAt_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx, stripe_customer_user_id)
+}
+
 func (rx *Rx) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
 	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
 	row *UserId_Row, err error) {
@@ -29179,6 +29416,17 @@ func (rx *Rx) Update_Reputation_By_Id_And_AuditHistory(ctx context.Context,
 	return tx.Update_Reputation_By_Id_And_AuditHistory(ctx, reputation_id, reputation_audit_history, update)
 }
 
+func (rx *Rx) Update_StripeCustomer_By_UserId(ctx context.Context,
+	stripe_customer_user_id StripeCustomer_UserId_Field,
+	update StripeCustomer_Update_Fields) (
+	stripe_customer *StripeCustomer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_StripeCustomer_By_UserId(ctx, stripe_customer_user_id, update)
+}
+
 func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 	stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
 	update StripecoinpaymentsInvoiceProjectRecord_Update_Fields) (
@@ -29498,7 +29746,8 @@ type Methods interface {
 
 	Create_StripeCustomer(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field,
-		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
+		stripe_customer_customer_id StripeCustomer_CustomerId_Field,
+		optional StripeCustomer_Create_Fields) (
 		stripe_customer *StripeCustomer, err error)
 
 	Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
@@ -29811,6 +30060,10 @@ type Methods interface {
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
 
+	Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field) (
+		row *PackagePlan_PurchasedPackageAt_Row, err error)
+
 	Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
 		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
 		row *UserId_Row, err error)
@@ -30097,6 +30350,11 @@ type Methods interface {
 		reputation_audit_history Reputation_AuditHistory_Field,
 		update Reputation_Update_Fields) (
 		reputation *Reputation, err error)
+
+	Update_StripeCustomer_By_UserId(ctx context.Context,
+		stripe_customer_user_id StripeCustomer_UserId_Field,
+		update StripeCustomer_Update_Fields) (
+		stripe_customer *StripeCustomer, err error)
 
 	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,

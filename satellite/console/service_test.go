@@ -507,6 +507,29 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 				require.Nil(t, coupon)
 			})
+			t.Run("UpdatePackage", func(t *testing.T) {
+				packagePlan := "package-plan-1"
+				purchaseTime := time.Now()
+
+				check := func() {
+					dbPackagePlan, dbPurchaseTime, err := sat.DB.StripeCoinPayments().Customers().GetPackageInfo(ctx, up1Pro1.OwnerID)
+					require.NoError(t, err)
+					require.NotNil(t, dbPackagePlan)
+					require.NotNil(t, dbPurchaseTime)
+					require.Equal(t, packagePlan, *dbPackagePlan)
+					require.Equal(t, dbPurchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+				}
+
+				require.NoError(t, service.Payments().UpdatePackage(userCtx1, packagePlan, purchaseTime))
+				check()
+
+				// Check values can't be overwritten
+				err = service.Payments().UpdatePackage(userCtx1, "different-package-plan", time.Now())
+				require.Error(t, err)
+				require.True(t, console.ErrAlreadyHasPackage.Has(err))
+
+				check()
+			})
 		})
 }
 
