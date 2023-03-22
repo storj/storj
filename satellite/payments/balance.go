@@ -40,3 +40,10 @@ type BalanceTransaction struct {
 	Amount      int64
 	Description string
 }
+
+// PackagePlan is an amount to charge a user one time in exchange for credit of greater value.
+// Price and Credit are in cents USD.
+type PackagePlan struct {
+	Price  int64
+	Credit int64
+}

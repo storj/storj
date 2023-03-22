@@ -499,12 +499,6 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = p.service.Payments().ApplyCoupon(ctx, pkg.CouponID)
-	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
-		return
-	}
-
 	card, err := p.service.Payments().AddCreditCard(ctx, token)
 	if err != nil {
 		switch {
@@ -516,8 +510,22 @@ func (p *Payments) PurchasePackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = p.service.Payments().Purchase(ctx, pkg.Price, fmt.Sprintf("%s package plan", string(u.UserAgent)), card.ID)
+	description := fmt.Sprintf("%s package plan", string(u.UserAgent))
+	err = p.service.Payments().UpdatePackage(ctx, description, time.Now())
 	if err != nil {
+		if !console.ErrAlreadyHasPackage.Has(err) {
+			p.serveJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	err = p.service.Payments().Purchase(ctx, pkg.Price, description, card.ID)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = p.service.Payments().ApplyCredit(ctx, pkg.Credit, description); err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
