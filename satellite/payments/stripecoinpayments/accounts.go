@@ -97,6 +97,30 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	return couponType, Error.Wrap(accounts.service.db.Customers().Insert(ctx, userID, customer.ID))
 }
 
+// UpdatePackage updates a customer's package plan information.
+func (accounts *accounts) UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = accounts.service.db.Customers().UpdatePackage(ctx, userID, packagePlan, timestamp)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// GetPackageInfo returns the package plan and time of purchase for a user.
+func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	packagePlan, purchaseTime, err = accounts.service.db.Customers().GetPackageInfo(ctx, userID)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	return
+}
+
 // Balance returns an integer amount in cents that represents the current balance of payment account.
 func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ payments.Balance, err error) {
 	defer mon.Task()(&ctx, userID)(&err)

@@ -134,3 +134,31 @@ func TestSignupCouponCodes(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateGetPackage(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		accounts := planet.Satellites[0].API.Payments.Accounts
+		userID := planet.Uplinks[0].Projects[0].Owner.ID
+
+		var packagePlan string
+		var purchaseTime time.Time
+		packagePlan = "package-plan-1"
+		purchaseTime = time.Now()
+
+		require.NoError(t, accounts.UpdatePackage(ctx, userID, &packagePlan, &purchaseTime))
+		dbPackagePlan, dbPurchaseTime, err := accounts.GetPackageInfo(ctx, userID)
+		require.NoError(t, err)
+		require.NotNil(t, dbPackagePlan)
+		require.NotNil(t, dbPurchaseTime)
+		require.Equal(t, packagePlan, *dbPackagePlan)
+		require.Equal(t, purchaseTime.Truncate(time.Millisecond), dbPurchaseTime.Truncate(time.Millisecond))
+
+		require.NoError(t, accounts.UpdatePackage(ctx, userID, nil, nil))
+		dbPackagePlan, dbPurchaseTime, err = accounts.GetPackageInfo(ctx, userID)
+		require.NoError(t, err)
+		require.Nil(t, dbPackagePlan)
+		require.Nil(t, dbPurchaseTime)
+	})
+}

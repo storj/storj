@@ -37,6 +37,7 @@ func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, custom
 		ctx,
 		dbx.StripeCustomer_UserId(userID[:]),
 		dbx.StripeCustomer_CustomerId(customerID),
+		dbx.StripeCustomer_Create_Fields{},
 	)
 
 	return err
@@ -108,6 +109,42 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 	return page, nil
 }
 
+// UpdatePackage updates the customer's package plan and purchase time.
+func (customers *customers) UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (c *stripecoinpayments.Customer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.StripeCustomer_Update_Fields{
+		PackagePlan:        dbx.StripeCustomer_PackagePlan_Null(),
+		PurchasedPackageAt: dbx.StripeCustomer_PurchasedPackageAt_Null(),
+	}
+	if packagePlan != nil {
+		updateFields.PackagePlan = dbx.StripeCustomer_PackagePlan(*packagePlan)
+	}
+	if timestamp != nil {
+		updateFields.PurchasedPackageAt = dbx.StripeCustomer_PurchasedPackageAt(*timestamp)
+	}
+
+	dbxCustomer, err := customers.db.Update_StripeCustomer_By_UserId(ctx,
+		dbx.StripeCustomer_UserId(userID[:]),
+		updateFields,
+	)
+	if err != nil {
+		return c, err
+	}
+	return fromDBXCustomer(dbxCustomer)
+}
+
+// UpdatePackage updates the customer's package plan and purchase time.
+func (customers *customers) GetPackageInfo(ctx context.Context, userID uuid.UUID) (_ *string, _ *time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := customers.db.Get_StripeCustomer_PackagePlan_StripeCustomer_PurchasedPackageAt_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
+	if err != nil {
+		return nil, nil, err
+	}
+	return row.PackagePlan, row.PurchasedPackageAt, nil
+}
+
 // fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
 func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
 	userID, err := uuid.FromBytes(dbxCustomer.UserId)
@@ -116,7 +153,9 @@ func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Custo
 	}
 
 	return &stripecoinpayments.Customer{
-		ID:     dbxCustomer.CustomerId,
-		UserID: userID,
+		ID:                 dbxCustomer.CustomerId,
+		UserID:             userID,
+		PackagePlan:        dbxCustomer.PackagePlan,
+		PackagePurchasedAt: dbxCustomer.PurchasedPackageAt,
 	}, nil
 }
