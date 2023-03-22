@@ -403,6 +403,8 @@ CREATE TABLE storjscan_wallets (
 CREATE TABLE stripe_customers (
 	user_id bytea NOT NULL,
 	customer_id text NOT NULL,
+	package_plan text,
+	purchased_package_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )

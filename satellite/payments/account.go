@@ -23,6 +23,12 @@ type Accounts interface {
 	// If account is already set up it will return nil.
 	Setup(ctx context.Context, userID uuid.UUID, email string, signupPromoCode string) (CouponType, error)
 
+	// UpdatePackage updates a customer's package plan information.
+	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) error
+
+	// GetPackageInfo returns the package plan and time of purchase for a user.
+	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
+
 	// Balance returns an object that represents current free credits and coins balance in cents.
 	Balance(ctx context.Context, userID uuid.UUID) (Balance, error)
 
