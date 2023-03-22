@@ -2313,6 +2313,15 @@ func (db *satelliteDB) ProductionMigration() *migrate.Migration {
 					`ALTER TABLE user_settings ADD COLUMN onboarding_step text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns package_plan and purchased_package_at to stripe_customers",
+				Version:     231,
+				Action: migrate.SQL{
+					`ALTER TABLE stripe_customers ADD COLUMN package_plan TEXT;`,
+					`ALTER TABLE stripe_customers ADD COLUMN purchased_package_at timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

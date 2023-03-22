@@ -125,6 +125,9 @@ var (
 
 	// ErrPurchaseDesc is error that occurs when something is wrong with Purchase description.
 	ErrPurchaseDesc = errs.Class("purchase description")
+
+	// ErrAlreadyHasPackage is error that occurs when a user tries to update package, but already has one.
+	ErrAlreadyHasPackage = errs.Class("user already has package")
 )
 
 // Service is handling accounts related logic.
@@ -3144,6 +3147,31 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 	}
 
 	_, err = payment.service.accounts.Invoices().Pay(ctx, inv.ID, paymentMethodID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdatePackage updates a user's package information unless they already have a package.
+func (payment Payments) UpdatePackage(ctx context.Context, packagePlan string, purchaseTime time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	dbPackagePlan, dbPurchaseTime, err := payment.service.accounts.GetPackageInfo(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if dbPackagePlan != nil || dbPurchaseTime != nil {
+		return ErrAlreadyHasPackage.New("user already has package")
+	}
+
+	err = payment.service.accounts.UpdatePackage(ctx, user.ID, &packagePlan, &purchaseTime)
 	if err != nil {
 		return Error.Wrap(err)
 	}
