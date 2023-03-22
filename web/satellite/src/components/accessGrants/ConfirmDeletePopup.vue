@@ -55,79 +55,74 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VInput,
-        CloseCrossIcon,
-    },
-})
-export default class ConfirmDeletePopup extends Vue {
-    private isLoading = false;
-    private confirmedInput = '';
+const FIRST_PAGE = 1;
 
-    private readonly FIRST_PAGE: number = 1;
+const store = useStore();
+const notify = useNotify();
 
-    /**
-     * sets Comfirmed Input property to the given value.
-     */
-    public setConfirmedInput(value: string): void {
-        this.confirmedInput = value;
+const isLoading = ref<boolean>(false);
+const confirmedInput = ref<string>('');
+const emit = defineEmits(['resetPagination', 'close']);
+
+/**
+ * Returns list of selected access grants from store.
+ */
+const selectedAccessGrants = computed((): AccessGrant[] => {
+    return store.getters.selectedAccessGrants;
+});
+
+/**
+ * sets Comfirmed Input property to the given value.
+ */
+function setConfirmedInput(value: string): void {
+    confirmedInput.value = value;
+}
+
+/**
+ * Deletes selected access grants, fetches updated list and closes popup.
+ */
+async function onDeleteClick(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    try {
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
+        await notify.success(`Access Grant deleted successfully`);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
     }
 
-    /**
-     * Deletes selected access grants, fetches updated list and closes popup.
-     */
-    public async onDeleteClick(): Promise<void> {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
-            await this.$notify.success(`Access Grant deleted successfully`);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
-        }
-
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
-        }
-
-        this.$emit('resetPagination');
-        this.isLoading = false;
-        this.onCancelClick();
+    try {
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+        await store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+    } catch (error) {
+        await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
     }
 
-    /**
-     * Closes popup
-     */
-    public onCancelClick(): void {
-        this.$emit('close');
-    }
+    emit('resetPagination');
+    isLoading.value = false;
+    onCancelClick();
+}
 
-    /**
-     * Returns list of selected access grants from store.
-     */
-    public get selectedAccessGrants(): AccessGrant[] {
-        return this.$store.getters.selectedAccessGrants;
-    }
+/**
+ * Closes popup
+ */
+function onCancelClick(): void {
+    emit('close');
 }
 </script>
 
