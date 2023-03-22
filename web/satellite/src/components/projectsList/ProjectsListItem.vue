@@ -9,32 +9,35 @@
     />
 </template>
 
-<script lang="ts">
-import { Component, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { Project } from '@/types/projects';
+import { useResize } from '@/composables/resize';
 
 import TableItem from '@/components/common/TableItem.vue';
-import Resizable from '@/components/common/Resizable.vue';
 
-// @vue/component
-@Component({
-    components: {
-        TableItem,
-    },
-})
-export default class ProjectsListItem extends Resizable {
-    @Prop({ default: () => new Project('123', 'name', 'desc') })
-    private readonly itemData: Project;
-    @Prop({ default: () => (_: string) => {} })
-    public readonly onClick: (project: string) => void;
+const props = withDefaults(defineProps<{
+    itemData: Project,
+    onClick: (project: string) => void,
+}>(), {
+    itemData: () => new Project('default', 'name', 'desc'),
+    onClick: (_: string) => {},
+});
 
-    public get itemToRender(): { [key: string]: string | string[] } {
-        if (!this.isMobile) return { name: this.itemData.name, memberCount: this.itemData.memberCount.toString(), date: this.itemData.createdDate() };
+const { isMobile } = useResize();
 
-        return { info: [ this.itemData.name, `Created ${this.itemData.createdDate()}` ] };
+const itemToRender = computed((): { [key: string]: string | string[] } => {
+    if (!isMobile.value) {
+        return {
+            name: props.itemData.name,
+            memberCount: props.itemData.memberCount.toString(),
+            date: props.itemData.createdDate(),
+        };
     }
-}
+
+    return { info: [ props.itemData.name, `Created ${props.itemData.createdDate()}` ] };
+});
 </script>
 
 <style scoped lang="scss">
@@ -47,5 +50,4 @@ export default class ProjectsListItem extends Resizable {
             margin: 0;
         }
     }
-
 </style>
