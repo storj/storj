@@ -18,42 +18,38 @@ export class BucketsState {
 }
 
 export const useBucketsStore = defineStore('buckets', () => {
-    const bucketsState = reactive<BucketsState>({
-        allBucketNames: [],
-        cursor: { limit: BUCKETS_PAGE_LIMIT, search: '', page: FIRST_PAGE },
-        page: { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: BUCKETS_PAGE_LIMIT, search: '', totalCount: 0 },
-    });
+    const state = reactive<BucketsState>(new BucketsState());
 
     const api: BucketsApi = new BucketsApiGql();
 
     function setBucketsSearch(search: string): void {
-        bucketsState.cursor.search = search;
+        state.cursor.search = search;
     }
 
     function clearBucketsState(): void {
-        bucketsState.allBucketNames = [];
-        bucketsState.cursor = new BucketCursor('', BUCKETS_PAGE_LIMIT, FIRST_PAGE);
-        bucketsState.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
+        state.allBucketNames = [];
+        state.cursor = new BucketCursor('', BUCKETS_PAGE_LIMIT, FIRST_PAGE);
+        state.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
     }
 
     async function fetchBuckets(page: number): Promise<void> {
-        const { projectsStore } = useProjectsStore();
-        const projectID = projectsStore.selectedProject.id;
+        const { projectsState } = useProjectsStore();
+        const projectID = projectsState.selectedProject.id;
         const before = new Date();
-        bucketsState.cursor.page = page;
+        state.cursor.page = page;
 
-        bucketsState.page = await api.get(projectID, before, bucketsState.cursor);
+        state.page = await api.get(projectID, before, state.cursor);
     }
 
     async function fetchAllBucketsNames(): Promise<void> {
-        const { projectsStore } = useProjectsStore();
-        const projectID = projectsStore.selectedProject.id;
+        const { projectsState } = useProjectsStore();
+        const projectID = projectsState.selectedProject.id;
 
-        bucketsState.allBucketNames = await api.getAllBucketNames(projectID);
+        state.allBucketNames = await api.getAllBucketNames(projectID);
     }
 
     return {
-        bucketsState,
+        bucketsState: state,
         setBucketsSearch,
         clearBucketsState,
         fetchBuckets,

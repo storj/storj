@@ -15,14 +15,10 @@ export class UsersState {
 }
 
 export const useUsersStore = defineStore('users', () => {
-    const usersState = reactive<UsersState>({
-        user: new User(),
-        userMFASecret: '',
-        userMFARecoveryCodes: [],
-    });
+    const state = reactive<UsersState>(new UsersState());
 
     const userName = computed(() => {
-        return usersState.user.getFullName();
+        return state.user.getFullName();
     });
 
     const api: UsersApi = new AuthHttpApi();
@@ -30,28 +26,28 @@ export const useUsersStore = defineStore('users', () => {
     async function updateUserInfo(userInfo: UpdatedUser): Promise<void> {
         await api.update(userInfo);
 
-        usersState.user.fullName = userInfo.fullName;
-        usersState.user.shortName = userInfo.shortName;
+        state.user.fullName = userInfo.fullName;
+        state.user.shortName = userInfo.shortName;
     }
 
     async function fetchUserInfo(): Promise<void> {
         const user = await api.get();
 
-        usersState.user = user;
+        state.user = user;
 
         if (user.projectLimit === 0) {
             const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
 
-            usersState.user.projectLimit = parseInt(limitFromConfig);
+            state.user.projectLimit = parseInt(limitFromConfig);
 
             return;
         }
 
-        usersState.user.projectLimit = user.projectLimit;
+        state.user.projectLimit = user.projectLimit;
     }
 
     async function fetchFrozenStatus(): Promise<void> {
-        usersState.user.isFrozen = await api.getFrozenStatus();
+        state.user.isFrozen = await api.getFrozenStatus();
     }
 
     async function disableUserMFA(request: DisableMFARequest): Promise<void> {
@@ -63,23 +59,23 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function generateUserMFASecret(): Promise<void> {
-        usersState.userMFASecret = await api.generateUserMFASecret();
+        state.userMFASecret = await api.generateUserMFASecret();
     }
 
     async function generateUserMFARecoveryCodes(): Promise<void> {
         const codes = await api.generateUserMFARecoveryCodes();
 
-        usersState.userMFARecoveryCodes = codes;
-        usersState.user.mfaRecoveryCodeCount = codes.length;
+        state.userMFARecoveryCodes = codes;
+        state.user.mfaRecoveryCodeCount = codes.length;
     }
 
     function clearUserInfo() {
-        usersState.user = new User();
-        usersState.user.projectLimit = 1;
+        state.user = new User();
+        state.user.projectLimit = 1;
     }
 
     return {
-        usersState,
+        usersState: state,
         userName,
         updateUserInfo,
         fetchUserInfo,
