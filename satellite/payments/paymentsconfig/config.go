@@ -37,7 +37,7 @@ type Config struct {
 	NodeAuditBandwidthPrice  int64                      `help:"price node receive for storing TB of audit in cents" default:"1000"`
 	NodeDiskSpacePrice       int64                      `help:"price node receive for storing disk space in cents/TB" default:"150"`
 	UsagePriceOverrides      ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment"`
-	PackagePlans             PackagePlans               `help:"semicolon-separated partner package plans in the format partner:couponID,price. Price is in cents USD."`
+	PackagePlans             PackagePlans               `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.
@@ -172,7 +172,7 @@ func (p *PackagePlans) String() string {
 	var s strings.Builder
 	left := len(p.Packages)
 	for partner, pkg := range p.Packages {
-		s.WriteString(fmt.Sprintf("%s:%s,%d", partner, pkg.CouponID, pkg.Price))
+		s.WriteString(fmt.Sprintf("%s:%d,%d", partner, pkg.Price, pkg.Credit))
 		left--
 		if left > 0 {
 			s.WriteRune(';')
@@ -191,7 +191,7 @@ func (p *PackagePlans) Set(s string) error {
 
 		info := strings.Split(packagePlansStr, ":")
 		if len(info) != 2 {
-			return Error.New("Invalid package plan (expected format partner:couponID,price got %s)", packagePlansStr)
+			return Error.New("Invalid package plan (expected format partner:price,credit got %s)", packagePlansStr)
 		}
 
 		partner := strings.TrimSpace(info[0])
@@ -202,21 +202,26 @@ func (p *PackagePlans) Set(s string) error {
 		packageStr := info[1]
 		pkg := strings.Split(packageStr, ",")
 		if len(pkg) != 2 || pkg[0] == "" {
-			return Error.New("Invalid package (expected format couponID,price got %s)", packageStr)
+			return Error.New("Invalid package (expected format price,credit got %s)", packageStr)
 		}
 
 		if _, err := decimal.NewFromString(pkg[1]); err != nil {
 			return Error.New("Invalid price (%s)", err)
 		}
 
-		cents, err := strconv.Atoi(pkg[1])
+		priceCents, err := strconv.Atoi(pkg[0])
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		creditCents, err := strconv.Atoi(pkg[1])
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
 		packages[info[0]] = payments.PackagePlan{
-			CouponID: pkg[0],
-			Price:    int64(cents),
+			Price:  int64(priceCents),
+			Credit: int64(creditCents),
 		}
 	}
 	p.Packages = packages
