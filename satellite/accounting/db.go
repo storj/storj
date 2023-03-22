@@ -175,7 +175,7 @@ type Usage struct {
 // architecture: Database
 type StoragenodeAccounting interface {
 	// SaveTallies records tallies of data at rest
-	SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error
+	SaveTallies(ctx context.Context, latestTally time.Time, nodes []storj.NodeID, tallies []float64) error
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
 	// GetTalliesSince retrieves all tallies since latestRollup

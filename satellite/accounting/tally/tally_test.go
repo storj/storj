@@ -46,12 +46,10 @@ func TestDeleteTalliesBefore(t *testing.T) {
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			nodeData := make(map[storj.NodeID]float64)
-			nodeData[storj.NodeID{1}] = float64(1000)
-			nodeData[storj.NodeID{2}] = float64(1000)
-			nodeData[storj.NodeID{3}] = float64(1000)
+			nodeIDs := []storj.NodeID{{1}, {2}, {3}}
+			nodeBWAmounts := []float64{1000, 1000, 1000}
 
-			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeData)
+			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeIDs, nodeBWAmounts)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore, 1)

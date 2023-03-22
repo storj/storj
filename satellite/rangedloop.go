@@ -124,7 +124,8 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, config *Conf
 	{ // setup node tally observer
 		peer.Accounting.NodeTallyObserver = nodetally.NewRangedLoopObserver(
 			log.Named("accounting:nodetally"),
-			db.StoragenodeAccounting())
+			db.StoragenodeAccounting(),
+			metabaseDB)
 	}
 
 	{ // setup overlay
