@@ -3109,6 +3109,8 @@ func (payment Payments) WalletPayments(ctx context.Context) (_ WalletPayments, e
 }
 
 // Purchase makes a purchase of `price` amount with description of `desc` and payment method with id of `paymentMethodID`.
+// If a paid invoice with the same description exists, then we assume this is a retried request and don't create and pay
+// another invoice.
 func (payment Payments) Purchase(ctx context.Context, price int64, desc string, paymentMethodID string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -3127,8 +3129,12 @@ func (payment Payments) Purchase(ctx context.Context, price int64, desc string, 
 
 	// check for any previously created unpaid invoice with the same description.
 	// If draft, delete it and create new and pay. If open, pay it and don't create new.
+	// If paid, skip.
 	for _, inv := range invoices {
 		if inv.Description == desc {
+			if inv.Status == payments.InvoiceStatusPaid {
+				return nil
+			}
 			if inv.Status == payments.InvoiceStatusDraft {
 				_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
 				if err != nil {
