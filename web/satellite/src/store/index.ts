@@ -14,7 +14,7 @@ import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
 import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { appStateModule } from '@/store/modules/appState';
-import { makeBucketsModule } from '@/store/modules/buckets';
+import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
@@ -54,6 +54,7 @@ export interface ModulesState {
     usersModule: User;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
+    bucketUsageModule: BucketsState;
     files: FilesState;
 }
 
