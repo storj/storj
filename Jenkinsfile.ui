@@ -15,18 +15,26 @@ pipeline {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
+        GO_VERSION='1.18.1'
+        GO_ARCH='amd64'
     }
     stages {
         stage('Checkout') {
             steps {
                 sh "chmod -R 777 ." // Del orphaned files
-
                 checkout scm
                 sh 'mkdir -p .build'
 
-
                 // pre-check that we cannot do at a later stage reliably
                 sh 'check-large-files'
+            }
+        }
+        stage('Go Install') {
+            steps {
+                sh 'curl -O -L https://golang.org/dl/go${VERSION}.linux-${ARCH}.tar.gz'
+                sh 'tar -xf go${VERSION}.linux-${ARCH}.tar.gz'
+                sh 'chown -R root:root ./go'
+                sh 'mv -v go /usr/local'
             }
         }
         stage('Build Web') {
