@@ -8,29 +8,25 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { useStore } from '@/utils/hooks';
 
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
-// @vue/component
-@Component({
-    components: {
-        UnselectIcon,
-    },
-})
-export default class BucketNameBullet extends Vue {
-    @Prop({ default: '' })
-    public readonly name: string;
+const store = useStore();
 
-    /**
-     * Toggles bucket selection.
-     */
-    public toggleBucketSelection(name: string): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
-    }
+const props = withDefaults(defineProps<{
+    name: string,
+}>(), {
+    name: '',
+});
+
+/**
+ * Toggles bucket selection.
+ */
+function toggleBucketSelection(name: string): void {
+    store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
 }
 </script>
 
