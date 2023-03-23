@@ -58,8 +58,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, reactive, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -75,6 +75,7 @@ import { User } from '@/types/users';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -85,224 +86,211 @@ import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ArrowImage,
-        CheckmarkIcon,
-        ProjectIcon,
-        PassphraseIcon,
-        ManageIcon,
-        CreateProjectIcon,
-        VLoader,
-    },
-})
-export default class ProjectSelection extends Vue {
-    private FIRST_PAGE = 1;
-    private dropdownYPos = 0;
-    private dropdownXPos = 0;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
+const store = useStore();
+const notify = useNotify();
 
-    public isLoading = false;
+const FIRST_PAGE = 1;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs!: {
-        projectSelection: HTMLDivElement,
-    };
+const dropdownYPos = ref<number>(0);
+const dropdownXPos = ref<number>(0);
+const isLoading = ref<boolean>(false);
+const projectSelection = ref<HTMLDivElement>();
 
-    /**
-     * Fetches projects related information and than toggles selection popup.
-     */
-    public async toggleSelection(): Promise<void> {
-        if (this.isOnboardingTour) return;
+/**
+ * Returns top and left position of dropdown.
+ */
+const style = computed((): Record<string, string> => {
+    return { top: `${dropdownYPos.value}px`, left: `${dropdownXPos.value}px` };
+});
 
-        const selectionContainer = this.$refs.projectSelection.getBoundingClientRect();
+/**
+ * Indicates if current route is onboarding tour.
+ */
+const isOnboardingTour = computed((): boolean => {
+    return router.currentRoute.path.includes(RouteConfig.OnboardingTour.path);
+});
 
-        const FIVE_PIXELS = 5;
-        const TWENTY_PIXELS = 20;
-        this.dropdownYPos = selectionContainer.top - FIVE_PIXELS;
-        this.dropdownXPos = selectionContainer.right - TWENTY_PIXELS;
+/**
+ * Returns selected project's name.
+ */
+const projectName = computed((): string => {
+    return store.getters.selectedProject.name;
+});
 
-        this.toggleDropdown();
+/**
+ * Indicates if dropdown is shown.
+ */
+const isDropdownShown = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
+});
 
-        if (this.isLoading || !this.isDropdownShown) return;
+/**
+ * Returns projects list from store.
+ */
+const projects = computed((): Project[] => {
+    return store.getters.projectsWithoutSelected;
+});
 
-        this.isLoading = true;
+/**
+ * Returns selected project from store.
+ */
+const selectedProject = computed((): Project => {
+    return store.getters.selectedProject;
+});
+
+/**
+ * Indicates if current route is objects view.
+ */
+const isBucketsView = computed((): boolean => {
+    return router.currentRoute.path.includes(RouteConfig.Buckets.path);
+});
+
+/**
+ * Fetches projects related information and than toggles selection popup.
+ */
+async function toggleSelection(): Promise<void> {
+    if (isOnboardingTour.value || !projectSelection.value) return;
+
+    const selectionContainer = projectSelection.value.getBoundingClientRect();
+
+    const FIVE_PIXELS = 5;
+    const TWENTY_PIXELS = 20;
+
+    dropdownYPos.value = selectionContainer.top - FIVE_PIXELS;
+    dropdownXPos.value = selectionContainer.right - TWENTY_PIXELS;
+
+    toggleDropdown();
+
+    if (isLoading.value || !isDropdownShown.value) return;
+
+    isLoading.value = true;
+
+    try {
+        await store.dispatch(PROJECTS_ACTIONS.FETCH);
+        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+/**
+ * Toggles project dropdown visibility.
+ */
+function toggleDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.SELECT_PROJECT);
+}
+
+/**
+ * Fetches all project related information.
+ * @param projectID
+ */
+async function onProjectSelected(projectID: string): Promise<void> {
+    await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+    LocalData.setSelectedProjectId(projectID);
+    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    closeDropdown();
+
+    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+
+    if (isBucketsView.value) {
+        await router.push(RouteConfig.Buckets.path).catch(() => {return; });
+
+        return;
+    }
+
+    if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
+        const now = new Date();
+        const past = new Date();
+        past.setDate(past.getDate() - 30);
 
         try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+            await Promise.all([
+                store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
+                store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+                store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
+                store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
+            ]);
         } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
-        } finally {
-            this.isLoading = false;
+            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        }
+
+        return;
+    }
+
+    if (router.currentRoute.name === RouteConfig.AccessGrants.name) {
+        try {
+            await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        }
+
+        return;
+    }
+
+    if (router.currentRoute.name === RouteConfig.Users.name) {
+        try {
+            await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
+        }
+    }
+}
+
+/**
+ * Closes select project dropdown.
+ */
+function closeDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+}
+
+/**
+ * Route to projects list page.
+ */
+function onProjectsLinkClick(): void {
+    if (router.currentRoute.name !== RouteConfig.ProjectsList.name) {
+        analytics.pageVisit(RouteConfig.ProjectsList.path);
+        analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
+        router.push(RouteConfig.ProjectsList.path);
+    }
+
+    closeDropdown();
+}
+
+/**
+ * Toggles manage passphrase modal shown.
+ */
+function onManagePassphraseClick(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+
+    closeDropdown();
+}
+
+/**
+ * Route to create project page.
+ */
+function onCreateLinkClick(): void {
+    if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
+        analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
+
+        const user: User = store.getters.user;
+        const ownProjectsCount: number = store.getters.projectsCount;
+
+        if (!user.paidTier && user.projectLimit === ownProjectsCount) {
+            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+        } else {
+            analytics.pageVisit(RouteConfig.CreateProject.path);
+            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
         }
     }
 
-    /**
-     * Toggles project dropdown visibility.
-     */
-    public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.SELECT_PROJECT);
-    }
-
-    /**
-     * Fetches all project related information.
-     * @param projectID
-     */
-    public async onProjectSelected(projectID: string): Promise<void> {
-        await this.analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
-        LocalData.setSelectedProjectId(projectID);
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-        this.closeDropdown();
-
-        this.$store.commit(OBJECTS_MUTATIONS.CLEAR);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
-
-        if (this.isBucketsView) {
-            await this.$router.push(RouteConfig.Buckets.path).catch(() => {return; });
-
-            return;
-        }
-
-        if (this.$route.name === RouteConfig.ProjectDashboard.name) {
-            const now = new Date();
-            const past = new Date();
-            past.setDate(past.getDate() - 30);
-
-            try {
-                await Promise.all([
-                    this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
-                    this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
-                    this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id),
-                    this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE),
-                ]);
-            } catch (error) {
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
-            }
-
-            return;
-        }
-
-        if (this.$route.name === RouteConfig.AccessGrants.name) {
-            try {
-                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
-            }
-
-            return;
-        }
-
-        if (this.$route.name === RouteConfig.Users.name) {
-            try {
-                await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            } catch (error) {
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
-            }
-        }
-    }
-
-    /**
-     * Returns top and left position of dropdown.
-     */
-    public get style(): Record<string, string> {
-        return { top: `${this.dropdownYPos}px`, left: `${this.dropdownXPos}px` };
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
-    }
-
-    /**
-     * Returns selected project's name.
-     */
-    public get projectName(): string {
-        return this.$store.getters.selectedProject.name;
-    }
-
-    /**
-     * Indicates if dropdown is shown.
-     */
-    public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
-    }
-
-    /**
-     * Returns projects list from store.
-     */
-    public get projects(): Project[] {
-        return this.$store.getters.projectsWithoutSelected;
-    }
-
-    /**
-     * Returns selected project from store.
-     */
-    public get selectedProject(): Project {
-        return this.$store.getters.selectedProject;
-    }
-
-    /**
-     * Closes select project dropdown.
-     */
-    public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Route to projects list page.
-     */
-    public onProjectsLinkClick(): void {
-        if (this.$route.name !== RouteConfig.ProjectsList.name) {
-            this.analytics.pageVisit(RouteConfig.ProjectsList.path);
-            this.analytics.eventTriggered(AnalyticsEvent.MANAGE_PROJECTS_CLICKED);
-            this.$router.push(RouteConfig.ProjectsList.path);
-        }
-
-        this.closeDropdown();
-    }
-
-    /**
-     * Toggles manage passphrase modal shown.
-     */
-    public onManagePassphraseClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
-
-        this.closeDropdown();
-    }
-
-    /**
-     * Route to create project page.
-     */
-    public onCreateLinkClick(): void {
-        if (this.$route.name !== RouteConfig.CreateProject.name) {
-            this.analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
-
-            const user: User = this.$store.getters.user;
-            const ownProjectsCount: number = this.$store.getters.projectsCount;
-
-            if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-            } else {
-                this.analytics.pageVisit(RouteConfig.CreateProject.path);
-                this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
-            }
-        }
-
-        this.closeDropdown();
-    }
-
-    /**
-     * Indicates if current route is objects view.
-     */
-    private get isBucketsView(): boolean {
-        const currentRoute = this.$route.path;
-
-        return currentRoute.includes(RouteConfig.Buckets.path);
-    }
+    closeDropdown();
 }
 </script>
 
