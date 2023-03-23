@@ -19044,6 +19044,34 @@ func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -26688,6 +26716,34 @@ func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId(ctx context.Con
 
 }
 
+func (obj *pgxcockroachImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM account_freeze_events WHERE account_freeze_events.user_id = ? AND account_freeze_events.event = ?")
+
+	var __values []interface{}
+	__values = append(__values, account_freeze_event_user_id.value(), account_freeze_event_event.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl pgxcockroachImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pgconn.PgError); ok {
@@ -27879,6 +27935,17 @@ func (rx *Rx) Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 	}
 	return tx.Delete_AccountFreezeEvent_By_UserId(ctx, account_freeze_event_user_id)
 
+}
+
+func (rx *Rx) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+	account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+	account_freeze_event_event AccountFreezeEvent_Event_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_AccountFreezeEvent_By_UserId_And_Event(ctx, account_freeze_event_user_id, account_freeze_event_event)
 }
 
 func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
@@ -29476,6 +29543,11 @@ type Methods interface {
 	Delete_AccountFreezeEvent_By_UserId(ctx context.Context,
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
 		count int64, err error)
+
+	Delete_AccountFreezeEvent_By_UserId_And_Event(ctx context.Context,
+		account_freeze_event_user_id AccountFreezeEvent_UserId_Field,
+		account_freeze_event_event AccountFreezeEvent_Event_Field) (
+		deleted bool, err error)
 
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (

@@ -81,6 +81,7 @@ const (
 	eventProjectBandwidthLimitUpdated = "Project Bandwidth Limit Updated"
 	eventAccountFrozen                = "Account Frozen"
 	eventAccountUnfrozen              = "Account Unfrozen"
+	eventAccountUnwarned              = "Account Unwarned"
 	eventAccountFreezeWarning         = "Account Freeze Warning"
 	eventUnpaidLargeInvoice           = "Large Invoice Unpaid"
 )
@@ -335,6 +336,22 @@ func (service *Service) TrackAccountUnfrozen(userID uuid.UUID, email string) {
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      service.satelliteName + " " + eventAccountUnfrozen,
+		Properties: props,
+	})
+}
+
+// TrackAccountUnwarned sends an account unwarned event to Segment.
+func (service *Service) TrackAccountUnwarned(userID uuid.UUID, email string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      service.satelliteName + " " + eventAccountUnwarned,
 		Properties: props,
 	})
 }

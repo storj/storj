@@ -83,10 +83,9 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 	}
 
 	params := &stripe.InvoiceListParams{
-		ListParams:   stripe.ListParams{Context: ctx},
-		Customer:     &customerID,
-		Status:       stripe.String(string(stripe.InvoiceStatusOpen)),
-		DueDateRange: &stripe.RangeQueryParams{LesserThan: time.Now().Unix()},
+		ListParams: stripe.ListParams{Context: ctx},
+		Customer:   &customerID,
+		Status:     stripe.String(string(stripe.InvoiceStatusOpen)),
 	}
 
 	var errGrp errs.Group
