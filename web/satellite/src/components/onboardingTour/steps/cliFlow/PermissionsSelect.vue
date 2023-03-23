@@ -41,107 +41,102 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useStore } from '@/utils/hooks';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ExpandIcon,
-    },
-})
-export default class PermissionsSelect extends Vue {
-    public isLoading = true;
+const store = useStore();
 
-    /**
-     * Toggles dropdown visibility.
-     */
-    public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PERMISSIONS);
-    }
+const isLoading = ref<boolean>(true);
 
-    /**
-     * Closes dropdown.
-     */
-    public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
+/**
+ * Indicates if dropdown is visible.
+ */
+const isDropdownVisible = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
+});
 
-    /**
-     * Sets is download permission.
-     */
-    public toggleIsDownload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION);
-    }
+/**
+ * Returns download permission from store.
+ */
+const storedIsDownload = computed((): boolean => {
+    return store.state.accessGrantsModule.isDownload;
+});
 
-    /**
-     * Sets is upload permission.
-     */
-    public toggleIsUpload(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION);
-    }
+/**
+ * Returns upload permission from store.
+ */
+const storedIsUpload = computed((): boolean => {
+    return store.state.accessGrantsModule.isUpload;
+});
 
-    /**
-     * Sets is list permission.
-     */
-    public toggleIsList(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION);
-    }
+/**
+ * Returns list permission from store.
+ */
+const storedIsList = computed((): boolean => {
+    return store.state.accessGrantsModule.isList;
+});
 
-    /**
-     * Sets is delete permission.
-     */
-    public toggleIsDelete(): void {
-        this.$store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION);
-    }
+/**
+ * Returns delete permission from store.
+ */
+const storedIsDelete = computed((): boolean => {
+    return store.state.accessGrantsModule.isDelete;
+});
 
-    /**
-     * Indicates if dropdown is visible.
-     */
-    public get isDropdownVisible(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
-    }
+/**
+ * Indicates if everything is allowed.
+ */
+const allPermissions = computed((): boolean => {
+    return storedIsDownload.value && storedIsUpload.value && storedIsList.value && storedIsDelete.value;
+});
 
-    /**
-     * Returns download permission from store.
-     */
-    public get storedIsDownload(): boolean {
-        return this.$store.state.accessGrantsModule.isDownload;
-    }
+/**
+ * Toggles dropdown visibility.
+ */
+function toggleDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PERMISSIONS);
+}
 
-    /**
-     * Returns upload permission from store.
-     */
-    public get storedIsUpload(): boolean {
-        return this.$store.state.accessGrantsModule.isUpload;
-    }
+/**
+ * Closes dropdown.
+ */
+function closeDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+}
 
-    /**
-     * Returns list permission from store.
-     */
-    public get storedIsList(): boolean {
-        return this.$store.state.accessGrantsModule.isList;
-    }
+/**
+ * Sets is download permission.
+ */
+function toggleIsDownload(): void {
+    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION);
+}
 
-    /**
-     * Returns delete permission from store.
-     */
-    public get storedIsDelete(): boolean {
-        return this.$store.state.accessGrantsModule.isDelete;
-    }
+/**
+ * Sets is upload permission.
+ */
+function toggleIsUpload(): void {
+    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION);
+}
 
-    /**
-     * Indicates if everything is allowed.
-     */
-    public get allPermissions(): boolean {
-        return this.storedIsDownload && this.storedIsUpload && this.storedIsList && this.storedIsDelete;
-    }
+/**
+ * Sets is list permission.
+ */
+function toggleIsList(): void {
+    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION);
+}
+
+/**
+ * Sets is delete permission.
+ */
+function toggleIsDelete(): void {
+    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION);
 }
 </script>
 
