@@ -68,7 +68,6 @@ import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
@@ -100,13 +99,6 @@ const isDropdownOpen = computed((): boolean => {
 });
 
 /**
- * Indicates if new billing screen should be used.
- */
-const isNewBillingScreen = computed((): boolean => {
-    return MetaUtils.getMetaContent('new-billing-screen') === 'true';
-});
-
-/**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
@@ -132,7 +124,7 @@ function navigateToBilling(): void {
         return;
     }
 
-    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
+    const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
 }

@@ -61,7 +61,7 @@ onMounted(() => {
         margin-top: 2rem;
 
         &__title {
-            font-family: sans-serif;
+            font-family: 'font_regular', sans-serif;
             font-size: 1.5rem;
         }
 

@@ -161,9 +161,7 @@
                     :on-page-click-callback="paginationController"
                 >
                     <template #head>
-                        <SortingHeader2
-                            @sortFunction="sortFunction"
-                        />
+                        <SortingHeader @sortFunction="sortFunction" />
                     </template>
                     <template #body>
                         <token-transaction-item
@@ -198,7 +196,7 @@ import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import CreditCardContainer from '@/components/account/billing/billingTabs/CreditCardContainer.vue';
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
-import SortingHeader2 from '@/components/account/billing/depositAndBillingHistory/SortingHeader2.vue';
+import SortingHeader from '@/components/account/billing/billingTabs/SortingHeader.vue';
 import AddTokenCard from '@/components/account/billing/paymentMethods/AddTokenCard.vue';
 import AddTokenCardNative from '@/components/account/billing/paymentMethods/AddTokenCardNative.vue';
 import TokenTransactionItem from '@/components/account/billing/paymentMethods/TokenTransactionItem.vue';
@@ -242,7 +240,7 @@ const {
         VisaIcon,
         VButton,
         TokenTransactionItem,
-        SortingHeader2,
+        SortingHeader,
         CloseCrossIcon,
         CreditCardImage,
         StripeCardInput,
@@ -534,7 +532,7 @@ $align: center;
 
 .edit-card-text {
     color: var(--c-blue-3);
-    font-family: sans-serif;
+    font-family: 'font_regular', sans-serif;
 }
 
 .red-trash {
@@ -580,9 +578,7 @@ $align: center;
     background: var(--c-blue-3);
     box-shadow: 0 0 1px rgb(9 28 69 / 80%);
     border-radius: 8px;
-    font-family: sans-serif;
-    font-style: normal;
-    font-weight: 700;
+    font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 24px;
     align-items: $align;
@@ -609,9 +605,7 @@ $align: center;
     border: 1px solid var(--c-grey-3);
     box-shadow: 0 0 3px rgb(0 0 0 / 8%);
     border-radius: 8px;
-    font-family: sans-serif;
-    font-style: normal;
-    font-weight: 700;
+    font-family: 'font_bold', sans-serif;
     font-size: 14px;
     line-height: 24px;
     display: $flex;
@@ -673,9 +667,7 @@ $align: center;
     &__header {
         grid-column: 1;
         grid-row: 2;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 800;
+        font-family: 'font_bold', sans-serif;
         font-size: 24px;
         line-height: 31px;
         text-align: $align;
@@ -687,9 +679,7 @@ $align: center;
     &__header-subtext {
         grid-column: 1;
         grid-row: 3;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         text-align: $align;
@@ -698,9 +688,7 @@ $align: center;
 
     &__header-subtext-default {
         margin-left: 94px;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         color: var(--c-grey-6);
@@ -784,9 +772,7 @@ $align: center;
     &__create-header {
         grid-row: 1;
         grid-column: 1;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 700;
+        font-family: 'font_bold', sans-serif;
         font-size: 18px;
         line-height: 27px;
     }
@@ -794,16 +780,14 @@ $align: center;
     &__create-subheader {
         grid-row: 2;
         grid-column: 1;
-        font-family: sans-serif;
-        font-style: normal;
-        font-weight: 400;
+        font-family: 'font_regular', sans-serif;
         font-size: 14px;
         line-height: 20px;
         color: var(--c-grey-6);
     }
 
     &__title {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         font-size: 24px;
         margin: 20px 0;
 
@@ -880,7 +864,7 @@ $align: center;
     .pagination {
         display: flex;
         justify-content: space-between;
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         padding: 15px 0;
         color: #6b7280;
 
@@ -1018,5 +1002,4 @@ $align: center;
 nav ul {
     @include horizontal-list;
 }
-
 </style>

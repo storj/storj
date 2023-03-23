@@ -81,19 +81,10 @@ export default class QuickStartLinks extends Vue {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_AN_ACCESS_GRANT_CLICKED);
         this.closeDropdowns();
 
-        if (this.isNewAccessGrantFlow) {
-            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.AccessGrant },
-            }).catch(() => {return;});
-            return;
-        }
-
         this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 'access' },
+            name: RouteConfig.CreateAccessModal.name,
+            params: { accessType: AccessType.AccessGrant },
         }).catch(() => {return;});
     }
 
@@ -104,19 +95,10 @@ export default class QuickStartLinks extends Vue {
         this.analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
         this.closeDropdowns();
 
-        if (this.isNewAccessGrantFlow) {
-            this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-            this.$router.push({
-                name: RouteConfig.NewCreateAccessModal.name,
-                params: { accessType: AccessType.S3 },
-            }).catch(() => {return;});
-            return;
-        }
-
         this.analytics.pageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
         this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-            params: { accessType: 's3' },
+            name: RouteConfig.CreateAccessModal.name,
+            params: { accessType: AccessType.S3 },
         }).catch(() => {return;});
     }
 
@@ -160,13 +142,6 @@ export default class QuickStartLinks extends Vue {
         }
 
         this.closeDropdowns();
-    }
-
-    /**
-     * Indicates if new access grant flow should be used.
-     */
-    private get isNewAccessGrantFlow(): boolean {
-        return this.$store.state.appStateModule.isNewAccessGrantFlow;
     }
 }
 </script>

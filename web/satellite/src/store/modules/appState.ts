@@ -41,7 +41,6 @@ export class AppState {
         public couponCodeBillingUIEnabled = false,
         public couponCodeSignupUIEnabled = false,
         public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true',
-        public isNewAccessGrantFlow = false,
         public config: FrontendConfig = new FrontendConfig(),
     ) {}
 }
@@ -89,9 +88,6 @@ export function makeAppStateModule(configApi: FrontendConfigApi): StoreModule<Ap
             },
             [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: AppState, isBetaSatellite: boolean): void {
                 state.isBetaSatellite = isBetaSatellite;
-            },
-            [APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS](state: AppState, isNewAccessGrantFlow: boolean): void {
-                state.isNewAccessGrantFlow = isNewAccessGrantFlow;
             },
             [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: AppState, backRoute: string): void {
                 state.viewsState.onbAGStepBackRoute = backRoute;

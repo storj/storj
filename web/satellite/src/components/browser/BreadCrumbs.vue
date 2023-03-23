@@ -124,7 +124,7 @@ function displayDivider(idx: number): boolean {
         align-items: center;
 
         &__text {
-            font-family: sans-serif;
+            font-family: 'font_regular', sans-serif;
             font-size: 14px;
             color: #232a34;
             cursor: pointer;

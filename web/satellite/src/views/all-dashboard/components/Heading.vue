@@ -114,7 +114,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AuthHttpApi } from '@/api/auth';
-import { MetaUtils } from '@/utils/meta';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 
 import VButton from '@/components/common/VButton.vue';
@@ -160,13 +159,6 @@ const user = computed((): User => {
 });
 
 /**
- * Indicates if new billing screen should be used.
- */
-const isNewBillingScreen = computed((): boolean => {
-    return MetaUtils.getMetaContent('new-billing-screen') === 'true';
-});
-
-/**
  * Toggles account dropdown visibility.
  */
 function toggleAccountDropdown(): void {
@@ -205,7 +197,7 @@ function navigateToBilling(): void {
         return;
     }
 
-    const routeConf = isNewBillingScreen ? billing.with(RouteConfig.BillingOverview2).path : billing.path;
+    const routeConf = billing.with(RouteConfig.BillingOverview2).path;
     router.push(routeConf);
     analytics.pageVisit(routeConf);
 }
