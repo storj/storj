@@ -87,7 +87,6 @@ import { computed, onMounted } from 'vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';

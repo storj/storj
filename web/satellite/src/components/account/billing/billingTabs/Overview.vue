@@ -78,7 +78,7 @@
                 />
             </div>
             <div class="usage-charges-item-container__detailed-info-container__footer__buttons">
-                <UsageAndChargesItem2
+                <UsageAndChargesItem
                     v-for="usageAndCharges in projectUsageAndCharges"
                     :key="usageAndCharges.projectId"
                     :item="usageAndCharges"
@@ -102,7 +102,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
-import UsageAndChargesItem2 from '@/components/account/billing/estimatedCostsAndCredits/UsageAndChargesItem2.vue';
+import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import EstimatedChargesIcon from '@/../static/images/account/billing/totalEstimatedChargesIcon.svg';
@@ -149,7 +149,7 @@ const priceSummary = computed((): number => {
 
 function routeToBillingHistory(): void {
     analytics.eventTriggered(AnalyticsEvent.SEE_PAYMENTS_CLICKED);
-    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory2).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path);
 }
 
 function routeToPaymentMethods(): void {
@@ -194,7 +194,7 @@ onMounted(async () => {
 
 <style scoped lang="scss">
     .total-cost {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
         margin: 20px 0;
 
         &__header-container {
@@ -205,10 +205,9 @@ onMounted(async () => {
             &__date {
                 display: flex;
                 justify-content: space-between;
-                align-items: bottom;
+                align-items: flex-end;
                 color: var(--c-grey-6);
-                font-weight: 700;
-                font-family: sans-serif;
+                font-family: 'font_bold', sans-serif;
                 border-radius: 5px;
                 height: 15px;
                 width: auto;
@@ -255,7 +254,7 @@ onMounted(async () => {
             }
 
             &__link-text {
-                font-weight: medium;
+                font-weight: 500;
                 text-decoration: underline;
                 margin-top: 10px;
                 cursor: pointer;
@@ -318,7 +317,7 @@ onMounted(async () => {
     }
 
     .cost-by-project {
-        font-family: sans-serif;
+        font-family: 'font_regular', sans-serif;
 
         &__title {
             padding-bottom: 10px;

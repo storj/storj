@@ -61,7 +61,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -88,14 +87,6 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const dropdownYPos = ref<number>(0);
 const dropdownXPos = ref<number>(0);
 const accountArea = ref<HTMLDivElement>();
-
-/**
- * Indicates if tabs options are hidden.
- */
-const isNewBillingScreen = computed((): boolean => {
-    const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-    return isNewBillingScreen === 'true';
-});
 
 /**
  * Returns bottom and left position of dropdown.
@@ -133,14 +124,8 @@ function navigateToBilling(): void {
 
     if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
 
-    if (isNewBillingScreen.value) {
-        router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
-        analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
-        return;
-    }
-
-    router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
-    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+    router.push(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path);
 }
 
 /**

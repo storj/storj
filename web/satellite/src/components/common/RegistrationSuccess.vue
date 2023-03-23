@@ -62,7 +62,7 @@ import MailIcon from '@/../static/images/register/mail.svg';
 
 const props = withDefaults(defineProps<{
     email: string;
-    showManualActivationMsg: boolean;
+    showManualActivationMsg?: boolean;
 }>(), {
     email: '',
     showManualActivationMsg: true,

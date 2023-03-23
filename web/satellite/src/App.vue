@@ -48,7 +48,6 @@ export default class App extends Vue {
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
         const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
-        const isNewAccessGrantFlow = MetaUtils.getMetaContent('new-access-grant-flow');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -75,10 +74,6 @@ export default class App extends Vue {
 
         if (couponCodeSignupUIEnabled) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
-        }
-
-        if (isNewAccessGrantFlow) {
-            this.$store.commit(APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS, isNewAccessGrantFlow === 'true');
         }
 
         this.fixViewportHeight();

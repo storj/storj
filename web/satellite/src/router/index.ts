@@ -10,16 +10,13 @@ import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
-import CreateAccessModal from '@/components/accessGrants/CreateAccessModal.vue';
-import CreateAccessGrantFlow from '@/components/accessGrants/newCreateFlow/CreateAccessGrantFlow.vue';
+import CreateAccessGrantFlow from '@/components/accessGrants/createFlow/CreateAccessGrantFlow.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import BillingOverview from '@/components/account/billing/billingTabs/Overview.vue';
 import BillingPaymentMethods from '@/components/account/billing/billingTabs/PaymentMethods.vue';
-import BillingHistory2 from '@/components/account/billing/billingTabs/BillingHistory.vue';
+import BillingHistory from '@/components/account/billing/billingTabs/BillingHistory.vue';
 import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
-import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
-import CreditsHistory from '@/components/account/billing/coupons/CouponArea.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import BucketsView from '@/components/objects/BucketsView.vue';
@@ -89,27 +86,20 @@ export abstract class RouteConfig {
     public static Settings2 = new NavigationLink('settings', 'Settings 2');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static Billing2 = new NavigationLink('billing', 'Account Billing');
-    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
-    public static BillingHistory4 = new NavigationLink('billing-history', 'Billing History 4');
     public static BillingOverview = new NavigationLink('overview', 'Overview');
     // this duplicates the path of BillingOverview so that they can be used interchangeably in BillingArea.vue
     public static BillingOverview2 = new NavigationLink('overview', 'Billing Overview');
     public static BillingPaymentMethods = new NavigationLink('payment-methods', 'Payment Methods');
     // this duplicates the path of BillingPaymentMethods so that they can be used interchangeably in BillingArea.vue
     public static BillingPaymentMethods2 = new NavigationLink('payment-methods', 'Payment Methods 2');
+    public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
+    // this duplicates the path of BillingHistory so that they can be used interchangeably in BillingArea.vue
     public static BillingHistory2 = new NavigationLink('billing-history2', 'Billing History 2');
-    // this duplicates the path of BillingHistory2 so that they can be used interchangeably in BillingArea.vue
-    public static BillingHistory3 = new NavigationLink('billing-history2', 'Billing History 3');
     public static BillingCoupons = new NavigationLink('coupons', 'Coupons');
     public static BillingCoupons2 = new NavigationLink('coupons', 'Billing Coupons');
-    public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
-    public static DepositHistory2 = new NavigationLink('deposit-history', 'Deposit History 2');
-    public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
-    public static CreditsHistory2 = new NavigationLink('credits-history', 'Credits History 2');
 
     // access grant child paths
     public static CreateAccessModal = new NavigationLink('create-access-modal', 'Create Access Modal');
-    public static NewCreateAccessModal = new NavigationLink('new-create-access-modal', 'New Create Access Modal');
 
     // onboarding tour child paths
     public static PricingPlanStep = new NavigationLink('pricing', 'Pricing Plan');
@@ -149,13 +139,10 @@ export const notProjectRelatedRoutes = [
     RouteConfig.ResetPassword.name,
     RouteConfig.Authorize.name,
     RouteConfig.Billing.name,
-    RouteConfig.BillingHistory.name,
     RouteConfig.BillingOverview.name,
     RouteConfig.BillingPaymentMethods.name,
-    RouteConfig.BillingHistory2.name,
+    RouteConfig.BillingHistory.name,
     RouteConfig.BillingCoupons.name,
-    RouteConfig.DepositHistory.name,
-    RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
 ];
 
@@ -235,9 +222,9 @@ export const router = new Router({
                                     component: BillingPaymentMethods,
                                 },
                                 {
-                                    path: RouteConfig.BillingHistory2.path,
-                                    name: RouteConfig.BillingHistory2.name,
-                                    component: BillingHistory2,
+                                    path: RouteConfig.BillingHistory.path,
+                                    name: RouteConfig.BillingHistory.name,
+                                    component: BillingHistory,
                                 },
                                 {
                                     path: RouteConfig.BillingCoupons.path,
@@ -245,21 +232,6 @@ export const router = new Router({
                                     component: BillingCoupons,
                                 },
                             ],
-                        },
-                        {
-                            path: RouteConfig.BillingHistory.path,
-                            name: RouteConfig.BillingHistory.name,
-                            component: DetailedHistory,
-                        },
-                        {
-                            path: RouteConfig.DepositHistory.path,
-                            name: RouteConfig.DepositHistory.name,
-                            component: DetailedHistory,
-                        },
-                        {
-                            path: RouteConfig.CreditsHistory.path,
-                            name: RouteConfig.CreditsHistory.name,
-                            component: CreditsHistory,
                         },
                     ],
                 },
@@ -370,11 +342,6 @@ export const router = new Router({
                         {
                             path: RouteConfig.CreateAccessModal.path,
                             name: RouteConfig.CreateAccessModal.name,
-                            component: CreateAccessModal,
-                        },
-                        {
-                            path: RouteConfig.NewCreateAccessModal.path,
-                            name: RouteConfig.NewCreateAccessModal.name,
                             component: CreateAccessGrantFlow,
                         },
                     ],
@@ -455,9 +422,9 @@ export const router = new Router({
                                     component: BillingPaymentMethods,
                                 },
                                 {
-                                    path: RouteConfig.BillingHistory3.path,
-                                    name: RouteConfig.BillingHistory3.name,
-                                    component: BillingHistory2,
+                                    path: RouteConfig.BillingHistory2.path,
+                                    name: RouteConfig.BillingHistory2.name,
+                                    component: BillingHistory,
                                 },
                                 {
                                     path: RouteConfig.BillingCoupons2.path,
@@ -465,21 +432,6 @@ export const router = new Router({
                                     component: BillingCoupons,
                                 },
                             ],
-                        },
-                        {
-                            path: RouteConfig.BillingHistory4.path,
-                            name: RouteConfig.BillingHistory4.name,
-                            component: DetailedHistory,
-                        },
-                        {
-                            path: RouteConfig.DepositHistory2.path,
-                            name: RouteConfig.DepositHistory2.name,
-                            component: DetailedHistory,
-                        },
-                        {
-                            path: RouteConfig.CreditsHistory2.path,
-                            name: RouteConfig.CreditsHistory2.name,
-                            component: CreditsHistory,
                         },
                     ],
                 },

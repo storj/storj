@@ -92,8 +92,6 @@ type Config struct {
 	LinksharingURL                  string     `help:"url link for linksharing requests" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	PathwayOverviewEnabled          bool       `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 	AllProjectsDashboard            bool       `help:"indicates if all projects dashboard should be used" default:"false"`
-	NewBillingScreen                bool       `help:"indicates if new billing screens should be used" default:"true"`
-	NewAccessGrantFlow              bool       `help:"indicates if new access grant flow should be used" default:"true"`
 	GeneratedAPIEnabled             bool       `help:"indicates if generated console api should be used" default:"false"`
 	OptionalSignupSuccessURL        string     `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string     `help:"url link to storj.io homepage" default:"https://www.storj.io"`
@@ -473,8 +471,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		AllProjectsDashboard            bool
 		DefaultPaidStorageLimit         memory.Size
 		DefaultPaidBandwidthLimit       memory.Size
-		NewBillingScreen                bool
-		NewAccessGrantFlow              bool
 		InactivityTimerEnabled          bool
 		InactivityTimerDuration         int
 		InactivityTimerViewerEnabled    bool
@@ -516,7 +512,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
 	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
 	data.AllProjectsDashboard = server.config.AllProjectsDashboard
-	data.NewBillingScreen = server.config.NewBillingScreen
 	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
 	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration
 	data.InactivityTimerViewerEnabled = server.config.Session.InactivityTimerViewerEnabled
@@ -526,7 +521,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PasswordMinimumLength = console.PasswordMinimumLength
 	data.PasswordMaximumLength = console.PasswordMaximumLength
 	data.ABTestingEnabled = server.config.ABTesting.Enabled
-	data.NewAccessGrantFlow = server.config.NewAccessGrantFlow
 	data.PricingPackagesEnabled = server.config.PricingPackagesEnabled
 
 	templates, err := server.loadTemplates()
@@ -685,7 +679,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		DefaultPaidBandwidthLimit:       server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                         server.config.Captcha,
 		AllProjectsDashboard:            server.config.AllProjectsDashboard,
-		NewBillingScreen:                server.config.NewBillingScreen,
 		InactivityTimerEnabled:          server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:         server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:    server.config.Session.InactivityTimerViewerEnabled,
@@ -695,7 +688,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMinimumLength:           console.PasswordMinimumLength,
 		PasswordMaximumLength:           console.PasswordMaximumLength,
 		ABTestingEnabled:                server.config.ABTesting.Enabled,
-		NewAccessGrantFlow:              server.config.NewAccessGrantFlow,
 	}
 
 	err := json.NewEncoder(w).Encode(&cfg)

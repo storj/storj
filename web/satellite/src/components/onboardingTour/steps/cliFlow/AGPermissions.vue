@@ -49,10 +49,10 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
-import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
-import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import BucketNameBullet from '@/components/onboardingTour/steps/cliFlow/permissions/BucketNameBullet.vue';
+import BucketsSelection from '@/components/onboardingTour/steps/cliFlow/permissions/BucketsSelection.vue';
 import VLoader from '@/components/common/VLoader.vue';
-import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
+import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permissions/DurationSelection.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 

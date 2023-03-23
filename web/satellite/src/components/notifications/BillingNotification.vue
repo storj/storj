@@ -21,7 +21,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { MetaUtils } from '@/utils/meta';
 import { NavigationLink } from '@/types/navigation';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
@@ -46,18 +45,10 @@ export default class BillingNotification extends Vue {
         return RouteConfig.Account;
     }
 
-    /**
-     * Indicates if tabs options are hidden.
-     */
-    public get isNewBillingScreen(): boolean {
-        const isNewBillingScreen = MetaUtils.getMetaContent('new-billing-screen');
-        return isNewBillingScreen === 'true';
-    }
-
     public get billingPath(): string {
         const billing = this.baseAccountRoute.with(RouteConfig.Billing);
 
-        return this.isNewBillingScreen ? billing.with(RouteConfig.BillingOverview).path : billing.path;
+        return billing.with(RouteConfig.BillingOverview).path;
     }
 
     /**

@@ -246,13 +246,6 @@ const emptyStateLabel = computed((): string => {
 });
 
 /**
- * Indicates if new access grant flow should be used.
- */
-const isNewAccessGrantFlow = computed((): boolean => {
-    return store.state.appStateModule.isNewAccessGrantFlow;
-});
-
-/**
  * Fetches access grants page by clicked index.
  * @param index
  */
@@ -311,20 +304,10 @@ async function fetch(searchQuery: string): Promise<void> {
  */
 function accessGrantClick(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_ACCESS_GRANT_CLICKED);
-
-    if (isNewAccessGrantFlow.value) {
-        trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-        router.push({
-            name: RouteConfig.NewCreateAccessModal.name,
-            params: { accessType: AccessType.AccessGrant },
-        });
-        return;
-    }
-
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
-        name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-        params: { accessType: 'access' },
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.AccessGrant },
     });
 }
 
@@ -333,20 +316,10 @@ function accessGrantClick(): void {
  */
 function s3Click(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_S3_CREDENTIALS_CLICKED);
-
-    if (isNewAccessGrantFlow.value) {
-        trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-        router.push({
-            name: RouteConfig.NewCreateAccessModal.name,
-            params: { accessType: AccessType.S3 },
-        });
-        return;
-    }
-
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
-        name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-        params: { accessType: 's3' },
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.S3 },
     });
 }
 
@@ -355,20 +328,10 @@ function s3Click(): void {
  */
 function cliClick(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_KEYS_FOR_CLI_CLICKED);
-
-    if (isNewAccessGrantFlow.value) {
-        trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.NewCreateAccessModal).path);
-        router.push({
-            name: RouteConfig.NewCreateAccessModal.name,
-            params: { accessType: AccessType.APIKey },
-        });
-        return;
-    }
-
     trackPageVisit(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).path);
     router.push({
-        name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessModal).name,
-        params: { accessType: 'api' },
+        name: RouteConfig.CreateAccessModal.name,
+        params: { accessType: AccessType.APIKey },
     });
 }
 
