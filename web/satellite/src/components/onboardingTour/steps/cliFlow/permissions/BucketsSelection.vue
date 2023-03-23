@@ -13,66 +13,55 @@
                 alt="Arrow down (expand)"
             />
         </div>
-        <BucketsDropdown
-            v-if="isDropdownShown"
-            :show-scrollbar="showScrollbar"
-        />
+        <BucketsDropdown v-if="isDropdownShown" />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useStore } from '@/utils/hooks';
 
 import BucketsDropdown from '@/components/onboardingTour/steps/cliFlow/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ExpandIcon,
-        BucketsDropdown,
-    },
-})
-export default class BucketsSelection extends Vue {
-    @Prop({ default: false })
-    private readonly showScrollbar: boolean;
-    /**
-     * Toggles dropdown visibility.
-     */
-    public toggleDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.BUCKET_NAMES);
+const store = useStore();
+
+/**
+ * Indicates if dropdown is shown.
+ */
+const isDropdownShown = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
+});
+
+/**
+ * Returns selection options (all or items count).
+ */
+const selectionLabel = computed((): string => {
+    const ALL_SELECTED = 'All';
+
+    if (!storedBucketNames.value.length) {
+        return ALL_SELECTED;
     }
 
-    /**
-     * Indicates if dropdown is shown.
-     */
-    public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
-    }
+    return storedBucketNames.value.length.toString();
+});
 
-    /**
-     * Returns selection options (all or items count).
-     */
-    public get selectionLabel(): string {
-        const ALL_SELECTED = 'All';
+/**
+ * Returns stored selected bucket names.
+ */
+const storedBucketNames = computed((): string[] => {
+    return store.state.accessGrantsModule.selectedBucketNames;
+});
 
-        if (!this.storedBucketNames.length) {
-            return ALL_SELECTED;
-        }
-
-        return this.storedBucketNames.length.toString();
-    }
-
-    /**
-     * Returns stored selected bucket names.
-     */
-    private get storedBucketNames(): string[] {
-        return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
+/**
+ * Toggles dropdown visibility.
+ */
+function toggleDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.BUCKET_NAMES);
 }
 </script>
 

@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-click-outside="closeDropdown" :class="`buckets-dropdown ${showScrollbar ? 'show-scroll' : ''}`">
-        <div :class="`buckets-dropdown__container ${showScrollbar ? 'show-scroll' : ''}`">
+    <div v-click-outside="closeDropdown" class="buckets-dropdown">
+        <div class="buckets-dropdown__container">
             <p class="buckets-dropdown__container__all" @click.stop="clearSelectedBuckets">
                 All
             </p>
@@ -53,12 +53,6 @@ import { useStore } from '@/utils/hooks';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
-
-const props = withDefaults(defineProps<{
-    showScrollbar: boolean,
-}>(), {
-    showScrollbar: false,
-});
 
 const store = useStore();
 
@@ -241,14 +235,5 @@ function closeDropdown(): void {
         height: 11px;
         max-width: 14px;
         max-height: 11px;
-    }
-
-    .show-scroll {
-        padding-right: 2px;
-        width: calc(100% - 2px);
-    }
-
-    .show-scroll::-webkit-scrollbar {
-        width: 4px;
     }
 </style>
