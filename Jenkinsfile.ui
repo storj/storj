@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image 'storjlabs/ci:latest'
+            image 'storjqa/playwright-ci:1.0.0'
             alwaysPull true
             args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
@@ -15,8 +15,6 @@ pipeline {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
-        GO_VERSION='1.18.1'
-        GO_ARCH='amd64'
     }
     stages {
         stage('Checkout') {
@@ -29,14 +27,7 @@ pipeline {
                 sh 'check-large-files'
             }
         }
-        stage('Go Install') {
-            steps {
-                sh 'curl -O -L https://golang.org/dl/go${VERSION}.linux-${ARCH}.tar.gz'
-                sh 'tar -xf go${VERSION}.linux-${ARCH}.tar.gz'
-                sh 'chown -R root:root ./go'
-                sh 'mv -v go /usr/local'
-            }
-        }
+
         stage('Build Web') {
             // The build code depends on the following assets being loaded.
             parallel {
@@ -102,28 +93,12 @@ pipeline {
                 }
             }
         }
-        stage('playwright assets') {
-            parallel {
-                stage('install playwright') {
-                    steps {
-                        dir("testsuite/playwright-ui") {
-                            sh 'npm ci'
-                            sh 'npx playwright install --with-deps'
-                        }
-                    }
-                }
-                stage('start services') {
-                    steps {
-                        sh 'echo starting storj services'
-                    }
-                }
-            }
-        }
 
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui/") {
                     sh 'npm run test'
+                    sh 'npm run test-dev'
                 }
             }
         }
@@ -137,7 +112,7 @@ pipeline {
                 stage('report') {
                     steps {
                         //execute the report
-                        sh 'echo reporting for duty'
+                        sh 'npm run posttest'
                     }
                 }
             }
