@@ -418,10 +418,12 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	segments, err := endpoint.metabase.ListStreamPositions(ctx, metabase.ListStreamPositions{
+	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
 		StreamID: object.StreamID,
 		Range:    streamRange,
 		Limit:    int(req.Limit),
+
+		UpdateFirstWithAncestor: true,
 	})
 	if err != nil {
 		return nil, endpoint.convertMetabaseErr(err)
@@ -436,14 +438,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, nil
 		}
 
-		segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-			StreamID: object.StreamID,
-			Position: segments.Segments[0].Position,
-		})
-		if err != nil {
-			return nil, endpoint.convertMetabaseErr(err)
-		}
-
+		segment := segments.Segments[0]
 		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
 
 		// Update the current bandwidth cache value incrementing the SegmentSize.
@@ -563,7 +558,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	segmentList, err := convertStreamListResults(segments)
+	segmentList, err := convertSegmentListResults(segments)
 	if err != nil {
 		endpoint.log.Error("unable to convert stream list", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -584,6 +579,32 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		// every segment. In the case where the segment list is not needed,
 		// segmentListItems will be nil.
 		SegmentList: segmentList,
+	}, nil
+}
+
+func convertSegmentListResults(segments metabase.ListSegmentsResult) (*pb.SegmentListResponse, error) {
+	items := make([]*pb.SegmentListItem, len(segments.Segments))
+	for i, item := range segments.Segments {
+		items[i] = &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(item.Position.Part),
+				Index:      int32(item.Position.Index),
+			},
+			PlainSize:     int64(item.PlainSize),
+			PlainOffset:   item.PlainOffset,
+			CreatedAt:     item.CreatedAt,
+			EncryptedETag: item.EncryptedETag,
+			EncryptedKey:  item.EncryptedKey,
+		}
+		var err error
+		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &pb.SegmentListResponse{
+		Items: items,
+		More:  segments.More,
 	}, nil
 }
 
