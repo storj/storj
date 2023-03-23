@@ -22,123 +22,122 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { DurationPermission } from '@/types/accessGrants';
+import { useStore } from '@/utils/hooks';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VDateRangePicker,
-    },
-})
-export default class DurationPicker extends Vue {
-    @Prop({ default: '' })
-    private readonly containerStyle: string;
-    /**
-     * onCustomRangePick holds logic for choosing custom date range.
-     * @param dateRange
-     */
-    public onCustomRangePick(dateRange: Date[]): void {
-        const before = dateRange[0];
-        const after = new Date(dateRange[1].getFullYear(), dateRange[1].getMonth(), dateRange[1].getDate(), 23, 59, 59);
+const props = withDefaults(defineProps<{
+    containerStyle: string,
+}>(), {
+    containerStyle: '',
+});
 
-        const permission: DurationPermission = new DurationPermission(before, after);
-        const fromFormattedString = before.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-        const toFormattedString = after.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-        const rangeLabel = `${fromFormattedString} - ${toFormattedString}`;
+const emit = defineEmits(['setLabel']);
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', rangeLabel);
-    }
+const store = useStore();
 
-    /**
-     * Holds on "forever" choice click logic.
-     */
-    public onForeverClick(): void {
-        const permission = new DurationPermission(null, null);
+/**
+ * onCustomRangePick holds logic for choosing custom date range.
+ * @param dateRange
+ */
+function onCustomRangePick(dateRange: Date[]): void {
+    const before = dateRange[0];
+    const after = new Date(dateRange[1].getFullYear(), dateRange[1].getMonth(), dateRange[1].getDate(), 23, 59, 59);
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', 'Forever');
-        this.closePicker();
-    }
+    const permission: DurationPermission = new DurationPermission(before, after);
+    const fromFormattedString = before.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    const toFormattedString = after.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+    const rangeLabel = `${fromFormattedString} - ${toFormattedString}`;
 
-    /**
-     * Holds on "1 month" choice click logic.
-     */
-    public onOneMonthClick(): void {
-        const now = new Date();
-        const inAMonth = new Date(now.setMonth(now.getMonth() + 1));
-        const permission = new DurationPermission(new Date(), inAMonth);
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', rangeLabel);
+}
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', '1 Month');
-        this.closePicker();
-    }
+/**
+ * Holds on "forever" choice click logic.
+ */
+function onForeverClick(): void {
+    const permission = new DurationPermission(null, null);
 
-    /**
-     * Holds on "24 hours" choice click logic.
-     */
-    public onOneDayClick(): void {
-        const now = new Date();
-        const inADay = new Date(now.setDate(now.getDate() + 1));
-        const permission = new DurationPermission(new Date(), inADay);
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', 'Forever');
+    closePicker();
+}
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', '24 Hours');
-        this.closePicker();
-    }
+/**
+ * Holds on "1 month" choice click logic.
+ */
+function onOneMonthClick(): void {
+    const now = new Date();
+    const inAMonth = new Date(now.setMonth(now.getMonth() + 1));
+    const permission = new DurationPermission(new Date(), inAMonth);
 
-    /**
-     * Holds on "1 week" choice click logic.
-     */
-    public onOneWeekClick(): void {
-        const now = new Date();
-        const inAWeek = new Date(now.setDate(now.getDate() + 7));
-        const permission = new DurationPermission(new Date(), inAWeek);
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', '1 Month');
+    closePicker();
+}
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', '1 Week');
-        this.closePicker();
-    }
+/**
+ * Holds on "24 hours" choice click logic.
+ */
+function onOneDayClick(): void {
+    const now = new Date();
+    const inADay = new Date(now.setDate(now.getDate() + 1));
+    const permission = new DurationPermission(new Date(), inADay);
 
-    /**
-     * Holds on "6 month" choice click logic.
-     */
-    public onSixMonthsClick(): void {
-        const now = new Date();
-        const inSixMonth = new Date(now.setMonth(now.getMonth() + 6));
-        const permission = new DurationPermission(new Date(), inSixMonth);
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', '24 Hours');
+    closePicker();
+}
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', '6 Months');
-        this.closePicker();
-    }
+/**
+ * Holds on "1 week" choice click logic.
+ */
+function onOneWeekClick(): void {
+    const now = new Date();
+    const inAWeek = new Date(now.setDate(now.getDate() + 7));
+    const permission = new DurationPermission(new Date(), inAWeek);
 
-    /**
-     * Holds on "1 year" choice click logic.
-     */
-    public onOneYearClick(): void {
-        const now = new Date();
-        const inOneYear = new Date(now.setFullYear(now.getFullYear() + 1));
-        const permission = new DurationPermission(new Date(), inOneYear);
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', '1 Week');
+    closePicker();
+}
 
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
-        this.$emit('setLabel', '1 Year');
-        this.closePicker();
-    }
+/**
+ * Holds on "6 month" choice click logic.
+ */
+function onSixMonthsClick(): void {
+    const now = new Date();
+    const inSixMonth = new Date(now.setMonth(now.getMonth() + 6));
+    const permission = new DurationPermission(new Date(), inSixMonth);
 
-    /**
-     * Closes duration picker.
-     */
-    public closePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', '6 Months');
+    closePicker();
+}
+
+/**
+ * Holds on "1 year" choice click logic.
+ */
+function onOneYearClick(): void {
+    const now = new Date();
+    const inOneYear = new Date(now.setFullYear(now.getFullYear() + 1));
+    const permission = new DurationPermission(new Date(), inOneYear);
+
+    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    emit('setLabel', '1 Year');
+    closePicker();
+}
+
+/**
+ * Closes duration picker.
+ */
+function closePicker(): void {
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 }
 </script>
 
