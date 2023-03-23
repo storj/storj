@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -625,12 +626,15 @@ func TestProjectUsagePrice(t *testing.T) {
 
 				items := getCustomerInvoiceItems(ctx, sat.API.Payments.StripeClient, cusID)
 				require.Len(t, items, 3)
-				storage, _ := tt.expectedPrice.StorageMBMonthCents.Float64()
-				require.Equal(t, storage, items[0].UnitAmountDecimal)
+				sort.Slice(items, func(i, j int) bool {
+					return items[i].Description < items[j].Description
+				})
 				egress, _ := tt.expectedPrice.EgressMBCents.Float64()
-				require.Equal(t, egress, items[1].UnitAmountDecimal)
+				require.Equal(t, egress, items[0].UnitAmountDecimal)
 				segment, _ := tt.expectedPrice.SegmentMonthCents.Float64()
-				require.Equal(t, segment, items[2].UnitAmountDecimal)
+				require.Equal(t, segment, items[1].UnitAmountDecimal)
+				storage, _ := tt.expectedPrice.StorageMBMonthCents.Float64()
+				require.Equal(t, storage, items[2].UnitAmountDecimal)
 			})
 		}
 	})

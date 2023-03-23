@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -227,7 +228,6 @@ func (w *BackendWrapper) withRetries(params stripe.ParamsContainer, call func() 
 		return err
 	}
 
-	backoff := float64(w.retryCfg.InitialBackoff)
 	for retry := int64(0); ; retry++ {
 		err := call()
 		if err == nil {
@@ -238,11 +238,16 @@ func (w *BackendWrapper) withRetries(params stripe.ParamsContainer, call func() 
 			return err
 		}
 
+		minBackoff := float64(w.retryCfg.InitialBackoff)
+		maxBackoff := math.Min(
+			float64(w.retryCfg.MaxBackoff),
+			minBackoff*math.Pow(w.retryCfg.Multiplier, float64(retry)),
+		)
+		backoff := minBackoff + rand.Float64()*(maxBackoff-minBackoff)
+
 		if !w.clock.Sleep(ctx, time.Duration(backoff)) {
 			return ctx.Err()
 		}
-
-		backoff = math.Min(backoff*w.retryCfg.Multiplier, float64(w.retryCfg.MaxBackoff))
 	}
 }
 

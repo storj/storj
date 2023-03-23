@@ -651,6 +651,9 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 	item := &stripe.InvoiceItem{
 		Metadata: params.Metadata,
 	}
+	if params.Description != nil {
+		item.Description = *params.Description
+	}
 	if params.UnitAmountDecimal != nil {
 		item.UnitAmountDecimal = *params.UnitAmountDecimal
 	}
