@@ -4,7 +4,7 @@
 <template>
     <div v-click-outside="closeDropdown" :class="`buckets-dropdown ${showScrollbar ? 'show-scroll' : ''}`">
         <div :class="`buckets-dropdown__container ${showScrollbar ? 'show-scroll' : ''}`">
-            <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
+            <p class="buckets-dropdown__container__all" @click.stop="clearSelectedBuckets">
                 All
             </p>
             <label class="buckets-dropdown__container__search">
@@ -44,75 +44,73 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { useStore } from '@/utils/hooks';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
-// @vue/component
-@Component({
-    components: {
-        SelectionIcon,
-        UnselectIcon,
-    },
-})
-export default class BucketsDropdown extends Vue {
-    @Prop({ default: false })
-    private readonly showScrollbar: boolean;
-    public bucketSearch = '';
+const props = withDefaults(defineProps<{
+    showScrollbar: boolean,
+}>(), {
+    showScrollbar: false,
+});
 
-    /**
-     * Clears selection of specific buckets and closes dropdown.
-     */
-    public selectAllBuckets(): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
-        this.closeDropdown();
-    }
+const store = useStore();
 
-    /**
-     * Toggles bucket selection.
-     */
-    public toggleBucketSelection(name: string): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
-    }
+const bucketSearch = ref<string>('');
 
-    /**
-     * Indicates if bucket name is selected.
-     * @param name
-     */
-    public isNameSelected(name: string): boolean {
-        return this.selectedBucketNames.includes(name);
-    }
+/**
+ * Returns stored bucket names list filtered by search string.
+ */
+const bucketsList = computed((): string[] => {
+    const NON_EXIST_INDEX = -1;
+    const buckets: string[] = store.state.bucketUsageModule.allBucketNames;
 
-    /**
-     * Closes dropdown.
-     */
-    public closeDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
+    return buckets.filter((name: string) => {
+        return name.indexOf(bucketSearch.value.toLowerCase()) !== NON_EXIST_INDEX;
+    });
+});
 
-    /**
-     * Returns stored bucket names list filtered by search string.
-     */
-    public get bucketsList(): string[] {
-        const NON_EXIST_INDEX = -1;
-        const buckets: string[] = this.$store.state.bucketUsageModule.allBucketNames;
+/**
+ * Returns stored selected bucket names.
+ */
+const selectedBucketNames = computed((): string[] => {
+    return store.state.accessGrantsModule.selectedBucketNames;
+});
 
-        return buckets.filter((name: string) => {
-            return name.indexOf(this.bucketSearch.toLowerCase()) !== NON_EXIST_INDEX;
-        });
-    }
+/**
+ * Clears selection of specific buckets and closes dropdown.
+ */
+function clearSelectedBuckets(): void {
+    store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+    closeDropdown();
+}
 
-    /**
-     * Returns stored selected bucket names.
-     */
-    public get selectedBucketNames(): string[] {
-        return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
+/**
+ * Toggles bucket selection.
+ */
+function toggleBucketSelection(name: string): void {
+    store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
+}
+
+/**
+ * Indicates if bucket name is selected.
+ * @param name
+ */
+function isNameSelected(name: string): boolean {
+    return selectedBucketNames.value.includes(name);
+}
+
+/**
+ * Closes dropdown.
+ */
+function closeDropdown(): void {
+    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 }
 </script>
 
