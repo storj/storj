@@ -323,18 +323,22 @@ const bandwidthMeasurementFormatted = computed((): string => {
  * Gets current default limit for paid accounts.
  */
 const paidBandwidthLimit = computed((): number => {
+    const limitVal = getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit'));
+    const maxLimit = Math.max(currentLimits.value.bandwidthLimit / Memory.TB, limitVal);
     if (activeBandwidthMeasurement.value === Dimensions.GB) {
-        return toGB(getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit')));
+        return toGB(maxLimit);
     } else {
-        return getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit'));
+        return maxLimit;
     }
 });
 
 const paidStorageLimit = computed((): number => {
+    const limitVal = getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit'));
+    const maxLimit = Math.max(currentLimits.value.storageLimit / Memory.TB, limitVal);
     if (activeStorageMeasurement.value === Dimensions.GB) {
-        return toGB(getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit')));
+        return toGB(maxLimit);
     } else {
-        return getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit'));
+        return maxLimit;
     }
 });
 
