@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :class="`duration-selection ${containerStyle}`">
+    <div class="duration-selection">
         <div
-            :class="`duration-selection__toggle-container ${textStyle}`"
+            class="duration-selection__toggle-container"
             aria-roledescription="select-duration"
             @click.stop="togglePicker"
         >
@@ -16,87 +16,72 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
-            :container-style="pickerStyle"
             @setLabel="setDateRangeLabel"
         />
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue, Prop } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useStore } from '@/utils/hooks';
 
 import DurationPicker from '@/components/onboardingTour/steps/cliFlow/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
-// @vue/component
-@Component({
-    components: {
-        ExpandIcon,
-        DurationPicker,
-    },
-})
+const store = useStore();
 
-export default class DurationSelection extends Vue {
-    @Prop({ default: '' })
-    private readonly containerStyle: string;
-    @Prop({ default: '' })
-    private readonly textStyle: string;
-    @Prop({ default: '' })
-    private readonly pickerStyle: string;
+const dateRangeLabel = ref<string>('Forever');
 
-    public dateRangeLabel = 'Forever';
+/**
+ * Indicates if date picker is shown.
+ */
+const isDurationPickerVisible = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+});
 
-    /**
-     * Mounted hook after initial render.
-     * Sets previously selected date range if exists.
-     */
-    public mounted(): void {
-        if (this.notBeforePermission && this.notAfterPermission) {
-            const fromFormattedString = this.notBeforePermission.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-            const toFormattedString = this.notAfterPermission.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-            this.dateRangeLabel = `${fromFormattedString} - ${toFormattedString}`;
-        }
-    }
+/**
+ * Returns not before date permission from store.
+ */
+const notBeforePermission = computed((): Date | null => {
+    return store.state.accessGrantsModule.permissionNotBefore;
+});
 
-    /**
-     * Toggles duration picker.
-     */
-    public togglePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AG_DATE_PICKER);
-    }
+/**
+ * Returns not after date permission from store.
+ */
+const notAfterPermission = computed((): Date | null => {
+    return store.state.accessGrantsModule.permissionNotAfter;
+});
 
-    /**
-     * Sets date range label.
-     */
-    public setDateRangeLabel(label: string): void {
-        this.dateRangeLabel = label;
-    }
-
-    /**
-     * Indicates if date picker is shown.
-     */
-    public get isDurationPickerVisible(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
-    }
-
-    /**
-     * Returns not before date permission from store.
-     */
-    private get notBeforePermission(): Date | null {
-        return this.$store.state.accessGrantsModule.permissionNotBefore;
-    }
-
-    /**
-     * Returns not after date permission from store.
-     */
-    private get notAfterPermission(): Date | null {
-        return this.$store.state.accessGrantsModule.permissionNotAfter;
-    }
+/**
+ * Toggles duration picker.
+ */
+function togglePicker(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AG_DATE_PICKER);
 }
+
+/**
+ * Sets date range label.
+ */
+function setDateRangeLabel(label: string): void {
+    dateRangeLabel.value = label;
+}
+
+/**
+ * Mounted hook after initial render.
+ * Sets previously selected date range if exists.
+ */
+onMounted(() => {
+    if (notBeforePermission.value && notAfterPermission.value) {
+        const fromFormattedString = notBeforePermission.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        const toFormattedString = notAfterPermission.value.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        dateRangeLabel.value = `${fromFormattedString} - ${toFormattedString}`;
+    }
+});
 </script>
 
 <style scoped lang="scss">
