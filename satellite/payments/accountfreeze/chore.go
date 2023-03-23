@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -70,52 +71,113 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			chore.log.Error("Could not list invoices", zap.Error(Error.Wrap(err)))
 			return nil
 		}
+		chore.log.Debug("failed invoices found", zap.Int("count", len(invoices)))
+
+		userMap := make(map[uuid.UUID]struct{})
+		frozenMap := make(map[uuid.UUID]struct{})
+		warnedMap := make(map[uuid.UUID]struct{})
+		bypassedMap := make(map[uuid.UUID]struct{})
 
 		for _, invoice := range invoices {
 			userID, err := chore.accounts.Customers().GetUserID(ctx, invoice.CustomerID)
 			if err != nil {
-				chore.log.Error("Could not get userID", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
+				chore.log.Error("Could not get userID",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Error(Error.Wrap(err)),
+				)
 				continue
 			}
+			userMap[userID] = struct{}{}
 
 			user, err := chore.usersDB.Get(ctx, userID)
 			if err != nil {
-				chore.log.Error("Could not get user", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
+				chore.log.Error("Could not get user",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+					zap.Error(Error.Wrap(err)),
+				)
 				continue
 			}
 
 			if invoice.Amount > chore.config.PriceThreshold {
+				bypassedMap[userID] = struct{}{}
+				chore.log.Debug("amount due over threshold",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+				)
 				chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email)
 				continue
 			}
 
 			freeze, warning, err := chore.freezeService.GetAll(ctx, userID)
 			if err != nil {
-				chore.log.Error("Could not check freeze status", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
+				chore.log.Error("Could not check freeze status",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+					zap.Error(Error.Wrap(err)),
+				)
 				continue
 			}
 			if freeze != nil {
-				// account already frozen
+				chore.log.Debug("Ignoring invoice; account already frozen",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+				)
 				continue
 			}
 
 			if warning == nil {
 				err = chore.freezeService.WarnUser(ctx, userID)
 				if err != nil {
-					chore.log.Error("Could not add warning event", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
+					chore.log.Error("Could not add warning event",
+						zap.String("invoiceID", invoice.ID),
+						zap.String("customerID", invoice.CustomerID),
+						zap.Any("userID", userID),
+						zap.Error(Error.Wrap(err)),
+					)
 					continue
 				}
+				chore.log.Debug("user warned",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+				)
+				warnedMap[userID] = struct{}{}
 				continue
 			}
 
 			if chore.nowFn().Sub(warning.CreatedAt) > chore.config.GracePeriod {
 				err = chore.freezeService.FreezeUser(ctx, userID)
 				if err != nil {
-					chore.log.Error("Could not freeze account", zap.String("invoice", invoice.ID), zap.Error(Error.Wrap(err)))
+					chore.log.Error("Could not freeze account",
+						zap.String("invoiceID", invoice.ID),
+						zap.String("customerID", invoice.CustomerID),
+						zap.Any("userID", userID),
+						zap.Error(Error.Wrap(err)),
+					)
 					continue
 				}
+				chore.log.Debug("user frozen",
+					zap.String("invoiceID", invoice.ID),
+					zap.String("customerID", invoice.CustomerID),
+					zap.Any("userID", userID),
+				)
+				frozenMap[userID] = struct{}{}
 			}
 		}
+
+		chore.log.Debug("chore executed",
+			zap.Int("total invoices", len(invoices)),
+			zap.Int("user total", len(userMap)),
+			zap.Int("total warned", len(warnedMap)),
+			zap.Int("total frozen", len(frozenMap)),
+			zap.Int("total bypassed", len(bypassedMap)),
+		)
 
 		return nil
 	})
