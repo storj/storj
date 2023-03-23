@@ -7,8 +7,8 @@
 # How often to run this chore, which is how often unpaid invoices are checked.
 # account-freeze.interval: 24h0m0s
 
-# The failed invoice amount beyond which an account will not be frozen
-# account-freeze.price-threshold: 2000
+# The failed invoice amount (in cents) beyond which an account will not be frozen
+# account-freeze.price-threshold: 10000
 
 # admin peer http listening address
 # admin.address: ""
