@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div v-click-outside="closePicker" :class="`duration-picker${containerStyle}`">
+    <div v-click-outside="closePicker" class="duration-picker">
         <div class="duration-picker__list">
             <ul class="duration-picker__list__column">
                 <li class="duration-picker__list__column-item" @click="onForeverClick">Forever</li>
@@ -29,12 +29,6 @@ import { DurationPermission } from '@/types/accessGrants';
 import { useStore } from '@/utils/hooks';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
-
-const props = withDefaults(defineProps<{
-    containerStyle: string,
-}>(), {
-    containerStyle: '',
-});
 
 const emit = defineEmits(['setLabel']);
 
