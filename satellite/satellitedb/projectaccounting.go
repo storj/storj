@@ -240,7 +240,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 				interval_day,
 				SUM(total_bytes) AS total_bytes
 			FROM
-				(SELECT 
+				(SELECT
 					DISTINCT ON (project_id, bucket_name, interval_day)
 					project_id,
 					bucket_name,
@@ -258,7 +258,7 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 			SELECT interval_day, egress_settled,
 				CASE WHEN interval_day < $1
 					THEN egress_settled
-					ELSE egress_allocated-egress_dead 
+					ELSE egress_allocated-egress_dead
 				END AS allocated
 			FROM project_bandwidth_daily_rollups
 			WHERE project_id = $2 AND (interval_day BETWEEN $3 AND $4)
@@ -576,10 +576,12 @@ func (db *ProjectAccounting) GetProjectTotalByPartner(ctx context.Context, proje
 				return nil, err
 			}
 
-			for _, iterPartner := range partnerNames {
-				if entries[0].Product == iterPartner {
-					partner = iterPartner
-					break
+			if len(entries) != 0 {
+				for _, iterPartner := range partnerNames {
+					if entries[0].Product == iterPartner {
+						partner = iterPartner
+						break
+					}
 				}
 			}
 		}
