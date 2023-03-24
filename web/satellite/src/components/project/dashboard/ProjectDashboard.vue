@@ -346,7 +346,7 @@ export default class ProjectDashboard extends Vue {
      * Indicates if charts date picker is shown.
      */
     public get isChartsDatePicker(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
     }
 
     /**
@@ -416,7 +416,7 @@ export default class ProjectDashboard extends Vue {
      * Indicates if user has just logged in.
      */
     public get hasJustLoggedIn(): boolean {
-        return this.$store.state.appStateModule.appState.hasJustLoggedIn;
+        return this.$store.state.appStateModule.viewsState.hasJustLoggedIn;
     }
 
     /**

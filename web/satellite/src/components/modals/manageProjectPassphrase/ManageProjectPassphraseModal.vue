@@ -53,7 +53,7 @@ const notify = useNotify();
  * Returns step from store.
  */
 const storedStep = computed((): ManageProjectPassphraseStep | undefined => {
-    return store.state.appStateModule.appState.managePassphraseStep;
+    return store.state.appStateModule.viewsState.managePassphraseStep;
 });
 
 const activeStep = ref<ManageProjectPassphraseStep>(storedStep.value || ManageProjectPassphraseStep.ManageOptions);

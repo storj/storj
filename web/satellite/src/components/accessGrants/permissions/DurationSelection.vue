@@ -80,7 +80,7 @@ export default class DurationSelection extends Vue {
      * Indicates if date picker is shown.
      */
     public get isDurationPickerVisible(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
     }
 
     /**

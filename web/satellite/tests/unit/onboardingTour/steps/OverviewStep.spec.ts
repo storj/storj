@@ -4,13 +4,17 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
+import { FrontendConfigApiMock } from '../../mock/api/config';
+
 import { router } from '@/router';
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 
 const store = new Vuex.Store({ modules: { appStateModule } });
 

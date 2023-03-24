@@ -6,8 +6,9 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { ProjectsApiMock } from '../mock/api/projects';
+import { FrontendConfigApiMock } from '../mock/api/config';
 
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
@@ -18,6 +19,7 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const pmApi = new ProjectMembersApiMock();
 const projectMembersModule = makeProjectMembersModule(pmApi);
 const projectsApi = new ProjectsApiMock();

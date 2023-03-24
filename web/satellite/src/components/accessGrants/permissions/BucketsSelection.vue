@@ -51,7 +51,7 @@ export default class BucketsSelection extends Vue {
      * Indicates if dropdown is shown.
      */
     public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
     }
 
     /**

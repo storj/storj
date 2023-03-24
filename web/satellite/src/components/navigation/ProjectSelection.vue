@@ -228,7 +228,7 @@ export default class ProjectSelection extends Vue {
      * Indicates if dropdown is shown.
      */
     public get isDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
     }
 
     /**

@@ -96,7 +96,7 @@ const isHoveredOver = ref(false);
  * Indicates if account dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
 });
 
 /**

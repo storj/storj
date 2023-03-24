@@ -31,6 +31,14 @@ export default class App extends Vue {
      * Sets up variables from meta tags from config such satellite name, etc.
      */
     public mounted(): void {
+        try {
+            this.$store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
+        } catch (error) {
+            // TODO: Use a harsher error-handling approach when the config is necessary
+            // for the frontend to function.
+            this.$notify.error(error.message, null);
+        }
+
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
         let partneredSatellitesJSON = [];

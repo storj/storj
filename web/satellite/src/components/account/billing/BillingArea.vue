@@ -159,14 +159,14 @@ export default class BillingArea extends Vue {
      * Indicates if free credits dropdown shown.
      */
     public get isCreditsDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
     }
 
     /**
      * Indicates if available balance dropdown shown.
      */
     public get isBalanceDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
     }
 
     /**

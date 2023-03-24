@@ -3,7 +3,7 @@
 
 package main
 
-//go:generate go run $GOFILE -o=config.gen.ts
+//go:generate go run $GOFILE -o=../types/config.gen.ts
 
 import (
 	"flag"
@@ -38,7 +38,7 @@ func main() {
 	result.WriteString(types.GenerateTypescriptDefinitions())
 
 	content := strings.ReplaceAll(result.String(), "\t", "    ")
-	err := os.WriteFile("config.gen.ts", []byte(content), 0644)
+	err := os.WriteFile(*outPath, []byte(content), 0644)
 	if err != nil {
 		panic(err)
 	}

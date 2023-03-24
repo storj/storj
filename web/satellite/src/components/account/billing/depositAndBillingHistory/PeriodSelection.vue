@@ -61,7 +61,7 @@ const currentOption = ref<string>(periodOptions[0]);
  * Indicates if periods dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.PERIODS;
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERIODS;
 });
 
 /**

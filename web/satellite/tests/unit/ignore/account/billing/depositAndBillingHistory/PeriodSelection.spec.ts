@@ -8,8 +8,9 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../../../mock/api/projects';
 import { PaymentsMock } from '../../../../mock/api/payments';
+import { FrontendConfigApiMock } from '../../../../mock/api/config';
 
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { makePaymentsModule } from '@/store/modules/payments';
@@ -17,6 +18,7 @@ import { makePaymentsModule } from '@/store/modules/payments';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 
 const localVue = createLocalVue();
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsMock();

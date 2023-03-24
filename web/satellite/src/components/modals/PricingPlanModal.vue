@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <VModal class="modal" :on-close="onClose">
+    <VModal v-if="plan" class="modal" :on-close="onClose">
         <template #content>
             <div v-if="!isSuccess" class="content">
                 <div class="content__top">
@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -111,15 +111,22 @@ const stripeCardInput = ref<(StripeCardInput & StripeForm) | null>(null);
 /**
  * Returns the pricing plan selected from the onboarding tour.
  */
-const plan = computed((): PricingPlanInfo => {
-    return store.state.appStateModule.appState.selectedPricingPlan;
+const plan = computed((): PricingPlanInfo | null => {
+    return store.state.appStateModule.viewsState.selectedPricingPlan;
+});
+
+watch(plan, () => {
+    if (!plan.value) {
+        store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+        notify.error('No pricing plan has been selected.', null);
+    }
 });
 
 /**
  * Returns whether this modal corresponds to a free pricing plan.
  */
 const isFree = computed((): boolean => {
-    return plan.value.type === PricingPlanType.FREE;
+    return plan.value?.type === PricingPlanType.FREE;
 });
 
 /**
@@ -136,7 +143,7 @@ function onClose(): void {
  * Applies the selected pricing plan to the user.
  */
 function onActivateClick(): void {
-    if (isLoading.value) return;
+    if (isLoading.value || !plan.value) return;
     isLoading.value = true;
 
     if (isFree.value) {
@@ -151,6 +158,8 @@ function onActivateClick(): void {
  * Adds card after Stripe confirmation.
  */
 async function onCardAdded(token: string): Promise<void> {
+    if (!plan.value) return;
+
     let action = PAYMENTS_ACTIONS.ADD_CREDIT_CARD;
     if (plan.value.type === PricingPlanType.PARTNER) {
         action = PAYMENTS_ACTIONS.PURCHASE_PACKAGE;

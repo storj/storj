@@ -127,7 +127,7 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { MetaUtils } from '@/utils/meta';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
 import { AuthHttpApi } from '@/api/auth';
@@ -259,7 +259,7 @@ const isBillingPage = computed(() => {
  */
 const isBillingNotificationShown = computed((): boolean => {
     return !isBillingPage.value
-    && store.state.appStateModule.appState.isBillingNotificationShown;
+    && store.state.appStateModule.viewsState.isBillingNotificationShown;
 });
 
 /**
@@ -273,7 +273,7 @@ const isBetaSatellite = computed((): boolean => {
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    return store.state.appStateModule.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -546,7 +546,7 @@ onMounted(async () => {
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
@@ -587,7 +587,7 @@ onMounted(async () => {
         return;
     }
 
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
 });
 
 onBeforeUnmount(() => {
