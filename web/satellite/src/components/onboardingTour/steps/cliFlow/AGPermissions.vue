@@ -189,7 +189,7 @@ export default class AGPermissions extends Vue {
      * Returns clean API key from store.
      */
     private get cleanAPIKey(): string {
-        return this.$store.state.appStateModule.appState.onbCleanApiKey;
+        return this.$store.state.appStateModule.viewsState.onbCleanApiKey;
     }
 
     /**

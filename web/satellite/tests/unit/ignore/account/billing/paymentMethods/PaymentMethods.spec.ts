@@ -7,8 +7,9 @@ import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 import { PaymentsMock } from '../../../../mock/api/payments';
 import { ProjectsApiMock } from '../../../../mock/api/projects';
 import { UsersApiMock } from '../../../../mock/api/users';
+import { FrontendConfigApiMock } from '../../../../mock/api/config';
 
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
@@ -23,6 +24,7 @@ const localVue = createLocalVue();
 
 localVue.use(Vuex);
 
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const usersApi = new UsersApiMock();

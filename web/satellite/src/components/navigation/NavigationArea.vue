@@ -252,14 +252,14 @@ export default class NavigationArea extends Vue {
      * Indicates if resources dropdown shown.
      */
     public get isResourcesDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
     }
 
     /**
      * Indicates if quick start dropdown shown.
      */
     public get isQuickStartDropdownShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
     }
 
     /**

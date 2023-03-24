@@ -167,7 +167,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
@@ -443,7 +443,7 @@ async function login(): Promise<void> {
     }
 
     await store.dispatch(USER_ACTIONS.LOGIN);
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADING);
     isLoading.value = false;
 
     analytics.pageVisit(returnURL.value);

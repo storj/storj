@@ -108,7 +108,7 @@ const style = computed((): Record<string, string> => {
  * Indicates if account dropdown is visible.
  */
 const isDropdown = computed((): boolean => {
-    return store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
 });
 
 /**

@@ -5,8 +5,9 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
+import { FrontendConfigApiMock } from '../../mock/api/config';
 
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
@@ -26,6 +27,7 @@ const projectMembers: ProjectMember[] = [
 const api = new ProjectMembersApiMock();
 api.setMockPage(new ProjectMembersPage(projectMembers));
 
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const notificationsModule = makeNotificationsModule();
 const projectMembersModule = makeProjectMembersModule(api);
 

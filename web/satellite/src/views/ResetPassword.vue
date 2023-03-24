@@ -160,7 +160,7 @@ export default class ResetPassword extends Vue {
      * Returns whether the successful password reset area is shown.
      */
     public get isSuccessfulPasswordResetShown() : boolean {
-        return this.$store.state.appStateModule.appState.isSuccessfulPasswordResetShown;
+        return this.$store.state.appStateModule.viewsState.isSuccessfulPasswordResetShown;
     }
 
     /**

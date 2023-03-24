@@ -4,15 +4,18 @@
 import { createLocalVue, mount } from '@vue/test-utils';
 import Vuex from 'vuex';
 
+import { FrontendConfigApiMock } from '../../../mock/api/config';
+
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule } from '@/store/modules/appState';
 
 import AddCardForm from '@/components/account/billing/paymentMethods/AddCardForm.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const notificationsModule = makeNotificationsModule();
 const store = new Vuex.Store({ modules: { appStateModule, notificationsModule } });
 

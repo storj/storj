@@ -103,7 +103,7 @@ export default class TokenDepositSelection3 extends Vue {
      * isSelectionShown flag that indicate is token amount selection shown.
      */
     public get isSelectionShown(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.PAYMENT_SELECTION;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PAYMENT_SELECTION;
     }
 
     /**

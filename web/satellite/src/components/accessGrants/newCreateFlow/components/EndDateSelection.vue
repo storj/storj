@@ -44,7 +44,7 @@ const store = useStore();
  * Indicates if date picker is shown.
  */
 const isDatePickerVisible = computed((): boolean => {
-    return store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
 });
 
 /**

@@ -112,7 +112,7 @@ export default class AGName extends Vue {
      * Returns back route from store.
      */
     private get backRoute(): string {
-        return this.$store.state.appStateModule.appState.onbAGStepBackRoute;
+        return this.$store.state.appStateModule.viewsState.onbAGStepBackRoute;
     }
 }
 </script>

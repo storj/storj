@@ -13,19 +13,19 @@ import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
 import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
-import { appStateModule } from '@/store/modules/appState';
+import { makeAppStateModule, AppState } from '@/store/modules/appState';
 import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
-import { makeUsersModule } from '@/store/modules/users';
-import { User } from '@/types/users';
+import { makeUsersModule, UsersState } from '@/store/modules/users';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { FrontendConfigHttpApi } from '@/api/config';
 
 Vue.use(Vuex);
 
@@ -36,6 +36,7 @@ const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
+const configApi = new FrontendConfigHttpApi();
 
 // We need to use a WebWorker factory because jest testing does not support
 // WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
@@ -48,10 +49,10 @@ const webWorkerFactory = {
 export interface ModulesState {
     notificationsModule: NotificationsState;
     accessGrantsModule: AccessGrantsState;
-    appStateModule: typeof appStateModule.state;
+    appStateModule: AppState;
     projectMembersModule: ProjectMembersState;
     paymentsModule: PaymentsState;
-    usersModule: User;
+    usersModule: UsersState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     bucketUsageModule: BucketsState;
@@ -63,7 +64,7 @@ export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
-        appStateModule,
+        appStateModule: makeAppStateModule(configApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
         usersModule: makeUsersModule(authApi),
@@ -114,7 +115,7 @@ router.beforeEach(async (to, from, next) => {
         store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
     }
 
-    if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.appState.activeModal !== MODALS.uploadCancelPopup)) {
+    if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.viewsState.activeModal !== MODALS.uploadCancelPopup)) {
         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
         if (areUploadsInProgress) return;
     }

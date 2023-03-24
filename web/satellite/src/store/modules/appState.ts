@@ -3,15 +3,17 @@
 
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/common';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
+import { FrontendConfig, FrontendConfigApi } from '@/types/config';
+import { StoreModule } from '@/types/store';
 
 // Object that contains all states of views
 class ViewsState {
     constructor(
-        public fetchState = AppState.LOADING,
+        public fetchState = FetchState.LOADING,
         public isSuccessfulPasswordResetShown = false,
         public isBillingNotificationShown = true,
         public hasJustLoggedIn = false,
@@ -30,9 +32,9 @@ class ViewsState {
     ) {}
 }
 
-class State {
+export class AppState {
     constructor(
-        public appState: ViewsState = new ViewsState(),
+        public viewsState: ViewsState = new ViewsState(),
         public satelliteName = '',
         public partneredSatellites = new Array<PartneredSatellite>(),
         public isBetaSatellite = false,
@@ -40,136 +42,147 @@ class State {
         public couponCodeSignupUIEnabled = false,
         public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true',
         public isNewAccessGrantFlow = false,
+        public config: FrontendConfig = new FrontendConfig(),
     ) {}
 }
 
 interface AppContext {
-    state: State
+    state: AppState
     commit: (string, ...unknown) => void
 }
 
-export const appStateModule = {
-    state: new State(),
-    mutations: {
-        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
-            state.appState.isSuccessfulPasswordResetShown = !state.appState.isSuccessfulPasswordResetShown;
+export function makeAppStateModule(configApi: FrontendConfigApi): StoreModule<AppState, AppContext> {
+    return {
+        state: new AppState(),
+        mutations: {
+            [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: AppState): void {
+                state.viewsState.isSuccessfulPasswordResetShown = !state.viewsState.isSuccessfulPasswordResetShown;
+            },
+            [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: AppState): void {
+                state.viewsState.hasJustLoggedIn = !state.viewsState.hasJustLoggedIn;
+            },
+            [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: AppState): void {
+                state.viewsState.isBillingNotificationShown = false;
+            },
+            [APP_STATE_MUTATIONS.CLEAR](state: AppState): void {
+                state.viewsState.activeModal = null;
+                state.viewsState.isSuccessfulPasswordResetShown = false;
+                state.viewsState.hasJustLoggedIn = false;
+                state.viewsState.onbAGStepBackRoute = '';
+                state.viewsState.onbAPIKeyStepBackRoute = '';
+                state.viewsState.onbCleanApiKey = '';
+                state.viewsState.onbApiKey = '';
+                state.viewsState.setDefaultPaymentMethodID = '';
+                state.viewsState.deletePaymentMethodID = '';
+                state.viewsState.onbSelectedOs = null;
+                state.viewsState.managePassphraseStep = undefined;
+                state.viewsState.selectedPricingPlan = null;
+            },
+            [APP_STATE_MUTATIONS.CHANGE_FETCH_STATE](state: AppState, newFetchState: FetchState): void {
+                state.viewsState.fetchState = newFetchState;
+            },
+            [APP_STATE_MUTATIONS.SET_SATELLITE_NAME](state: AppState, satelliteName: string): void {
+                state.satelliteName = satelliteName;
+            },
+            [APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES](state: AppState, partneredSatellites: PartneredSatellite[]): void {
+                state.partneredSatellites = partneredSatellites;
+            },
+            [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: AppState, isBetaSatellite: boolean): void {
+                state.isBetaSatellite = isBetaSatellite;
+            },
+            [APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS](state: AppState, isNewAccessGrantFlow: boolean): void {
+                state.isNewAccessGrantFlow = isNewAccessGrantFlow;
+            },
+            [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: AppState, backRoute: string): void {
+                state.viewsState.onbAGStepBackRoute = backRoute;
+            },
+            [APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE](state: AppState, backRoute: string): void {
+                state.viewsState.onbAPIKeyStepBackRoute = backRoute;
+            },
+            [APP_STATE_MUTATIONS.SET_ONB_API_KEY](state: AppState, apiKey: string): void {
+                state.viewsState.onbApiKey = apiKey;
+            },
+            [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: AppState, apiKey: string): void {
+                state.viewsState.onbCleanApiKey = apiKey;
+            },
+            [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: AppState, couponCodeBillingUIEnabled: boolean): void {
+                state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
+            },
+            [APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS](state: AppState, couponCodeSignupUIEnabled: boolean): void {
+                state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
+            },
+            [APP_STATE_MUTATIONS.SET_ONB_OS](state: AppState, os: OnboardingOS): void {
+                state.viewsState.onbSelectedOs = os;
+            },
+            [APP_STATE_MUTATIONS.SET_PRICING_PLAN](state: AppState, plan: PricingPlanInfo): void {
+                state.viewsState.selectedPricingPlan = plan;
+            },
+            [APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP](state: AppState, step: ManageProjectPassphraseStep | undefined): void {
+                state.viewsState.managePassphraseStep = step;
+            },
+            [APP_STATE_MUTATIONS.SET_CONFIG](state: AppState, config: FrontendConfig): void {
+                state.config = config;
+            },
+            [APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN](state: AppState, dropdown: string): void {
+                state.viewsState.activeDropdown = dropdown;
+            },
+            [APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL](state: AppState, modal: unknown): void {
+                // modal could be of VueConstructor type or Object (for composition api components).
+                if (state.viewsState.activeModal === modal) {
+                    state.viewsState.activeModal = null;
+                    return;
+                }
+                state.viewsState.activeModal = modal;
+            },
+            [APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL](state: AppState): void {
+                state.viewsState.activeModal = null;
+            },
         },
-        [APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN](state: State): void {
-            state.appState.hasJustLoggedIn = !state.appState.hasJustLoggedIn;
-        },
-        [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: State): void {
-            state.appState.isBillingNotificationShown = false;
-        },
-        [APP_STATE_MUTATIONS.CLEAR](state: State): void {
-            state.appState.activeModal = null;
-            state.appState.isSuccessfulPasswordResetShown = false;
-            state.appState.hasJustLoggedIn = false;
-            state.appState.onbAGStepBackRoute = '';
-            state.appState.onbAPIKeyStepBackRoute = '';
-            state.appState.onbCleanApiKey = '';
-            state.appState.onbApiKey = '';
-            state.appState.setDefaultPaymentMethodID = '';
-            state.appState.deletePaymentMethodID = '';
-            state.appState.onbSelectedOs = null;
-            state.appState.managePassphraseStep = undefined;
-            state.appState.selectedPricingPlan = null;
-        },
-        [APP_STATE_MUTATIONS.CHANGE_STATE](state: State, newFetchState: AppState): void {
-            state.appState.fetchState = newFetchState;
-        },
-        [APP_STATE_MUTATIONS.SET_SATELLITE_NAME](state: State, satelliteName: string): void {
-            state.satelliteName = satelliteName;
-        },
-        [APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES](state: State, partneredSatellites: PartneredSatellite[]): void {
-            state.partneredSatellites = partneredSatellites;
-        },
-        [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: State, isBetaSatellite: boolean): void {
-            state.isBetaSatellite = isBetaSatellite;
-        },
-        [APP_STATE_MUTATIONS.SET_ACCESS_GRANT_FLOW_STATUS](state: State, isNewAccessGrantFlow: boolean): void {
-            state.isNewAccessGrantFlow = isNewAccessGrantFlow;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE](state: State, backRoute: string): void {
-            state.appState.onbAGStepBackRoute = backRoute;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE](state: State, backRoute: string): void {
-            state.appState.onbAPIKeyStepBackRoute = backRoute;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_API_KEY](state: State, apiKey: string): void {
-            state.appState.onbApiKey = apiKey;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY](state: State, apiKey: string): void {
-            state.appState.onbCleanApiKey = apiKey;
-        },
-        [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: State, couponCodeBillingUIEnabled: boolean): void {
-            state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
-        },
-        [APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS](state: State, couponCodeSignupUIEnabled: boolean): void {
-            state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
-        },
-        [APP_STATE_MUTATIONS.SET_ONB_OS](state: State, os: OnboardingOS): void {
-            state.appState.onbSelectedOs = os;
-        },
-        [APP_STATE_MUTATIONS.SET_PRICING_PLAN](state: State, plan: PricingPlanInfo): void {
-            state.appState.selectedPricingPlan = plan;
-        },
-        [APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP](state: State, step: ManageProjectPassphraseStep | undefined): void {
-            state.appState.managePassphraseStep = step;
-        },
-        [APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN](state: State, dropdown: string): void {
-            state.appState.activeDropdown = dropdown;
-        },
-        [APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL](state: State, modal: unknown): void {
-            // modal could be of VueConstructor type or Object (for composition api components).
-            if (state.appState.activeModal === modal) {
-                state.appState.activeModal = null;
-                return;
-            }
-            state.appState.activeModal = modal;
-        },
-        [APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL](state: State): void {
-            state.appState.activeModal = null;
-        },
-    },
-    actions: {
-        [APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN]: function ({ commit, state }: AppContext, dropdown: string): void {
-            if (state.appState.activeDropdown === dropdown) {
-                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
-                return;
-            }
-            commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, dropdown);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({ commit, state }: AppContext): void {
-            if (!state.appState.isSuccessfulPasswordResetShown) {
-                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
-            }
+        actions: {
+            [APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN]: function ({ commit, state }: AppContext, dropdown: string): void {
+                if (state.viewsState.activeDropdown === dropdown) {
+                    commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
+                    return;
+                }
+                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, dropdown);
+            },
+            [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({ commit, state }: AppContext): void {
+                if (!state.viewsState.isSuccessfulPasswordResetShown) {
+                    commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
+                }
 
-            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
+                commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
+            },
+            [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
+                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
+            },
+            [APP_STATE_ACTIONS.CLEAR]: function ({ commit }: AppContext): void {
+                commit(APP_STATE_MUTATIONS.CLEAR);
+                commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
+            },
+            [APP_STATE_ACTIONS.CHANGE_FETCH_STATE]: function ({ commit }: AppContext, newFetchState: FetchState): void {
+                commit(APP_STATE_MUTATIONS.CHANGE_FETCH_STATE, newFetchState);
+            },
+            [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({ commit }: AppContext, satelliteName: string): void {
+                commit(APP_STATE_MUTATIONS.SET_SATELLITE_NAME, satelliteName);
+            },
+            [APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES]: function ({ commit }: AppContext, partneredSatellites: PartneredSatellite[]): void {
+                commit(APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
+            },
+            [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({ commit }: AppContext, isBetaSatellite: boolean): void {
+                commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
+            },
+            [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
+                commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);
+            },
+            [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({ commit }: AppContext, couponCodeSignupUIEnabled: boolean): void {
+                commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled);
+            },
+            [APP_STATE_ACTIONS.FETCH_CONFIG]: async function ({ commit }: AppContext): Promise<FrontendConfig> {
+                const result = await configApi.get();
+                commit(APP_STATE_MUTATIONS.SET_CONFIG, result);
+                return result;
+            },
         },
-        [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({ commit }: AppContext): void {
-            commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
-        },
-        [APP_STATE_ACTIONS.CLEAR]: function ({ commit }: AppContext): void {
-            commit(APP_STATE_MUTATIONS.CLEAR);
-            commit(APP_STATE_MUTATIONS.TOGGLE_ACTIVE_DROPDOWN, '');
-        },
-        [APP_STATE_ACTIONS.CHANGE_STATE]: function ({ commit }: AppContext, newFetchState: AppState): void {
-            commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
-        },
-        [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({ commit }: AppContext, satelliteName: string): void {
-            commit(APP_STATE_MUTATIONS.SET_SATELLITE_NAME, satelliteName);
-        },
-        [APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES]: function ({ commit }: AppContext, partneredSatellites: PartneredSatellite[]): void {
-            commit(APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
-        },
-        [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({ commit }: AppContext, isBetaSatellite: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
-        },
-        [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({ commit }: AppContext, couponCodeBillingUIEnabled: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);
-        },
-        [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({ commit }: AppContext, couponCodeSignupUIEnabled: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled);
-        },
-    },
-};
+    };
+}

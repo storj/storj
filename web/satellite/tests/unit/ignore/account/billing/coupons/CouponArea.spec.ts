@@ -5,9 +5,9 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../../mock/api/payments';
+import { FrontendConfigApiMock } from '../../../../mock/api/config';
 
-import { appStateModule } from '@/store/modules/appState';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { makeAppStateModule } from '@/store/modules/appState';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
@@ -17,6 +17,7 @@ import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
+const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 paymentsApi.setMockCoupon(new Coupon(

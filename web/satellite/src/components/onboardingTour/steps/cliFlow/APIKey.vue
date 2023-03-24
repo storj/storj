@@ -84,14 +84,14 @@ export default class APIKey extends Vue {
      * Returns API key from store.
      */
     public get storedAPIKey(): string {
-        return this.$store.state.appStateModule.appState.onbApiKey;
+        return this.$store.state.appStateModule.viewsState.onbApiKey;
     }
 
     /**
      * Returns back route from store.
      */
     private get backRoute(): string {
-        return this.$store.state.appStateModule.appState.onbAPIKeyStepBackRoute;
+        return this.$store.state.appStateModule.viewsState.onbAPIKeyStepBackRoute;
     }
 }
 </script>

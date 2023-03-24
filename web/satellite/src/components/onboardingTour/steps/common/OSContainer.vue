@@ -86,7 +86,7 @@ export default class OSContainer extends Vue {
      * Returns selected os from store.
      */
     public get storedOsSelected(): OnboardingOS | null {
-        return this.$store.state.appStateModule.appState.onbSelectedOs;
+        return this.$store.state.appStateModule.viewsState.onbSelectedOs;
     }
 
     /**

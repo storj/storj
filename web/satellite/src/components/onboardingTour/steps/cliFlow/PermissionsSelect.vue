@@ -105,7 +105,7 @@ export default class PermissionsSelect extends Vue {
      * Indicates if dropdown is visible.
      */
     public get isDropdownVisible(): boolean {
-        return this.$store.state.appStateModule.appState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
+        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
     }
 
     /**

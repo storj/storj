@@ -98,7 +98,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -160,7 +160,7 @@ export default class Authorize extends Vue {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+                await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
                 await this.$notify.error(error.message, null);
             }
 

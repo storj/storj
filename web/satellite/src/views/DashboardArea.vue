@@ -114,7 +114,7 @@ import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { AppState } from '@/utils/constants/appStateEnum';
+import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
@@ -318,7 +318,7 @@ const isBetaSatellite = computed((): boolean => {
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.appState.fetchState === AppState.LOADING;
+    return store.state.appStateModule.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -333,7 +333,7 @@ const showMFARecoveryCodeBar = computed((): boolean => {
  * Indicates whether the billing relocation notification should be shown.
  */
 const isBillingNotificationShown = computed((): boolean => {
-    return store.state.appStateModule.appState.isBillingNotificationShown;
+    return store.state.appStateModule.viewsState.isBillingNotificationShown;
 });
 
 /**
@@ -607,7 +607,7 @@ onMounted(async () => {
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
@@ -657,7 +657,7 @@ onMounted(async () => {
             await analytics.pageVisit(onboardingPath);
             await router.push(onboardingPath);
 
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
             return;
@@ -668,7 +668,7 @@ onMounted(async () => {
 
     selectProject(projects);
 
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
 });
 
 onBeforeUnmount(() => {

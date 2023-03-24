@@ -72,7 +72,7 @@ export default class AllModals extends Vue {
    */
     public get activeModal(): unknown | null {
         // modal could be of VueConstructor type or Object (for composition api components).
-        return this.$store.state.appStateModule.appState.activeModal;
+        return this.$store.state.appStateModule.viewsState.activeModal;
     }
 }
 </script>
