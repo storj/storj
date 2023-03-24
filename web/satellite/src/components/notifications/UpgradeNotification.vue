@@ -7,7 +7,7 @@
             <SunnyIcon class="notification-wrap__left__icon" />
             <p>
                 Ready to upgrade? Upload up to 75TB and pay what you use only, no minimum.
-                150GB free included.
+                {{ limits.bandwidthLimit | bytesToBase10String }} free included.
             </p>
         </div>
         <div class="notification-wrap__right">
@@ -18,11 +18,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useStore } from '@/utils/hooks';
+import { ProjectLimits } from '@/types/projects';
 
 import SunnyIcon from '@/../static/images/notifications/sunnyicon.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
@@ -42,6 +43,13 @@ const isBannerShowing = ref<boolean>(true);
 function onCloseClick(): void {
     isBannerShowing.value = false;
 }
+
+/**
+ * Returns current limits from store.
+ */
+const limits = computed((): ProjectLimits => {
+    return store.state.projectsModule.currentLimits;
+});
 
 /**
  * Send analytics event to segment when Upgrade Account banner is clicked.

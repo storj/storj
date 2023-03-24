@@ -187,21 +187,32 @@ const isAccountFrozen = computed((): boolean => {
 /**
  * Returns all needed information for limit banner and modal when bandwidth or storage close to limits.
  */
-const limitState = computed((): { eightyIsShown: boolean, hundredIsShown: boolean, eightyLabel?: string, eightyModalTitle?: string, eightyModalLimitType?: string, hundredLabel?: string, hundredModalTitle?: string, hundredModalLimitType?: string  } => {
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) return { eightyIsShown: false, hundredIsShown: false };
+ type LimitedState = {
+    eightyIsShown: boolean;
+    hundredIsShown: boolean;
+    eightyLabel: string;
+    eightyModalLimitType: string;
+    eightyModalTitle: string;
+    hundredLabel: string;
+    hundredModalTitle: string;
+    hundredModalLimitType: string;
+}
 
-    const result:
-        {
-            eightyIsShown: boolean,
-            hundredIsShown: boolean,
-            eightyLabel?: string,
-            eightyModalTitle?: string,
-            eightyModalLimitType?: string,
-            hundredLabel?: string,
-            hundredModalTitle?: string,
-            hundredModalLimitType?: string
+const limitState = computed((): LimitedState => {
+    const result: LimitedState = {
+        eightyIsShown: false,
+        hundredIsShown: false,
+        eightyLabel: '',
+        eightyModalLimitType: '',
+        eightyModalTitle: '',
+        hundredLabel: '',
+        hundredModalTitle: '',
+        hundredModalLimitType: '',
+    };
 
-        } = { eightyIsShown: false, hundredIsShown: false, eightyLabel: '', hundredLabel: '' };
+    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) {
+        return result;
+    }
 
     const { currentLimits } = store.state.projectsModule;
 
