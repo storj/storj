@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
@@ -29,6 +28,11 @@ type accounts struct {
 // CreditCards exposes all needed functionality to manage account credit cards.
 func (accounts *accounts) CreditCards() payments.CreditCards {
 	return &creditCards{service: accounts.service}
+}
+
+// Balances exposes all needed functionality to manage account balances.
+func (accounts *accounts) Balances() payments.Balances {
+	return &balances{service: accounts.service}
 }
 
 // Invoices exposes all needed functionality to manage account invoices.
@@ -119,34 +123,6 @@ func (accounts *accounts) GetPackageInfo(ctx context.Context, userID uuid.UUID) 
 	}
 
 	return
-}
-
-// Balance returns an integer amount in cents that represents the current balance of payment account.
-func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ payments.Balance, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	balance, err := accounts.service.billingDB.GetBalance(ctx, userID)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
-	customerID, err := accounts.service.db.Customers().GetCustomerID(ctx, userID)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
-	params := &stripe.CustomerParams{Params: stripe.Params{Context: ctx}}
-	customer, err := accounts.service.stripeClient.Customers().Get(customerID, params)
-	if err != nil {
-		return payments.Balance{}, Error.Wrap(err)
-	}
-
-	// customer.Balance is negative if the user has a balance with us.
-	// https://stripe.com/docs/api/customers/object#customer_object-balance
-	return payments.Balance{
-		Coins:   balance.AsDecimal(),
-		Credits: decimal.NewFromInt(-customer.Balance),
-	}, nil
 }
 
 // ProjectCharges returns how much money current user will be charged for each project.

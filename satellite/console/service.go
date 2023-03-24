@@ -330,7 +330,7 @@ func (payment Payments) AccountBalance(ctx context.Context) (balance payments.Ba
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	return payment.service.accounts.Balance(ctx, user.ID)
+	return payment.service.accounts.Balances().Get(ctx, user.ID)
 }
 
 // AddCreditCard is used to save new credit card and attach it to payment account.
@@ -3176,6 +3176,38 @@ func (payment Payments) UpdatePackage(ctx context.Context, packagePlan string, p
 		return Error.Wrap(err)
 	}
 
+	return nil
+}
+
+// ApplyCredit applies a credit of `amount` with description of `desc` to the user's balance. `amount` is in cents USD.
+// If a credit with `desc` already exists, another one will not be created.
+func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if desc == "" {
+		return ErrPurchaseDesc.New("description cannot be empty")
+	}
+	user, err := GetUser(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	btxs, err := payment.service.accounts.Balances().ListTransactions(ctx, user.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// check for any previously created transaction with the same description.
+	for _, btx := range btxs {
+		if btx.Description == desc {
+			return nil
+		}
+	}
+
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc)
+	if err != nil {
+		return Error.Wrap(err)
+	}
 	return nil
 }
 
