@@ -51,8 +51,11 @@ const (
 //
 // architecture: Database
 type TransactionsDB interface {
-	// Insert inserts the provided transaction.
-	Insert(ctx context.Context, tx Transaction) (txID int64, err error)
+	// Insert inserts the provided primary transaction along with zero or more
+	// supplemental transactions that. This is NOT intended for bulk insertion,
+	// but rather to provide an atomic commit of one or more _related_
+	// transactions.
+	Insert(ctx context.Context, primaryTx Transaction, supplementalTx ...Transaction) (txIDs []int64, err error)
 	// UpdateStatus updates the status of the transaction.
 	UpdateStatus(ctx context.Context, txID int64, status TransactionStatus) error
 	// UpdateMetadata updates the metadata of the transaction.

@@ -434,12 +434,12 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 		Metadata:    metadata,
 		Timestamp:   time.Now(),
 	}
-	txID, err := service.billingDB.Insert(ctx, transaction)
+	txIDs, err := service.billingDB.Insert(ctx, transaction)
 	if err != nil {
 		service.log.Warn("unable to add transaction to billing DB for user", zap.String("User ID", userID.String()))
 		return 0, Error.Wrap(err)
 	}
-	return txID, nil
+	return txIDs[0], nil
 }
 
 // applyProjectRecords applies invoice intents as invoice line items to stripe customer.

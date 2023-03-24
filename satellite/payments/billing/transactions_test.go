@@ -73,16 +73,16 @@ func TestTransactionsDBList(t *testing.T) {
 				_, err := db.Billing().Insert(ctx, tx)
 				require.NoError(t, err)
 			}
-			storjscanTXs, err := db.Billing().List(ctx, userID)
+
+			actual, err := db.Billing().List(ctx, userID)
 			require.NoError(t, err)
-			require.Equal(t, 12, len(storjscanTXs))
-			for _, act := range storjscanTXs {
-				for _, exp := range txs {
-					if act.ID == exp.ID {
-						compareTransactions(t, exp, act)
-						break
-					}
-				}
+			require.Equal(t, len(txs), len(actual))
+
+			// The listing is in descending insertion order so compare
+			// accordingly (first listed compared with last inserted, etc.)
+			for i, act := range actual {
+				exp := txs[len(txs)-i-1]
+				compareTransactions(t, exp, act)
 			}
 		})
 	})
@@ -221,7 +221,7 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("update metadata", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			txID, err := db.Billing().Insert(ctx, credit10TX)
+			txIDs, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
 			newAddress, err := blockchain.BytesToAddress(testrand.Bytes(20))
 			require.NoError(t, err)
@@ -229,7 +229,7 @@ func TestUpdateTransactions(t *testing.T) {
 				"Wallet": newAddress.Hex(),
 			})
 			require.NoError(t, err)
-			err = db.Billing().UpdateMetadata(ctx, txID, metadata)
+			err = db.Billing().UpdateMetadata(ctx, txIDs[0], metadata)
 			require.NoError(t, err)
 			expMetadata, err := json.Marshal(map[string]interface{}{
 				"ReferenceID": "some stripe invoice ID",
@@ -245,9 +245,9 @@ func TestUpdateTransactions(t *testing.T) {
 
 	t.Run("update status", func(t *testing.T) {
 		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-			txID, err := db.Billing().Insert(ctx, credit10TX)
+			txIDs, err := db.Billing().Insert(ctx, credit10TX)
 			require.NoError(t, err)
-			err = db.Billing().UpdateStatus(ctx, txID, billing.TransactionStatusCancelled)
+			err = db.Billing().UpdateStatus(ctx, txIDs[0], billing.TransactionStatusCancelled)
 			require.NoError(t, err)
 			credit10TX.Status = billing.TransactionStatusCancelled
 			tx, err := db.Billing().List(ctx, userID)
