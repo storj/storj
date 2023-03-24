@@ -29,8 +29,8 @@ type Accounts interface {
 	// GetPackageInfo returns the package plan and time of purchase for a user.
 	GetPackageInfo(ctx context.Context, userID uuid.UUID) (packagePlan *string, purchaseTime *time.Time, err error)
 
-	// Balance returns an object that represents current free credits and coins balance in cents.
-	Balance(ctx context.Context, userID uuid.UUID) (Balance, error)
+	// Balances exposes functionality to manage account balances.
+	Balances() Balances
 
 	// ProjectCharges returns how much money current user will be charged for each project.
 	ProjectCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) ([]ProjectCharge, error)

@@ -530,6 +530,37 @@ func TestService(t *testing.T) {
 
 				check()
 			})
+			t.Run("ApplyCredit fails when payments.Balances.ApplyCredit returns an error", func(t *testing.T) {
+				require.Error(t, service.Payments().ApplyCredit(userCtx1, 1000, stripecoinpayments.MockCBTXsNewFailure))
+				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Zero(t, len(btxs))
+			})
+			t.Run("ApplyCredit", func(t *testing.T) {
+				amount := int64(1000)
+				desc := "test"
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
+				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 1)
+				require.Equal(t, amount, btxs[0].Amount)
+				require.Equal(t, desc, btxs[0].Description)
+
+				// test same description results in no new credit
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
+				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 1)
+
+				// test different description results in new credit
+				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, "new desc"))
+				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
+				require.NoError(t, err)
+				require.Len(t, btxs, 2)
+			})
+			t.Run("ApplyCredit fails with unknown user", func(t *testing.T) {
+				require.Error(t, service.Payments().ApplyCredit(ctx, 1000, "test"))
+			})
 		})
 }
 
