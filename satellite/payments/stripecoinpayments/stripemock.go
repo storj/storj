@@ -47,6 +47,10 @@ const (
 	// TestPaymentMethodsAttachFailure can be passed to creditCards.Add as the cardToken arg to cause
 	// mockPaymentMethods.Attach to return an error.
 	TestPaymentMethodsAttachFailure = "test_payment_methods_attach_failure"
+
+	// MockCBTXsNewFailure can be passed to mockCustomerBalanceTransactions.New as the `desc` argument to cause it
+	// to return an error.
+	MockCBTXsNewFailure = "mock_cbtxs_new_failure"
 )
 
 var (
@@ -701,6 +705,14 @@ func newMockCustomerBalanceTransactions(root *mockStripeState) *mockCustomerBala
 }
 
 func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error) {
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	if params.Description != nil {
+		if *params.Description == MockCBTXsNewFailure {
+			return nil, &stripe.Error{}
+		}
+	}
 	tx := &stripe.CustomerBalanceTransaction{
 		Type:        stripe.CustomerBalanceTransactionTypeAdjustment,
 		Amount:      *params.Amount,
@@ -709,11 +721,14 @@ func (m *mockCustomerBalanceTransactions) New(params *stripe.CustomerBalanceTran
 		Created:     time.Now().Unix(),
 	}
 
-	m.root.mu.Lock()
-	defer m.root.mu.Unlock()
-
 	m.transactions[*params.Customer] = append(m.transactions[*params.Customer], tx)
 
+	for _, v := range m.root.customers.customers {
+		if v.ID == *params.Customer {
+			v.Balance += *params.Amount
+			tx.EndingBalance = v.Balance
+		}
+	}
 	return tx, nil
 }
 
