@@ -9,7 +9,7 @@ pipeline {
     }
     options {
         timeout(time: 4, unit: 'HOURS')
-        skipDefaultCheckout(true)
+        skipDefaultCheckout(false)
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -20,6 +20,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 sh "chmod -R 777 ." // Del orphaned files
+                sh "chown -R 1001:1002 /npm/cache"
                 checkout scm
                 sh 'mkdir -p .build'
 
@@ -97,8 +98,8 @@ pipeline {
         stage('execute ui tests') {
             steps {
                 dir("testsuite/playwright-ui/") {
-                    sh 'npm run test'
-                    sh 'npm run test-dev'
+                    // sh 'npm run test'
+                    sh 'npm run test-debug'
                 }
             }
         }

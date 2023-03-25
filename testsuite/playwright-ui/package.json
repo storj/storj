@@ -1,5 +1,5 @@
 {
-  "name": "sand",
+  "name": "Storj-Plug",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,6 +9,7 @@
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate",
     "test": "npx playwright test ./tests/",
+    "test-debug": "npx playwright test ./tests/ --loglevel=verbose",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
   "keywords": [],
