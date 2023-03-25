@@ -9,7 +9,7 @@
     "allure:serve": "npx allure serve",
     "posttest": "npm run allure:generate",
     "test": "npx playwright test ./tests/",
-    "test-debug": "npx playwright test ./tests/ --loglevel=verbose",
+    "test-debug": "npx playwright test ./tests/ --trace on",
     "test-dev": "npx playwright test ./tests/bucket.test.ts --headed --project=chromium --trace on"
   },
   "keywords": [],
