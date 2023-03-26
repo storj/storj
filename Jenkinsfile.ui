@@ -21,7 +21,8 @@ pipeline {
             steps {
                 sh "chmod -R 777 ." // Del orphaned files
                 sh "chown -R 1001:1002 /npm/cache"
-                sh "chmod --recursive 777 /root"
+                sh "chmod --recursive 777 /npm/cache"
+                sh "npx playwright install"
                 checkout scm
                 sh 'mkdir -p .build'
 
