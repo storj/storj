@@ -39,6 +39,7 @@ resource.syso
 
 # Test debug output
 *.test.*
+!/testsuite/playwright-ui/tests/*
 
 # storj-up automatically generates these files and should not be commit
 /docker-compose.yaml
@@ -51,3 +52,7 @@ dist
 # go workspaces
 go.work
 go.work.sum
+
+node_modules/
+
+/testsuite/playwright-ui/node_modules/*
