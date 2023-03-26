@@ -99,8 +99,7 @@ pipeline {
             steps {
                 dir("testsuite/playwright-ui/") {
                     // sh 'npm run test'
-                    sh 'ls -lah'
-                    sh 'ls -lah ./test/'
+
                     sh 'npm run test-debug'
                 }
             }
