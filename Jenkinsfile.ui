@@ -4,7 +4,7 @@ pipeline {
             label 'main'
             image 'storjqa/playwright-ci:latest'
             alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            // args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
@@ -21,7 +21,7 @@ pipeline {
             steps {
                 sh "chmod -R 777 ." // Del orphaned files
                 sh "chown -R 1001:1002 /npm/cache"
-                sh "chmod --recursive 777 /npm/cache"
+                sh "npm install @playwright/test"
                 sh "npx playwright install"
                 checkout scm
                 sh 'mkdir -p .build'
