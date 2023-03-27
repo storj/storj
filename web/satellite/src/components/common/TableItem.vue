@@ -75,7 +75,7 @@ const props = withDefaults(defineProps<{
     item: () => ({}),
     onClick: () => {},
     hideGuide: () => {},
-    onPrimaryClick: (_) => {},
+    onPrimaryClick: undefined,
 });
 
 const emit = defineEmits(['selectChange']);
@@ -102,7 +102,7 @@ function onChange(value: boolean): void {
 }
 
 function showBucketGuide(index: number): boolean {
-    return (props.itemType?.toLowerCase() === 'bucket') && (index === 0) && !!props.showGuide;
+    return (props.itemType?.toLowerCase() === 'bucket') && (index === 0) && props.showGuide;
 }
 
 function cellContentClicked(cellIndex: number, event: Event) {

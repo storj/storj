@@ -280,6 +280,16 @@ export enum PaymentsHistoryItemStatus {
      * Status showed if transaction is pending.
      */
     Pending = 'pending',
+
+    /**
+     * Status showed if transaction has not finalized yet.
+     */
+    Draft = 'draft',
+
+    /**
+     * This is to filter when the backend sends an item with an empty status.
+     */
+    Empty = '',
 }
 
 /**

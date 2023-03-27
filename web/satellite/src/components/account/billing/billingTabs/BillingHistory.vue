@@ -25,13 +25,19 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
+import {
+    PaymentsHistoryItem,
+    PaymentsHistoryItemStatus,
+    PaymentsHistoryItemType,
+} from '@/types/payments';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useStore } from '@/utils/hooks';
 
-import BillingHistoryHeader from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
-import BillingHistoryItem from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
+import BillingHistoryHeader
+    from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
+import BillingHistoryItem
+    from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
 import VTable from '@/components/common/VTable.vue';
 
 const store = useStore();
@@ -47,7 +53,8 @@ async function fetchHistory(): Promise<void> {
 
 const historyItems = computed((): PaymentsHistoryItem[] => {
     return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
-        return item.status !== 'draft' && item.status !== '' && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
+        return item.status !== PaymentsHistoryItemStatus.Draft && item.status !== PaymentsHistoryItemStatus.Empty
+            && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
     });
 });
 
