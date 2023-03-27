@@ -16,7 +16,6 @@ import {
     ProjectUsageDateRange,
 } from '@/types/projects';
 import { ProjectsApiGql } from '@/api/projects';
-import { useUsersStore } from '@/store/modules/usersStore';
 
 const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
 
@@ -98,15 +97,14 @@ export const useProjectsStore = defineStore('projects', () => {
         return createdProject.id;
     }
 
-    async function createDefaultProject(): Promise<void> {
+    async function createDefaultProject(userID: string): Promise<void> {
         const UNTITLED_PROJECT_NAME = 'My First Project';
         const UNTITLED_PROJECT_DESCRIPTION = '___';
-        const { usersState } = useUsersStore();
 
         const project = new ProjectFields(
             UNTITLED_PROJECT_NAME,
             UNTITLED_PROJECT_DESCRIPTION,
-            usersState.user.id,
+            userID,
         );
 
         const createdProjectId = await createProject(project);
@@ -243,22 +241,16 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     });
 
-    const projectsCount = computed(() => {
+    const projectsCount = computed((userID: string) => {
         let projectsCount = 0;
 
-        const { usersState } = useUsersStore();
-
         state.projects.forEach((project: Project) => {
-            if (project.ownerId === usersState.user.id) {
+            if (project.ownerId === userID) {
                 projectsCount++;
             }
         });
 
         return projectsCount;
-    });
-
-    const selectedProject = computed((): Project => {
-        return state.selectedProject;
     });
 
     return {
@@ -281,6 +273,5 @@ export const useProjectsStore = defineStore('projects', () => {
         projects,
         projectsWithoutSelected,
         projectsCount,
-        selectedProject,
     };
 });

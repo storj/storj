@@ -14,7 +14,6 @@ import {
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsApiGql } from '@/api/accessGrants';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 
 class AccessGrantsState {
     public cursor: AccessGrantCursor = new AccessGrantCursor();
@@ -34,7 +33,6 @@ class AccessGrantsState {
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
     const api = new AccessGrantsApiGql();
-    const { selectedProject } = useProjectsStore();
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
@@ -65,10 +63,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.isAccessGrantsWebWorkerReady = false;
     }
 
-    async function fetchAccessGrants(pageNumber: number): Promise<AccessGrantsPage> {
+    async function fetchAccessGrants(projectID: string, pageNumber: number): Promise<AccessGrantsPage> {
         state.cursor.page = pageNumber;
 
-        const accessGrantsPage: AccessGrantsPage = await api.get(selectedProject.id, state.cursor);
+        const accessGrantsPage: AccessGrantsPage = await api.get(projectID, state.cursor);
 
         state.page = accessGrantsPage;
         state.page.accessGrants = state.page.accessGrants.map(accessGrant => {
@@ -82,19 +80,19 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         return accessGrantsPage;
     }
 
-    async function createAccessGrant(name: string): Promise<AccessGrant> {
-        return await api.create(selectedProject.id, name);
+    async function createAccessGrant(projectID: string, name: string): Promise<AccessGrant> {
+        return await api.create(projectID, name);
     }
 
     async function deleteAccessGrants(): Promise<void> {
         await api.delete(state.selectedAccessGrantsIds);
     }
 
-    async function deleteAccessGrantByNameAndProjectID(name: string): Promise<void> {
-        await api.deleteByNameAndProjectID(name, selectedProject.id);
+    async function deleteAccessGrantByNameAndProjectID(projectID: string, name: string): Promise<void> {
+        await api.deleteByNameAndProjectID(name, projectID);
     }
 
-    async function getEdgeCredentials(accessGrant: string, optionalURL: string, isPublic: boolean): Promise<EdgeCredentials> {
+    async function getEdgeCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
         const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, optionalURL, isPublic);
 
         state.edgeCredentials = credentials;

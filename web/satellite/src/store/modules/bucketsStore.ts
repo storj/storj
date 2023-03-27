@@ -6,7 +6,6 @@ import { reactive } from 'vue';
 
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 import { BucketsApiGql } from '@/api/buckets';
-import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const BUCKETS_PAGE_LIMIT = 7;
 const FIRST_PAGE = 1;
@@ -32,19 +31,14 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
     }
 
-    async function fetchBuckets(page: number): Promise<void> {
-        const { projectsState } = useProjectsStore();
-        const projectID = projectsState.selectedProject.id;
+    async function fetchBuckets(projectID: string, page: number): Promise<void> {
         const before = new Date();
         state.cursor.page = page;
 
         state.page = await api.get(projectID, before, state.cursor);
     }
 
-    async function fetchAllBucketsNames(): Promise<void> {
-        const { projectsState } = useProjectsStore();
-        const projectID = projectsState.selectedProject.id;
-
+    async function fetchAllBucketsNames(projectID: string): Promise<void> {
         state.allBucketNames = await api.getAllBucketNames(projectID);
     }
 
