@@ -49,7 +49,7 @@
                 >
                     <div class="register-area__input-area__container__title-area" @click.stop="toggleDropdown">
                         <div class="register-area__input-area__container__title-container">
-                            <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
+                            <h1 class="register-area__input-area__container__title-area__title">Get 25 GB Free</h1>
                         </div>
                         <div class="register-area__input-area__expand">
                             <div class="register-area__input-area__info-button">

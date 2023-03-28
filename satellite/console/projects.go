@@ -66,19 +66,19 @@ type UsageLimitsConfig struct {
 
 // StorageLimitConfig is a configuration struct for default storage per-project usage limits.
 type StorageLimitConfig struct {
-	Free memory.Size `help:"the default free-tier storage usage limit" default:"150.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier storage usage limit" default:"25.00GB" testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier storage usage limit" default:"25.00TB" testDefault:"25.00 GB"`
 }
 
 // BandwidthLimitConfig is a configuration struct for default bandwidth per-project usage limits.
 type BandwidthLimitConfig struct {
-	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"150.00GB" testDefault:"25.00 GB"`
+	Free memory.Size `help:"the default free-tier bandwidth usage limit" default:"25.00GB" testDefault:"25.00 GB"`
 	Paid memory.Size `help:"the default paid-tier bandwidth usage limit" default:"100.00TB" testDefault:"25.00 GB"`
 }
 
 // SegmentLimitConfig is a configuration struct for default segments per-project usage limits.
 type SegmentLimitConfig struct {
-	Free int64 `help:"the default free-tier segment usage limit" default:"150000"`
+	Free int64 `help:"the default free-tier segment usage limit" default:"10000"`
 	Paid int64 `help:"the default paid-tier segment usage limit" default:"100000000"`
 }
 

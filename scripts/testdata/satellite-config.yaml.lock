@@ -329,7 +329,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 
 # the default free-tier bandwidth usage limit
-# console.usage-limits.bandwidth.free: 150.00 GB
+# console.usage-limits.bandwidth.free: 25.00 GB
 
 # the default paid-tier bandwidth usage limit
 # console.usage-limits.bandwidth.paid: 100.00 TB
@@ -341,13 +341,13 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.usage-limits.project.paid: 3
 
 # the default free-tier segment usage limit
-# console.usage-limits.segment.free: 150000
+# console.usage-limits.segment.free: 10000
 
 # the default paid-tier segment usage limit
 # console.usage-limits.segment.paid: 100000000
 
 # the default free-tier storage usage limit
-# console.usage-limits.storage.free: 150.00 GB
+# console.usage-limits.storage.free: 25.00 GB
 
 # the default paid-tier storage usage limit
 # console.usage-limits.storage.paid: 25.00 TB
