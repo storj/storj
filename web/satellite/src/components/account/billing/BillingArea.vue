@@ -39,121 +39,112 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, reactive } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
-// @vue/component
-@Component
-export default class BillingArea extends Vue {
-    public isBalanceFetching = true;
+const notify = useNotify();
+const store = useStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Mounted lifecycle hook after initial render.
-     * Fetches account balance.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+/**
+ * Indicates if free credits dropdown shown.
+ */
+const isCreditsDropdownShown = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
+});
 
-            this.isBalanceFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
-        }
+/**
+ * Indicates if available balance dropdown shown.
+ */
+const isBalanceDropdownShown = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
+});
+
+/**
+ * Returns the base account route based on if we're on all projects dashboard.
+ */
+const baseAccountRoute = computed((): NavigationLink => {
+    if (router.currentRoute.path.includes(RouteConfig.AccountSettings.path)) {
+        return RouteConfig.AccountSettings;
     }
 
-    /**
-     * Indicates if free credits dropdown shown.
-     */
-    public get isCreditsDropdownShown(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
-    }
+    return RouteConfig.Account;
+});
 
-    /**
-     * Indicates if available balance dropdown shown.
-     */
-    public get isBalanceDropdownShown(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
-    }
+/**
+ * Whether current route name contains term.
+ */
+function routeHas(term: string): boolean {
+    return !!router.currentRoute.name?.toLowerCase().includes(term);
+}
 
-    /**
-     * Returns account balance from store.
-     */
-    public get balance(): AccountBalance {
-        return this.$store.state.paymentsModule.balance;
-    }
+/**
+ * Closes free credits and balance dropdowns.
+ */
+function closeDropdown(): void {
+    if (!isCreditsDropdownShown.value && !isBalanceDropdownShown.value) return;
 
-    /**
-     * Returns the base account route based on if we're on all projects dashboard.
-     */
-    public get baseAccountRoute(): NavigationLink {
-        if (this.$route.path.includes(RouteConfig.AccountSettings.path)) {
-            return RouteConfig.AccountSettings;
-        }
-        return RouteConfig.Account;
-    }
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
+}
 
-    /**
-     * Whether current route name contains term.
-     */
-    public routeHas(term: string): boolean {
-        return !!this.$route.name?.toLowerCase().includes(term);
-    }
-
-    /**
-     * Closes free credits and balance dropdowns.
-     */
-    public closeDropdown(): void {
-        if (!this.isCreditsDropdownShown && !this.isBalanceDropdownShown) return;
-
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
-    }
-
-    /**
-     * Routes for new billing screens.
-     */
-    public routeToOverview(): void {
-        const overviewPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
-        if (this.$route.path !== overviewPath) {
-            this.analytics.pageVisit(overviewPath);
-            this.$router.push(overviewPath);
-        }
-    }
-
-    public routeToPaymentMethods(): void {
-        const payMethodsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
-        if (this.$route.path !== payMethodsPath) {
-            this.analytics.pageVisit(payMethodsPath);
-            this.$router.push(payMethodsPath);
-        }
-    }
-
-    public routeToBillingHistory(): void {
-        const billingPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path;
-        if (this.$route.path !== billingPath) {
-            this.analytics.pageVisit(billingPath);
-            this.$router.push(billingPath);
-        }
-    }
-
-    public routeToCoupons(): void {
-        const couponsPath = this.baseAccountRoute.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
-        if (this.$route.path !== couponsPath) {
-            this.analytics.pageVisit(couponsPath);
-            this.$router.push(couponsPath);
-        }
+/**
+ * Routes for new billing screens.
+ */
+function routeToOverview(): void {
+    const overviewPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingOverview).path;
+    if (router.currentRoute.path !== overviewPath) {
+        analytics.pageVisit(overviewPath);
+        router.push(overviewPath);
     }
 }
+
+function routeToPaymentMethods(): void {
+    const payMethodsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingPaymentMethods).path;
+    if (router.currentRoute.path !== payMethodsPath) {
+        analytics.pageVisit(payMethodsPath);
+        router.push(payMethodsPath);
+    }
+}
+
+function routeToBillingHistory(): void {
+    const billingPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingHistory).path;
+    if (router.currentRoute.path !== billingPath) {
+        analytics.pageVisit(billingPath);
+        router.push(billingPath);
+    }
+}
+
+function routeToCoupons(): void {
+    const couponsPath = baseAccountRoute.value.with(RouteConfig.Billing).with(RouteConfig.BillingCoupons).path;
+    if (router.currentRoute.path !== couponsPath) {
+        analytics.pageVisit(couponsPath);
+        router.push(couponsPath);
+    }
+}
+
+/**
+ * Mounted lifecycle hook after initial render.
+ * Fetches account balance.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        await store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
+    }
+});
 </script>
 
 <style scoped lang="scss">
