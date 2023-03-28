@@ -53,6 +53,6 @@ dist
 go.work
 go.work.sum
 
-node_modules/
 
 /testsuite/playwright-ui/node_modules/*
+!/testsuite/playwright-ui/package-lock.json
