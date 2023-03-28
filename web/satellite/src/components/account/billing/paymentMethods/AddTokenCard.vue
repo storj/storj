@@ -12,23 +12,16 @@
             <h3 class="token__add-funds__title">
                 STORJ Token
             </h3>
-            <p class="token__add-funds__support-info">To deposit STORJ token and request higher limits, please contact <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a></p>
+            <p class="token__add-funds__support-info">
+                To deposit STORJ token and request higher limits, please contact
+                <a target="_blank" rel="noopener noreferrer" href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212">Support</a>
+            </p>
         </div>
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
-
-// @vue/component
-@Component({
-    components: {
-        StorjLarge,
-    },
-})
-export default class AddTokenCard extends Vue {}
 </script>
 
 <style scoped lang="scss">
