@@ -60,8 +60,7 @@ func TestTransactionsDBList(t *testing.T) {
 			Status:      txStatus,
 			Type:        txType,
 			Metadata:    metadata,
-			Timestamp:   time.Now(),
-			CreatedAt:   time.Now(),
+			Timestamp:   makeTimestamp(),
 		}
 
 		txs = append(txs, createTX)
@@ -115,8 +114,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second),
 	}
 
 	credit30TX := billing.Transaction{
@@ -127,8 +125,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second * 2),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second * 2),
 	}
 
 	charge20TX := billing.Transaction{
@@ -139,8 +136,7 @@ func TestTransactionsDBBalance(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeDebit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second * 3),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second * 3),
 	}
 
 	t.Run("add 10 USD to account", func(t *testing.T) {
@@ -215,8 +211,7 @@ func TestUpdateTransactions(t *testing.T) {
 		Status:      billing.TransactionStatusCompleted,
 		Type:        billing.TransactionTypeCredit,
 		Metadata:    metadata,
-		Timestamp:   time.Now().Add(time.Second),
-		CreatedAt:   time.Now(),
+		Timestamp:   makeTimestamp().Add(time.Second),
 	}
 
 	t.Run("update metadata", func(t *testing.T) {
@@ -257,10 +252,6 @@ func TestUpdateTransactions(t *testing.T) {
 	})
 }
 
-func TestUpdateMetadata(t *testing.T) {
-
-}
-
 // compareTransactions is a helper method to compare tx used to create db entry,
 // with the tx returned from the db. Method doesn't compare created at field, but
 // ensures that is not empty.
@@ -271,14 +262,20 @@ func compareTransactions(t *testing.T, exp, act billing.Transaction) {
 	assert.Equal(t, exp.Status, act.Status)
 	assert.Equal(t, exp.Source, act.Source)
 	assert.Equal(t, exp.Type, act.Type)
-	var expUpdatedMetadata map[string]string
-	var actUpdatedMetadata map[string]string
+	var expUpdatedMetadata map[string]interface{}
+	var actUpdatedMetadata map[string]interface{}
 	err := json.Unmarshal(exp.Metadata, &expUpdatedMetadata)
 	require.NoError(t, err)
 	err = json.Unmarshal(act.Metadata, &actUpdatedMetadata)
 	require.NoError(t, err)
 	assert.Equal(t, expUpdatedMetadata["ReferenceID"], actUpdatedMetadata["ReferenceID"])
 	assert.Equal(t, expUpdatedMetadata["Wallet"], actUpdatedMetadata["Wallet"])
-	assert.WithinDuration(t, exp.Timestamp, act.Timestamp, time.Microsecond) // database timestamps use microsecond precision
-	assert.False(t, act.CreatedAt.IsZero())
+	assert.Equal(t, exp.Timestamp, act.Timestamp)
+	assert.NotEqual(t, time.Time{}, act.CreatedAt)
+}
+
+func makeTimestamp() time.Time {
+	// Truncate to microseconds to paper over a loss of nanosecond precision
+	// going in and out of the database due to timestamp column resolution.
+	return time.Now().Truncate(time.Microsecond)
 }

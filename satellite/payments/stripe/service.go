@@ -425,7 +425,7 @@ func (service *Service) createTokenPaymentBillingTransaction(ctx context.Context
 		UserID:      userID,
 		Amount:      currency.AmountFromBaseUnits(amount, currency.USDollars),
 		Description: "Paid Stripe Invoice",
-		Source:      "stripe",
+		Source:      billing.StripeSource,
 		Status:      billing.TransactionStatusPending,
 		Type:        billing.TransactionTypeDebit,
 		Metadata:    metadata,

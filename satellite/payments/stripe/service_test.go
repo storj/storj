@@ -360,7 +360,7 @@ func TestService_InvoiceItemsFromZeroTokenBalance(t *testing.T) {
 			UserID:      userID,
 			Amount:      currency.AmountFromBaseUnits(1000, currency.USDollars),
 			Description: "token payment credit",
-			Source:      "storjscan",
+			Source:      billing.StorjScanSource,
 			Status:      billing.TransactionStatusCompleted,
 			Type:        billing.TransactionTypeCredit,
 			Metadata:    nil,

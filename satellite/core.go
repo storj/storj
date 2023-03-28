@@ -582,6 +582,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Billing(),
 			config.Payments.BillingConfig.Interval,
 			config.Payments.BillingConfig.DisableLoop,
+			config.Payments.BonusRate,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "billing:chore",
