@@ -155,7 +155,7 @@
                 <v-table
                     class="payments-area__transactions-area__table"
                     items-label="transactions"
-                    :limit="pageSize"
+                    :limit="PAGE_SIZE"
                     :total-page-count="pageCount"
                     :total-items-count="transactionCount"
                     :on-page-click-callback="paginationController"
@@ -176,8 +176,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import QRCode from 'qrcode';
 
 import {
@@ -191,6 +191,7 @@ import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -216,10 +217,12 @@ import CreditCardImage from '@/../static/images/billing/credit-card.svg';
 interface StripeForm {
     onSubmit(): Promise<void>;
 }
+
 interface CardEdited {
     id?: string,
     isDefault?: boolean
 }
+
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
@@ -228,269 +231,247 @@ const {
     GET_NATIVE_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        VTable,
-        AmericanExpressIcon,
-        DiscoverIcon,
-        JCBIcon,
-        MastercardIcon,
-        UnionPayIcon,
-        VisaIcon,
-        VButton,
-        TokenTransactionItem,
-        SortingHeader,
-        CloseCrossIcon,
-        CreditCardImage,
-        StripeCardInput,
-        DinersIcon,
-        Trash,
-        CreditCardContainer,
-        AddTokenCard,
-        AddTokenCardNative,
-        VLoader,
-    },
-})
-export default class PaymentMethods extends Vue {
-    public nativeTokenPaymentsEnabled = MetaUtils.getMetaContent('native-token-payments-enabled') === 'true';
+const store = useStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    /**
-     * controls token inputs and transaction table
-     */
-    public showTransactions = false;
-    public displayedHistory: NativePaymentHistoryItem[] = [];
-    public transactionCount = 0;
-    public nativePayIsLoading = false;
-    public pageSize = 10;
+const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
-    /**
-     * controls card inputs
-     */
-    public deleteHover = false;
-    public isLoading = false;
-    public cardBeingEdited: CardEdited = {};
-    public isAddingPayment = false;
-    public isChangeDefaultPaymentModalOpen = false;
-    public defaultCreditCardSelection = '';
-    public isRemovePaymentMethodsModalOpen = false;
-    public $refs!: {
-        stripeCardInput: StripeCardInput & StripeForm;
-        canvas: HTMLCanvasElement;
-    };
+const PAGE_SIZE = 10;
+const nativeTokenPaymentsEnabled = MetaUtils.getMetaContent('native-token-payments-enabled') === 'true';
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const showTransactions = ref<boolean>(false);
+const nativePayIsLoading = ref<boolean>(false);
+const deleteHover = ref<boolean>(false);
+const isLoading = ref<boolean>(false);
+const isAddingPayment = ref<boolean>(false);
+const isChangeDefaultPaymentModalOpen = ref<boolean>(false);
+const isRemovePaymentMethodsModalOpen = ref<boolean>(false);
+const displayedHistory = ref<NativePaymentHistoryItem[]>([]);
+const transactionCount = ref<number>(0);
+const defaultCreditCardSelection = ref<string>('');
+const cardBeingEdited = ref<CardEdited>({});
+const stripeCardInput = ref<StripeCardInput & StripeForm>();
+const canvas = ref<HTMLCanvasElement>();
 
-    public mounted(): void {
-        if (this.$route.params.action === 'token history') {
-            this.showTransactionsTable();
-        }
-    }
+const pageCount = computed((): number => {
+    return Math.ceil(transactionCount.value / PAGE_SIZE);
+});
 
-    private get wallet(): Wallet {
-        return this.$store.state.paymentsModule.wallet;
-    }
+/**
+ * Returns deposit history items.
+ */
+const nativePaymentHistoryItems = computed((): NativePaymentHistoryItem[] => {
+    return store.state.paymentsModule.nativePaymentsHistory;
+});
 
-    public onCopyAddressClick(): void {
-        this.$copyText(this.wallet.address);
-        this.$notify.success('Address copied to your clipboard');
-    }
+const wallet = computed((): Wallet => {
+    return store.state.paymentsModule.wallet;
+});
 
-    public async fetchHistory(): Promise<void> {
-        this.nativePayIsLoading = true;
-        try {
-            await this.$store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
-            this.transactionCount = this.nativePaymentHistoryItems.length;
-            this.displayedHistory = this.nativePaymentHistoryItems.slice(0, this.pageSize);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        } finally {
-            this.nativePayIsLoading = false;
-        }
-    }
+/**
+ * Indicates if user has own project.
+ */
+const userHasOwnProject = computed((): boolean => {
+    return store.getters.projectsCount > 0;
+});
 
-    public async hideTransactionsTable(): Promise<void> {
-        this.showTransactions = false;
-    }
+const creditCards = computed((): CreditCard[] => {
+    return store.state.paymentsModule.creditCards;
+});
 
-    public async showTransactionsTable(): Promise<void> {
-        await this.fetchHistory();
-        this.showTransactions = true;
-        await Vue.nextTick();
-        await this.prepQRCode();
-    }
+function onCopyAddressClick(): void {
+    navigator.clipboard.writeText(wallet.value.address);
+    notify.success('Address copied to your clipboard');
+}
 
-    public async prepQRCode() {
-        try {
-            await QRCode.toCanvas(this.$refs.canvas, this.wallet.address);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
+async function fetchHistory(): Promise<void> {
+    nativePayIsLoading.value = true;
 
-    public async updatePaymentMethod(): Promise<void> {
-        try {
-            await this.$store.dispatch(MAKE_CARD_DEFAULT, this.defaultCreditCardSelection);
-            await this.$notify.success('Default payment card updated');
-            this.isChangeDefaultPaymentModalOpen = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
-
-    public async removePaymentMethod(): Promise<void> {
-        if (!this.cardBeingEdited.isDefault) {
-            try {
-                await this.$store.dispatch(REMOVE_CARD, this.cardBeingEdited.id);
-                this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
-                await this.$notify.success('Credit card removed');
-            } catch (error) {
-                await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-            }
-            this.isRemovePaymentMethodsModalOpen = false;
-
-        } else {
-            this.$notify.error('You cannot delete the default payment method.', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-        }
-    }
-
-    public changeDefault() {
-        this.isChangeDefaultPaymentModalOpen = true;
-        this.isRemovePaymentMethodsModalOpen = false;
-    }
-
-    public closeAddPayment() {
-        this.isAddingPayment = false;
-    }
-
-    public get creditCards(): CreditCard[] {
-        return this.$store.state.paymentsModule.creditCards;
-    }
-
-    public async addCard(token: string): Promise<void> {
-        this.$emit('toggleIsLoading');
-        try {
-            await this.$store.dispatch(ADD_CREDIT_CARD, token);
-
-            // We fetch User one more time to update their Paid Tier status.
-            await this.$store.dispatch(USER_ACTIONS.GET);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-
-            this.$emit('toggleIsLoading');
-
-            return;
-        }
-
-        await this.$notify.success('Card successfully added');
-        try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
-            this.$emit('toggleIsLoading');
-        }
-
-        this.$emit('toggleIsLoading');
-        this.$emit('toggleIsLoaded');
-
-        setTimeout(() => {
-            this.$emit('cancel');
-            this.$emit('toggleIsLoaded');
-
-            setTimeout(() => {
-                if (!this.userHasOwnProject) {
-                    this.$router.push(RouteConfig.CreateProject.path);
-                }
-            }, 500);
-        }, 2000);
-    }
-
-    public async onConfirmAddStripe(): Promise<void> {
-        if (this.isLoading) return;
-        this.isLoading = true;
-        await this.$refs.stripeCardInput.onSubmit().then(() => {this.isLoading = false;});
-        this.analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
-    }
-
-    public addPaymentMethodHandler() {
-        this.analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
-        this.isAddingPayment = true;
-    }
-
-    public removePaymentMethodHandler(creditCard: CreditCard) {
-        this.cardBeingEdited = {
-            id: creditCard.id,
-            isDefault: creditCard.isDefault,
-        };
-        this.isRemovePaymentMethodsModalOpen = true;
-    }
-
-    public onCloseClick() {
-        this.isRemovePaymentMethodsModalOpen = false;
-    }
-
-    public onCloseClickDefault() {
-        this.isChangeDefaultPaymentModalOpen = false;
-    }
-
-    /**
-     * Indicates if user has own project.
-     */
-    private get userHasOwnProject(): boolean {
-        return this.$store.getters.projectsCount > 0;
-    }
-
-    /**
-     * controls sorting the transaction table
-     */
-    public sortFunction(key) {
-        switch (key) {
-        case 'date-ascending':
-            this.nativePaymentHistoryItems.sort((a, b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
-            break;
-        case 'date-descending':
-            this.nativePaymentHistoryItems.sort((a, b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
-            break;
-        case 'amount-ascending':
-            this.nativePaymentHistoryItems.sort((a, b) => {return a.amount.value - b.amount.value;});
-            break;
-        case 'amount-descending':
-            this.nativePaymentHistoryItems.sort((a, b) => {return b.amount.value - a.amount.value;});
-            break;
-        case 'status-ascending':
-            this.nativePaymentHistoryItems.sort((a, b) => {
-                if (a.status < b.status) {return -1;}
-                if (a.status > b.status) {return 1;}
-                return 0;});
-            break;
-        case 'status-descending':
-            this.nativePaymentHistoryItems.sort((a, b) => {
-                if (b.status < a.status) {return -1;}
-                if (b.status > a.status) {return 1;}
-                return 0;});
-            break;
-        }
-        this.displayedHistory = this.nativePaymentHistoryItems.slice(0, 10);
-    }
-
-    /**
-     * controls transaction table pagination
-     */
-    public paginationController(i): void {
-        this.displayedHistory = this.nativePaymentHistoryItems.slice((i - 1) * this.pageSize, ((i - 1) * this.pageSize) + this.pageSize);
-    }
-
-    public get pageCount(): number {
-        return Math.ceil(this.transactionCount / this.pageSize);
-    }
-
-    /**
-     * Returns deposit history items.
-     */
-    public get nativePaymentHistoryItems(): NativePaymentHistoryItem[] {
-        return this.$store.state.paymentsModule.nativePaymentsHistory;
+    try {
+        await store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
+        transactionCount.value = nativePaymentHistoryItems.value.length;
+        displayedHistory.value = nativePaymentHistoryItems.value.slice(0, PAGE_SIZE);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    } finally {
+        nativePayIsLoading.value = false;
     }
 }
+
+async function hideTransactionsTable(): Promise<void> {
+    showTransactions.value = false;
+}
+
+async function showTransactionsTable(): Promise<void> {
+    await fetchHistory();
+    showTransactions.value = true;
+    nextTick(async () => {
+        await prepQRCode();
+    });
+}
+
+async function prepQRCode(): Promise<void> {
+    try {
+        await QRCode.toCanvas(canvas.value, wallet.value.address);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
+}
+
+async function updatePaymentMethod(): Promise<void> {
+    try {
+        await store.dispatch(MAKE_CARD_DEFAULT, defaultCreditCardSelection.value);
+        await notify.success('Default payment card updated');
+        isChangeDefaultPaymentModalOpen.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
+}
+
+async function removePaymentMethod(): Promise<void> {
+    if (!cardBeingEdited.value.isDefault) {
+        try {
+            await store.dispatch(REMOVE_CARD, cardBeingEdited.value.id);
+            analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
+            await notify.success('Credit card removed');
+        } catch (error) {
+            await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        }
+
+        isRemovePaymentMethodsModalOpen.value = false;
+    } else {
+        notify.error('You cannot delete the default payment method.', AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+    }
+}
+
+function changeDefault(): void {
+    isChangeDefaultPaymentModalOpen.value = true;
+    isRemovePaymentMethodsModalOpen.value = false;
+}
+
+function closeAddPayment(): void {
+    isAddingPayment.value = false;
+}
+
+async function addCard(token: string): Promise<void> {
+    emit('toggleIsLoading');
+    try {
+        await store.dispatch(ADD_CREDIT_CARD, token);
+
+        // We fetch User one more time to update their Paid Tier status.
+        await store.dispatch(USER_ACTIONS.GET);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+
+        emit('toggleIsLoading');
+
+        return;
+    }
+
+    await notify.success('Card successfully added');
+    try {
+        await store.dispatch(GET_CREDIT_CARDS);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
+        emit('toggleIsLoading');
+    }
+
+    emit('toggleIsLoading');
+    emit('toggleIsLoaded');
+
+    setTimeout(() => {
+        emit('cancel');
+        emit('toggleIsLoaded');
+
+        setTimeout(() => {
+            if (!userHasOwnProject.value) {
+                router.push(RouteConfig.CreateProject.path);
+            }
+        }, 500);
+    }, 2000);
+}
+
+async function onConfirmAddStripe(): Promise<void> {
+    if (isLoading.value || !stripeCardInput.value) return;
+
+    isLoading.value = true;
+    await stripeCardInput.value.onSubmit().then(() => {isLoading.value = false;});
+    analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_ADDED_FROM_BILLING);
+}
+
+function addPaymentMethodHandler(): void {
+    analytics.eventTriggered(AnalyticsEvent.ADD_NEW_PAYMENT_METHOD_CLICKED);
+    isAddingPayment.value = true;
+}
+
+function removePaymentMethodHandler(creditCard: CreditCard): void {
+    cardBeingEdited.value = {
+        id: creditCard.id,
+        isDefault: creditCard.isDefault,
+    };
+    isRemovePaymentMethodsModalOpen.value = true;
+}
+
+function onCloseClick(): void {
+    isRemovePaymentMethodsModalOpen.value = false;
+}
+
+function onCloseClickDefault(): void {
+    isChangeDefaultPaymentModalOpen.value = false;
+}
+
+/**
+ * controls sorting the transaction table
+ */
+function sortFunction(key): void {
+    switch (key) {
+    case 'date-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return a.timestamp.getTime() - b.timestamp.getTime();});
+        break;
+    case 'date-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return b.timestamp.getTime() - a.timestamp.getTime();});
+        break;
+    case 'amount-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return a.amount.value - b.amount.value;});
+        break;
+    case 'amount-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {return b.amount.value - a.amount.value;});
+        break;
+    case 'status-ascending':
+        nativePaymentHistoryItems.value.sort((a, b) => {
+            if (a.status < b.status) return -1;
+            if (a.status > b.status) return 1;
+
+            return 0;
+        });
+        break;
+    case 'status-descending':
+        nativePaymentHistoryItems.value.sort((a, b) => {
+            if (b.status < a.status) return -1;
+            if (b.status > a.status) return 1;
+
+            return 0;
+        });
+    }
+
+    displayedHistory.value = nativePaymentHistoryItems.value.slice(0, 10);
+}
+
+/**
+ * controls transaction table pagination
+ */
+function paginationController(i: number): void {
+    displayedHistory.value = nativePaymentHistoryItems.value.slice((i - 1) * PAGE_SIZE, ((i - 1) * PAGE_SIZE) + PAGE_SIZE);
+}
+
+onMounted((): void => {
+    if (router.currentRoute.params.action === 'token history') {
+        showTransactionsTable();
+    }
+});
 </script>
 
 <style scoped lang="scss">
