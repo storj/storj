@@ -9,108 +9,103 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted } from 'vue';
 
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MetaUtils } from '@/utils/meta';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-// @vue/component
-@Component({
-    components: {
-        NotificationArea,
-    },
-})
-export default class App extends Vue {
-    /**
-     * Lifecycle hook after initial render.
-     * Sets up variables from meta tags from config such satellite name, etc.
-     */
-    public mounted(): void {
-        try {
-            this.$store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
-        } catch (error) {
-            // TODO: Use a harsher error-handling approach when the config is necessary
-            // for the frontend to function.
-            this.$notify.error(error.message, null);
-        }
+const store = useStore();
+const notify = useNotify();
 
-        const satelliteName = MetaUtils.getMetaContent('satellite-name');
-        const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
-        let partneredSatellitesJSON = [];
-        if (partneredSatellitesData) {
-            partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
-        }
-        const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-        const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
-        const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
+/**
+ * Fixes the issue where view port height is taller than the visible viewport on
+ * mobile Safari/Webkit. See: https://bugs.webkit.org/show_bug.cgi?id=141832
+ * Specifically for us, this issue is seen in Safari and Google Chrome, both on iOS
+ */
+function fixViewportHeight(): void {
+    const agent = window.navigator.userAgent.toLowerCase();
+    const isMobile = screen.width <= 500;
+    const isIOS = agent.includes('applewebkit') && agent.includes('iphone');
+    // We don't want to apply this fix on FxIOS because it introduces strange behavior
+    // while not fixing the issue because it doesn't exist here.
+    const isFirefoxIOS = window.navigator.userAgent.toLowerCase().includes('fxios');
 
-        if (satelliteName) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
-
-            if (partneredSatellitesJSON.length) {
-                const partneredSatellites: PartneredSatellite[] = [];
-                partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
-                    // skip current satellite
-                    if (sat.name !== satelliteName) {
-                        partneredSatellites.push(sat);
-                    }
-                });
-                this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
-            }
-        }
-
-        if (isBetaSatellite) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
-        }
-
-        if (couponCodeBillingUIEnabled) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
-        }
-
-        if (couponCodeSignupUIEnabled) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
-        }
-
-        this.fixViewportHeight();
-    }
-
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.updateViewportVariable);
-    }
-
-    /**
-     * Fixes the issue where view port height is taller than the visible viewport on
-     * mobile Safari/Webkit. See: https://bugs.webkit.org/show_bug.cgi?id=141832
-     * Specifically for us, this issue is seen in Safari and Google Chrome, both on iOS
-     */
-    private fixViewportHeight(): void {
-        const agent = window.navigator.userAgent.toLowerCase();
-        const isMobile = screen.width <= 500;
-        const isIOS = agent.includes('applewebkit') && agent.includes('iphone');
-        // We don't want to apply this fix on FxIOS because it introduces strange behavior
-        // while not fixing the issue because it doesn't exist here.
-        const isFirefoxIOS = window.navigator.userAgent.toLowerCase().includes('fxios');
-
-        if (isMobile && isIOS && !isFirefoxIOS) {
-            // Set the custom --vh variable to the root of the document.
-            document.documentElement.style.setProperty('--vh', `${window.innerHeight}px`);
-            window.addEventListener('resize', this.updateViewportVariable);
-        }
-    }
-
-    /**
-     * Update the viewport height variable "--vh".
-     * This is called everytime there is a viewport change; e.g.: orientation change.
-     */
-    private updateViewportVariable(): void {
+    if (isMobile && isIOS && !isFirefoxIOS) {
+        // Set the custom --vh variable to the root of the document.
         document.documentElement.style.setProperty('--vh', `${window.innerHeight}px`);
+        window.addEventListener('resize', updateViewportVariable);
     }
 }
+
+/**
+ * Update the viewport height variable "--vh".
+ * This is called everytime there is a viewport change; e.g.: orientation change.
+ */
+function updateViewportVariable(): void {
+    document.documentElement.style.setProperty('--vh', `${window.innerHeight}px`);
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Sets up variables from meta tags from config such satellite name, etc.
+ */
+onMounted((): void => {
+    try {
+        store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
+    } catch (error) {
+        // TODO: Use a harsher error-handling approach when the config is necessary
+        // for the frontend to function.
+        notify.error(error.message, null);
+    }
+
+    const satelliteName = MetaUtils.getMetaContent('satellite-name');
+    const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
+    let partneredSatellitesJSON = [];
+    if (partneredSatellitesData) {
+        partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
+    }
+    const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
+    const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
+    const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
+
+    if (satelliteName) {
+        store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+
+        if (partneredSatellitesJSON.length) {
+            const partneredSatellites: PartneredSatellite[] = [];
+            partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
+                // skip current satellite
+                if (sat.name !== satelliteName) {
+                    partneredSatellites.push(sat);
+                }
+            });
+            store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
+        }
+    }
+
+    if (isBetaSatellite) {
+        store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
+    }
+
+    if (couponCodeBillingUIEnabled) {
+        store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
+    }
+
+    if (couponCodeSignupUIEnabled) {
+        store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
+    }
+
+    fixViewportHeight();
+});
+
+onBeforeUnmount((): void => {
+    window.removeEventListener('resize', updateViewportVariable);
+});
 </script>
 
 <style lang="scss">
