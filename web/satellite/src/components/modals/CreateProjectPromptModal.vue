@@ -30,38 +30,30 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-    },
-})
-export default class CreateProjectPromptModal extends Vue {
-    /**
-     * Holds on button click logic.
-     * Closes this modal and opens upgrade account modal.
-     */
-    public onClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
-    }
+const store = useStore();
 
-    /**
-     * Closes create project prompt modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-    }
+/**
+ * Holds on button click logic.
+ * Closes this modal and opens upgrade account modal.
+ */
+function onClick(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+}
+
+/**
+ * Closes create project prompt modal.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
 }
 </script>
 
