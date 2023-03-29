@@ -112,6 +112,14 @@ type RateLimiterConfig struct {
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
+// UploadLimiterConfig is a configuration struct for endpoint upload limiting.
+type UploadLimiterConfig struct {
+	Enabled           bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
+	SingleObjectLimit time.Duration `help:"how often we can upload to the single object (the same location) per API instance" default:"1s" devDefault:"1ms"`
+
+	CacheCapacity int `help:"number of object locations to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
+}
+
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
@@ -134,6 +142,7 @@ type Config struct {
 	RS                          RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	SegmentLoop                 segmentloop.Config   `help:"segment loop configuration"`
 	RateLimiter                 RateLimiterConfig    `help:"rate limiter configuration"`
+	UploadLimiter               UploadLimiterConfig  `help:"object upload limiter configuration"`
 	ProjectLimits               ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion               piecedeletion.Config `help:"piece deletion configuration"`
 	// TODO remove this flag when server-side copy implementation will be finished

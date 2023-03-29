@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jtolio/eventkit"
@@ -490,5 +491,25 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(encryptedMetadata, encrypte
 	if metadataSize > 0 && len(encryptedKey) != encryptedKeySize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(encryptedKey), encryptedKeySize)
 	}
+	return nil
+}
+
+func (endpoint *Endpoint) checkObjectUploadRate(projectID uuid.UUID, bucketName []byte, objectKey []byte) error {
+	if !endpoint.config.UploadLimiter.Enabled {
+		return nil
+	}
+
+	limited := true
+	// if object location is in cache it means that we won't allow to upload yet here,
+	// if it's not or internally key expired we are good to go
+	key := strings.Join([]string{string(projectID[:]), string(bucketName), string(objectKey)}, "/")
+	_, _ = endpoint.singleObjectLimitCache.Get(key, func() (interface{}, error) {
+		limited = false
+		return struct{}{}, nil
+	})
+	if limited {
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
+	}
+
 	return nil
 }

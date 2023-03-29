@@ -660,6 +660,57 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				})
 			}
 		})
+
+	})
+}
+
+func TestEndpoint_Object_UploadLimit(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.UploadLimiter.SingleObjectLimit = 200 * time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		bucketName := "testbucket"
+		deleteBucket := func() error {
+			_, err := metainfoClient.DeleteBucket(ctx, metaclient.DeleteBucketParams{
+				Name:      []byte(bucketName),
+				DeleteAll: true,
+			})
+			return err
+		}
+
+		t.Run("limit single object upload", func(t *testing.T) {
+			defer ctx.Check(deleteBucket)
+
+			// upload to the same location one by one should fail
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
+
+			time.Sleep(500 * time.Millisecond)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-object", []byte("test"))
+			require.NoError(t, err)
+
+			// upload to different locations one by one should NOT fail
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-objectA", []byte("test"))
+			require.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "single-objectB", []byte("test"))
+			require.NoError(t, err)
+		})
 	})
 }
 

@@ -79,6 +79,10 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
+	if err := endpoint.checkObjectUploadRate(keyInfo.ProjectID, req.Bucket, req.EncryptedObjectKey); err != nil {
+		return nil, err
+	}
+
 	// TODO this needs to be optimized to avoid DB call on each request
 	placement, err := endpoint.buckets.GetBucketPlacement(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {

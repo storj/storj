@@ -679,6 +679,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 
+# number of object locations to cache.
+# metainfo.upload-limiter.cache-capacity: 10000
+
+# whether rate limiting is enabled.
+# metainfo.upload-limiter.enabled: true
+
+# how often we can upload to the single object (the same location) per API instance
+# metainfo.upload-limiter.single-object-limit: 1s
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
