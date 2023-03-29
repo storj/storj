@@ -32,58 +32,52 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import Icon from '@/../static/images/session/inactivityTimer.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-        Icon,
-    },
-})
-export default class InactivityModal extends Vue {
-    @Prop({ default: () => {} })
-    private readonly onContinue: () => Promise<void>;
-    @Prop({ default: () => {} })
-    private readonly onLogout: () => Promise<void>;
-    @Prop({ default: () => {} })
-    private readonly onClose: () => void;
-    @Prop({ default: 60 })
-    private readonly initialSeconds: number;
+const props = withDefaults(defineProps<{
+    onContinue: () => Promise<void>;
+    onLogout: () => Promise<void>;
+    onClose: () => void;
+    initialSeconds: number;
+}>(), {
+    onContinue: () => Promise.resolve,
+    onLogout: () =>  Promise.resolve,
+    onClose: () => {},
+    initialSeconds: 60,
+});
 
-    private seconds = 0;
-    private isLoading = false;
+const seconds = ref<number>(0);
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Lifecycle hook after initial render.
-     * Starts timer that decreases number of seconds until session expiration.
-     */
-    public async mounted(): Promise<void> {
-        this.seconds = this.initialSeconds;
-        const id: ReturnType<typeof setInterval> = setInterval(() => {
-            if (--this.seconds <= 0) clearInterval(id);
-        }, 1000);
-    }
+/**
+ * Returns a function that disables modal interaction during execution.
+ */
+function withLoading(fn: () => Promise<void>): () => Promise<void> {
+    return async () => {
+        if (isLoading.value) return;
 
-    /**
-     * Returns a function that disables modal interaction during execution.
-     */
-    private withLoading(fn: () => Promise<void>): () => Promise<void> {
-        return async () => {
-            if (this.isLoading) return;
-            this.isLoading = true;
-            await fn();
-            this.isLoading = false;
-        };
-    }
+        isLoading.value = true;
+        await fn();
+        isLoading.value = false;
+    };
 }
+
+/**
+ * Lifecycle hook after initial render.
+ * Starts timer that decreases number of seconds until session expiration.
+ */
+onMounted(async (): Promise<void> => {
+    seconds.value = props.initialSeconds;
+    const id: ReturnType<typeof setInterval> = setInterval(() => {
+        if (--seconds.value <= 0) clearInterval(id);
+    }, 1000);
+});
 </script>
 
 <style scoped lang="scss">
