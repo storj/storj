@@ -12,34 +12,26 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useStore } from '@/utils/hooks';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        AddCouponCodeInput,
-        VModal,
-    },
-})
-export default class AddCouponCodeModal extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
 
-    /**
-    * Closes add coupon modal.
-    */
-    public onCloseClick(): void {
-        this.analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addCoupon);
-    }
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Closes add coupon modal.
+ */
+function onCloseClick(): void {
+    analytics.pageVisit(RouteConfig.Account.with(RouteConfig.Billing).path);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addCoupon);
 }
 </script>
 
