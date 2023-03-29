@@ -217,7 +217,7 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8 // indirect
+	storj.io/drpc v0.0.33-0.20230329154546-1af8c33020a2 // indirect
 	storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0 // indirect
 	storj.io/minio v0.0.0-20230118205046-c025fcc9eef3 // indirect
 	storj.io/monkit-jaeger v0.0.0-20220915074555-d100d7589f41 // indirect

@@ -1931,8 +1931,8 @@ storj.io/common v0.0.0-20230320162442-624d95b0fa7f h1:riYCjI+x1o3jZSXda9XwLHIEkq
 storj.io/common v0.0.0-20230320162442-624d95b0fa7f/go.mod h1:mYWledc0VY1J4+merC3LIFZr0Wa4FaB/hg0ucMdYnzA=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/drpc v0.0.32/go.mod h1:6rcOyR/QQkSTX/9L5ZGtlZaE2PtXTTZl8d+ulSeeYEg=
-storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8 h1:TVfWJuTTBPT3pNu3b7q0nSg5bFCScMFqiU65MbWBbco=
-storj.io/drpc v0.0.33-0.20230224050324-1fd05d3459f8/go.mod h1:vR804UNzhBa49NOJ6HeLjd2H3MakC1j5Gv8bsOQT6N4=
+storj.io/drpc v0.0.33-0.20230329154546-1af8c33020a2 h1:bwj32XFRYPb7LqNxAmP7kqcsxmXla7iygazXDPtzKbU=
+storj.io/drpc v0.0.33-0.20230329154546-1af8c33020a2/go.mod h1:vR804UNzhBa49NOJ6HeLjd2H3MakC1j5Gv8bsOQT6N4=
 storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0 h1:OIg2UT9OnaYWAKHuEzw5qTgp3bTlCuQ/PMhi8kVi3zA=
 storj.io/gateway v1.8.4-0.20230306203023-8b133c0994f0/go.mod h1:FPMhOUqTJgqi+FFY2pmUZkBeAt7QzQa16gVAE7NawEc=
 storj.io/gateway-mt v1.49.0 h1:x96aKPj5Qx5TRMjgtg0BLolmhUtb5gGFHuriOyafs80=
