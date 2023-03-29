@@ -79,17 +79,18 @@
     </VModal>
 </template>
 
-<script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang='ts'>
+import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -99,189 +100,171 @@ import AddFieldIcon from '@/../static/images/team/addField.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-        ErrorIcon,
-        DeleteFieldIcon,
-        AddFieldIcon,
-        AddMemberNotificationIcon,
-    },
-})
-export default class AddTeamMemberModal extends Vue {
-    /**
-     * Initial empty inputs set.
-     */
-    private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
-    private formError = '';
-    private isLoading = false;
+const store = useStore();
+const notify = useNotify();
 
-    private FIRST_PAGE = 1;
+const FIRST_PAGE = 1;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const inputs = ref<EmailInput[]>([new EmailInput(), new EmailInput(), new EmailInput()]);
+const formError = ref<string>('');
+const isLoading = ref<boolean>(false);
 
-    /**
-     * Tries to add users related to entered emails list to current project.
-     */
-    public async onAddUsersClick(): Promise<void> {
-        if (this.isLoading) {
-            return;
+/**
+ * Indicates if at least one input has error.
+ */
+const hasInputError = computed((): boolean => {
+    return inputs.value.some((element: EmailInput) => {
+        return element.error;
+    });
+});
+
+/**
+ * Indicates if emails count reached maximum.
+ */
+const isMaxInputsCount = computed((): boolean => {
+    return inputs.value.length > 9;
+});
+
+/**
+ * Indicates if add button is active.
+ * Active when no errors and at least one input is not empty.
+ */
+const isButtonActive = computed((): boolean => {
+    if (formError.value) return false;
+
+    const length = inputs.value.length;
+
+    for (let i = 0; i < length; i++) {
+        if (inputs.value[i].value !== '') return true;
+    }
+
+    return false;
+});
+
+const registerPath = computed((): string => {
+    return location.host + RouteConfig.Register.path;
+});
+
+/**
+ * Tries to add users related to entered emails list to current project.
+ */
+async function onAddUsersClick(): Promise<void> {
+    if (isLoading.value) return;
+
+    isLoading.value = true;
+
+    const length = inputs.value.length;
+    const newInputsArray: EmailInput[] = [];
+    let areAllEmailsValid = true;
+    const emailArray: string[] = [];
+
+    for (let i = 0; i < length; i++) {
+        const element = inputs.value[i];
+        const isEmail = Validator.email(element.value);
+
+        if (isEmail) {
+            emailArray.push(element.value);
         }
 
-        this.isLoading = true;
+        if (isEmail || element.value === '') {
+            element.setError(false);
+            newInputsArray.push(element);
 
-        const length = this.inputs.length;
-        const newInputsArray: EmailInput[] = [];
-        let areAllEmailsValid = true;
-        const emailArray: string[] = [];
+            continue;
+        }
 
-        for (let i = 0; i < length; i++) {
-            const element = this.inputs[i];
-            const isEmail = Validator.email(element.value);
+        element.setError(true);
+        newInputsArray.unshift(element);
+        areAllEmailsValid = false;
 
-            if (isEmail) {
-                emailArray.push(element.value);
+        formError.value = 'Field is required. Please enter a valid email address';
+    }
+
+    inputs.value = [...newInputsArray];
+
+    if (length > 3) {
+        const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
+        if (scrollableDiv) {
+            const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
+            if (scrollableDivHeight) {
+                scrollableDiv.scroll(0, -scrollableDivHeight);
             }
-
-            if (isEmail || element.value === '') {
-                element.setError(false);
-                newInputsArray.push(element);
-
-                continue;
-            }
-
-            element.setError(true);
-            newInputsArray.unshift(element);
-            areAllEmailsValid = false;
-
-            this.formError = 'Field is required. Please enter a valid email address';
-        }
-
-        this.inputs = newInputsArray;
-
-        if (length > 3) {
-            const scrollableDiv = document.querySelector('.add-user__form-container__inputs-group');
-            if (scrollableDiv) {
-                const scrollableDivHeight = scrollableDiv.getAttribute('offsetHeight');
-                if (scrollableDivHeight) {
-                    scrollableDiv.scroll(0, -scrollableDivHeight);
-                }
-            }
-        }
-
-        if (!areAllEmailsValid) {
-            this.isLoading = false;
-
-            return;
-        }
-
-        if (emailArray.includes(this.$store.state.usersModule.email)) {
-            await this.$notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-            this.isLoading = false;
-
-            return;
-        }
-
-        try {
-            await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
-        } catch (error) {
-            await this.$notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-            this.isLoading = false;
-
-            return;
-        }
-
-        this.analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
-        await this.$notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
-        this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-        try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
-        }
-
-        this.closeModal();
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Adds additional email input.
-     */
-    public addInput(): void {
-        const inputsLength = this.inputs.length;
-        if (inputsLength < 10) {
-            this.inputs.push(new EmailInput());
         }
     }
 
-    /**
-     * Deletes selected email input from list.
-     * @param index
-     */
-    public deleteInput(index: number): void {
-        if (this.inputs.length === 1) return;
-
-        this.resetFormErrors(index);
-
-        this.$delete(this.inputs, index);
+    if (!areAllEmailsValid) {
+        isLoading.value = false;
+        return;
     }
 
-    /**
-     * Closes modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
+    if (emailArray.includes(store.state.usersModule.user.email)) {
+        await notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        isLoading.value = false;
+
+        return;
     }
 
-    /**
-     * Indicates if emails count reached maximum.
-     */
-    public get isMaxInputsCount(): boolean {
-        return this.inputs.length > 9;
+    try {
+        await store.dispatch(PM_ACTIONS.ADD, emailArray);
+    } catch (error) {
+        await notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
+        isLoading.value = false;
+
+        return;
     }
 
-    /**
-     * Indicates if add button is active.
-     * Active when no errors and at least one input is not empty.
-     */
-    public get isButtonActive(): boolean {
-        if (this.formError) return false;
+    analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
+    await notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
+    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-        const length = this.inputs.length;
-
-        for (let i = 0; i < length; i++) {
-            if (this.inputs[i].value !== '') return true;
-        }
-
-        return false;
+    try {
+        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+    } catch (error) {
+        await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
     }
 
-    public get registerPath(): string {
-        return location.host + RouteConfig.Register.path;
+    closeModal();
+
+    isLoading.value = false;
+}
+
+/**
+ * Adds additional email input.
+ */
+function addInput(): void {
+    const inputsLength = inputs.value.length;
+    if (inputsLength < 10) {
+        inputs.value.push(new EmailInput());
     }
+}
 
-    /**
-     * Removes error for selected input.
-     */
-    private resetFormErrors(index): void {
-        this.inputs[index].setError(false);
-        if (!this.hasInputError) {
+/**
+ * Deletes selected email input from list.
+ * @param index
+ */
+function deleteInput(index: number): void {
+    if (inputs.value.length === 1) return;
 
-            this.formError = '';
-        }
-    }
+    resetFormErrors(index);
 
-    /**
-     * Indicates if at least one input has error.
-     */
-    private get hasInputError(): boolean {
-        return this.inputs.some((element: EmailInput) => {
-            return element.error;
-        });
+    inputs.value = inputs.value.filter((input, i) => i !== index);
+}
+
+/**
+ * Closes modal.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
+}
+
+/**
+ * Removes error for selected input.
+ */
+function resetFormErrors(index: number): void {
+    inputs.value[index].setError(false);
+    if (!hasInputError.value) {
+        formError.value = '';
     }
 }
 </script>
