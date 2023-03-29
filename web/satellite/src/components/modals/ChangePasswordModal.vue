@@ -61,8 +61,8 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { Validator } from '@/utils/validation';
@@ -71,6 +71,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -79,133 +80,118 @@ import VModal from '@/components/common/VModal.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/changePasswordPopup/changePassword.svg';
 
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
+
 const DELAY_BEFORE_REDIRECT = 2000; // 2 sec
+const auth: AuthHttpApi = new AuthHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-// @vue/component
-@Component({
-    components: {
-        ChangePasswordIcon,
-        VInput,
-        VButton,
-        VModal,
-        PasswordStrength,
-    },
-})
-export default class ChangePasswordModal extends Vue {
-    private oldPassword = '';
-    private newPassword = '';
-    private confirmationPassword = '';
+const oldPassword = ref<string>('');
+const newPassword = ref<string>('');
+const confirmationPassword = ref<string>('');
+const oldPasswordError = ref<string>('');
+const newPasswordError = ref<string>('');
+const confirmationPasswordError = ref<string>('');
+const isPasswordStrengthShown = ref<boolean>(false);
 
-    private oldPasswordError = '';
-    private newPasswordError = '';
-    private confirmationPasswordError = '';
+/**
+ * Enables password strength info container.
+ */
+function showPasswordStrength(): void {
+    isPasswordStrengthShown.value = true;
+}
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+/**
+ * Disables password strength info container.
+ */
+function hidePasswordStrength(): void {
+    isPasswordStrengthShown.value = false;
+}
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Sets old password from input.
+ */
+function setOldPassword(value: string): void {
+    oldPassword.value = value;
+    oldPasswordError.value = '';
+}
 
-    /**
-     * Indicates if hint popup needs to be shown while creating new password.
-     */
-    public isPasswordStrengthShown = false;
+/**
+ * Sets new password from input.
+ */
+function setNewPassword(value: string): void {
+    newPassword.value = value;
+    newPasswordError.value = '';
+}
 
-    /**
-     * Enables password strength info container.
-     */
-    public showPasswordStrength(): void {
-        this.isPasswordStrengthShown = true;
+/**
+ * Sets password confirmation from input.
+ */
+function setPasswordConfirmation(value: string): void {
+    confirmationPassword.value = value;
+    confirmationPasswordError.value = '';
+}
+
+/**
+ * Validates inputs and if everything are correct tries to change password and close popup.
+ */
+async function onUpdateClick(): Promise<void> {
+    let hasError = false;
+    if (oldPassword.value.length < 6) {
+        oldPasswordError.value = 'Invalid old password. Must be 6 or more characters';
+        hasError = true;
     }
 
-    /**
-     * Disables password strength info container.
-     */
-    public hidePasswordStrength(): void {
-        this.isPasswordStrengthShown = false;
+    if (!Validator.password(newPassword.value)) {
+        newPasswordError.value = 'Invalid password. Use 6 or more characters';
+        hasError = true;
     }
 
-    /**
-     * Sets old password from input.
-     */
-    public setOldPassword(value: string): void {
-        this.oldPassword = value;
-        this.oldPasswordError = '';
+    if (!confirmationPassword.value) {
+        confirmationPasswordError.value = 'Password required';
+        hasError = true;
     }
 
-    /**
-     * Sets new password from input.
-     */
-    public setNewPassword(value: string): void {
-        this.newPassword = value;
-        this.newPasswordError = '';
+    if (newPassword.value !== confirmationPassword.value) {
+        confirmationPasswordError.value = 'Password not match to new one';
+        hasError = true;
     }
 
-    /**
-     * Sets password confirmation from input.
-     */
-    public setPasswordConfirmation(value: string): void {
-        this.confirmationPassword = value;
-        this.confirmationPasswordError = '';
+    if (hasError) {
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
+        return;
     }
 
-    /**
-     * Validates inputs and if everything are correct tries to change password and close popup.
-     */
-    public async onUpdateClick(): Promise<void> {
-        let hasError = false;
-        if (this.oldPassword.length < 6) {
-            this.oldPasswordError = 'Invalid old password. Must be 6 or more characters';
-            hasError = true;
-        }
+    try {
+        await auth.changePassword(oldPassword.value, newPassword.value);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
 
-        if (!Validator.password(this.newPassword)) {
-            this.newPasswordError = 'Invalid password. Use 6 or more characters';
-            hasError = true;
-        }
-
-        if (!this.confirmationPassword) {
-            this.confirmationPasswordError = 'Password required';
-            hasError = true;
-        }
-
-        if (this.newPassword !== this.confirmationPassword) {
-            this.confirmationPasswordError = 'Password not match to new one';
-            hasError = true;
-        }
-
-        if (hasError) {
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
-            return;
-        }
-
-        try {
-            await this.auth.changePassword(this.oldPassword, this.newPassword);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
-
-            return;
-        }
-
-        try {
-            await this.auth.logout();
-
-            setTimeout(() => {
-                this.$router.push(RouteConfig.Login.path);
-            }, DELAY_BEFORE_REDIRECT);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
-        }
-
-        this.analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
-        await this.$notify.success('Password successfully changed!');
-        this.closeModal();
+        return;
     }
 
-    /**
-     * Closes popup.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
+    try {
+        await auth.logout();
+
+        setTimeout(() => {
+            router.push(RouteConfig.Login.path);
+        }, DELAY_BEFORE_REDIRECT);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.CHANGE_PASSWORD_MODAL);
     }
+
+    analytics.eventTriggered(AnalyticsEvent.PASSWORD_CHANGED);
+    await notify.success('Password successfully changed!');
+    closeModal();
+}
+
+/**
+ * Closes popup.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
 }
 </script>
 
