@@ -127,8 +127,8 @@ func TestAuth(t *testing.T) {
 				OnboardingStep  *string
 			}{
 				SessionDuration: nil,
-				OnboardingStart: false,
-				OnboardingEnd:   false,
+				OnboardingStart: true,
+				OnboardingEnd:   true,
 				OnboardingStep:  nil,
 			})
 
