@@ -204,7 +204,7 @@ export const router = new Router({
                         {
                             path: RouteConfig.Settings.path,
                             name: RouteConfig.Settings.name,
-                            component: SettingsArea,
+                            component: NewSettingsArea,
                         },
                         {
                             path: RouteConfig.Billing.path,

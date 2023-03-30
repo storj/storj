@@ -123,4 +123,5 @@ export enum AnalyticsErrorEventSource {
     ALL_PROJECT_DASHBOARD = 'All projects dashboard error',
     ONBOARDING_OVERVIEW_STEP = 'Onboarding Overview step error',
     PRICING_PLAN_STEP = 'Onboarding Pricing Plan step error',
+    EDIT_TIMEOUT_MODAL = 'Edit session timeout error',
 }

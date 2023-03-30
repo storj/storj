@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { Duration } from '@/utils/time';
+
 /**
  * Exposes all user-related functionality.
  */
@@ -36,12 +38,13 @@ export interface UsersApi {
     getUserSettings(): Promise<UserSettings>;
 
     /**
-     * Changes user's onboarding status.
+     * Changes user's settings.
      *
+     * @param data
      * @returns UserSettings
      * @throws Error
      */
-    setOnboardingStatus(status: Partial<UserSettings>): Promise<void>;
+    updateSettings(data: SetUserSettingsData): Promise<UserSettings>;
 
     /**
      * Enable user's MFA.
@@ -157,16 +160,23 @@ export class TokenInfo {
  */
 export class UserSettings {
     public constructor(
-        private _sessionDuration: string | null = null,
+        private _sessionDuration: number | null = null,
         public onboardingStart = false,
         public onboardingEnd = false,
         public onboardingStep: string | null = null,
     ) {}
 
-    public get sessionDuration(): Date | null {
+    public get sessionDuration(): Duration | null {
         if (this._sessionDuration) {
-            return new Date(this._sessionDuration);
+            return new Duration(this._sessionDuration);
         }
         return null;
     }
+}
+
+export interface SetUserSettingsData {
+    onboardingStart?: boolean
+    onboardingEnd?: boolean;
+    onboardingStep?: string | null;
+    sessionDuration?: number;
 }

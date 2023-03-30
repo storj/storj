@@ -3,6 +3,7 @@
 
 import {
     DisableMFARequest,
+    SetUserSettingsData,
     UpdatedUser,
     User,
     UsersApi,
@@ -10,6 +11,7 @@ import {
 } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 import { StoreModule } from '@/types/store';
+import { Duration } from '@/utils/time';
 
 export const USER_ACTIONS = {
     LOGIN: 'loginUser',
@@ -22,7 +24,7 @@ export const USER_ACTIONS = {
     CLEAR: 'clearUser',
     GET_FROZEN_STATUS: 'getFrozenStatus',
     GET_SETTINGS: 'getSettings',
-    SET_ONBOARDING_STATUS: 'setOnboardingStatus',
+    UPDATE_SETTINGS: 'updateSettings',
 };
 
 export const USER_MUTATIONS = {
@@ -51,7 +53,7 @@ const {
     GENERATE_USER_MFA_RECOVERY_CODES,
     GET_FROZEN_STATUS,
     GET_SETTINGS,
-    SET_ONBOARDING_STATUS,
+    UPDATE_SETTINGS,
 } = USER_ACTIONS;
 
 const {
@@ -142,12 +144,8 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState, UsersCon
 
                 return settings;
             },
-            [SET_ONBOARDING_STATUS]: async function ({ commit, state }: UsersContext, status: Partial<UserSettings>): Promise<void> {
-                await api.setOnboardingStatus(status);
-                const settings = state.settings;
-                for (const statusKey in status) {
-                    settings[statusKey] = status[statusKey];
-                }
+            [UPDATE_SETTINGS]: async function ({ commit, state }: UsersContext, update: SetUserSettingsData): Promise<void> {
+                const settings = await api.updateSettings(update);
 
                 commit(SET_SETTINGS, settings);
             },

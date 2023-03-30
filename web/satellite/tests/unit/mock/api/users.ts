@@ -1,7 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { UpdatedUser, User, UsersApi, UserSettings } from '@/types/users';
+import {
+    SetUserSettingsData,
+    UpdatedUser,
+    User,
+    UsersApi,
+    UserSettings,
+} from '@/types/users';
 
 /**
  * Mock for UsersApi
@@ -25,8 +31,8 @@ export class UsersApiMock implements UsersApi {
         return Promise.resolve(new UserSettings());
     }
 
-    public setOnboardingStatus(status: Partial<UserSettings>): Promise<void> {
-        return Promise.resolve();
+    public updateSettings(status: SetUserSettingsData): Promise<UserSettings> {
+        return Promise.resolve(new UserSettings());
     }
 
     public update(_user: UpdatedUser): Promise<void> {
