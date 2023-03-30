@@ -136,10 +136,10 @@ function onClose(): void {
     store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
     if (isSuccess.value) {
         if (store.state.appStateModule.isAllProjectsDashboard) {
-            router.push(RouteConfig.AllProjectsDashboard);
+            router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }
-        router.push(RouteConfig.ProjectDashboard.path);
+        router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
     }
 }
 
