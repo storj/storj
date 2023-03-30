@@ -949,13 +949,59 @@ func (a *Auth) SetOnboardingStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+	_, err = a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
 		OnboardingStart: updateInfo.OnboardingStart,
 		OnboardingEnd:   updateInfo.OnboardingEnd,
 		OnboardingStep:  updateInfo.OnboardingStep,
 	})
 	if err != nil {
 		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// SetUserSettings updates a user's settings.
+func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var updateInfo struct {
+		OnboardingStart *bool   `json:"onboardingStart"`
+		OnboardingEnd   *bool   `json:"onboardingEnd"`
+		OnboardingStep  *string `json:"onboardingStep"`
+		SessionDuration *int64  `json:"sessionDuration"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&updateInfo)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	var newDuration **time.Duration
+	if updateInfo.SessionDuration != nil {
+		newDuration = new(*time.Duration)
+		if *updateInfo.SessionDuration != 0 {
+			duration := time.Duration(*updateInfo.SessionDuration)
+			*newDuration = &duration
+		}
+	}
+
+	settings, err := a.service.SetUserSettings(ctx, console.UpsertUserSettingsRequest{
+		OnboardingStart: updateInfo.OnboardingStart,
+		OnboardingEnd:   updateInfo.OnboardingEnd,
+		OnboardingStep:  updateInfo.OnboardingStep,
+		SessionDuration: newDuration,
+	})
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(settings)
+	if err != nil {
+		a.log.Error("could not encode settings", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
 }
