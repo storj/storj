@@ -711,35 +711,9 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				return nil // We don't need to return an error when client cancels.
 			}
 
-			chunkData := make([]byte, chunkSize)
-			_, err = pieceReader.Seek(currentOffset, io.SeekStart)
-			if err != nil {
-				endpoint.log.Error("error seeking on piecereader", zap.Error(err))
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			// ReadFull is required to ensure we are sending the right amount of data.
-			_, err = io.ReadFull(pieceReader, chunkData)
-			if err != nil {
-				endpoint.log.Error("error reading from piecereader", zap.Error(err))
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
-			}
-
-			err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
-				return stream.Send(&pb.PieceDownloadResponse{
-					Chunk: &pb.PieceDownloadResponse_Chunk{
-						Offset: currentOffset,
-						Data:   chunkData,
-					},
-				})
-			})
-			if errs.Is(err, io.EOF) {
-				// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
-				// no need to propagate it
-				return nil
-			}
-			if err != nil {
-				return rpcstatus.Wrap(rpcstatus.Internal, err)
+			done, err := endpoint.sendData(ctx, stream, pieceReader, currentOffset, chunkSize)
+			if err != nil || done {
+				return err
 			}
 
 			currentOffset += chunkSize
@@ -808,6 +782,41 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// ensure we wait for sender to complete
 	sendErr := group.Wait()
 	return rpcstatus.Wrap(rpcstatus.Internal, errs.Combine(sendErr, recvErr))
+}
+
+func (endpoint *Endpoint) sendData(ctx context.Context, stream pb.DRPCPiecestore_DownloadStream, pieceReader *pieces.Reader, currentOffset int64, chunkSize int64) (result bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	chunkData := make([]byte, chunkSize)
+	_, err = pieceReader.Seek(currentOffset, io.SeekStart)
+	if err != nil {
+		endpoint.log.Error("error seeking on piecereader", zap.Error(err))
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	// ReadFull is required to ensure we are sending the right amount of data.
+	_, err = io.ReadFull(pieceReader, chunkData)
+	if err != nil {
+		endpoint.log.Error("error reading from piecereader", zap.Error(err))
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	err = rpctimeout.Run(ctx, endpoint.config.StreamOperationTimeout, func(_ context.Context) (err error) {
+		return stream.Send(&pb.PieceDownloadResponse{
+			Chunk: &pb.PieceDownloadResponse_Chunk{
+				Offset: currentOffset,
+				Data:   chunkData,
+			},
+		})
+	})
+	if errs.Is(err, io.EOF) {
+		// err is io.EOF when uplink asked for a piece, but decided not to retrieve it,
+		// no need to propagate it
+		return true, nil
+	}
+	if err != nil {
+		return true, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+	return false, nil
 }
 
 // beginSaveOrder saves the order with all necessary information. It assumes it has been already verified.
