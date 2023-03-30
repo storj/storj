@@ -17,6 +17,7 @@
                 <p class="coupon-area__wrapper__coupon__expiration">{{ expiration }}</p>
             </div>
             <div
+                v-if="couponCodeBillingUIEnabled"
                 class="coupon-area__wrapper__add-coupon"
                 @click="toggleCreateModal"
             >
@@ -95,9 +96,19 @@ const isActive = computed((): boolean => {
 });
 
 /**
+ * Returns the whether applying a new coupon is enabled.
+ */
+const couponCodeBillingUIEnabled = computed((): boolean => {
+    return store.state.appStateModule.couponCodeBillingUIEnabled;
+});
+
+/**
  * Opens Add Coupon modal.
  */
 function toggleCreateModal(): void {
+    if (!couponCodeBillingUIEnabled) {
+        return;
+    }
     analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
     store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
 }
