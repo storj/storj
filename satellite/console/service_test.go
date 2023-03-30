@@ -1173,13 +1173,17 @@ func TestUserSettings(t *testing.T) {
 		onboardingStep := "Overview"
 		sessionDur := time.Duration(rand.Int63()).Round(time.Minute)
 		sessionDurPtr := &sessionDur
-		err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: &sessionDurPtr,
 			OnboardingStart: &onboardingBool,
 			OnboardingEnd:   &onboardingBool,
 			OnboardingStep:  &onboardingStep,
 		})
 		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
@@ -1189,13 +1193,17 @@ func TestUserSettings(t *testing.T) {
 		require.Equal(t, sessionDurPtr, settings.SessionDuration)
 
 		// passing nil should not override existing values
-		err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+		settings, err = srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
 			SessionDuration: nil,
 			OnboardingStart: nil,
 			OnboardingEnd:   nil,
 			OnboardingStep:  nil,
 		})
 		require.NoError(t, err)
+		require.Equal(t, onboardingBool, settings.OnboardingStart)
+		require.Equal(t, onboardingBool, settings.OnboardingEnd)
+		require.Equal(t, &onboardingStep, settings.OnboardingStep)
+		require.Equal(t, sessionDurPtr, settings.SessionDuration)
 
 		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
