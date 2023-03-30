@@ -3254,7 +3254,23 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 		if !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
-		err = s.store.Users().UpsertSettings(ctx, user.ID, UpsertUserSettingsRequest{})
+
+		settingsReq := UpsertUserSettingsRequest{}
+		// a user may have existed before a corresponding row was created in the user settings table
+		// to avoid showing an old user the onboarding flow again, we check to see if the user owns any projects already
+		// if so, set the "onboarding start" and "onboarding end" fields to "true"
+		projects, err := s.store.Projects().GetOwn(ctx, user.ID)
+		if err != nil {
+			// we can still proceed with the settings upsert if there is an error retrieving projects, so log and don't return
+			s.log.Warn("received error trying to get user's projects", zap.Error(err))
+		}
+		if len(projects) > 0 {
+			t := true
+			settingsReq.OnboardingStart = &(t)
+			settingsReq.OnboardingEnd = &(t)
+		}
+
+		err = s.store.Users().UpsertSettings(ctx, user.ID, settingsReq)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
