@@ -1078,16 +1078,37 @@ func TestUserSettings(t *testing.T) {
 		srv := sat.API.Console.Service
 		userDB := sat.DB.Console().Users()
 
-		user, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		existingUser, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
 		require.NoError(t, err)
 
-		userCtx, err := sat.UserContext(ctx, user.ID)
+		userCtx, err := sat.UserContext(ctx, existingUser.ID)
 		require.NoError(t, err)
 
-		_, err = userDB.GetSettings(userCtx, user.ID)
+		_, err = userDB.GetSettings(userCtx, existingUser.ID)
 		require.Error(t, err)
 
+		// a user that already has a project prior to getting user settings should not go through onboarding again
+		// in other words, onboarding start and end should both be true for users who have a project
 		settings, err := srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, true, settings.OnboardingStart)
+		require.Equal(t, true, settings.OnboardingEnd)
+		require.Nil(t, settings.OnboardingStep)
+		require.Nil(t, settings.SessionDuration)
+
+		newUser, err := userDB.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "newuser@example.com",
+			PasswordHash: []byte("i am a hash of a password, hello"),
+		})
+		require.NoError(t, err)
+
+		userCtx, err = sat.UserContext(ctx, newUser.ID)
+		require.NoError(t, err)
+
+		// a brand new user with no project should go through onboarding
+		// in other words, onboarding start and end should both be false for users withouut a project
+		settings, err = srv.GetUserSettings(userCtx)
 		require.NoError(t, err)
 		require.Equal(t, false, settings.OnboardingStart)
 		require.Equal(t, false, settings.OnboardingEnd)
@@ -1106,7 +1127,7 @@ func TestUserSettings(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		settings, err = userDB.GetSettings(userCtx, user.ID)
+		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
@@ -1122,7 +1143,7 @@ func TestUserSettings(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		settings, err = userDB.GetSettings(userCtx, user.ID)
+		settings, err = userDB.GetSettings(userCtx, newUser.ID)
 		require.NoError(t, err)
 		require.Equal(t, onboardingBool, settings.OnboardingStart)
 		require.Equal(t, onboardingBool, settings.OnboardingEnd)
