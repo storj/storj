@@ -23,8 +23,6 @@
                     </div>
                 </div>
 
-                <div class="settings__section__content__divider" />
-
                 <div class="settings__section__content__row">
                     <span class="settings__section__content__row__title">Email</span>
                     <span class="settings__section__content__row__subtitle">{{ user.email }}</span>
@@ -51,10 +49,11 @@
                     </div>
                 </div>
 
-                <div class="settings__section__content__divider" />
-
                 <div class="settings__section__content__row">
-                    <span class="settings__section__content__row__title">Two-Factor Authentication</span>
+                    <div class="settings__section__content__row__title">
+                        <p>Two-Factor</p>
+                        <p>Authentication</p>
+                    </div>
                     <span v-if="!user.isMFAEnabled" class="settings__section__content__row__subtitle">Improve account security by enabling 2FA.</span>
                     <span v-else class="settings__section__content__row__subtitle">2FA is enabled.</span>
                     <div class="settings__section__content__row__actions">
@@ -78,6 +77,22 @@
                         />
                     </div>
                 </div>
+
+                <div class="settings__section__content__row">
+                    <span class="settings__section__content__row__title">Session Timeout</span>
+                    <span v-if="userDuration" class="settings__section__content__row__subtitle">{{ userDuration.shortString }} of inactivity will log you out.</span>
+                    <span v-else class="settings__section__content__row__subtitle">Duration of inactivity that will log you out.</span>
+                    <div class="settings__section__content__row__actions">
+                        <VButton
+                            class="button"
+                            is-white
+                            font-size="14px"
+                            width="100px"
+                            :on-press="toggleEditSessionTimeoutModal"
+                            label="Set Timeout"
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -88,18 +103,14 @@ import { computed, onMounted } from 'vue';
 
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { Duration } from '@/utils/time';
 
 import VButton from '@/components/common/VButton.vue';
-
-import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
-import EmailIcon from '@/../static/images/account/profile/email.svg';
-import EditIcon from '@/../static/images/common/edit.svg';
 
 const store = useStore();
 const notify = useNotify();
@@ -110,6 +121,13 @@ const { isLoading, withLoading } = useLoading();
  */
 const user = computed((): User => {
     return store.getters.user;
+});
+
+/**
+ * Returns duration from store.
+ */
+const userDuration = computed((): Duration | null => {
+    return store.state.usersModule.settings.sessionDuration;
 });
 
 /**
@@ -138,6 +156,13 @@ function toggleMFACodesModal(): void {
  */
 function toggleChangePasswordModal(): void {
     store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
+}
+
+/**
+ * Opens edit session timeout modal.
+ */
+function toggleEditSessionTimeoutModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editSessionTimeout);
 }
 
 /**
@@ -201,19 +226,14 @@ onMounted(() => {
 
         &__content {
             margin-top: 20px;
-            background: var(--c-white);
-            box-shadow: 0 0 20px rgb(0 0 0 / 4%);
-            border-radius: 8px;
-            padding: 10px 20px;
-
-            &__divider {
-                margin: 10px;
-                border: 0.5px solid var(--c-grey-2);
-            }
 
             &__row {
-                padding: 10px;
-                min-height: 55px;
+                background: var(--c-white);
+                box-shadow: 0 0 20px rgb(0 0 0 / 4%);
+                border-radius: 8px;
+                padding: 10px 30px;
+                margin-bottom: 20px;
+                height: 88px;
                 box-sizing: border-box;
                 display: grid;
                 grid-template-columns: 1fr 1fr 1fr;
@@ -225,6 +245,7 @@ onMounted(() => {
                     align-items: flex-start;
                     justify-content: center;
                     gap: 10px;
+                    height: unset;
                 }
 
                 &__title {

@@ -4,9 +4,17 @@
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
-import { TokenInfo, UpdatedUser, User, UsersApi, UserSettings } from '@/types/users';
+import {
+    SetUserSettingsData,
+    TokenInfo,
+    UpdatedUser,
+    User,
+    UsersApi,
+    UserSettings,
+} from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
+import { Duration } from '@/utils/time';
 
 /**
  * AuthHttpApi is a console Auth API.
@@ -260,16 +268,27 @@ export class AuthHttpApi implements UsersApi {
     }
 
     /**
-     * Changes user's onboarding status.
+     * Changes user's settings.
      *
+     * @param data
+     * @returns UserSettings
      * @throws Error
      */
-    public async setOnboardingStatus(status: Partial<UserSettings>): Promise<void> {
-        const path = `${this.ROOT_PATH}/account/onboarding`;
-        const response = await this.http.patch(path, JSON.stringify(status));
-        if (!response.ok) {
-            throw new Error('can not set onboarding status');
+    public async updateSettings(data: SetUserSettingsData): Promise<UserSettings> {
+        const path = `${this.ROOT_PATH}/account/settings`;
+        const response = await this.http.patch(path, JSON.stringify(data));
+        if (response.ok) {
+            const responseData = await response.json();
+
+            return new UserSettings(
+                responseData.sessionDuration,
+                responseData.onboardingStart,
+                responseData.onboardingEnd,
+                responseData.onboardingStep,
+            );
         }
+
+        throw new Error('can not get user settings');
     }
 
     // TODO: remove secret after Vanguard release

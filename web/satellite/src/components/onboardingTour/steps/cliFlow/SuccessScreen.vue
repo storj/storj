@@ -66,7 +66,7 @@ async function onFinishClick(): Promise<void> {
 
 async function endOnboarding(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+        await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
             onboardingEnd: true,
         } as Partial<UserSettings>);
     } catch (error) {

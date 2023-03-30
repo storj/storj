@@ -114,7 +114,7 @@ onBeforeMount(async () => {
 
     if (!store.state.usersModule.settings.onboardingStart) {
         try {
-            await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+            await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
                 onboardingStart: true,
             } as Partial<UserSettings>);
         } catch (error) {
