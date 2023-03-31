@@ -61,7 +61,7 @@ import LogoIcon from '@/../static/images/logo.svg';
 import MailIcon from '@/../static/images/register/mail.svg';
 
 const props = withDefaults(defineProps<{
-    email: string;
+    email?: string;
     showManualActivationMsg?: boolean;
 }>(), {
     email: '',

@@ -239,8 +239,11 @@ watch(passphrase, async () => {
         secretKey: edgeCredentials.value.secretKey,
     });
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, bucketPage.value.currentPage);
-        await store.dispatch('files/list', '');
+        await Promise.all([
+            store.dispatch(BUCKET_ACTIONS.FETCH, bucketPage.value.currentPage),
+            store.dispatch('files/list', ''),
+            store.dispatch('files/getObjectCount'),
+        ]);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
     }
