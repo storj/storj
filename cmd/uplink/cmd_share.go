@@ -31,6 +31,7 @@ type cmdShare struct {
 	register    bool
 	url         bool
 	dns         string
+	tls         bool
 	authService string
 	caCert      string
 	public      bool
@@ -52,7 +53,10 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 	c.url = params.Flag("url", "If true, returns a url for the shared path. implies --register and --public", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
-	c.dns = params.Flag("dns", "Specify your custom hostname. if set, returns dns settings for web hosting. implies --register and --public", "").(string)
+	c.dns = params.Flag("dns", "Specify your custom domain. if set, returns DNS settings for web hosting. implies --register and --public", "").(string)
+	c.tls = params.Flag("tls", "Return an additional TXT record to secure your domain (Pro Accounts only.) implies --dns and --public", false,
+		clingy.Transform(strconv.ParseBool), clingy.Boolean,
+	).(bool)
 	c.authService = params.Flag("auth-service", "URL for shared auth service", "https://auth.storjshare.io").(string)
 	c.public = params.Flag("public", "If true, the access will be public. --dns and --url override this", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
@@ -77,7 +81,11 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 		return err
 	}
 
-	c.public = c.public || c.url || c.dns != ""
+	if c.tls && c.dns == "" {
+		return errs.New("You must specify your custom domain with --dns")
+	}
+
+	c.public = c.public || c.url || c.dns != "" || c.tls
 
 	if c.public {
 		c.register = true
@@ -136,7 +144,7 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 				return errs.New("will only generate DNS entries with readonly restrictions")
 			}
 
-			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL, c.dns)
+			err = createDNS(ctx, credentials.AccessKeyID, c.ap.prefixes, c.baseURL, c.dns, c.tls)
 			if err != nil {
 				return err
 			}
@@ -250,7 +258,7 @@ func createURL(ctx context.Context, accessKeyID string, prefixes []uplink.ShareP
 }
 
 // Creates dns record info for allowed path prefixes.
-func createDNS(ctx context.Context, accessKey string, prefixes []uplink.SharePrefix, baseURL, dns string) (err error) {
+func createDNS(ctx context.Context, accessKey string, prefixes []uplink.SharePrefix, baseURL, dns string, tls bool) (err error) {
 	if len(prefixes) == 0 {
 		return errs.New("need at least a bucket to create DNS records")
 	}
@@ -277,6 +285,9 @@ func createDNS(ctx context.Context, accessKey string, prefixes []uplink.SharePre
 	fmt.Fprintf(clingy.Stdout(ctx), "%s    \tIN\tCNAME\t%s.\n", dns, CNAME.Host)
 	fmt.Fprintln(clingy.Stdout(ctx), printStorjRoot)
 	fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-access:%s\n", dns, accessKey)
+	if tls {
+		fmt.Fprintf(clingy.Stdout(ctx), "txt-%s\tIN\tTXT  \tstorj-tls:true\n", dns)
+	}
 
 	return nil
 }
