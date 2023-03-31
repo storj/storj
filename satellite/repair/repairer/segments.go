@@ -321,7 +321,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedNodesInfo, getPrivateKey, redundancy, int64(segment.EncryptedSize), 0)
+	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedNodesInfo, getPrivateKey, redundancy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Meter("repair_too_many_nodes_failed").Mark(0)     //mon:locked

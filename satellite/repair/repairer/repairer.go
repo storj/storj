@@ -83,6 +83,12 @@ func (service *Service) WaitForPendingRepairs() {
 	service.JobLimiter.Release(int64(service.config.MaxRepair))
 }
 
+// TestingSetMinFailures sets the minFailures attribute, which tells the Repair machinery that we _expect_
+// there to be failures and that we should wait for them if necessary. This is only used in tests.
+func (service *Service) TestingSetMinFailures(minFailures int) {
+	service.repairer.ec.TestingSetMinFailures(minFailures)
+}
+
 // Run runs the repairer service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
