@@ -101,8 +101,8 @@
                         </template>
                         <template #body>
                             <tr
-                                v-for="file in formattedFilesUploading"
-                                :key="file.ETag"
+                                v-for="(file, index) in formattedFilesUploading"
+                                :key="index"
                             >
                                 <!-- using <th> to comply with common Vtable.vue-->
                                 <th
@@ -191,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, reactive, ref } from 'vue';
 
 import FileBrowserHeader from './FileBrowserHeader.vue';
 import FileEntry from './FileEntry.vue';
@@ -206,6 +206,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { BrowserObject } from '@/store/modules/files';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -218,11 +219,12 @@ import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
 const store = useStore();
-const router = useRouter();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 const notify = useNotify();
 
-const folderInput = ref<HTMLInputElement>(null);
-const fileInput = ref<HTMLInputElement>(null);
+const folderInput = ref<HTMLInputElement>();
+const fileInput = ref<HTMLInputElement>();
 
 const fetchingFilesSpinner = ref<boolean>(false);
 const isUploadDropDownShown = ref<boolean>(false);
@@ -248,7 +250,7 @@ const path = computed((): string => {
 /**
  * Return files that are currently being uploaded from the store.
  */
-const filesUploading = computed((): string => {
+const filesUploading = computed((): BrowserObject[] => {
     return store.state.files.uploading;
 });
 
@@ -273,7 +275,7 @@ const lockedFilesNumber = computed((): number => {
  */
 const objectsCount = computed((): number => {
     const name: string = store.state.files.bucket;
-    const data: Bucket = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });
@@ -291,7 +293,7 @@ const lockedFilesEntryDisplayed = computed((): boolean => {
 /**
  * Return up to five files currently being uploaded for display purposes.
  */
-const formattedFilesUploading = computed((): string => {
+const formattedFilesUploading = computed((): BrowserObject[] => {
     if (filesUploading.value.length > 5) {
         return filesUploading.value.slice(0, 5);
     }
@@ -354,7 +356,7 @@ function closeBanner(): void {
 }
 
 function calculateRoutePath(): string {
-    let pathMatch = router.history.current.params.pathMatch;
+    let pathMatch = router.currentRoute.params.pathMatch;
     pathMatch = Array.isArray(pathMatch)
         ? pathMatch.join('/') + '/'
         : pathMatch;
@@ -371,39 +373,6 @@ async function onRouteChange(): Promise<void> {
     await store.dispatch('files/closeDropdown');
     await list(routePath.value);
 }
-
-/**
- * Set spinner state. If routePath is not present navigate away.
- * If there's some error then re-render the page with a call to list.
- */
-onBeforeMount(async () => {
-    if (!bucket.value) {
-        const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
-
-        analytics.pageVisit(path);
-        await router.push(path);
-
-        return;
-    }
-
-    // display the spinner while files are being fetched
-    fetchingFilesSpinner.value = true;
-
-    if (!routePath.value) {
-        try {
-            await router.push({
-                path: `${store.state.files.browserRoot}${path.value}`,
-            });
-            analytics.pageVisit(`${store.state.files.browserRoot}${path.value}`);
-        } catch (err) {
-            await list('');
-            analytics.errorEventTriggered(AnalyticsErrorEventSource.FILE_BROWSER_CHANGE_ROUTE);
-        }
-    }
-
-    // remove the spinner after files have been fetched
-    fetchingFilesSpinner.value = false;
-});
 
 /**
  * Close modal, file share modal, dropdown, and remove all selected files from the store.
@@ -428,7 +397,7 @@ function toggleFolderCreationModal(): void {
 /**
  * Return the file name of the passed in file argument formatted.
  */
-function filename(file: BrowserFile): string {
+function filename(file: BrowserObject): string {
     return file.Key.length > 25
         ? file.Key.slice(0, 25) + '...'
         : file.Key;
@@ -507,6 +476,36 @@ async function goToBuckets(): Promise<void> {
     analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path);
     await onRouteChange();
 }
+
+/**
+ * Set spinner state. If routePath is not present navigate away.
+ * If there's some error then re-render the page with a call to list.
+ */
+onBeforeMount(async () => {
+    if (!bucket.value) {
+        const path = RouteConfig.Buckets.with(RouteConfig.BucketsManagement).path;
+
+        analytics.pageVisit(path);
+        await router.push(path);
+
+        return;
+    }
+
+    // display the spinner while files are being fetched
+    fetchingFilesSpinner.value = true;
+
+    try {
+        await Promise.all([
+            list(''),
+            store.dispatch('files/getObjectCount'),
+        ]);
+    } catch (err) {
+        await notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+    }
+
+    // remove the spinner after files have been fetched
+    fetchingFilesSpinner.value = false;
+});
 </script>
 
 <style scoped lang="scss">
