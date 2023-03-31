@@ -42,7 +42,7 @@
                 </div>
                 <div class="add-modal__bullets">
                     <div class="add-modal__bullets__left">
-                        <h2 class="add-modal__bullets__left__title">Pro Account includes:</h2>
+                        <h2 class="add-modal__bullets__left__title">Pro Account Limits:</h2>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
                             <p class="add-modal__bullets__left__item__label">3 projects</p>
@@ -53,11 +53,11 @@
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
-                            <p class="add-modal__bullets__left__item__label">25 TB storage per project</p>
+                            <p class="add-modal__bullets__left__item__label">Up to 25 TB storage per project</p>
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
-                            <p class="add-modal__bullets__left__item__label">100 TB egress bandwidth per project</p>
+                            <p class="add-modal__bullets__left__item__label">Up to 100 TB egress bandwidth per project per month</p>
                         </div>
                         <div class="add-modal__bullets__left__item">
                             <CheckMarkIcon />
@@ -76,6 +76,8 @@
                             <p class="add-modal__bullets__right__item__price">{{ bandwidthPrice }}</p>
                             <p class="add-modal__bullets__right__item__label">TB</p>
                         </div>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <p v-if="extraBandwidthPriceInfo" class="add-modal__bullets__right__item__label__special" v-html="extraBandwidthPriceInfo" />
                     </div>
                 </div>
                 <div class="add-modal__security">
@@ -126,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeMount, ref } from 'vue';
 
 import { useNotify, useRoute, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
@@ -166,6 +168,8 @@ const isLoading = ref<boolean>(false);
 const isPriceFetching = ref<boolean>(true);
 
 const stripeCardInput = ref<StripeCardInput & StripeForm | null>(null);
+
+const extraBandwidthPriceInfo = ref<string>('');
 
 /**
  * Lifecycle hook after initial render.
@@ -273,6 +277,22 @@ const storagePrice = computed((): string => {
 const bandwidthPrice = computed((): string => {
     const egress = priceModel.value.egressMBCents.toString();
     return formatPrice(decimalShift(egress, CENTS_MB_TO_DOLLARS_TB_SHIFT));
+});
+
+/**
+ * Lifecycle hook before initial render.
+ * If applicable, loads additional clarifying text based on user partner.
+ */
+onBeforeMount(() => {
+    try {
+        const partner = store.getters.user.partner;
+        const config = require('@/components/account/billing/billingConfig.json');
+        if (partner !== '' && config[partner] && config[partner].extraBandwidthPriceInfo) {
+            extraBandwidthPriceInfo.value = config[partner].extraBandwidthPriceInfo;
+        }
+    } catch (e) {
+        notify.error('No configuration file for page.', null);
+    }
 });
 </script>
 
@@ -566,6 +586,12 @@ const bandwidthPrice = computed((): string => {
                         line-height: 20px;
                         color: #a9a9a9;
                         margin: 5px 0 0 5px;
+
+                        &__special {
+                            font-size: 13px;
+                            text-align: left;
+                            color: #000;
+                        }
                     }
                 }
             }
