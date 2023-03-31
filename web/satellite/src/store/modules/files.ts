@@ -12,7 +12,7 @@ const listCache = new Map();
 
 type Promisable<T> = T | PromiseLike<T>;
 
-type BrowserObject = {
+export type BrowserObject = {
     Key: string;
     Size: number;
     LastModified: number;
@@ -331,14 +331,13 @@ export const makeFilesModule = (): FilesModule => ({
 
             assertIsInitialized(state);
 
-            const [response] = await Promise.all([
-                state.s3.listObjects({
+            const response = await state.s3
+                .listObjects({
                     Bucket: state.bucket,
                     Delimiter: '/',
                     Prefix: path,
-                }).promise(),
-                path ? undefined : dispatch('getObjectCount'),
-            ]);
+                })
+                .promise();
 
             const { Contents, CommonPrefixes } = response;
 

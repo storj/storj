@@ -81,7 +81,6 @@ export enum AnalyticsErrorEventSource {
     CREATE_AG_MODAL = 'Create access grant modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
     CREATE_AG_FORM = 'Create access grant form',
-    FILE_BROWSER_CHANGE_ROUTE = 'File browser - change route',
     FILE_BROWSER_LIST_CALL = 'File browser - list API call',
     FILE_BROWSER_ENTRY = 'File browser entry',
     PROJECT_INFO_BAR = 'Project info bar',

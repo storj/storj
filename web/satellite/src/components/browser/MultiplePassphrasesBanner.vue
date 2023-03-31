@@ -66,7 +66,7 @@ const lockedFilesNumber = computed((): number => {
  */
 const objectsCount = computed((): number => {
     const name: string = store.state.files.bucket;
-    const data: Bucket = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });
