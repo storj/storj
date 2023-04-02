@@ -46,15 +46,15 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 	params.Break()
 
 	c.exportTo = params.Flag("export-to", "Path to export the shared access to", "").(string)
-	c.baseURL = params.Flag("base-url", "The base url for link sharing", "https://link.storjshare.io").(string)
+	c.baseURL = params.Flag("base-url", "The base URL for link sharing", "https://link.storjshare.io").(string)
 	c.register = params.Flag("register", "If true, creates and registers access grant", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
-	c.url = params.Flag("url", "If true, returns a url for the shared path. implies --register and --public", false,
+	c.url = params.Flag("url", "If true, returns a URL for the shared path. Implies --register and --public", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
-	c.dns = params.Flag("dns", "Specify your custom domain. if set, returns DNS settings for web hosting. implies --register and --public", "").(string)
-	c.tls = params.Flag("tls", "Return an additional TXT record to secure your domain (Pro Accounts only.) implies --dns and --public", false,
+	c.dns = params.Flag("dns", "Specify your custom domain. If set, returns DNS settings for web hosting. Implies --register and --public", "").(string)
+	c.tls = params.Flag("tls", "Return an additional TXT record to secure your domain (Pro Accounts only). Implies --dns and --public", false,
 		clingy.Transform(strconv.ParseBool), clingy.Boolean,
 	).(bool)
 	c.authService = params.Flag("auth-service", "URL for shared auth service", "https://auth.storjshare.io").(string)
@@ -68,7 +68,7 @@ func (c *cmdShare) Setup(params clingy.Parameters) {
 
 func (c *cmdShare) Execute(ctx context.Context) error {
 	if len(c.ap.prefixes) == 0 {
-		return errs.New("You must specify at least one prefix to share. Use the access restrict command to restrict with no prefixes.")
+		return errs.New("you must specify at least one prefix to share. Use the access restrict command to restrict with no prefixes")
 	}
 
 	access, err := c.ex.OpenAccess(c.access)
@@ -82,7 +82,7 @@ func (c *cmdShare) Execute(ctx context.Context) error {
 	}
 
 	if c.tls && c.dns == "" {
-		return errs.New("You must specify your custom domain with --dns")
+		return errs.New("you must specify your custom domain with --dns")
 	}
 
 	c.public = c.public || c.url || c.dns != "" || c.tls
