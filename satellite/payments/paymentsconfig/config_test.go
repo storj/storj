@@ -29,44 +29,47 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 			configValue:   "",
 			expectedModel: Prices{},
 		}, {
-			testID:      "missing prices",
+			testID:      "missing values",
 			configValue: "partner",
 		}, {
 			testID:      "missing partner",
-			configValue: ":1,2,3",
+			configValue: ":1,2,3,4",
 		}, {
-			testID:      "too few prices",
+			testID:      "too few values",
 			configValue: "partner:1",
 		}, {
 			testID:      "single price override",
-			configValue: "partner:1,2,3",
+			configValue: "partner:1,2,3,4",
 			expectedModel: Prices{
 				// Shift is to change the precision from TB dollars to MB cents
 				"partner": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
+					EgressDiscountRatio: 4,
 				},
 			},
 		}, {
-			testID:      "too many prices",
-			configValue: "partner:1,2,3,4",
+			testID:      "too many values",
+			configValue: "partner:1,2,3,4,5",
 		}, {
-			testID:      "invalid decimal",
-			configValue: "partner:0.0.1,2,3",
+			testID:      "invalid price",
+			configValue: "partner:0.0.1,2,3,4",
 		}, {
 			testID:      "multiple price overrides",
-			configValue: "partner1:1,2,3;partner2:4,5,6",
+			configValue: "partner1:1,2,3,4;partner2:5,6,7,8",
 			expectedModel: Prices{
 				"partner1": payments.ProjectUsagePriceModel{
 					StorageMBMonthCents: decimal.NewFromInt(1).Shift(-4),
 					EgressMBCents:       decimal.NewFromInt(2).Shift(-4),
 					SegmentMonthCents:   decimal.NewFromInt(3).Shift(2),
+					EgressDiscountRatio: 4,
 				},
 				"partner2": payments.ProjectUsagePriceModel{
-					StorageMBMonthCents: decimal.NewFromInt(4).Shift(-4),
-					EgressMBCents:       decimal.NewFromInt(5).Shift(-4),
-					SegmentMonthCents:   decimal.NewFromInt(6).Shift(2),
+					StorageMBMonthCents: decimal.NewFromInt(5).Shift(-4),
+					EgressMBCents:       decimal.NewFromInt(6).Shift(-4),
+					SegmentMonthCents:   decimal.NewFromInt(7).Shift(2),
+					EgressDiscountRatio: 8,
 				},
 			},
 		},
@@ -96,6 +99,7 @@ func TestProjectUsagePriceOverrides(t *testing.T) {
 				require.Equal(t, price.StorageMBMonthCents, model.StorageMBMonthCents)
 				require.Equal(t, price.EgressMBCents, model.EgressMBCents)
 				require.Equal(t, price.SegmentMonthCents, model.SegmentMonthCents)
+				require.Equal(t, price.EgressDiscountRatio, model.EgressDiscountRatio)
 			}
 		})
 	}

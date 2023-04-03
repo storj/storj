@@ -34,4 +34,5 @@ type ProjectUsagePriceModel struct {
 	StorageMBMonthCents decimal.Decimal `json:"storageMBMonthCents"`
 	EgressMBCents       decimal.Decimal `json:"egressMBCents"`
 	SegmentMonthCents   decimal.Decimal `json:"segmentMonthCents"`
+	EgressDiscountRatio float64         `json:"egressDiscountRatio"`
 }

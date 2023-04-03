@@ -36,15 +36,16 @@ type Config struct {
 	NodeRepairBandwidthPrice int64                      `help:"price node receive for storing TB of repair in cents" default:"1000"`
 	NodeAuditBandwidthPrice  int64                      `help:"price node receive for storing TB of audit in cents" default:"1000"`
 	NodeDiskSpacePrice       int64                      `help:"price node receive for storing disk space in cents/TB" default:"150"`
-	UsagePriceOverrides      ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment"`
+	UsagePriceOverrides      ProjectUsagePriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PackagePlans             PackagePlans               `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
 }
 
 // ProjectUsagePrice holds the configuration for the satellite's project usage price model.
 type ProjectUsagePrice struct {
-	StorageTB string `help:"price user should pay for storage per month in dollars/TB" default:"4" testDefault:"10"`
-	EgressTB  string `help:"price user should pay for egress in dollars/TB" default:"7" testDefault:"45"`
-	Segment   string `help:"price user should pay for segments stored on network per month in dollars/segment" default:"0.0000088" testDefault:"0.0000022"`
+	StorageTB           string  `help:"price user should pay for storage per month in dollars/TB" default:"4" testDefault:"10"`
+	EgressTB            string  `help:"price user should pay for egress in dollars/TB" default:"7" testDefault:"45"`
+	Segment             string  `help:"price user should pay for segments stored on network per month in dollars/segment" default:"0.0000088" testDefault:"0.0000022"`
+	EgressDiscountRatio float64 `internal:"true"`
 }
 
 // ToModel returns the payments.ProjectUsagePriceModel representation of the project usage price.
@@ -67,6 +68,7 @@ func (p ProjectUsagePrice) ToModel() (model payments.ProjectUsagePriceModel, err
 		StorageMBMonthCents: storageTBMonthDollars.Shift(-6).Shift(2),
 		EgressMBCents:       egressTBDollars.Shift(-6).Shift(2),
 		SegmentMonthCents:   segmentMonthDollars.Shift(2),
+		EgressDiscountRatio: p.EgressDiscountRatio,
 	}, nil
 }
 
@@ -89,7 +91,8 @@ func (p *ProjectUsagePriceOverrides) String() string {
 	var s strings.Builder
 	left := len(p.overrideMap)
 	for partner, prices := range p.overrideMap {
-		s.WriteString(fmt.Sprintf("%s:%s,%s,%s", partner, prices.StorageTB, prices.EgressTB, prices.Segment))
+		egressDiscount := strconv.FormatFloat(prices.EgressDiscountRatio, 'f', -1, 64)
+		s.WriteString(fmt.Sprintf("%s:%s,%s,%s,%s", partner, prices.StorageTB, prices.EgressTB, prices.Segment, egressDiscount))
 		left--
 		if left > 0 {
 			s.WriteRune(';')
@@ -116,22 +119,28 @@ func (p *ProjectUsagePriceOverrides) Set(s string) error {
 			return Error.New("Price override partner must not be empty")
 		}
 
-		pricesStr := info[1]
-		prices := strings.Split(pricesStr, ",")
-		if len(prices) != 3 {
-			return Error.New("Invalid prices (expected format storage,egress,segment, got %s)", pricesStr)
+		valuesStr := info[1]
+		values := strings.Split(valuesStr, ",")
+		if len(values) != 4 {
+			return Error.New("Invalid values (expected format storage,egress,segment,egress_discount_ratio, got %s)", valuesStr)
 		}
 
-		for _, price := range prices {
-			if _, err := decimal.NewFromString(price); err != nil {
-				return Error.New("Invalid price (%s)", err)
+		for i := 0; i < 3; i++ {
+			if _, err := decimal.NewFromString(values[i]); err != nil {
+				return Error.New("Invalid price '%s' (%s)", values[i], err)
 			}
 		}
 
+		egressDiscount, err := strconv.ParseFloat(values[3], 64)
+		if err != nil {
+			return Error.New("Invalid egress discount ratio '%s' (%s)", values[3], err)
+		}
+
 		overrideMap[info[0]] = ProjectUsagePrice{
-			StorageTB: prices[0],
-			EgressTB:  prices[1],
-			Segment:   prices[2],
+			StorageTB:           values[0],
+			EgressTB:            values[1],
+			Segment:             values[2],
+			EgressDiscountRatio: egressDiscount,
 		}
 	}
 	p.overrideMap = overrideMap

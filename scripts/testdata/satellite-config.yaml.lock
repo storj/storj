@@ -889,7 +889,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # stripe API secret key
 # payments.stripe-coin-payments.stripe-secret-key: ""
 
-# semicolon-separated usage price overrides in the format partner:storage,egress,segment
+# semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
 # payments.usage-price-overrides: ""
 
 # price user should pay for egress in dollars/TB
