@@ -50,8 +50,8 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
@@ -60,6 +60,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -68,105 +69,99 @@ import VButton from '@/components/common/VButton.vue';
 import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VModal,
-        VButton,
-        OpenBucketIcon,
-        OpenWarningIcon,
-    },
-})
-export default class OpenBucketModal extends Vue {
-    private readonly NUMBER_OF_DISPLAYED_OBJECTS = 1000;
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
+const router = useRouter();
+const notify = useNotify();
 
-    public enterError = '';
-    public passphrase = '';
-    public isLoading = false;
-    public isWarningState = false;
+const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Sets access and navigates to object browser.
-     */
-    public async onContinue(): Promise<void> {
-        if (this.isLoading) return;
+const enterError = ref<string>('');
+const passphrase = ref<string>('');
+const isLoading = ref<boolean>(false);
+const isWarningState = ref<boolean>(false);
 
-        if (this.isWarningState) {
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+/**
+ * Returns chosen bucket name from store.
+ */
+const bucketName = computed((): string => {
+    return store.state.objectsModule.fileComponentBucketName;
+});
 
-            this.closeModal();
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+/**
+ * Returns selected bucket name object count.
+ */
+const bucketObjectCount = computed((): number => {
+    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find(
+        (bucket: Bucket) => bucket.name === bucketName.value,
+    );
 
+    return data?.objectCount || 0;
+});
+
+/**
+ * Sets access and navigates to object browser.
+ */
+async function onContinue(): Promise<void> {
+    if (isLoading.value) return;
+
+    if (isWarningState.value) {
+        store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+
+        closeModal();
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+
+        return;
+    }
+
+    if (!passphrase.value) {
+        enterError.value = 'Passphrase can\'t be empty';
+        analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+
+        return;
+    }
+
+    isLoading.value = true;
+
+    try {
+        store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
+        await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        const count: number = await store.dispatch(OBJECTS_ACTIONS.GET_OBJECTS_COUNT, bucketName.value);
+        if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
+            isWarningState.value = true;
+            isLoading.value = false;
             return;
         }
+        store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        isLoading.value = false;
 
-        if (!this.passphrase) {
-            this.enterError = 'Passphrase can\'t be empty';
-            this.analytics.errorEventTriggered(AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, this.passphrase);
-            await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-            const count: number = await this.$store.dispatch(OBJECTS_ACTIONS.GET_OBJECTS_COUNT, this.bucketName);
-            if (this.bucketObjectCount > count && this.bucketObjectCount <= this.NUMBER_OF_DISPLAYED_OBJECTS) {
-                this.isWarningState = true;
-                this.isLoading = false;
-                return;
-            }
-            this.$store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
-            this.isLoading = false;
-
-            this.closeModal();
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            await this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
-            this.isLoading = false;
-        }
+        closeModal();
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.OPEN_BUCKET_MODAL);
+        isLoading.value = false;
     }
+}
 
-    /**
-     * Closes open bucket modal.
-     */
-    public closeModal(): void {
-        if (this.isLoading) return;
+/**
+ * Closes open bucket modal.
+ */
+function closeModal(): void {
+    if (isLoading.value) return;
 
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
-    }
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+}
 
-    /**
-     * Sets passphrase from child component.
-     */
-    public setPassphrase(passphrase: string): void {
-        if (this.enterError) this.enterError = '';
-        if (this.isWarningState) this.isWarningState = false;
+/**
+ * Sets passphrase from child component.
+ */
+function setPassphrase(value: string): void {
+    if (enterError.value) enterError.value = '';
+    if (isWarningState.value) isWarningState.value = false;
 
-        this.passphrase = passphrase;
-    }
-
-    /**
-     * Returns chosen bucket name from store.
-     */
-    public get bucketName(): string {
-        return this.$store.state.objectsModule.fileComponentBucketName;
-    }
-
-    /**
-     * Returns selected bucket name object count.
-     */
-    private get bucketObjectCount(): number {
-        const data: Bucket = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === this.bucketName);
-
-        return data?.objectCount || 0;
-    }
+    passphrase.value = value;
 }
 </script>
 
