@@ -14,38 +14,28 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useStore } from '@/utils/hooks';
 
 import NewBillingAddCouponCodeInput from '@/components/common/NewBillingAddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VModal,
-        NewBillingAddCouponCodeInput,
-        CouponIcon,
-    },
-})
-export default class NewBillingAddCouponCodeModal extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
 
-    /**
-    * Closes add coupon modal.
-    */
-    public onCloseClick(): void {
-        this.analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
-    }
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Closes add coupon modal.
+ */
+function onCloseClick(): void {
+    analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
 }
 </script>
 
