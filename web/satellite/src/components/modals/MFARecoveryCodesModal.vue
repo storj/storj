@@ -29,36 +29,30 @@
     </VModal>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-// @vue/component
-@Component({
-    components: {
-        VButton,
-        VModal,
-    },
-})
-export default class MFARecoveryCodesModal extends Vue {
-    /**
-     * Closes modal.
-     */
-    public closeModal(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
-    }
+const store = useStore();
 
-    /**
-     * Returns MFA recovery codes from store.
-     */
-    public get userMFARecoveryCodes(): string[] {
-        return this.$store.state.usersModule.userMFARecoveryCodes;
-    }
+/**
+ * Returns MFA recovery codes from store.
+ */
+const userMFARecoveryCodes = computed((): string[] => {
+    return store.state.usersModule.userMFARecoveryCodes;
+});
+
+/**
+ * Closes modal.
+ */
+function closeModal(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
 }
 </script>
 
