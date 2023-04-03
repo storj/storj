@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
@@ -665,6 +666,7 @@ func alignToBlock(start, limit int64, blockSize int64) (alignedStart, alignedLim
 
 func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.StreamRange, error) {
 	if req == nil || req.Range == nil {
+		mon.Event("download_range", monkit.NewSeriesTag("type", "empty"))
 		return nil, nil
 	}
 
@@ -680,6 +682,8 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 			return nil, Error.New("Start missing for Range_Start")
 		}
 
+		mon.Event("download_range", monkit.NewSeriesTag("type", "start"))
+
 		return &metabase.StreamRange{
 			PlainStart: r.Start.PlainStart,
 			PlainLimit: object.TotalPlainSize,
@@ -688,6 +692,9 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 		if r.StartLimit == nil {
 			return nil, Error.New("StartEnd missing for Range_StartEnd")
 		}
+
+		mon.Event("download_range", monkit.NewSeriesTag("type", "startlimit"))
+
 		return &metabase.StreamRange{
 			PlainStart: r.StartLimit.PlainStart,
 			PlainLimit: r.StartLimit.PlainLimit,
@@ -696,11 +703,16 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 		if r.Suffix == nil {
 			return nil, Error.New("Suffix missing for Range_Suffix")
 		}
+
+		mon.Event("download_range", monkit.NewSeriesTag("type", "suffix"))
+
 		return &metabase.StreamRange{
 			PlainStart: object.TotalPlainSize - r.Suffix.PlainSuffix,
 			PlainLimit: object.TotalPlainSize,
 		}, nil
 	}
+
+	mon.Event("download_range", monkit.NewSeriesTag("type", "unsupported"))
 
 	// if it's a new unsupported range type, let's return all data
 	return nil, nil
