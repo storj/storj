@@ -77,7 +77,6 @@ watch(() => props.dashboardRef, () => {
     justify-content: space-between;
     align-items: center;
     padding: 1.375rem;
-    margin: 0 3rem;
     font-family: 'font_regular', sans-serif;
     background-color: var(--c-light-blue-1);
     border: 1px solid var(--c-light-blue-2);

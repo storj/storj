@@ -13,10 +13,9 @@
                     :class="{ 'no-nav': isNavigationHidden }"
                 >
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
-                        <div class="bars">
-                            <BetaSatBar v-if="isBetaSatellite" />
-                            <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-
+                        <BetaSatBar v-if="isBetaSatellite" />
+                        <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
+                        <div class="dashboard__wrap__main-area__content-wrap__container__content">
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
@@ -710,7 +709,7 @@ onBeforeUnmount(() => {
                         &__content {
                             max-width: 1200px;
                             margin: 0 auto;
-                            padding: 48px 48px 60px;
+                            padding: 48px 48px 0;
                         }
                     }
                 }
@@ -740,14 +739,6 @@ onBeforeUnmount(() => {
 
     .no-nav {
         width: 100%;
-    }
-
-    .bars {
-        display: contents;
-        position: fixed;
-        width: 100%;
-        top: 0;
-        z-index: 1000;
     }
 
     @media screen and (max-width: 1280px) {

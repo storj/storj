@@ -66,17 +66,12 @@ async function openBanner(): Promise<void> {
     justify-content: space-between;
     align-items: center;
     padding: 1.375rem;
-    margin: 0 3rem;
     font-family: 'font_regular', sans-serif;
     font-size: 1rem;
     background-color: var(--c-white);
     border: 1px solid var(--c-blue-2);
     border-radius: 10px;
     box-shadow: 0 7px 20px rgba(0 0 0 / 15%);
-
-    @media screen and (max-width: 800px) {
-        margin: 0 1.5rem;
-    }
 
     &__left {
         display: flex;
