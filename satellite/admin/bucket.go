@@ -116,7 +116,7 @@ func (server *Server) getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	b, err := server.buckets.GetBucket(ctx, bucket, project.UUID)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			sendJSONError(w, "bucket does not exist", "", http.StatusBadRequest)
+			sendJSONError(w, "bucket does not exist", "", http.StatusNotFound)
 		} else {
 			sendJSONError(w, "unable to check bucket", err.Error(), http.StatusInternalServerError)
 		}
