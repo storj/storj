@@ -203,6 +203,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		IsProfessional   bool   `json:"isProfessional"`
 		Position         string `json:"position"`
 		CompanyName      string `json:"companyName"`
+		StorageNeeds     string `json:"storageNeeds"`
 		EmployeeCount    string `json:"employeeCount"`
 		HaveSalesContact bool   `json:"haveSalesContact"`
 		CaptchaResponse  string `json:"captchaResponse"`
@@ -336,6 +337,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.Type = analytics.Professional
 			trackCreateUserFields.EmployeeCount = user.EmployeeCount
 			trackCreateUserFields.CompanyName = user.CompanyName
+			trackCreateUserFields.StorageNeeds = registerData.StorageNeeds
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}

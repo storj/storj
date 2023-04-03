@@ -176,6 +176,7 @@ type TrackCreateUserFields struct {
 	Type             UserType
 	EmployeeCount    string
 	CompanyName      string
+	StorageNeeds     string
 	JobTitle         string
 	HaveSalesContact bool
 	OriginHeader     string
@@ -244,6 +245,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("storage_needs", fields.StorageNeeds)
 	}
 
 	service.enqueueMessage(segment.Track{
