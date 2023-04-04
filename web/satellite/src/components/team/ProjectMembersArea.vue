@@ -45,17 +45,16 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
-import { SortDirection } from '@/types/common';
 import {
     ProjectMember,
     ProjectMemberHeaderState,
-    ProjectMemberOrderBy,
 } from '@/types/projectMembers';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useStore } from '@/utils/hooks';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -67,128 +66,102 @@ import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.s
 const {
     FETCH,
     TOGGLE_SELECTION,
-    SET_SORT_BY,
-    SET_SORT_DIRECTION,
 } = PM_ACTIONS;
 
-// @vue/component
-@Component({
-    components: {
-        ProjectMemberListItem,
-        HeaderArea,
-        VLoader,
-        VTable,
-        EmptySearchResultIcon,
-    },
-})
-export default class ProjectMembersArea extends Vue {
-    private FIRST_PAGE = 1;
+const store = useStore();
+const notify = useNotify();
 
-    public areMembersFetching = true;
+const FIRST_PAGE = 1;
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches first page of team members list of current project.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+const areMembersFetching = ref<boolean>(true);
 
-            this.areMembersFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
-    }
+/**
+ * Returns team members of current page from store.
+ * With project owner pinned to top
+ */
+const projectMembers = computed((): ProjectMember[] => {
+    const projectMembers = store.state.projectMembersModule.page.projectMembers;
+    const projectOwner = projectMembers.find((member) => member.user.id === store.getters.selectedProject.ownerId);
+    const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== store.getters.selectedProject.ownerId);
 
-    /**
-     * Selects team member if this user has no owner status.
-     * @param member
-     */
-    public async onMemberCheckChange(member: ProjectMember) {
-        if (this.$store.getters.selectedProject.ownerId !== member.user.id) {
-            await this.$store.dispatch(TOGGLE_SELECTION, member);
-        }
-    }
+    // if the project owner exists, place at the front of the members list
+    projectOwner && projectMembersToReturn.unshift(projectOwner);
 
-    /**
-     * Returns team members of current page from store.
-     * With project owner pinned to top
-     */
-    public get projectMembers(): ProjectMember[] {
-        const projectMembers = this.$store.state.projectMembersModule.page.projectMembers;
-        const projectOwner = projectMembers.find((member) => member.user.id === this.$store.getters.selectedProject.ownerId);
-        const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== this.$store.getters.selectedProject.ownerId);
+    return projectMembersToReturn;
+});
 
-        // if the project owner exists, place at the front of the members list
-        projectOwner && projectMembersToReturn.unshift(projectOwner);
+/**
+ * Returns team members total page count from store.
+ */
+const projectMembersTotalCount = computed((): number => {
+    return store.state.projectMembersModule.page.totalCount;
+});
 
-        return projectMembersToReturn;
-    }
+/**
+ * Returns team members limit from store.
+ */
+const projectMemberLimit = computed((): number => {
+    return store.state.projectMembersModule.page.limit;
+});
 
-    /**
-     * Returns team members total page count from store.
-     */
-    public get projectMembersTotalCount(): number {
-        return this.$store.state.projectMembersModule.page.totalCount;
-    }
+/**
+ * Returns team members count of current page from store.
+ */
+const projectMembersCount = computed((): number => {
+    return store.state.projectMembersModule.page.projectMembers.length;
+});
 
-    /**
-     * Returns team members limit from store.
-     */
-    public get projectMemberLimit(): number {
-        return this.$store.state.projectMembersModule.page.limit;
-    }
+const totalPageCount = computed((): number => {
+    return store.state.projectMembersModule.page.pageCount;
+});
 
-    /**
-     * Returns team members count of current page from store.
-     */
-    public get projectMembersCount(): number {
-        return this.$store.state.projectMembersModule.page.projectMembers.length;
-    }
+const selectedProjectMembersLength = computed((): number => {
+    return store.state.projectMembersModule.selectedProjectMembersEmails.length;
+});
 
-    public get totalPageCount(): number {
-        return this.$store.state.projectMembersModule.page.pageCount;
-    }
+const headerState = computed((): number => {
+    return selectedProjectMembersLength.value > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
+});
 
-    public get selectedProjectMembersLength(): number {
-        return this.$store.state.projectMembersModule.selectedProjectMembersEmails.length;
-    }
+const isEmptySearchResultShown = computed((): boolean => {
+    return projectMembersCount.value === 0 && projectMembersTotalCount.value === 0;
+});
 
-    public get headerState(): number {
-        return this.selectedProjectMembersLength > 0 ? ProjectMemberHeaderState.ON_SELECT : ProjectMemberHeaderState.DEFAULT;
-    }
-
-    public get isEmptySearchResultShown(): boolean {
-        return this.projectMembersCount === 0 && this.projectMembersTotalCount === 0;
-    }
-
-    /**
-     * Fetches team member of selected page.
-     * @param index
-     */
-    public async onPageClick(index: number): Promise<void> {
-        try {
-            await this.$store.dispatch(FETCH, index);
-        } catch (error) {
-            this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
-    }
-
-    /**
-     * Changes sorting parameters and fetches team members.
-     * @param sortBy
-     * @param sortDirection
-     */
-    public async onHeaderSectionClickCallback(sortBy: ProjectMemberOrderBy, sortDirection: SortDirection): Promise<void> {
-        await this.$store.dispatch(SET_SORT_BY, sortBy);
-        await this.$store.dispatch(SET_SORT_DIRECTION, sortDirection);
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
-        }
+/**
+ * Selects team member if this user has no owner status.
+ * @param member
+ */
+async function onMemberCheckChange(member: ProjectMember) {
+    if (store.getters.selectedProject.ownerId !== member.user.id) {
+        await store.dispatch(TOGGLE_SELECTION, member);
     }
 }
+
+/**
+ * Fetches team member of selected page.
+ * @param index
+ */
+async function onPageClick(index: number): Promise<void> {
+    try {
+        await store.dispatch(FETCH, index);
+    } catch (error) {
+        notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+    }
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches first page of team members list of current project.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        await store.dispatch(FETCH, FIRST_PAGE);
+
+        areMembersFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
+    }
+});
 </script>
 
 <style scoped lang="scss">
