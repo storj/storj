@@ -4,8 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../mock/api/projects';
-
+import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
 import { makePaymentsModule } from '@/store/modules/payments';
