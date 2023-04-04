@@ -27,66 +27,66 @@
     </div>
 </template>
 
-<script lang="ts">
+<script setup lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+import { computed, onMounted, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
+import { useStore } from '@/utils/hooks';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
-// @vue/component
-@Component({
-    components: {
-        CloseIcon,
-    },
-})
-export default class NotificationItem extends Vue {
-    @Prop({ default: () => new DelayedNotification(() => { return; }, '', '') })
-    private notification: DelayedNotification;
+const store = useStore();
 
-    public readonly requestUrl = MetaUtils.getMetaContent('general-request-url');
-    public isClassActive = false;
+const props = withDefaults(defineProps<{
+    notification: DelayedNotification;
+}>(), {
+    notification: () => new DelayedNotification(() => { return; }, '', ''),
+});
 
-    /**
-     * Indicates if support word is mentioned in message.
-     * Temporal solution, can be changed later.
-     */
-    public get isSupportLinkMentioned(): boolean {
-        return this.notification.message.toLowerCase().includes('support');
-    }
+const requestUrl = MetaUtils.getMetaContent('general-request-url');
 
-    /**
-     * Forces notification deletion.
-     */
-    public onCloseClick(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE, this.notification.id);
-    }
+const isClassActive = ref<boolean>(false);
 
-    /**
-     * Forces notification to stay on page on mouse over it.
-     */
-    public onMouseOver(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE, this.notification.id);
-    }
+/**
+ * Indicates if support word is mentioned in message.
+ * Temporal solution, can be changed later.
+ */
+const isSupportLinkMentioned = computed((): boolean => {
+    return props.notification.message.toLowerCase().includes('support');
+});
 
-    /**
-     * Resume notification flow when mouse leaves notification.
-     */
-    public onMouseLeave(): void {
-        this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME, this.notification.id);
-    }
-
-    /**
-     * Uses for class change for animation.
-     */
-    public mounted(): void {
-        setTimeout(() => {
-            this.isClassActive = true;
-        }, 100);
-    }
+/**
+ * Forces notification deletion.
+ */
+function onCloseClick(): void {
+    store.dispatch(NOTIFICATION_ACTIONS.DELETE, props.notification.id);
 }
+
+/**
+ * Forces notification to stay on page on mouse over it.
+ */
+function onMouseOver(): void {
+    store.dispatch(NOTIFICATION_ACTIONS.PAUSE, props.notification.id);
+}
+
+/**
+ * Resume notification flow when mouse leaves notification.
+ */
+function onMouseLeave(): void {
+    store.dispatch(NOTIFICATION_ACTIONS.RESUME, props.notification.id);
+}
+
+/**
+ * Uses for class change for animation.
+ */
+onMounted((): void => {
+    setTimeout(() => {
+        isClassActive.value = true;
+    }, 100);
+});
 </script>
 
 <style scoped lang="scss">
