@@ -29,55 +29,48 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-
+<script setup lang="ts">
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UserSettings } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VButton from '@/components/common/VButton.vue';
 
 import Icon from '@/../static/images/onboardingTour/successStep.svg';
 
-// @vue/component
-@Component({
-    components: {
-        Icon,
-        VButton,
-    },
-})
-export default class SuccessScreen extends Vue {
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Holds on back button click logic.
-     */
-    public async onBackClick(): Promise<void> {
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
-        await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
-    }
+/**
+ * Holds on back button click logic.
+ */
+async function onBackClick(): Promise<void> {
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
+    await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.ShareObject)).path);
+}
 
-    /**
-     * Holds on finish button click logic.
-     */
-    public async onFinishClick(): Promise<void> {
-        this.endOnboarding();
-        this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
-        await this.$router.push(RouteConfig.ProjectDashboard.path);
-    }
+/**
+ * Holds on finish button click logic.
+ */
+async function onFinishClick(): Promise<void> {
+    endOnboarding();
+    analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+    await router.push(RouteConfig.ProjectDashboard.path);
+}
 
-    public async endOnboarding(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
-                onboardingEnd: true,
-            } as Partial<UserSettings>);
-        } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
-        }
+async function endOnboarding(): Promise<void> {
+    try {
+        await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+            onboardingEnd: true,
+        } as Partial<UserSettings>);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 }
 </script>
