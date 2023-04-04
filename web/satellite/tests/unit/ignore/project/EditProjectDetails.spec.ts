@@ -4,8 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectsApiMock } from '../mock/api/projects';
-
+import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project, ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
