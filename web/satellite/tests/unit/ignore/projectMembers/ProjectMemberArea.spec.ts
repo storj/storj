@@ -4,10 +4,9 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectMembersApiMock } from '../mock/api/projectMembers';
-import { ProjectsApiMock } from '../mock/api/projects';
-import { FrontendConfigApiMock } from '../mock/api/config';
-
+import { ProjectMembersApiMock } from '@/../tests/unit/mock/api/projectMembers';
+import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
+import { FrontendConfigApiMock } from '@/../tests/unit/mock/api/config';
 import { makeAppStateModule } from '@/store/modules/appState';
 import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
