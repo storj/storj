@@ -4,20 +4,19 @@
 <template src="./page50X.html" />
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { defineComponent } from 'vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import MainIcon from '@/../static/images/errors/50X.svg';
 
-// @vue/component
-@Component({
+export default defineComponent({
+    name: 'Page50X',
     components: {
         LogoIcon,
         MainIcon,
     },
-})
-// Page for server errors
-export default class Page50X extends Vue {}
+    setup() {},
+});
 </script>
 
 <style scoped lang="scss">

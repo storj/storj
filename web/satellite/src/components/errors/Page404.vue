@@ -4,20 +4,19 @@
 <template src="./page40X.html" />
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { defineComponent } from 'vue';
 
 import LogoIcon from '@/../static/images/logo.svg';
 import MainIcon from '@/../static/images/errors/404.svg';
 
-// @vue/component
-@Component({
+export default defineComponent({
+    name: 'Page404',
     components: {
         LogoIcon,
         MainIcon,
     },
-})
-// 404 component on page not found error
-export default class Page404 extends Vue {}
+    setup() {},
+});
 </script>
 
 <style scoped lang="scss">
