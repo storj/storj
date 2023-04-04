@@ -58,6 +58,7 @@ func NewProjectLimitCache(db ProjectLimitDB, defaultMaxUsage, defaultMaxBandwidt
 		state: lrucache.New(lrucache.Options{
 			Capacity:   config.CacheCapacity,
 			Expiration: config.CacheExpiration,
+			Name:       "accounting-projectlimit",
 		}),
 	}
 }

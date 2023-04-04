@@ -218,9 +218,11 @@ func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounti
 func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db := dbc.getByName("revocation")
 	db.revocationDBOnce.Do(func() {
+		options := db.opts.RevocationLRUOptions
+		options.Name = "satellitedb-revocations"
 		db.revocationDB = &revocationDB{
 			db:      db,
-			lru:     lrucache.New(db.opts.RevocationLRUOptions),
+			lru:     lrucache.New(options),
 			methods: db,
 		}
 	})
