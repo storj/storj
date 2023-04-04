@@ -16,47 +16,42 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, reactive } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { NavigationLink } from '@/types/navigation';
+import { useRouter, useStore } from '@/utils/hooks';
 
 import InfoIcon from '@/../static/images/notifications/info.svg';
 import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 
-// @vue/component
-@Component({
-    components: {
-        InfoIcon,
-        CloseIcon,
-    },
-})
-export default class BillingNotification extends Vue {
+const store = useStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    /**
-     * Returns the base account route based on if we're on all projects dashboard.
-     */
-    public get baseAccountRoute(): NavigationLink {
-        if (this.$route.path.includes(RouteConfig.AccountSettings.path)) {
-            return RouteConfig.AccountSettings;
-        }
-        return RouteConfig.Account;
+/**
+ * Returns the base account route based on if we're on all projects dashboard.
+ */
+const baseAccountRoute = computed((): NavigationLink => {
+    if (router.currentRoute.path.includes(RouteConfig.AccountSettings.path)) {
+        return RouteConfig.AccountSettings;
     }
+    return RouteConfig.Account;
+});
 
-    public get billingPath(): string {
-        const billing = this.baseAccountRoute.with(RouteConfig.Billing);
+const billingPath = computed((): string => {
+    const billing = baseAccountRoute.value.with(RouteConfig.Billing);
 
-        return billing.with(RouteConfig.BillingOverview).path;
-    }
+    return billing.with(RouteConfig.BillingOverview).path;
+});
 
-    /**
-     * Closes notification.
-     */
-    public onCloseClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    }
+/**
+ * Closes notification.
+ */
+function onCloseClick(): void {
+    store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
 }
 </script>
 
