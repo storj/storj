@@ -4,11 +4,13 @@
 <template>
     <table-item
         v-if="fileTypeIsFile"
+        selectable
         :selected="isFileSelected"
-        :on-click="selectFile"
+        :on-click="openModal"
         :on-primary-click="openModal"
         :item="{'name': file.Key, 'size': size, 'date': uploadDate}"
         :item-type="fileType"
+        @selectClicked="selectFile"
     >
         <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
             <div
@@ -61,10 +63,12 @@
     <table-item
         v-else-if="fileTypeIsFolder"
         :item="{'name': file.Key, 'size': '', 'date': ''}"
+        selectable
         :selected="isFileSelected"
-        :on-click="selectFile"
-        :on-primary-click="openBucket"
+        :on-click="openFolder"
+        :on-primary-click="openFolder"
         item-type="folder"
+        @selectClicked="selectFile"
     >
         <th slot="options" v-click-outside="closeDropdown" class="file-entry__functional options overflow-visible" @click.stop="openDropdown">
             <div
@@ -108,11 +112,11 @@
 import { computed, ref } from 'vue';
 import prettyBytes from 'pretty-bytes';
 
-import type { BrowserFile } from '@/types/browser';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { BrowserObject } from '@/store/modules/files';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -129,7 +133,7 @@ const router = useRouter();
 
 const props = defineProps<{
   path: string,
-  file: BrowserFile,
+  file: BrowserObject,
 }>();
 
 const emit = defineEmits(['onUpdate']);
@@ -265,8 +269,9 @@ function selectFile(event: KeyboardEvent): void {
     setSelectedFile(isSelectedFile);
 }
 
-async function openBucket(): Promise<void> {
+async function openFolder(): Promise<void> {
     await router.push(link.value);
+    store.dispatch('files/clearAllSelectedFiles');
     emit('onUpdate');
 }
 
@@ -340,11 +345,30 @@ function setSelectedFile(command: boolean): void {
 
         store.dispatch('files/updateShiftSelectedFiles', []);
     } else {
-    /* if it's just a file click without any modifier, then set selectedAnchorFile to the file that was clicked, set shiftSelectedFiles and selectedFiles to an empty array. */
-
-        store.commit('files/setSelectedAnchorFile', props.file);
+        /* if it's just a file click without any modifier ... */
+        const newSelection = [...files];
+        const fileIdx = newSelection.findIndex((file) => file === props.file);
+        switch (true) {
+        case fileIdx !== -1:
+            // this file is already selected, deselect.
+            newSelection.splice(fileIdx, 1);
+            break;
+        case selectedAnchorFile === props.file:
+            // this file is already selected, deselect.
+            store.commit('files/setSelectedAnchorFile', null);
+            store.commit('files/setUnselectedAnchorFile', props.file);
+            break;
+        case !!selectedAnchorFile:
+            // there's an anchor file, but not this file.
+            // add the anchor file to the selection arr and make this file the anchor file.
+            newSelection.push(selectedAnchorFile as BrowserObject);
+            store.commit('files/setSelectedAnchorFile', props.file);
+            break;
+        default:
+            store.commit('files/setSelectedAnchorFile', props.file);
+        }
         store.dispatch('files/updateShiftSelectedFiles', []);
-        store.dispatch('files/updateSelectedFiles', []);
+        store.dispatch('files/updateSelectedFiles', newSelection);
     }
 }
 
@@ -483,9 +507,15 @@ function cancelDeletion(): void {
 .file-entry {
 
     &__functional {
-        padding: 0 10px;
+        padding: 0;
+        width: 50px;
         position: relative;
         cursor: pointer;
+
+        @media screen and (max-width: 550px) {
+            padding: 0 10px;
+            width: unset;
+        }
 
         &__dropdown {
             position: absolute;
@@ -570,7 +600,7 @@ function cancelDeletion(): void {
 @media screen and (max-width: 550px) {
     // hide size, upload date columns on mobile screens
 
-    :deep(.data:not(:first-of-type)) {
+    :deep(.data:not(:nth-child(2))) {
         display: none;
     }
 }

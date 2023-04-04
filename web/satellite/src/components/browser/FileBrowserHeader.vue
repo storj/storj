@@ -111,9 +111,9 @@ function fromFilesStore(prop: string): string {
 /**
  * Check if the trashcan to delete selected files/folder should be displayed.
  */
-const filesToDelete = computed((): string => {
+const filesToDelete = computed((): boolean => {
     return (!!store.state.files.selectedAnchorFile || (
-        store.state.files.unselectedAnchorFile &&
+        !!store.state.files.unselectedAnchorFile &&
       (store.state.files.selectedFiles.length > 0 ||
           store.state.files.shiftSelectedFiles.length > 0)
     ));
@@ -219,7 +219,8 @@ function cancelDeleteSelection(): void {
     }
 
     &__functional {
-        padding: 0 10px;
+        padding: 0;
+        width: 50px;
         position: relative;
         cursor: pointer;
 
