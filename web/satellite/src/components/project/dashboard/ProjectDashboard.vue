@@ -152,8 +152,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -169,6 +169,7 @@ import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -185,278 +186,264 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
-//@vue/component
-@Component({
-    components: {
-        ProjectOwnershipTag,
-        VLoader,
-        VButton,
-        InfoContainer,
-        StorageChart,
-        BandwidthChart,
-        DateRangeSelection,
-        VInfo,
-        NewProjectIcon,
-        InfoIcon,
-        BucketsTable,
-        EncryptionBanner,
-        DashboardFunctionalHeader,
-    },
-})
-export default class ProjectDashboard extends Vue {
-    public now = new Date().toLocaleDateString('en-US');
-    public isDataFetching = true;
-    public areBucketsFetching = true;
-    public isServerSideEncryptionBannerHidden = true;
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
 
-    public chartWidth = 0;
+const now = new Date().toLocaleDateString('en-US');
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    public $refs: {
-        chartContainer: HTMLDivElement;
-    };
+const isDataFetching = ref<boolean>(true);
+const areBucketsFetching = ref<boolean>(true);
+const isServerSideEncryptionBannerHidden = ref<boolean>(true);
+const chartWidth = ref<number>(0);
+const chartContainer = ref<HTMLDivElement>();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Indicates if charts date picker is shown.
+ */
+const isChartsDatePicker = computed((): boolean => {
+    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
+});
 
-    /**
-     * Lifecycle hook after initial render.
-     * Fetches project limits.
-     */
-    public async mounted(): Promise<void> {
-        this.isServerSideEncryptionBannerHidden = LocalData.getServerSideEncryptionBannerHidden();
+/**
+ * Returns current limits from store.
+ */
+const limits = computed((): ProjectLimits => {
+    return store.state.projectsModule.currentLimits;
+});
 
-        if (!this.$store.getters.selectedProject.id) {
-            if (this.$store.state.appStateModule.isAllProjectsDashboard) {
-                await this.$router.push(RouteConfig.AllProjectsDashboard.path);
-                return;
-            }
-            const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+/**
+ * Returns status string based on account status.
+ */
+const status = computed((): string => {
+    return isProAccount.value ? 'Pro Account' : 'Free Account';
+});
 
-            this.analytics.pageVisit(onboardingPath);
-            await this.$router.push(onboardingPath);
+/**
+ * Returns pro account status from store.
+ */
+const isProAccount = computed((): boolean => {
+    return store.getters.user.paidTier;
+});
 
-            return;
-        }
+/**
+ * estimatedCharges returns estimated charges summary for selected project.
+ */
+const estimatedCharges = computed((): number => {
+    const projID: string = store.getters.selectedProject.id;
+    const charges: ProjectCharges = store.state.paymentsModule.projectCharges;
+    return charges.getProjectPrice(projID);
+});
 
-        window.addEventListener('resize', this.recalculateChartWidth);
-        this.recalculateChartWidth();
+/**
+ * Returns storage chart data from store.
+ */
+const storageUsage = computed((): DataStamp[] => {
+    return ChartUtils.populateEmptyUsage(
+        store.state.projectsModule.storageChartData, chartsSinceDate.value, chartsBeforeDate.value,
+    );
+});
 
-        try {
-            const now = new Date();
-            const past = new Date();
-            past.setDate(past.getDate() - 30);
+/**
+ * Returns settled bandwidth chart data from store.
+ */
+const settledBandwidthUsage = computed((): DataStamp[] => {
+    return ChartUtils.populateEmptyUsage(
+        store.state.projectsModule.settledBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+    );
+});
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-            if (this.hasJustLoggedIn) {
-                if (this.limits.objectCount > 0) {
-                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
-                    if (!this.bucketWasCreated) {
-                        LocalData.setBucketWasCreatedStatus();
-                    }
-                } else {
-                    this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-                }
+/**
+ * Returns allocated bandwidth chart data from store.
+ */
+const allocatedBandwidthUsage = computed((): DataStamp[] => {
+    return ChartUtils.populateEmptyUsage(
+        store.state.projectsModule.allocatedBandwidthChartData, chartsSinceDate.value, chartsBeforeDate.value,
+    );
+});
 
-                this.$store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
-            }
+/**
+ * Returns charts since date from store.
+ */
+const chartsSinceDate = computed((): Date => {
+    return store.state.projectsModule.chartDataSince;
+});
 
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-        } finally {
-            this.isDataFetching = false;
-        }
+/**
+ * Returns charts before date from store.
+ */
+const chartsBeforeDate = computed((): Date => {
+    return store.state.projectsModule.chartDataBefore;
+});
 
-        const FIRST_PAGE = 1;
+/**
+ * Indicates if user has just logged in.
+ */
+const hasJustLoggedIn = computed((): boolean => {
+    return store.state.appStateModule.viewsState.hasJustLoggedIn;
+});
 
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
-
-            this.areBucketsFetching = false;
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-        }
+/**
+ * Indicates if bucket was created.
+ */
+const bucketWasCreated = computed((): boolean => {
+    const status = LocalData.getBucketWasCreatedStatus();
+    if (status !== null) {
+        return status;
     }
 
-    /**
-     * Lifecycle hook before component destruction.
-     * Removes event on window resizing.
-     */
-    public beforeDestroy(): void {
-        window.removeEventListener('resize', this.recalculateChartWidth);
-    }
+    return false;
+});
 
-    /**
-     * Hides server-side encryption banner.
-     */
-    public hideBanner(): void {
-        this.isServerSideEncryptionBannerHidden = true;
-        LocalData.setServerSideEncryptionBannerHidden(true);
-    }
+/**
+ * get selected project from store
+ */
+const selectedProject = computed((): Project => {
+    return store.getters.selectedProject;
+});
 
-    /**
-     * Used container size recalculation for charts resizing.
-     */
-    public recalculateChartWidth(): void {
-        this.chartWidth = this.$refs.chartContainer.getBoundingClientRect().width;
-    }
+/**
+ * Hides server-side encryption banner.
+ */
+function hideBanner(): void {
+    isServerSideEncryptionBannerHidden.value = true;
+    LocalData.setServerSideEncryptionBannerHidden(true);
+}
 
-    /**
-     * Holds on upgrade button click logic.
-     */
-    public onUpgradeClick(): void {
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
-    }
+/**
+ * Used container size recalculation for charts resizing.
+ */
+function recalculateChartWidth(): void {
+    chartWidth.value = chartContainer.value?.getBoundingClientRect().width || 0;
+}
 
-    /**
-     * Holds on create project button click logic.
-     */
-    public onCreateProjectClick(): void {
-        this.analytics.pageVisit(RouteConfig.CreateProject.path);
-        this.$router.push(RouteConfig.CreateProject.path);
-    }
+/**
+ * Holds on upgrade button click logic.
+ */
+function onUpgradeClick(): void {
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+}
 
-    /**
-     * Returns formatted amount.
-     */
-    public usedLimitFormatted(value: number): string {
-        return this.formattedValue(new Size(value, 2));
-    }
+/**
+ * Holds on create project button click logic.
+ */
+function onCreateProjectClick(): void {
+    analytics.pageVisit(RouteConfig.CreateProject.path);
+    router.push(RouteConfig.CreateProject.path);
+}
 
-    /**
-     * toggleChartsDatePicker holds logic for toggling charts date picker.
-     */
-    public toggleChartsDatePicker(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
-    }
+/**
+ * Returns formatted amount.
+ */
+function usedLimitFormatted(value: number): string {
+    return formattedValue(new Size(value, 2));
+}
 
-    /**
-     * onChartsDateRangePick holds logic for choosing date range for charts.
-     * Fetches new data for specific date range.
-     * @param dateRange
-     */
-    public async onChartsDateRangePick(dateRange: Date[]): Promise<void> {
-        const since = new Date(dateRange[0]);
-        const before = new Date(dateRange[1]);
-        before.setHours(23, 59, 59, 999);
+/**
+ * toggleChartsDatePicker holds logic for toggling charts date picker.
+ */
+function toggleChartsDatePicker(): void {
+    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
+}
 
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
-        } catch (error) {
-            await this.$notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
-        }
-    }
+/**
+ * onChartsDateRangePick holds logic for choosing date range for charts.
+ * Fetches new data for specific date range.
+ * @param dateRange
+ */
+async function onChartsDateRangePick(dateRange: Date[]): Promise<void> {
+    const since = new Date(dateRange[0]);
+    const before = new Date(dateRange[1]);
+    before.setHours(23, 59, 59, 999);
 
-    /**
-     * Indicates if charts date picker is shown.
-     */
-    public get isChartsDatePicker(): boolean {
-        return this.$store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
-    }
-
-    /**
-     * Returns current limits from store.
-     */
-    public get limits(): ProjectLimits {
-        return this.$store.state.projectsModule.currentLimits;
-    }
-
-    /**
-     * Returns status string based on account status.
-     */
-    public get status(): string {
-        return this.isProAccount ? 'Pro Account' : 'Free Account';
-    }
-
-    /**
-     * Returns pro account status from store.
-     */
-    public get isProAccount(): boolean {
-        return this.$store.getters.user.paidTier;
-    }
-
-    /**
-     * estimatedCharges returns estimated charges summary for selected project.
-     */
-    public get estimatedCharges(): number {
-        const projID: string = this.$store.getters.selectedProject.id;
-        const charges: ProjectCharges = this.$store.state.paymentsModule.projectCharges;
-        return charges.getProjectPrice(projID);
-    }
-
-    /**
-     * Returns storage chart data from store.
-     */
-    public get storageUsage(): DataStamp[] {
-        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.storageChartData, this.chartsSinceDate, this.chartsBeforeDate);
-    }
-
-    /**
-     * Returns settled bandwidth chart data from store.
-     */
-    public get settledBandwidthUsage(): DataStamp[] {
-        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.settledBandwidthChartData, this.chartsSinceDate, this.chartsBeforeDate);
-    }
-
-    /**
-     * Returns allocated bandwidth chart data from store.
-     */
-    public get allocatedBandwidthUsage(): DataStamp[] {
-        return ChartUtils.populateEmptyUsage(this.$store.state.projectsModule.allocatedBandwidthChartData, this.chartsSinceDate, this.chartsBeforeDate);
-    }
-
-    /**
-     * Returns charts since date from store.
-     */
-    public get chartsSinceDate(): Date {
-        return this.$store.state.projectsModule.chartDataSince;
-    }
-
-    /**
-     * Returns charts before date from store.
-     */
-    public get chartsBeforeDate(): Date {
-        return this.$store.state.projectsModule.chartDataBefore;
-    }
-
-    /**
-     * Indicates if user has just logged in.
-     */
-    public get hasJustLoggedIn(): boolean {
-        return this.$store.state.appStateModule.viewsState.hasJustLoggedIn;
-    }
-
-    /**
-     * Indicates if bucket was created.
-     */
-    private get bucketWasCreated(): boolean {
-        const status = LocalData.getBucketWasCreatedStatus();
-        if (status !== null) {
-            return status;
-        }
-
-        return false;
-    }
-
-    /**
-     * get selected project from store
-     */
-    private get selectedProject(): Project {
-        return this.$store.getters.selectedProject;
-    }
-
-    /**
-     * Formats value to needed form and returns it.
-     */
-    private formattedValue(value: Size): string {
-        switch (value.label) {
-        case Dimensions.Bytes:
-            return '0';
-        default:
-            return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
-        }
+    try {
+        await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since, before });
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }
 }
+
+/**
+ * Formats value to needed form and returns it.
+ */
+function formattedValue(value: Size): string {
+    switch (value.label) {
+    case Dimensions.Bytes:
+        return '0';
+    default:
+        return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+    }
+}
+
+/**
+ * Lifecycle hook after initial render.
+ * Fetches project limits.
+ */
+onMounted(async (): Promise<void> => {
+    isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
+
+    if (!store.getters.selectedProject.id) {
+        if (store.state.appStateModule.isAllProjectsDashboard) {
+            await router.push(RouteConfig.AllProjectsDashboard.path);
+            return;
+        }
+        const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
+
+        analytics.pageVisit(onboardingPath);
+        await router.push(onboardingPath);
+
+        return;
+    }
+
+    window.addEventListener('resize', recalculateChartWidth);
+    recalculateChartWidth();
+
+    try {
+        const now = new Date();
+        const past = new Date();
+        past.setDate(past.getDate() - 30);
+
+        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        if (hasJustLoggedIn.value) {
+            if (limits.value.objectCount > 0) {
+                store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+                if (!bucketWasCreated.value) {
+                    LocalData.setBucketWasCreatedStatus();
+                }
+            } else {
+                store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+            }
+
+            store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+        }
+
+        await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
+        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+    } finally {
+        isDataFetching.value = false;
+    }
+
+    const FIRST_PAGE = 1;
+
+    try {
+        await store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+
+        areBucketsFetching.value = false;
+    } catch (error) {
+        await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
+    }
+});
+
+/**
+ * Lifecycle hook before component destruction.
+ * Removes event listener on window resizing.
+ */
+onBeforeUnmount((): void => {
+    window.removeEventListener('resize', recalculateChartWidth);
+});
 </script>
 
 <style scoped lang="scss">
