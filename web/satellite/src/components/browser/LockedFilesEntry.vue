@@ -3,6 +3,8 @@
 
 <template>
     <table-item
+        selectable
+        select-hidden
         :on-click="openModal"
         :on-primary-click="openModal"
         :item="{'name': 'Objects locked', 'size': '', 'date': ''}"

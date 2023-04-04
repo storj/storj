@@ -9,7 +9,7 @@
         :select-disabled="isProjectOwner"
         :selected="itemData.isSelected"
         :on-click="(_) => $emit('memberClick', itemData)"
-        @selectChange="(value) => $emit('selectChange', value)"
+        @selectClicked="($event) => $emit('selectClicked', $event)"
     />
 </template>
 

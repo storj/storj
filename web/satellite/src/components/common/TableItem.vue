@@ -7,8 +7,8 @@
         :class="{ 'selected': selected }"
         @click="onClick"
     >
-        <th v-if="selectable" class="icon select">
-            <v-table-checkbox :disabled="selectDisabled" :value="selected" @checkChange="onChange" />
+        <th v-if="selectable" class="icon select" @click.stop="selectClicked">
+            <v-table-checkbox v-if="!selectHidden" :disabled="selectDisabled || selectHidden" :value="selected" @selectClicked="selectClicked" />
         </th>
         <th
             v-for="(val, _, index) in item" :key="index" class="align-left data"
@@ -22,7 +22,7 @@
                     <component :is="icon" />
                 </div>
                 <p :class="{primary: index === 0}" :title="val" @click.stop="(e) => cellContentClicked(index, e)">
-                    <middle-truncate v-if="(itemType.toLowerCase() === 'file')" :text="val" />
+                    <middle-truncate v-if="(itemType?.toLowerCase() === 'file')" :text="val" />
                     <span v-else>{{ val }}</span>
                 </p>
                 <div v-if="showBucketGuide(index)" class="animation">
@@ -57,6 +57,7 @@ import ZipIcon from '@/../static/images/objects/zip.svg';
 
 const props = withDefaults(defineProps<{
     selectDisabled?: boolean;
+    selectHidden?: boolean;
     selected?: boolean;
     selectable?: boolean;
     showGuide?: boolean;
@@ -68,6 +69,7 @@ const props = withDefaults(defineProps<{
     onPrimaryClick?: (data?: unknown) => void;
 }>(), {
     selectDisabled: false,
+    selectHidden: false,
     selected: false,
     selectable: false,
     showGuide: false,
@@ -78,7 +80,7 @@ const props = withDefaults(defineProps<{
     onPrimaryClick: undefined,
 });
 
-const emit = defineEmits(['selectChange']);
+const emit = defineEmits(['selectClicked']);
 
 const icons = new Map<string, VueConstructor>([
     ['locked', TableLockedIcon],
@@ -97,8 +99,8 @@ const icons = new Map<string, VueConstructor>([
 
 const icon = computed(() => icons.get(props.itemType.toLowerCase()));
 
-function onChange(value: boolean): void {
-    emit('selectChange', value);
+function selectClicked(event: Event): void {
+    emit('selectClicked', event);
 }
 
 function showBucketGuide(index: number): boolean {
@@ -185,15 +187,15 @@ function cellContentClicked(cellIndex: number, event: Event) {
                 .primary {
                     color: var(--c-blue-3);
                 }
-
-                svg :deep(path) {
-                    fill: var(--c-blue-3);
-                }
             }
         }
 
         &.selected {
             background: var(--c-yellow-1);
+
+            :deep(.select) {
+                background: var(--c-yellow-1);
+            }
         }
     }
 

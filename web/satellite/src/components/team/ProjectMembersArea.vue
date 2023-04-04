@@ -38,7 +38,7 @@
                     :key="key"
                     :item-data="member"
                     @memberClick="onMemberCheckChange"
-                    @selectChange="(_) => onMemberCheckChange(member)"
+                    @selectClicked="(_) => onMemberCheckChange(member)"
                 />
             </template>
         </v-table>

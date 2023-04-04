@@ -95,7 +95,7 @@
                         :on-close="closeBanner"
                     />
 
-                    <v-table class="file-browser-table">
+                    <v-table selectable :selected="allFilesSelected" show-select class="file-browser-table" @selectAllClicked="toggleSelectAllFiles">
                         <template #head>
                             <file-browser-header />
                         </template>
@@ -105,8 +105,9 @@
                                 :key="index"
                             >
                                 <!-- using <th> to comply with common Vtable.vue-->
+                                <th class="hide-mobile" />
                                 <th
-                                    class="align-left data"
+                                    class="align-left"
                                     aria-roledescription="file-uploading"
                                 >
                                     <p class="file-name">
@@ -114,7 +115,7 @@
                                         <span>{{ filename(file) }}</span>
                                     </p>
                                 </th>
-                                <th class="align-left data" aria-roledescription="progress-bar">
+                                <th aria-roledescription="progress-bar">
                                     <div class="progress">
                                         <div
                                             class="progress-bar"
@@ -127,7 +128,7 @@
                                         </div>
                                     </div>
                                 </th>
-                                <th class="align-left data">
+                                <th>
                                     <v-button
                                         width="60px"
                                         font-size="14px"
@@ -135,16 +136,17 @@
                                         :on-press="() => cancelUpload(file.Key)"
                                     />
                                 </th>
-                                <th />
+                                <th class="hide-mobile" />
                             </tr>
 
                             <tr v-if="filesUploading.length" class="files-uploading-count">
-                                <th class="align-left data files-uploading-count__content" aria-roledescription="files-uploading-count">
+                                <th class="hide-mobile files-uploading-count__content" />
+                                <th class="align-left files-uploading-count__content" aria-roledescription="files-uploading-count">
                                     {{ formattedFilesWaitingToBeUploaded }}
                                     waiting to be uploaded...
                                 </th>
-                                <th class="files-uploading-count__content" />
-                                <th class="files-uploading-count__content" />
+                                <th class="hide-mobile files-uploading-count__content" />
+                                <th class="hide-mobile files-uploading-count__content" />
                                 <th class="files-uploading-count__content" />
                             </tr>
 
@@ -318,21 +320,42 @@ const bucketName = computed((): string => {
     return store.state.files.bucket;
 });
 
-const files = computed((): BrowserFile[] => {
+/**
+ * Whether all files are selected.
+ * */
+const allFilesSelected = computed((): boolean => {
+    if (files.value.length === 0) {
+        return false;
+    }
+    const shiftSelectedFiles = store.state.files.shiftSelectedFiles;
+    const selectedFiles = store.state.files.selectedFiles;
+    const selectedAnchorFile = store.state.files.selectedAnchorFile;
+    const allSelectedFiles = [
+        ...selectedFiles,
+        ...shiftSelectedFiles,
+    ];
+
+    if (selectedAnchorFile && !allSelectedFiles.includes(selectedAnchorFile)) {
+        allSelectedFiles.push(selectedAnchorFile);
+    }
+    return allSelectedFiles.length === files.value.length;
+});
+
+const files = computed((): BrowserObject[] => {
     return store.getters['files/sortedFiles'];
 });
 
 /**
  * Return an array of BrowserFile type that are files and not folders.
  */
-const singleFiles = computed((): BrowserFile[] => {
+const singleFiles = computed((): BrowserObject[] => {
     return files.value.filter((f) => f.type === 'file');
 });
 
 /**
  * Return an array of BrowserFile type that are folders and not files.
  */
-const folders = computed((): BrowserFile[] => {
+const folders = computed((): BrowserObject[] => {
     return files.value.filter((f) => f.type === 'folder');
 });
 
@@ -382,9 +405,7 @@ function closeModalDropdown(): void {
         store.dispatch('files/closeDropdown');
     }
 
-    if (store.state.files.selectedFile) {
-        store.dispatch('files/clearAllSelectedFiles');
-    }
+    store.dispatch('files/clearAllSelectedFiles');
 }
 
 /**
@@ -478,6 +499,22 @@ async function goToBuckets(): Promise<void> {
 }
 
 /**
+ * Toggles the selection of all files.
+ * */
+async function toggleSelectAllFiles(): Promise<void> {
+    if (files.value.length === 0) {
+        return;
+    }
+    if (allFilesSelected.value) {
+        await store.dispatch('files/clearAllSelectedFiles');
+    } else {
+        await store.dispatch('files/clearAllSelectedFiles');
+        store.commit('files/setSelectedAnchorFile', files.value[0]);
+        await store.dispatch('files/updateSelectedFiles', files.value.slice(1, files.value.length));
+    }
+}
+
+/**
  * Set spinner state. If routePath is not present navigate away.
  * If there's some error then re-render the page with a call to list.
  */
@@ -490,6 +527,9 @@ onBeforeMount(async () => {
 
         return;
     }
+
+    // clear previous file selections.
+    store.dispatch('files/clearAllSelectedFiles');
 
     // display the spinner while files are being fetched
     fetchingFilesSpinner.value = true;
@@ -511,6 +551,20 @@ onBeforeMount(async () => {
 <style scoped lang="scss">
 .file-browser {
     min-height: 500px;
+}
+
+.hide-mobile {
+    @media screen and (max-width: 550px) {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 550px) {
+    // hide size, upload date columns on mobile screens
+
+    :deep(.data:not(:nth-child(2))) {
+        display: none;
+    }
 }
 
 .position-relative {
