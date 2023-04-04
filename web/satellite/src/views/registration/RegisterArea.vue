@@ -156,6 +156,13 @@
                                 @setData="setEmployeeCount"
                             />
                         </div>
+                        <div class="register-area__input-wrapper">
+                            <SelectInput
+                                label="Storage needs"
+                                :options-list="storageNeedsOptions"
+                                @setData="setStorageNeeds"
+                            />
+                        </div>
                     </div>
                     <div class="register-input">
                         <div class="register-area__input-wrapper">
@@ -315,7 +322,12 @@ type ViewConfig = {
     tooltip: string;
 }
 
+// Storage needs dropdown options.
+const storageNeedsOptions = ['Less than 150TB', '150-499TB', '500-999TB', 'PB+'] as const;
+type StorageNeed = typeof storageNeedsOptions[number] | undefined;
+
 const user = ref(new User());
+const storageNeeds = ref<StorageNeed>();
 const viewConfig = ref<ViewConfig | null>(null);
 
 // DCS logic
@@ -335,6 +347,7 @@ const passwordError = ref('');
 const repeatedPasswordError = ref('');
 const companyNameError = ref('');
 const employeeCountError = ref('');
+const storageNeedsError = ref('');
 const positionError = ref('');
 const isTermsAcceptedError = ref(false);
 const isLoading = ref(false);
@@ -545,6 +558,14 @@ function setEmployeeCount(value: string): void {
 }
 
 /**
+ * Sets user's storage needs field.
+ */
+function setStorageNeeds(value: StorageNeed): void {
+    storageNeeds.value = value;
+    storageNeedsError.value = '';
+}
+
+/**
  * Sets user's position field from value string.
  */
 function setPosition(value: string): void {
@@ -665,6 +686,11 @@ function validateFields(): boolean {
             isNoErrors = false;
         }
 
+        if (!storageNeeds.value) {
+            storageNeedsError.value = 'Storage Needs not filled in';
+            isNoErrors = false;
+        }
+
     }
 
     if (repeatedPassword.value !== password.value) {
@@ -743,7 +769,7 @@ async function createUser(): Promise<void> {
     user.value.haveSalesContact = haveSalesContact.value;
 
     try {
-        await auth.register(user.value, secret.value, captchaResponseToken.value);
+        await auth.register({ ...user.value, storageNeeds: storageNeeds.value }, secret.value, captchaResponseToken.value);
 
         // Brave browser conversions are tracked via the RegisterSuccess path in the satellite app
         // signups outside of the brave browser may use a configured URL to track conversions

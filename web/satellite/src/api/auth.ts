@@ -301,7 +301,7 @@ export class AuthHttpApi implements UsersApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: Partial<User>, secret: string, captchaResponse: string): Promise<void> {
+    public async register(user: Partial<User & { storageNeeds: string }>, secret: string, captchaResponse: string): Promise<void> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -313,6 +313,7 @@ export class AuthHttpApi implements UsersApi {
             isProfessional: user.isProfessional,
             position: user.position,
             companyName: user.companyName,
+            storageNeeds: user.storageNeeds || '',
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
             captchaResponse: captchaResponse,
