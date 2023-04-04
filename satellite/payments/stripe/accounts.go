@@ -146,14 +146,15 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 
 		for partner, usage := range usages {
 			priceModel := accounts.GetProjectUsagePriceModel(partner)
-			price := accounts.service.calculateProjectUsagePrice(usage.Egress, usage.Storage, usage.SegmentCount, priceModel)
+			usage.Egress = applyEgressDiscount(usage, priceModel)
+			price := accounts.service.calculateProjectUsagePrice(usage, priceModel)
 
 			partnerCharges[partner] = payments.ProjectCharge{
 				ProjectUsage: usage,
 
-				Egress:       price.Egress.IntPart(),
-				SegmentCount: price.Segments.IntPart(),
-				StorageGbHrs: price.Storage.IntPart(),
+				EgressMBCents:       price.Egress.IntPart(),
+				SegmentMonthCents:   price.Segments.IntPart(),
+				StorageMBMonthCents: price.Storage.IntPart(),
 			}
 		}
 

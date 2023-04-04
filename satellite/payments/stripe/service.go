@@ -539,10 +539,7 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
 
 		usage := partnerUsages[partner]
-		usage.Egress -= int64(math.Round(usage.Storage / hoursPerMonth * priceModel.EgressDiscountRatio))
-		if usage.Egress < 0 {
-			usage.Egress = 0
-		}
+		usage.Egress = applyEgressDiscount(usage, priceModel)
 
 		prefix := "Project " + projName
 		if partner != "" {
@@ -891,11 +888,11 @@ func (price projectUsagePrice) TotalInt64() int64 {
 }
 
 // calculateProjectUsagePrice calculate project usage price.
-func (service *Service) calculateProjectUsagePrice(egress int64, storage, segments float64, pricing payments.ProjectUsagePriceModel) projectUsagePrice {
+func (service *Service) calculateProjectUsagePrice(usage accounting.ProjectUsage, pricing payments.ProjectUsagePriceModel) projectUsagePrice {
 	return projectUsagePrice{
-		Storage:  pricing.StorageMBMonthCents.Mul(storageMBMonthDecimal(storage)).Round(0),
-		Egress:   pricing.EgressMBCents.Mul(egressMBDecimal(egress)).Round(0),
-		Segments: pricing.SegmentMonthCents.Mul(segmentMonthDecimal(segments)).Round(0),
+		Storage:  pricing.StorageMBMonthCents.Mul(storageMBMonthDecimal(usage.Storage)).Round(0),
+		Egress:   pricing.EgressMBCents.Mul(egressMBDecimal(usage.Egress)).Round(0),
+		Segments: pricing.SegmentMonthCents.Mul(segmentMonthDecimal(usage.SegmentCount)).Round(0),
 	}
 }
 
@@ -927,4 +924,14 @@ func segmentMonthDecimal(segments float64) decimal.Decimal {
 // represents a billing cycle where there was no usage.
 func doesProjectRecordHaveNoUsage(record ProjectRecord) bool {
 	return record.Storage == 0 && record.Egress == 0 && record.Segments == 0
+}
+
+// applyEgressDiscount returns the amount of egress that we should charge for by subtracting
+// the discounted amount.
+func applyEgressDiscount(usage accounting.ProjectUsage, model payments.ProjectUsagePriceModel) int64 {
+	egress := usage.Egress - int64(math.Round(usage.Storage/hoursPerMonth*model.EgressDiscountRatio))
+	if egress < 0 {
+		egress = 0
+	}
+	return egress
 }
