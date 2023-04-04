@@ -121,6 +121,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		limiterCache: lrucache.New(lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
 			Expiration: config.RateLimiter.CacheExpiration,
+			Name:       "metainfo-ratelimit",
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,

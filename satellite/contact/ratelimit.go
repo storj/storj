@@ -22,7 +22,11 @@ type RateLimiter struct {
 // NewRateLimiter is a constructor for RateLimiter.
 func NewRateLimiter(interval time.Duration, burst, numLimits int) *RateLimiter {
 	return &RateLimiter{
-		limiters: lrucache.New(lrucache.Options{Expiration: -1, Capacity: numLimits}),
+		limiters: lrucache.New(lrucache.Options{
+			Expiration: -1,
+			Capacity:   numLimits,
+			Name:       "contact-ratelimit",
+		}),
 		interval: interval,
 		burst:    burst,
 	}
