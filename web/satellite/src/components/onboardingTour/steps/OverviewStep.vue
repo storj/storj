@@ -26,8 +26,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
@@ -38,98 +38,95 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { UserSettings } from '@/types/users';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
-// @vue/component
-@Component({
-    components: {
-        OverviewContainer,
-    },
-})
-export default class OverviewStep extends Vue {
-    public projectDashboardPath = RouteConfig.ProjectDashboard.path;
-    public titleLabel = '';
+const store = useStore();
+const notify = useNotify();
+const router = useRouter();
 
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const projectDashboardPath = RouteConfig.ProjectDashboard.path;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Mounted hook after initial render.
-     * Sets correct title label.
-     */
-    public async mounted(): Promise<void> {
-        try {
-            if (!this.$store.state.usersModule.settings.onboardingStart) {
-                await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
-                    onboardingStart: true,
-                } as Partial<UserSettings>);
-            }
-        } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
-        }
+const titleLabel = ref<string>('');
 
-        const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
-        if (!partneredSatellites) {
-            this.titleLabel = 'OSP';
-            return;
-        }
+/**
+ * Returns satellite name.
+ */
+const satelliteName = computed((): string => {
+    return store.state.appStateModule.satelliteName;
+});
 
-        const partneredSatellitesJSON = JSON.parse(partneredSatellites);
-        const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
-            return el.name === this.satelliteName;
-        });
-        if (isPartnered) {
-            this.titleLabel = 'DCS';
-            return;
-        }
+/**
+ * Skips onboarding flow.
+ */
+async function onSkip(): Promise<void> {
+    endOnboarding();
+    await router.push(projectDashboardPath);
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+}
 
-        this.titleLabel = 'OSP';
-    }
+/**
+ * Holds button click logic.
+ * Redirects to next step (creating access grant).
+ */
+function onUplinkCLIClick(): void {
+    router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
+    analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
+    analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
+}
 
-    /**
-     * Skips onboarding flow.
-     */
-    public async onSkip(): Promise<void> {
-        this.endOnboarding();
-        await this.$router.push(this.projectDashboardPath);
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-    }
+/**
+ * Redirects to buckets page.
+ */
+async function onUploadInBrowserClick(): Promise<void> {
+    endOnboarding();
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+}
 
-    /**
-     * Holds button click logic.
-     * Redirects to next step (creating access grant).
-     */
-    public onUplinkCLIClick(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
-        this.analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep).with(RouteConfig.AGName).path);
-    }
-
-    /**
-     * Redirects to buckets page.
-     */
-    public async onUploadInBrowserClick(): Promise<void> {
-        this.endOnboarding();
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
-    }
-
-    public async endOnboarding(): Promise<void> {
-        try {
-            await this.$store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
-                onboardingEnd: true,
-            } as Partial<UserSettings>);
-        } catch (error) {
-            this.$notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
-        }
-    }
-
-    /**
-     * Returns satellite name.
-     */
-    private get satelliteName(): string {
-        return this.$store.state.appStateModule.satelliteName;
+async function endOnboarding(): Promise<void> {
+    try {
+        await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+            onboardingEnd: true,
+        } as Partial<UserSettings>);
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 }
+
+/**
+ * Mounted hook after initial render.
+ * Sets correct title label.
+ */
+onMounted(async (): Promise<void> => {
+    try {
+        if (!store.state.usersModule.settings.onboardingStart) {
+            await store.dispatch(USER_ACTIONS.SET_ONBOARDING_STATUS, {
+                onboardingStart: true,
+            } as Partial<UserSettings>);
+        }
+    } catch (error) {
+        notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
+    }
+
+    const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
+    if (!partneredSatellites) {
+        titleLabel.value = 'OSP';
+        return;
+    }
+
+    const partneredSatellitesJSON = JSON.parse(partneredSatellites);
+    const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
+        return el.name === satelliteName.value;
+    });
+    if (isPartnered) {
+        titleLabel.value = 'DCS';
+        return;
+    }
+
+    titleLabel.value = 'OSP';
+});
 </script>
 
 <style scoped lang="scss">

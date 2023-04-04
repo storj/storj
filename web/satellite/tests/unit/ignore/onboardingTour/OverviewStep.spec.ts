@@ -4,8 +4,7 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { FrontendConfigApiMock } from '../../mock/api/config';
-
+import { FrontendConfigApiMock } from '@/../tests/unit/mock/api/config';
 import { router } from '@/router';
 import { makeAppStateModule } from '@/store/modules/appState';
 
