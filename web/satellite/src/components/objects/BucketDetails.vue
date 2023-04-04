@@ -20,8 +20,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onBeforeMount, reactive, ref } from 'vue';
 
 import { Bucket } from '@/types/buckets';
 import { RouteConfig } from '@/router';
@@ -32,105 +32,97 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VOverallLoader,
-        ArrowRightIcon,
-        BucketDetailsOverview,
-    },
-})
-export default class BucketDetails extends Vue {
-    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const store = useStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    public isLoading = false;
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook before initial render.
-     * Checks if bucket name was passed as route param.
-     */
-    public beforeMount(): void {
-        if (!this.$route.params.bucketName) {
-            this.redirectToBucketsPage();
-        }
+const isLoading = ref<boolean>(false);
+
+/**
+ * Returns condition if user has to be prompt for passphrase from store.
+ */
+const promptForPassphrase = computed((): boolean => {
+    return store.state.objectsModule.promptForPassphrase;
+});
+
+/**
+ * Returns edge credentials from store.
+ */
+const edgeCredentials = computed((): EdgeCredentials => {
+    return store.state.objectsModule.gatewayCredentials;
+});
+
+/**
+ * Bucket from store found by router prop.
+ */
+const bucket = computed((): Bucket => {
+    const data = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === router.currentRoute.params.bucketName);
+
+    if (!data) {
+        redirectToBucketsPage();
+
+        return new Bucket();
     }
 
-    /**
-     * Bucket from store found by router prop.
-     */
-    public get bucket(): Bucket {
-        const data = this.$store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === this.$route.params.bucketName);
+    return data;
+});
 
-        if (!data) {
-            this.redirectToBucketsPage();
+const creationDate = computed((): string => {
+    return `${bucket.value.since.getUTCDate()} ${MONTHS_NAMES[bucket.value.since.getUTCMonth()]} ${bucket.value.since.getUTCFullYear()}`;
+});
 
-            return new Bucket();
-        }
-
-        return data;
-    }
-
-    public get creationDate(): string {
-        return `${this.bucket.since.getUTCDate()} ${MONTHS_NAMES[this.bucket.since.getUTCMonth()]} ${this.bucket.since.getUTCFullYear()}`;
-    }
-
-    public redirectToBucketsPage(): void {
-        try {
-            this.$router.push({ name: RouteConfig.BucketsManagement.name });
-        } catch (_) {
-            return;
-        }
-    }
-
-    /**
-     * Holds on bucket click. Proceeds to file browser.
-     */
-    public async openBucket(): Promise<void> {
-        await this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, this.bucket?.name);
-
-        if (this.$route.params.backRoute === RouteConfig.UploadFileChildren.name || !this.promptForPassphrase) {
-            if (!this.edgeCredentials.accessKeyId) {
-                this.isLoading = true;
-
-                try {
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-                    this.isLoading = false;
-                } catch (error) {
-                    await this.$notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
-                    this.isLoading = false;
-                    return;
-                }
-            }
-
-            this.analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-            this.$router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
-
-            return;
-        }
-
-        this.$store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
-    }
-
-    /**
-     * Returns condition if user has to be prompt for passphrase from store.
-     */
-    private get promptForPassphrase(): boolean {
-        return this.$store.state.objectsModule.promptForPassphrase;
-    }
-
-    /**
-     * Returns edge credentials from store.
-     */
-    private get edgeCredentials(): EdgeCredentials {
-        return this.$store.state.objectsModule.gatewayCredentials;
-    }
+function redirectToBucketsPage(): void {
+    router.push({ name: RouteConfig.BucketsManagement.name }).catch(() => {return;});
 }
+
+/**
+ * Holds on bucket click. Proceeds to file browser.
+ */
+async function openBucket(): Promise<void> {
+    await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucket.value.name);
+
+    if (router.currentRoute.params.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
+        if (!edgeCredentials.value.accessKeyId) {
+            isLoading.value = true;
+
+            try {
+                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                isLoading.value = false;
+            } catch (error) {
+                await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);
+                isLoading.value = false;
+                return;
+            }
+        }
+
+        analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+        router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
+
+        return;
+    }
+
+    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+}
+
+/**
+ * Lifecycle hook before initial render.
+ * Checks if bucket name was passed as route param.
+ */
+onBeforeMount((): void => {
+    if (!router.currentRoute.params.bucketName) {
+        redirectToBucketsPage();
+    }
+});
 </script>
 
 <style lang="scss" scoped>
