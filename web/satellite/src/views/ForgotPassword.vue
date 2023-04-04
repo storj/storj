@@ -38,7 +38,7 @@
                                 <SelectedCheckIcon />
                                 <span class="forgot-area__expand__dropdown__item__name">{{ satelliteName }}</span>
                             </li>
-                            <li v-for="sat in partneredSatellites" :key="sat.id">
+                            <li v-for="sat in partneredSatellites" :key="sat.name">
                                 <a class="forgot-area__expand__dropdown__item" :href="sat.address + '/forgot-password'">
                                     {{ sat.name }}
                                 </a>
@@ -94,8 +94,8 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue';
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
@@ -105,6 +105,7 @@ import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -115,173 +116,145 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
-// @vue/component
-@Component({
-    components: {
-        VInput,
-        VButton,
-        BottomArrowIcon,
-        SelectedCheckIcon,
-        LogoIcon,
-        InfoIcon,
-        CloseIcon,
-        VueRecaptcha,
-        VueHcaptcha,
-    },
-})
-export default class ForgotPassword extends Vue {
-    private email = '';
-    private emailError = '';
-    private captchaResponseToken = '';
-    private isLoading = false;
-    private isPasswordResetExpired = false;
-    private isMessageShowing = true;
+const store = useStore();
+const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
-    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
-    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
-    private readonly hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
-    private readonly hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
+const recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
+const recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
+const hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
+const hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
+const auth: AuthHttpApi = new AuthHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const loginPath: string = RouteConfig.Login.path;
 
-    private readonly auth: AuthHttpApi = new AuthHttpApi();
+const email = ref<string>('');
+const emailError = ref<string>('');
+const captchaResponseToken = ref<string>('');
+const isLoading = ref<boolean>(false);
+const isPasswordResetExpired = ref<boolean>(false);
+const isMessageShowing = ref<boolean>(true);
+const isDropdownShown = ref<boolean>(false);
+const captcha = ref<VueRecaptcha | VueHcaptcha>();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+/**
+ * Name of the current satellite.
+ */
+const satelliteName = computed((): string => {
+    return store.state.appStateModule.satelliteName;
+});
 
-    // tardigrade logic
-    public isDropdownShown = false;
+/**
+ * Information about partnered satellites, including name and signup link.
+ */
+const partneredSatellites = computed((): PartneredSatellite[] => {
+    return store.state.appStateModule.partneredSatellites;
+});
 
-    public readonly loginPath: string = RouteConfig.Login.path;
-
-    public $refs!: {
-        captcha: VueRecaptcha | VueHcaptcha;
-    };
-
-    public mounted(): void {
-        this.isPasswordResetExpired = this.$route.query.expired === 'true';
-    }
-
-    /**
-     * Close the expiry message banner.
-     */
-    public closeMessage() {
-        this.isMessageShowing = false;
-    }
-
-    /**
-     * Sets the email field to the given value.
-     */
-    public setEmail(value: string): void {
-        this.email = value.trim();
-        this.emailError = '';
-    }
-
-    /**
-     * Name of the current satellite.
-     */
-    public get satelliteName(): string {
-        return this.$store.state.appStateModule.satelliteName;
-    }
-
-    /**
-     * Information about partnered satellites, including name and signup link.
-     */
-    public get partneredSatellites(): PartneredSatellite[] {
-        return this.$store.state.appStateModule.partneredSatellites;
-    }
-
-    /**
-     * Toggles satellite selection dropdown visibility (Tardigrade).
-     */
-    public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
-    }
-
-    /**
-     * Closes satellite selection dropdown (Tardigrade).
-     */
-    public closeDropdown(): void {
-        this.isDropdownShown = false;
-    }
-
-    /**
-     * Handles captcha verification response.
-     */
-    public onCaptchaVerified(response: string): void {
-        this.captchaResponseToken = response;
-        this.onSendConfigurations();
-    }
-
-    /**
-     * Handles captcha error.
-     */
-    public onCaptchaError(): void {
-        this.captchaResponseToken = '';
-        this.$notify.error('The captcha encountered an error. Please try again.', null);
-    }
-
-    /**
-     * Sends recovery password email.
-     */
-    public async onSendConfigurations(): Promise<void> {
-        let activeElement = document.activeElement;
-        if (activeElement && activeElement.id === 'resetDropdown') return;
-
-        if (this.isLoading || !this.validateFields()) {
-            return;
-        }
-
-        if (this.$refs.captcha && !this.captchaResponseToken) {
-            this.$refs.captcha.execute();
-            return;
-        }
-
-        if (this.isDropdownShown) {
-            this.isDropdownShown = false;
-            return;
-        }
-
-        this.isLoading = true;
-
-        try {
-            await this.auth.forgotPassword(this.email, this.captchaResponseToken);
-            await this.$notify.success('Please look for instructions in your email');
-        } catch (error) {
-            await this.$notify.error(error.message, null);
-        }
-
-        this.$refs.captcha?.reset();
-        this.captchaResponseToken = '';
-        this.isLoading = false;
-    }
-
-    /**
-     * Changes location to Login route.
-     */
-    public onBackToLoginClick(): void {
-        this.analytics.pageVisit(RouteConfig.Login.path);
-        this.$router.push(RouteConfig.Login.path);
-    }
-
-    /**
-     * Redirects to storj.io homepage.
-     */
-    public onLogoClick(): void {
-        const homepageURL = MetaUtils.getMetaContent('homepage-url');
-        window.location.href = homepageURL;
-    }
-
-    /**
-     * Returns whether the email address is properly structured.
-     */
-    private validateFields(): boolean {
-        const isEmailValid = Validator.email(this.email);
-
-        if (!isEmailValid) {
-            this.emailError = 'Invalid Email';
-        }
-
-        return isEmailValid;
-    }
+/**
+ * Close the expiry message banner.
+ */
+function closeMessage() {
+    isMessageShowing.value = false;
 }
+
+/**
+ * Sets the email field to the given value.
+ */
+function setEmail(value: string): void {
+    email.value = value.trim();
+    emailError.value = '';
+}
+
+/**
+ * Toggles satellite selection dropdown visibility (Partnered).
+ */
+function toggleDropdown(): void {
+    isDropdownShown.value = !isDropdownShown.value;
+}
+
+/**
+ * Closes satellite selection dropdown (Partnered).
+ */
+function closeDropdown(): void {
+    isDropdownShown.value = false;
+}
+
+/**
+ * Handles captcha verification response.
+ */
+function onCaptchaVerified(response: string): void {
+    captchaResponseToken.value = response;
+    onSendConfigurations();
+}
+
+/**
+ * Handles captcha error.
+ */
+function onCaptchaError(): void {
+    captchaResponseToken.value = '';
+    notify.error('The captcha encountered an error. Please try again.', null);
+}
+
+/**
+ * Sends recovery password email.
+ */
+async function onSendConfigurations(): Promise<void> {
+    let activeElement = document.activeElement;
+    if (activeElement && activeElement.id === 'resetDropdown') return;
+
+    if (isLoading.value || !validateFields()) {
+        return;
+    }
+
+    if (captcha.value && !captchaResponseToken.value) {
+        captcha.value.execute();
+        return;
+    }
+
+    if (isDropdownShown.value) {
+        closeDropdown();
+        return;
+    }
+
+    isLoading.value = true;
+
+    try {
+        await auth.forgotPassword(email.value, captchaResponseToken.value);
+        await notify.success('Please look for instructions in your email');
+    } catch (error) {
+        await notify.error(error.message, null);
+    }
+
+    captcha.value?.reset();
+    captchaResponseToken.value = '';
+    isLoading.value = false;
+}
+
+/**
+ * Redirects to storj.io homepage.
+ */
+function onLogoClick(): void {
+    window.location.href = MetaUtils.getMetaContent('homepage-url');
+}
+
+/**
+ * Returns whether the email address is properly structured.
+ */
+function validateFields(): boolean {
+    const isEmailValid = Validator.email(email.value);
+
+    if (!isEmailValid) {
+        emailError.value = 'Invalid Email';
+    }
+
+    return isEmailValid;
+}
+
+onMounted((): void => {
+    isPasswordResetExpired.value = router.currentRoute.query.expired === 'true';
+});
 </script>
 
 <style scoped lang="scss">
