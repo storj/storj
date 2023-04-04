@@ -7,32 +7,29 @@
     </div>
 </template>
 
-<script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+<script setup lang="ts">
+import { onMounted } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { useRouter } from '@/utils/hooks';
 
-// @vue/component
-@Component
-export default class ObjectsArea extends Vue {
+const router = useRouter();
 
-    public readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-    /**
-     * Lifecycle hook after initial render.
-     * Redirects if flow is disabled.
-     */
-    public async mounted(): Promise<void> {
-        const isFileBrowserFlowDisabled = MetaUtils.getMetaContent('file-browser-flow-disabled');
-        if (isFileBrowserFlowDisabled === 'true') {
-            this.analytics.pageVisit(RouteConfig.ProjectDashboard.path);
-            await this.$router.push(RouteConfig.ProjectDashboard.path);
-        }
+/**
+ * Lifecycle hook after initial render.
+ * Redirects if flow is disabled.
+ */
+onMounted(async (): Promise<void> => {
+    const isFileBrowserFlowDisabled = MetaUtils.getMetaContent('file-browser-flow-disabled');
+    if (isFileBrowserFlowDisabled === 'true') {
+        analytics.pageVisit(RouteConfig.ProjectDashboard.path);
+        await router.push(RouteConfig.ProjectDashboard.path);
     }
-}
+});
 </script>
 
 <style scoped lang="scss">
