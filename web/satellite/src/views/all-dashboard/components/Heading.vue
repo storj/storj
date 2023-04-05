@@ -153,7 +153,7 @@ const isNavOpened = ref(false);
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 /**

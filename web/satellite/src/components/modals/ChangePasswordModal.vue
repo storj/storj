@@ -65,7 +65,6 @@
 import { ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
-import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -144,8 +143,15 @@ async function onUpdateClick(): Promise<void> {
         hasError = true;
     }
 
-    if (!Validator.password(newPassword.value)) {
-        newPasswordError.value = 'Invalid password. Use 6 or more characters';
+    const config = appStore.state.config;
+
+    if (newPassword.value.length < config.passwordMinimumLength) {
+        newPasswordError.value = `Invalid password. Use ${config.passwordMinimumLength} or more characters`;
+        hasError = true;
+    }
+
+    if (newPassword.value.length > config.passwordMaximumLength) {
+        newPasswordError.value = `Invalid password. Use ${config.passwordMaximumLength} or fewer characters`;
         hasError = true;
     }
 
@@ -155,7 +161,7 @@ async function onUpdateClick(): Promise<void> {
     }
 
     if (newPassword.value !== confirmationPassword.value) {
-        confirmationPasswordError.value = 'Password not match to new one';
+        confirmationPasswordError.value = 'Password doesn\'t match new one';
         hasError = true;
     }
 

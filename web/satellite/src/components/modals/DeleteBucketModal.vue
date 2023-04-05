@@ -36,7 +36,6 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
@@ -113,7 +112,7 @@ async function onDelete(): Promise<void> {
         }
 
         const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
-        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
         worker.value.postMessage({
             'type': 'GenerateAccess',

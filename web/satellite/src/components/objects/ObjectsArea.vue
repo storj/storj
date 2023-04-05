@@ -11,11 +11,12 @@
 import { onMounted } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 const router = useRouter();
+const appStore = useAppStore();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -24,8 +25,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Redirects if flow is disabled.
  */
 onMounted(async (): Promise<void> => {
-    const isFileBrowserFlowDisabled = MetaUtils.getMetaContent('file-browser-flow-disabled');
-    if (isFileBrowserFlowDisabled === 'true') {
+    if (appStore.state.config.fileBrowserFlowDisabled) {
         analytics.pageVisit(RouteConfig.ProjectDashboard.path);
         await router.push(RouteConfig.ProjectDashboard.path);
     }

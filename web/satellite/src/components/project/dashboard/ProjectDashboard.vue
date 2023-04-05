@@ -386,7 +386,7 @@ onMounted(async (): Promise<void> => {
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
 
     if (!store.getters.selectedProject.id) {
-        if (appStore.state.isAllProjectsDashboard) {
+        if (appStore.state.config.allProjectsDashboard) {
             await router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }

@@ -24,7 +24,6 @@
 import { computed, onMounted } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
@@ -37,8 +36,14 @@ import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 const appStore = useAppStore();
 const router = useRouter();
 
-const satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+/**
+ * Returns the web address of this satellite from the store.
+ */
+const satelliteAddress = computed((): string => {
+    return appStore.state.config.satelliteNodeURL;
+});
 
 /**
  * Returns API key from store.

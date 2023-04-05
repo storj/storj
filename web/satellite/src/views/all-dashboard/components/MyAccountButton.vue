@@ -106,7 +106,7 @@ const isDropdownOpen = computed((): boolean => {
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 function openDropdown(): void {

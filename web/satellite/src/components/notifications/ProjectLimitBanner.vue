@@ -24,13 +24,14 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
 import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 
@@ -53,7 +54,7 @@ const bannerTextData = computed((): { title: string, body: string } => {
 });
 
 const projectLimitsIncreaseRequestURL = computed((): string => {
-    return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    return appStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**

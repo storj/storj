@@ -68,14 +68,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -87,7 +87,7 @@ const props = defineProps<{
     apiKey: string;
 }>();
 
-const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -95,13 +95,19 @@ const isCopied = ref<boolean>(false);
 const isDownloaded = ref<boolean>(false);
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-const satelliteAddress = MetaUtils.getMetaContent('satellite-nodeurl');
+
+/**
+ * Returns the web address of this satellite from the store.
+ */
+const satelliteAddress = computed((): string => {
+    return appStore.state.config.satelliteNodeURL;
+});
 
 /**
  * Saves CLI access to clipboard.
  */
 function onCopy(): void {
-    navigator.clipboard.writeText(`${satelliteAddress} ${props.apiKey}`);
+    navigator.clipboard.writeText(`${satelliteAddress.value} ${props.apiKey}`);
     isCopied.value = true;
     analytics.eventTriggered(AnalyticsEvent.COPY_TO_CLIPBOARD_CLICKED);
     notify.success(`CLI access was copied successfully`);
@@ -113,7 +119,7 @@ function onCopy(): void {
 function onDownload(): void {
     isDownloaded.value = true;
 
-    const fileContent = `Satellite address:\n${satelliteAddress}\n\nAPI Key:\n${props.apiKey}`;
+    const fileContent = `Satellite address:\n${satelliteAddress.value}\n\nAPI Key:\n${props.apiKey}`;
     Download.file(fileContent, `Storj-CLI-access-${props.name}-${new Date().toISOString()}.txt`);
     analytics.eventTriggered(AnalyticsEvent.DOWNLOAD_TXT_CLICKED);
 }

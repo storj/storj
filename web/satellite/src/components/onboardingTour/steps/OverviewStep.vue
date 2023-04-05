@@ -32,12 +32,11 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { MetaUtils } from '@/utils/meta';
-import { PartneredSatellite } from '@/types/common';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { PartneredSatellite } from '@/types/config';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
@@ -50,13 +49,6 @@ const projectDashboardPath = RouteConfig.ProjectDashboard.path;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const titleLabel = ref<string>('');
-
-/**
- * Returns satellite name.
- */
-const satelliteName = computed((): string => {
-    return appStore.state.satelliteName;
-});
 
 /**
  * Skips onboarding flow.
@@ -106,22 +98,12 @@ onMounted(async (): Promise<void> => {
         notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
 
-    const partneredSatellites = MetaUtils.getMetaContent('partnered-satellites');
-    if (!partneredSatellites) {
-        titleLabel.value = 'OSP';
-        return;
-    }
-
-    const partneredSatellitesJSON = JSON.parse(partneredSatellites);
-    const isPartnered = partneredSatellitesJSON.find((el: PartneredSatellite) => {
-        return el.name === satelliteName.value;
+    const config = appStore.state.config;
+    const isPartnered = config.partneredSatellites.find((el: PartneredSatellite) => {
+        return el.name === config.satelliteName;
     });
-    if (isPartnered) {
-        titleLabel.value = 'DCS';
-        return;
-    }
 
-    titleLabel.value = 'OSP';
+    titleLabel.value = isPartnered ? 'DCS' : 'OSP';
 });
 </script>
 

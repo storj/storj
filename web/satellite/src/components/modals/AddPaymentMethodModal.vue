@@ -133,7 +133,6 @@ import { computed, onMounted, onBeforeMount, ref, reactive } from 'vue';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -171,7 +170,7 @@ const isAddCard = ref<boolean>(true);
 const isLoading = ref<boolean>(false);
 const isPriceFetching = ref<boolean>(true);
 
-const stripeCardInput = ref<StripeCardInput & StripeForm | null>(null);
+const stripeCardInput = ref<typeof StripeCardInput & StripeForm | null>(null);
 
 const extraBandwidthPriceInfo = ref<string>('');
 
@@ -255,7 +254,7 @@ function setIsAddCard(): void {
  * Returns project limits increase request url from config.
  */
 const limitsIncreaseRequestURL = computed((): string => {
-    return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    return appStore.state.config.projectLimitsIncreaseRequestURL;
 });
 
 /**

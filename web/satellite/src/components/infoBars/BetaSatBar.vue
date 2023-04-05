@@ -4,10 +4,10 @@
 <template>
     <div class="beta-banner">
         <p class="beta-banner__message">
-            Thanks for testing the {{ satelliteName }} Beta satellite | Data may be deleted during this beta | Submit testing feedback
-            <a class="beta-banner__message__link" :href="betaFeedbackURL" target="_blank" rel="noopener noreferrer">here</a>
+            Thanks for testing the {{ config.satelliteName }} Beta satellite | Data may be deleted during this beta | Submit testing feedback
+            <a class="beta-banner__message__link" :href="config.betaSatelliteFeedbackURL" target="_blank" rel="noopener noreferrer">here</a>
             | Request support
-            <a class="beta-banner__message__link" :href="betaSupportURL" target="_blank" rel="noopener noreferrer">here</a>
+            <a class="beta-banner__message__link" :href="config.betaSatelliteSupportURL" target="_blank" rel="noopener noreferrer">here</a>
         </p>
     </div>
 </template>
@@ -15,27 +15,16 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
+import { useAppStore } from '@/store/modules/appStore';
+import { FrontendConfig } from '@/types/config';
+
+const appStore = useAppStore();
 
 /**
- * Returns satellite name from store (config).
+ * Returns the frontend config.
  */
-const satelliteName = computed((): string => {
-    return MetaUtils.getMetaContent('satellite-name');
-});
-
-/**
- * Returns feedback URL from config for beta satellites.
- */
-const betaFeedbackURL = computed((): string => {
-    return MetaUtils.getMetaContent('beta-satellite-feedback-url');
-});
-
-/**
- * Returns support URL from config for beta satellites.
- */
-const betaSupportURL = computed((): string => {
-    return MetaUtils.getMetaContent('beta-satellite-support-url');
+const config = computed((): FrontendConfig => {
+    return appStore.state.config;
 });
 </script>
 

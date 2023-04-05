@@ -100,7 +100,7 @@ const isActive = computed((): boolean => {
  * Returns the whether applying a new coupon is enabled.
  */
 const couponCodeBillingUIEnabled = computed((): boolean => {
-    return appStore.state.couponCodeBillingUIEnabled;
+    return appStore.state.config.couponCodeBillingUIEnabled;
 });
 
 /**

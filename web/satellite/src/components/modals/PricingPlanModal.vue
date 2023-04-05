@@ -108,7 +108,7 @@ const notify = useNotify();
 const isLoading = ref<boolean>(false);
 const isSuccess = ref<boolean>(false);
 
-const stripeCardInput = ref<(StripeCardInput & StripeForm) | null>(null);
+const stripeCardInput = ref<(typeof StripeCardInput & StripeForm) | null>(null);
 
 /**
  * Returns the pricing plan selected from the onboarding tour.
@@ -137,7 +137,7 @@ const isFree = computed((): boolean => {
 function onClose(): void {
     appStore.removeActiveModal();
     if (isSuccess.value) {
-        if (appStore.state.isAllProjectsDashboard) {
+        if (appStore.state.config.allProjectsDashboard) {
             router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }

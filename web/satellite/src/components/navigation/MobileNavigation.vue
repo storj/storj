@@ -173,7 +173,6 @@ import { User } from '@/types/users';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { MetaUtils } from '@/utils/meta';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
@@ -243,7 +242,7 @@ const isLoading = ref<boolean>(false);
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.isAllProjectsDashboard;
+    return appStore.state.config.allProjectsDashboard;
 });
 
 /**
@@ -271,7 +270,7 @@ const selectedProject = computed((): Project => {
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return appStore.state.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 /**
@@ -442,7 +441,7 @@ function navigateToBilling(): void {
     if (router.currentRoute.path.includes(RouteConfig.Billing.path)) return;
 
     let link = RouteConfig.Account.with(RouteConfig.Billing);
-    if (MetaUtils.getMetaContent('new-billing-screen') === 'true') {
+    if (appStore.state.config.newBillingScreen) {
         link = link.with(RouteConfig.BillingOverview);
     }
     router.push(link.path);

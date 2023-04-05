@@ -15,10 +15,10 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { MetaUtils } from '@/utils/meta';
 import { LoadScript } from '@/utils/loadScript';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 interface StripeResponse {
     error: string
@@ -30,6 +30,7 @@ interface StripeResponse {
     }
 }
 
+const appStore = useAppStore();
 const notify = useNotify();
 
 const props = withDefaults(defineProps<{
@@ -52,7 +53,7 @@ const stripe = ref<any>(); // eslint-disable-line @typescript-eslint/no-explicit
  * Stripe initialization.
  */
 async function initStripe(): Promise<void> {
-    const stripePublicKey = MetaUtils.getMetaContent('stripe-public-key');
+    const stripePublicKey = appStore.state.config.stripePublicKey;
 
     stripe.value = window['Stripe'](stripePublicKey);
     if (!stripe.value) {

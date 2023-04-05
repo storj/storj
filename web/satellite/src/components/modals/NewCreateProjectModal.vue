@@ -174,7 +174,7 @@ async function onCreateProjectClick(): Promise<void> {
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
 
-    if (usersStore.shouldOnboard && appStore.state.isAllProjectsDashboard) {
+    if (usersStore.shouldOnboard && appStore.state.config.allProjectsDashboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;

@@ -11,11 +11,11 @@
                 <p class="notification-wrap__content-area__message">{{ notification.message }}</p>
                 <a
                     v-if="isSupportLinkMentioned"
-                    :href="requestUrl"
+                    :href="requestURL"
                     class="notification-wrap__content-area__link"
                     target="_blank"
                 >
-                    {{ requestUrl }}
+                    {{ requestURL }}
                 </a>
             </div>
         </div>
@@ -28,17 +28,17 @@
 </template>
 
 <script setup lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
 import { computed, onMounted, ref } from 'vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { MetaUtils } from '@/utils/meta';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import CloseIcon from '@/../static/images/notifications/close.svg';
 
 const store = useStore();
+const appStore = useAppStore();
 
 const props = withDefaults(defineProps<{
     notification: DelayedNotification;
@@ -46,9 +46,14 @@ const props = withDefaults(defineProps<{
     notification: () => new DelayedNotification(() => { return; }, '', ''),
 });
 
-const requestUrl = MetaUtils.getMetaContent('general-request-url');
-
 const isClassActive = ref<boolean>(false);
+
+/**
+ * Returns the URL for the general request page from the store.
+ */
+const requestURL = computed((): string => {
+    return appStore.state.config.generalRequestURL;
+});
 
 /**
  * Indicates if support word is mentioned in message.

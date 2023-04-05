@@ -124,10 +124,10 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { LocalData } from '@/utils/localData';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
@@ -146,6 +146,7 @@ const route = useRoute();
 const notify = useNotify();
 const store = useStore();
 const agStore = useAccessGrantsStore();
+const appStore = useAppStore();
 
 const initPermissions = [
     Permission.Read,
@@ -507,7 +508,7 @@ async function createAccessGrant(): Promise<void> {
     }
 
     // creates access credentials.
-    const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+    const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
 
     const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
 

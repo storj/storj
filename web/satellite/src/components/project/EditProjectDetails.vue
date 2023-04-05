@@ -209,16 +209,17 @@ import {
     Project,
     ProjectFields, ProjectLimits,
 } from '@/types/projects';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 const usersStore = useUsersStore();
 const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -325,23 +326,21 @@ const bandwidthMeasurementFormatted = computed((): string => {
  * Gets current default limit for paid accounts.
  */
 const paidBandwidthLimit = computed((): number => {
-    const limitVal = getLimitValue(MetaUtils.getMetaContent('default-paid-bandwidth-limit'));
+    const limitVal = getLimitValue(appStore.state.config.defaultPaidBandwidthLimit);
     const maxLimit = Math.max(currentLimits.value.bandwidthLimit / Memory.TB, limitVal);
     if (activeBandwidthMeasurement.value === Dimensions.GB) {
         return toGB(maxLimit);
-    } else {
-        return maxLimit;
     }
+    return maxLimit;
 });
 
 const paidStorageLimit = computed((): number => {
-    const limitVal = getLimitValue(MetaUtils.getMetaContent('default-paid-storage-limit'));
+    const limitVal = getLimitValue(appStore.state.config.defaultPaidStorageLimit);
     const maxLimit = Math.max(currentLimits.value.storageLimit / Memory.TB, limitVal);
     if (activeStorageMeasurement.value === Dimensions.GB) {
         return toGB(maxLimit);
-    } else {
-        return maxLimit;
     }
+    return maxLimit;
 });
 
 /**

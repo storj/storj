@@ -9,7 +9,7 @@ import { FrontendConfig, FrontendConfigApi } from '@/types/config';
  */
 export class FrontendConfigHttpApi implements FrontendConfigApi {
     private readonly http: HttpClient = new HttpClient();
-    private readonly ROOT_PATH: string = '/config';
+    private readonly ROOT_PATH: string = '/api/v0/config';
 
     /**
      * Returns the frontend config.

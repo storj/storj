@@ -186,12 +186,12 @@ import {
     NativePaymentHistoryItem,
 } from '@/types/payments';
 import { RouteConfig } from '@/router';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -225,6 +225,7 @@ interface CardEdited {
 
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -233,7 +234,6 @@ const router = reactive(nativeRouter);
 const emit = defineEmits(['toggleIsLoading', 'toggleIsLoaded', 'cancel']);
 
 const PAGE_SIZE = 10;
-const nativeTokenPaymentsEnabled = MetaUtils.getMetaContent('native-token-payments-enabled') === 'true';
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const showTransactions = ref<boolean>(false);
@@ -247,11 +247,18 @@ const displayedHistory = ref<NativePaymentHistoryItem[]>([]);
 const transactionCount = ref<number>(0);
 const defaultCreditCardSelection = ref<string>('');
 const cardBeingEdited = ref<CardEdited>({});
-const stripeCardInput = ref<StripeCardInput & StripeForm>();
+const stripeCardInput = ref<typeof StripeCardInput & StripeForm>();
 const canvas = ref<HTMLCanvasElement>();
 
 const pageCount = computed((): number => {
     return Math.ceil(transactionCount.value / PAGE_SIZE);
+});
+
+/**
+ * Indicates whether native token payments are enabled.
+ */
+const nativeTokenPaymentsEnabled = computed((): boolean => {
+    return appStore.state.config.nativeTokenPaymentsEnabled;
 });
 
 /**

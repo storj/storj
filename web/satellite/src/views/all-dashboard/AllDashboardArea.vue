@@ -116,7 +116,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { MetaUtils } from '@/utils/meta';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { CouponType } from '@/types/coupons';
@@ -155,9 +154,6 @@ const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const inactivityModalTime = 60000;
-const sessionDuration: number = parseInt(MetaUtils.getMetaContent('inactivity-timer-duration')) * 1000;
-const sessionRefreshInterval: number = sessionDuration / 2;
-const debugTimerShown = MetaUtils.getMetaContent('inactivity-timer-viewer-enabled') === 'true';
 // Minimum number of recovery codes before the recovery code warning bar is shown.
 const recoveryCodeWarningThreshold = 4;
 
@@ -172,6 +168,27 @@ const isSessionRefreshing = ref<boolean>(false);
 const isHundredLimitModalShown = ref<boolean>(false);
 const isEightyLimitModalShown = ref<boolean>(false);
 const dashboardContent = ref<HTMLElement | null>(null);
+
+/**
+ * Returns the session duration from the store.
+ */
+const sessionDuration = computed((): number => {
+    return appStore.state.config.inactivityTimerDuration * 1000;
+});
+
+/**
+ * Returns the session refresh interval from the store.
+ */
+const sessionRefreshInterval = computed((): number => {
+    return sessionDuration.value / 2;
+});
+
+/**
+ * Indicates whether to display the session timer for debugging.
+ */
+const debugTimerShown = computed((): boolean => {
+    return appStore.state.config.inactivityTimerViewerEnabled;
+});
 
 /**
  * Indicates if account was frozen due to billing issues.
@@ -265,7 +282,7 @@ const isBillingPage = computed(() => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return appStore.state.isBetaSatellite;
+    return appStore.state.config.isBetaSatellite;
 });
 
 /**
@@ -415,9 +432,7 @@ function clearSessionTimers(): void {
  * Adds DOM event listeners and starts session timers.
  */
 function setupSessionTimers(): void {
-    const isInactivityTimerEnabled = MetaUtils.getMetaContent('inactivity-timer-enabled');
-
-    if (isInactivityTimerEnabled === 'false') return;
+    if (!appStore.state.config.inactivityTimerEnabled) return;
 
     const expiresAt = LocalData.getSessionExpirationDate();
 
@@ -426,7 +441,7 @@ function setupSessionTimers(): void {
             document.addEventListener(eventName, onSessionActivity, false);
         });
 
-        if (expiresAt.getTime() - sessionDuration + sessionRefreshInterval < Date.now()) {
+        if (expiresAt.getTime() - sessionDuration.value + sessionRefreshInterval.value < Date.now()) {
             refreshSession();
         }
 
@@ -443,7 +458,7 @@ function restartSessionTimers(): void {
         if (isSessionActive.value) {
             await refreshSession();
         }
-    }, sessionRefreshInterval);
+    }, sessionRefreshInterval.value);
 
     inactivityTimerId.value = setTimeout(async () => {
         if (store.getters['files/uploadingLength']) {
@@ -457,9 +472,9 @@ function restartSessionTimers(): void {
             await handleInactive();
             await notify.notify('Your session was timed out.');
         }, inactivityModalTime);
-    }, sessionDuration - inactivityModalTime);
+    }, sessionDuration.value - inactivityModalTime);
 
-    if (!debugTimerShown) return;
+    if (!debugTimerShown.value) return;
 
     const debugTimer = () => {
         const expiresAt = LocalData.getSessionExpirationDate();

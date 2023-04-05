@@ -80,8 +80,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
-import { Validator } from '@/utils/validation';
-import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { useNotify, useRouter } from '@/utils/hooks';
@@ -171,8 +169,9 @@ async function onResetClick(): Promise<void> {
  */
 function validateFields(): boolean {
     let isNoErrors = true;
+    let config = appStore.state.config;
 
-    if (!Validator.password(password.value)) {
+    if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid password';
         isNoErrors = false;
     }
@@ -203,7 +202,7 @@ function hidePasswordStrength(): void {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = MetaUtils.getMetaContent('homepage-url');
+    window.location.href = appStore.state.config.homepageURL;
 }
 
 /**

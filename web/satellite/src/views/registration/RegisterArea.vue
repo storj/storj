@@ -230,18 +230,18 @@
                         </label>
                     </div>
                     <VueRecaptcha
-                        v-if="recaptchaEnabled"
+                        v-if="captchaConfig.recaptcha.enabled"
                         ref="captcha"
-                        :sitekey="recaptchaSiteKey"
+                        :sitekey="captchaConfig.recaptcha.siteKey"
                         :load-recaptcha-script="true"
                         size="invisible"
                         @verify="onCaptchaVerified"
                         @error="onCaptchaError"
                     />
                     <VueHcaptcha
-                        v-else-if="hcaptchaEnabled"
+                        v-else-if="captchaConfig.hcaptcha.enabled"
                         ref="captcha"
-                        :sitekey="hcaptchaSiteKey"
+                        :sitekey="captchaConfig.hcaptcha.siteKey"
                         :re-captcha-compat="false"
                         size="invisible"
                         @verify="onCaptchaVerified"
@@ -290,11 +290,8 @@ import LogoWithPartnerIcon from '../../../static/images/partnerStorjLogo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { PartneredSatellite } from '@/types/common';
+import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 import { User } from '@/types/users';
-import { MetaUtils } from '@/utils/meta';
-import { Validator } from '@/utils/validation';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -347,11 +344,6 @@ const haveSalesContact = ref(false);
 const captchaError = ref(false);
 const captchaResponseToken = ref('');
 
-const recaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-recaptcha-enabled') === 'true';
-const recaptchaSiteKey: string = MetaUtils.getMetaContent('registration-recaptcha-site-key');
-const hcaptchaEnabled: boolean = MetaUtils.getMetaContent('registration-hcaptcha-enabled') === 'true';
-const hcaptchaSiteKey: string = MetaUtils.getMetaContent('registration-hcaptcha-site-key');
-
 const isPasswordStrengthShown = ref(false);
 
 // DCS logic
@@ -364,7 +356,6 @@ const loginPath = RouteConfig.Login.path;
 
 const captcha = ref<VueRecaptcha | VueHcaptcha | null>(null);
 
-const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
 const appStore = useAppStore();
@@ -456,7 +447,7 @@ async function onCreateClick(): Promise<void> {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = MetaUtils.getMetaContent('homepage-url');
+    window.location.href = appStore.state.config.homepageURL;
 }
 
 /**
@@ -493,17 +484,25 @@ function setRepeatedPassword(value: string): void {
 }
 
 /**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig => {
+    return appStore.state.config.captcha.registration;
+});
+
+/**
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return appStore.state.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    const satellites = appStore.state.partneredSatellites;
+    const config = appStore.state.config;
+    const satellites = config.partneredSatellites.filter(sat => sat.name !== config.satelliteName);
     return satellites.map((s: PartneredSatellite) => {
         s.address = `${s.address}/signup`;
 
@@ -519,14 +518,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return appStore.state.isBetaSatellite;
+    return appStore.state.config.isBetaSatellite;
 });
 
 /**
  * Indicates if coupon code ui is enabled
  */
 const couponCodeSignupUIEnabled = computed((): boolean => {
-    return appStore.state.couponCodeSignupUIEnabled;
+    return appStore.state.config.couponCodeSignupUIEnabled;
 });
 
 /**
@@ -642,7 +641,9 @@ function validateFields(): boolean {
         isNoErrors = false;
     }
 
-    if (!Validator.password(password.value)) {
+    let config = appStore.state.config;
+
+    if (password.value.length < config.passwordMinimumLength || password.value.length > config.passwordMaximumLength) {
         passwordError.value = 'Invalid Password';
         isNoErrors = false;
     }
@@ -748,7 +749,7 @@ async function createUser(): Promise<void> {
         // signups outside of the brave browser may use a configured URL to track conversions
         // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
         const internalRegisterSuccessPath = RouteConfig.RegisterSuccess.path;
-        const configuredRegisterSuccessPath = MetaUtils.getMetaContent('optional-signup-success-url') || internalRegisterSuccessPath;
+        const configuredRegisterSuccessPath = appStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
 
         const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;
         const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(user.value.email)}`;

@@ -26,7 +26,6 @@ import { computed, onMounted } from 'vue';
 
 import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
-import { MetaUtils } from '@/utils/meta';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -65,7 +64,7 @@ const isFatal = computed((): boolean => {
  * Navigates to the homepage.
  */
 function goToHomepage(): void {
-    window.location.href = MetaUtils.getMetaContent('homepage-url');
+    window.location.href = appStore.state.config.homepageURL || 'https://www.storj.io';
 }
 
 /**
@@ -83,7 +82,7 @@ function onButtonClick(): void {
  * Lifecycle hook after initial render. Sets page title.
  */
 onMounted(() => {
-    const satName = appStore.state.satelliteName;
+    const satName = appStore.state.config.satelliteName;
     document.title = statusCode.value.toString() + (satName ? ' | ' + satName : '');
 });
 </script>

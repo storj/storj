@@ -19,7 +19,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { MetaUtils } from '@/utils/meta';
 import { BucketPage } from '@/types/buckets';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -39,7 +38,6 @@ const notify = useNotify();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const worker = ref<Worker | null>(null);
-const linksharingURL = ref<string>('');
 
 /**
  * Indicates if upload cancel popup is visible.
@@ -81,6 +79,13 @@ const bucketPage = computed((): BucketPage => {
  */
 const edgeCredentials = computed((): EdgeCredentials => {
     return store.state.objectsModule.gatewayCredentials;
+});
+
+/**
+ * Returns linksharing URL from store.
+ */
+const linksharingURL = computed((): string => {
+    return appStore.state.config.linksharingURL;
 });
 
 /**
@@ -146,7 +151,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
         throw new Error('Worker is not defined');
     }
 
-    const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+    const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
     const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
 
     worker.value.postMessage({
@@ -207,8 +212,6 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
  * Initiates file browser.
  */
 onBeforeMount(() => {
-    linksharingURL.value = MetaUtils.getMetaContent('linksharing-url');
-
     setWorker();
 
     store.commit('files/init', {

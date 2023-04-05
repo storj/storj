@@ -251,7 +251,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		server.withAuth(http.HandlerFunc(projectsController.GetSalt)),
 	).Methods(http.MethodGet)
 
-	router.HandleFunc("/config", server.frontendConfigHandler)
+	router.HandleFunc("/api/v0/config", server.frontendConfigHandler)
+
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 

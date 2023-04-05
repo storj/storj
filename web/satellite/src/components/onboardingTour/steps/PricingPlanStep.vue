@@ -25,7 +25,6 @@ import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
 import { useNotify, useRouter } from '@/utils/hooks';
-import { MetaUtils } from '@/utils/meta';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -75,11 +74,11 @@ const plans = ref<PricingPlanInfo[]>([
 onBeforeMount(async () => {
     const user: User = usersStore.state.user;
     let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
-    if (appStore.state.isAllProjectsDashboard) {
+    if (appStore.state.config.allProjectsDashboard) {
         nextPath = RouteConfig.AllProjectsDashboard.path;
     }
 
-    const pricingPkgsEnabled = Boolean(MetaUtils.getMetaContent('pricing-packages-enabled'));
+    const pricingPkgsEnabled = appStore.state.config.pricingPackagesEnabled;
     if (!pricingPkgsEnabled || user.paidTier || !user.partner) {
         router.push(nextPath);
         return;

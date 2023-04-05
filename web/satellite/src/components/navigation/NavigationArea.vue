@@ -145,7 +145,7 @@ const isQuickStartDropdownShown = computed((): boolean => {
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return appStore.state.isAllProjectsDashboard;
+    return appStore.state.config.allProjectsDashboard;
 });
 
 /**

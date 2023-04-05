@@ -43,7 +43,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -115,7 +114,7 @@ async function setShareLink(): Promise<void> {
         const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
         const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, store.getters.selectedProject.id);
 
-        const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
+        const satelliteNodeURL = appStore.state.config.satelliteNodeURL;
         const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
 
         worker.value.postMessage({
@@ -162,7 +161,7 @@ async function setShareLink(): Promise<void> {
 
         path = encodeURIComponent(path.trim());
 
-        const linksharingURL = MetaUtils.getMetaContent('linksharing-url');
+        const linksharingURL = appStore.state.config.linksharingURL;
 
         link.value = `${linksharingURL}/${credentials.accessKeyId}/${path}`;
     } catch (error) {

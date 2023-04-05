@@ -71,8 +71,7 @@ onMounted(async (): Promise<void> => {
     try {
         await appStore.getConfig();
     } catch (error) {
-        // TODO: Use a harsher error-handling approach when the config is necessary
-        // for the frontend to function.
+        appStore.setErrorPage(500, true);
         notify.error(error.message, null);
     }
 

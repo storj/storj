@@ -56,18 +56,18 @@
                     />
                 </div>
                 <VueRecaptcha
-                    v-if="recaptchaEnabled"
+                    v-if="captchaConfig.recaptcha.enabled"
                     ref="captcha"
-                    :sitekey="recaptchaSiteKey"
+                    :sitekey="captchaConfig.recaptcha.siteKey"
                     :load-recaptcha-script="true"
                     size="invisible"
                     @verify="onCaptchaVerified"
                     @error="onCaptchaError"
                 />
                 <VueHcaptcha
-                    v-else-if="hcaptchaEnabled"
+                    v-else-if="captchaConfig.hcaptcha.enabled"
                     ref="captcha"
-                    :sitekey="hcaptchaSiteKey"
+                    :sitekey="captchaConfig.hcaptcha.siteKey"
                     :re-captcha-compat="false"
                     size="invisible"
                     @verify="onCaptchaVerified"
@@ -101,12 +101,10 @@ import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
-import { MetaUtils } from '@/utils/meta';
-import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -122,12 +120,7 @@ const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
-const recaptchaEnabled: boolean = MetaUtils.getMetaContent('login-recaptcha-enabled') === 'true';
-const recaptchaSiteKey: string = MetaUtils.getMetaContent('login-recaptcha-site-key');
-const hcaptchaEnabled: boolean = MetaUtils.getMetaContent('login-hcaptcha-enabled') === 'true';
-const hcaptchaSiteKey: string = MetaUtils.getMetaContent('login-hcaptcha-site-key');
 const auth: AuthHttpApi = new AuthHttpApi();
-const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const loginPath: string = RouteConfig.Login.path;
 
 const email = ref<string>('');
@@ -143,14 +136,21 @@ const captcha = ref<VueRecaptcha | VueHcaptcha>();
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return appStore.state.satelliteName;
+    return appStore.state.config.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return appStore.state.partneredSatellites;
+    return appStore.state.config.partneredSatellites;
+});
+
+/**
+ * This component's captcha configuration.
+ */
+const captchaConfig = computed((): MultiCaptchaConfig => {
+    return appStore.state.config.captcha.login;
 });
 
 /**
@@ -237,7 +237,7 @@ async function onSendConfigurations(): Promise<void> {
  * Redirects to storj.io homepage.
  */
 function onLogoClick(): void {
-    window.location.href = MetaUtils.getMetaContent('homepage-url');
+    window.location.href = appStore.state.config.homepageURL;
 }
 
 /**
