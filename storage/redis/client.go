@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 

@@ -11,7 +11,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/color v1.9.0
 	github.com/go-oauth2/oauth2/v4 v4.4.2
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.8
@@ -31,6 +30,7 @@ require (
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/oschwald/maxminddb-golang v1.8.0
 	github.com/pquerna/otp v1.3.0
+	github.com/redis/go-redis/v9 v9.0.3
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.20-0.20230227152157-d00b379de191
 	github.com/spacemonkeygo/tlshowdy v0.0.0-20160207005338-8fa2cec1d7cd
@@ -73,7 +73,7 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudfoundry/gosigar v1.1.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/flynn/noise v1.0.0 // indirect

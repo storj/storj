@@ -6,12 +6,11 @@ package live
 import (
 	"context"
 	"errors"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -31,38 +30,17 @@ type redisLiveAccounting struct {
 // because it means that Redis may not be operative at this precise moment but
 // it may be in future method calls as it handles automatically reconnects.
 func openRedisLiveAccounting(ctx context.Context, address string) (*redisLiveAccounting, error) {
-	redisurl, err := url.Parse(address)
+	opts, err := redis.ParseURL(address)
 	if err != nil {
-		return nil, accounting.ErrInvalidArgument.New("address: invalid URL; %w", err)
+		return nil, accounting.ErrInvalidArgument.Wrap(err)
 	}
-
-	if redisurl.Scheme != "redis" {
-		return nil, accounting.ErrInvalidArgument.New("address: not a redis:// formatted address")
-	}
-
-	q := redisurl.Query()
-	db := q.Get("db")
-	if db == "" {
-		return nil, accounting.ErrInvalidArgument.New("address: a database number has to be specified")
-	}
-
-	dbn, err := strconv.Atoi(db)
-	if err != nil {
-		return nil, accounting.ErrInvalidArgument.New("address: invalid database number %s", db)
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:     redisurl.Host,
-		Password: q.Get("password"),
-		DB:       dbn,
-	})
 
 	cache := &redisLiveAccounting{
-		client: client,
+		client: redis.NewClient(opts),
 	}
 
 	// ping here to verify we are able to connect to Redis with the initialized client.
-	if err := client.Ping(ctx).Err(); err != nil {
+	if err := cache.client.Ping(ctx).Err(); err != nil {
 		return cache, accounting.ErrSystemOrNetError.New("Redis ping failed: %w", err)
 	}
 
