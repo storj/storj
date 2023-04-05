@@ -3,24 +3,28 @@
 
 <template>
     <div id="app">
-        <router-view />
+        <BrandedLoader v-if="isLoading" />
+        <router-view v-else />
         <!-- Area for displaying notification -->
         <NotificationArea />
     </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 import { useNotify, useStore } from '@/utils/hooks';
 
+import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
 const store = useStore();
 const notify = useNotify();
+
+const isLoading = ref<boolean>(true);
 
 /**
  * Fixes the issue where view port height is taller than the visible viewport on
@@ -54,9 +58,9 @@ function updateViewportVariable(): void {
  * Lifecycle hook after initial render.
  * Sets up variables from meta tags from config such satellite name, etc.
  */
-onMounted((): void => {
+onMounted(async (): Promise<void> => {
     try {
-        store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
+        await store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
     } catch (error) {
         // TODO: Use a harsher error-handling approach when the config is necessary
         // for the frontend to function.
@@ -101,6 +105,8 @@ onMounted((): void => {
     }
 
     fixViewportHeight();
+
+    isLoading.value = false;
 });
 
 onBeforeUnmount((): void => {

@@ -3,10 +3,7 @@
 
 <template>
     <div class="dashboard">
-        <div v-if="isLoading" class="loading-overlay active">
-            <div class="load" />
-            <LoaderImage class="loading-icon" />
-        </div>
+        <BrandedLoader v-if="isLoading" />
         <div v-else class="dashboard__wrap">
             <div class="dashboard__wrap__main-area">
                 <NavigationArea v-if="!isNavigationHidden" class="dashboard__wrap__main-area__navigation" />
@@ -139,8 +136,7 @@ import LimitWarningModal from '@/components/modals/LimitWarningModal.vue';
 import VBanner from '@/components/common/VBanner.vue';
 import UpgradeNotification from '@/components/notifications/UpgradeNotification.vue';
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
-
-import LoaderImage from '@/../static/images/common/loadIcon.svg';
+import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
 const {
     SETUP_ACCOUNT,
@@ -696,64 +692,8 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped lang="scss">
-    @keyframes rotate {
-
-        from {
-            transform: rotate(0deg);
-        }
-
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
     :deep(.notification-wrap) {
         margin-top: 1rem;
-    }
-
-    .load {
-        width: 90px;
-        height: 90px;
-        margin: auto 0;
-        border: solid 3px var(--c-blue-3);
-        border-radius: 50%;
-        border-right-color: transparent;
-        border-bottom-color: transparent;
-        border-left-color: transparent;
-        transition: all 0.5s ease-in;
-        animation-name: rotate;
-        animation-duration: 1.2s;
-        animation-iteration-count: infinite;
-        animation-timing-function: linear;
-    }
-
-    .loading-overlay {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #fff;
-        visibility: hidden;
-        opacity: 0;
-        transition: all 0.5s linear;
-    }
-
-    .loading-overlay.active {
-        visibility: visible;
-        opacity: 1;
-    }
-
-    .loading-icon {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        margin: auto;
     }
 
     .dashboard {
