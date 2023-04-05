@@ -15,12 +15,15 @@ package main
 import (
 	"os"
 
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows/svc"
 
 	"storj.io/private/process"
 )
+
+var rootCmd, runCmd *cobra.Command
 
 func startAsService() bool {
 	isService, err := svc.IsWindowsService()
@@ -39,6 +42,10 @@ func startAsService() bool {
 	if os.Args[1] != "run" {
 		return false
 	}
+
+	var factory *Factory
+	rootCmd, factory = newRootCmd(true)
+	runCmd = newRunCmd(factory)
 
 	// Initialize the Windows Service handler
 	err = svc.Run("storagenode", &service{})

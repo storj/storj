@@ -50,6 +50,7 @@ func TestMapDeprecatedConfigs(t *testing.T) {
 			expectedEmail:          "newEmail",
 		},
 	}
+	runCfg := runCfg{}
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
@@ -59,7 +60,7 @@ func TestMapDeprecatedConfigs(t *testing.T) {
 			runCfg.Deprecated.Kademlia.Operator.Wallet = testCase.deprecatedWallet
 			runCfg.Operator.Email = testCase.newEmail
 			runCfg.Deprecated.Kademlia.Operator.Email = testCase.deprecatedEmail
-			mapDeprecatedConfigs(log)
+			mapDeprecatedConfigs(log, &runCfg.StorageNodeFlags)
 			require.Equal(t, testCase.expectedAddr, runCfg.Contact.ExternalAddress)
 			require.Equal(t, testCase.expectedWallet, runCfg.Operator.Wallet)
 			require.Equal(t, testCase.expectedEmail, runCfg.Operator.Email)

@@ -19,11 +19,52 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/storj/private/date"
 	"storj.io/storj/private/prompt"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/internalpb"
 )
+
+type gracefulExitCfg struct {
+	storagenode.Config
+}
+
+func newGracefulExitInitCmd(f *Factory) *cobra.Command {
+	var cfg gracefulExitCfg
+	cmd := &cobra.Command{
+		Use:   "exit-satellite",
+		Short: "Initiate graceful exit",
+		Long: "Initiate gracefule exit.\n" +
+			"The command shows the list of the available satellites that can be exited " +
+			"and ask for choosing one.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmdGracefulExitInit(cmd, &cfg)
+		},
+		Annotations: map[string]string{"type": "helper"},
+	}
+
+	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir))
+
+	return cmd
+}
+
+func newGracefulExitStatusCmd(f *Factory) *cobra.Command {
+	var cfg gracefulExitCfg
+	cmd := &cobra.Command{
+		Use:   "exit-status",
+		Short: "Display graceful exit status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmdGracefulExitStatus(cmd, &cfg)
+		},
+		Annotations: map[string]string{"type": "helper"},
+	}
+
+	process.Bind(cmd, &cfg, f.Defaults, cfgstruct.ConfDir(f.ConfDir))
+
+	return cmd
+}
 
 type gracefulExitClient struct {
 	conn *rpc.Conn
@@ -62,10 +103,10 @@ func (client *gracefulExitClient) close() error {
 	return client.conn.Close()
 }
 
-func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
+func cmdGracefulExitInit(cmd *cobra.Command, cfg *gracefulExitCfg) error {
 	ctx, _ := process.Ctx(cmd)
 
-	ident, err := runCfg.Identity.Load()
+	ident, err := cfg.Identity.Load()
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
@@ -81,7 +122,7 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
+	client, err := dialGracefulExitClient(ctx, cfg.Server.PrivateAddress)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -139,17 +180,17 @@ func cmdGracefulExitInit(cmd *cobra.Command, args []string) error {
 	return gracefulExitInit(ctx, satelliteIDs, w, client)
 }
 
-func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
+func cmdGracefulExitStatus(cmd *cobra.Command, cfg *gracefulExitCfg) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	ident, err := runCfg.Identity.Load()
+	ident, err := cfg.Identity.Load()
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
 		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
 	}
 
-	client, err := dialGracefulExitClient(ctx, diagCfg.Server.PrivateAddress)
+	client, err := dialGracefulExitClient(ctx, cfg.Server.PrivateAddress)
 	if err != nil {
 		return errs.Wrap(err)
 	}

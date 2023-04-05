@@ -1,4 +1,4 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
@@ -17,8 +17,10 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 
+	"storj.io/common/identity"
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
+	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/storagenode/internalpb"
@@ -28,6 +30,29 @@ const contactWindow = time.Hour * 2
 
 type dashboardClient struct {
 	conn *rpc.Conn
+}
+
+type dashboardCfg struct {
+	Address string `default:"127.0.0.1:7778" help:"address for dashboard service"`
+
+	UseColor bool `internal:"true"`
+}
+
+func newDashboardCmd(f *Factory) *cobra.Command {
+	var cfg dashboardCfg
+
+	cmd := &cobra.Command{
+		Use:   "dashboard",
+		Short: "Run the dashboard",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg.UseColor = f.UseColor
+			return cmdDashboard(cmd, &cfg)
+		},
+	}
+
+	process.Bind(cmd, &cfg, cfgstruct.ConfDir(f.ConfDir), cfgstruct.IdentityDir(f.IdentityDir))
+
+	return cmd
 }
 
 func dialDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
@@ -46,17 +71,20 @@ func (dash *dashboardClient) close() error {
 	return dash.conn.Close()
 }
 
-func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
+func cmdDashboard(cmd *cobra.Command, cfg *dashboardCfg) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	ident, err := runCfg.Identity.Load()
+	// TDDO: move to dashboardCfg to allow setting CertPath and KeyPath
+	var identityCfg identity.Config
+
+	ident, err := identityCfg.Load()
 	if err != nil {
 		zap.L().Fatal("Failed to load identity.", zap.Error(err))
 	} else {
 		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
 	}
 
-	client, err := dialDashboardClient(ctx, dashboardCfg.Address)
+	client, err := dialDashboardClient(ctx, cfg.Address)
 	if err != nil {
 		return err
 	}
@@ -72,7 +100,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 			return err
 		}
 
-		if err := printDashboard(data); err != nil {
+		if err := printDashboard(cfg, data); err != nil {
 			return err
 		}
 
@@ -81,10 +109,10 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	}
 }
 
-func printDashboard(data *internalpb.DashboardResponse) error {
+func printDashboard(cfg *dashboardCfg, data *internalpb.DashboardResponse) error {
 	clearScreen()
 	var warnFlag bool
-	color.NoColor = !useColor
+	color.NoColor = !cfg.UseColor
 
 	heading := color.New(color.FgGreen, color.Bold)
 	_, _ = heading.Printf("\nStorage Node Dashboard ( Node Version: %s )\n", version.Build.Version.String())
@@ -130,7 +158,7 @@ func printDashboard(data *internalpb.DashboardResponse) error {
 
 	w = tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	// TODO: Get addresses from server data
-	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(dashboardCfg.Address))
+	fmt.Fprintf(w, "Internal\t%s\n", color.WhiteString(cfg.Address))
 	fmt.Fprintf(w, "External\t%s\n", color.WhiteString(data.GetExternalAddress()))
 	// Disabling the Link to the Dashboard as its not working yet
 	// fmt.Fprintf(w, "Dashboard\t%s\n", color.WhiteString(data.GetDashboardAddress()))
