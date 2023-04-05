@@ -16,7 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/private/dbutil/dbschema"
 	"storj.io/private/dbutil/sqliteutil"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/testdata"
 )

@@ -11,15 +11,15 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
 )
 
-// ErrorBlobs is the interface of storage.Blobs with the SetError method added.
+// ErrorBlobs is the interface of blobstore.Blobs with the SetError method added.
 // This allows the BadDB{}.Blobs member to be replaced with something that has
 // specific behavior changes.
 type ErrorBlobs interface {
-	storage.Blobs
+	blobstore.Blobs
 	SetError(err error)
 }
 
@@ -41,7 +41,7 @@ func NewBadDB(log *zap.Logger, db storagenode.DB) *BadDB {
 }
 
 // Pieces returns the blob store.
-func (bad *BadDB) Pieces() storage.Blobs {
+func (bad *BadDB) Pieces() blobstore.Blobs {
 	return bad.Blobs
 }
 
@@ -53,7 +53,7 @@ func (bad *BadDB) SetError(err error) {
 // BadBlobs implements a bad blob store.
 type BadBlobs struct {
 	err   lockedErr
-	blobs storage.Blobs
+	blobs blobstore.Blobs
 	log   *zap.Logger
 }
 
@@ -78,7 +78,7 @@ func (m *lockedErr) Set(err error) {
 
 // newBadBlobs creates a new bad blob store wrapping the provided blobs.
 // Use SetError to manually configure the error returned by all operations.
-func newBadBlobs(log *zap.Logger, blobs storage.Blobs) *BadBlobs {
+func newBadBlobs(log *zap.Logger, blobs blobstore.Blobs) *BadBlobs {
 	return &BadBlobs{
 		log:   log,
 		blobs: blobs,
@@ -92,7 +92,7 @@ func (bad *BadBlobs) SetError(err error) {
 
 // Create creates a new blob that can be written optionally takes a size
 // argument for performance improvements, -1 is unknown size.
-func (bad *BadBlobs) Create(ctx context.Context, ref storage.BlobRef, size int64) (storage.BlobWriter, error) {
+func (bad *BadBlobs) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (blobstore.BlobWriter, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (bad *BadBlobs) Close() error {
 }
 
 // Open opens a reader with the specified namespace and key.
-func (bad *BadBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
+func (bad *BadBlobs) Open(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobReader, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func (bad *BadBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.Blo
 
 // OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential need
 // to check multiple storage formats to find the blob.
-func (bad *BadBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
+func (bad *BadBlobs) OpenWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (blobstore.BlobReader, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (bad *BadBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.Blob
 }
 
 // Trash deletes the blob with the namespace and key.
-func (bad *BadBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
+func (bad *BadBlobs) Trash(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
@@ -149,7 +149,7 @@ func (bad *BadBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashedBe
 }
 
 // Delete deletes the blob with the namespace and key.
-func (bad *BadBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
+func (bad *BadBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (bad *BadBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 }
 
 // DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
-func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
+func (bad *BadBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (bad *BadBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err error
 }
 
 // Stat looks up disk metadata on the blob file.
-func (bad *BadBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
+func (bad *BadBlobs) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
@@ -183,7 +183,7 @@ func (bad *BadBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.Blo
 // StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 // version. This avoids the potential need to check multiple storage formats for the blob
 // when the format is already known.
-func (bad *BadBlobs) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
+func (bad *BadBlobs) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (blobstore.BlobInfo, error) {
 	if err := bad.err.Err(); err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (bad *BadBlobs) StatWithStorageFormat(ctx context.Context, ref storage.Blob
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
 // If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
-func (bad *BadBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) error {
+func (bad *BadBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) error {
 	if err := bad.err.Err(); err != nil {
 		return err
 	}

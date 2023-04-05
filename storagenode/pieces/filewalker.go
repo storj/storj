@@ -9,20 +9,20 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
 // FileWalker implements methods to walk over pieces in a storage directory.
 type FileWalker struct {
 	log *zap.Logger
 
-	blobs       storage.Blobs
+	blobs       blobstore.Blobs
 	v0PieceInfo V0PieceInfoDB
 }
 
 // NewFileWalker creates a new FileWalker.
-func NewFileWalker(log *zap.Logger, blobs storage.Blobs, db V0PieceInfoDB) *FileWalker {
+func NewFileWalker(log *zap.Logger, blobs blobstore.Blobs, db V0PieceInfoDB) *FileWalker {
 	return &FileWalker{
 		log:         log,
 		blobs:       blobs,
@@ -39,7 +39,7 @@ func NewFileWalker(log *zap.Logger, blobs storage.Blobs, db V0PieceInfoDB) *File
 func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.NodeID, fn func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// iterate over all in V1 storage, skipping v0 pieces
-	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo storage.BlobInfo) error {
+	err = fw.blobs.WalkNamespace(ctx, satellite.Bytes(), func(blobInfo blobstore.BlobInfo) error {
 		if blobInfo.StorageFormatVersion() < filestore.FormatV1 {
 			// skip v0 pieces, which are handled separately
 			return nil

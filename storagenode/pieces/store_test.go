@@ -26,9 +26,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
@@ -144,7 +144,7 @@ func TestPieces(t *testing.T) {
 	}
 }
 
-func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion storage.FormatVersion) {
+func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelliteID storj.NodeID, pieceID storj.PieceID, data []byte, atTime time.Time, expireTime *time.Time, formatVersion blobstore.FormatVersion) {
 	tStore := &pieces.StoreForTest{store}
 	writer, err := tStore.WriterForFormatVersion(ctx, satelliteID, pieceID, formatVersion, pb.PieceHashAlgorithm_SHA256)
 	require.NoError(t, err)
@@ -165,18 +165,18 @@ func writeAPiece(ctx context.Context, t testing.TB, store *pieces.Store, satelli
 	require.NoError(t, err)
 }
 
-func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, expectCreateTime time.Time, expectFormat storage.FormatVersion) {
+func verifyPieceHandle(t testing.TB, reader *pieces.Reader, expectDataLen int, expectCreateTime time.Time, expectFormat blobstore.FormatVersion) {
 	assert.Equal(t, expectFormat, reader.StorageFormatVersion())
 	assert.Equal(t, int64(expectDataLen), reader.Size())
 	if expectFormat != filestore.FormatV0 {
 		pieceHeader, err := reader.GetPieceHeader()
 		require.NoError(t, err)
-		assert.Equal(t, expectFormat, storage.FormatVersion(pieceHeader.FormatVersion))
+		assert.Equal(t, expectFormat, blobstore.FormatVersion(pieceHeader.FormatVersion))
 		assert.True(t, expectCreateTime.Equal(pieceHeader.CreationTime))
 	}
 }
 
-func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, expectDataLen int, expectTime time.Time, expectFormat storage.FormatVersion) {
+func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, expectDataLen int, expectTime time.Time, expectFormat blobstore.FormatVersion) {
 	reader, err := store.Reader(ctx, satelliteID, pieceID)
 	require.NoError(t, err)
 	verifyPieceHandle(t, reader, expectDataLen, expectTime, expectFormat)
@@ -191,7 +191,7 @@ func tryOpeningAPiece(ctx context.Context, t testing.TB, store *pieces.StoreForT
 func TestTrashAndRestore(t *testing.T) {
 	type testfile struct {
 		data      []byte
-		formatVer storage.FormatVersion
+		formatVer blobstore.FormatVersion
 	}
 	type testpiece struct {
 		pieceID    storj.PieceID
@@ -476,7 +476,7 @@ func TestTrashAndRestore(t *testing.T) {
 	})
 }
 
-func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, formatVer storage.FormatVersion, expected []byte, expiration time.Time, publicKey storj.PiecePublicKey) {
+func verifyPieceData(ctx context.Context, t testing.TB, store *pieces.StoreForTest, satelliteID storj.NodeID, pieceID storj.PieceID, formatVer blobstore.FormatVersion, expected []byte, expiration time.Time, publicKey storj.PiecePublicKey) {
 	r, err := store.ReaderWithStorageFormat(ctx, satelliteID, pieceID, formatVer)
 	require.NoError(t, err)
 

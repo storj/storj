@@ -26,13 +26,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -1108,7 +1108,7 @@ func getRemoteSegment(
 func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
-	blobRef := storage.BlobRef{
+	blobRef := blobstore.BlobRef{
 		Namespace: planet.Satellites[0].ID().Bytes(),
 		Key:       corruptedPieceID.Bytes(),
 	}
@@ -1566,7 +1566,7 @@ func newBadBlobsAllowVerify(log *zap.Logger, nodeDB storagenode.DB) storagenode.
 
 type badBlobsAllowVerify struct {
 	testblobs.ErrorBlobs
-	goodBlobs storage.Blobs
+	goodBlobs blobstore.Blobs
 }
 
 func (b *badBlobsAllowVerify) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {

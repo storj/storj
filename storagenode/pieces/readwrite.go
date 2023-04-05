@@ -15,8 +15,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
 const (
@@ -63,16 +63,16 @@ var BadFormatVersion = errs.Class("Incompatible storage format version")
 type Writer struct {
 	log       *zap.Logger
 	hash      hash.Hash
-	blob      storage.BlobWriter
+	blob      blobstore.BlobWriter
 	pieceSize int64 // piece size only; i.e., not including piece header
 
-	blobs     storage.Blobs
+	blobs     blobstore.Blobs
 	satellite storj.NodeID
 	closed    bool
 }
 
-// NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
+// NewWriter creates a new writer for blobstore.BlobWriter.
+func NewWriter(log *zap.Logger, blobWriter blobstore.BlobWriter, blobs blobstore.Blobs, satellite storj.NodeID, hashAlgorithm pb.PieceHashAlgorithm) (*Writer, error) {
 	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
@@ -211,15 +211,15 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 
 // Reader implements a piece reader that reads content from blob store.
 type Reader struct {
-	formatVersion storage.FormatVersion
+	formatVersion blobstore.FormatVersion
 
-	blob      storage.BlobReader
+	blob      blobstore.BlobReader
 	pos       int64 // relative to file start; i.e., it includes piece header
 	pieceSize int64 // piece size only; i.e., not including piece header
 }
 
-// NewReader creates a new reader for storage.BlobReader.
-func NewReader(blob storage.BlobReader) (*Reader, error) {
+// NewReader creates a new reader for blobstore.BlobReader.
+func NewReader(blob blobstore.BlobReader) (*Reader, error) {
 	size, err := blob.Size()
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -241,7 +241,7 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 }
 
 // StorageFormatVersion returns the storage format version of the piece being read.
-func (r *Reader) StorageFormatVersion() storage.FormatVersion {
+func (r *Reader) StorageFormatVersion() blobstore.FormatVersion {
 	return r.formatVersion
 }
 

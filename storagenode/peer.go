@@ -30,10 +30,10 @@ import (
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleserver"
@@ -80,7 +80,7 @@ type DB interface {
 	// Close closes the database
 	Close() error
 
-	Pieces() storage.Blobs
+	Pieces() blobstore.Blobs
 
 	Orders() orders.DB
 	V0PieceInfo() pieces.V0PieceInfoDB

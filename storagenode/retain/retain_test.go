@@ -21,9 +21,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -59,7 +59,7 @@ func TestRetainPieces(t *testing.T) {
 		// keep pieceIDs[numPiecesToKeep+numOldPieces : numPieces] (recent + not in filter)
 		// add all pieces to the node pieces info DB - but only count piece ids in filter
 		for index, id := range pieceIDs {
-			var formatVer storage.FormatVersion
+			var formatVer blobstore.FormatVersion
 			if index%2 == 0 {
 				formatVer = filestore.FormatV0
 			} else {

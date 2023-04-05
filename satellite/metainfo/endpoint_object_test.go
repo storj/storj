@@ -35,7 +35,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/blobstore"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/object"
@@ -1372,7 +1372,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				node := planet.FindNode(piece.StorageNode)
 				pieceID := segments[0].RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
 
-				piece, err := node.DB.Pieces().Stat(ctx, storage.BlobRef{
+				piece, err := node.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 					Namespace: planet.Satellites[0].ID().Bytes(),
 					Key:       pieceID.Bytes(),
 				})
@@ -1392,7 +1392,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 				node := planet.FindNode(piece.StorageNode)
 				pieceID := segments[0].RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
 
-				piece, err := node.DB.Pieces().Stat(ctx, storage.BlobRef{
+				piece, err := node.DB.Pieces().Stat(ctx, blobstore.BlobRef{
 					Namespace: planet.Satellites[0].ID().Bytes(),
 					Key:       pieceID.Bytes(),
 				})

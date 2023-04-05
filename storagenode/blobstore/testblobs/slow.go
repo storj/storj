@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 // SlowDB implements slow storage node DB.
@@ -34,7 +34,7 @@ func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 }
 
 // Pieces returns the blob store.
-func (slow *SlowDB) Pieces() storage.Blobs {
+func (slow *SlowDB) Pieces() blobstore.Blobs {
 	return slow.blobs
 }
 
@@ -47,13 +47,13 @@ func (slow *SlowDB) SetLatency(delay time.Duration) {
 // SlowBlobs implements a slow blob store.
 type SlowBlobs struct {
 	delay int64 // time.Duration
-	blobs storage.Blobs
+	blobs blobstore.Blobs
 	log   *zap.Logger
 }
 
 // newSlowBlobs creates a new slow blob store wrapping the provided blobs.
 // Use SetLatency to dynamically configure the latency of all operations.
-func newSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
+func newSlowBlobs(log *zap.Logger, blobs blobstore.Blobs) *SlowBlobs {
 	return &SlowBlobs{
 		log:   log,
 		blobs: blobs,
@@ -62,7 +62,7 @@ func newSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
 
 // Create creates a new blob that can be written optionally takes a size
 // argument for performance improvements, -1 is unknown size.
-func (slow *SlowBlobs) Create(ctx context.Context, ref storage.BlobRef, size int64) (storage.BlobWriter, error) {
+func (slow *SlowBlobs) Create(ctx context.Context, ref blobstore.BlobRef, size int64) (blobstore.BlobWriter, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -75,7 +75,7 @@ func (slow *SlowBlobs) Close() error {
 }
 
 // Open opens a reader with the specified namespace and key.
-func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
+func (slow *SlowBlobs) Open(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobReader, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -84,7 +84,7 @@ func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.B
 
 // OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential need
 // to check multiple storage formats to find the blob.
-func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobReader, error) {
+func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (blobstore.BlobReader, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -92,7 +92,7 @@ func (slow *SlowBlobs) OpenWithStorageFormat(ctx context.Context, ref storage.Bl
 }
 
 // Trash deletes the blob with the namespace and key.
-func (slow *SlowBlobs) Trash(ctx context.Context, ref storage.BlobRef) error {
+func (slow *SlowBlobs) Trash(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
@@ -116,7 +116,7 @@ func (slow *SlowBlobs) EmptyTrash(ctx context.Context, namespace []byte, trashed
 }
 
 // Delete deletes the blob with the namespace and key.
-func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
+func (slow *SlowBlobs) Delete(ctx context.Context, ref blobstore.BlobRef) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
@@ -124,7 +124,7 @@ func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 }
 
 // DeleteWithStorageFormat deletes the blob with the namespace, key, and format version.
-func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) error {
+func (slow *SlowBlobs) DeleteWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}
@@ -140,7 +140,7 @@ func (slow *SlowBlobs) DeleteNamespace(ctx context.Context, ref []byte) (err err
 }
 
 // Stat looks up disk metadata on the blob file.
-func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.BlobInfo, error) {
+func (slow *SlowBlobs) Stat(ctx context.Context, ref blobstore.BlobRef) (blobstore.BlobInfo, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -150,7 +150,7 @@ func (slow *SlowBlobs) Stat(ctx context.Context, ref storage.BlobRef) (storage.B
 // StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 // version. This avoids the potential need to check multiple storage formats for the blob
 // when the format is already known.
-func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.BlobInfo, error) {
+func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref blobstore.BlobRef, formatVer blobstore.FormatVersion) (blobstore.BlobInfo, error) {
 	if err := slow.sleep(ctx); err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -160,7 +160,7 @@ func (slow *SlowBlobs) StatWithStorageFormat(ctx context.Context, ref storage.Bl
 // WalkNamespace executes walkFunc for each locally stored blob in the given namespace.
 // If walkFunc returns a non-nil error, WalkNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(storage.BlobInfo) error) error {
+func (slow *SlowBlobs) WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(blobstore.BlobInfo) error) error {
 	if err := slow.sleep(ctx); err != nil {
 		return errs.Wrap(err)
 	}

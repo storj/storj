@@ -19,8 +19,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -158,7 +158,7 @@ func readAndWritePiece(t *testing.T, content []byte) {
 	assert.Truef(t, header.OrderLimit.PieceExpiration.Equal(expirationTime),
 		"*header.ExpirationTime = %s, but expected expirationTime = %s", header.OrderLimit.PieceExpiration, expirationTime)
 	assert.Equal(t, pb.OrderLimit{PieceExpiration: expirationTime.UTC()}, header.OrderLimit)
-	assert.Equal(t, filestore.FormatV1, storage.FormatVersion(header.FormatVersion))
+	assert.Equal(t, filestore.FormatV1, blobstore.FormatVersion(header.FormatVersion))
 
 	// make sure seek-nowhere works as expected after piece header is read too
 	// (from the point of view of the piece store, the file position has not moved)
