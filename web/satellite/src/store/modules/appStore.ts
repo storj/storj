@@ -4,7 +4,7 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/common';
+import { OnboardingOS, PricingPlanInfo } from '@/types/common';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { FrontendConfig, FrontendConfigApi } from '@/types/config';
@@ -42,12 +42,6 @@ class ErrorPageState {
 
 export class State {
     public viewsState: ViewsState = new ViewsState();
-    public satelliteName = '';
-    public partneredSatellites = new Array<PartneredSatellite>();
-    public isBetaSatellite = false;
-    public couponCodeBillingUIEnabled = false;
-    public couponCodeSignupUIEnabled = false;
-    public isAllProjectsDashboard = false;
     public config: FrontendConfig = new FrontendConfig();
 }
 
@@ -60,7 +54,6 @@ export const useAppStore = defineStore('app', () => {
         const result = await configApi.get();
 
         state.config = result;
-        state.isAllProjectsDashboard = result.allProjectsDashboard;
 
         return result;
     }
@@ -107,18 +100,6 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.fetchState = newFetchState;
     }
 
-    function setSatelliteName(satelliteName: string): void {
-        state.satelliteName = satelliteName;
-    }
-
-    function setPartneredSatellites(partneredSatellites: PartneredSatellite[]): void {
-        state.partneredSatellites = partneredSatellites;
-    }
-
-    function setSatelliteStatus(isBetaSatellite: boolean): void {
-        state.isBetaSatellite = isBetaSatellite;
-    }
-
     function setOnboardingBackRoute(backRoute: string): void {
         state.viewsState.onbAGStepBackRoute = backRoute;
     }
@@ -133,14 +114,6 @@ export const useAppStore = defineStore('app', () => {
 
     function setOnboardingCleanAPIKey(apiKey: string): void {
         state.viewsState.onbCleanApiKey = apiKey;
-    }
-
-    function setCouponCodeBillingUIStatus(couponCodeBillingUIEnabled: boolean): void {
-        state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
-    }
-
-    function setCouponCodeSignupUIStatus(couponCodeSignupUIEnabled: boolean): void {
-        state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
     }
 
     function setOnboardingOS(os: OnboardingOS): void {
@@ -198,15 +171,10 @@ export const useAppStore = defineStore('app', () => {
         removeActiveModal,
         toggleHasJustLoggedIn: toggleHasJustLoggenIn,
         changeState,
-        setSatelliteName,
-        setPartneredSatellites,
-        setSatelliteStatus,
         setOnboardingBackRoute,
         setOnboardingAPIKeyStepBackRoute,
         setOnboardingAPIKey,
         setOnboardingCleanAPIKey,
-        setCouponCodeBillingUIStatus,
-        setCouponCodeSignupUIStatus,
         setOnboardingOS,
         setPricingPlan,
         setManagePassphraseStep,

@@ -5,7 +5,6 @@ import Vue from 'vue';
 import Router from 'vue-router';
 
 import { NavigationLink } from '@/types/navigation';
-import { MetaUtils } from '@/utils/meta';
 import AllDashboardArea from '@/views/all-dashboard/AllDashboardArea.vue';
 import MyProjects from '@/views/all-dashboard/components/MyProjects.vue';
 
@@ -115,17 +114,11 @@ export abstract class RouteConfig {
     public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
 
-    public static FirstOnboardingStep = this.OverviewStep;
-
     // objects child paths.
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
     public static UploadFileChildren = new NavigationLink('*', 'Objects Upload Children');
-}
-
-if (MetaUtils.getMetaContent('pricing-packages-enabled') === 'true') {
-    RouteConfig.FirstOnboardingStep = RouteConfig.PricingPlanStep;
 }
 
 export const notProjectRelatedRoutes = [

@@ -12,13 +12,6 @@ export enum OnboardingOS {
     LINUX = 'linux',
 }
 
-export class PartneredSatellite {
-    constructor(
-        public name: string = '',
-        public address: string = '',
-    ) {}
-}
-
 export class PricingPlanInfo {
     constructor(
         public type: PricingPlanType = PricingPlanType.FREE,

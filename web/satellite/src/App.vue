@@ -14,8 +14,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-import { PartneredSatellite } from '@/types/common';
-import { MetaUtils } from '@/utils/meta';
 import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import ErrorPage from '@/views/ErrorPage.vue';
@@ -73,43 +71,6 @@ onMounted(async (): Promise<void> => {
     } catch (error) {
         appStore.setErrorPage(500, true);
         notify.error(error.message, null);
-    }
-
-    const satelliteName = MetaUtils.getMetaContent('satellite-name');
-    const partneredSatellitesData = MetaUtils.getMetaContent('partnered-satellites');
-    let partneredSatellitesJSON = [];
-    if (partneredSatellitesData) {
-        partneredSatellitesJSON = JSON.parse(partneredSatellitesData);
-    }
-    const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-    const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
-    const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
-
-    if (satelliteName) {
-        appStore.setSatelliteName(satelliteName);
-
-        if (partneredSatellitesJSON.length) {
-            const partneredSatellites: PartneredSatellite[] = [];
-            partneredSatellitesJSON.forEach((sat: PartneredSatellite) => {
-                // skip current satellite
-                if (sat.name !== satelliteName) {
-                    partneredSatellites.push(sat);
-                }
-            });
-            appStore.setPartneredSatellites(partneredSatellites);
-        }
-    }
-
-    if (isBetaSatellite) {
-        appStore.setSatelliteStatus(isBetaSatellite === 'true');
-    }
-
-    if (couponCodeBillingUIEnabled) {
-        appStore.setCouponCodeBillingUIStatus(couponCodeBillingUIEnabled === 'true');
-    }
-
-    if (couponCodeSignupUIEnabled) {
-        appStore.setCouponCodeSignupUIStatus(couponCodeSignupUIEnabled === 'true');
     }
 
     fixViewportHeight();
