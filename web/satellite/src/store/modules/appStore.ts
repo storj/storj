@@ -7,9 +7,7 @@ import { defineStore } from 'pinia';
 import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/common';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
-import { MetaUtils } from '@/utils/meta';
-import { FrontendConfig } from '@/types/config.gen';
-import { FrontendConfigApi } from '@/types/config';
+import { FrontendConfig, FrontendConfigApi } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 
 class ViewsState {
@@ -49,7 +47,7 @@ export class State {
     public isBetaSatellite = false;
     public couponCodeBillingUIEnabled = false;
     public couponCodeSignupUIEnabled = false;
-    public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true';
+    public isAllProjectsDashboard = false;
     public config: FrontendConfig = new FrontendConfig();
 }
 
@@ -62,6 +60,7 @@ export const useAppStore = defineStore('app', () => {
         const result = await configApi.get();
 
         state.config = result;
+        state.isAllProjectsDashboard = result.allProjectsDashboard;
 
         return result;
     }

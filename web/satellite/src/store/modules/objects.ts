@@ -8,7 +8,6 @@ import { FilesState } from '@/store/modules/files';
 import { StoreModule } from '@/types/store';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { MetaUtils } from '@/utils/meta';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
@@ -255,7 +254,8 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 }
 
                 const salt = await dispatch(PROJECTS_ACTIONS.GET_SALT, rootGetters.selectedProject.id, { root: true });
-                const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+                const appStore = useAppStore();
+                const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
                 if (!state.passphrase) {
                     throw new Error('Passphrase can\'t be empty');

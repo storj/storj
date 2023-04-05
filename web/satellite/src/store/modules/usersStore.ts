@@ -12,8 +12,8 @@ import {
     UsersApi,
     UserSettings,
 } from '@/types/users';
-import { MetaUtils } from '@/utils/meta';
 import { AuthHttpApi } from '@/api/auth';
+import { useAppStore } from '@/store/modules/appStore';
 
 export class UsersState {
     public user: User = new User();
@@ -24,6 +24,8 @@ export class UsersState {
 
 export const useUsersStore = defineStore('users', () => {
     const state = reactive<UsersState>(new UsersState());
+
+    const appStore = useAppStore();
 
     const userName = computed(() => {
         return state.user.getFullName();
@@ -44,11 +46,7 @@ export const useUsersStore = defineStore('users', () => {
 
     async function getUser(): Promise<void> {
         const user = await api.get();
-
-        if (user.projectLimit === 0) {
-            const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
-            user.projectLimit = parseInt(limitFromConfig);
-        }
+        user.projectLimit ||= appStore.state.config.defaultProjectLimit;
 
         setUser(user);
     }

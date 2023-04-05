@@ -108,7 +108,10 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path);
+        const firstOnboardingStep = appStore.state.config.pricingPackagesEnabled
+            ? RouteConfig.PricingPlanStep
+            : RouteConfig.OverviewStep;
+        next(RouteConfig.OnboardingTour.with(firstOnboardingStep).path);
 
         return;
     }
@@ -149,7 +152,7 @@ function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink
 function updateTitle(): void {
     const appStore = useAppStore();
     const routeName = router.currentRoute.name;
-    const parts = [routeName, appStore.state.satelliteName];
+    const parts = [routeName, appStore.state.config.satelliteName];
 
     if (routeName && !notProjectRelatedRoutes.includes(routeName)) {
         parts.unshift(store.state.projectsModule.selectedProject.name);

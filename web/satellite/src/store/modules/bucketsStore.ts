@@ -10,7 +10,6 @@ import { BucketsApiGql } from '@/api/buckets';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { MetaUtils } from '@/utils/meta';
 import { useAppStore } from '@/store/modules/appStore';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 
@@ -51,6 +50,8 @@ export const useBucketsStore = defineStore('buckets', () => {
     const state = reactive<BucketsState>(new BucketsState());
 
     const api: BucketsApi = new BucketsApiGql();
+
+    const appStore = useAppStore();
 
     function setBucketsSearch(search: string): void {
         state.cursor.search = search;
@@ -155,7 +156,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         const { getProjectSalt } = useProjectsStore();
 
         const salt = await getProjectSalt(projectID);
-        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
         if (!state.passphrase) {
             throw new Error('Passphrase can\'t be empty');
@@ -256,8 +257,7 @@ export const useBucketsStore = defineStore('buckets', () => {
 
         state.leaveRoute = leaveRoute;
 
-        const { updateActiveModal } = useAppStore();
-        updateActiveModal(MODALS.uploadCancelPopup);
+        appStore.updateActiveModal(MODALS.uploadCancelPopup);
 
         return true;
     }

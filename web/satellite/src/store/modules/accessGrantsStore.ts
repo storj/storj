@@ -14,6 +14,7 @@ import {
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsApiGql } from '@/api/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
 
 class AccessGrantsState {
     public cursor: AccessGrantCursor = new AccessGrantCursor();
@@ -35,6 +36,8 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     const api = new AccessGrantsApiGql();
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
+
+    const appStore = useAppStore();
 
     async function startWorker(): Promise<void> {
         const worker = new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
@@ -93,7 +96,8 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     }
 
     async function getEdgeCredentials(accessGrant: string, optionalURL?: string, isPublic?: boolean): Promise<EdgeCredentials> {
-        const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, optionalURL, isPublic);
+        const url = optionalURL || appStore.state.config.gatewayCredentialsRequestURL;
+        const credentials: EdgeCredentials = await api.getGatewayCredentials(accessGrant, url, isPublic);
 
         state.edgeCredentials = credentials;
 
