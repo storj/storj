@@ -94,8 +94,8 @@ func TestUploadAndPartialDownload(t *testing.T) {
 }
 
 func calcUploadOrderMax(size int64) (ordered int64) {
-	initialStep := 64 * memory.KiB.Int64()
-	maxStep := 256 * memory.KiB.Int64()
+	initialStep := piecestore.DefaultConfig.InitialStep * memory.KiB.Int64()
+	maxStep := piecestore.DefaultConfig.MaximumStep * memory.KiB.Int64()
 	currentStep := initialStep
 	ordered = 0
 	for ordered < size {
