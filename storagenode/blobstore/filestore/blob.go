@@ -11,15 +11,15 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 const (
 	// FormatV0 is the identifier for storage format v0, which also corresponds to an absence of
 	// format version information.
-	FormatV0 storage.FormatVersion = 0
+	FormatV0 blobstore.FormatVersion = 0
 	// FormatV1 is the identifier for storage format v1.
-	FormatV1 storage.FormatVersion = 1
+	FormatV1 blobstore.FormatVersion = 1
 
 	// Note: New FormatVersion values should be consecutive, as certain parts of this blob store
 	// iterate over them numerically and check for blobs stored with each version.
@@ -42,10 +42,10 @@ const (
 // blobReader implements reading blobs.
 type blobReader struct {
 	*os.File
-	formatVersion storage.FormatVersion
+	formatVersion blobstore.FormatVersion
 }
 
-func newBlobReader(file *os.File, formatVersion storage.FormatVersion) *blobReader {
+func newBlobReader(file *os.File, formatVersion blobstore.FormatVersion) *blobReader {
 	return &blobReader{file, formatVersion}
 }
 
@@ -59,21 +59,21 @@ func (blob *blobReader) Size() (int64, error) {
 }
 
 // StorageFormatVersion gets the storage format version being used by the blob.
-func (blob *blobReader) StorageFormatVersion() storage.FormatVersion {
+func (blob *blobReader) StorageFormatVersion() blobstore.FormatVersion {
 	return blob.formatVersion
 }
 
 // blobWriter implements writing blobs.
 type blobWriter struct {
-	ref           storage.BlobRef
+	ref           blobstore.BlobRef
 	store         *blobStore
 	closed        bool
-	formatVersion storage.FormatVersion
+	formatVersion blobstore.FormatVersion
 	buffer        *bufio.Writer
 	fh            *os.File
 }
 
-func newBlobWriter(ref storage.BlobRef, store *blobStore, formatVersion storage.FormatVersion, file *os.File, bufferSize int) *blobWriter {
+func newBlobWriter(ref blobstore.BlobRef, store *blobStore, formatVersion blobstore.FormatVersion, file *os.File, bufferSize int) *blobWriter {
 	return &blobWriter{
 		ref:           ref,
 		store:         store,
@@ -140,6 +140,6 @@ func (blob *blobWriter) Size() (int64, error) {
 }
 
 // StorageFormatVersion indicates what storage format version the blob is using.
-func (blob *blobWriter) StorageFormatVersion() storage.FormatVersion {
+func (blob *blobWriter) StorageFormatVersion() blobstore.FormatVersion {
 	return blob.formatVersion
 }

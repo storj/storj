@@ -23,10 +23,10 @@ import (
 	"storj.io/private/dbutil/sqliteutil"
 	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
@@ -92,7 +92,7 @@ type DB struct {
 	log    *zap.Logger
 	config Config
 
-	pieces storage.Blobs
+	pieces blobstore.Blobs
 
 	dbDirectory string
 
@@ -512,7 +512,7 @@ func (db *DB) Orders() orders.DB {
 }
 
 // Pieces returns blob storage for pieces.
-func (db *DB) Pieces() storage.Blobs {
+func (db *DB) Pieces() blobstore.Blobs {
 	return db.pieces
 }
 

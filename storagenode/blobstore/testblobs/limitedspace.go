@@ -8,8 +8,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 // ensures that limitedSpaceDB implements storagenode.DB.
@@ -32,19 +32,19 @@ func NewLimitedSpaceDB(log *zap.Logger, db storagenode.DB, freeSpace int64) stor
 }
 
 // Pieces returns the blob store.
-func (lim *limitedSpaceDB) Pieces() storage.Blobs {
+func (lim *limitedSpaceDB) Pieces() blobstore.Blobs {
 	return lim.blobs
 }
 
 // LimitedSpaceBlobs implements a limited space blob store.
 type LimitedSpaceBlobs struct {
-	storage.Blobs
+	blobstore.Blobs
 	log       *zap.Logger
 	freeSpace int64
 }
 
 // newLimitedSpaceBlobs creates a new limited space blob store wrapping the provided blobs.
-func newLimitedSpaceBlobs(log *zap.Logger, blobs storage.Blobs, freeSpace int64) *LimitedSpaceBlobs {
+func newLimitedSpaceBlobs(log *zap.Logger, blobs blobstore.Blobs, freeSpace int64) *LimitedSpaceBlobs {
 	return &LimitedSpaceBlobs{
 		log:       log,
 		Blobs:     blobs,

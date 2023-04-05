@@ -26,7 +26,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -35,8 +34,9 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/blobstore"
+	"storj.io/storj/storagenode/blobstore/testblobs"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -2378,7 +2378,7 @@ func getRemoteSegment(
 func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Planet, corruptedNode *testplanet.StorageNode, corruptedPieceID storj.PieceID) {
 	t.Helper()
 
-	blobRef := storage.BlobRef{
+	blobRef := blobstore.BlobRef{
 		Namespace: planet.Satellites[0].ID().Bytes(),
 		Key:       corruptedPieceID.Bytes(),
 	}

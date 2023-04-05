@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
+	"storj.io/storj/storagenode/blobstore"
 )
 
 func TestChore(t *testing.T) {
@@ -129,7 +129,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	namespaces, err := exitingNode.DB.Pieces().ListNamespaces(ctx)
 	require.NoError(t, err)
 	for _, ns := range namespaces {
-		err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+		err = exitingNode.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
 			return errs.New("found a piece on the node. this shouldn't happen.")
 		})
 		require.NoError(t, err)
@@ -146,7 +146,7 @@ func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[s
 			return nil, err
 		}
 		for _, ns := range namespaces {
-			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo storage.BlobInfo) error {
+			err = node.DB.Pieces().WalkNamespace(ctx, ns, func(blobInfo blobstore.BlobInfo) error {
 				nodePieceCounts[node.ID()]++
 				return nil
 			})
