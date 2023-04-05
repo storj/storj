@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"mime"
 	"net"
 	"net/http"
@@ -30,7 +31,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
@@ -134,12 +134,7 @@ type Server struct {
 
 	schema graphql.Schema
 
-	templatesCache *templates
-}
-
-type templates struct {
-	index *template.Template
-	error *template.Template
+	errorTemplate *template.Template
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -382,9 +377,9 @@ func (server *Server) Run(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	_, err = server.loadTemplates()
+	_, err = server.loadErrorTemplate()
 	if err != nil {
-		// TODO: should it return error if some template can not be initialized or just log about it?
+		// TODO: should it return error if the template cannot be initialized or just log about it?
 		return Error.Wrap(err)
 	}
 
@@ -439,99 +434,32 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
-	var data struct {
-		ExternalAddress                 string
-		SatelliteName                   string
-		SatelliteNodeURL                string
-		StripePublicKey                 string
-		PartneredSatellites             string
-		DefaultProjectLimit             int
-		GeneralRequestURL               string
-		ProjectLimitsIncreaseRequestURL string
-		GatewayCredentialsRequestURL    string
-		IsBetaSatellite                 bool
-		BetaSatelliteFeedbackURL        string
-		BetaSatelliteSupportURL         string
-		DocumentationURL                string
-		CouponCodeBillingUIEnabled      bool
-		CouponCodeSignupUIEnabled       bool
-		FileBrowserFlowDisabled         bool
-		LinksharingURL                  string
-		PathwayOverviewEnabled          bool
-		RegistrationRecaptchaEnabled    bool
-		RegistrationRecaptchaSiteKey    string
-		RegistrationHcaptchaEnabled     bool
-		RegistrationHcaptchaSiteKey     string
-		LoginRecaptchaEnabled           bool
-		LoginRecaptchaSiteKey           string
-		LoginHcaptchaEnabled            bool
-		LoginHcaptchaSiteKey            string
-		AllProjectsDashboard            bool
-		DefaultPaidStorageLimit         memory.Size
-		DefaultPaidBandwidthLimit       memory.Size
-		InactivityTimerEnabled          bool
-		InactivityTimerDuration         int
-		InactivityTimerViewerEnabled    bool
-		OptionalSignupSuccessURL        string
-		HomepageURL                     string
-		NativeTokenPaymentsEnabled      bool
-		PasswordMinimumLength           int
-		PasswordMaximumLength           int
-		ABTestingEnabled                bool
-		PricingPackagesEnabled          bool
-	}
-
-	data.ExternalAddress = server.config.ExternalAddress
-	data.SatelliteName = server.config.SatelliteName
-	data.SatelliteNodeURL = server.nodeURL.String()
-	data.StripePublicKey = server.stripePublicKey
-	data.PartneredSatellites = server.config.PartneredSatellites.String()
-	data.DefaultProjectLimit = server.config.DefaultProjectLimit
-	data.GeneralRequestURL = server.config.GeneralRequestURL
-	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
-	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
-	data.IsBetaSatellite = server.config.IsBetaSatellite
-	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
-	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
-	data.DocumentationURL = server.config.DocumentationURL
-	data.CouponCodeBillingUIEnabled = server.config.CouponCodeBillingUIEnabled
-	data.CouponCodeSignupUIEnabled = server.config.CouponCodeSignupUIEnabled
-	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
-	data.LinksharingURL = server.config.LinksharingURL
-	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
-	data.DefaultPaidStorageLimit = server.config.UsageLimits.Storage.Paid
-	data.DefaultPaidBandwidthLimit = server.config.UsageLimits.Bandwidth.Paid
-	data.RegistrationRecaptchaEnabled = server.config.Captcha.Registration.Recaptcha.Enabled
-	data.RegistrationRecaptchaSiteKey = server.config.Captcha.Registration.Recaptcha.SiteKey
-	data.RegistrationHcaptchaEnabled = server.config.Captcha.Registration.Hcaptcha.Enabled
-	data.RegistrationHcaptchaSiteKey = server.config.Captcha.Registration.Hcaptcha.SiteKey
-	data.LoginRecaptchaEnabled = server.config.Captcha.Login.Recaptcha.Enabled
-	data.LoginRecaptchaSiteKey = server.config.Captcha.Login.Recaptcha.SiteKey
-	data.LoginHcaptchaEnabled = server.config.Captcha.Login.Hcaptcha.Enabled
-	data.LoginHcaptchaSiteKey = server.config.Captcha.Login.Hcaptcha.SiteKey
-	data.AllProjectsDashboard = server.config.AllProjectsDashboard
-	data.InactivityTimerEnabled = server.config.Session.InactivityTimerEnabled
-	data.InactivityTimerDuration = server.config.Session.InactivityTimerDuration
-	data.InactivityTimerViewerEnabled = server.config.Session.InactivityTimerViewerEnabled
-	data.OptionalSignupSuccessURL = server.config.OptionalSignupSuccessURL
-	data.HomepageURL = server.config.HomepageURL
-	data.NativeTokenPaymentsEnabled = server.config.NativeTokenPaymentsEnabled
-	data.PasswordMinimumLength = console.PasswordMinimumLength
-	data.PasswordMaximumLength = console.PasswordMaximumLength
-	data.ABTestingEnabled = server.config.ABTesting.Enabled
-	data.PricingPackagesEnabled = server.config.PricingPackagesEnabled
-
-	templates, err := server.loadTemplates()
-	if err != nil || templates.index == nil {
-		server.log.Error("unable to load templates", zap.Error(err))
-		fmt.Fprintf(w, "Unable to load templates. See whether satellite UI has been built.")
+	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
+	file, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			server.log.Error("index.html was not generated. run 'npm run build' in the "+server.config.StaticDir+" directory", zap.Error(err))
+		} else {
+			server.log.Error("error loading index.html", zap.String("path", path), zap.Error(err))
+		}
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
-	if err := templates.index.Execute(w, data); err != nil {
-		server.log.Error("index template could not be executed", zap.Error(err))
+	defer func() {
+		if err := file.Close(); err != nil {
+			server.log.Error("error closing index.html", zap.String("path", path), zap.Error(err))
+		}
+	}()
+
+	info, err := file.Stat()
+	if err != nil {
+		server.log.Error("failed to retrieve file info", zap.Error(err))
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
+
+	http.ServeContent(w, r, path, info.ModTime(), file)
 }
 
 // withAuth performs initial authorization before every request.
@@ -854,18 +782,18 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	server.log.Debug(fmt.Sprintf("%s", result))
 }
 
-// serveError serves error static pages.
+// serveError serves a static error page.
 func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
-	templates, err := server.loadTemplates()
+	template, err := server.loadErrorTemplate()
 	if err != nil {
-		server.log.Error("unable to load templates", zap.Error(err))
+		server.log.Error("unable to load error template", zap.Error(err))
 		return
 	}
 
 	data := struct{ StatusCode int }{StatusCode: status}
-	err = templates.error.Execute(w, data)
+	err = template.Execute(w, data)
 	if err != nil {
 		server.log.Error("cannot parse error template", zap.Error(err))
 	}
@@ -916,40 +844,16 @@ func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	})
 }
 
-// loadTemplates is used to initialize all templates.
-func (server *Server) loadTemplates() (_ *templates, err error) {
-	if server.config.Watch {
-		return server.parseTemplates()
+// loadTemplates is used to initialize the error page template.
+func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
+	if server.errorTemplate == nil || server.config.Watch {
+		server.errorTemplate, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
 
-	if server.templatesCache != nil {
-		return server.templatesCache, nil
-	}
-
-	templates, err := server.parseTemplates()
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	server.templatesCache = templates
-	return server.templatesCache, nil
-}
-
-func (server *Server) parseTemplates() (_ *templates, err error) {
-	var t templates
-
-	t.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
-	if err != nil {
-		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
-		// Loading index is optional.
-	}
-
-	t.error, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
-	}
-
-	return &t, nil
+	return server.errorTemplate, nil
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.
