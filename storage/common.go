@@ -46,9 +46,6 @@ type Values []Value
 // Items keeps all ListItem.
 type Items []ListItem
 
-// DefaultLookupLimit is the default lookup limit for storage implementations.
-const DefaultLookupLimit = 500
-
 // ListItem returns Key, Value, IsPrefix.
 type ListItem struct {
 	Key      Key
@@ -62,61 +59,21 @@ type KeyValueStore interface {
 	Put(context.Context, Key, Value) error
 	// Get gets a value to store.
 	Get(context.Context, Key) (Value, error)
-	// GetAll gets all values from the store.
-	GetAll(context.Context, Keys) (Values, error)
 	// Delete deletes key and the value.
 	Delete(context.Context, Key) error
-	// DeleteMultiple deletes keys and returns nil for.
-	DeleteMultiple(context.Context, []Key) (Items, error)
 	// Range iterates over all items in unspecified order.
 	// The Key and Value are valid only for the duration of callback.
 	Range(ctx context.Context, fn func(context.Context, Key, Value) error) error
-	// List lists all keys starting from start and upto limit items.
-	List(ctx context.Context, start Key, limit int) (Keys, error)
-	// Iterate iterates over items based on opts.
-	Iterate(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
-	// IterateWithoutLookupLimit calls the callback with an iterator over the keys, but doesn't enforce default limit on opts.
-	IterateWithoutLookupLimit(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
-	// CompareAndSwap atomically compares and swaps oldValue with newValue.
-	CompareAndSwap(ctx context.Context, key Key, oldValue, newValue Value) error
 	// Close closes the store.
 	Close() error
-
-	// LookupLimit returns the maximum limit that is allowed.
-	LookupLimit() int
 }
 
-// IterateOptions contains options for iterator.
-type IterateOptions struct {
-	// Prefix ensure.
-	Prefix Key
-	// First will be the first item iterator returns or the next item (previous when reverse).
-	First Key
-	// Recurse, do not collapse items based on Delimiter.
-	Recurse bool
-	// The maximum number of elements to be returned.
-	Limit int
-}
-
-// Iterator iterates over a sequence of ListItems.
-type Iterator interface {
-	// Next prepares the next list item.
-	// It returns true on success, or false if there is no next result row or an error happened while preparing it.
-	Next(ctx context.Context, item *ListItem) bool
-}
-
-// IteratorFunc implements basic iterator.
-type IteratorFunc func(ctx context.Context, item *ListItem) bool
-
-// Next returns the next item.
-func (next IteratorFunc) Next(ctx context.Context, item *ListItem) bool { return next(ctx, item) }
-
-// IsZero returns true if the value struct is it's zero value.
+// IsZero returns true if the value struct is a zero value.
 func (value Value) IsZero() bool {
 	return len(value) == 0
 }
 
-// IsZero returns true if the key struct is it's zero value.
+// IsZero returns true if the key struct is a zero value.
 func (key Key) IsZero() bool {
 	return len(key) == 0
 }

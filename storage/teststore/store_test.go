@@ -10,9 +10,7 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	store := New()
-	store.SetLookupLimit(500)
-	testsuite.RunTests(t, store)
+	testsuite.RunTests(t, New())
 }
 func BenchmarkSuite(b *testing.B) {
 	testsuite.RunBenchmarks(b, New())

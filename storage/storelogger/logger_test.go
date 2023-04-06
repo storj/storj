@@ -14,7 +14,6 @@ import (
 
 func TestSuite(t *testing.T) {
 	store := teststore.New()
-	store.SetLookupLimit(500)
 	logged := New(zap.NewNop(), store)
 	testsuite.RunTests(t, logged)
 }
