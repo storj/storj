@@ -10,11 +10,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
-// RunTests runs common storage.KeyValueStore tests.
-func RunTests(t *testing.T, store storage.KeyValueStore) {
+// RunTests runs common kvstore.Store tests.
+func RunTests(t *testing.T, store kvstore.Store) {
 	// store = storelogger.NewTest(t, store)
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -24,12 +24,12 @@ func RunTests(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Parallel", func(t *testing.T) { testParallel(t, ctx, store) })
 }
 
-func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
-	var items storage.Items
+func testConstraints(t *testing.T, ctx *testcontext.Context, store kvstore.Store) {
+	var items kvstore.Items
 	for i := 0; i < 10; i++ {
-		items = append(items, storage.ListItem{
-			Key:   storage.Key("test-" + strconv.Itoa(i)),
-			Value: storage.Value("xyz"),
+		items = append(items, kvstore.Item{
+			Key:   kvstore.Key("test-" + strconv.Itoa(i)),
+			Value: kvstore.Value("xyz"),
 		})
 	}
 
@@ -47,8 +47,8 @@ func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyVa
 	defer cleanupItems(t, ctx, store, items)
 
 	t.Run("Put Empty", func(t *testing.T) {
-		var key storage.Key
-		var val storage.Value
+		var key kvstore.Key
+		var val kvstore.Value
 		defer func() { _ = store.Delete(ctx, key) }()
 
 		err := store.Put(ctx, key, val)

@@ -14,7 +14,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 var (
@@ -75,28 +75,28 @@ func OpenClientFrom(ctx context.Context, address string) (*Client, error) {
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
-func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+func (client *Client) Get(ctx context.Context, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return nil, storage.ErrEmptyKey.New("")
+		return nil, kvstore.ErrEmptyKey.New("")
 	}
 	return get(ctx, client.db, key)
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.
-func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+func (client *Client) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 	return put(ctx, client.db, key, value, client.TTL)
 }
 
 // IncrBy increments the value stored in key by the specified value.
-func (client *Client) IncrBy(ctx context.Context, key storage.Key, value int64) (err error) {
+func (client *Client) IncrBy(ctx context.Context, key kvstore.Key, value int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 	_, err = client.db.IncrBy(ctx, key.String(), value).Result()
 	return err
@@ -110,10 +110,10 @@ func (client *Client) Eval(ctx context.Context, script string, keys []string) (e
 }
 
 // Delete deletes a key/value pair from redis, for a given the key.
-func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+func (client *Client) Delete(ctx context.Context, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 	return delete(ctx, client.db, key)
 }
@@ -130,7 +130,7 @@ func (client *Client) Close() error {
 }
 
 // Range iterates over all items in unspecified order.
-func (client *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+func (client *Client) Range(ctx context.Context, fn func(context.Context, kvstore.Key, kvstore.Value) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	it := client.db.Scan(ctx, 0, "", 0).Iterator()
@@ -145,12 +145,12 @@ func (client *Client) Range(ctx context.Context, fn func(context.Context, storag
 		}
 		lastKey, lastOk = key, true
 
-		value, err := get(ctx, client.db, storage.Key(key))
+		value, err := get(ctx, client.db, kvstore.Key(key))
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		if err := fn(ctx, storage.Key(key), value); err != nil {
+		if err := fn(ctx, kvstore.Key(key), value); err != nil {
 			return err
 		}
 	}
@@ -158,11 +158,11 @@ func (client *Client) Range(ctx context.Context, fn func(context.Context, storag
 	return Error.Wrap(it.Err())
 }
 
-func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage.Value, err error) {
+func get(ctx context.Context, cmdable redis.Cmdable, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	value, err := cmdable.Get(ctx, string(key)).Bytes()
 	if errors.Is(err, redis.Nil) {
-		return nil, storage.ErrKeyNotFound.New("%q", key)
+		return nil, kvstore.ErrKeyNotFound.New("%q", key)
 	}
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return nil, Error.New("get error: %v", err)
@@ -170,7 +170,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 	return value, errs.Wrap(err)
 }
 
-func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
+func put(ctx context.Context, cmdable redis.Cmdable, key kvstore.Key, value kvstore.Value, ttl time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Set(ctx, key.String(), []byte(value), ttl).Err()
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {
@@ -179,7 +179,7 @@ func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value stor
 	return errs.Wrap(err)
 }
 
-func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
+func delete(ctx context.Context, cmdable redis.Cmdable, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = cmdable.Del(ctx, key.String()).Err()
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {

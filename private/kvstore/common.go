@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storage
+package kvstore
 
 import (
 	"bytes"
@@ -22,30 +22,30 @@ var ErrKeyNotFound = errs.Class("key not found")
 // ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap.
 var ErrEmptyKey = errs.Class("empty key")
 
-// Key is the type for the keys in a `KeyValueStore`.
+// Key is the type for the keys in a `Store`.
 type Key []byte
 
 // Value is the type for the values in a `ValueValueStore`.
 type Value []byte
 
-// Keys is the type for a slice of keys in a `KeyValueStore`.
+// Keys is the type for a slice of keys in a `Store`.
 type Keys []Key
 
-// Values is the type for a slice of Values in a `KeyValueStore`.
+// Values is the type for a slice of Values in a `Store`.
 type Values []Value
 
-// Items keeps all ListItem.
-type Items []ListItem
+// Items keeps all Item.
+type Items []Item
 
-// ListItem returns Key, Value, IsPrefix.
-type ListItem struct {
+// Item returns Key, Value, IsPrefix.
+type Item struct {
 	Key      Key
 	Value    Value
 	IsPrefix bool
 }
 
-// KeyValueStore describes key/value stores like redis and boltdb.
-type KeyValueStore interface {
+// Store describes key/value stores like redis and boltdb.
+type Store interface {
 	// Put adds a value to store.
 	Put(context.Context, Key, Value) error
 	// Get gets a value to store.
@@ -102,7 +102,7 @@ func (keys Keys) Strings() []string {
 	return strs
 }
 
-// GetKeys gets all the Keys in []ListItem and converts them to Keys.
+// GetKeys gets all the Keys in []Item and converts them to Keys.
 func (items Items) GetKeys() Keys {
 	if len(items) == 0 {
 		return nil
@@ -125,7 +125,7 @@ func (items Items) Less(i, k int) bool { return items[i].Less(items[k]) }
 func (items Items) Swap(i, k int) { items[i], items[k] = items[k], items[i] }
 
 // Less returns whether item should be sorted before b.
-func (item ListItem) Less(b ListItem) bool { return item.Key.Less(b.Key) }
+func (item Item) Less(b Item) bool { return item.Key.Less(b.Key) }
 
 // Less returns whether key should be sorted before b.
 func (key Key) Less(b Key) bool { return bytes.Compare([]byte(key), []byte(b)) < 0 }

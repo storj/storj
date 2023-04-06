@@ -11,7 +11,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 var errInternal = errors.New("internal error")
@@ -21,7 +21,7 @@ var mon = monkit.Package()
 type Client struct {
 	mu sync.Mutex
 
-	Items      []storage.ListItem
+	Items      []kvstore.Item
 	ForceError int
 
 	CallCount struct {
@@ -42,7 +42,7 @@ func New() *Client { return &Client{} }
 func (store *Client) MigrateToLatest(ctx context.Context) error { return nil }
 
 // indexOf finds index of key or where it could be inserted.
-func (store *Client) indexOf(key storage.Key) (int, bool) {
+func (store *Client) indexOf(key kvstore.Key) (int, bool) {
 	i := sort.Search(len(store.Items), func(k int) bool {
 		return !store.Items[k].Key.Less(key)
 	})
@@ -67,7 +67,7 @@ func (store *Client) forcedError() bool {
 }
 
 // Put adds a value to store.
-func (store *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+func (store *Client) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
@@ -78,13 +78,13 @@ func (store *Client) Put(ctx context.Context, key storage.Key, value storage.Val
 	}
 
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 
 	keyIndex, found := store.indexOf(key)
 	if found {
 		kv := &store.Items[keyIndex]
-		kv.Value = storage.CloneValue(value)
+		kv.Value = kvstore.CloneValue(value)
 		return nil
 	}
 
@@ -93,7 +93,7 @@ func (store *Client) Put(ctx context.Context, key storage.Key, value storage.Val
 }
 
 // Get gets a value to store.
-func (store *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+func (store *Client) Get(ctx context.Context, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
@@ -104,19 +104,19 @@ func (store *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value,
 	}
 
 	if key.IsZero() {
-		return nil, storage.ErrEmptyKey.New("")
+		return nil, kvstore.ErrEmptyKey.New("")
 	}
 
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return nil, storage.ErrKeyNotFound.New("%q", key)
+		return nil, kvstore.ErrKeyNotFound.New("%q", key)
 	}
 
-	return storage.CloneValue(store.Items[keyIndex].Value), nil
+	return kvstore.CloneValue(store.Items[keyIndex].Value), nil
 }
 
 // Delete deletes key and the value.
-func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+func (store *Client) Delete(ctx context.Context, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
@@ -128,12 +128,12 @@ func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
 	}
 
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 
 	keyIndex, found := store.indexOf(key)
 	if !found {
-		return storage.ErrKeyNotFound.New("%q", key)
+		return kvstore.ErrKeyNotFound.New("%q", key)
 	}
 
 	store.delete(keyIndex)
@@ -152,14 +152,14 @@ func (store *Client) Close() error {
 }
 
 // Range iterates over all items in unspecified order.
-func (store *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) error {
+func (store *Client) Range(ctx context.Context, fn func(context.Context, kvstore.Key, kvstore.Value) error) error {
 	store.mu.Lock()
 	store.CallCount.Range++
 	if store.forcedError() {
 		store.mu.Unlock()
 		return errors.New("internal error")
 	}
-	items := append([]storage.ListItem{}, store.Items...)
+	items := append([]kvstore.Item{}, store.Items...)
 	store.mu.Unlock()
 
 	for _, item := range items {
@@ -170,12 +170,12 @@ func (store *Client) Range(ctx context.Context, fn func(context.Context, storage
 	return nil
 }
 
-func (store *Client) put(keyIndex int, key storage.Key, value storage.Value) {
-	store.Items = append(store.Items, storage.ListItem{})
+func (store *Client) put(keyIndex int, key kvstore.Key, value kvstore.Value) {
+	store.Items = append(store.Items, kvstore.Item{})
 	copy(store.Items[keyIndex+1:], store.Items[keyIndex:])
-	store.Items[keyIndex] = storage.ListItem{
-		Key:   storage.CloneKey(key),
-		Value: storage.CloneValue(value),
+	store.Items[keyIndex] = kvstore.Item{
+		Key:   kvstore.CloneKey(key),
+		Value: kvstore.CloneValue(value),
 	}
 }
 

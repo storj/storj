@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.etcd.io/bbolt"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 var mon = monkit.Package()
@@ -87,11 +87,11 @@ func (client *Client) view(fn func(*bbolt.Bucket) error) error {
 // Ref: https://github.com/boltdb/bolt/blob/master/db.go#L160
 // Note: when using this method, check if it needs to be executed asynchronously
 // since it blocks for the duration db.MaxBatchDelay.
-func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+func (client *Client) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	start := time.Now()
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 
 	err = client.batch(func(bucket *bbolt.Bucket) error {
@@ -102,10 +102,10 @@ func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Va
 }
 
 // PutAndCommit adds a key/value to BoltDB and writes it to disk.
-func (client *Client) PutAndCommit(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+func (client *Client) PutAndCommit(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 
 	return client.update(func(bucket *bbolt.Bucket) error {
@@ -114,29 +114,29 @@ func (client *Client) PutAndCommit(ctx context.Context, key storage.Key, value s
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.
-func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+func (client *Client) Get(ctx context.Context, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return nil, storage.ErrEmptyKey.New("")
+		return nil, kvstore.ErrEmptyKey.New("")
 	}
 
-	var value storage.Value
+	var value kvstore.Value
 	err = client.view(func(bucket *bbolt.Bucket) error {
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
-			return storage.ErrKeyNotFound.New("%q", key)
+			return kvstore.ErrKeyNotFound.New("%q", key)
 		}
-		value = storage.CloneValue(storage.Value(data))
+		value = kvstore.CloneValue(kvstore.Value(data))
 		return nil
 	})
 	return value, err
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key.
-func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+func (client *Client) Delete(ctx context.Context, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
-		return storage.ErrEmptyKey.New("")
+		return kvstore.ErrEmptyKey.New("")
 	}
 
 	return client.update(func(bucket *bbolt.Bucket) error {
@@ -153,12 +153,12 @@ func (client *Client) Close() (err error) {
 }
 
 // Range iterates over all items in unspecified order.
-func (client *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+func (client *Client) Range(ctx context.Context, fn func(context.Context, kvstore.Key, kvstore.Value) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return client.view(func(bucket *bbolt.Bucket) error {
 		return bucket.ForEach(func(k, v []byte) error {
-			return fn(ctx, storage.Key(k), storage.Value(v))
+			return fn(ctx, kvstore.Key(k), kvstore.Value(v))
 		})
 	})
 }

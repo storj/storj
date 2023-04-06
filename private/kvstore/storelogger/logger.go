@@ -11,52 +11,52 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
 var mon = monkit.Package()
 
 var id int64
 
-// Logger implements a zap.Logger for storage.KeyValueStore.
+// Logger implements a zap.Logger for kvstore.Store.
 type Logger struct {
 	log   *zap.Logger
-	store storage.KeyValueStore
+	store kvstore.Store
 }
 
 // New creates a new Logger with log and store.
-func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
+func New(log *zap.Logger, store kvstore.Store) *Logger {
 	loggerid := atomic.AddInt64(&id, 1)
 	name := strconv.Itoa(int(loggerid))
 	return &Logger{log.Named(name), store}
 }
 
 // Put adds a value to store.
-func (store *Logger) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+func (store *Logger) Put(ctx context.Context, key kvstore.Key, value kvstore.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Put", zap.ByteString("key", key), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
 	return store.store.Put(ctx, key, value)
 }
 
 // Get gets a value to store.
-func (store *Logger) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+func (store *Logger) Get(ctx context.Context, key kvstore.Key) (_ kvstore.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Get", zap.ByteString("key", key))
 	return store.store.Get(ctx, key)
 }
 
 // Delete deletes key and the value.
-func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
+func (store *Logger) Delete(ctx context.Context, key kvstore.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Delete", zap.ByteString("key", key))
 	return store.store.Delete(ctx, key)
 }
 
 // Range iterates over all items in unspecified order.
-func (store *Logger) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+func (store *Logger) Range(ctx context.Context, fn func(context.Context, kvstore.Key, kvstore.Value) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Range")
-	return store.store.Range(ctx, func(ctx context.Context, key storage.Key, value storage.Value) error {
+	return store.store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
 		store.log.Debug("  ",
 			zap.ByteString("key", key),
 			zap.Int("value length", len(value)),
@@ -72,7 +72,7 @@ func (store *Logger) Close() error {
 	return store.store.Close()
 }
 
-func truncate(v storage.Value) (t []byte) {
+func truncate(v kvstore.Value) (t []byte) {
 	if len(v)-1 < 10 {
 		t = []byte(v)
 	} else {
