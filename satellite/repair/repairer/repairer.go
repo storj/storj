@@ -15,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/storage"
 )
 
 // Error is a standard error class for this package.
@@ -105,7 +104,7 @@ func (service *Service) processWhileQueueHasItems(ctx context.Context) error {
 	for {
 		err := service.process(ctx)
 		if err != nil {
-			if storage.ErrEmptyQueue.Has(err) {
+			if queue.ErrEmpty.Has(err) {
 				return nil
 			}
 			service.log.Error("process", zap.Error(Error.Wrap(err)))
