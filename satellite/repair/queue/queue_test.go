@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
 )
 
 func TestInsertSelect(t *testing.T) {
@@ -135,7 +134,7 @@ func TestDequeueEmptyQueue(t *testing.T) {
 
 		_, err := q.Select(ctx)
 		require.Error(t, err)
-		require.True(t, storage.ErrEmptyQueue.Has(err), "error should of class EmptyQueue")
+		require.True(t, queue.ErrEmpty.Has(err), "error should of class EmptyQueue")
 	})
 }
 
