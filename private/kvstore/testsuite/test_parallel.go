@@ -10,11 +10,11 @@ import (
 	"testing"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
-func testParallel(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
-	items := storage.Items{
+func testParallel(t *testing.T, ctx *testcontext.Context, store kvstore.Store) {
+	items := kvstore.Items{
 		newItem("a", "1", false),
 		newItem("b", "2", false),
 		newItem("c", "3", false),

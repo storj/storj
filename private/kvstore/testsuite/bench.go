@@ -11,11 +11,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
-// RunBenchmarks runs common storage.KeyValueStore benchmarks.
-func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
+// RunBenchmarks runs common kvstore.Store benchmarks.
+func RunBenchmarks(b *testing.B, store kvstore.Store) {
 	var words = []string{
 		"alpha", "beta", "gamma", "delta", "iota", "kappa", "lambda", "mu",
 		"άλφα", "βήτα", "γάμμα", "δέλτα", "έψιλον", "ζήτα", "ήτα", "θήτα", "ιώτα", "κάππα", "λάμδα", "μυ",
@@ -28,15 +28,15 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		words = words[:2]
 	}
 
-	var items storage.Items
+	var items kvstore.Items
 
 	k := 0
 	for _, a := range words {
 		for _, b := range words {
 			for _, c := range words {
-				items = append(items, storage.ListItem{
-					Key:   storage.Key(path.Join(a, b, c)),
-					Value: storage.Value(strconv.Itoa(k)),
+				items = append(items, kvstore.Item{
+					Key:   kvstore.Key(path.Join(a, b, c)),
+					Value: kvstore.Value(strconv.Itoa(k)),
 				})
 				k++
 			}

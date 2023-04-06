@@ -13,16 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/storage"
+	"storj.io/storj/private/kvstore"
 )
 
-func testRange(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
-	err := store.Range(ctx, func(ctx context.Context, key storage.Key, value storage.Value) error {
+func testRange(t *testing.T, ctx *testcontext.Context, store kvstore.Store) {
+	err := store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
 		return errors.New("empty store")
 	})
 	require.NoError(t, err)
 
-	items := storage.Items{
+	items := kvstore.Items{
 		newItem("a", "a", false),
 		newItem("b/1", "b/1", false),
 		newItem("b/2", "b/2", false),
@@ -37,13 +37,13 @@ func testRange(t *testing.T, ctx *testcontext.Context, store storage.KeyValueSto
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(t, ctx, store, items)
 
-	if err := storage.PutAll(ctx, store, items...); err != nil {
+	if err := kvstore.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
 
-	var output storage.Items
-	err = store.Range(ctx, func(ctx context.Context, key storage.Key, value storage.Value) error {
-		output = append(output, storage.ListItem{
+	var output kvstore.Items
+	err = store.Range(ctx, func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
+		output = append(output, kvstore.Item{
 			Key:   append([]byte{}, key...),
 			Value: append([]byte{}, value...),
 		})
@@ -51,7 +51,7 @@ func testRange(t *testing.T, ctx *testcontext.Context, store storage.KeyValueSto
 	})
 	require.NoError(t, err)
 
-	expected := storage.CloneItems(items)
+	expected := kvstore.CloneItems(items)
 	sort.Sort(expected)
 	sort.Sort(output)
 

@@ -13,9 +13,9 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
 	"storj.io/private/dbutil"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
-	"storj.io/storj/storage/redis"
+	"storj.io/storj/private/kvstore"
+	"storj.io/storj/private/kvstore/boltdb"
+	"storj.io/storj/private/kvstore/redis"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 // DB stores authorizations which may be claimed in exchange for a
 // certificate signature.
 type DB struct {
-	db storage.KeyValueStore
+	db kvstore.Store
 }
 
 // DBConfig is the authorization db config.
@@ -127,8 +127,8 @@ func (authDB *DB) Create(ctx context.Context, userID string, count int) (_ Group
 // Get retrieves authorizations by user ID.
 func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
-	authsBytes, err := authDB.db.Get(ctx, storage.Key(userID))
-	if storage.ErrKeyNotFound.Has(err) {
+	authsBytes, err := authDB.db.Get(ctx, kvstore.Key(userID))
+	if kvstore.ErrKeyNotFound.Has(err) {
 		return nil, ErrNotFound.New("userID: %s", userID)
 	}
 	if err != nil {
@@ -150,7 +150,7 @@ func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = authDB.db.Range(ctx,
-		func(ctx context.Context, key storage.Key, _ storage.Value) error {
+		func(ctx context.Context, key kvstore.Key, _ kvstore.Value) error {
 			userIDs = append(userIDs, key.String())
 			return nil
 		})
@@ -163,7 +163,7 @@ func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 
 	var errs errs.Group
 	err = authDB.db.Range(ctx,
-		func(ctx context.Context, key storage.Key, value storage.Value) error {
+		func(ctx context.Context, key kvstore.Key, value kvstore.Value) error {
 			var group Group
 			err := group.Unmarshal(value)
 			if err != nil {
@@ -288,7 +288,7 @@ func (authDB *DB) put(ctx context.Context, userID string, auths Group) (err erro
 		return ErrDBInternal.Wrap(err)
 	}
 
-	if err := authDB.db.Put(ctx, storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.db.Put(ctx, kvstore.Key(userID), authsBytes); err != nil {
 		return ErrDBInternal.Wrap(err)
 	}
 	return nil

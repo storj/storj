@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storage
+package kvstore
 
 import (
 	"context"
@@ -15,8 +15,8 @@ func CloneKey(key Key) Key { return append(Key{}, key...) }
 func CloneValue(value Value) Value { return append(Value{}, value...) }
 
 // CloneItem creates a deep copy of item.
-func CloneItem(item ListItem) ListItem {
-	return ListItem{
+func CloneItem(item Item) Item {
+	return Item{
 		Key:      CloneKey(item.Key),
 		Value:    CloneValue(item.Value),
 		IsPrefix: item.IsPrefix,
@@ -33,7 +33,7 @@ func CloneItems(items Items) Items {
 }
 
 // PutAll adds multiple values to the store.
-func PutAll(ctx context.Context, store KeyValueStore, items ...ListItem) (err error) {
+func PutAll(ctx context.Context, store Store, items ...Item) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for _, item := range items {
