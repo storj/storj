@@ -225,7 +225,7 @@ export class PaymentsHistoryItem {
         return this.remaining / this.amount * 100;
     }
 
-    private amountDollars(amount): number {
+    public amountDollars(amount): number {
         return amount / 100;
     }
 
