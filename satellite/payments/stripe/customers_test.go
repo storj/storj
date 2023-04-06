@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"strconv"
@@ -14,7 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -54,7 +54,7 @@ func TestCustomersRepositoryList(t *testing.T) {
 			userID, err := uuid.New()
 			require.NoError(t, err)
 
-			cus := stripecoinpayments.Customer{
+			cus := stripe.Customer{
 				ID:     "customerID" + strconv.Itoa(i),
 				UserID: userID,
 			}

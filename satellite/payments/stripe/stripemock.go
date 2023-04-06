@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments
+package stripe
 
 import (
 	"context"
@@ -127,7 +127,7 @@ var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interfac
 // If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
-func NewStripeMock(customersDB CustomersDB, usersDB console.Users) StripeClient {
+func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state := &mockStripeState{}
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)
@@ -144,7 +144,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) StripeClient 
 	}
 }
 
-func (m *mockStripeClient) Customers() StripeCustomers {
+func (m *mockStripeClient) Customers() Customers {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return &mockCustomers{
@@ -157,31 +157,31 @@ func (m *mockStripeClient) Customers() StripeCustomers {
 	}
 }
 
-func (m *mockStripeClient) PaymentMethods() StripePaymentMethods {
+func (m *mockStripeClient) PaymentMethods() PaymentMethods {
 	return m.paymentMethods
 }
 
-func (m *mockStripeClient) Invoices() StripeInvoices {
+func (m *mockStripeClient) Invoices() Invoices {
 	return m.invoices
 }
 
-func (m *mockStripeClient) InvoiceItems() StripeInvoiceItems {
+func (m *mockStripeClient) InvoiceItems() InvoiceItems {
 	return m.invoiceItems
 }
 
-func (m *mockStripeClient) CustomerBalanceTransactions() StripeCustomerBalanceTransactions {
+func (m *mockStripeClient) CustomerBalanceTransactions() CustomerBalanceTransactions {
 	return m.customerBalanceTransactions
 }
 
-func (m *mockStripeClient) Charges() StripeCharges {
+func (m *mockStripeClient) Charges() Charges {
 	return m.charges
 }
 
-func (m *mockStripeClient) PromoCodes() StripePromoCodes {
+func (m *mockStripeClient) PromoCodes() PromoCodes {
 	return m.promoCodes
 }
 
-func (m *mockStripeClient) CreditNotes() StripeCreditNotes {
+func (m *mockStripeClient) CreditNotes() CreditNotes {
 	return m.creditNotes
 }
 

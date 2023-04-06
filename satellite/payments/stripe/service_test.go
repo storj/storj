@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"context"
@@ -32,7 +32,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestService_InvoiceElementsProcessing(t *testing.T) {
@@ -413,7 +413,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 				Reconfigure: testplanet.Reconfigure{
 					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 						config.Payments.StripeCoinPayments.SkipEmptyInvoices = testCase.skipEmptyInvoices
-						config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+						config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe1.MockCouponID1
 					},
 				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -465,7 +465,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 
 				// ensure project record was generated
 				err = satellite.DB.StripeCoinPayments().ProjectRecords().Check(ctx, proj.ID, start, end)
-				require.ErrorIs(t, stripecoinpayments.ErrProjectRecordExists, err)
+				require.ErrorIs(t, stripe1.ErrProjectRecordExists, err)
 
 				rec, err := satellite.DB.StripeCoinPayments().ProjectRecords().Get(ctx, proj.ID, start, end)
 				require.NotNil(t, rec)
@@ -497,7 +497,7 @@ func TestService_GenerateInvoice(t *testing.T) {
 	}
 }
 
-func getCustomerInvoice(ctx context.Context, stripeClient stripecoinpayments.StripeClient, cusID string) (*stripe.Invoice, bool) {
+func getCustomerInvoice(ctx context.Context, stripeClient stripe1.Client, cusID string) (*stripe.Invoice, bool) {
 	iter := stripeClient.Invoices().List(&stripe.InvoiceListParams{
 		ListParams: stripe.ListParams{Context: ctx},
 		Customer:   &cusID,
@@ -508,7 +508,7 @@ func getCustomerInvoice(ctx context.Context, stripeClient stripecoinpayments.Str
 	return nil, false
 }
 
-func getCustomerInvoiceItems(ctx context.Context, stripeClient stripecoinpayments.StripeClient, cusID string) (items []*stripe.InvoiceItem) {
+func getCustomerInvoiceItems(ctx context.Context, stripeClient stripe1.Client, cusID string) (items []*stripe.InvoiceItem) {
 	iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
 		ListParams: stripe.ListParams{Context: ctx},
 		Customer:   &cusID,

@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments
+package stripe
 
 import (
 	"bytes"
@@ -26,35 +26,35 @@ import (
 	"storj.io/common/time2"
 )
 
-// StripeClient Stripe client interface.
-type StripeClient interface {
-	Customers() StripeCustomers
-	PaymentMethods() StripePaymentMethods
-	Invoices() StripeInvoices
-	InvoiceItems() StripeInvoiceItems
-	CustomerBalanceTransactions() StripeCustomerBalanceTransactions
-	Charges() StripeCharges
-	PromoCodes() StripePromoCodes
-	CreditNotes() StripeCreditNotes
+// Client Stripe client interface.
+type Client interface {
+	Customers() Customers
+	PaymentMethods() PaymentMethods
+	Invoices() Invoices
+	InvoiceItems() InvoiceItems
+	CustomerBalanceTransactions() CustomerBalanceTransactions
+	Charges() Charges
+	PromoCodes() PromoCodes
+	CreditNotes() CreditNotes
 }
 
-// StripeCustomers Stripe Customers interface.
-type StripeCustomers interface {
+// Customers Stripe Customers interface.
+type Customers interface {
 	New(params *stripe.CustomerParams) (*stripe.Customer, error)
 	Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error)
 	Update(id string, params *stripe.CustomerParams) (*stripe.Customer, error)
 }
 
-// StripePaymentMethods Stripe PaymentMethods interface.
-type StripePaymentMethods interface {
+// PaymentMethods Stripe PaymentMethods interface.
+type PaymentMethods interface {
 	List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter
 	New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error)
 	Attach(id string, params *stripe.PaymentMethodAttachParams) (*stripe.PaymentMethod, error)
 	Detach(id string, params *stripe.PaymentMethodDetachParams) (*stripe.PaymentMethod, error)
 }
 
-// StripeInvoices Stripe Invoices interface.
-type StripeInvoices interface {
+// Invoices Stripe Invoices interface.
+type Invoices interface {
 	New(params *stripe.InvoiceParams) (*stripe.Invoice, error)
 	List(listParams *stripe.InvoiceListParams) *invoice.Iter
 	Update(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
@@ -63,32 +63,32 @@ type StripeInvoices interface {
 	Del(id string, params *stripe.InvoiceParams) (*stripe.Invoice, error)
 }
 
-// StripeInvoiceItems Stripe InvoiceItems interface.
-type StripeInvoiceItems interface {
+// InvoiceItems Stripe InvoiceItems interface.
+type InvoiceItems interface {
 	New(params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 	Update(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 	List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter
 	Del(id string, params *stripe.InvoiceItemParams) (*stripe.InvoiceItem, error)
 }
 
-// StripeCharges Stripe Charges interface.
-type StripeCharges interface {
+// Charges Stripe Charges interface.
+type Charges interface {
 	List(listParams *stripe.ChargeListParams) *charge.Iter
 }
 
-// StripePromoCodes is the Stripe PromoCodes interface.
-type StripePromoCodes interface {
+// PromoCodes is the Stripe PromoCodes interface.
+type PromoCodes interface {
 	List(params *stripe.PromotionCodeListParams) *promotioncode.Iter
 }
 
-// StripeCustomerBalanceTransactions Stripe CustomerBalanceTransactions interface.
-type StripeCustomerBalanceTransactions interface {
+// CustomerBalanceTransactions Stripe CustomerBalanceTransactions interface.
+type CustomerBalanceTransactions interface {
 	New(params *stripe.CustomerBalanceTransactionParams) (*stripe.CustomerBalanceTransaction, error)
 	List(listParams *stripe.CustomerBalanceTransactionListParams) *customerbalancetransaction.Iter
 }
 
-// StripeCreditNotes Stripe CreditNotes interface.
-type StripeCreditNotes interface {
+// CreditNotes Stripe CreditNotes interface.
+type CreditNotes interface {
 	New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error)
 }
 
@@ -96,40 +96,40 @@ type stripeClient struct {
 	client *client.API
 }
 
-func (s *stripeClient) Customers() StripeCustomers {
+func (s *stripeClient) Customers() Customers {
 	return s.client.Customers
 }
 
-func (s *stripeClient) PaymentMethods() StripePaymentMethods {
+func (s *stripeClient) PaymentMethods() PaymentMethods {
 	return s.client.PaymentMethods
 }
 
-func (s *stripeClient) Invoices() StripeInvoices {
+func (s *stripeClient) Invoices() Invoices {
 	return s.client.Invoices
 }
 
-func (s *stripeClient) InvoiceItems() StripeInvoiceItems {
+func (s *stripeClient) InvoiceItems() InvoiceItems {
 	return s.client.InvoiceItems
 }
 
-func (s *stripeClient) CustomerBalanceTransactions() StripeCustomerBalanceTransactions {
+func (s *stripeClient) CustomerBalanceTransactions() CustomerBalanceTransactions {
 	return s.client.CustomerBalanceTransactions
 }
 
-func (s *stripeClient) Charges() StripeCharges {
+func (s *stripeClient) Charges() Charges {
 	return s.client.Charges
 }
 
-func (s *stripeClient) PromoCodes() StripePromoCodes {
+func (s *stripeClient) PromoCodes() PromoCodes {
 	return s.client.PromotionCodes
 }
 
-func (s *stripeClient) CreditNotes() StripeCreditNotes {
+func (s *stripeClient) CreditNotes() CreditNotes {
 	return s.client.CreditNotes
 }
 
 // NewStripeClient creates Stripe client from configuration.
-func NewStripeClient(log *zap.Logger, config Config) StripeClient {
+func NewStripeClient(log *zap.Logger, config Config) Client {
 	sClient := client.New(config.StripeSecretKey,
 		&stripe.Backends{
 			API:     NewBackendWrapper(log, stripe.APIBackend, config.Retries),

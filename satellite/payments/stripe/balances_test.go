@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestBalances(t *testing.T) {
@@ -65,7 +65,7 @@ func TestBalances(t *testing.T) {
 		require.Equal(t, tx3Amount, list[2].Amount)
 		require.Equal(t, tx3Desc, list[2].Description)
 
-		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, stripecoinpayments.MockCBTXsNewFailure)
+		b, err = balances.ApplyCredit(ctx, userID, tx2Amount, stripe.MockCBTXsNewFailure)
 		require.Error(t, err)
 		require.Nil(t, b)
 

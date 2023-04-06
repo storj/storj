@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 var (
@@ -40,14 +40,14 @@ type Chore struct {
 	analytics     *analytics.Service
 	usersDB       console.Users
 	payments      payments.Accounts
-	accounts      stripecoinpayments.DB
+	accounts      stripe.DB
 	config        Config
 	nowFn         func() time.Time
 	Loop          *sync2.Cycle
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripecoinpayments.DB, payments payments.Accounts, usersDB console.Users, freezeService *console.AccountFreezeService, analytics *analytics.Service, config Config) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, freezeService *console.AccountFreezeService, analytics *analytics.Service, config Config) *Chore {
 	return &Chore{
 		log:           log,
 		freezeService: freezeService,

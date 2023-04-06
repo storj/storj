@@ -41,7 +41,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -754,7 +754,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.PrepareInvoiceProjectRecords(ctx, periodStart)
 	})
 }
@@ -767,7 +767,7 @@ func cmdCreateCustomerProjectInvoiceItems(cmd *cobra.Command, args []string) (er
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, periodStart)
 	})
 }
@@ -780,7 +780,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.CreateInvoices(ctx, periodStart)
 	})
 }
@@ -793,7 +793,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.GenerateInvoices(ctx, periodStart)
 	})
 }
@@ -801,7 +801,7 @@ func cmdGenerateCustomerInvoices(cmd *cobra.Command, args []string) (err error) 
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.FinalizeInvoices(ctx)
 	})
 }
@@ -814,7 +814,7 @@ func cmdPayCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		err := payments.InvoiceApplyTokenBalance(ctx, periodStart)
 		if err != nil {
 			return errs.New("error applying native token payments: %v", err)

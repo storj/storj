@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/time2"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 var backendError = &stripe.Error{
@@ -56,13 +56,13 @@ func (b *mockBackend) SetMaxNetworkRetries(max int64) {}
 
 func TestBackendWrapper(t *testing.T) {
 	tm := time2.NewMachine()
-	retryCfg := stripecoinpayments.RetryConfig{
+	retryCfg := stripe1.RetryConfig{
 		InitialBackoff: time.Millisecond,
 		MaxBackoff:     3 * time.Millisecond,
 		Multiplier:     2,
 		MaxRetries:     5,
 	}
-	backend := stripecoinpayments.NewBackendWrapper(zaptest.NewLogger(t), stripe.APIBackend, retryCfg)
+	backend := stripe1.NewBackendWrapper(zaptest.NewLogger(t), stripe.APIBackend, retryCfg)
 	mock := &mockBackend{}
 	backend.TestSwapBackend(mock)
 	backend.TestSwapClock(tm.Clock())

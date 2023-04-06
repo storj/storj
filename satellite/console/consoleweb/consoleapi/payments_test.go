@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func Test_PurchasePackage(t *testing.T) {
@@ -32,7 +32,7 @@ func Test_PurchasePackage(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.RateLimit.Burst = 10
-				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
 				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
 					partner: {Credit: 2000, Price: 1000},
 				}
@@ -52,11 +52,11 @@ func Test_PurchasePackage(t *testing.T) {
 				http.StatusNotFound,
 			},
 			{
-				"Add credit card fails", stripecoinpayments.TestPaymentMethodsNewFailure, partner,
+				"Add credit card fails", stripe.TestPaymentMethodsNewFailure, partner,
 				http.StatusInternalServerError,
 			},
 			{
-				"Purchase fails", stripecoinpayments.MockInvoicesPayFailure, partner,
+				"Purchase fails", stripe.MockInvoicesPayFailure, partner,
 				http.StatusInternalServerError,
 			},
 			{

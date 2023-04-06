@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestCreditCards_List(t *testing.T) {
@@ -46,12 +46,12 @@ func TestCreditCards_Add(t *testing.T) {
 			},
 			{
 				"Add returns error when StripePaymentMethods.New fails",
-				stripecoinpayments.TestPaymentMethodsNewFailure,
+				stripe.TestPaymentMethodsNewFailure,
 				true,
 			},
 			{
 				"Add returns error when StripePaymentMethods.Attach fails",
-				stripecoinpayments.TestPaymentMethodsAttachFailure,
+				stripe.TestPaymentMethodsAttachFailure,
 				true,
 			},
 		}

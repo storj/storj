@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"encoding/base64"
@@ -19,7 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -33,7 +33,7 @@ func TestTransactionsDB(t *testing.T) {
 		require.NoError(t, err)
 		userID := testrand.UUID()
 
-		createTx := stripecoinpayments.Transaction{
+		createTx := stripe.Transaction{
 			ID:        "testID",
 			AccountID: userID,
 			Address:   "testAddress",
@@ -79,13 +79,13 @@ func TestTransactionsDBList(t *testing.T) {
 	received, err := currency.AmountFromString("5.0000000000000000003", currency.StorjToken)
 	require.NoError(t, err)
 
-	var txs []stripecoinpayments.Transaction
+	var txs []stripe.Transaction
 	for i := 0; i < transactionCount; i++ {
 		id := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 		addr := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 		key := base64.StdEncoding.EncodeToString(testrand.Bytes(4 * memory.B))
 
-		createTX := stripecoinpayments.Transaction{
+		createTX := stripe.Transaction{
 			ID:        coinpayments.TransactionID(id),
 			AccountID: uuid.UUID{},
 			Address:   addr,
@@ -141,7 +141,7 @@ func TestTransactionsDBRates(t *testing.T) {
 // compareTransactions is a helper method to compare tx used to create db entry,
 // with the tx returned from the db. Method doesn't compare created at field, but
 // ensures that is not empty.
-func compareTransactions(t *testing.T, exp, act stripecoinpayments.Transaction) {
+func compareTransactions(t *testing.T, exp, act stripe.Transaction) {
 	assert.Equal(t, exp.ID, act.ID)
 	assert.Equal(t, exp.AccountID, act.AccountID)
 	assert.Equal(t, exp.Address, act.Address)

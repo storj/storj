@@ -33,7 +33,7 @@ import (
 	"storj.io/storj/satellite/payments/coinpayments"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestService(t *testing.T) {
@@ -41,7 +41,7 @@ func TestService(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
 			},
 		},
 	},
@@ -109,7 +109,7 @@ func TestService(t *testing.T) {
 
 				// stripecoinpayments.TestPaymentMethodsAttachFailure triggers the underlying mock stripe client to return an error
 				// when attaching a payment method to a customer.
-				_, err = service.Payments().AddCreditCard(userCtx1, stripecoinpayments.TestPaymentMethodsAttachFailure)
+				_, err = service.Payments().AddCreditCard(userCtx1, stripe.TestPaymentMethodsAttachFailure)
 				require.Error(t, err)
 
 				// user still in free tier
@@ -465,7 +465,7 @@ func TestService(t *testing.T) {
 				// testplanet applies the free tier coupon first, so we need to change it in order
 				// to verify that ApplyFreeTierCoupon really works.
 				freeTier := sat.Config.Payments.StripeCoinPayments.StripeFreeTierCouponID
-				coupon3, err := service.Payments().ApplyCoupon(userCtx1, stripecoinpayments.MockCouponID3)
+				coupon3, err := service.Payments().ApplyCoupon(userCtx1, stripe.MockCouponID3)
 				require.NoError(t, err)
 				require.NotNil(t, coupon3)
 				require.NotEqual(t, freeTier, coupon3.ID)
@@ -486,7 +486,7 @@ func TestService(t *testing.T) {
 				require.Nil(t, coupon)
 			})
 			t.Run("ApplyCoupon", func(t *testing.T) {
-				id := stripecoinpayments.MockCouponID2
+				id := stripe.MockCouponID2
 				coupon, err := service.Payments().ApplyCoupon(userCtx2, id)
 				require.NoError(t, err)
 				require.NotNil(t, coupon)
@@ -497,7 +497,7 @@ func TestService(t *testing.T) {
 				require.Equal(t, id, coupon.ID)
 			})
 			t.Run("ApplyCoupon fails with unknown user", func(t *testing.T) {
-				id := stripecoinpayments.MockCouponID2
+				id := stripe.MockCouponID2
 				coupon, err := service.Payments().ApplyCoupon(ctx, id)
 				require.Error(t, err)
 				require.Nil(t, coupon)
@@ -531,7 +531,7 @@ func TestService(t *testing.T) {
 				check()
 			})
 			t.Run("ApplyCredit fails when payments.Balances.ApplyCredit returns an error", func(t *testing.T) {
-				require.Error(t, service.Payments().ApplyCredit(userCtx1, 1000, stripecoinpayments.MockCBTXsNewFailure))
+				require.Error(t, service.Payments().ApplyCredit(userCtx1, 1000, stripe.MockCBTXsNewFailure))
 				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Pro1.OwnerID)
 				require.NoError(t, err)
 				require.Zero(t, len(btxs))
@@ -1492,9 +1492,9 @@ func TestPaymentsWalletPayments(t *testing.T) {
 		err = sat.DB.Wallets().Add(ctx, user.ID, wallet)
 		require.NoError(t, err)
 
-		var transactions []stripecoinpayments.Transaction
+		var transactions []stripe.Transaction
 		for i := 0; i < 5; i++ {
-			tx := stripecoinpayments.Transaction{
+			tx := stripe.Transaction{
 				ID:        coinpayments.TransactionID(fmt.Sprintf("%d", i)),
 				AccountID: user.ID,
 				Address:   blockchaintest.NewAddress().Hex(),
@@ -1606,7 +1606,7 @@ func TestPaymentsPurchase(t *testing.T) {
 			},
 			{
 				"Purchase returns error when underlying payments.Invoices.New returns error",
-				stripecoinpayments.MockInvoicesNewFailure,
+				stripe.MockInvoicesNewFailure,
 				testPaymentMethod,
 				true,
 				userCtx,
@@ -1614,7 +1614,7 @@ func TestPaymentsPurchase(t *testing.T) {
 			{
 				"Purchase returns error when underlying payments.Invoices.Pay returns error",
 				testDesc,
-				stripecoinpayments.MockInvoicesPayFailure,
+				stripe.MockInvoicesPayFailure,
 				true,
 				userCtx,
 			},
@@ -1691,7 +1691,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		openInv := inv.ID
 
 		// attempting to pay a draft invoice changes it to open if payment fails
-		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripecoinpayments.MockInvoicesPayFailure)
+		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripe.MockInvoicesPayFailure)
 		require.Error(t, err)
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)

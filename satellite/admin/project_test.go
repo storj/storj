@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestProjectGet(t *testing.T) {
@@ -840,7 +840,7 @@ func TestProjectDelete_withUsagePreviousMonthCharged(t *testing.T) {
 		// Create Invoice Record for last month.
 		firstOfMonth := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC)
 		err = planet.Satellites[0].DB.StripeCoinPayments().ProjectRecords().Create(ctx,
-			[]stripecoinpayments.CreateProjectRecord{{
+			[]stripe.CreateProjectRecord{{
 				ProjectID: projectID,
 				Storage:   100,
 				Egress:    100,
