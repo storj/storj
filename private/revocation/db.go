@@ -108,25 +108,16 @@ func (db *DB) List(ctx context.Context) (revs []*extensions.Revocation, err erro
 		return nil, nil
 	}
 
-	keys, err := db.store.List(ctx, []byte{}, 0)
-	if err != nil {
-		return nil, extensions.ErrRevocationDB.Wrap(err)
-	}
-
-	marshaledRevs, err := db.store.GetAll(ctx, keys)
-	if err != nil {
-		return nil, extensions.ErrRevocationDB.Wrap(err)
-	}
-
-	for _, revBytes := range marshaledRevs {
+	err = db.store.Range(ctx, func(ctx context.Context, key storage.Key, value storage.Value) error {
 		rev := new(extensions.Revocation)
-		if err := rev.Unmarshal(revBytes); err != nil {
-			return nil, extensions.ErrRevocationDB.Wrap(err)
+		if err := rev.Unmarshal(value); err != nil {
+			return extensions.ErrRevocationDB.Wrap(err)
 		}
 
 		revs = append(revs, rev)
-	}
-	return revs, nil
+		return nil
+	})
+	return revs, extensions.ErrRevocationDB.Wrap(err)
 }
 
 // TestGetStore returns the internal store for testing.

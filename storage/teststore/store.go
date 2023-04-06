@@ -34,6 +34,7 @@ type Client struct {
 		GetAll         int
 		Delete         int
 		Close          int
+		Range          int
 		Iterate        int
 		CompareAndSwap int
 	}
@@ -227,6 +228,25 @@ func (store *Client) Close() error {
 	store.CallCount.Close++
 	if store.forcedError() {
 		return errInternal
+	}
+	return nil
+}
+
+// Range iterates over all items in unspecified order.
+func (store *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) error {
+	store.mu.Lock()
+	store.CallCount.Range++
+	if store.forcedError() {
+		store.mu.Unlock()
+		return errors.New("internal error")
+	}
+	items := append([]storage.ListItem{}, store.Items...)
+	store.mu.Unlock()
+
+	for _, item := range items {
+		if err := fn(ctx, item.Key, item.Value); err != nil {
+			return err
+		}
 	}
 	return nil
 }

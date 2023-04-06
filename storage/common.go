@@ -68,6 +68,9 @@ type KeyValueStore interface {
 	Delete(context.Context, Key) error
 	// DeleteMultiple deletes keys and returns nil for.
 	DeleteMultiple(context.Context, []Key) (Items, error)
+	// Range iterates over all items in unspecified order.
+	// The Key and Value are valid only for the duration of callback.
+	Range(ctx context.Context, fn func(context.Context, Key, Value) error) error
 	// List lists all keys starting from start and upto limit items.
 	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts.

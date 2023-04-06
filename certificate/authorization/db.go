@@ -148,36 +148,33 @@ func (authDB *DB) Get(ctx context.Context, userID string) (_ Group, err error) {
 // UserIDs returns a list of all userIDs present in the authorization database.
 func (authDB *DB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.db.Iterate(ctx, storage.IterateOptions{
-		Recurse: true,
-	}, func(ctx context.Context, iterator storage.Iterator) error {
-		var listItem storage.ListItem
-		for iterator.Next(ctx, &listItem) {
-			userIDs = append(userIDs, listItem.Key.String())
-		}
-		return nil
-	})
+
+	err = authDB.db.Range(ctx,
+		func(ctx context.Context, key storage.Key, _ storage.Value) error {
+			userIDs = append(userIDs, key.String())
+			return nil
+		})
 	return userIDs, ErrDBInternal.Wrap(err)
 }
 
 // List returns all authorizations in the database.
 func (authDB *DB) List(ctx context.Context) (auths Group, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.db.Iterate(ctx, storage.IterateOptions{
-		Recurse: true,
-	}, func(ctx context.Context, iterator storage.Iterator) error {
-		var listErrs errs.Group
-		var listItem storage.ListItem
-		for iterator.Next(ctx, &listItem) {
-			var nextAuths Group
-			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
-				listErrs.Add(err)
+
+	var errs errs.Group
+	err = authDB.db.Range(ctx,
+		func(ctx context.Context, key storage.Key, value storage.Value) error {
+			var group Group
+			err := group.Unmarshal(value)
+			if err != nil {
+				errs.Add(err)
+				return nil
 			}
-			auths = append(auths, nextAuths...)
-		}
-		return ErrDBInternal.Wrap(listErrs.Err())
-	})
-	return auths, ErrDBInternal.Wrap(err)
+			auths = append(auths, group...)
+			return nil
+		})
+	errs.Add(err)
+	return auths, ErrDBInternal.Wrap(errs.Err())
 }
 
 // Claim marks an authorization as claimed and records claim information.

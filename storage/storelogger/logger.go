@@ -77,6 +77,20 @@ func (store *Logger) List(ctx context.Context, first storage.Key, limit int) (_ 
 	return keys, err
 }
 
+// Range iterates over all items in unspecified order.
+func (store *Logger) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	store.log.Debug("Range")
+	return store.store.Range(ctx, func(ctx context.Context, key storage.Key, value storage.Value) error {
+		store.log.Debug("  ",
+			zap.ByteString("key", key),
+			zap.Int("value length", len(value)),
+			zap.Binary("truncated value", truncate(value)),
+		)
+		return fn(ctx, key, value)
+	})
+}
+
 // Iterate iterates over items based on opts.
 func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
