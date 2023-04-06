@@ -183,6 +183,35 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 	return values, nil
 }
 
+// Range iterates over all items in unspecified order.
+func (client *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	it := client.db.Scan(ctx, 0, "", 0).Iterator()
+
+	var lastKey string
+	var lastOk bool
+	for it.Next(ctx) {
+		key := it.Val()
+		// redis may return duplicates
+		if lastOk && key == lastKey {
+			continue
+		}
+		lastKey, lastOk = key, true
+
+		value, err := get(ctx, client.db, storage.Key(key))
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if err := fn(ctx, storage.Key(key), value); err != nil {
+			return err
+		}
+	}
+
+	return Error.Wrap(it.Err())
+}
+
 // Iterate iterates over items based on opts.
 func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)

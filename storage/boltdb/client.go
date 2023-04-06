@@ -286,6 +286,17 @@ func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storag
 	})
 }
 
+// Range iterates over all items in unspecified order.
+func (client *Client) Range(ctx context.Context, fn func(context.Context, storage.Key, storage.Value) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return client.view(func(bucket *bbolt.Bucket) error {
+		return bucket.ForEach(func(k, v []byte) error {
+			return fn(ctx, storage.Key(k), storage.Value(v))
+		})
+	})
+}
+
 type advancer interface {
 	PositionToFirst(prefix, first storage.Key) (key, value []byte)
 	SkipPrefix(prefix storage.Key) (key, value []byte)
