@@ -12,12 +12,12 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensure that invoiceProjectRecords implements stripecoinpayments.ProjectRecordsDB.
-var _ stripecoinpayments.ProjectRecordsDB = (*invoiceProjectRecords)(nil)
+var _ stripe.ProjectRecordsDB = (*invoiceProjectRecords)(nil)
 
 // invoiceProjectRecordState defines states of the invoice project record.
 type invoiceProjectRecordState int
@@ -42,7 +42,7 @@ type invoiceProjectRecords struct {
 }
 
 // Create creates new invoice project record in the DB.
-func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripecoinpayments.CreateProjectRecord, start, end time.Time) (err error) {
+func (db *invoiceProjectRecords) Create(ctx context.Context, records []stripe.CreateProjectRecord, start, end time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
@@ -91,11 +91,11 @@ func (db *invoiceProjectRecords) Check(ctx context.Context, projectID uuid.UUID,
 		return err
 	}
 
-	return stripecoinpayments.ErrProjectRecordExists
+	return stripe.ErrProjectRecordExists
 }
 
 // Get returns record for specified project and billing period.
-func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, start, end time.Time) (record *stripecoinpayments.ProjectRecord, err error) {
+func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, start, end time.Time) (record *stripe.ProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxRecord, err := db.db.Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx,
@@ -129,10 +129,10 @@ func (db *invoiceProjectRecords) Consume(ctx context.Context, id uuid.UUID) (err
 }
 
 // ListUnapplied returns project records page with unapplied project records.
-func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (_ stripecoinpayments.ProjectRecordsPage, err error) {
+func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64, limit int, start, end time.Time) (_ stripe.ProjectRecordsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page stripecoinpayments.ProjectRecordsPage
+	var page stripe.ProjectRecordsPage
 
 	dbxRecords, err := db.db.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx,
 		dbx.StripecoinpaymentsInvoiceProjectRecord_PeriodStart(start),
@@ -142,7 +142,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 		offset,
 	)
 	if err != nil {
-		return stripecoinpayments.ProjectRecordsPage{}, err
+		return stripe.ProjectRecordsPage{}, err
 	}
 
 	if len(dbxRecords) == limit+1 {
@@ -155,7 +155,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 	for _, dbxRecord := range dbxRecords {
 		record, err := fromDBXInvoiceProjectRecord(dbxRecord)
 		if err != nil {
-			return stripecoinpayments.ProjectRecordsPage{}, err
+			return stripe.ProjectRecordsPage{}, err
 		}
 
 		page.Records = append(page.Records, *record)
@@ -165,7 +165,7 @@ func (db *invoiceProjectRecords) ListUnapplied(ctx context.Context, offset int64
 }
 
 // fromDBXInvoiceProjectRecord converts *dbx.StripecoinpaymentsInvoiceProjectRecord to *stripecoinpayments.ProjectRecord.
-func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripecoinpayments.ProjectRecord, error) {
+func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProjectRecord) (*stripe.ProjectRecord, error) {
 	id, err := uuid.FromBytes(dbxRecord.Id)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -180,7 +180,7 @@ func fromDBXInvoiceProjectRecord(dbxRecord *dbx.StripecoinpaymentsInvoiceProject
 		segments = float64(*dbxRecord.Segments)
 	}
 
-	return &stripecoinpayments.ProjectRecord{
+	return &stripe.ProjectRecord{
 		ID:          id,
 		ProjectID:   projectID,
 		Storage:     dbxRecord.Storage,

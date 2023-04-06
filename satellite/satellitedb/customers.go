@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ensures that customers implements stripecoinpayments.CustomersDB.
-var _ stripecoinpayments.CustomersDB = (*customers)(nil)
+var _ stripe.CustomersDB = (*customers)(nil)
 
 // customers is an implementation of stripecoinpayments.CustomersDB.
 //
@@ -50,7 +50,7 @@ func (customers *customers) GetCustomerID(ctx context.Context, userID uuid.UUID)
 	idRow, err := customers.db.Get_StripeCustomer_CustomerId_By_UserId(ctx, dbx.StripeCustomer_UserId(userID[:]))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", stripecoinpayments.ErrNoCustomer
+			return "", stripe.ErrNoCustomer
 		}
 
 		return "", err
@@ -66,7 +66,7 @@ func (customers *customers) GetUserID(ctx context.Context, customerID string) (_
 	idRow, err := customers.db.Get_StripeCustomer_UserId_By_CustomerId(ctx, dbx.StripeCustomer_CustomerId(customerID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, stripecoinpayments.ErrNoCustomer
+			return uuid.UUID{}, stripe.ErrNoCustomer
 		}
 
 		return uuid.UUID{}, err
@@ -76,10 +76,10 @@ func (customers *customers) GetUserID(ctx context.Context, customerID string) (_
 }
 
 // List returns paginated customers id list, with customers created before specified date.
-func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripecoinpayments.CustomersPage, err error) {
+func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripe.CustomersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page stripecoinpayments.CustomersPage
+	var page stripe.CustomersPage
 
 	dbxCustomers, err := customers.db.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx,
 		dbx.StripeCustomer_CreatedAt(before),
@@ -87,7 +87,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 		offset,
 	)
 	if err != nil {
-		return stripecoinpayments.CustomersPage{}, err
+		return stripe.CustomersPage{}, err
 	}
 
 	if len(dbxCustomers) == limit+1 {
@@ -100,7 +100,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 	for _, dbxCustomer := range dbxCustomers {
 		cus, err := fromDBXCustomer(dbxCustomer)
 		if err != nil {
-			return stripecoinpayments.CustomersPage{}, err
+			return stripe.CustomersPage{}, err
 		}
 
 		page.Customers = append(page.Customers, *cus)
@@ -110,7 +110,7 @@ func (customers *customers) List(ctx context.Context, offset int64, limit int, b
 }
 
 // UpdatePackage updates the customer's package plan and purchase time.
-func (customers *customers) UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (c *stripecoinpayments.Customer, err error) {
+func (customers *customers) UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (c *stripe.Customer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	updateFields := dbx.StripeCustomer_Update_Fields{
@@ -146,13 +146,13 @@ func (customers *customers) GetPackageInfo(ctx context.Context, userID uuid.UUID
 }
 
 // fromDBXCustomer converts *dbx.StripeCustomer to *stripecoinpayments.Customer.
-func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripecoinpayments.Customer, error) {
+func fromDBXCustomer(dbxCustomer *dbx.StripeCustomer) (*stripe.Customer, error) {
 	userID, err := uuid.FromBytes(dbxCustomer.UserId)
 	if err != nil {
 		return nil, err
 	}
 
-	return &stripecoinpayments.Customer{
+	return &stripe.Customer{
 		ID:                 dbxCustomer.CustomerId,
 		UserID:             userID,
 		PackagePlan:        dbxCustomer.PackagePlan,

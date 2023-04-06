@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestAutoFreezeChore(t *testing.T) {
@@ -126,7 +126,7 @@ func TestAutoFreezeChore(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			paymentMethod := stripecoinpayments.MockInvoicesPayFailure
+			paymentMethod := stripe1.MockInvoicesPayFailure
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
 				Params:        stripe.Params{Context: ctx},
 				PaymentMethod: &paymentMethod,

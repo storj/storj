@@ -27,7 +27,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // Config defines configuration for debug server.
@@ -54,7 +54,7 @@ type DB interface {
 	// OIDC returns the database for OIDC and OAuth information.
 	OIDC() oidc.DB
 	// StripeCoinPayments returns database for satellite stripe coin payments
-	StripeCoinPayments() stripecoinpayments.DB
+	StripeCoinPayments() stripe.DB
 }
 
 // Server provides endpoints for administrative tasks.

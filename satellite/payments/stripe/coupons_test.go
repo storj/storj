@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestCoupons(t *testing.T) {
@@ -21,7 +21,7 @@ func TestCoupons(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripecoinpayments.MockCouponID1
+				config.Payments.StripeCoinPayments.StripeFreeTierCouponID = stripe.MockCouponID1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -35,12 +35,12 @@ func TestCoupons(t *testing.T) {
 			require.Nil(t, coupon)
 		})
 		t.Run("ApplyCoupon fails with no matching customer", func(t *testing.T) {
-			coupon, err := c.ApplyCoupon(ctx, testrand.UUID(), stripecoinpayments.MockCouponID2)
+			coupon, err := c.ApplyCoupon(ctx, testrand.UUID(), stripe.MockCouponID2)
 			require.Error(t, err)
 			require.Nil(t, coupon)
 		})
 		t.Run("ApplyCoupon, GetByUserID succeeds", func(t *testing.T) {
-			id := stripecoinpayments.MockCouponID1
+			id := stripe.MockCouponID1
 			coupon, err := c.ApplyCoupon(ctx, userID, id)
 			require.NoError(t, err)
 			require.NotNil(t, coupon)

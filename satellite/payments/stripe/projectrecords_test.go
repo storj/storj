@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -31,7 +31,7 @@ func TestProjectRecords(t *testing.T) {
 
 		t.Run("create", func(t *testing.T) {
 			err = projectRecordsDB.Create(ctx,
-				[]stripecoinpayments.CreateProjectRecord{
+				[]stripe.CreateProjectRecord{
 					{
 						ProjectID: prjID,
 						Storage:   1,
@@ -47,7 +47,7 @@ func TestProjectRecords(t *testing.T) {
 		t.Run("check", func(t *testing.T) {
 			err = projectRecordsDB.Check(ctx, prjID, start, end)
 			require.Error(t, err)
-			assert.Equal(t, stripecoinpayments.ErrProjectRecordExists, err)
+			assert.Equal(t, stripe.ErrProjectRecordExists, err)
 		})
 
 		page, err := projectRecordsDB.ListUnapplied(ctx, 0, 1, start, end)
@@ -77,13 +77,13 @@ func TestProjectRecordsList(t *testing.T) {
 		const limit = 5
 		const recordsLen = limit * 4
 
-		var createProjectRecords []stripecoinpayments.CreateProjectRecord
+		var createProjectRecords []stripe.CreateProjectRecord
 		for i := 0; i < recordsLen; i++ {
 			projID, err := uuid.New()
 			require.NoError(t, err)
 
 			createProjectRecords = append(createProjectRecords,
-				stripecoinpayments.CreateProjectRecord{
+				stripe.CreateProjectRecord{
 					ProjectID: projID,
 					Storage:   float64(i) + 1,
 					Egress:    int64(i) + 2,

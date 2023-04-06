@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"encoding/base64"
@@ -18,7 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestTokens_ListDepositBonuses(t *testing.T) {
@@ -43,7 +43,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 			Params:      stripe.Params{Context: ctx},
 			Customer:    stripe.String(customerID),
 			Amount:      stripe.Int64(-1000),
-			Description: stripe.String(stripecoinpayments.StripeDepositTransactionDescription),
+			Description: stripe.String(stripe1.StripeDepositTransactionDescription),
 		}
 		txParams.AddMetadata("txID", txID)
 		_, err = satellite.API.Payments.StripeClient.CustomerBalanceTransactions().New(&txParams)
@@ -54,7 +54,7 @@ func TestTokens_ListDepositBonuses(t *testing.T) {
 			Params:      stripe.Params{Context: ctx},
 			Customer:    stripe.String(customerID),
 			Amount:      stripe.Int64(-130),
-			Description: stripe.String(stripecoinpayments.StripeDepositBonusTransactionDescription),
+			Description: stripe.String(stripe1.StripeDepositBonusTransactionDescription),
 		}
 		txParams.AddMetadata("txID", txID)
 		txParams.AddMetadata("percentage", "13")

@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	stripe1 "storj.io/storj/satellite/payments/stripe"
 )
 
 func TestInvoices(t *testing.T) {
@@ -30,7 +30,7 @@ func TestInvoices(t *testing.T) {
 			require.Nil(t, pi)
 		})
 		t.Run("Create returns error when underlying StripeInvoices.Create returns error", func(t *testing.T) {
-			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, testrand.UUID(), price, stripecoinpayments.MockInvoicesNewFailure)
+			pi, err := satellite.API.Payments.Accounts.Invoices().Create(ctx, testrand.UUID(), price, stripe1.MockInvoicesNewFailure)
 			require.Error(t, err)
 			require.Nil(t, pi)
 		})
@@ -54,7 +54,7 @@ func TestInvoices(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, pi)
 
-			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripecoinpayments.MockInvoicesPayFailure)
+			confirmedPI, err := satellite.API.Payments.Accounts.Invoices().Pay(ctx, pi.ID, stripe1.MockInvoicesPayFailure)
 			require.Error(t, err)
 			require.Nil(t, confirmedPI)
 		})

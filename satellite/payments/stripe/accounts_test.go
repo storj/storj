@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripecoinpayments_test
+package stripe_test
 
 import (
 	"testing"
@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 func TestSignupCouponCodes(t *testing.T) {
@@ -57,9 +57,9 @@ func TestSignupCouponCodes(t *testing.T) {
 		priceOverrides, err := pc.UsagePriceOverrides.ToModels()
 		require.NoError(t, err)
 
-		paymentsService, err := stripecoinpayments.NewService(
+		paymentsService, err := stripe.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(
+			stripe.NewStripeMock(
 				db.StripeCoinPayments().Customers(),
 				db.Console().Users(),
 			),

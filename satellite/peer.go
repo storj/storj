@@ -62,7 +62,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
@@ -121,7 +121,7 @@ type DB interface {
 	// GracefulExit returns database for graceful exit
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
-	StripeCoinPayments() stripecoinpayments.DB
+	StripeCoinPayments() stripe.DB
 	// Billing returns storjscan transactions database.
 	Billing() billing.TransactionsDB
 	// Wallets returns storjscan wallets database.

@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // Error is payments config err class.
@@ -24,11 +24,11 @@ var Error = errs.Class("payments config")
 
 // Config defines global payments config.
 type Config struct {
-	Provider     string                          `help:"payments provider to use" default:""`
-	MockProvider stripecoinpayments.StripeClient `internal:"true"`
+	Provider     string        `help:"payments provider to use" default:""`
+	MockProvider stripe.Client `internal:"true"`
 
 	BillingConfig            billing.Config
-	StripeCoinPayments       stripecoinpayments.Config
+	StripeCoinPayments       stripe.Config
 	Storjscan                storjscan.Config
 	UsagePrice               ProjectUsagePrice
 	BonusRate                int64                      `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`

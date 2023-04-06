@@ -27,7 +27,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // Admin is the satellite core process that runs chores.
@@ -55,8 +55,8 @@ type Admin struct {
 
 	Payments struct {
 		Accounts payments.Accounts
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
+		Service  *stripe.Service
+		Stripe   stripe.Client
 	}
 
 	Admin struct {
@@ -138,17 +138,17 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	{ // setup payments
 		pc := config.Payments
 
-		var stripeClient stripecoinpayments.StripeClient
+		var stripeClient stripe.Client
 		switch pc.Provider {
 		case "": // just new mock, only used in testing binaries
-			stripeClient = stripecoinpayments.NewStripeMock(
+			stripeClient = stripe.NewStripeMock(
 				peer.DB.StripeCoinPayments().Customers(),
 				peer.DB.Console().Users(),
 			)
 		case "mock":
 			stripeClient = pc.MockProvider
 		case "stripecoinpayments":
-			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
+			stripeClient = stripe.NewStripeClient(log, pc.StripeCoinPayments)
 		default:
 			return nil, errs.New("invalid stripe coin payments provider %q", pc.Provider)
 		}
@@ -163,7 +163,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Payments.Service, err = stripecoinpayments.NewService(
+		peer.Payments.Service, err = stripe.NewService(
 			peer.Log.Named("payments.stripe:service"),
 			stripeClient,
 			pc.StripeCoinPayments,
