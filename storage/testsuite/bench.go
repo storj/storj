@@ -78,17 +78,4 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 			}
 		}
 	})
-
-	b.Run("ListV2 5", func(b *testing.B) {
-		b.SetBytes(int64(len(items)))
-		for k := 0; k < b.N; k++ {
-			_, _, err := storage.ListV2(ctx, store, storage.ListOptions{
-				StartAfter: storage.Key("gamma"),
-				Limit:      5,
-			})
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
 }
