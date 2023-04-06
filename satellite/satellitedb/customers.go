@@ -9,6 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -76,36 +78,50 @@ func (customers *customers) GetUserID(ctx context.Context, customerID string) (_
 }
 
 // List returns paginated customers id list, with customers created before specified date.
-func (customers *customers) List(ctx context.Context, offset int64, limit int, before time.Time) (_ stripe.CustomersPage, err error) {
+func (customers *customers) List(ctx context.Context, userIDCursor uuid.UUID, limit int, before time.Time) (page stripe.CustomersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page stripe.CustomersPage
-
-	dbxCustomers, err := customers.db.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx,
-		dbx.StripeCustomer_CreatedAt(before),
-		limit+1,
-		offset,
-	)
+	rows, err := customers.db.QueryContext(ctx, customers.db.Rebind(`
+		SELECT
+			stripe_customers.user_id, stripe_customers.customer_id
+		FROM
+			stripe_customers
+		WHERE
+			stripe_customers.user_id > ? AND
+			stripe_customers.created_at < ?
+		ORDER BY stripe_customers.user_id ASC
+		LIMIT ?
+	`), userIDCursor, before, limit+1)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return stripe.CustomersPage{}, nil
+		}
 		return stripe.CustomersPage{}, err
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	if len(dbxCustomers) == limit+1 {
-		page.Next = true
-		page.NextOffset = offset + int64(limit)
-
-		dbxCustomers = dbxCustomers[:len(dbxCustomers)-1]
-	}
-
-	for _, dbxCustomer := range dbxCustomers {
-		cus, err := fromDBXCustomer(dbxCustomer)
+	results := []stripe.Customer{}
+	for rows.Next() {
+		var customer stripe.Customer
+		err := rows.Scan(&customer.UserID, &customer.ID)
 		if err != nil {
-			return stripe.CustomersPage{}, err
+			return stripe.CustomersPage{}, errs.New("unable to get stripe customer: %+v", err)
 		}
 
-		page.Customers = append(page.Customers, *cus)
+		results = append(results, customer)
+	}
+	if err := rows.Err(); err != nil {
+		return stripe.CustomersPage{}, errs.New("error while listing stripe customers: %+v", err)
 	}
 
+	if len(results) == limit+1 {
+		results = results[:len(results)-1]
+
+		page.Next = true
+		page.Cursor = results[len(results)-1].UserID
+	}
+
+	page.Customers = results
 	return page, nil
 }
 

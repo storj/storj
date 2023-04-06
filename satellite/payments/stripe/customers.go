@@ -25,7 +25,7 @@ type CustomersDB interface {
 	// GetUserID return userID given stripe customer id.
 	GetUserID(ctx context.Context, customerID string) (uuid.UUID, error)
 	// List returns page with customers ids created before specified date.
-	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
+	List(ctx context.Context, userIDCursor uuid.UUID, limit int, before time.Time) (CustomersPage, error)
 	// UpdatePackage updates the customer's package plan and purchase time.
 	UpdatePackage(ctx context.Context, userID uuid.UUID, packagePlan *string, timestamp *time.Time) (*Customer, error)
 	// GetPackageInfo returns the package plan and time of purchase for a user.
@@ -45,9 +45,9 @@ type Customer struct {
 
 // CustomersPage holds customers and
 // indicates if there is more data available
-// and provides next offset.
+// and provides cursor for next page.
 type CustomersPage struct {
-	Customers  []Customer
-	Next       bool
-	NextOffset int64
+	Customers []Customer
+	Next      bool
+	Cursor    uuid.UUID
 }

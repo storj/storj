@@ -14071,55 +14071,6 @@ func (obj *pgxImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*StripeCustomer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, stripe_customer_created_at_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*StripeCustomer, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				stripe_customer := &StripeCustomer{}
-				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, stripe_customer)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
 func (obj *pgxImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 	billing_balance_user_id BillingBalance_UserId_Field) (
 	row *Balance_Row, err error) {
@@ -21814,55 +21765,6 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_UserId_By_CustomerId(ctx context
 
 }
 
-func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*StripeCustomer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT stripe_customers.user_id, stripe_customers.customer_id, stripe_customers.package_plan, stripe_customers.purchased_package_at, stripe_customers.created_at FROM stripe_customers WHERE stripe_customers.created_at <= ? ORDER BY stripe_customers.created_at DESC LIMIT ? OFFSET ?")
-
-	var __values []interface{}
-	__values = append(__values, stripe_customer_created_at_less_or_equal.value())
-
-	__values = append(__values, limit, offset)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	for {
-		rows, err = func() (rows []*StripeCustomer, err error) {
-			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-			if err != nil {
-				return nil, err
-			}
-			defer __rows.Close()
-
-			for __rows.Next() {
-				stripe_customer := &StripeCustomer{}
-				err = __rows.Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.PackagePlan, &stripe_customer.PurchasedPackageAt, &stripe_customer.CreatedAt)
-				if err != nil {
-					return nil, err
-				}
-				rows = append(rows, stripe_customer)
-			}
-			err = __rows.Err()
-			if err != nil {
-				return nil, err
-			}
-			return rows, nil
-		}()
-		if err != nil {
-			if obj.shouldRetry(err) {
-				continue
-			}
-			return nil, obj.makeErr(err)
-		}
-		return rows, nil
-	}
-
-}
-
 func (obj *pgxcockroachImpl) Get_BillingBalance_Balance_By_UserId(ctx context.Context,
 	billing_balance_user_id BillingBalance_UserId_Field) (
 	row *Balance_Row, err error) {
@@ -29006,17 +28908,6 @@ func (rx *Rx) Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Des
 	return tx.Limited_StorjscanPayment_By_ToAddress_OrderBy_Desc_BlockNumber_Desc_LogIndex(ctx, storjscan_payment_to_address, limit, offset)
 }
 
-func (rx *Rx) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-	stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
-	limit int, offset int64) (
-	rows []*StripeCustomer, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx, stripe_customer_created_at_less_or_equal, limit, offset)
-}
-
 func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
 	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
@@ -30148,11 +30039,6 @@ type Methods interface {
 		storjscan_payment_to_address StorjscanPayment_ToAddress_Field,
 		limit int, offset int64) (
 		rows []*StorjscanPayment, err error)
-
-	Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
-		stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
-		limit int, offset int64) (
-		rows []*StripeCustomer, err error)
 
 	Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
 		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,

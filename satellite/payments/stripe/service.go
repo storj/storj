@@ -136,24 +136,16 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	}
 
 	var numberOfCustomers, numberOfRecords int
-	customersPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
-	if err != nil {
-		return Error.Wrap(err)
+	customersPage := CustomersPage{
+		Next: true,
 	}
-	numberOfCustomers += len(customersPage.Customers)
-
-	records, err := service.processCustomers(ctx, customersPage.Customers, start, end)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	numberOfRecords += records
 
 	for customersPage.Next {
 		if err = ctx.Err(); err != nil {
 			return Error.Wrap(err)
 		}
 
-		customersPage, err = service.db.Customers().List(ctx, customersPage.NextOffset, service.listingLimit, end)
+		customersPage, err = service.db.Customers().List(ctx, customersPage.Cursor, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -603,16 +595,16 @@ func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
 	var appliedCoupons int
 	failedUsers := []string{}
 	morePages := true
-	nextOffset := int64(0)
+	var nextCursor uuid.UUID
 	listingLimit := 100
 	end := time.Now()
 	for morePages {
-		customersPage, err := customers.List(ctx, nextOffset, listingLimit, end)
+		customersPage, err := customers.List(ctx, nextCursor, listingLimit, end)
 		if err != nil {
 			return err
 		}
 		morePages = customersPage.Next
-		nextOffset = customersPage.NextOffset
+		nextCursor = customersPage.Cursor
 
 		for _, c := range customersPage.Customers {
 			cusID := c.ID
@@ -686,10 +678,10 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		return Error.New("allowed for past periods only")
 	}
 
-	var nextOffset int64
+	var nextCursor uuid.UUID
 	var totalDraft, totalScheduled int
 	for {
-		cusPage, err := service.db.Customers().List(ctx, nextOffset, service.listingLimit, end)
+		cusPage, err := service.db.Customers().List(ctx, nextCursor, service.listingLimit, end)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -704,7 +696,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 		if !cusPage.Next {
 			break
 		}
-		nextOffset = cusPage.NextOffset
+		nextCursor = cusPage.Cursor
 	}
 
 	service.log.Info("Number of created invoices", zap.Int("Draft", totalDraft), zap.Int("Scheduled", totalScheduled))

@@ -30,11 +30,6 @@ read one (
 	select stripe_customer.user_id
 	where stripe_customer.customer_id = ?
 )
-read limitoffset (
-	select stripe_customer
-	where stripe_customer.created_at <= ?
-	orderby desc stripe_customer.created_at
-)
 
 update stripe_customer (
 	where stripe_customer.user_id = ?

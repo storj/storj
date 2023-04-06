@@ -4,6 +4,7 @@
 package stripe_test
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -50,53 +51,62 @@ func TestCustomersRepositoryList(t *testing.T) {
 
 		const custLen = 5
 
+		userIDs := []uuid.UUID{}
 		for i := 0; i < custLen*2+3; i++ {
 			userID, err := uuid.New()
 			require.NoError(t, err)
+			userIDs = append(userIDs, userID)
+		}
 
+		// order ids to be able to compare results easily
+		sort.Slice(userIDs, func(i, j int) bool {
+			return userIDs[i].Less(userIDs[j])
+		})
+
+		for i, userID := range userIDs {
 			cus := stripe.Customer{
 				ID:     "customerID" + strconv.Itoa(i),
 				UserID: userID,
 			}
 
-			err = customersDB.Insert(ctx, cus.UserID, cus.ID)
+			err := customersDB.Insert(ctx, cus.UserID, cus.ID)
 			require.NoError(t, err)
 
 			// Ensure that every insert gets a different "created at" time.
 			waitForTimeToChange()
 		}
 
-		page, err := customersDB.List(ctx, 0, custLen, time.Now())
+		page, err := customersDB.List(ctx, uuid.UUID{}, custLen, time.Now())
 		require.NoError(t, err)
 		require.Equal(t, custLen, len(page.Customers))
 
-		assert.True(t, page.Next)
-		assert.Equal(t, int64(5), page.NextOffset)
+		require.True(t, page.Next)
+		require.Equal(t, userIDs[4], page.Cursor)
 
 		for i, cus := range page.Customers {
-			assert.Equal(t, "customerID"+strconv.Itoa(12-i), cus.ID)
+			require.Equal(t, "customerID"+strconv.Itoa(i), cus.ID)
 		}
 
-		page, err = customersDB.List(ctx, page.NextOffset, custLen, time.Now())
+		page, err = customersDB.List(ctx, page.Cursor, custLen, time.Now())
 		require.NoError(t, err)
 		require.Equal(t, custLen, len(page.Customers))
 
-		assert.True(t, page.Next)
-		assert.Equal(t, int64(10), page.NextOffset)
+		require.True(t, page.Next)
+		require.Equal(t, userIDs[9], page.Cursor)
 
 		for i, cus := range page.Customers {
-			assert.Equal(t, "customerID"+strconv.Itoa(7-i), cus.ID)
+			require.Equal(t, "customerID"+strconv.Itoa(i+custLen), cus.ID)
 		}
 
-		page, err = customersDB.List(ctx, page.NextOffset, custLen, time.Now())
+		page, err = customersDB.List(ctx, page.Cursor, custLen, time.Now())
 		require.NoError(t, err)
 		require.Equal(t, 3, len(page.Customers))
 
-		assert.False(t, page.Next)
-		assert.Equal(t, int64(0), page.NextOffset)
+		require.False(t, page.Next)
+		require.True(t, page.Cursor.IsZero())
 
 		for i, cus := range page.Customers {
-			assert.Equal(t, "customerID"+strconv.Itoa(2-i), cus.ID)
+			require.Equal(t, "customerID"+strconv.Itoa(i+(2*custLen)), cus.ID)
 		}
 	})
 }

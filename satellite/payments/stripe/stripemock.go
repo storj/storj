@@ -210,7 +210,7 @@ func (m *mockCustomers) repopulate() error {
 		const limit = 25
 		ctx := context.TODO()
 
-		cusPage, err := m.customersDB.List(ctx, 0, limit, time.Now())
+		cusPage, err := m.customersDB.List(ctx, uuid.UUID{}, limit, time.Now())
 		if err != nil {
 			return err
 		}
@@ -223,7 +223,7 @@ func (m *mockCustomers) repopulate() error {
 		}
 
 		for cusPage.Next {
-			cusPage, err = m.customersDB.List(ctx, cusPage.NextOffset, limit, time.Now())
+			cusPage, err = m.customersDB.List(ctx, cusPage.Cursor, limit, time.Now())
 			if err != nil {
 				return err
 			}
