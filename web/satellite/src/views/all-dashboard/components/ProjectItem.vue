@@ -46,10 +46,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 import { Project } from '@/types/projects';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import {
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
@@ -62,6 +62,7 @@ import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
@@ -70,14 +71,15 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
 import MenuIcon from '@/../static/images/allDashboard/menu.svg';
 
-const router = useRouter();
-const route = useRoute();
+const usersStore = useUsersStore();
 const store = useStore();
-const analytics = new AnalyticsHttpApi();
 const notify = useNotify();
+const router = useRouter();
+
+const analytics = new AnalyticsHttpApi();
 
 const props = withDefaults(defineProps<{
-  project?: Project,
+    project?: Project,
 }>(), {
     project: () => new Project(),
 });
@@ -93,7 +95,7 @@ const isDropdownOpen = computed((): boolean => {
  * Returns user entity from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
@@ -116,7 +118,7 @@ function closeDropDown() {
  */
 async function onOpenClicked(): Promise<void> {
     await selectProject();
-    if (store.getters.shouldOnboard) {
+    if (usersStore.shouldOnboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;

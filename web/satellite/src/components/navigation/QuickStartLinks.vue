@@ -52,6 +52,7 @@ import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -59,6 +60,7 @@ import S3Icon from '@/../static/images/navigation/s3.svg';
 import UploadInCLIIcon from '@/../static/images/navigation/uploadInCLI.svg';
 import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -127,8 +129,8 @@ function navigateToNewProject(): void {
     if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.NEW_PROJECT_CLICKED);
 
-        const user: User = store.getters.user;
-        const ownProjectsCount: number = store.getters.projectsCount;
+        const user: User = usersStore.state.user;
+        const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);

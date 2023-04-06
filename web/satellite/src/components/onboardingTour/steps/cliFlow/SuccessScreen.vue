@@ -32,15 +32,15 @@
 <script setup lang="ts">
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { UserSettings } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import Icon from '@/../static/images/onboardingTour/successStep.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -66,9 +66,7 @@ async function onFinishClick(): Promise<void> {
 
 async function endOnboarding(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
-            onboardingEnd: true,
-        } as Partial<UserSettings>);
+        await usersStore.updateSettings({ onboardingEnd: true });
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }

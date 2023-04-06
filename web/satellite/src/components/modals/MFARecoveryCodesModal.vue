@@ -35,17 +35,19 @@ import { computed } from 'vue';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 
 /**
  * Returns MFA recovery codes from store.
  */
 const userMFARecoveryCodes = computed((): string[] => {
-    return store.state.usersModule.userMFARecoveryCodes;
+    return usersStore.state.userMFARecoveryCodes;
 });
 
 /**

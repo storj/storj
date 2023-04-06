@@ -59,7 +59,6 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
@@ -72,6 +71,7 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -87,6 +87,7 @@ const notify = useNotify();
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
+const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 
 const isHoveredOver = ref(false);
@@ -153,7 +154,7 @@ async function onLogout(): Promise<void> {
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
+        usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
         store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),

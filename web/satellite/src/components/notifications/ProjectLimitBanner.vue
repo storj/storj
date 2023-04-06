@@ -27,9 +27,11 @@ import { computed } from 'vue';
 import { MetaUtils } from '@/utils/meta';
 import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VBanner from '@/components/common/VBanner.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 
 const props = defineProps<{
@@ -58,21 +60,21 @@ const projectLimitsIncreaseRequestURL = computed((): string => {
  * Returns whether user is in paid tier.
  */
 const isPaidTier = computed((): boolean => {
-    return store.state.usersModule.user.paidTier;
+    return usersStore.state.user.paidTier;
 });
 
 /**
  * Returns user's projects count.
  */
 const projectsCount = computed((): number => {
-    return store.getters.projectsCount;
+    return store.getters.projectsCount(usersStore.state.user.id);
 });
 
 /**
  * Returns project limit from store.
  */
 const projectLimit = computed((): number => {
-    const projectLimit: number = store.getters.user.projectLimit;
+    const projectLimit: number = usersStore.state.user.projectLimit;
     if (projectLimit < projectsCount.value) return projectsCount.value;
 
     return projectLimit;

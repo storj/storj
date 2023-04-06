@@ -108,13 +108,13 @@ import {
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -134,10 +134,12 @@ import MenuIcon from '@/../static/images/navigation/menu.svg';
 
 const router = useRouter();
 const store = useStore();
+const notify = useNotify();
+const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
-const notify = useNotify();
 
 const link = 'https://docs.storj.io/';
 
@@ -155,7 +157,7 @@ const satellite = computed((): string => {
  * Returns user from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
@@ -227,7 +229,7 @@ async function onLogout(): Promise<void> {
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
+        usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
         store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),

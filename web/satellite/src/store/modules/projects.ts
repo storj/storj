@@ -237,13 +237,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
 
                 return project;
             },
-            [CREATE_DEFAULT_PROJECT]: async function ({ rootGetters, dispatch }: ProjectsContext): Promise<void> {
+            [CREATE_DEFAULT_PROJECT]: async function ({ rootGetters, dispatch }: ProjectsContext, userID: string): Promise<void> {
                 const UNTITLED_PROJECT_NAME = 'My First Project';
                 const UNTITLED_PROJECT_DESCRIPTION = '___';
                 const project = new ProjectFields(
                     UNTITLED_PROJECT_NAME,
                     UNTITLED_PROJECT_DESCRIPTION,
-                    rootGetters.user.id,
+                    userID,
                 );
                 const createdProject = await dispatch(CREATE, project);
 
@@ -358,11 +358,11 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState,
                 });
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
-            projectsCount: (state: ProjectsState, rootGetters: ProjectsContext['rootGetters']): number => {
+            projectsCount: (state: ProjectsState) => (userID: string): number => {
                 let projectsCount = 0;
 
                 state.projects.forEach((project: Project) => {
-                    if (project.ownerId === rootGetters.user.id) {
+                    if (project.ownerId === userID) {
                         projectsCount++;
                     }
                 });

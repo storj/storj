@@ -72,12 +72,14 @@ import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -117,7 +119,7 @@ async function onCreateProjectClick(): Promise<void> {
     const project = new ProjectFields(
         projectName.value,
         description.value,
-        store.getters.user.id,
+        usersStore.state.user.id,
     );
 
     try {

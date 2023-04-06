@@ -76,6 +76,7 @@ import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -86,10 +87,11 @@ import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
-const nativeRouter = useRouter();
-const router = reactive(nativeRouter);
+const userStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -279,8 +281,8 @@ function onCreateLinkClick(): void {
     if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
-        const user: User = store.getters.user;
-        const ownProjectsCount: number = store.getters.projectsCount;
+        const user: User = userStore.state.user;
+        const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);

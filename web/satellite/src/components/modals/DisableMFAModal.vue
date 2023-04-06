@@ -43,12 +43,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { DisableMFARequest } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -58,6 +58,7 @@ interface ClearInput {
     clearInput(): void;
 }
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -101,8 +102,8 @@ async function disable(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, request.value);
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.disableUserMFA(request.value);
+        await usersStore.getUser();
 
         await notify.success('MFA was disabled successfully');
 

@@ -185,13 +185,13 @@ import {
     Wallet,
     NativePaymentHistoryItem,
 } from '@/types/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -231,6 +231,7 @@ const {
     GET_NATIVE_PAYMENTS_HISTORY,
 } = PAYMENTS_ACTIONS;
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -275,7 +276,7 @@ const wallet = computed((): Wallet => {
  * Indicates if user has own project.
  */
 const userHasOwnProject = computed((): boolean => {
-    return store.getters.projectsCount > 0;
+    return store.getters.projectsCount(usersStore.state.user.id) > 0;
 });
 
 const creditCards = computed((): CreditCard[] => {
@@ -362,7 +363,7 @@ async function addCard(token: string): Promise<void> {
         await store.dispatch(ADD_CREDIT_CARD, token);
 
         // We fetch User one more time to update their Paid Tier status.
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
 

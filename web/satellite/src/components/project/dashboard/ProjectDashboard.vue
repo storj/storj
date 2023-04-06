@@ -170,6 +170,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -186,6 +187,7 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -224,7 +226,7 @@ const status = computed((): string => {
  * Returns pro account status from store.
  */
 const isProAccount = computed((): boolean => {
-    return store.getters.user.paidTier;
+    return usersStore.state.user.paidTier;
 });
 
 /**

@@ -38,11 +38,13 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import BoxIcon from '@/../static/images/allDashboard/box.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const analytics = new AnalyticsHttpApi();
 
@@ -52,8 +54,8 @@ const analytics = new AnalyticsHttpApi();
 function onCreateProjectClicked(): void {
     analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
-    const user: User = store.getters.user;
-    const ownProjectsCount: number = store.getters.projectsCount;
+    const user: User = usersStore.state.user;
+    const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
         store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);

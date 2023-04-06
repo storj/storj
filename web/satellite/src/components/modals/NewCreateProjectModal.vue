@@ -75,7 +75,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { ref } from 'vue';
 
 import { RouteConfig } from '@/router';
@@ -89,6 +88,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -97,14 +97,15 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const usersStore = useUsersStore();
+const store = useStore();
 const router = useRouter();
 const notify = useNotify();
-const store = useStore();
+
 const description = ref('');
 const createdProjectId = ref('');
 const hasDescription = ref(false);
 const isLoading = ref(false);
-
 const projectName = ref('');
 const nameError = ref('');
 
@@ -139,7 +140,7 @@ async function onCreateProjectClick(): Promise<void> {
     const project = new ProjectFields(
         projectName.value,
         description.value,
-        store.getters.user.id,
+        usersStore.state.user.id,
     );
 
     try {
@@ -171,7 +172,7 @@ async function onCreateProjectClick(): Promise<void> {
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
 
-    if (store.getters.shouldOnboard && store.state.appStateModule.isAllProjectsDashboard) {
+    if (usersStore.shouldOnboard && store.state.appStateModule.isAllProjectsDashboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;

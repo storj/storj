@@ -169,7 +169,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
@@ -181,6 +180,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -218,6 +218,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Users.withIcon(UsersIcon),
 ];
 
+const usersStore = useUsersStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -263,7 +264,7 @@ const selectedProject = computed((): Project => {
 /**
  * Returns satellite name from store.
  */
-const satellite = computed((): boolean => {
+const satellite = computed((): string => {
     return store.state.appStateModule.satelliteName;
 });
 
@@ -271,7 +272,7 @@ const satellite = computed((): boolean => {
  * Returns user entity from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
@@ -411,8 +412,8 @@ function onCreateLinkClick(): void {
     if (router.currentRoute.name !== RouteConfig.CreateProject.name) {
         analytics.eventTriggered(AnalyticsEvent.CREATE_NEW_CLICKED);
 
-        const user: User = store.getters.user;
-        const ownProjectsCount: number = store.getters.projectsCount;
+        const user: User = usersStore.state.user;
+        const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
             store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
@@ -459,7 +460,7 @@ async function onLogout(): Promise<void> {
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
+        usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
         store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),

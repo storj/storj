@@ -41,31 +41,32 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { UpdatedUser } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const userStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
-const userInfo = reactive<UpdatedUser>(new UpdatedUser(store.getters.user.fullName, store.getters.user.shortName));
+const userInfo = reactive<UpdatedUser>(new UpdatedUser(userStore.state.user.fullName, userStore.state.user.shortName));
 const fullNameError = ref<string>('');
 
 /**
  * Returns first letter of user name.
  */
 const avatarLetter = computed((): string => {
-    return store.getters.userName.slice(0, 1).toUpperCase();
+    return userStore.userName.slice(0, 1).toUpperCase();
 });
 
 /**
@@ -87,7 +88,7 @@ async function onUpdateClick(): Promise<void> {
     }
 
     try {
-        await store.dispatch(USER_ACTIONS.UPDATE, userInfo);
+        await userStore.updateUser(userInfo);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.EDIT_PROFILE_MODAL);
 

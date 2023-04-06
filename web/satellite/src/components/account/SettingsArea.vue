@@ -85,13 +85,13 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -99,6 +99,7 @@ import ChangePasswordIcon from '@/../static/images/account/profile/changePasswor
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -107,14 +108,14 @@ const { isLoading, withLoading } = useLoading();
  * Returns user info from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
  * Returns first letter of user name.
  */
 const avatarLetter = computed((): string => {
-    return store.getters.userName.slice(0, 1).toUpperCase();
+    return usersStore.userName.slice(0, 1).toUpperCase();
 });
 
 /**
@@ -158,7 +159,7 @@ function toggleEditProfileModal(): void {
 async function enableMFA(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -172,7 +173,7 @@ async function enableMFA(): Promise<void> {
 async function generateNewMFARecoveryCodes(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            await usersStore.generateUserMFARecoveryCodes();
             toggleMFACodesModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -184,7 +185,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Lifecycle hook after initial render where user info is fetching.
  */
 onMounted(() => {
-    store.dispatch(USER_ACTIONS.GET);
+    usersStore.getUser();
 });
 </script>
 

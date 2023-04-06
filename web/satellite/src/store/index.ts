@@ -20,7 +20,6 @@ import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/module
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
-import { makeUsersModule, UsersState } from '@/store/modules/users';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -52,7 +51,6 @@ export interface ModulesState {
     appStateModule: AppState;
     projectMembersModule: ProjectMembersState;
     paymentsModule: PaymentsState;
-    usersModule: UsersState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     bucketUsageModule: BucketsState;
@@ -67,7 +65,6 @@ export const store = new Vuex.Store<ModulesState>({
         appStateModule: makeAppStateModule(configApi),
         projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
-        usersModule: makeUsersModule(authApi),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),

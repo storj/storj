@@ -213,9 +213,11 @@ import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -584,7 +586,7 @@ function toggleDescriptionEditing(): void {
 function toggleStorageLimitEditing(): void {
     const storageLimitUnit = new Size(currentLimits.value.storageLimit, 2).label;
 
-    if (store.state.usersModule.user.paidTier) {
+    if (usersStore.state.user.paidTier) {
         isStorageLimitEditing.value = !isStorageLimitEditing.value;
 
         if (activeStorageMeasurement.value === Dimensions.TB && storageLimitUnit !== Dimensions.TB) {
@@ -604,7 +606,7 @@ function toggleStorageLimitEditing(): void {
 function toggleBandwidthLimitEditing(): void {
     const bandwidthLimitUnit = new Size(currentLimits.value.bandwidthLimit, 2).label;
 
-    if (store.state.usersModule.user.paidTier) {
+    if (usersStore.state.user.paidTier) {
         isBandwidthLimitEditing.value = !isBandwidthLimitEditing.value;
 
         if (activeBandwidthMeasurement.value === Dimensions.TB && bandwidthLimitUnit !== Dimensions.TB) {
@@ -633,7 +635,7 @@ function onBackClick(): void {
 onMounted(async (): Promise<void> => {
     if (!store.getters.selectedProject.id) return;
 
-    if (store.state.usersModule.user.paidTier) {
+    if (usersStore.state.user.paidTier) {
         isPaidTier.value = true;
     }
 

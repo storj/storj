@@ -18,9 +18,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
-const store = useStore();
+const usersStore = useUsersStore();
 
 const props = withDefaults(defineProps<{
     openGenerateModal: () => void,
@@ -32,7 +32,7 @@ const props = withDefaults(defineProps<{
  * Returns the quantity of MFA recovery codes.
  */
 const numCodes = computed((): number => {
-    return store.getters.user.mfaRecoveryCodeCount;
+    return usersStore.state.user.mfaRecoveryCodeCount;
 });
 </script>
 

@@ -20,7 +20,6 @@ import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
-import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -38,7 +37,6 @@ usersApi.setMockUser(new User('1', '2', '3', '4', '5', '6', 1));
 projectsApi.setMockProjects([]);
 
 const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
-const usersModule = makeUsersModule(usersApi);
 const projectsModule = makeProjectsModule(projectsApi);
 const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
 const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
@@ -51,7 +49,6 @@ const store = new Vuex.Store({
         notificationsModule,
         bucketsModule,
         accessGrantsModule,
-        usersModule,
         projectsModule,
         appStateModule,
         teamMembersModule,

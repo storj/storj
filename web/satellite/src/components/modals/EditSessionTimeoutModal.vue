@@ -57,9 +57,8 @@ import { computed, onMounted, ref } from 'vue';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { SetUserSettingsData } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -67,6 +66,7 @@ import TimeoutSelector from '@/components/modals/editSessionTimeout/TimeoutSelec
 
 import Icon from '@/../static/images/session/inactivityTimer.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -85,7 +85,7 @@ onMounted(() => {
  * Returns duration from store.
  */
 const userDuration = computed((): Duration | null => {
-    return store.state.usersModule.settings.sessionDuration;
+    return usersStore.state.settings.sessionDuration;
 });
 
 /**
@@ -112,9 +112,7 @@ function durationChange(duration: Duration) {
 async function save() {
     isLoading.value = true;
     try {
-        await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
-            sessionDuration: sessionDuration.value?.nanoseconds ?? 0,
-        } as SetUserSettingsData);
+        await usersStore.updateSettings({ sessionDuration: sessionDuration.value?.nanoseconds ?? 0 });
         notify.success(`Session timeout changed successfully. Your session timeout is ${sessionDuration.value?.shortString}.`);
         onClose();
     } catch (error) {

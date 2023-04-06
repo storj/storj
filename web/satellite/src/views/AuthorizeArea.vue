@@ -94,7 +94,6 @@ import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
@@ -103,6 +102,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -117,6 +117,7 @@ const validPerms = {
     'delete': true,
 };
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -184,10 +185,10 @@ function formatObjectPermissions(scope: string): string {
 
 async function ensureLogin(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, FetchState.ERROR);
+            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
             await notify.error(error.message, null);
         }
 

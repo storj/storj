@@ -38,7 +38,7 @@
                         width="100%"
                         font-size="13px"
                         icon="lock"
-                        :is-green="plan.type == 'partner'"
+                        :is-green="plan.type === 'partner'"
                         :is-disabled="isLoading"
                         :on-press="onActivateClick"
                     />
@@ -83,9 +83,9 @@ import { computed, ref, watch } from 'vue';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,6 +99,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const usersStore = useUsersStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -174,7 +175,7 @@ async function onCardAdded(token: string): Promise<void> {
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
         // Fetch cards to hide paid tier banner
         await store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
     } catch (error) {

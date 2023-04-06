@@ -32,9 +32,11 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -44,14 +46,14 @@ const isDataFetching = ref<boolean>(true);
  * Returns user's projects count.
  */
 const projectsCount = computed((): number => {
-    return store.getters.projectsCount;
+    return store.getters.projectsCount(usersStore.state.user.id);
 });
 
 /**
  * Returns project limit from store.
  */
 const projectLimit = computed((): number => {
-    const projectLimit: number = store.getters.user.projectLimit;
+    const projectLimit: number = usersStore.state.user.projectLimit;
     if (projectLimit < projectsCount.value) return projectsCount.value;
 
     return projectLimit;

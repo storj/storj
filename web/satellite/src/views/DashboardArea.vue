@@ -106,7 +106,6 @@ import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
@@ -123,6 +122,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -141,6 +141,7 @@ const {
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
+const usersStore = useUsersStore();
 const store = useStore();
 // TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
 const nativeRouter = useRouter();
@@ -175,7 +176,7 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
-    return store.state.usersModule.user.isFrozen;
+    return usersStore.state.user.isFrozen;
 });
 
 /**
@@ -204,7 +205,7 @@ const limitState = computed((): LimitedState => {
         hundredModalLimitType: '',
     };
 
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) {
+    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
         return result;
     }
 
@@ -269,22 +270,22 @@ const isAllProjectsDashboard = computed((): boolean => {
 const isProjectLimitBannerShown = computed((): boolean => {
     return !LocalData.getProjectLimitBannerHidden()
         && isProjectListPage.value
-        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
 });
 
 /**
  * Returns whether the user has reached project limits.
  */
 const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = store.getters.user.projectLimit;
-    const projectsCount: number = store.getters.projectsCount;
+    const projectLimit: number = usersStore.state.user.projectLimit;
+    const projectsCount: number = store.getters.projectsCount(usersStore.state.user.id);
 
     return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !store.state.usersModule.user.paidTier
+    return !usersStore.state.user.paidTier
         && !isOnboardingTour.value
         && joinedWhileAgo.value
         && isDashboardPage.value;
@@ -292,7 +293,7 @@ const isPaidTierBannerShown = computed((): boolean => {
 
 /* whether the user joined more than 7 days ago */
 const joinedWhileAgo = computed((): boolean => {
-    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    const createdAt = usersStore.state.user.createdAt as Date | null;
     if (!createdAt) return true; // true so we can show the banner regardless
     const millisPerDay = 24 * 60 * 60 * 1000;
     return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
@@ -330,7 +331,7 @@ const isLoading = computed((): boolean => {
  * Indicates whether the MFA recovery code warning bar should be shown.
  */
 const showMFARecoveryCodeBar = computed((): boolean => {
-    const user: User = store.getters.user;
+    const user: User = usersStore.state.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
@@ -484,7 +485,7 @@ async function handleInactive(): Promise<void> {
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
+        usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
         store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
@@ -531,7 +532,7 @@ function toggleMFARecoveryModal(): void {
  */
 async function generateNewMFARecoveryCodes(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
@@ -579,19 +580,19 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    store.subscribeAction((action) => {
-        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    usersStore.$onAction((action) => {
+        if (action.name === 'clear') clearSessionTimers();
     });
 
     try {
-        await store.dispatch(USER_ACTIONS.GET);
-        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
+        await usersStore.getUser();
+        await usersStore.getFrozenStatus();
         await abTestingStore.fetchValues();
-        await store.dispatch(USER_ACTIONS.GET_SETTINGS);
+        await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        store.subscribeAction((action) => {
-            if (action.type === USER_ACTIONS.LOGIN) setupSessionTimers();
+        usersStore.$onAction((action) => {
+            if (action.name === 'login') setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
@@ -641,11 +642,11 @@ onMounted(async () => {
     if (!store.state.appStateModule.isAllProjectsDashboard) {
         try {
             if (!projects.length) {
-                await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
+                await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT, usersStore.state.user.id);
             } else {
                 selectProject(projects);
             }
-            if (store.getters.shouldOnboard) {
+            if (usersStore.shouldOnboard) {
                 const onboardingPath = RouteConfig.OnboardingTour.with(RouteConfig.FirstOnboardingStep).path;
 
                 await analytics.pageVisit(onboardingPath);

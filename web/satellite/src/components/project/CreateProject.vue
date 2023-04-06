@@ -69,11 +69,13 @@ import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -121,7 +123,7 @@ async function onCreateProjectClick(): Promise<void> {
     const project = new ProjectFields(
         projectName.value,
         description.value,
-        store.getters.user.id,
+        usersStore.state.user.id,
     );
 
     try {

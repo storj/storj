@@ -101,7 +101,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
@@ -109,9 +108,11 @@ import { useNotify, useStore } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { Duration } from '@/utils/time';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -120,14 +121,14 @@ const { isLoading, withLoading } = useLoading();
  * Returns user info from store.
  */
 const user = computed((): User => {
-    return store.getters.user;
+    return usersStore.state.user;
 });
 
 /**
  * Returns duration from store.
  */
 const userDuration = computed((): Duration | null => {
-    return store.state.usersModule.settings.sessionDuration;
+    return usersStore.state.settings.sessionDuration;
 });
 
 /**
@@ -178,7 +179,7 @@ function toggleEditProfileModal(): void {
 async function enableMFA(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            await usersStore.generateUserMFASecret();
             toggleEnableMFAModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -192,7 +193,7 @@ async function enableMFA(): Promise<void> {
 async function generateNewMFARecoveryCodes(): Promise<void> {
     await withLoading(async () => {
         try {
-            await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            await usersStore.generateUserMFARecoveryCodes();
             toggleMFACodesModal();
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.ACCOUNT_SETTINGS_AREA);
@@ -204,7 +205,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Lifecycle hook after initial render where user info is fetching.
  */
 onMounted(() => {
-    store.dispatch(USER_ACTIONS.GET);
+    usersStore.getUser();
 });
 </script>
 

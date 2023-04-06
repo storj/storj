@@ -80,17 +80,18 @@
 import QRCode from 'qrcode';
 import { computed, onMounted, ref } from 'vue';
 
-import { USER_ACTIONS } from '@/store/modules/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -115,17 +116,17 @@ const satellite = computed((): string => {
  * Returns pre-generated MFA secret from store.
  */
 const userMFASecret = computed((): string => {
-    return store.state.usersModule.userMFASecret;
+    return usersStore.state.userMFASecret;
 });
 
 /**
  * Returns user MFA recovery codes from store.
  */
 const userMFARecoveryCodes = computed((): string[] => {
-    return store.state.usersModule.userMFARecoveryCodes;
+    return usersStore.state.userMFARecoveryCodes;
 });
 
-const qrLink = `otpauth://totp/${encodeURIComponent(store.getters.user.email)}?secret=${userMFASecret.value}&issuer=${encodeURIComponent(`STORJ ${satellite.value}`)}&algorithm=SHA1&digits=6&period=30`;
+const qrLink = `otpauth://totp/${encodeURIComponent(usersStore.state.user.email)}?secret=${userMFASecret.value}&issuer=${encodeURIComponent(`STORJ ${satellite.value}`)}&algorithm=SHA1&digits=6&period=30`;
 
 /**
  * Toggles view to Enable MFA state.
@@ -147,7 +148,7 @@ function closeModal(): void {
  */
 async function showCodes(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        await usersStore.generateUserMFARecoveryCodes();
         isEnable.value = false;
         isCodes.value = true;
     } catch (error) {
@@ -172,8 +173,8 @@ async function enable(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(USER_ACTIONS.ENABLE_USER_MFA, confirmPasscode.value);
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.enableUserMFA(confirmPasscode.value);
+        await usersStore.getUser();
         await showCodes();
 
         analytics.eventTriggered(AnalyticsEvent.MFA_ENABLED);

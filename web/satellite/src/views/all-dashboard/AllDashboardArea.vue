@@ -112,7 +112,6 @@ import {
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { USER_ACTIONS } from '@/store/modules/users';
 import {
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
@@ -131,6 +130,7 @@ import { CouponType } from '@/types/coupons';
 import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -151,6 +151,7 @@ const {
 const router = useRouter();
 const store = useStore();
 const notify = useNotify();
+const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -178,7 +179,7 @@ const dashboardContent = ref<HTMLElement | null>(null);
  * Indicates if account was frozen due to billing issues.
  */
 const isAccountFrozen = computed((): boolean => {
-    return store.state.usersModule.user.isFrozen;
+    return usersStore.state.user.isFrozen;
 });
 
 /**
@@ -207,7 +208,7 @@ const limitState = computed((): LimitedState => {
         hundredModalLimitType: '',
     };
 
-    if (store.state.usersModule.user.paidTier || isAccountFrozen.value) {
+    if (usersStore.state.user.paidTier || isAccountFrozen.value) {
         return result;
     }
 
@@ -280,7 +281,7 @@ const isLoading = computed((): boolean => {
  * Indicates whether the MFA recovery code warning bar should be shown.
  */
 const showMFARecoveryCodeBar = computed((): boolean => {
-    const user: User = store.getters.user;
+    const user: User = usersStore.state.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
 });
 
@@ -288,29 +289,29 @@ const showMFARecoveryCodeBar = computed((): boolean => {
 const isProjectLimitBannerShown = computed((): boolean => {
     return !LocalData.getProjectLimitBannerHidden()
         && !isBillingPage.value
-        && (hasReachedProjectLimit.value || !store.state.usersModule.user.paidTier);
+        && (hasReachedProjectLimit.value || !usersStore.state.user.paidTier);
 });
 
 /**
  * Returns whether the user has reached project limits.
  */
 const hasReachedProjectLimit = computed((): boolean => {
-    const projectLimit: number = store.getters.user.projectLimit;
-    const projectsCount: number = store.getters.projectsCount;
+    const projectLimit: number = usersStore.state.user.projectLimit;
+    const projectsCount: number = store.getters.projectsCount(usersStore.state.user.id);
 
     return projectsCount === projectLimit;
 });
 
 /* whether the paid tier banner should be shown */
 const isPaidTierBannerShown = computed((): boolean => {
-    return !store.state.usersModule.user.paidTier
+    return !usersStore.state.user.paidTier
         && !isBillingPage.value
         && joinedWhileAgo.value;
 });
 
 /* whether the user joined more than 7 days ago */
 const joinedWhileAgo = computed((): boolean => {
-    const createdAt = store.state.usersModule.user.createdAt as Date | null;
+    const createdAt = usersStore.state.user.createdAt as Date | null;
     if (!createdAt) return true; // true so we can show the banner regardless
     const millisPerDay = 24 * 60 * 60 * 1000;
     return ((Date.now() - createdAt.getTime()) / millisPerDay) > 7;
@@ -341,7 +342,7 @@ async function handleInactive(): Promise<void> {
     await Promise.all([
         store.dispatch(PM_ACTIONS.CLEAR),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
-        store.dispatch(USER_ACTIONS.CLEAR),
+        usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
         store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
@@ -373,7 +374,7 @@ async function handleInactive(): Promise<void> {
  */
 async function generateNewMFARecoveryCodes(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+        await usersStore.generateUserMFARecoveryCodes();
         toggleMFARecoveryModal();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
@@ -520,19 +521,19 @@ async function onSessionActivity(): Promise<void> {
  * Pre fetches user`s and project information.
  */
 onMounted(async () => {
-    store.subscribeAction((action) => {
-        if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
+    usersStore.$onAction((action) => {
+        if (action.name === 'clear') clearSessionTimers();
     });
 
     try {
-        await store.dispatch(USER_ACTIONS.GET);
-        await store.dispatch(USER_ACTIONS.GET_FROZEN_STATUS);
+        await usersStore.getUser();
+        await usersStore.getFrozenStatus();
         await abTestingStore.fetchValues();
-        await store.dispatch(USER_ACTIONS.GET_SETTINGS);
+        await usersStore.getSettings();
         setupSessionTimers();
     } catch (error) {
-        store.subscribeAction((action) => {
-            if (action.type === USER_ACTIONS.LOGIN) setupSessionTimers();
+        usersStore.$onAction((action) => {
+            if (action.name === 'login') setupSessionTimers();
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
@@ -579,7 +580,7 @@ onMounted(async () => {
 
     await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
 
-    if (store.getters.shouldOnboard && !store.state.appStateModule.viewsState.hasShownPricingPlan) {
+    if (usersStore.shouldOnboard && !store.state.appStateModule.viewsState.hasShownPricingPlan) {
         store.commit(APP_STATE_MUTATIONS.SET_HAS_SHOWN_PRICING_PLAN, true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.

@@ -134,7 +134,6 @@ import { useNotify, useRoute, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -142,6 +141,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ProjectUsagePriceModel } from '@/types/payments';
 import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -156,8 +156,9 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
-const notify = useNotify();
+const usersStore = useUsersStore();
 const store = useStore();
+const notify = useNotify();
 const route = useRoute();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -212,7 +213,7 @@ async function addCardToDB(token: string): Promise<void> {
         await notify.success('Card successfully added');
 
         // We fetch User one more time to update their Paid Tier status.
-        await store.dispatch(USER_ACTIONS.GET);
+        await usersStore.getUser();
 
         if (route.name === RouteConfig.ProjectDashboard.name) {
             await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
@@ -285,7 +286,7 @@ const bandwidthPrice = computed((): string => {
  */
 onBeforeMount(() => {
     try {
-        const partner = store.getters.user.partner;
+        const partner = usersStore.state.user.partner;
         const config = require('@/components/account/billing/billingConfig.json');
         if (partner !== '' && config[partner] && config[partner].extraBandwidthPriceInfo) {
             extraBandwidthPriceInfo.value = config[partner].extraBandwidthPriceInfo;

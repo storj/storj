@@ -36,12 +36,12 @@ import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { USER_ACTIONS } from '@/store/modules/users';
-import { UserSettings } from '@/types/users';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -87,9 +87,7 @@ async function onUploadInBrowserClick(): Promise<void> {
 
 async function endOnboarding(): Promise<void> {
     try {
-        await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
-            onboardingEnd: true,
-        } as Partial<UserSettings>);
+        await usersStore.updateSettings({ onboardingEnd: true });
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);
     }
@@ -101,10 +99,8 @@ async function endOnboarding(): Promise<void> {
  */
 onMounted(async (): Promise<void> => {
     try {
-        if (!store.state.usersModule.settings.onboardingStart) {
-            await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
-                onboardingStart: true,
-            } as Partial<UserSettings>);
+        if (!usersStore.state.settings.onboardingStart) {
+            await usersStore.updateSettings({ onboardingStart: true });
         }
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.ONBOARDING_OVERVIEW_STEP);

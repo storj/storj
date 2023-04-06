@@ -91,6 +91,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -100,6 +101,7 @@ import AddFieldIcon from '@/../static/images/team/addField.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -198,7 +200,7 @@ async function onAddUsersClick(): Promise<void> {
         return;
     }
 
-    if (emailArray.includes(store.state.usersModule.user.email)) {
+    if (emailArray.includes(usersStore.state.user.email)) {
         await notify.error(`Error during adding project members. You can't add yourself to the project`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
 

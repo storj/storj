@@ -23,16 +23,17 @@ import { onBeforeMount, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { User, UserSettings } from '@/types/users';
+import { User } from '@/types/users';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MetaUtils } from '@/utils/meta';
 import { PaymentsHttpApi } from '@/api/payments';
-import { USER_ACTIONS } from '@/store/modules/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useUsersStore } from '@/store/modules/usersStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+const usersStore = useUsersStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -71,7 +72,7 @@ const plans = ref<PricingPlanInfo[]>([
  * Loads pricing plan config.
  */
 onBeforeMount(async () => {
-    const user: User = store.getters.user;
+    const user: User = usersStore.state.user;
     let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
     if (store.state.appStateModule.isAllProjectsDashboard) {
         nextPath = RouteConfig.AllProjectsDashboard.path;
@@ -112,11 +113,9 @@ onBeforeMount(async () => {
     plan.type = PricingPlanType.PARTNER;
     plans.value.unshift(plan);
 
-    if (!store.state.usersModule.settings.onboardingStart) {
+    if (!usersStore.state.settings.onboardingStart) {
         try {
-            await store.dispatch(USER_ACTIONS.UPDATE_SETTINGS, {
-                onboardingStart: true,
-            } as Partial<UserSettings>);
+            await usersStore.updateSettings({ onboardingStart: true });
         } catch (error) {
             notify.error(error.message, AnalyticsErrorEventSource.PRICING_PLAN_STEP);
         }
