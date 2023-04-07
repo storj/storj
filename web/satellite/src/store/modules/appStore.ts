@@ -12,7 +12,6 @@ import { MetaUtils } from '@/utils/meta';
 class ViewsState {
     public fetchState = FetchState.LOADING;
     public isSuccessfulPasswordResetShown = false;
-    public isBillingNotificationShown = true;
     public hasJustLoggedIn = false;
     public onbAGStepBackRoute = '';
     public onbAPIKeyStepBackRoute = '';
@@ -77,10 +76,6 @@ export const useAppStore = defineStore('app', () => {
             return;
         }
         state.viewsState.hasJustLoggedIn = hasJustLoggedIn;
-    }
-
-    function closeBillingNotification(): void {
-        state.viewsState.isBillingNotificationShown = false;
     }
 
     function changeState(newFetchState: FetchState): void {

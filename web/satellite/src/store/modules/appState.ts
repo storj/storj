@@ -15,7 +15,6 @@ class ViewsState {
     constructor(
         public fetchState = FetchState.LOADING,
         public isSuccessfulPasswordResetShown = false,
-        public isBillingNotificationShown = true,
         public hasJustLoggedIn = false,
         public onbAGStepBackRoute = '',
         public onbAPIKeyStepBackRoute = '',
@@ -66,9 +65,6 @@ export function makeAppStateModule(configApi: FrontendConfigApi): StoreModule<Ap
                     return;
                 }
                 state.viewsState.hasJustLoggedIn = hasJustLoggedIn;
-            },
-            [APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION](state: AppState): void {
-                state.viewsState.isBillingNotificationShown = false;
             },
             [APP_STATE_MUTATIONS.CLEAR](state: AppState): void {
                 state.viewsState.activeModal = null;
