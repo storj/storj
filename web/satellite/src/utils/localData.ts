@@ -11,7 +11,6 @@ export class LocalData {
     private static bucketGuideHidden = 'bucketGuideHidden';
     private static serverSideEncryptionBannerHidden = 'serverSideEncryptionBannerHidden';
     private static serverSideEncryptionModalHidden = 'serverSideEncryptionModalHidden';
-    private static billingNotificationAcknowledged = 'billingNotificationAcknowledged';
     private static sessionExpirationDate = 'sessionExpirationDate';
     private static projectLimitBannerHidden = 'projectLimitBannerHidden';
 
@@ -83,14 +82,6 @@ export class LocalData {
     public static getServerSideEncryptionModalHidden(): boolean {
         const value = localStorage.getItem(LocalData.serverSideEncryptionModalHidden);
         return value === 'true';
-    }
-
-    public static getBillingNotificationAcknowledged(): boolean {
-        return Boolean(localStorage.getItem(LocalData.billingNotificationAcknowledged));
-    }
-
-    public static setBillingNotificationAcknowledged(): void {
-        localStorage.setItem(LocalData.billingNotificationAcknowledged, 'true');
     }
 
     public static getSessionExpirationDate(): Date | null {

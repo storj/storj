@@ -18,8 +18,6 @@
             <div class="all-dashboard__content__divider" />
 
             <div class="all-dashboard__banners">
-                <BillingNotification v-if="isBillingNotificationShown" class="all-dashboard__banners__billing" />
-
                 <UpgradeNotification
                     v-if="isPaidTierBannerShown"
                     class="all-dashboard__banners__upgrade"
@@ -134,7 +132,6 @@ import { AuthHttpApi } from '@/api/auth';
 import Heading from '@/views/all-dashboard/components/Heading.vue';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 
-import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
 import MFARecoveryCodeBar from '@/components/infoBars/MFARecoveryCodeBar.vue';
@@ -263,14 +260,6 @@ const limitState = computed((): LimitedState => {
  */
 const isBillingPage = computed(() => {
     return useRoute().path.includes(RouteConfig.Billing2.path);
-});
-
-/**
- * Indicates whether the billing relocation notification should be shown.
- */
-const isBillingNotificationShown = computed((): boolean => {
-    return !isBillingPage.value
-    && store.state.appStateModule.viewsState.isBillingNotificationShown;
 });
 
 /**
@@ -534,17 +523,6 @@ onMounted(async () => {
     store.subscribeAction((action) => {
         if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
     });
-
-    if (LocalData.getBillingNotificationAcknowledged()) {
-        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    } else {
-        const unsub = store.subscribe((action) => {
-            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
-                LocalData.setBillingNotificationAcknowledged();
-                unsub();
-            }
-        });
-    }
 
     try {
         await store.dispatch(USER_ACTIONS.GET);

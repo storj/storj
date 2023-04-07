@@ -64,7 +64,6 @@
                         </div>
                         <router-view class="dashboard__wrap__main-area__content-wrap__container__content" />
                     </div>
-                    <BillingNotification v-if="isBillingNotificationShown" />
                 </div>
             </div>
         </div>
@@ -125,7 +124,6 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 
-import BillingNotification from '@/components/notifications/BillingNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -334,13 +332,6 @@ const isLoading = computed((): boolean => {
 const showMFARecoveryCodeBar = computed((): boolean => {
     const user: User = store.getters.user;
     return user.isMFAEnabled && user.mfaRecoveryCodeCount < recoveryCodeWarningThreshold;
-});
-
-/**
- * Indicates whether the billing relocation notification should be shown.
- */
-const isBillingNotificationShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.isBillingNotificationShown;
 });
 
 /**
@@ -591,17 +582,6 @@ onMounted(async () => {
     store.subscribeAction((action) => {
         if (action.type === USER_ACTIONS.CLEAR) clearSessionTimers();
     });
-
-    if (LocalData.getBillingNotificationAcknowledged()) {
-        store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
-    } else {
-        const unsub = store.subscribe((action) => {
-            if (action.type === APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION) {
-                LocalData.setBillingNotificationAcknowledged();
-                unsub();
-            }
-        });
-    }
 
     try {
         await store.dispatch(USER_ACTIONS.GET);
