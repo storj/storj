@@ -105,7 +105,6 @@ import { User } from '@/types/users';
 import {
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -115,6 +114,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -132,9 +132,11 @@ import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 
-const router = useRouter();
 const store = useStore();
+const router = useRouter();
 const notify = useNotify();
+
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 
@@ -227,7 +229,7 @@ async function onLogout(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
+        pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),

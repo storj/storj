@@ -56,7 +56,6 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import {
     APP_STATE_ACTIONS,
     NOTIFICATION_ACTIONS,
-    PM_ACTIONS,
 } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -72,6 +71,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -84,9 +84,11 @@ import SettingsIcon from '@/../static/images/navigation/settings.svg';
 const router = useRouter();
 const store = useStore();
 const notify = useNotify();
+
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 
@@ -152,7 +154,7 @@ async function onLogout(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
+        pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),

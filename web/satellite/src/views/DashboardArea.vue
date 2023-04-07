@@ -107,7 +107,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -122,6 +122,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -140,12 +141,13 @@ const {
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
 const store = useStore();
 // TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
 const nativeRouter = useRouter();
 const notify = useNotify();
-const abTestingStore = useABTestingStore();
 
 const router = reactive(nativeRouter);
 
@@ -482,7 +484,7 @@ async function handleInactive(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
+        pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),

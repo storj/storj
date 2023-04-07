@@ -52,15 +52,23 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
         return projectMembersPage;
     }
 
-    function setProjectMembersSearchQuery(search: string) {
+    function setPage(page: ProjectMembersPage) {
+        state.page = page;
+    }
+
+    function setPageNumber(page: number) {
+        state.cursor.page = page;
+    }
+
+    function setSearchQuery(search: string) {
         state.cursor.search = search;
     }
 
-    function setProjectMembersSortingBy(order: ProjectMemberOrderBy) {
+    function setSortingBy(order: ProjectMemberOrderBy) {
         state.cursor.order = order;
     }
 
-    function setProjectMembersSortingDirection(direction: SortDirection) {
+    function setSortingDirection(direction: SortDirection) {
         state.cursor.orderDirection = direction;
     }
 
@@ -94,6 +102,17 @@ export const useProjectMembersStore = defineStore('projectMembers', () => {
     }
 
     return {
-        pmState: state,
+        state,
+        addProjectMembers,
+        deleteProjectMembers,
+        getProjectMembers,
+        setSearchQuery,
+        setSortingBy,
+        setSortingDirection,
+        setPage,
+        setPageNumber,
+        toggleProjectMemberSelection,
+        clearProjectMemberSelection,
+        clear,
     };
 });

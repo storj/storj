@@ -4,36 +4,24 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
 import { FrontendConfigApiMock } from '../../mock/api/config';
 
 import { makeAppStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { ProjectMember, ProjectMemberHeaderState, ProjectMembersPage } from '@/types/projectMembers';
+import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
-const date = new Date(0);
-const projectMembers: ProjectMember[] = [
-    new ProjectMember('f1', 's1', '1@example.com', date, '1'),
-    new ProjectMember('f2', 's2', '2@example.com', date, '2'),
-    new ProjectMember('f3', 's3', '3@example.com', date, '3'),
-];
-
-const api = new ProjectMembersApiMock();
-api.setMockPage(new ProjectMembersPage(projectMembers));
 
 const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const notificationsModule = makeNotificationsModule();
-const projectMembersModule = makeProjectMembersModule(api);
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { appStateModule, projectMembersModule, notificationsModule } });
+const store = new Vuex.Store({ modules: { appStateModule, notificationsModule } });
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {

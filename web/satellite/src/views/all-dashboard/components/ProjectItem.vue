@@ -57,12 +57,13 @@ import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { LocalData } from '@/utils/localData';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
@@ -71,6 +72,7 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
 import MenuIcon from '@/../static/images/allDashboard/menu.svg';
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -130,7 +132,7 @@ async function onOpenClicked(): Promise<void> {
 async function selectProject() {
     await store.dispatch(PROJECTS_ACTIONS.SELECT, props.project.id);
     LocalData.setSelectedProjectId(props.project.id);
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
 }

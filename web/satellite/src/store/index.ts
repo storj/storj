@@ -18,7 +18,6 @@ import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
-import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
@@ -28,11 +27,8 @@ import { FrontendConfigHttpApi } from '@/api/config';
 
 Vue.use(Vuex);
 
-// TODO: remove it after we will use modules as classes and use some DI framework
-const authApi = new AuthHttpApi();
 const accessGrantsApi = new AccessGrantsApiGql();
 const bucketsApi = new BucketsApiGql();
-const projectMembersApi = new ProjectMembersApiGql();
 const projectsApi = new ProjectsApiGql();
 const paymentsApi = new PaymentsHttpApi();
 const configApi = new FrontendConfigHttpApi();
@@ -49,7 +45,6 @@ export interface ModulesState {
     notificationsModule: NotificationsState;
     accessGrantsModule: AccessGrantsState;
     appStateModule: AppState;
-    projectMembersModule: ProjectMembersState;
     paymentsModule: PaymentsState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
@@ -63,7 +58,6 @@ export const store = new Vuex.Store<ModulesState>({
         notificationsModule: makeNotificationsModule(),
         accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
         appStateModule: makeAppStateModule(configApi),
-        projectMembersModule: makeProjectMembersModule(projectMembersApi),
         paymentsModule: makePaymentsModule(paymentsApi),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),

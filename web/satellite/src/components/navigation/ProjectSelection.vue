@@ -63,7 +63,7 @@ import { computed, reactive, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
@@ -77,6 +77,7 @@ import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -87,6 +88,7 @@ import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
+const pmStore = useProjectMembersStore();
 const userStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -195,7 +197,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
     LocalData.setSelectedProjectId(projectID);
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
     closeDropdown();
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
@@ -238,7 +240,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     if (router.currentRoute.name === RouteConfig.Users.name) {
         try {
-            await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+            await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }

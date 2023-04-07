@@ -54,7 +54,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
@@ -63,6 +62,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -76,6 +76,7 @@ const {
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -134,14 +135,16 @@ async function onProjectSelected(project: Project): Promise<void> {
     const projectID = project.id;
     await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
     LocalData.setSelectedProjectId(projectID);
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
 
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await Promise.all([
+            store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+            pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
+            store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
+            store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
+            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
+        ]);
 
         analytics.pageVisit(RouteConfig.EditProjectDetails.path);
         await router.push(RouteConfig.EditProjectDetails.path);

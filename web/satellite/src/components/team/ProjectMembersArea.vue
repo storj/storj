@@ -52,9 +52,9 @@ import {
     ProjectMember,
     ProjectMemberHeaderState,
 } from '@/types/projectMembers';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import HeaderArea from '@/components/team/HeaderArea.vue';
@@ -63,11 +63,7 @@ import VTable from '@/components/common/VTable.vue';
 
 import EmptySearchResultIcon from '@/../static/images/common/emptySearchResult.svg';
 
-const {
-    FETCH,
-    TOGGLE_SELECTION,
-} = PM_ACTIONS;
-
+const pmStore = useProjectMembersStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -80,7 +76,7 @@ const areMembersFetching = ref<boolean>(true);
  * With project owner pinned to top
  */
 const projectMembers = computed((): ProjectMember[] => {
-    const projectMembers = store.state.projectMembersModule.page.projectMembers;
+    const projectMembers = pmStore.state.page.projectMembers;
     const projectOwner = projectMembers.find((member) => member.user.id === store.getters.selectedProject.ownerId);
     const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== store.getters.selectedProject.ownerId);
 
@@ -94,29 +90,29 @@ const projectMembers = computed((): ProjectMember[] => {
  * Returns team members total page count from store.
  */
 const projectMembersTotalCount = computed((): number => {
-    return store.state.projectMembersModule.page.totalCount;
+    return pmStore.state.page.totalCount;
 });
 
 /**
  * Returns team members limit from store.
  */
 const projectMemberLimit = computed((): number => {
-    return store.state.projectMembersModule.page.limit;
+    return pmStore.state.page.limit;
 });
 
 /**
  * Returns team members count of current page from store.
  */
 const projectMembersCount = computed((): number => {
-    return store.state.projectMembersModule.page.projectMembers.length;
+    return pmStore.state.page.projectMembers.length;
 });
 
 const totalPageCount = computed((): number => {
-    return store.state.projectMembersModule.page.pageCount;
+    return pmStore.state.page.pageCount;
 });
 
 const selectedProjectMembersLength = computed((): number => {
-    return store.state.projectMembersModule.selectedProjectMembersEmails.length;
+    return pmStore.state.selectedProjectMembersEmails.length;
 });
 
 const headerState = computed((): number => {
@@ -131,9 +127,9 @@ const isEmptySearchResultShown = computed((): boolean => {
  * Selects team member if this user has no owner status.
  * @param member
  */
-async function onMemberCheckChange(member: ProjectMember) {
+function onMemberCheckChange(member: ProjectMember): void {
     if (store.getters.selectedProject.ownerId !== member.user.id) {
-        await store.dispatch(TOGGLE_SELECTION, member);
+        pmStore.toggleProjectMemberSelection(member);
     }
 }
 
@@ -143,7 +139,7 @@ async function onMemberCheckChange(member: ProjectMember) {
  */
 async function onPageClick(index: number): Promise<void> {
     try {
-        await store.dispatch(FETCH, index);
+        await pmStore.getProjectMembers(index, store.getters.selectedProject.id);
     } catch (error) {
         notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_PAGE);
     }
@@ -155,7 +151,7 @@ async function onPageClick(index: number): Promise<void> {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await store.dispatch(FETCH, FIRST_PAGE);
+        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
 
         areMembersFetching.value = false;
     } catch (error) {

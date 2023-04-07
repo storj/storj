@@ -7,9 +7,6 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import { AccessGrantsMock } from '../../mock/api/accessGrants';
 import { BucketsMock } from '../../mock/api/buckets';
 import { PaymentsMock } from '../../mock/api/payments';
-import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
-import { ProjectsApiMock } from '../../mock/api/projects';
-import { UsersApiMock } from '../../mock/api/users';
 import { FrontendConfigApiMock } from '../../mock/api/config';
 
 import { RouteConfig, router } from '@/router';
@@ -18,28 +15,17 @@ import { makeAppStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule } from '@/store/modules/payments';
-import { makeProjectMembersModule } from '@/store/modules/projectMembers';
-import { makeProjectsModule } from '@/store/modules/projects';
-import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import DashboardArea from '@/views/DashboardArea.vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import DashboardArea from '@/views/DashboardArea.vue';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const usersApi = new UsersApiMock();
-const projectsApi = new ProjectsApiMock();
-
-usersApi.setMockUser(new User('1', '2', '3', '4', '5', '6', 1));
-projectsApi.setMockProjects([]);
-
 const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
-const projectsModule = makeProjectsModule(projectsApi);
 const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
-const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
 const paymentsModule = makePaymentsModule(new PaymentsMock());
@@ -49,9 +35,7 @@ const store = new Vuex.Store({
         notificationsModule,
         bucketsModule,
         accessGrantsModule,
-        projectsModule,
         appStateModule,
-        teamMembersModule,
         paymentsModule,
     },
 });

@@ -84,12 +84,12 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -101,6 +101,7 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
+const pmStore = useProjectMembersStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -154,7 +155,7 @@ function onFirstDeleteClick(): void {
  * Clears selection and returns area state to default.
  */
 function onClearSelection(): void {
-    store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+    pmStore.clearProjectMemberSelection();
     isDeleteClicked.value = false;
 
     emit('onSuccessAction');
@@ -165,7 +166,7 @@ function onClearSelection(): void {
  */
 async function onDelete(): Promise<void> {
     try {
-        await store.dispatch(PM_ACTIONS.DELETE);
+        await pmStore.deleteProjectMembers(store.getters.selectedProject.id);
         await setProjectState();
     } catch (error) {
         await notify.error(`Error while deleting users from projectMembers. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
@@ -183,9 +184,9 @@ async function onDelete(): Promise<void> {
  * @param search
  */
 async function processSearchQuery(search: string): Promise<void> {
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, search);
+    pmStore.setSearchQuery(search);
     try {
-        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.PROJECT_MEMBERS_HEADER);
     }
@@ -206,7 +207,7 @@ async function setProjectState(): Promise<void> {
         await store.dispatch(PROJECTS_ACTIONS.SELECT, projects[0].id);
     }
 
-    await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+    await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
     headerComponent.value?.clearSearch();
 }
 
@@ -216,7 +217,7 @@ async function setProjectState(): Promise<void> {
  */
 onBeforeUnmount((): void => {
     onClearSelection();
-    store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
 });
 </script>
 

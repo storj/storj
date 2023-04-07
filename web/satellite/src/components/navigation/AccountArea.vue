@@ -53,7 +53,7 @@ import { computed, ref } from 'vue';
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
 import { AuthHttpApi } from '@/api/auth';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -66,6 +66,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -82,6 +83,7 @@ const router = useRouter();
 const notify = useNotify();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const pmStore = useProjectMembersStore();
 
 const auth: AuthHttpApi = new AuthHttpApi();
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -147,7 +149,7 @@ async function onLogout(): Promise<void> {
     router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
+        pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),

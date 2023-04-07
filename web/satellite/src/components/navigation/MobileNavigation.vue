@@ -172,7 +172,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
@@ -181,6 +181,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -218,11 +219,13 @@ const navigation: NavigationLink[] = [
     RouteConfig.Users.withIcon(UsersIcon),
 ];
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
+const abTestingStore = useABTestingStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
-const abTestingStore = useABTestingStore();
+
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
 
@@ -371,7 +374,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
     await store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
     LocalData.setSelectedProjectId(projectID);
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
 
     isProjectDropdownShown.value = false;
 
@@ -382,11 +385,13 @@ async function onProjectSelected(projectID: string): Promise<void> {
     }
 
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await Promise.all([
+            store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+            pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
+            store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
+            store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
+            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
+        ]);
     } catch (error) {
         await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
     }
@@ -458,7 +463,7 @@ async function onLogout(): Promise<void> {
     await router.push(RouteConfig.Login.path);
 
     await Promise.all([
-        store.dispatch(PM_ACTIONS.CLEAR),
+        pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
         store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),

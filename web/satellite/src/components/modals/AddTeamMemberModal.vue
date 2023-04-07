@@ -84,7 +84,6 @@ import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -92,6 +91,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -101,6 +101,7 @@ import AddFieldIcon from '@/../static/images/team/addField.svg';
 import AddMemberNotificationIcon from '@/../static/images/team/addMemberNotification.svg';
 import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 
+const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -208,7 +209,7 @@ async function onAddUsersClick(): Promise<void> {
     }
 
     try {
-        await store.dispatch(PM_ACTIONS.ADD, emailArray);
+        await pmStore.addProjectMembers(emailArray, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Error during adding project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
         isLoading.value = false;
@@ -218,10 +219,10 @@ async function onAddUsersClick(): Promise<void> {
 
     analytics.eventTriggered(AnalyticsEvent.PROJECT_MEMBERS_INVITE_SENT);
     await notify.notify(`The user(s) you've invited to your project will receive your invitation if they have an account on this satellite.`);
-    await store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+    pmStore.setSearchQuery('');
 
     try {
-        await store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+        await pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch project members. ${error.message}`, AnalyticsErrorEventSource.ADD_PROJECT_MEMBER_MODAL);
     }

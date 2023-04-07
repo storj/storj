@@ -66,7 +66,7 @@ const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
 const props = withDefaults(defineProps<{
-    closeDropdowns: () => void;
+    closeDropdowns?: () => void;
 }>(), {
     closeDropdowns: () => {},
 });

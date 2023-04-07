@@ -26,16 +26,3 @@ export const NOTIFICATION_ACTIONS = {
     RESUME: 'resumeNotification',
     CLEAR: 'clearNotifications',
 };
-
-export const PM_ACTIONS = {
-    ADD: 'addProjectMembers',
-    DELETE: 'deleteProjectMembers',
-    TOGGLE_SELECTION: 'toggleProjectMemberSelection',
-    CLEAR_SELECTION: 'clearProjectMemberSelection',
-    FETCH: 'fetchProjectMembers',
-    CLEAR: 'clearProjectMembers',
-    SET_SEARCH_QUERY: 'setProjectMembersSearchQuery',
-    SET_SORT_BY: 'setProjectMembersSortingBy',
-    SET_SORT_DIRECTION: 'setProjectMembersSortingDirection',
-    CLEAR_OFFSET: 'clearProjectMembersOffset',
-};
