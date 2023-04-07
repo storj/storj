@@ -366,6 +366,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	{ // setup listener and server
 		sc := config.Server
 
+		sc.Config.UsePeerCAWhitelist = false
 		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
