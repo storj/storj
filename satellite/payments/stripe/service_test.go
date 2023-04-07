@@ -246,9 +246,10 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 			Segment:   "3",
 		}
 		partnerPrice = paymentsconfig.ProjectUsagePrice{
-			StorageTB: "4",
-			EgressTB:  "5",
-			Segment:   "6",
+			StorageTB:           "4",
+			EgressTB:            "5",
+			Segment:             "6",
+			EgressDiscountRatio: 0.5,
 		}
 	)
 	defaultModel, err := defaultPrice.ToModel()
@@ -304,6 +305,11 @@ func TestService_InvoiceItemsFromProjectUsage(t *testing.T) {
 				}
 
 				usage := usage[tt.partner]
+				usage.Egress -= int64(math.Round(usage.Storage / hoursPerMonth * tt.priceModel.EgressDiscountRatio))
+				if usage.Egress < 0 {
+					usage.Egress = 0
+				}
+
 				expectedStorageQuantity := int64(math.Round(usage.Storage / float64(byteHoursPerMBMonth)))
 				expectedEgressQuantity := int64(math.Round(float64(usage.Egress) / float64(bytesPerMegabyte)))
 				expectedSegmentQuantity := int64(math.Round(usage.SegmentCount / hoursPerMonth))

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -543,8 +544,13 @@ func (service *Service) InvoiceItemsFromProjectUsage(projName string, partnerUsa
 	}
 
 	for _, partner := range partners {
-		usage := partnerUsages[partner]
 		priceModel := service.Accounts().GetProjectUsagePriceModel(partner)
+
+		usage := partnerUsages[partner]
+		usage.Egress -= int64(math.Round(usage.Storage / hoursPerMonth * priceModel.EgressDiscountRatio))
+		if usage.Egress < 0 {
+			usage.Egress = 0
+		}
 
 		prefix := "Project " + projName
 		if partner != "" {
