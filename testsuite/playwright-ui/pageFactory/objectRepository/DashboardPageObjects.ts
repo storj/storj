@@ -1,6 +1,3 @@
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 export class DashboardPageObjects {
     protected static WELCOME_TEXT_LOCATOR = `//h2[contains(text(),'Project Stats')]`;
     protected static ENTER_PASSPHRASE_RADIO_BUTTON_XPATH = `//*[contains(text(),'Enter passphrase')]`;
