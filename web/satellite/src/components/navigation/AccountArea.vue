@@ -60,13 +60,13 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -81,6 +81,8 @@ import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
+
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const pmStore = useProjectMembersStore();
@@ -158,7 +160,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLEAR),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);

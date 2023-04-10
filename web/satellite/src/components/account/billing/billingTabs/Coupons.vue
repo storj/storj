@@ -31,7 +31,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { Coupon, CouponDuration } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -39,6 +38,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useNotify, useStore } from '@/utils/hooks';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -47,6 +47,7 @@ import CloudIcon from '@/../static/images/onboardingTour/cloudIcon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const billingStore = useBillingStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -56,7 +57,7 @@ const isCouponFetching = ref<boolean>(true);
  * Returns the coupon applied to the user's account.
  */
 const coupon = computed((): Coupon | null => {
-    return store.state.paymentsModule.coupon;
+    return billingStore.state.coupon;
 });
 
 /**
@@ -119,7 +120,7 @@ function toggleCreateModal(): void {
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_COUPON);
+        await billingStore.getCoupon();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_COUPONS_TAB);
     }

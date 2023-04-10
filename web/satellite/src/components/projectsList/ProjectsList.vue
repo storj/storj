@@ -51,7 +51,6 @@ import { computed, onMounted, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
@@ -63,6 +62,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -77,6 +77,7 @@ const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -139,7 +140,7 @@ async function onProjectSelected(project: Project): Promise<void> {
 
     try {
         await Promise.all([
-            store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
             store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
             store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),

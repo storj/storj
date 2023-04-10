@@ -167,7 +167,6 @@ import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
@@ -182,6 +181,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -220,6 +220,7 @@ const navigation: NavigationLink[] = [
 ];
 
 const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const store = useStore();
@@ -386,7 +387,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     try {
         await Promise.all([
-            store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+            billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
             store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
             store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
@@ -472,7 +473,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLEAR),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);

@@ -67,7 +67,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Project } from '@/types/projects';
@@ -78,6 +77,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -89,6 +89,7 @@ import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
 const pmStore = useProjectMembersStore();
+const billingStore = useBillingStore();
 const userStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -217,7 +218,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         try {
             await Promise.all([
                 store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
-                store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP),
+                billingStore.getProjectUsageAndChargesCurrentRollup(),
                 store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
                 store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
             ]);

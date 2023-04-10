@@ -80,6 +80,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -87,6 +88,7 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
 
+const billingStore = useBillingStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -96,7 +98,7 @@ const canvas = ref<HTMLCanvasElement>();
  * Returns wallet from store.
  */
 const wallet = computed((): Wallet => {
-    return store.state.paymentsModule.wallet;
+    return billingStore.state.wallet;
 });
 
 /**

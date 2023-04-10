@@ -6,7 +6,6 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { AccessGrantsMock } from '../../mock/api/accessGrants';
 import { BucketsMock } from '../../mock/api/buckets';
-import { PaymentsMock } from '../../mock/api/payments';
 import { FrontendConfigApiMock } from '../../mock/api/config';
 
 import { RouteConfig, router } from '@/router';
@@ -14,7 +13,6 @@ import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { makeAppStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { makePaymentsModule } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -28,7 +26,6 @@ const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
-const paymentsModule = makePaymentsModule(new PaymentsMock());
 
 const store = new Vuex.Store({
     modules: {
@@ -36,7 +33,6 @@ const store = new Vuex.Store({
         bucketsModule,
         accessGrantsModule,
         appStateModule,
-        paymentsModule,
     },
 });
 

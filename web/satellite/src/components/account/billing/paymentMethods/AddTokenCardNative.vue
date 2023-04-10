@@ -96,10 +96,10 @@ import { computed, onMounted, ref } from 'vue';
 import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -109,6 +109,7 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
+const billingStore = useBillingStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -121,7 +122,7 @@ const isLoading = ref<boolean>(false);
  * Returns wallet from store.
  */
 const wallet = computed((): Wallet => {
-    return store.state.paymentsModule.wallet;
+    return billingStore.state.wallet;
 });
 
 /**
@@ -133,7 +134,7 @@ async function getWallet(): Promise<void> {
     }
 
     isLoading.value = true;
-    await store.dispatch(PAYMENTS_ACTIONS.GET_WALLET).catch(_ => {});
+    await billingStore.getWallet().catch(_ => {});
     isLoading.value = false;
 }
 
@@ -142,7 +143,7 @@ async function getWallet(): Promise<void> {
  */
 async function claimWallet(): Promise<void> {
     if (!wallet.value.address) {
-        await store.dispatch(PAYMENTS_ACTIONS.CLAIM_WALLET);
+        await billingStore.claimWallet();
     }
 }
 

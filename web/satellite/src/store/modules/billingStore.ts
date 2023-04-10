@@ -196,6 +196,28 @@ export const useBillingStore = defineStore('billing', () => {
     });
 
     return {
-        billingState: state,
+        state,
+        canUserCreateFirstProject,
+        isTransactionProcessing,
+        isBalancePositive,
+        getBalance,
+        getWallet,
+        claimWallet,
+        setupAccount,
+        getCreditCards,
+        addCreditCard,
+        toggleCardSelection,
+        clearCardsSelection,
+        makeCardDefault,
+        removeCreditCard,
+        getPaymentsHistory,
+        getNativePaymentsHistory,
+        getProjectUsageAndChargesCurrentRollup,
+        getProjectUsageAndChargesPreviousRollup,
+        getProjectUsagePriceModel,
+        applyCouponCode,
+        getCoupon,
+        purchasePricingPackage,
+        clear,
     };
 });

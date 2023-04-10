@@ -103,7 +103,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
@@ -123,6 +122,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -136,19 +136,13 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
-const {
-    SETUP_ACCOUNT,
-    GET_CREDIT_CARDS,
-} = PAYMENTS_ACTIONS;
-
+const billingStore = useBillingStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const store = useStore();
-// TODO: will be swapped with useRouter from new version of router. remove after vue-router version upgrade.
-const nativeRouter = useRouter();
 const notify = useNotify();
-
+const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -493,7 +487,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
@@ -614,7 +608,7 @@ onMounted(async () => {
     }
 
     try {
-        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
             await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
@@ -627,7 +621,7 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }

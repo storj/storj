@@ -82,10 +82,10 @@ import { computed, ref, watch } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,6 +99,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const router = useRouter();
@@ -165,19 +166,19 @@ function onActivateClick(): void {
 async function onCardAdded(token: string): Promise<void> {
     if (!plan.value) return;
 
-    let action = PAYMENTS_ACTIONS.ADD_CREDIT_CARD;
+    let action = billingStore.addCreditCard;
     if (plan.value.type === PricingPlanType.PARTNER) {
-        action = PAYMENTS_ACTIONS.PURCHASE_PACKAGE;
+        action = billingStore.purchasePricingPackage;
     }
 
     try {
-        await store.dispatch(action, token);
+        await action(token);
         isSuccess.value = true;
 
         // Fetch user to update paid tier status
         await usersStore.getUser();
         // Fetch cards to hide paid tier banner
-        await store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(error.message, null);
     }

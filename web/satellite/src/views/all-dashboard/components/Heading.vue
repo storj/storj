@@ -110,11 +110,11 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -139,6 +139,7 @@ const notify = useNotify();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const billingStore = useBillingStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
@@ -238,7 +239,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLEAR),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);

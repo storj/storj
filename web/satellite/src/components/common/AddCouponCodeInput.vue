@@ -64,13 +64,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useRoute, useStore } from '@/utils/hooks';
+import { useRouter, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VInput from '@/components/common/VInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -78,8 +78,10 @@ import VButton from '@/components/common/VButton.vue';
 
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
-const route = useRoute();
+const billingStore = useBillingStore();
 const store = useStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const showValidationMessage = ref<boolean>(false);
 const isCodeValid = ref<boolean>(false);
@@ -93,7 +95,7 @@ const analytics = new AnalyticsHttpApi();
  * Signup view requires some unique styling and element text.
  */
 const isSignupView = computed((): boolean => {
-    return route.name === RouteConfig.Register.name;
+    return router.currentRoute.name === RouteConfig.Register.name;
 });
 
 /**
@@ -123,7 +125,7 @@ function toggleConfirmMessage(): void {
  */
 async function applyCouponCode(): Promise<void> {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, couponCode.value);
+        await billingStore.applyCouponCode(couponCode.value);
     } catch (error) {
         errorMessage.value = error.message;
         isCodeValid.value = false;
@@ -143,7 +145,7 @@ async function applyCouponCode(): Promise<void> {
  * Check if user has a coupon code applied to their account before applying
  */
 async function couponCheck(): Promise<void> {
-    if (store.state.paymentsModule.coupon) {
+    if (billingStore.state.coupon) {
         toggleConfirmMessage();
         return;
     }

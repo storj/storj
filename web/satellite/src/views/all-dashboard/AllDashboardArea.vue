@@ -120,7 +120,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { MetaUtils } from '@/utils/meta';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -131,6 +130,7 @@ import Heading from '@/views/all-dashboard/components/Heading.vue';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -143,17 +143,13 @@ import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vu
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const {
-    SETUP_ACCOUNT,
-    GET_CREDIT_CARDS,
-} = PAYMENTS_ACTIONS;
-
 const router = useRouter();
 const store = useStore();
 const notify = useNotify();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
+const billingStore = useBillingStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -351,7 +347,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
         store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
-        store.dispatch(PAYMENTS_ACTIONS.CLEAR_PAYMENT_INFO),
+        billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
     ]);
@@ -556,7 +552,7 @@ onMounted(async () => {
     }
 
     try {
-        const couponType = await store.dispatch(SETUP_ACCOUNT);
+        const couponType = await billingStore.setupAccount();
         if (couponType === CouponType.NoCoupon) {
             await notify.error(`The coupon code was invalid, and could not be applied to your account`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
@@ -569,7 +565,7 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(`Unable to get credit cards. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }

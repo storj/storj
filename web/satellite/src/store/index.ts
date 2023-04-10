@@ -6,9 +6,7 @@ import Vuex from 'vuex';
 import { RouteRecord } from 'vue-router';
 
 import { AccessGrantsApiGql } from '@/api/accessGrants';
-import { AuthHttpApi } from '@/api/auth';
 import { BucketsApiGql } from '@/api/buckets';
-import { PaymentsHttpApi } from '@/api/payments';
 import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
@@ -17,7 +15,6 @@ import { makeAppStateModule, AppState } from '@/store/modules/appState';
 import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
-import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
@@ -30,7 +27,6 @@ Vue.use(Vuex);
 const accessGrantsApi = new AccessGrantsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectsApi = new ProjectsApiGql();
-const paymentsApi = new PaymentsHttpApi();
 const configApi = new FrontendConfigHttpApi();
 
 // We need to use a WebWorker factory because jest testing does not support
@@ -45,7 +41,6 @@ export interface ModulesState {
     notificationsModule: NotificationsState;
     accessGrantsModule: AccessGrantsState;
     appStateModule: AppState;
-    paymentsModule: PaymentsState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     bucketUsageModule: BucketsState;
@@ -58,7 +53,6 @@ export const store = new Vuex.Store<ModulesState>({
         notificationsModule: makeNotificationsModule(),
         accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
         appStateModule: makeAppStateModule(configApi),
-        paymentsModule: makePaymentsModule(paymentsApi),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),

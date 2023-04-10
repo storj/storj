@@ -128,11 +128,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeMount, ref } from 'vue';
+import { computed, onMounted, onBeforeMount, ref, reactive } from 'vue';
 
-import { useNotify, useRoute, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -142,6 +141,7 @@ import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ProjectUsagePriceModel } from '@/types/payments';
 import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -156,10 +156,12 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
-const route = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -178,7 +180,7 @@ const extraBandwidthPriceInfo = ref<string>('');
  */
 onMounted(async () => {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        await billingStore.getProjectUsagePriceModel();
         isPriceFetching.value = false;
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
@@ -208,14 +210,12 @@ async function onAddCardClick(): Promise<void> {
  */
 async function addCardToDB(token: string): Promise<void> {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.ADD_CREDIT_CARD, token);
-
+        await billingStore.addCreditCard(token);
         await notify.success('Card successfully added');
-
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
 
-        if (route.name === RouteConfig.ProjectDashboard.name) {
+        if (router.currentRoute.name === RouteConfig.ProjectDashboard.name) {
             await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
         }
 
@@ -261,7 +261,7 @@ const limitsIncreaseRequestURL = computed((): string => {
  * Returns project usage price model from store.
  */
 const priceModel = computed((): ProjectUsagePriceModel => {
-    return store.state.paymentsModule.usagePriceModel;
+    return billingStore.state.usagePriceModel;
 });
 
 /**

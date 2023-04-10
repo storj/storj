@@ -94,11 +94,11 @@ import { computed, onMounted, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { AccountBalance } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import UsageAndChargesItem from '@/components/account/billing/billingTabs/UsageAndChargesItem.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -109,6 +109,7 @@ import CalendarIcon from '@/../static/images/account/billing/calendar-icon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const billingStore = useBillingStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -121,7 +122,7 @@ const currentDate = ref<string>('');
  * Returns account balance from store.
  */
 const balance = computed((): AccountBalance => {
-    return store.state.paymentsModule.balance;
+    return billingStore.state.balance;
 });
 
 /**
@@ -136,7 +137,7 @@ const hasZeroCoins = computed((): boolean => {
  */
 const projectIDs = computed((): string[] => {
     return store.state.projectsModule.projects
-        .filter(proj => store.state.paymentsModule.projectCharges.hasProject(proj.id))
+        .filter(proj => billingStore.state.projectCharges.hasProject(proj.id))
         .sort((proj1, proj2) => proj1.name.localeCompare(proj2.name))
         .map(proj => proj.id);
 });
@@ -145,7 +146,7 @@ const projectIDs = computed((): string[] => {
  * priceSummary returns price summary of usages for all the projects.
  */
 const priceSummary = computed((): number => {
-    return store.state.paymentsModule.projectCharges.getPrice();
+    return billingStore.state.projectCharges.getPrice();
 });
 
 function routeToBillingHistory(): void {
@@ -179,8 +180,8 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_PRICE_MODEL);
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
+        await billingStore.getProjectUsagePriceModel();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_OVERVIEW_TAB);
     }

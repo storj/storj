@@ -43,16 +43,17 @@
 import { computed, onMounted, reactive } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
-const notify = useNotify();
+const billingStore = useBillingStore();
 const store = useStore();
+const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -140,7 +141,7 @@ function routeToCoupons(): void {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+        await billingStore.getBalance();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_AREA);
     }

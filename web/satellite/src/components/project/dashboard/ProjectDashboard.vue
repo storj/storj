@@ -156,7 +156,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { RouteConfig } from '@/router';
@@ -171,6 +170,7 @@ import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -187,6 +187,7 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -234,7 +235,7 @@ const isProAccount = computed((): boolean => {
  */
 const estimatedCharges = computed((): number => {
     const projID: string = store.getters.selectedProject.id;
-    const charges: ProjectCharges = store.state.paymentsModule.projectCharges;
+    const charges: ProjectCharges = billingStore.state.projectCharges;
     return charges.getProjectPrice(projID);
 });
 
@@ -421,7 +422,7 @@ onMounted(async (): Promise<void> => {
         }
 
         await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+        await billingStore.getProjectUsageAndChargesCurrentRollup();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     } finally {

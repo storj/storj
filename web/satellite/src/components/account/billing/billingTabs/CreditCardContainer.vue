@@ -32,11 +32,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import AmericanExpressIcon from '@/../static/images/payments/cardIcons/americanexpress.svg';
 import DefaultIcon from '@/../static/images/payments/cardIcons/default.svg';
@@ -63,6 +63,7 @@ const props = withDefaults(defineProps<{
     creditCard: () => new CreditCard(),
 });
 
+const billingStore = useBillingStore();
 const store = useStore();
 
 const emit = defineEmits(['edit', 'remove']);
@@ -83,7 +84,7 @@ function remove(): void {
  * Toggle card selection dialog.
  */
 function toggleSelection(): void {
-    store.dispatch(PAYMENTS_ACTIONS.TOGGLE_CARD_SELECTION, props.creditCard.id);
+    billingStore.toggleCardSelection(props.creditCard.id);
 }
 </script>
 

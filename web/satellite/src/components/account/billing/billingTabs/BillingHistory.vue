@@ -30,9 +30,9 @@ import {
     PaymentsHistoryItemStatus,
     PaymentsHistoryItemType,
 } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import BillingHistoryHeader
     from '@/components/account/billing/billingTabs/BillingHistoryHeader.vue';
@@ -40,19 +40,20 @@ import BillingHistoryItem
     from '@/components/account/billing/billingTabs/BillingHistoryItem.vue';
 import VTable from '@/components/common/VTable.vue';
 
+const billingStore = useBillingStore();
 const store = useStore();
 const notify = useNotify();
 
 async function fetchHistory(): Promise<void> {
     try {
-        await store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+        await billingStore.getPaymentsHistory();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_HISTORY_TAB);
     }
 }
 
 const historyItems = computed((): PaymentsHistoryItem[] => {
-    return store.state.paymentsModule.paymentsHistory.filter((item: PaymentsHistoryItem) => {
+    return billingStore.state.paymentsHistory.filter((item: PaymentsHistoryItem) => {
         return item.status !== PaymentsHistoryItemStatus.Draft && item.status !== PaymentsHistoryItemStatus.Empty
             && (item.type === PaymentsHistoryItemType.Invoice || item.type === PaymentsHistoryItemType.Charge);
     });

@@ -185,13 +185,13 @@ import {
     Wallet,
     NativePaymentHistoryItem,
 } from '@/types/payments';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -223,14 +223,7 @@ interface CardEdited {
     isDefault?: boolean
 }
 
-const {
-    ADD_CREDIT_CARD,
-    GET_CREDIT_CARDS,
-    REMOVE_CARD,
-    MAKE_CARD_DEFAULT,
-    GET_NATIVE_PAYMENTS_HISTORY,
-} = PAYMENTS_ACTIONS;
-
+const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -265,11 +258,14 @@ const pageCount = computed((): number => {
  * Returns deposit history items.
  */
 const nativePaymentHistoryItems = computed((): NativePaymentHistoryItem[] => {
-    return store.state.paymentsModule.nativePaymentsHistory;
+    return billingStore.state.nativePaymentsHistory;
 });
 
+/**
+ * Returns wallet entity from store.
+ */
 const wallet = computed((): Wallet => {
-    return store.state.paymentsModule.wallet;
+    return billingStore.state.wallet;
 });
 
 /**
@@ -280,7 +276,7 @@ const userHasOwnProject = computed((): boolean => {
 });
 
 const creditCards = computed((): CreditCard[] => {
-    return store.state.paymentsModule.creditCards;
+    return billingStore.state.creditCards;
 });
 
 function onCopyAddressClick(): void {
@@ -292,7 +288,7 @@ async function fetchHistory(): Promise<void> {
     nativePayIsLoading.value = true;
 
     try {
-        await store.dispatch(GET_NATIVE_PAYMENTS_HISTORY);
+        await billingStore.getNativePaymentsHistory();
         transactionCount.value = nativePaymentHistoryItems.value.length;
         displayedHistory.value = nativePaymentHistoryItems.value.slice(0, PAGE_SIZE);
     } catch (error) {
@@ -324,7 +320,7 @@ async function prepQRCode(): Promise<void> {
 
 async function updatePaymentMethod(): Promise<void> {
     try {
-        await store.dispatch(MAKE_CARD_DEFAULT, defaultCreditCardSelection.value);
+        await billingStore.makeCardDefault(defaultCreditCardSelection.value);
         await notify.success('Default payment card updated');
         isChangeDefaultPaymentModalOpen.value = false;
     } catch (error) {
@@ -334,8 +330,12 @@ async function updatePaymentMethod(): Promise<void> {
 
 async function removePaymentMethod(): Promise<void> {
     if (!cardBeingEdited.value.isDefault) {
+        if (!cardBeingEdited.value.id) {
+            return;
+        }
+
         try {
-            await store.dispatch(REMOVE_CARD, cardBeingEdited.value.id);
+            await billingStore.removeCreditCard(cardBeingEdited.value.id);
             analytics.eventTriggered(AnalyticsEvent.CREDIT_CARD_REMOVED);
             await notify.success('Credit card removed');
         } catch (error) {
@@ -360,8 +360,7 @@ function closeAddPayment(): void {
 async function addCard(token: string): Promise<void> {
     emit('toggleIsLoading');
     try {
-        await store.dispatch(ADD_CREDIT_CARD, token);
-
+        await billingStore.addCreditCard(token);
         // We fetch User one more time to update their Paid Tier status.
         await usersStore.getUser();
     } catch (error) {
@@ -374,7 +373,7 @@ async function addCard(token: string): Promise<void> {
 
     await notify.success('Card successfully added');
     try {
-        await store.dispatch(GET_CREDIT_CARDS);
+        await billingStore.getCreditCards();
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BILLING_PAYMENT_METHODS_TAB);
         emit('toggleIsLoading');

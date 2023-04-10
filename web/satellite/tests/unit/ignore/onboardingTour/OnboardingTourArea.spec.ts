@@ -5,9 +5,7 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
-import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
-import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
@@ -17,10 +15,8 @@ localVue.use(Vuex);
 
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const paymentsApi = new PaymentsHttpApi();
-const paymentsModule = makePaymentsModule(paymentsApi);
 
-const store = new Vuex.Store({ modules: { projectsModule, paymentsModule } });
+const store = new Vuex.Store({ modules: { projectsModule } });
 
 describe('OnboardingTourArea.vue', () => {
     it('renders correctly', (): void => {

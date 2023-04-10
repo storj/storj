@@ -65,6 +65,7 @@ import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_GB_SHIFT } from '@/utils/strings';
 import { useStore } from '@/utils/hooks';
+import { useBillingStore } from '@/store/modules/billingStore';
 
 import GreyChevron from '@/../static/images/common/greyChevron.svg';
 
@@ -82,6 +83,7 @@ const props = withDefaults(defineProps<{
     projectId: '',
 });
 
+const billingStore = useBillingStore();
 const store = useStore();
 
 /**
@@ -93,7 +95,7 @@ const isDetailedInfoShown = ref<boolean>(false);
  * An array of tuples containing the partner name and usage charge for the specified project ID.
  */
 const partnerCharges = computed((): [partner: string, charge: ProjectCharge][] => {
-    const arr = store.state.paymentsModule.projectCharges.toArray();
+    const arr = billingStore.state.projectCharges.toArray();
     arr.sort(([partner1], [partner2]) => partner1.localeCompare(partner2));
     const tuple = arr.find(tuple => tuple[0] === props.projectId);
     return tuple ? tuple[1] : [];
@@ -113,14 +115,14 @@ const projectName = computed((): string => {
  * Returns project usage price model from store.
  */
 const projectCharges = computed((): ProjectCharges => {
-    return store.state.paymentsModule.projectCharges;
+    return billingStore.state.projectCharges;
 });
 
 /**
  * Returns project usage price model from store.
  */
 function getPriceModel(partner: string): ProjectUsagePriceModel {
-    return projectCharges.value.getUsagePriceModel(partner) || store.state.paymentsModule.usagePriceModel;
+    return projectCharges.value.getUsagePriceModel(partner) || billingStore.state.usagePriceModel;
 }
 
 /**
