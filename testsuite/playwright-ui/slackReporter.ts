@@ -1,5 +1,3 @@
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
 
 import {Block, KnownBlock} from "@slack/web-api";
 import {SummaryResults} from "playwright-slack-report/dist/src";

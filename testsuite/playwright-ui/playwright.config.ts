@@ -4,8 +4,6 @@ import GenerateCustomLayoutSimpleMeta from '@config/slackReporter';
 import { PlaywrightTestConfig, devices} from '@playwright/test';
 
 // require('dotenv').config();
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
 
 // Potentially interesting metadata to append into the test report – might help with debugging
 const metadata: Record<string, string> = {
