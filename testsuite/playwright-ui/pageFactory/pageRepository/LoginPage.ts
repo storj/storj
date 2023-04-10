@@ -1,6 +1,3 @@
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 import {LoginPageObjects} from "@objects/LoginPageObjects";
 import type {Page} from '@playwright/test';
 import {testConfig} from '../../testConfig';

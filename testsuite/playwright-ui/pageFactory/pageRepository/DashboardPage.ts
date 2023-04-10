@@ -1,6 +1,3 @@
-// Copyright (C) 2023 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 import {DashboardPageObjects} from "@objects/DashboardPageObjects";
 import type {Page} from '@playwright/test';
 import {expect} from '@playwright/test';
