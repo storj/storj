@@ -20,21 +20,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import BucketsDropdown from '@/components/onboardingTour/steps/cliFlow/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 
 /**
  * Indicates if dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.BUCKET_NAMES;
 });
 
 /**
@@ -61,7 +62,7 @@ const storedBucketNames = computed((): string[] => {
  * Toggles dropdown visibility.
  */
 function toggleDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.BUCKET_NAMES);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.BUCKET_NAMES);
 }
 </script>
 

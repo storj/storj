@@ -33,9 +33,9 @@ import { RouteConfig } from '@/router';
 import { Bucket } from '@/types/buckets';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useResize } from '@/composables/resize';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -43,7 +43,7 @@ import DeleteIcon from '@/../static/images/objects/delete.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 const { screenWidth } = useResize();
@@ -116,7 +116,7 @@ function closeDropdown(): void {
  * Holds on delete click logic.
  */
 function onDeleteClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.deleteBucket);
+    appStore.updateActiveModal(MODALS.deleteBucket);
     closeDropdown();
 }
 

@@ -85,9 +85,9 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { NavigationLink } from '@/types/navigation';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ProjectSelection from '@/components/navigation/ProjectSelection.vue';
 import GuidesDropdown from '@/components/navigation/GuidesDropdown.vue';
@@ -105,7 +105,7 @@ import ResourcesIcon from '@/../static/images/navigation/resources.svg';
 import QuickStartIcon from '@/../static/images/navigation/quickStart.svg';
 import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -131,21 +131,21 @@ const windowWidth = ref<number>(window.innerWidth);
  * Indicates if resources dropdown shown.
  */
 const isResourcesDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.RESOURCES;
 });
 
 /**
  * Indicates if quick start dropdown shown.
  */
 const isQuickStartDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.QUICK_START;
 });
 
 /**
  * Indicates if all projects dashboard should be used.
  */
 const isAllProjectsDashboard = computed((): boolean => {
-    return store.state.appStateModule.isAllProjectsDashboard;
+    return appStore.state.isAllProjectsDashboard;
 });
 
 /**
@@ -228,7 +228,7 @@ function setQuickStartDropdownXPos(): void {
 function toggleResourcesDropdown(): void {
     setResourcesDropdownYPos();
     setResourcesDropdownXPos();
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.RESOURCES);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.RESOURCES);
 }
 
 /**
@@ -237,14 +237,14 @@ function toggleResourcesDropdown(): void {
 function toggleQuickStartDropdown(): void {
     setQuickStartDropdownYPos();
     setQuickStartDropdownXPos();
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.QUICK_START);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.QUICK_START);
 }
 
 /**
  * Closes dropdowns.
  */
 function closeDropdowns(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**

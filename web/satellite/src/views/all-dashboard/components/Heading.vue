@@ -102,10 +102,7 @@ import {
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-} from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -115,6 +112,7 @@ import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -136,6 +134,7 @@ const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
@@ -153,7 +152,7 @@ const isNavOpened = ref(false);
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
@@ -183,7 +182,7 @@ function toggleNavigation(): void {
 function goToProjects(): void {
     toggleNavigation();
     // this will close MyAccountButton.vue if it's open.
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 
     const projects = RouteConfig.AllProjectsDashboard.path;
     if (router.currentRoute.path.includes(projects)) {
@@ -238,7 +237,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLEAR),
+        appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),

@@ -54,11 +54,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { Duration } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -66,8 +66,8 @@ import TimeoutSelector from '@/components/modals/editSessionTimeout/TimeoutSelec
 
 import Icon from '@/../static/images/session/inactivityTimer.svg';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 
 const isLoading = ref(false);
@@ -125,8 +125,8 @@ async function save() {
 /**
  * onClose is called to close this modal.
  * */
-async function onClose() {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+function onClose(): void {
+    appStore.removeActiveModal();
 }
 
 /**

@@ -50,9 +50,9 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { AccessType } from '@/types/createAccessGrant';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import NewProjectIcon from '@/../static/images/navigation/newProject.svg';
 import CreateAGIcon from '@/../static/images/navigation/createAccessGrant.svg';
@@ -60,6 +60,7 @@ import S3Icon from '@/../static/images/navigation/s3.svg';
 import UploadInCLIIcon from '@/../static/images/navigation/uploadInCLI.svg';
 import UploadInWebIcon from '@/../static/images/navigation/uploadInWeb.svg';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const nativeRouter = useRouter();
@@ -117,7 +118,7 @@ function navigateToBuckets(): void {
 function navigateToCLIFlow(): void {
     analytics.eventTriggered(AnalyticsEvent.UPLOAD_USING_CLI_CLICKED);
     props.closeDropdowns();
-    store.commit(APP_STATE_MUTATIONS.SET_ONB_AG_NAME_STEP_BACK_ROUTE, router.currentRoute.path);
+    appStore.setOnboardingBackRoute(router.currentRoute.path);
     analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGName)).path);
     router.push({ name: RouteConfig.AGName.name });
 }
@@ -133,10 +134,10 @@ function navigateToNewProject(): void {
         const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+            appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
+            appStore.updateActiveModal(MODALS.createProject);
         }
     }
 

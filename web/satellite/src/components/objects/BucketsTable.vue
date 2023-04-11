@@ -77,8 +77,8 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VTable from '@/components/common/VTable.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -101,6 +101,7 @@ const overallLoading = ref<boolean>(false);
 const searchLoading = ref<boolean>(false);
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -158,7 +159,7 @@ const edgeCredentials = computed((): EdgeCredentials => {
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**
@@ -228,7 +229,7 @@ async function openBucket(bucketName: string): Promise<void> {
         return;
     }
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.openBucket);
 }
 
 onBeforeUnmount(() => {

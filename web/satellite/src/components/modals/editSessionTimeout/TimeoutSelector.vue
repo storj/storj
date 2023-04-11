@@ -24,16 +24,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Duration } from '@/utils/time';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 
 const props = defineProps<{
     selected: Duration | null;
@@ -57,7 +56,7 @@ const options = [
  * whether the selector drop down is open
  * */
 const isOpen = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR;
 });
 
 /**
@@ -84,7 +83,7 @@ function select(option: Duration) {
  * closeSelector closes the selector dropdown.
  * */
 function closeSelector() {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**
@@ -92,9 +91,9 @@ function closeSelector() {
  * */
 function toggleSelector() {
     if (isOpen.value) {
-        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+        appStore.closeDropdowns();
     } else {
-        store.commit(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR);
+        appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.TIMEOUT_SELECTOR);
     }
 }
 </script>

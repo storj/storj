@@ -156,21 +156,19 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { RouteConfig } from '@/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
-import { ProjectCharges } from '@/types/payments';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -187,6 +185,7 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
@@ -206,7 +205,7 @@ const chartContainer = ref<HTMLDivElement>();
  * Indicates if charts date picker is shown.
  */
 const isChartsDatePicker = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.CHART_DATE_PICKER;
 });
 
 /**
@@ -235,7 +234,7 @@ const isProAccount = computed((): boolean => {
  */
 const estimatedCharges = computed((): number => {
     const projID: string = store.getters.selectedProject.id;
-    const charges: ProjectCharges = billingStore.state.projectCharges;
+    const charges = billingStore.state.projectCharges;
     return charges.getProjectPrice(projID);
 });
 
@@ -284,7 +283,7 @@ const chartsBeforeDate = computed((): Date => {
  * Indicates if user has just logged in.
  */
 const hasJustLoggedIn = computed((): boolean => {
-    return store.state.appStateModule.viewsState.hasJustLoggedIn;
+    return appStore.state.viewsState.hasJustLoggedIn;
 });
 
 /**
@@ -325,7 +324,7 @@ function recalculateChartWidth(): void {
  * Holds on upgrade button click logic.
  */
 function onUpgradeClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
@@ -347,7 +346,7 @@ function usedLimitFormatted(value: number): string {
  * toggleChartsDatePicker holds logic for toggling charts date picker.
  */
 function toggleChartsDatePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.CHART_DATE_PICKER);
 }
 
 /**
@@ -387,7 +386,7 @@ onMounted(async (): Promise<void> => {
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
 
     if (!store.getters.selectedProject.id) {
-        if (store.state.appStateModule.isAllProjectsDashboard) {
+        if (appStore.state.isAllProjectsDashboard) {
             await router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }
@@ -410,15 +409,15 @@ onMounted(async (): Promise<void> => {
         await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
-                store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+                appStore.updateActiveModal(MODALS.enterPassphrase);
                 if (!bucketWasCreated.value) {
                     LocalData.setBucketWasCreatedStatus();
                 }
             } else {
-                store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+                appStore.updateActiveModal(MODALS.createProjectPassphrase);
             }
 
-            store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN);
+            appStore.toggleHasJustLoggenIn();
         }
 
         await store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now });

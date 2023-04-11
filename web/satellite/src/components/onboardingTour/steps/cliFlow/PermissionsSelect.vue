@@ -45,12 +45,13 @@
 import { computed, ref } from 'vue';
 
 import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 
 const isLoading = ref<boolean>(true);
@@ -59,7 +60,7 @@ const isLoading = ref<boolean>(true);
  * Indicates if dropdown is visible.
  */
 const isDropdownVisible = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.PERMISSIONS;
 });
 
 /**
@@ -101,14 +102,14 @@ const allPermissions = computed((): boolean => {
  * Toggles dropdown visibility.
  */
 function toggleDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.PERMISSIONS);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.PERMISSIONS);
 }
 
 /**
  * Closes dropdown.
  */
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**

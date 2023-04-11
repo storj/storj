@@ -14,14 +14,14 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PartneredSatellite } from '@/types/common';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
-const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(true);
@@ -60,7 +60,7 @@ function updateViewportVariable(): void {
  */
 onMounted(async (): Promise<void> => {
     try {
-        await store.dispatch(APP_STATE_ACTIONS.FETCH_CONFIG);
+        await appStore.getConfig();
     } catch (error) {
         // TODO: Use a harsher error-handling approach when the config is necessary
         // for the frontend to function.
@@ -78,7 +78,7 @@ onMounted(async (): Promise<void> => {
     const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
 
     if (satelliteName) {
-        store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+        appStore.setSatelliteName(satelliteName);
 
         if (partneredSatellitesJSON.length) {
             const partneredSatellites: PartneredSatellite[] = [];
@@ -88,20 +88,20 @@ onMounted(async (): Promise<void> => {
                     partneredSatellites.push(sat);
                 }
             });
-            store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
+            appStore.setPartneredSatellites(partneredSatellites);
         }
     }
 
     if (isBetaSatellite) {
-        store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
+        appStore.setSatelliteStatus(isBetaSatellite === 'true');
     }
 
     if (couponCodeBillingUIEnabled) {
-        store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
+        appStore.setCouponCodeBillingUIStatus(couponCodeBillingUIEnabled === 'true');
     }
 
     if (couponCodeSignupUIEnabled) {
-        store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
+        appStore.setCouponCodeSignupUIStatus(couponCodeSignupUIEnabled === 'true');
     }
 
     fixViewportHeight();

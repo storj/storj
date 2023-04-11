@@ -8,6 +8,9 @@ import { OnboardingOS, PartneredSatellite, PricingPlanInfo } from '@/types/commo
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MetaUtils } from '@/utils/meta';
+import { FrontendConfig } from '@/types/config.gen';
+import { FrontendConfigApi } from '@/types/config';
+import { FrontendConfigHttpApi } from '@/api/config';
 
 class ViewsState {
     public fetchState = FetchState.LOADING;
@@ -25,6 +28,9 @@ class ViewsState {
     public activeDropdown = 'none';
     // activeModal could be of VueConstructor type or Object (for composition api components).
     public activeModal: unknown | null = null;
+    // this field is mainly used on the all projects dashboard as an exit condition
+    // for when the dashboard opens the pricing plan and the pricing plan navigates back repeatedly.
+    public hasShownPricingPlan = false;
 }
 
 export class State {
@@ -35,10 +41,21 @@ export class State {
     public couponCodeBillingUIEnabled = false;
     public couponCodeSignupUIEnabled = false;
     public isAllProjectsDashboard = MetaUtils.getMetaContent('all-projects-dashboard') === 'true';
+    public config: FrontendConfig = new FrontendConfig();
 }
 
 export const useAppStore = defineStore('app', () => {
     const state = reactive<State>(new State());
+
+    const configApi: FrontendConfigApi = new FrontendConfigHttpApi();
+
+    async function getConfig(): Promise<FrontendConfig> {
+        const result = await configApi.get();
+
+        state.config = result;
+
+        return result;
+    }
 
     function toggleActiveDropdown(dropdown: string): void {
         if (state.viewsState.activeDropdown === dropdown) {
@@ -130,6 +147,10 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.managePassphraseStep = step;
     }
 
+    function setHasShownPricingPlan(value: boolean): void {
+        state.viewsState.hasShownPricingPlan = value;
+    }
+
     function closeDropdowns(): void {
         state.viewsState.activeDropdown = '';
     }
@@ -147,11 +168,33 @@ export const useAppStore = defineStore('app', () => {
         state.viewsState.onbSelectedOs = null;
         state.viewsState.managePassphraseStep = undefined;
         state.viewsState.selectedPricingPlan = null;
+        state.viewsState.hasShownPricingPlan = false;
         state.viewsState.activeDropdown = '';
     }
 
     return {
-        appState: state,
+        state,
+        getConfig,
+        toggleActiveDropdown,
+        toggleSuccessfulPasswordReset,
+        removeActiveModal,
+        toggleHasJustLoggenIn,
+        changeState,
+        setSatelliteName,
+        setPartneredSatellites,
+        setSatelliteStatus,
+        setOnboardingBackRoute,
+        setOnboardingAPIKeyStepBackRoute,
+        setOnboardingAPIKey,
+        setOnboardingCleanAPIKey,
+        setCouponCodeBillingUIStatus,
+        setCouponCodeSignupUIStatus,
+        setOnboardingOS,
+        setPricingPlan,
+        setManagePassphraseStep,
+        setHasShownPricingPlan,
+        closeDropdowns,
         updateActiveModal,
+        clear,
     };
 });

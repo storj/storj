@@ -101,21 +101,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-} from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -131,6 +127,7 @@ import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -143,13 +140,15 @@ import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vu
 
 import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
-const router = useRouter();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 const store = useStore();
 const notify = useNotify();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
+const appStore = useAppStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -258,21 +257,21 @@ const limitState = computed((): LimitedState => {
  * Whether the current route is the billing page.
  */
 const isBillingPage = computed(() => {
-    return useRoute().path.includes(RouteConfig.Billing2.path);
+    return router.currentRoute.path.includes(RouteConfig.Billing2.path);
 });
 
 /**
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return store.state.appStateModule.isBetaSatellite;
+    return appStore.state.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.viewsState.fetchState === FetchState.LOADING;
+    return appStore.state.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -346,7 +345,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+        appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
@@ -383,7 +382,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
@@ -399,7 +398,7 @@ function closeInactivityModal(): void {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
@@ -535,7 +534,7 @@ onMounted(async () => {
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
+            appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
         }
 
@@ -576,10 +575,10 @@ onMounted(async () => {
         return;
     }
 
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+    appStore.changeState(FetchState.LOADED);
 
-    if (usersStore.shouldOnboard && !store.state.appStateModule.viewsState.hasShownPricingPlan) {
-        store.commit(APP_STATE_MUTATIONS.SET_HAS_SHOWN_PRICING_PLAN, true);
+    if (usersStore.shouldOnboard && !appStore.state.viewsState.hasShownPricingPlan) {
+        appStore.setHasShownPricingPlan(true);
         // if the user is not legible for a pricing plan, they'll automatically be
         // navigated back to all projects dashboard.
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.PricingPlanStep).path);

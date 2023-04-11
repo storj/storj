@@ -106,7 +106,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
 import { User } from '@/types/users';
@@ -118,11 +118,11 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -136,6 +136,7 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -258,7 +259,7 @@ const isNavigationHidden = computed((): boolean => {
 
 /* whether all projects dashboard should be used */
 const isAllProjectsDashboard = computed((): boolean => {
-    return store.state.appStateModule.isAllProjectsDashboard;
+    return appStore.state.isAllProjectsDashboard;
 });
 
 /* whether the project limit banner should be shown. */
@@ -312,14 +313,14 @@ const isOnboardingTour = computed((): boolean => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return store.state.appStateModule.isBetaSatellite;
+    return appStore.state.isBetaSatellite;
 });
 
 /**
  * Indicates if loading screen is active.
  */
 const isLoading = computed((): boolean => {
-    return store.state.appStateModule.viewsState.fetchState === FetchState.LOADING;
+    return appStore.state.viewsState.fetchState === FetchState.LOADING;
 });
 
 /**
@@ -486,7 +487,7 @@ async function handleInactive(): Promise<void> {
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS),
+        appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
@@ -519,7 +520,7 @@ function setIsHundredLimitModalShown(value: boolean): void {
  * Toggles MFA recovery modal visibility.
  */
 function toggleMFARecoveryModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
@@ -540,7 +541,7 @@ async function generateNewMFARecoveryCodes(): Promise<void> {
 function togglePMModal(): void {
     isHundredLimitModalShown.value = false;
     isEightyLimitModalShown.value = false;
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
@@ -591,7 +592,7 @@ onMounted(async () => {
         });
 
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
+            appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         }
 
@@ -634,7 +635,7 @@ onMounted(async () => {
         return;
     }
 
-    if (!store.state.appStateModule.isAllProjectsDashboard) {
+    if (!appStore.state.isAllProjectsDashboard) {
         try {
             if (!projects.length) {
                 await store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT, usersStore.state.user.id);
@@ -647,7 +648,7 @@ onMounted(async () => {
                 await analytics.pageVisit(onboardingPath);
                 await router.push(onboardingPath);
 
-                await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+                appStore.changeState(FetchState.LOADED);
                 return;
             }
         } catch (error) {
@@ -656,7 +657,7 @@ onMounted(async () => {
         }
     }
 
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
+    appStore.changeState(FetchState.LOADED);
 });
 
 onBeforeUnmount(() => {

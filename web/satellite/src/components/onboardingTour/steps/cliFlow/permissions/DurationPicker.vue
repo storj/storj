@@ -24,14 +24,15 @@
 
 <script setup lang="ts">
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { DurationPermission } from '@/types/accessGrants';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 const emit = defineEmits(['setLabel']);
 
+const appStore = useAppStore();
 const store = useStore();
 
 /**
@@ -131,7 +132,7 @@ function onOneYearClick(): void {
  * Closes duration picker.
  */
 function closePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 </script>
 

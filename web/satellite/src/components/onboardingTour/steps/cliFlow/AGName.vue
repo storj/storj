@@ -30,16 +30,17 @@ import { computed, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { AccessGrant } from '@/types/accessGrants';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import VInput from '@/components/common/VInput.vue';
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -54,7 +55,7 @@ const isLoading = ref<boolean>(false);
  * Returns back route from store.
  */
 const backRoute = computed((): string => {
-    return store.state.appStateModule.viewsState.onbAGStepBackRoute;
+    return appStore.state.viewsState.onbAGStepBackRoute;
 });
 
 /**
@@ -104,7 +105,7 @@ async function onNextClick(): Promise<void> {
         isLoading.value = false;
     }
 
-    store.commit(APP_STATE_MUTATIONS.SET_ONB_CLEAN_API_KEY, createdAccessGrant.secret);
+    appStore.setOnboardingCleanAPIKey(createdAccessGrant.secret);
     name.value = '';
 
     analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.AGPermissions)).path);

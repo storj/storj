@@ -4,24 +4,18 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { FrontendConfigApiMock } from '../../mock/api/config';
-
-import { makeAppStateModule } from '@/store/modules/appState';
 import { makeNotificationsModule } from '@/store/modules/notifications';
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
 
-const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const notificationsModule = makeNotificationsModule();
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { appStateModule, notificationsModule } });
+const store = new Vuex.Store({ modules: { notificationsModule } });
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {
@@ -41,8 +35,6 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with opened Add team member popup', () => {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
-
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
             store,
             localVue,
@@ -53,13 +45,9 @@ describe('Team HeaderArea', () => {
         expect(wrapper.vm.isDeleteClicked).toBe(false);
         expect(wrapper.findAll('.blur-content').length).toBe(0);
         expect(wrapper.findAll('.blur-search').length).toBe(0);
-
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
     });
 
     it('renders correctly with selected users', () => {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
-
         const selectedUsersCount = 2;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
@@ -81,8 +69,6 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 2 selected users and delete clicked once', async () => {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
-
         const selectedUsersCount = 2;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
@@ -108,8 +94,6 @@ describe('Team HeaderArea', () => {
     });
 
     it('renders correctly with 1 selected user and delete clicked once', async () => {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
-
         const selectedUsersCount = 1;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {

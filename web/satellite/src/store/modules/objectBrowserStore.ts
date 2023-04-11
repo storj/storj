@@ -427,8 +427,8 @@ export const useFilesStore = defineStore('files', () => {
                     if (state.openModalOnFirstUpload) {
                         state.objectPathForModal = params.Key;
 
-                        const { updateActiveModal } = useAppStore();
-                        updateActiveModal(MODALS.objectDetails);
+                        const appStore = useAppStore();
+                        appStore.updateActiveModal(MODALS.objectDetails);
                     }
                 }
 

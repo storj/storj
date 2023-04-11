@@ -48,8 +48,8 @@ import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -63,6 +63,7 @@ enum ButtonStates {
     Copied,
 }
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -189,7 +190,7 @@ function setWorker(): void {
 function closeModal(): void {
     if (isLoading.value) return;
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareBucket);
+    appStore.updateActiveModal(MODALS.shareBucket);
 }
 
 onMounted(async () => {

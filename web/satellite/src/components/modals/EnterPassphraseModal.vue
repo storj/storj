@@ -41,12 +41,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -54,6 +54,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import EnterPassphraseIcon from '@/../static/images/buckets/openBucket.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -89,7 +90,7 @@ function closeModal(isCloseButton = false): void {
         router.push(RouteConfig.ProjectDashboard.path);
     }
 
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
 }
 
 /**

@@ -65,7 +65,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -74,6 +74,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -84,7 +85,7 @@ const bucketName = ref<string>('');
 const nameError = ref<string>('');
 const bucketNamesLoading = ref<boolean>(true);
 const isLoading = ref<boolean>(false);
-const worker = ref<Worker>();
+const worker = ref<Worker | null>(null);
 
 const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
@@ -273,7 +274,7 @@ function setBucketName(name: string): void {
  * Closes create bucket modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**

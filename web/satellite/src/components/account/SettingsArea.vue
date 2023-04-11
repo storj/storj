@@ -88,10 +88,10 @@ import { computed, onMounted } from 'vue';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -99,8 +99,8 @@ import ChangePasswordIcon from '@/../static/images/account/profile/changePasswor
 import EmailIcon from '@/../static/images/account/profile/email.svg';
 import EditIcon from '@/../static/images/common/edit.svg';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
@@ -122,35 +122,35 @@ const avatarLetter = computed((): string => {
  * Toggles enable MFA modal visibility.
  */
 function toggleEnableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
+    appStore.updateActiveModal(MODALS.enableMFA);
 }
 
 /**
  * Toggles disable MFA modal visibility.
  */
 function toggleDisableMFAModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
+    appStore.updateActiveModal(MODALS.disableMFA);
 }
 
 /**
  * Toggles MFA recovery codes modal visibility.
  */
 function toggleMFACodesModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 
 /**
  * Opens change password popup.
  */
 function toggleChangePasswordModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.changePassword);
+    appStore.updateActiveModal(MODALS.changePassword);
 }
 
 /**
  * Opens edit account info modal.
  */
 function toggleEditProfileModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.editProfile);
+    appStore.updateActiveModal(MODALS.editProfile);
 }
 
 /**

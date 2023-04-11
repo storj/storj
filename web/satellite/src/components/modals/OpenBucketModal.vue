@@ -59,8 +59,8 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -69,6 +69,7 @@ import VButton from '@/components/common/VButton.vue';
 import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -151,7 +152,7 @@ async function onContinue(): Promise<void> {
 function closeModal(): void {
     if (isLoading.value) return;
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.openBucket);
 }
 
 /**

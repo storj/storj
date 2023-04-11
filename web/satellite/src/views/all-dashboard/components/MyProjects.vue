@@ -35,17 +35,18 @@ import {
     AnalyticsEvent,
 } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import EmptyProjectItem from '@/views/all-dashboard/components/EmptyProjectItem.vue';
 import ProjectItem from '@/views/all-dashboard/components/ProjectItem.vue';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import RocketIcon from '@/../static/images/common/rocket.svg';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const router = useRouter();
@@ -70,10 +71,10 @@ function onCreateProjectClicked(): void {
     const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+        appStore.updateActiveModal(MODALS.createProjectPrompt);
     } else {
         analytics.pageVisit(RouteConfig.CreateProject.path);
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newCreateProject);
+        appStore.updateActiveModal(MODALS.newCreateProject);
     }
 }
 </script>

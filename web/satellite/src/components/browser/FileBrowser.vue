@@ -201,14 +201,13 @@ import LockedFilesEntry from './LockedFilesEntry.vue';
 import BreadCrumbs from './BreadCrumbs.vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { BrowserObject } from '@/store/modules/files';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -220,6 +219,7 @@ import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -412,7 +412,7 @@ function closeModalDropdown(): void {
  * Toggle the folder creation modal in the store.
  */
 function toggleFolderCreationModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
+    appStore.updateActiveModal(MODALS.newFolder);
 }
 
 /**

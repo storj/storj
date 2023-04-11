@@ -29,16 +29,17 @@ import { MONTHS_NAMES } from '@/utils/constants/date';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -111,7 +112,7 @@ async function openBucket(): Promise<void> {
         return;
     }
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.openBucket);
+    appStore.updateActiveModal(MODALS.openBucket);
 }
 
 /**

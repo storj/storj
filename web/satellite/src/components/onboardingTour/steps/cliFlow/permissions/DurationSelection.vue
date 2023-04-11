@@ -24,14 +24,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import DurationPicker from '@/components/onboardingTour/steps/cliFlow/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 
 const dateRangeLabel = ref<string>('Forever');
@@ -40,7 +41,7 @@ const dateRangeLabel = ref<string>('Forever');
  * Indicates if date picker is shown.
  */
 const isDurationPickerVisible = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
 });
 
 /**
@@ -61,7 +62,7 @@ const notAfterPermission = computed((): Date | null => {
  * Toggles duration picker.
  */
 function togglePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AG_DATE_PICKER);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.AG_DATE_PICKER);
 }
 
 /**

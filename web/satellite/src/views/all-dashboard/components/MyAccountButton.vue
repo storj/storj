@@ -53,10 +53,7 @@ import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import {
-    APP_STATE_ACTIONS,
-    NOTIFICATION_ACTIONS,
-} from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -72,6 +69,7 @@ import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -88,6 +86,7 @@ const notify = useNotify();
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -99,22 +98,22 @@ const isHoveredOver = ref(false);
  * Indicates if account dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT;
 });
 
 /**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 function openDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ALL_DASH_ACCOUNT);
 }
 
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**
@@ -163,7 +162,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLEAR),
+        appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
