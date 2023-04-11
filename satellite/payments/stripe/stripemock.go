@@ -41,6 +41,10 @@ const (
 	// an error.
 	MockInvoicesPayFailure = "mock_invoices_pay_failure"
 
+	// MockInvoicesPaySuccess can be passed to mockInvoices.Pay as params.PaymentMethod to cause it to return
+	// a paid invoice.
+	MockInvoicesPaySuccess = "mock_invoices_pay_success"
+
 	// TestPaymentMethodsNewFailure can be passed to creditCards.Add as the cardToken arg to cause
 	// mockPaymentMethods.New to return an error.
 	TestPaymentMethodsNewFailure = "test_payment_methods_new_failure"
@@ -137,6 +141,7 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 	state.customerBalanceTransactions = newMockCustomerBalanceTransactions(state)
 	state.charges = &mockCharges{}
 	state.promoCodes = newMockPromoCodes(state)
+	state.creditNotes = newMockCreditNotes(state)
 
 	return &mockStripeClient{
 		customersDB:     customersDB,
@@ -516,12 +521,14 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		due = *params.DueDate
 	}
 
+	amountDue := int64(0)
 	lineData := make([]*stripe.InvoiceLine, 0, len(params.InvoiceItems))
 	for _, item := range params.InvoiceItems {
 		lineData = append(lineData, &stripe.InvoiceLine{
 			InvoiceItem: *item.InvoiceItem,
 			Amount:      *item.Amount,
 		})
+		amountDue += *item.Amount
 	}
 
 	var desc string
@@ -541,6 +548,8 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		Lines: &stripe.InvoiceLineList{
 			Data: lineData,
 		},
+		AmountDue:       amountDue,
+		AmountRemaining: amountDue,
 	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
@@ -618,15 +627,21 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 
 func (m *mockInvoices) Pay(id string, params *stripe.InvoicePayParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
-		for i, invoice := range invoices {
+		for _, invoice := range invoices {
 			if invoice.ID == id {
 				if params.PaymentMethod != nil {
 					if *params.PaymentMethod == MockInvoicesPayFailure {
 						invoice.Status = stripe.InvoiceStatusOpen
 						return invoice, &stripe.Error{}
 					}
+					if *params.PaymentMethod == MockInvoicesPaySuccess {
+						invoice.Status = stripe.InvoiceStatusPaid
+						invoice.AmountRemaining = 0
+						return invoice, nil
+					}
+				} else if invoice.AmountRemaining == 0 {
+					invoice.Status = stripe.InvoiceStatusPaid
 				}
-				m.invoices[invoice.Customer.ID][i].Status = stripe.InvoiceStatusPaid
 				return invoice, nil
 			}
 		}
@@ -825,8 +840,35 @@ func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotion
 }
 
 type mockCreditNotes struct {
+	root *mockStripeState
+
+	CreditNotes map[string]*stripe.CreditNote
+}
+
+func newMockCreditNotes(root *mockStripeState) *mockCreditNotes {
+	return &mockCreditNotes{
+		root: root,
+	}
 }
 
 func (m mockCreditNotes) New(params *stripe.CreditNoteParams) (*stripe.CreditNote, error) {
-	return nil, nil
+	m.root.mu.Lock()
+	defer m.root.mu.Unlock()
+
+	item := &stripe.CreditNote{}
+
+	if params.Invoice != nil {
+		item.ID = *params.Invoice
+	}
+	if params.Memo != nil {
+		item.Memo = *params.Memo
+	}
+	for _, invoices := range m.root.invoices.invoices {
+		for _, invoice := range invoices {
+			if invoice.ID == *params.Invoice {
+				invoice.AmountRemaining -= *params.Lines[0].UnitAmount
+			}
+		}
+	}
+	return item, nil
 }

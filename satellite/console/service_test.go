@@ -1683,7 +1683,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, draftInv, invs[0].ID)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, draftInvDesc, testPaymentMethod))
+		require.NoError(t, p.Purchase(userCtx, 1000, draftInvDesc, stripe.MockInvoicesPaySuccess))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
@@ -1714,7 +1714,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		}
 		require.True(t, foundInv)
 
-		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, testPaymentMethod))
+		require.NoError(t, p.Purchase(userCtx, 1000, openInvDesc, stripe.MockInvoicesPaySuccess))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)

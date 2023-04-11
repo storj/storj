@@ -74,8 +74,10 @@ func TestAutoFreezeChore(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			paymentMethod := stripe1.MockInvoicesPaySuccess
 			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
-				Params: stripe.Params{Context: ctx},
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: &paymentMethod,
 			})
 			require.NoError(t, err)
 			require.Equal(t, stripe.InvoiceStatusPaid, inv.Status)
