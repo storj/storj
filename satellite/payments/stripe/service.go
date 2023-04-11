@@ -393,9 +393,9 @@ func (service *Service) addCreditNoteToInvoice(ctx context.Context, invoiceID, c
 		Params:  stripe.Params{Context: ctx},
 		Invoice: stripe.String(invoiceID),
 		Lines:   lineParams,
-		Memo:    stripe.String("Storjscan Token Payment - Wallet: 0x" + wallet),
+		Memo:    stripe.String("Storjscan Token Payment - Wallet: " + wallet),
 	}
-	params.AddMetadata("txID", "0x"+strconv.FormatInt(txID, 10))
+	params.AddMetadata("txID", strconv.FormatInt(txID, 10))
 	params.AddMetadata("wallet address", wallet)
 	creditNote, err := service.stripeClient.CreditNotes().New(params)
 	if err != nil {
