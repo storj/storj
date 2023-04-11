@@ -28,14 +28,15 @@ import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -81,7 +82,7 @@ async function setBucketsView(): Promise<void> {
         }
 
         if (!bucketsPage.value.buckets.length && !wasDemoBucketCreated && !promptForPassphrase.value) {
-            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+            appStore.updateActiveModal(MODALS.createBucket);
         }
     } catch (error) {
         await notify.error(`Failed to setup Buckets view. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
@@ -105,7 +106,7 @@ async function fetchBuckets(page = 1): Promise<void> {
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**

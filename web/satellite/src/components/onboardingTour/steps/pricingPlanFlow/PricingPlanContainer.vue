@@ -42,10 +42,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -58,14 +57,14 @@ const props = defineProps<{
     plan: PricingPlanInfo;
 }>();
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Sets the selected pricing plan and displays the pricing plan modal.
  */
 function onActivateClick(): void {
-    store.commit(APP_STATE_MUTATIONS.SET_PRICING_PLAN, props.plan);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.pricingPlan);
+    appStore.setPricingPlan(props.plan);
+    appStore.updateActiveModal(MODALS.pricingPlan);
 }
 
 const isPartner = computed((): boolean => props.plan.type === PricingPlanType.PARTNER);

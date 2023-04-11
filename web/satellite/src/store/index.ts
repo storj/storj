@@ -7,27 +7,22 @@ import { RouteRecord } from 'vue-router';
 
 import { AccessGrantsApiGql } from '@/api/accessGrants';
 import { BucketsApiGql } from '@/api/buckets';
-import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
 import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
-import { makeAppStateModule, AppState } from '@/store/modules/appState';
 import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
-import { makeObjectsModule, OBJECTS_ACTIONS, ObjectsState } from '@/store/modules/objects';
+import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
-import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { FrontendConfigHttpApi } from '@/api/config';
+import { useAppStore } from '@/store/modules/appStore';
 
 Vue.use(Vuex);
 
 const accessGrantsApi = new AccessGrantsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectsApi = new ProjectsApiGql();
-const configApi = new FrontendConfigHttpApi();
 
 // We need to use a WebWorker factory because jest testing does not support
 // WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
@@ -40,7 +35,6 @@ const webWorkerFactory = {
 export interface ModulesState {
     notificationsModule: NotificationsState;
     accessGrantsModule: AccessGrantsState;
-    appStateModule: AppState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     bucketUsageModule: BucketsState;
@@ -52,7 +46,6 @@ export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
-        appStateModule: makeAppStateModule(configApi),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),
@@ -62,7 +55,8 @@ export const store = new Vuex.Store<ModulesState>({
 
 store.subscribe((mutation, state) => {
     const currentRouteName = router.currentRoute.name;
-    const satelliteName = state.appStateModule.satelliteName;
+    const appStore = useAppStore();
+    const satelliteName = appStore.state.satelliteName;
 
     switch (mutation.type) {
     case PROJECTS_MUTATIONS.REMOVE:
@@ -85,11 +79,13 @@ export default store;
 */
 router.beforeEach(async (to, from, next) => {
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.Login.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, true);
+        const appStore = useAppStore();
+        appStore.toggleHasJustLoggenIn(true);
     }
 
     if (to.name === RouteConfig.AllProjectsDashboard.name && from.name === RouteConfig.Login.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, true);
+        const appStore = useAppStore();
+        appStore.toggleHasJustLoggenIn(true);
     }
 
     // On very first login we try to redirect user to project dashboard
@@ -97,16 +93,24 @@ router.beforeEach(async (to, from, next) => {
     // That's why we toggle this flag here back to false not show create project passphrase modal again
     // if user clicks 'Continue in web'.
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.OverviewStep.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, false);
+        const appStore = useAppStore();
+        appStore.toggleHasJustLoggenIn(false);
     }
     if (to.name === RouteConfig.ProjectDashboard.name && from.name === RouteConfig.AllProjectsDashboard.name) {
-        store.commit(APP_STATE_MUTATIONS.TOGGLE_HAS_JUST_LOGGED_IN, false);
+        const appStore = useAppStore();
+        appStore.toggleHasJustLoggenIn(false);
     }
 
-    if (!to.path.includes(RouteConfig.UploadFile.path) && (store.state.appStateModule.viewsState.activeModal !== MODALS.uploadCancelPopup)) {
-        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
-        if (areUploadsInProgress) return;
-    }
+    // TODO: I disabled this navigation guard because we try to get active pinia before it is initialised.
+    // In any case this feature is redundant since we have project level passphrase.
+
+    // if (!to.path.includes(RouteConfig.UploadFile.path)) {
+    //     const appStore = useAppStore();
+    //     if (appStore.state.viewsState.activeModal !== MODALS.uploadCancelPopup) {
+    //         const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+    //         if (areUploadsInProgress) return;
+    //     }
+    // }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
@@ -146,8 +150,10 @@ router.afterEach(({ name }, _from) => {
         return;
     }
 
+    const appStore = useAppStore();
+
     if (notProjectRelatedRoutes.includes(name)) {
-        document.title = `${router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+        document.title = `${router.currentRoute.name} | ${appStore.state.satelliteName}`;
 
         return;
     }
@@ -155,7 +161,7 @@ router.afterEach(({ name }, _from) => {
     const selectedProjectName = store.state.projectsModule.selectedProject.name ?
         `${store.state.projectsModule.selectedProject.name} | ` : '';
 
-    document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
+    document.title = `${selectedProjectName + router.currentRoute.name} | ${appStore.state.satelliteName}`;
 });
 
 /**

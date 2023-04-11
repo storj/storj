@@ -18,15 +18,14 @@
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import NewBillingAddCouponCodeInput from '@/components/common/NewBillingAddCouponCodeInput.vue';
 import VModal from '@/components/common/VModal.vue';
 
 import CouponIcon from '@/../static/images/account/billing/greenCoupon.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
@@ -35,7 +34,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  */
 function onCloseClick(): void {
     analytics.eventTriggered(AnalyticsEvent.COUPON_CODE_APPLIED);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
+    appStore.updateActiveModal(MODALS.newBillingAddCoupon);
 }
 </script>
 

@@ -53,7 +53,7 @@ import { computed, ref } from 'vue';
 import { User } from '@/types/users';
 import { RouteConfig } from '@/router';
 import { AuthHttpApi } from '@/api/auth';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -61,12 +61,12 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -78,6 +78,7 @@ import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -105,14 +106,14 @@ const style = computed((): Record<string, string> => {
  * Indicates if account dropdown is visible.
  */
 const isDropdown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.ACCOUNT;
 });
 
 /**
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
@@ -159,7 +160,7 @@ async function onLogout(): Promise<void> {
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
-        store.dispatch(APP_STATE_ACTIONS.CLEAR),
+        appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
         store.dispatch('files/clear'),
@@ -189,15 +190,14 @@ function toggleDropdown(): void {
     dropdownYPos.value = accountContainer.bottom - DROPDOWN_HEIGHT - SIXTEEN_PIXELS;
     dropdownXPos.value = accountContainer.right - TWENTY_PIXELS;
 
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.ACCOUNT);
-    store.commit(APP_STATE_MUTATIONS.CLOSE_BILLING_NOTIFICATION);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.ACCOUNT);
 }
 
 /**
  * Closes dropdowns.
  */
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 </script>
 

@@ -43,14 +43,15 @@ import { computed, ref } from 'vue';
 import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -93,7 +94,7 @@ const createFolderEnabled = computed((): boolean => {
  * Close the NewFolderModal.
  */
 function close(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newFolder);
+    appStore.updateActiveModal(MODALS.newFolder);
 }
 
 /**

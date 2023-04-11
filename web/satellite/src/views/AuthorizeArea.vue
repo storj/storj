@@ -96,13 +96,13 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -117,6 +117,7 @@ const validPerms = {
     'delete': true,
 };
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -188,7 +189,7 @@ async function ensureLogin(): Promise<void> {
         await usersStore.getUser();
     } catch (error) {
         if (!(error instanceof ErrorUnauthorized)) {
-            await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.ERROR);
+            appStore.changeState(FetchState.ERROR);
             await notify.error(error.message, null);
         }
 

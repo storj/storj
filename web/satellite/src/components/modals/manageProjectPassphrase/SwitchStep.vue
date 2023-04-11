@@ -42,8 +42,8 @@ import { useNotify, useStore } from '@/utils/hooks';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { EdgeCredentials } from '@/types/accessGrants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -54,8 +54,9 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
-const notify = useNotify();
+const appStore = useAppStore();
 const store = useStore();
+const notify = useNotify();
 
 const passphrase = ref<string>('');
 const enterError = ref<string>('');
@@ -89,7 +90,7 @@ async function onSwitch(): Promise<void> {
         store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
 
         notify.success('Passphrase was switched successfully');
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+        appStore.updateActiveModal(MODALS.manageProjectPassphrase);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.SWITCH_PROJECT_LEVEL_PASSPHRASE_MODAL);
     }

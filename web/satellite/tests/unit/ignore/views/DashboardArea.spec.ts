@@ -6,14 +6,11 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { AccessGrantsMock } from '../../mock/api/accessGrants';
 import { BucketsMock } from '../../mock/api/buckets';
-import { FrontendConfigApiMock } from '../../mock/api/config';
 
 import { RouteConfig, router } from '@/router';
 import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
-import { makeAppStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -22,7 +19,6 @@ import DashboardArea from '@/views/DashboardArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
@@ -32,7 +28,6 @@ const store = new Vuex.Store({
         notificationsModule,
         bucketsModule,
         accessGrantsModule,
-        appStateModule,
     },
 });
 
@@ -57,8 +52,6 @@ describe('Dashboard', () => {
     });
 
     it('renders correctly when data is loaded', () => {
-        store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADED);
-
         const wrapper = shallowMount(DashboardArea, {
             store,
             localVue,

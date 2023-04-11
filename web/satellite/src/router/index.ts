@@ -17,7 +17,6 @@ import BillingOverview from '@/components/account/billing/billingTabs/Overview.v
 import BillingPaymentMethods from '@/components/account/billing/billingTabs/PaymentMethods.vue';
 import BillingHistory from '@/components/account/billing/billingTabs/BillingHistory.vue';
 import BillingCoupons from '@/components/account/billing/billingTabs/Coupons.vue';
-import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import BucketsView from '@/components/objects/BucketsView.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';

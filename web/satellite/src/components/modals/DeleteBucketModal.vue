@@ -40,8 +40,8 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -50,6 +50,7 @@ import VInput from '@/components/common/VInput.vue';
 const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -180,7 +181,7 @@ function onChangeName(value: string): void {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.deleteBucket);
+    appStore.updateActiveModal(MODALS.deleteBucket);
 }
 
 /**

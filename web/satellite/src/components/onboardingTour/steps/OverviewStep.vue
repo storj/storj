@@ -35,14 +35,14 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { MetaUtils } from '@/utils/meta';
 import { PartneredSatellite } from '@/types/common';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import OverviewContainer from '@/components/onboardingTour/steps/common/OverviewContainer.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -55,7 +55,7 @@ const titleLabel = ref<string>('');
  * Returns satellite name.
  */
 const satelliteName = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
@@ -64,7 +64,7 @@ const satelliteName = computed((): string => {
 async function onSkip(): Promise<void> {
     endOnboarding();
     await router.push(projectDashboardPath);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 /**
@@ -82,7 +82,7 @@ function onUplinkCLIClick(): void {
  */
 async function onUploadInBrowserClick(): Promise<void> {
     endOnboarding();
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 async function endOnboarding(): Promise<void> {

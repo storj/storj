@@ -81,11 +81,11 @@
 import { computed, ref, watch } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -99,9 +99,9 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 
@@ -114,12 +114,12 @@ const stripeCardInput = ref<(StripeCardInput & StripeForm) | null>(null);
  * Returns the pricing plan selected from the onboarding tour.
  */
 const plan = computed((): PricingPlanInfo | null => {
-    return store.state.appStateModule.viewsState.selectedPricingPlan;
+    return appStore.state.viewsState.selectedPricingPlan;
 });
 
 watch(plan, () => {
     if (!plan.value) {
-        store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+        appStore.removeActiveModal();
         notify.error('No pricing plan has been selected.', null);
     }
 });
@@ -135,9 +135,9 @@ const isFree = computed((): boolean => {
  * Closes the modal and advances to the next step in the onboarding tour.
  */
 function onClose(): void {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
     if (isSuccess.value) {
-        if (store.state.appStateModule.isAllProjectsDashboard) {
+        if (appStore.state.isAllProjectsDashboard) {
             router.push(RouteConfig.AllProjectsDashboard.path);
             return;
         }

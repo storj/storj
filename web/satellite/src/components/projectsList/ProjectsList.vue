@@ -58,11 +58,11 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -76,6 +76,7 @@ const {
 const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -117,10 +118,10 @@ function onCreateClick(): void {
     const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
     if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+        appStore.updateActiveModal(MODALS.createProjectPrompt);
     } else {
         analytics.pageVisit(RouteConfig.CreateProject.path);
-        store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
+        appStore.updateActiveModal(MODALS.createProject);
     }
 }
 

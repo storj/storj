@@ -31,13 +31,14 @@ import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 
@@ -63,7 +64,7 @@ function onLeaveClick(): void {
  * Close upload cancel info popup.
  */
 function closePopup(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.uploadCancelPopup);
+    appStore.updateActiveModal(MODALS.uploadCancelPopup);
 }
 </script>
 

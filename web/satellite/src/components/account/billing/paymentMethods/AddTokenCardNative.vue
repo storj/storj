@@ -97,9 +97,9 @@ import { Wallet } from '@/types/payments';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -109,8 +109,8 @@ import InfoIcon from '@/../static/images/billing/blueInfoIcon.svg';
 import StorjSmall from '@/../static/images/billing/storj-icon-small.svg';
 import StorjLarge from '@/../static/images/billing/storj-icon-large.svg';
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 
@@ -122,7 +122,7 @@ const isLoading = ref<boolean>(false);
  * Returns wallet from store.
  */
 const wallet = computed((): Wallet => {
-    return billingStore.state.wallet;
+    return billingStore.state.wallet as Wallet;
 });
 
 /**
@@ -170,7 +170,7 @@ async function claimWalletClick(): Promise<void> {
  */
 function onAddTokensClick(): void {
     analytics.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTokenFunds);
+    appStore.updateActiveModal(MODALS.addTokenFunds);
 }
 
 onMounted(async (): Promise<void> => {

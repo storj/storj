@@ -166,7 +166,6 @@ import { computed, onMounted, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { Validator } from '@/utils/validation';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -178,6 +177,7 @@ import { LocalData } from '@/utils/localData';
 import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
 import { PartneredSatellite } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -227,6 +227,7 @@ const registerPath: string = RouteConfig.Register.path;
 const auth = new AuthHttpApi();
 const analytics = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const router = useRouter();
 const notify = useNotify();
@@ -237,14 +238,14 @@ const route = useRoute();
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return store.state.appStateModule.partneredSatellites;
+    return appStore.state.partneredSatellites;
 });
 
 /**
@@ -255,7 +256,7 @@ onMounted(() => {
     isActivatedBannerShown.value = !!route.query.activated;
     isActivatedError.value = route.query.activated === 'false';
 
-    if (store.state.appStateModule.isAllProjectsDashboard) {
+    if (appStore.state.isAllProjectsDashboard) {
         returnURL.value = RouteConfig.AllProjectsDashboard.path;
     }
 
@@ -445,7 +446,7 @@ async function login(): Promise<void> {
     }
 
     usersStore.login();
-    await store.dispatch(APP_STATE_ACTIONS.CHANGE_FETCH_STATE, FetchState.LOADING);
+    appStore.changeState(FetchState.LOADING);
     isLoading.value = false;
 
     analytics.pageVisit(returnURL.value);

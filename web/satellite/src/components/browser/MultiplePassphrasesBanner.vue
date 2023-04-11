@@ -35,9 +35,9 @@ import { computed } from 'vue';
 
 import { Bucket } from '@/types/buckets';
 import { useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
@@ -48,6 +48,7 @@ const props = withDefaults(defineProps<{
     onClose: () => {},
 });
 
+const appStore = useAppStore();
 const store = useStore();
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
@@ -75,8 +76,8 @@ const objectsCount = computed((): number => {
  * Opens switch passphrase modal.
  */
 function openManageModal(): void {
-    store.commit(APP_STATE_MUTATIONS.SET_MANAGE_PASSPHRASE_STEP, ManageProjectPassphraseStep.Switch);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.setManagePassphraseStep(ManageProjectPassphraseStep.Switch);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 }
 </script>
 

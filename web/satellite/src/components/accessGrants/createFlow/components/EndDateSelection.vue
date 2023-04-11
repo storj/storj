@@ -26,9 +26,8 @@ import { computed } from 'vue';
 
 import EndDatePicker from './EndDatePicker.vue';
 
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { useStore } from '@/utils/hooks';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
@@ -38,20 +37,20 @@ const props = defineProps<{
     notAfterLabel: string;
 }>();
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Indicates if date picker is shown.
  */
 const isDatePickerVisible = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AG_DATE_PICKER;
 });
 
 /**
  * Toggles date picker.
  */
 function togglePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.AG_DATE_PICKER);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.AG_DATE_PICKER);
 }
 </script>
 

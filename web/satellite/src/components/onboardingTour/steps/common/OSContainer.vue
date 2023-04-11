@@ -39,10 +39,9 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { OnboardingOS } from '@/types/common';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
-const store = useStore();
+const appStore = useAppStore();
 
 const props = withDefaults(defineProps<{
     isInstallStep: boolean;
@@ -56,7 +55,7 @@ const osSelected = ref<OnboardingOS>(OnboardingOS.WINDOWS);
  * Returns selected os from store.
  */
 const storedOsSelected = computed((): OnboardingOS | null => {
-    return store.state.appStateModule.viewsState.onbSelectedOs;
+    return appStore.state.viewsState.onbSelectedOs;
 });
 
 /**
@@ -85,7 +84,7 @@ const isWindows = computed((): boolean => {
  */
 function setTab(os: OnboardingOS): void {
     osSelected.value = os;
-    store.commit(APP_STATE_MUTATIONS.SET_ONB_OS, os);
+    appStore.setOnboardingOS(os);
 }
 
 /**

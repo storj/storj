@@ -105,7 +105,8 @@ import { PartneredSatellite } from '@/types/common';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VInput from '@/components/common/VInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -116,7 +117,7 @@ import CloseIcon from '@/../static/images/notifications/closeSmall.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -142,14 +143,14 @@ const captcha = ref<VueRecaptcha | VueHcaptcha>();
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    return store.state.appStateModule.partneredSatellites;
+    return appStore.state.partneredSatellites;
 });
 
 /**

@@ -83,16 +83,16 @@ import { computed, onMounted, ref } from 'vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -109,7 +109,7 @@ const canvas = ref<HTMLCanvasElement>();
  * Returns satellite name from store.
  */
 const satellite = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
@@ -140,7 +140,7 @@ function showEnable(): void {
  * Closes enable MFA modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enableMFA);
+    appStore.updateActiveModal(MODALS.enableMFA);
 }
 
 /**

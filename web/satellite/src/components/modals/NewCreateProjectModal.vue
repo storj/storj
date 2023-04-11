@@ -85,10 +85,10 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -97,6 +97,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const store = useStore();
@@ -173,12 +174,13 @@ async function onCreateProjectClick(): Promise<void> {
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
 
-    if (usersStore.shouldOnboard && store.state.appStateModule.isAllProjectsDashboard) {
+    if (usersStore.shouldOnboard && appStore.state.isAllProjectsDashboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         await router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
         return;
     }
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+
+    appStore.updateActiveModal(MODALS.enterPassphrase);
 }
 
 /**
@@ -196,7 +198,7 @@ async function selectCreatedProject() {
  * Closes create project modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.REMOVE_ACTIVE_MODAL);
+    appStore.removeActiveModal();
 }
 </script>
 

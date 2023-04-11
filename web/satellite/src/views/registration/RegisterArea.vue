@@ -281,7 +281,7 @@
 <script setup lang="ts">
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, reactive, ref } from 'vue';
 
 import BottomArrowIcon from '../../../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '../../../static/images/common/selectedCheck.svg';
@@ -295,7 +295,8 @@ import { User } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import SelectInput from '@/components/common/SelectInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
@@ -365,26 +366,27 @@ const captcha = ref<VueRecaptcha | VueHcaptcha | null>(null);
 
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
+
+const appStore = useAppStore();
 const notify = useNotify();
-const router = useRouter();
-const store = useStore();
-const route = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 /**
  * Lifecycle hook before initial render.
  * Sets up variables from route params and loads config.
  */
 onBeforeMount(() => {
-    if (route.query.token) {
-        secret.value = route.query.token.toString();
+    if (router.currentRoute.query.token) {
+        secret.value = router.currentRoute.query.token.toString();
     }
 
-    if (route.query.partner) {
-        user.value.partner = route.query.partner.toString();
+    if (router.currentRoute.query.partner) {
+        user.value.partner = router.currentRoute.query.partner.toString();
     }
 
-    if (route.query.promo) {
-        user.value.signupPromoCode = route.query.promo.toString();
+    if (router.currentRoute.query.promo) {
+        user.value.signupPromoCode = router.currentRoute.query.promo.toString();
     }
 
     try {
@@ -494,14 +496,14 @@ function setRepeatedPassword(value: string): void {
  * Name of the current satellite.
  */
 const satelliteName = computed((): string => {
-    return store.state.appStateModule.satelliteName;
+    return appStore.state.satelliteName;
 });
 
 /**
  * Information about partnered satellites, including name and signup link.
  */
 const partneredSatellites = computed((): PartneredSatellite[] => {
-    const satellites = store.state.appStateModule.partneredSatellites;
+    const satellites = appStore.state.partneredSatellites;
     return satellites.map((s: PartneredSatellite) => {
         s.address = `${s.address}/signup`;
 
@@ -517,14 +519,14 @@ const partneredSatellites = computed((): PartneredSatellite[] => {
  * Indicates if satellite is in beta.
  */
 const isBetaSatellite = computed((): boolean => {
-    return store.state.appStateModule.isBetaSatellite;
+    return appStore.state.isBetaSatellite;
 });
 
 /**
  * Indicates if coupon code ui is enabled
  */
 const couponCodeSignupUIEnabled = computed((): boolean => {
-    return store.state.appStateModule.couponCodeSigunpUIEnabled;
+    return appStore.state.couponCodeSignupUIEnabled;
 });
 
 /**

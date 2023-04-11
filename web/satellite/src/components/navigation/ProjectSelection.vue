@@ -63,7 +63,6 @@ import { computed, reactive, ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
@@ -73,11 +72,11 @@ import { Project } from '@/types/projects';
 import { User } from '@/types/users';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -88,6 +87,7 @@ import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
@@ -129,7 +129,7 @@ const projectName = computed((): string => {
  * Indicates if dropdown is shown.
  */
 const isDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.SELECT_PROJECT;
 });
 
 /**
@@ -187,7 +187,7 @@ async function toggleSelection(): Promise<void> {
  * Toggles project dropdown visibility.
  */
 function toggleDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, APP_STATE_DROPDOWNS.SELECT_PROJECT);
+    appStore.toggleActiveDropdown(APP_STATE_DROPDOWNS.SELECT_PROJECT);
 }
 
 /**
@@ -202,7 +202,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
     closeDropdown();
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+    appStore.updateActiveModal(MODALS.enterPassphrase);
 
     if (isBucketsView.value) {
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
@@ -252,7 +252,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
  * Closes select project dropdown.
  */
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**
@@ -272,7 +272,7 @@ function onProjectsLinkClick(): void {
  * Toggles manage passphrase modal shown.
  */
 function onManagePassphraseClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
 
     closeDropdown();
 }
@@ -288,10 +288,10 @@ function onCreateLinkClick(): void {
         const ownProjectsCount: number = store.getters.projectsCount(user.id);
 
         if (!user.paidTier && user.projectLimit === ownProjectsCount) {
-            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+            appStore.updateActiveModal(MODALS.createProjectPrompt);
         } else {
             analytics.pageVisit(RouteConfig.CreateProject.path);
-            store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
+            appStore.updateActiveModal(MODALS.createProject);
         }
     }
 

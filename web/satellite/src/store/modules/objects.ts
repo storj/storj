@@ -6,11 +6,11 @@ import S3, { Bucket } from 'aws-sdk/clients/s3';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { FilesState } from '@/store/modules/files';
 import { StoreModule } from '@/types/store';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
+import { useAppStore } from '@/store/modules/appStore';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -318,7 +318,8 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 }
 
                 commit(SET_LEAVE_ROUTE, leaveRoute);
-                commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.uploadCancelPopup, null, { root: true });
+                const appStore = useAppStore();
+                appStore.updateActiveModal(MODALS.uploadCancelPopup);
 
                 return true;
             },

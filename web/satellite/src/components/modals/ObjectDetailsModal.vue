@@ -119,9 +119,9 @@ import prettyBytes from 'pretty-bytes';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
 import { BrowserObject } from '@/store/modules/files';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -129,6 +129,7 @@ import VLoader from '@/components/common/VLoader.vue';
 
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -273,7 +274,7 @@ function download(): void {
  * Close the current opened file details modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
+    appStore.updateActiveModal(MODALS.objectDetails);
 }
 
 /**

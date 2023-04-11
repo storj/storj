@@ -10,15 +10,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Indicates the current active modal.
  */
 const activeModal = computed((): unknown | null => {
     // modal could be of VueConstructor type or Object (for composition api components).
-    return store.state.appStateModule.viewsState.activeModal;
+    return appStore.state.viewsState.activeModal;
 });
 </script>
