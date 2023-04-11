@@ -180,14 +180,6 @@ func (slow *SlowBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return slow.blobs.FreeSpace(ctx)
 }
 
-// CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (slow *SlowBlobs) CheckWritability(ctx context.Context) error {
-	if err := slow.sleep(ctx); err != nil {
-		return errs.Wrap(err)
-	}
-	return slow.blobs.CheckWritability(ctx)
-}
-
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (slow *SlowBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if err := slow.sleep(ctx); err != nil {
@@ -210,6 +202,14 @@ func (slow *SlowBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 		return 0, errs.Wrap(err)
 	}
 	return slow.blobs.SpaceUsedForTrash(ctx)
+}
+
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (slow *SlowBlobs) CheckWritability(ctx context.Context) error {
+	if err := slow.sleep(ctx); err != nil {
+		return errs.Wrap(err)
+	}
+	return slow.blobs.CheckWritability(ctx)
 }
 
 // CreateVerificationFile creates a file to be used for storage directory verification.

@@ -95,16 +95,16 @@ type Blobs interface {
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
+
 	// FreeSpace return how much free space is available to the blobstore.
 	FreeSpace(ctx context.Context) (int64, error)
-	// CheckWritability tests writability of the storage directory by creating and deleting a file.
-	CheckWritability(ctx context.Context) error
 	// SpaceUsedForTrash returns the total space used by the trash.
 	SpaceUsedForTrash(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobs adds up how much is used in all namespaces.
 	SpaceUsedForBlobs(ctx context.Context) (int64, error)
 	// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
 	SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error)
+
 	// ListNamespaces finds all namespaces in which keys might currently be stored.
 	ListNamespaces(ctx context.Context) ([][]byte, error)
 	// WalkNamespace executes walkFunc for each locally stored blob, stored with
@@ -112,11 +112,15 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+
+	// CheckWritability tests writability of the storage directory by creating and deleting a file.
+	CheckWritability(ctx context.Context) error
 	// CreateVerificationFile creates a file to be used for storage directory verification.
 	CreateVerificationFile(ctx context.Context, id storj.NodeID) error
 	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 	// of the verification file.
 	VerifyStorageDir(ctx context.Context, id storj.NodeID) error
+
 	// Close closes the blob store and any resources associated with it.
 	Close() error
 }

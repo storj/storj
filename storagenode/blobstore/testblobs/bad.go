@@ -21,6 +21,7 @@ import (
 type ErrorBlobs interface {
 	blobstore.Blobs
 	SetError(err error)
+	SetCheckError(err error)
 }
 
 // BadDB implements bad storage node DB.
@@ -45,16 +46,22 @@ func (bad *BadDB) Pieces() blobstore.Blobs {
 	return bad.Blobs
 }
 
-// SetError sets an error to be returned for all piece operations.
+// SetError sets an error to be returned for piece operations.
 func (bad *BadDB) SetError(err error) {
 	bad.Blobs.SetError(err)
 }
 
+// SetCheckError sets an error to be returned for check and verification operations.
+func (bad *BadDB) SetCheckError(err error) {
+	bad.Blobs.SetCheckError(err)
+}
+
 // BadBlobs implements a bad blob store.
 type BadBlobs struct {
-	err   lockedErr
-	blobs blobstore.Blobs
-	log   *zap.Logger
+	err      lockedErr
+	checkErr lockedErr
+	blobs    blobstore.Blobs
+	log      *zap.Logger
 }
 
 type lockedErr struct {
@@ -85,9 +92,14 @@ func newBadBlobs(log *zap.Logger, blobs blobstore.Blobs) *BadBlobs {
 	}
 }
 
-// SetError configures the blob store to return a specific error for all operations.
+// SetError configures the blob store to return a specific error for all operations, except verification.
 func (bad *BadBlobs) SetError(err error) {
 	bad.err.Set(err)
+}
+
+// SetCheckError configures the blob store to return a specific error for verification operations.
+func (bad *BadBlobs) SetCheckError(err error) {
+	bad.checkErr.Set(err)
 }
 
 // Create creates a new blob that can be written optionally takes a size
@@ -216,14 +228,6 @@ func (bad *BadBlobs) FreeSpace(ctx context.Context) (int64, error) {
 	return bad.blobs.FreeSpace(ctx)
 }
 
-// CheckWritability tests writability of the storage directory by creating and deleting a file.
-func (bad *BadBlobs) CheckWritability(ctx context.Context) error {
-	if err := bad.err.Err(); err != nil {
-		return err
-	}
-	return bad.blobs.CheckWritability(ctx)
-}
-
 // SpaceUsedForBlobs adds up how much is used in all namespaces.
 func (bad *BadBlobs) SpaceUsedForBlobs(ctx context.Context) (int64, error) {
 	if err := bad.err.Err(); err != nil {
@@ -248,9 +252,17 @@ func (bad *BadBlobs) SpaceUsedForTrash(ctx context.Context) (int64, error) {
 	return bad.blobs.SpaceUsedForTrash(ctx)
 }
 
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (bad *BadBlobs) CheckWritability(ctx context.Context) error {
+	if err := bad.checkErr.Err(); err != nil {
+		return err
+	}
+	return bad.blobs.CheckWritability(ctx)
+}
+
 // CreateVerificationFile creates a file to be used for storage directory verification.
 func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
-	if err := bad.err.Err(); err != nil {
+	if err := bad.checkErr.Err(); err != nil {
 		return err
 	}
 	return bad.blobs.CreateVerificationFile(ctx, id)
@@ -259,7 +271,7 @@ func (bad *BadBlobs) CreateVerificationFile(ctx context.Context, id storj.NodeID
 // VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
 // of the verification file.
 func (bad *BadBlobs) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
-	if err := bad.err.Err(); err != nil {
+	if err := bad.checkErr.Err(); err != nil {
 		return err
 	}
 	return bad.blobs.VerifyStorageDir(ctx, id)

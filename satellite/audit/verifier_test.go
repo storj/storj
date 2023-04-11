@@ -1280,7 +1280,7 @@ func TestConcurrentAuditsUnknownError(t *testing.T) {
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return newBadBlobsAllowVerify(log.Named("baddb"), db), nil
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -1363,7 +1363,7 @@ func TestConcurrentAuditsFailure(t *testing.T) {
 			// hits the same set of nodes, and every node is touched by every audit
 			Satellite: testplanet.ReconfigureRS(minPieces-badNodes, minPieces, minPieces, minPieces),
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				return newBadBlobsAllowVerify(log.Named("baddb"), db), nil
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc) {
@@ -1556,27 +1556,4 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 			require.EqualValues(t, appearancesPerNode[planet.StorageNodes[n].ID()], numConcurrentAudits)
 		}
 	})
-}
-
-func newBadBlobsAllowVerify(log *zap.Logger, nodeDB storagenode.DB) storagenode.DB {
-	badBlobsDB := testblobs.NewBadDB(log.Named("baddb"), nodeDB)
-	badBlobsDB.Blobs = &badBlobsAllowVerify{ErrorBlobs: badBlobsDB.Blobs, goodBlobs: nodeDB.Pieces()}
-	return badBlobsDB
-}
-
-type badBlobsAllowVerify struct {
-	testblobs.ErrorBlobs
-	goodBlobs blobstore.Blobs
-}
-
-func (b *badBlobsAllowVerify) VerifyStorageDir(ctx context.Context, id storj.NodeID) error {
-	return b.goodBlobs.VerifyStorageDir(ctx, id)
-}
-
-func (b *badBlobsAllowVerify) CreateVerificationFile(ctx context.Context, id storj.NodeID) error {
-	return b.goodBlobs.CreateVerificationFile(ctx, id)
-}
-
-func (b *badBlobsAllowVerify) CheckWritability(ctx context.Context) error {
-	return b.goodBlobs.CheckWritability(ctx)
 }
