@@ -43,8 +43,8 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -58,6 +58,7 @@ enum ButtonStates {
     Copied,
 }
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -92,7 +93,7 @@ async function onCopy(): Promise<void> {
 function closeModal(): void {
     if (isLoading.value) return;
 
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
+    appStore.updateActiveModal(MODALS.shareObject);
 }
 
 /**

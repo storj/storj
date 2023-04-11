@@ -115,8 +115,8 @@ import prettyBytes from 'pretty-bytes';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { BrowserObject } from '@/store/modules/files';
+import { useAppStore } from '@/store/modules/appStore';
 
 import TableItem from '@/components/common/TableItem.vue';
 
@@ -127,6 +127,7 @@ import DownloadIcon from '@/../static/images/objects/download.svg';
 import DotsIcon from '@/../static/images/objects/dots.svg';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -237,7 +238,7 @@ const fileTypeIsFile = computed((): boolean => {
  */
 function openModal(): void {
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails);
+    appStore.updateActiveModal(MODALS.objectDetails);
     store.dispatch('files/closeDropdown');
 }
 
@@ -427,7 +428,7 @@ function setShiftSelectedFiles(): void {
 function share(): void {
     store.dispatch('files/closeDropdown');
     store.commit('files/setObjectPathForModal', props.path + props.file.Key);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.shareObject);
+    appStore.updateActiveModal(MODALS.shareObject);
 }
 
 /**

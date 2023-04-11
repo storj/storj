@@ -78,9 +78,9 @@ import QRCode from 'qrcode';
 import { Wallet } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
@@ -88,8 +88,8 @@ import VInfo from '@/components/common/VInfo.vue';
 
 import InfoIcon from '@/../static/images/payments/infoIcon.svg';
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 
 const canvas = ref<HTMLCanvasElement>();
@@ -98,14 +98,14 @@ const canvas = ref<HTMLCanvasElement>();
  * Returns wallet from store.
  */
 const wallet = computed((): Wallet => {
-    return billingStore.state.wallet;
+    return billingStore.state.wallet as Wallet;
 });
 
 /**
  * Closes create project prompt modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTokenFunds);
+    appStore.updateActiveModal(MODALS.addTokenFunds);
 }
 
 /**

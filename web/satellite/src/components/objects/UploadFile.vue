@@ -25,10 +25,12 @@ import { BucketPage } from '@/types/buckets';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -42,7 +44,7 @@ const linksharingURL = ref<string>('');
  * Indicates if upload cancel popup is visible.
  */
 const isCancelUploadPopupVisible = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeModal === MODALS.uploadCancelPopup;
+    return appStore.state.viewsState.activeModal === MODALS.uploadCancelPopup;
 });
 
 /**

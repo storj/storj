@@ -80,12 +80,12 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { Validator } from '@/utils/validation';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -95,7 +95,7 @@ import KeyIcon from '@/../static/images/resetPassword/success.svg';
 import LogoIcon from '@/../static/images/logo.svg';
 import GreyWarningIcon from '@/../static/images/common/greyWarning.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -122,7 +122,7 @@ const mfaInput = ref<ConfirmMFAInput>();
  * Returns whether the successful password reset area is shown.
  */
 const isSuccessfulPasswordResetShown = computed(() : boolean => {
-    return store.state.appStateModule.viewsState.isSuccessfulPasswordResetShown;
+    return appStore.state.viewsState.isSuccessfulPasswordResetShown;
 });
 
 /**
@@ -140,7 +140,7 @@ async function onResetClick(): Promise<void> {
 
     try {
         await auth.resetPassword(token.value, password.value, passcode.value.trim(), recoveryCode.value.trim());
-        await store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
+        appStore.toggleSuccessfulPasswordReset();
     } catch (error) {
         isLoading.value = false;
 
@@ -258,7 +258,7 @@ function onConfirmInput(value: string): void {
  */
 onBeforeUnmount((): void => {
     if (isSuccessfulPasswordResetShown.value) {
-        store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
+        appStore.toggleSuccessfulPasswordReset();
     }
 });
 

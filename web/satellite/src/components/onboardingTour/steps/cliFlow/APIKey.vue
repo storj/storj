@@ -26,14 +26,15 @@ import { computed, onMounted } from 'vue';
 import { RouteConfig } from '@/router';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import ValueWithCopy from '@/components/onboardingTour/steps/common/ValueWithCopy.vue';
 
 import Icon from '@/../static/images/onboardingTour/apiKeyStep.svg';
 
-const store = useStore();
+const appStore = useAppStore();
 const router = useRouter();
 
 const satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
@@ -43,14 +44,14 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Returns API key from store.
  */
 const storedAPIKey = computed((): string => {
-    return store.state.appStateModule.viewsState.onbApiKey;
+    return appStore.state.viewsState.onbApiKey;
 });
 
 /**
  * Returns back route from store.
  */
 const backRoute = computed((): string => {
-    return store.state.appStateModule.viewsState.onbAPIKeyStepBackRoute;
+    return appStore.state.viewsState.onbAPIKeyStepBackRoute;
 });
 
 /**

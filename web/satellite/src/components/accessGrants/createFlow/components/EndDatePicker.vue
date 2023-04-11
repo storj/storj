@@ -28,8 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VDatePicker from '@/components/common/VDatePicker.vue';
 
@@ -38,13 +37,13 @@ const props = defineProps<{
     setNotAfter: (date: Date | undefined) => void;
 }>();
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Closes date picker.
  */
 function closePicker(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**

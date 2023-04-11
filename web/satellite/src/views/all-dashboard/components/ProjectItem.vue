@@ -50,20 +50,17 @@ import { computed } from 'vue';
 
 import { Project } from '@/types/projects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import {
-    AnalyticsEvent,
-} from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { User } from '@/types/users';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { LocalData } from '@/utils/localData';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { RouteConfig } from '@/router';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
@@ -72,6 +69,7 @@ import GearIcon from '@/../static/images/common/gearIcon.svg';
 import UsersIcon from '@/../static/images/navigation/users.svg';
 import MenuIcon from '@/../static/images/allDashboard/menu.svg';
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const store = useStore();
@@ -90,7 +88,7 @@ const props = withDefaults(defineProps<{
  * isDropdownOpen if dropdown is open.
  */
 const isDropdownOpen = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === props.project.id;
+    return appStore.state.viewsState.activeDropdown === props.project.id;
 });
 
 /**
@@ -108,11 +106,11 @@ const isOwner = computed((): boolean => {
 });
 
 function toggleDropDown() {
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, props.project.id);
+    appStore.toggleActiveDropdown(props.project.id);
 }
 
 function closeDropDown() {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 
 /**
@@ -126,7 +124,7 @@ async function onOpenClicked(): Promise<void> {
         return;
     }
     await analytics.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.enterPassphrase);
+    appStore.updateActiveModal(MODALS.enterPassphrase);
 }
 
 async function selectProject() {

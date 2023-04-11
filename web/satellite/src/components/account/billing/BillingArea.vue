@@ -43,16 +43,16 @@
 import { computed, onMounted, reactive } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { NavigationLink } from '@/types/navigation';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -63,14 +63,14 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Indicates if free credits dropdown shown.
  */
 const isCreditsDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.FREE_CREDITS;
 });
 
 /**
  * Indicates if available balance dropdown shown.
  */
 const isBalanceDropdownShown = computed((): boolean => {
-    return store.state.appStateModule.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
+    return appStore.state.viewsState.activeDropdown === APP_STATE_DROPDOWNS.AVAILABLE_BALANCE;
 });
 
 /**
@@ -97,7 +97,7 @@ function routeHas(term: string): boolean {
 function closeDropdown(): void {
     if (!isCreditsDropdownShown.value && !isBalanceDropdownShown.value) return;
 
-    store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACTIVE_DROPDOWN, 'none');
+    appStore.toggleActiveDropdown('none');
 }
 
 /**

@@ -36,9 +36,9 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
-import { useNotify, useStore } from '@/utils/hooks';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -47,8 +47,8 @@ import CloudIcon from '@/../static/images/onboardingTour/cloudIcon.svg';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 
 const isCouponFetching = ref<boolean>(true);
@@ -100,7 +100,7 @@ const isActive = computed((): boolean => {
  * Returns the whether applying a new coupon is enabled.
  */
 const couponCodeBillingUIEnabled = computed((): boolean => {
-    return store.state.appStateModule.couponCodeBillingUIEnabled;
+    return appStore.state.couponCodeBillingUIEnabled;
 });
 
 /**
@@ -111,7 +111,7 @@ function toggleCreateModal(): void {
         return;
     }
     analytics.eventTriggered(AnalyticsEvent.APPLY_NEW_COUPON_CLICKED);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.newBillingAddCoupon);
+    appStore.updateActiveModal(MODALS.newBillingAddCoupon);
 }
 
 /**

@@ -137,11 +137,11 @@ import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { ProjectUsagePriceModel } from '@/types/payments';
 import { decimalShift, formatPrice, CENTS_MB_TO_DOLLARS_TB_SHIFT } from '@/utils/strings';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -156,6 +156,7 @@ interface StripeForm {
     onSubmit(): Promise<void>;
 }
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const store = useStore();
@@ -233,7 +234,7 @@ async function addCardToDB(token: string): Promise<void> {
  * Closes add payment method modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**

@@ -24,17 +24,18 @@ import { onBeforeMount, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { PricingPlanInfo, PricingPlanType } from '@/types/common';
 import { User } from '@/types/users';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MetaUtils } from '@/utils/meta';
 import { PaymentsHttpApi } from '@/api/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import PricingPlanContainer from '@/components/onboardingTour/steps/pricingPlanFlow/PricingPlanContainer.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 const payments: PaymentsHttpApi = new PaymentsHttpApi();
@@ -74,7 +75,7 @@ const plans = ref<PricingPlanInfo[]>([
 onBeforeMount(async () => {
     const user: User = usersStore.state.user;
     let nextPath = RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path;
-    if (store.state.appStateModule.isAllProjectsDashboard) {
+    if (appStore.state.isAllProjectsDashboard) {
         nextPath = RouteConfig.AllProjectsDashboard.path;
     }
 

@@ -30,7 +30,7 @@
 import { useNotify, useStore } from '@/utils/hooks';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -40,6 +40,7 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -48,7 +49,7 @@ const notify = useNotify();
  */
 function onClear(): void {
     store.commit(OBJECTS_MUTATIONS.CLEAR);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.manageProjectPassphrase);
+    appStore.updateActiveModal(MODALS.manageProjectPassphrase);
     notify.success('Passphrase was cleared successfully');
 }
 </script>

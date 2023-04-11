@@ -48,12 +48,13 @@
 import { computed, ref } from 'vue';
 
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 
 const bucketSearch = ref<string>('');
@@ -104,7 +105,7 @@ function isNameSelected(name: string): boolean {
  * Closes dropdown.
  */
 function closeDropdown(): void {
-    store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+    appStore.closeDropdowns();
 }
 </script>
 

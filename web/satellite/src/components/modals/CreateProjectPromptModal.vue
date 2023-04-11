@@ -32,28 +32,27 @@
 
 <script setup lang="ts">
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Holds on button click logic.
  * Closes this modal and opens upgrade account modal.
  */
 function onClick(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addPaymentMethod);
+    appStore.updateActiveModal(MODALS.createProjectPrompt);
+    appStore.updateActiveModal(MODALS.addPaymentMethod);
 }
 
 /**
  * Closes create project prompt modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPrompt);
+    appStore.updateActiveModal(MODALS.createProjectPrompt);
 }
 </script>
 

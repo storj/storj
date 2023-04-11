@@ -33,15 +33,14 @@
 import { computed } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
-import { useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VModal from '@/components/common/VModal.vue';
 
 const usersStore = useUsersStore();
-const store = useStore();
+const appStore = useAppStore();
 
 /**
  * Returns MFA recovery codes from store.
@@ -54,7 +53,7 @@ const userMFARecoveryCodes = computed((): string[] => {
  * Closes modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.mfaRecovery);
+    appStore.updateActiveModal(MODALS.mfaRecovery);
 }
 </script>
 

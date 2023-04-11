@@ -5,8 +5,6 @@ import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '@/../tests/unit/mock/api/projects';
-import { FrontendConfigApiMock } from '@/../tests/unit/mock/api/config';
-import { makeAppStateModule } from '@/store/modules/appState';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
@@ -16,10 +14,9 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const appStateModule = makeAppStateModule(new FrontendConfigApiMock());
 const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
-const store = new Vuex.Store({ modules: { projectsModule, appStateModule } });
+const store = new Vuex.Store({ modules: { projectsModule } });
 
 describe('ProjectMembersArea.vue', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);

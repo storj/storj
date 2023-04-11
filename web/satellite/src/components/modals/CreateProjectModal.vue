@@ -70,15 +70,16 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -150,7 +151,7 @@ async function onCreateProjectClick(): Promise<void> {
     closeModal();
 
     store.commit(OBJECTS_MUTATIONS.CLEAR);
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 
     analytics.pageVisit(RouteConfig.ProjectDashboard.path);
     await router.push(RouteConfig.ProjectDashboard.path);
@@ -168,7 +169,7 @@ function selectCreatedProject(): void {
  * Closes create project modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProject);
+    appStore.updateActiveModal(MODALS.createProject);
 }
 </script>
 

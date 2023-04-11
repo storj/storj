@@ -86,10 +86,10 @@ import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VInfo from '@/components/common/VInfo.vue';
 import VHeader from '@/components/common/VHeader.vue';
@@ -101,6 +101,7 @@ declare interface ClearSearch {
     clearSearch(): void;
 }
 
+const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const store = useStore();
 const notify = useNotify();
@@ -144,7 +145,7 @@ const userCountTitle = computed((): string => {
  * Opens add team members modal.
  */
 function toggleTeamMembersModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.addTeamMember);
+    appStore.updateActiveModal(MODALS.addTeamMember);
 }
 
 function onFirstDeleteClick(): void {

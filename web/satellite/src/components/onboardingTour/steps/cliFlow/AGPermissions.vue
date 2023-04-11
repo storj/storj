@@ -43,10 +43,10 @@ import { computed, onMounted, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAppStore } from '@/store/modules/appStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
@@ -57,6 +57,7 @@ import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permiss
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
+const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -79,7 +80,7 @@ const selectedBucketNames = computed((): string[] => {
  * Returns clean API key from store.
  */
 const cleanAPIKey = computed((): string => {
-    return store.state.appStateModule.viewsState.onbCleanApiKey;
+    return appStore.state.viewsState.onbCleanApiKey;
 });
 
 /**
@@ -159,7 +160,7 @@ async function onNextClick(): Promise<void> {
 
     try {
         const restrictedKey = await generateRestrictedKey();
-        store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY, restrictedKey);
+        appStore.setOnboardingAPIKey(restrictedKey);
 
         await notify.success('Restrictions were set successfully.');
     } catch (error) {
@@ -169,7 +170,7 @@ async function onNextClick(): Promise<void> {
         isLoading.value = false;
     }
 
-    await store.commit(APP_STATE_MUTATIONS.SET_ONB_API_KEY_STEP_BACK_ROUTE, router.currentRoute.path);
+    appStore.setOnboardingAPIKeyStepBackRoute(router.currentRoute.path);
     analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OnbCLIStep.with(RouteConfig.APIKey)).path);
     await router.push({ name: RouteConfig.APIKey.name });
 }

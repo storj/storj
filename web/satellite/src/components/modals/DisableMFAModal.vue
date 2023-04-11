@@ -46,9 +46,9 @@ import { ref } from 'vue';
 import { DisableMFARequest } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -58,6 +58,7 @@ interface ClearInput {
     clearInput(): void;
 }
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -72,7 +73,7 @@ const mfaInput = ref<ConfirmMFAInput & ClearInput>();
  * Closes disable MFA modal.
  */
 function closeModal(): void {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.disableMFA);
+    appStore.updateActiveModal(MODALS.disableMFA);
 }
 
 /**

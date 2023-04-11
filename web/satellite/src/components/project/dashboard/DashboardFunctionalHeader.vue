@@ -68,7 +68,7 @@ import { BucketPage } from '@/types/buckets';
 import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
 import { LocalData } from '@/utils/localData';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
+import { useAppStore } from '@/store/modules/appStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -79,6 +79,7 @@ const props = withDefaults(defineProps<{
     loading: false,
 });
 
+const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
 
@@ -119,14 +120,14 @@ const bucketsPage = computed((): BucketPage => {
  * Toggles create project passphrase modal visibility.
  */
 function onSetClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createProjectPassphrase);
+    appStore.updateActiveModal(MODALS.createProjectPassphrase);
 }
 
 /**
  * Toggles create bucket modal visibility.
  */
 function onCreateBucketClick() {
-    store.commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.createBucket);
+    appStore.updateActiveModal(MODALS.createBucket);
 }
 
 /**

@@ -5,8 +5,8 @@ import S3, { CommonPrefix } from 'aws-sdk/clients/s3';
 
 import { StoreModule } from '@/types/store';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { MODALS } from '@/utils/constants/appStatePopUps';
+import { useAppStore } from '@/store/modules/appStore';
 
 const listCache = new Map();
 
@@ -565,7 +565,8 @@ export const makeFilesModule = (): FilesModule => ({
                     if (uploadedFiles.length === 1) {
                         if (state.openModalOnFirstUpload === true) {
                             commit('setObjectPathForModal', params.Key);
-                            commit(APP_STATE_MUTATIONS.UPDATE_ACTIVE_MODAL, MODALS.objectDetails, { root: true });
+                            const appStore = useAppStore();
+                            appStore.updateActiveModal(MODALS.objectDetails);
                         }
                     }
 
@@ -606,7 +607,7 @@ export const makeFilesModule = (): FilesModule => ({
             }
         },
 
-        async deleteFolder({ commit, dispatch, state }, { file, path }) {
+        async deleteFolder({ commit, dispatch, state }: FilesContext, { file, path }) {
             assertIsInitialized(state);
 
             async function recurse(filePath) {
