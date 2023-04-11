@@ -32,7 +32,6 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/analytics"
@@ -142,7 +141,6 @@ type templates struct {
 	index               *template.Template
 	notFound            *template.Template
 	internalServerError *template.Template
-	usageReport         *template.Template
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -364,7 +362,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, oidc
 		slashRouter.HandleFunc("/activation", server.accountActivationHandler)
 		slashRouter.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
-		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -572,83 +569,6 @@ func (server *Server) withRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler.ServeHTTP(w, r.Clone(console.WithRequest(r.Context(), r)))
 	})
-}
-
-// bucketUsageReportHandler generate bucket usage report page for project.
-func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	tokenInfo, err := server.cookieAuth.GetToken(r)
-	if err != nil {
-		server.serveError(w, http.StatusUnauthorized)
-		return
-	}
-
-	ctx, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
-	if err != nil {
-		server.serveError(w, http.StatusUnauthorized)
-		return
-	}
-
-	// parse query params
-	projectIDString := r.URL.Query().Get("projectID")
-	publicIDString := r.URL.Query().Get("publicID")
-
-	var projectID uuid.UUID
-	if projectIDString != "" {
-		projectID, err = uuid.FromString(projectIDString)
-		if err != nil {
-			server.serveError(w, http.StatusBadRequest)
-			return
-		}
-	} else if publicIDString != "" {
-		projectID, err = uuid.FromString(publicIDString)
-		if err != nil {
-			server.serveError(w, http.StatusBadRequest)
-			return
-		}
-	} else {
-		server.log.Error("bucket usage report error", zap.Error(errs.New("Project ID was not provided.")))
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-
-	sinceStamp, err := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
-	if err != nil {
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-	beforeStamp, err := strconv.ParseInt(r.URL.Query().Get("before"), 10, 64)
-	if err != nil {
-		server.serveError(w, http.StatusBadRequest)
-		return
-	}
-
-	since := time.Unix(sinceStamp, 0).UTC()
-	before := time.Unix(beforeStamp, 0).UTC()
-
-	server.log.Debug("querying bucket usage report",
-		zap.Stringer("projectID", projectID),
-		zap.Stringer("since", since),
-		zap.Stringer("before", before))
-
-	bucketRollups, err := server.service.GetBucketUsageRollups(ctx, projectID, since, before)
-	if err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
-		return
-	}
-
-	templates, err := server.loadTemplates()
-	if err != nil {
-		server.log.Error("unable to load templates", zap.Error(err))
-		return
-	}
-	if err = templates.usageReport.Execute(w, bucketRollups); err != nil {
-		server.log.Error("bucket usage report error", zap.Error(err))
-	}
 }
 
 // frontendConfigHandler handles sending the frontend config to the client.
@@ -1033,11 +953,6 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
 		// Loading index is optional.
-	}
-
-	t.usageReport, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "reports", "usageReport.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
 	}
 
 	t.notFound, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))

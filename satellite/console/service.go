@@ -2506,29 +2506,6 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 	return list, nil
 }
 
-// GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.
-// projectID here may be Project.ID or Project.PublicID.
-func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []accounting.BucketUsageRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	user, err := s.getUserAndAuditLog(ctx, "get bucket usage rollups", zap.String("projectID", projectID.String()))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	result, err := s.projectAccounting.GetBucketUsageRollups(ctx, isMember.project.ID, since, before)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return result, nil
-}
-
 // GenGetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period for generated api.
 func (s *Service) GenGetBucketUsageRollups(ctx context.Context, reqProjectID uuid.UUID, since, before time.Time) (rollups []accounting.BucketUsageRollup, httpError api.HTTPError) {
 	var err error
