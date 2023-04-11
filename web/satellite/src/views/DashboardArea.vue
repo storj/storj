@@ -15,7 +15,7 @@
                     <div ref="dashboardContent" class="dashboard__wrap__main-area__content-wrap__container">
                         <BetaSatBar v-if="isBetaSatellite" />
                         <MFARecoveryCodeBar v-if="showMFARecoveryCodeBar" :open-generate-modal="generateNewMFARecoveryCodes" />
-                        <div class="dashboard__wrap__main-area__content-wrap__container__content">
+                        <div class="banner-container dashboard__wrap__main-area__content-wrap__container__content">
                             <UpgradeNotification
                                 v-if="isPaidTierBannerShown"
                                 :open-add-p-m-modal="togglePMModal"
@@ -674,6 +674,10 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
     :deep(.notification-wrap) {
         margin-top: 1rem;
+    }
+
+    .banner-container:empty {
+        display: none;
     }
 
     .dashboard {
