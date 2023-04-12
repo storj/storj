@@ -30,6 +30,15 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 )
 
+const (
+	// UnauthorizedThroughOauth - message for full accesses through Oauth.
+	UnauthorizedThroughOauth = "This operation is not authorized through oauth."
+	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
+	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
+	// AuthorizationNotEnabled - message for when authorization is disabled.
+	AuthorizationNotEnabled = "Authorization not enabled."
+)
+
 // Config defines configuration for debug server.
 type Config struct {
 	Address          string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
@@ -191,8 +200,7 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 			if r.Host != config.AllowedOauthHost {
 				// not behind the proxy; use old authentication method.
 				if config.AuthorizationToken == "" {
-					sendJSONError(w, "Authorization not enabled.",
-						"", http.StatusForbidden)
+					sendJSONError(w, AuthorizationNotEnabled, "", http.StatusForbidden)
 					return
 				}
 
@@ -208,8 +216,8 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 			} else {
 				// request made from oauth proxy. Check user groups against allowedGroups.
 				if allowedGroups == nil {
-					sendJSONError(w, "Forbidden",
-						"This operation is not authorized through oauth. Please contact a production owner to proceed.", http.StatusForbidden)
+					// Endpoint is a full access endpoint, and requires token auth.
+					sendJSONError(w, "Forbidden", UnauthorizedThroughOauth, http.StatusForbidden)
 					return
 				}
 
@@ -232,8 +240,7 @@ func withAuth(log *zap.Logger, config Config, allowedGroups []string) func(next 
 				}
 
 				if !allowed {
-					sendJSONError(w, "Forbidden",
-						fmt.Sprintf("User must be a member of one of these groups to conduct this operation: %s", allowedGroups), http.StatusForbidden)
+					sendJSONError(w, "Forbidden", fmt.Sprintf(UnauthorizedNotInGroup, allowedGroups), http.StatusForbidden)
 					return
 				}
 			}
