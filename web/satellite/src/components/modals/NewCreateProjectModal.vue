@@ -83,12 +83,12 @@ import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -97,6 +97,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import BlueBoxIcon from '@/../static/images/common/blueBox.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -172,7 +173,7 @@ async function onCreateProjectClick(): Promise<void> {
     isLoading.value = false;
     closeModal();
 
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
 
     if (usersStore.shouldOnboard && appStore.state.config.allProjectsDashboard) {
         analytics.pageVisit(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
@@ -191,7 +192,7 @@ async function selectCreatedProject() {
     LocalData.setSelectedProjectId(createdProjectId.value);
     pmStore.setSearchQuery('');
 
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
 }
 
 /**

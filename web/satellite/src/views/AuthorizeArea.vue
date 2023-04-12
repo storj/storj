@@ -92,7 +92,6 @@ import { onMounted, ref } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { RouteConfig } from '@/router';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -103,6 +102,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -117,6 +117,7 @@ const validPerms = {
     'delete': true,
 };
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const usersStore = useUsersStore();
@@ -282,11 +283,13 @@ async function setProject(value: string): Promise<void> {
         return;
     }
 
-    await store.dispatch(PROJECTS_ACTIONS.SELECT, projects.value[value].id);
-    await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+    const projectID = store.getters.selectedProject.id;
 
-    selectedProjectID.value = store.getters.selectedProject.id;
-    buckets.value = store.state.bucketUsageModule.allBucketNames.sort();
+    await store.dispatch(PROJECTS_ACTIONS.SELECT, projects.value[value].id);
+    await bucketsStore.getAllBucketsNames(projectID);
+
+    selectedProjectID.value = projectID;
+    buckets.value = bucketsStore.state.allBucketNames.sort();
 
     setBucket(selectedBucketName.value);
 }

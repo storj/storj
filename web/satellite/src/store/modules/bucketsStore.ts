@@ -11,7 +11,6 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { MODALS } from '@/utils/constants/appStatePopUps';
 
 const BUCKETS_PAGE_LIMIT = 7;
 const FIRST_PAGE = 1;
@@ -51,26 +50,18 @@ export const useBucketsStore = defineStore('buckets', () => {
 
     const api: BucketsApi = new BucketsApiGql();
 
-    const appStore = useAppStore();
-
     function setBucketsSearch(search: string): void {
         state.cursor.search = search;
     }
 
-    function clearBucketsState(): void {
-        state.allBucketNames = [];
-        state.cursor = new BucketCursor('', BUCKETS_PAGE_LIMIT, FIRST_PAGE);
-        state.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
-    }
-
-    async function fetchBuckets(projectID: string, page: number): Promise<void> {
+    async function getBuckets(page: number, projectID: string): Promise<void> {
         const before = new Date();
         state.cursor.page = page;
 
         state.page = await api.get(projectID, before, state.cursor);
     }
 
-    async function fetchAllBucketsNames(projectID: string): Promise<void> {
+    async function getAllBucketsNames(projectID: string): Promise<void> {
         state.allBucketNames = await api.getAllBucketNames(projectID);
     }
 
@@ -120,8 +111,8 @@ export const useBucketsStore = defineStore('buckets', () => {
         const agStore = useAccessGrantsStore();
 
         if (!state.apiKey) {
-            await agStore.deleteAccessGrantByNameAndProjectID(projectID, FILE_BROWSER_AG_NAME);
-            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(projectID, FILE_BROWSER_AG_NAME);
+            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
             setApiKey(cleanAPIKey.secret);
         }
 
@@ -153,9 +144,10 @@ export const useBucketsStore = defineStore('buckets', () => {
             throw new Error(grantEvent.data.error);
         }
 
-        const { getProjectSalt } = useProjectsStore();
+        const projectsStore = useProjectsStore();
+        const appStore = useAppStore();
 
-        const salt = await getProjectSalt(projectID);
+        const salt = await projectsStore.getProjectSalt(projectID);
         const satelliteNodeURL: string = appStore.state.config.satelliteNodeURL;
 
         if (!state.passphrase) {
@@ -224,7 +216,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         return response.KeyCount === undefined ? 0 : response.KeyCount;
     }
 
-    function clearObjects(): void {
+    function clearS3Data(): void {
         state.apiKey = '';
         state.passphrase = '';
         state.promptForPassphrase = true;
@@ -250,23 +242,31 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.leaveRoute = '';
     }
 
-    function checkOngoingUploads(uploadingLength: number, leaveRoute: string): boolean {
-        if (!uploadingLength) {
-            return false;
-        }
-
-        state.leaveRoute = leaveRoute;
-
-        appStore.updateActiveModal(MODALS.uploadCancelPopup);
-
-        return true;
+    function clear(): void {
+        state.allBucketNames = [];
+        state.cursor = new BucketCursor('', BUCKETS_PAGE_LIMIT, FIRST_PAGE);
+        state.page = new BucketPage([], '', BUCKETS_PAGE_LIMIT, 0, 1, 1, 0);
+        clearS3Data();
     }
 
     return {
-        bucketsState: state,
+        state,
         setBucketsSearch,
-        clearBucketsState,
-        fetchBuckets,
-        fetchAllBucketsNames,
+        getBuckets,
+        getAllBucketsNames,
+        setPromptForPassphrase,
+        setEdgeCredentials,
+        setEdgeCredentialsForDelete,
+        setEdgeCredentialsForCreate,
+        setS3Client,
+        setPassphrase,
+        setApiKey,
+        setFileComponentBucketName,
+        createBucket,
+        createBucketWithNoPassphrase,
+        deleteBucket,
+        getObjectsCount,
+        clearS3Data,
+        clear,
     };
 });

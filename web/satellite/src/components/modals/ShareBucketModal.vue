@@ -49,6 +49,7 @@ import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -62,6 +63,7 @@ enum ButtonStates {
     Copied,
 }
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const store = useStore();
@@ -76,14 +78,14 @@ const copyButtonState = ref<ButtonStates>(ButtonStates.Copy);
  * Returns chosen bucket name from store.
  */
 const bucketName = computed((): string => {
-    return store.state.objectsModule.fileComponentBucketName;
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**
  * Returns passphrase from store.
  */
 const passphrase = computed((): string => {
-    return store.state.objectsModule.passphrase;
+    return bucketsStore.state.passphrase;
 });
 
 /**

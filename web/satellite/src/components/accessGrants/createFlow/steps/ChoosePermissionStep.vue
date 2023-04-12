@@ -135,8 +135,9 @@ import {
     FunctionalContainer,
     Permission,
 } from '@/types/createAccessGrant';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import ContainerWithIcon from '@/components/accessGrants/createFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -164,7 +165,7 @@ const props = withDefaults(defineProps<{
     notAfter: undefined,
 });
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
 const notify = useNotify();
 
 const allPermissionsShown = ref<boolean>(false);
@@ -184,7 +185,7 @@ const isButtonDisabled = computed((): boolean => {
  */
 const bucketsList = computed((): string[] => {
     const NON_EXIST_INDEX = -1;
-    const buckets: string[] = store.state.bucketUsageModule.allBucketNames;
+    const buckets: string[] = bucketsStore.state.allBucketNames;
 
     return buckets.filter((name: string) => {
         return name.indexOf(searchQuery.value.toLowerCase()) !== NON_EXIST_INDEX && !props.selectedBuckets.includes(name);

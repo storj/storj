@@ -26,19 +26,20 @@ import { computed, onBeforeMount, reactive, ref } from 'vue';
 import { Bucket } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { MONTHS_NAMES } from '@/utils/constants/date';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import BucketDetailsOverview from '@/components/objects/BucketDetailsOverview.vue';
 import VOverallLoader from '@/components/common/VOverallLoader.vue';
 
 import ArrowRightIcon from '@/../static/images/common/arrowRight.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
@@ -53,21 +54,23 @@ const isLoading = ref<boolean>(false);
  * Returns condition if user has to be prompt for passphrase from store.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => {
-    return store.state.objectsModule.gatewayCredentials;
+    return bucketsStore.state.edgeCredentials;
 });
 
 /**
  * Bucket from store found by router prop.
  */
 const bucket = computed((): Bucket => {
-    const data = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === router.currentRoute.params.bucketName);
+    const data = bucketsStore.state.page.buckets.find(
+        (bucket: Bucket) => bucket.name === router.currentRoute.params.bucketName,
+    );
 
     if (!data) {
         redirectToBucketsPage();
@@ -90,14 +93,14 @@ function redirectToBucketsPage(): void {
  * Holds on bucket click. Proceeds to file browser.
  */
 async function openBucket(): Promise<void> {
-    await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucket.value.name);
+    bucketsStore.setFileComponentBucketName(bucket.value.name);
 
     if (router.currentRoute.params.backRoute === RouteConfig.UploadFileChildren.name || !promptForPassphrase.value) {
         if (!edgeCredentials.value.accessKeyId) {
             isLoading.value = true;
 
             try {
-                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                await bucketsStore.setS3Client(store.getters.selectedProject.id);
                 isLoading.value = false;
             } catch (error) {
                 await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_DETAILS_PAGE);

@@ -47,16 +47,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
 
 const bucketSearch = ref<string>('');
 
@@ -65,7 +65,7 @@ const bucketSearch = ref<string>('');
  */
 const bucketsList = computed((): string[] => {
     const NON_EXIST_INDEX = -1;
-    const buckets: string[] = store.state.bucketUsageModule.allBucketNames;
+    const buckets: string[] = bucketsStore.state.allBucketNames;
 
     return buckets.filter((name: string) => {
         return name.indexOf(bucketSearch.value.toLowerCase()) !== NON_EXIST_INDEX;

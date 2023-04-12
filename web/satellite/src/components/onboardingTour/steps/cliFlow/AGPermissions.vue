@@ -42,12 +42,12 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
@@ -58,6 +58,7 @@ import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permiss
 
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const store = useStore();
@@ -235,7 +236,7 @@ onMounted(async (): Promise<void> => {
     setWorker();
 
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
 
         areBucketNamesFetching.value = false;
     } catch (error) {

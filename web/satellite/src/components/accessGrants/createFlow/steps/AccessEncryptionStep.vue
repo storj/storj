@@ -100,7 +100,7 @@ import {
     FunctionalContainer,
     PassphraseOption,
 } from '@/types/createAccessGrant';
-import { useStore } from '@/utils/hooks';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import ContainerWithIcon from '@/components/accessGrants/createFlow/components/ContainerWithIcon.vue';
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
@@ -117,7 +117,7 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
-const store = useStore();
+const bucketsStore = useBucketsStore();
 
 const advancedShown = ref<boolean>(false);
 
@@ -128,7 +128,7 @@ const _PassphraseOption = PassphraseOption;
  * Indicates if user has to be prompt to enter project passphrase.
  */
 const isPromptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**

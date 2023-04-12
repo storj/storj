@@ -38,6 +38,7 @@ import { useStore } from '@/utils/hooks';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
@@ -49,6 +50,7 @@ const props = withDefaults(defineProps<{
 });
 
 const appStore = useAppStore();
+const bucketsStore = useBucketsStore();
 const store = useStore();
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
@@ -67,7 +69,7 @@ const lockedFilesNumber = computed((): number => {
  */
 const objectsCount = computed((): number => {
     const name: string = store.state.files.bucket;
-    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });

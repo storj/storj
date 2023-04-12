@@ -41,12 +41,12 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -54,8 +54,8 @@ import VButton from '@/components/common/VButton.vue';
 
 import EnterPassphraseIcon from '@/../static/images/buckets/openBucket.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -75,8 +75,8 @@ function onContinue(): void {
         return;
     }
 
-    store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
-    store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+    bucketsStore.setPassphrase(passphrase.value);
+    bucketsStore.setPromptForPassphrase(false);
 
     closeModal();
 }

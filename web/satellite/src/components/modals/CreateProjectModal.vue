@@ -68,17 +68,18 @@ import { ProjectFields } from '@/types/projects';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const store = useStore();
@@ -150,7 +151,7 @@ async function onCreateProjectClick(): Promise<void> {
     isLoading.value = false;
     closeModal();
 
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
     appStore.updateActiveModal(MODALS.createProjectPassphrase);
 
     analytics.pageVisit(RouteConfig.ProjectDashboard.path);

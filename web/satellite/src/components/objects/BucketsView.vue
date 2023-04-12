@@ -21,21 +21,21 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { BucketPage } from '@/types/buckets';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import EncryptionBanner from '@/components/objects/EncryptionBanner.vue';
 import BucketsTable from '@/components/objects/BucketsTable.vue';
 
 import WhitePlusIcon from '@/../static/images/common/plusWhite.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const store = useStore();
 const notify = useNotify();
@@ -49,14 +49,14 @@ const isServerSideEncryptionBannerHidden = ref<boolean>(true);
  * Returns fetched buckets page from store.
  */
 const bucketsPage = computed((): BucketPage => {
-    return store.state.bucketUsageModule.page;
+    return bucketsStore.state.page;
 });
 
 /**
  * Indicates if user should be prompt for passphrase.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
@@ -96,7 +96,7 @@ async function setBucketsView(): Promise<void> {
  */
 async function fetchBuckets(page = 1): Promise<void> {
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        await bucketsStore.getBuckets(page, selectedProjectID.value);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.BUCKET_PAGE);
     }
@@ -129,7 +129,7 @@ onMounted(async (): Promise<void> => {
 watch(selectedProjectID, async () => {
     isLoading.value = true;
 
-    await store.dispatch(OBJECTS_ACTIONS.CLEAR);
+    bucketsStore.clear();
     await setBucketsView();
 });
 </script>

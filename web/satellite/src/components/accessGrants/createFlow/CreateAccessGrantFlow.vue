@@ -107,10 +107,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import {
     AccessType,
@@ -119,15 +119,14 @@ import {
     Permission,
     STEP_ICON_AND_TITLE,
 } from '@/types/createAccessGrant';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
@@ -141,12 +140,13 @@ import CLIAccessCreatedStep from '@/components/accessGrants/createFlow/steps/CLI
 import S3CredentialsCreatedStep from '@/components/accessGrants/createFlow/steps/S3CredentialsCreatedStep.vue';
 import ConfirmDetailsStep from '@/components/accessGrants/createFlow/steps/ConfirmDetailsStep.vue';
 
-const router = useRouter();
-const route = useRoute();
-const notify = useNotify();
-const store = useStore();
+const bucketsStore = useBucketsStore();
 const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
+const store = useStore();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
+const notify = useNotify();
 
 const initPermissions = [
     Permission.Read,
@@ -159,14 +159,14 @@ const initPermissions = [
  * Indicates if user has to be prompt to enter project passphrase.
  */
 const isPromptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
  * Returns passphrase from store.
  */
 const storedPassphrase = computed((): string => {
-    return store.state.objectsModule.passphrase;
+    return bucketsStore.state.passphrase;
 });
 
 const worker = ref<Worker| null>(null);
@@ -604,9 +604,9 @@ async function setLastStep(): Promise<void> {
             passphraseOption.value === PassphraseOption.SetMyProjectPassphrase &&
             !selectedAccessTypes.value.includes(AccessType.APIKey)
         ) {
-            store.commit(OBJECTS_MUTATIONS.SET_GATEWAY_CREDENTIALS, new EdgeCredentials());
-            store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, enteredPassphrase.value);
-            store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+            bucketsStore.setEdgeCredentials(new EdgeCredentials());
+            bucketsStore.setPassphrase(enteredPassphrase.value);
+            bucketsStore.setPromptForPassphrase(false);
         }
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
@@ -616,15 +616,15 @@ async function setLastStep(): Promise<void> {
 }
 
 onMounted(async () => {
-    if (route.params?.accessType) {
-        selectedAccessTypes.value.push(route.params?.accessType as AccessType);
+    if (router.currentRoute.params.accessType) {
+        selectedAccessTypes.value.push(router.currentRoute.params.accessType as AccessType);
     }
 
     setWorker();
     generatedPassphrase.value = generateMnemonic();
 
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
     } catch (error) {
         notify.error(`Unable to fetch all bucket names. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }

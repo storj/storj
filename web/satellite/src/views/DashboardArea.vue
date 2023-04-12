@@ -112,8 +112,6 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
@@ -122,6 +120,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -135,6 +134,7 @@ import UpgradeNotification from '@/components/notifications/UpgradeNotification.
 import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vue';
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
@@ -501,8 +501,7 @@ async function handleInactive(): Promise<void> {
         agStore.stopWorker(),
         agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),

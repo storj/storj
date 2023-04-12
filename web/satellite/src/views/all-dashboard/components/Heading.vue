@@ -104,8 +104,6 @@ import { RouteConfig } from '@/router';
 import { User } from '@/types/users';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AuthHttpApi } from '@/api/auth';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -113,6 +111,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -134,6 +133,7 @@ const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
@@ -236,8 +236,7 @@ async function onLogout(): Promise<void> {
         agStore.stopWorker(),
         agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),

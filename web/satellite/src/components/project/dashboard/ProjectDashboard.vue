@@ -156,7 +156,6 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { RouteConfig } from '@/router';
 import { DataStamp, Project, ProjectLimits } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
@@ -169,6 +168,7 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import InfoContainer from '@/components/project/dashboard/InfoContainer.vue';
@@ -185,6 +185,7 @@ import ProjectOwnershipTag from '@/components/project/ProjectOwnershipTag.vue';
 import NewProjectIcon from '@/../static/images/project/newProject.svg';
 import InfoIcon from '@/../static/images/project/infoIcon.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -385,7 +386,8 @@ function formattedValue(value: Size): string {
 onMounted(async (): Promise<void> => {
     isServerSideEncryptionBannerHidden.value = LocalData.getServerSideEncryptionBannerHidden();
 
-    if (!store.getters.selectedProject.id) {
+    const projectID = store.getters.selectedProject.id;
+    if (!projectID) {
         if (appStore.state.config.allProjectsDashboard) {
             await router.push(RouteConfig.AllProjectsDashboard.path);
             return;
@@ -406,7 +408,7 @@ onMounted(async (): Promise<void> => {
         const past = new Date();
         past.setDate(past.getDate() - 30);
 
-        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id);
+        await store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID);
         if (hasJustLoggedIn.value) {
             if (limits.value.objectCount > 0) {
                 appStore.updateActiveModal(MODALS.enterPassphrase);
@@ -431,7 +433,7 @@ onMounted(async (): Promise<void> => {
     const FIRST_PAGE = 1;
 
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+        await bucketsStore.getBuckets(FIRST_PAGE, projectID);
 
         areBucketsFetching.value = false;
     } catch (error) {

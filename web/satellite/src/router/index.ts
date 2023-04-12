@@ -114,7 +114,7 @@ export abstract class RouteConfig {
     public static ShareObject = new NavigationLink('share-object', 'Onboarding Share Object');
     public static SuccessScreen = new NavigationLink('success', 'Onboarding Success Screen');
 
-    // objects child paths.
+    // buckets child paths.
     public static BucketsManagement = new NavigationLink('management', 'Buckets Management');
     public static BucketsDetails = new NavigationLink('details', 'Bucket Details');
     public static UploadFile = new NavigationLink('upload/', 'Objects Upload');

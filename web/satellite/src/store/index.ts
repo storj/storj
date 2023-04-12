@@ -5,12 +5,9 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import { RouteRecord } from 'vue-router';
 
-import { BucketsApiGql } from '@/api/buckets';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
-import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
-import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
 import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { FilesState, makeFilesModule } from '@/store/modules/files';
 import { NavigationLink } from '@/types/navigation';
@@ -18,14 +15,11 @@ import { useAppStore } from '@/store/modules/appStore';
 
 Vue.use(Vuex);
 
-const bucketsApi = new BucketsApiGql();
 const projectsApi = new ProjectsApiGql();
 
 export interface ModulesState {
     notificationsModule: NotificationsState;
     projectsModule: ProjectsState;
-    objectsModule: ObjectsState;
-    bucketUsageModule: BucketsState;
     files: FilesState;
 }
 
@@ -34,8 +28,6 @@ export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
         projectsModule: makeProjectsModule(projectsApi),
-        bucketUsageModule: makeBucketsModule(bucketsApi),
-        objectsModule: makeObjectsModule(),
         files: makeFilesModule(),
     },
 });

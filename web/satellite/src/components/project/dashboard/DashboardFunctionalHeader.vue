@@ -69,6 +69,7 @@ import { ProjectLimits } from '@/types/projects';
 import { RouteConfig } from '@/router';
 import { LocalData } from '@/utils/localData';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -79,6 +80,7 @@ const props = withDefaults(defineProps<{
     loading: false,
 });
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
@@ -87,7 +89,7 @@ const router = useRouter();
  * Indicates if user should be prompt for passphrase.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
@@ -113,7 +115,7 @@ const limits = computed((): ProjectLimits => {
  * Returns fetched buckets page from store.
  */
 const bucketsPage = computed((): BucketPage => {
-    return store.state.bucketUsageModule.page;
+    return bucketsStore.state.page;
 });
 
 /**

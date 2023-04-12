@@ -60,13 +60,12 @@
 import { computed, reactive, ref } from 'vue';
 import { generateMnemonic } from 'bip39';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { RouteConfig } from '@/router';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -89,8 +88,8 @@ enum CreatePassphraseOption {
     Enter = 'Enter',
 }
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -186,15 +185,11 @@ async function onContinue(): Promise<void> {
             return;
         }
 
-        try {
-            store.commit(OBJECTS_MUTATIONS.SET_GATEWAY_CREDENTIALS, new EdgeCredentials());
-            store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
-            store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        bucketsStore.setEdgeCredentials(new EdgeCredentials());
+        bucketsStore.setPassphrase(passphrase.value);
+        bucketsStore.setPromptForPassphrase(false);
 
-            activeStep.value = CreateProjectPassphraseStep.Success;
-        } catch (error) {
-            await notify.error(error.message, AnalyticsErrorEventSource.CREATE_PROJECT_LEVEL_PASSPHRASE_MODAL);
-        }
+        activeStep.value = CreateProjectPassphraseStep.Success;
 
         return;
     }

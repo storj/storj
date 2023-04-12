@@ -55,8 +55,6 @@ import { RouteConfig } from '@/router';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
@@ -70,6 +68,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -86,6 +85,7 @@ const notify = useNotify();
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
@@ -161,8 +161,7 @@ async function onLogout(): Promise<void> {
         agStore.stopWorker(),
         agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),

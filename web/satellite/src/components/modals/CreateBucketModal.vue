@@ -56,8 +56,6 @@ import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Validator } from '@/utils/validation';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -65,7 +63,7 @@ import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -74,6 +72,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const store = useStore();
@@ -92,35 +91,35 @@ const worker = ref<Worker | null>(null);
  * Returns all bucket names from store.
  */
 const allBucketNames = computed((): string[] => {
-    return store.state.bucketUsageModule.allBucketNames;
+    return bucketsStore.state.allBucketNames;
 });
 
 /**
  * Returns condition if user has to be prompt for passphrase from store.
  */
 const promptForPassphrase = computed((): boolean => {
-    return store.state.objectsModule.promptForPassphrase;
+    return bucketsStore.state.promptForPassphrase;
 });
 
 /**
  * Returns object browser api key from store.
  */
 const apiKey = computed((): string => {
-    return store.state.objectsModule.apiKey;
+    return bucketsStore.state.apiKey;
 });
 
 /**
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => {
-    return store.state.objectsModule.gatewayCredentials;
+    return bucketsStore.state.edgeCredentials;
 });
 
 /**
  * Returns edge credentials for bucket creation from store.
  */
-const gatewayCredentialsForCreate = computed((): EdgeCredentials => {
-    return store.state.objectsModule.gatewayCredentialsForCreate;
+const edgeCredentialsForCreate = computed((): EdgeCredentials => {
+    return bucketsStore.state.edgeCredentialsForCreate;
 });
 
 /**
@@ -163,11 +162,12 @@ async function onCreate(): Promise<void> {
 
         if (!promptForPassphrase.value) {
             if (!edgeCredentials.value.accessKeyId) {
-                await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+                await bucketsStore.setS3Client(projectID);
             }
-            await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, bucketName.value);
-            await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
-            await store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName.value);
+            await bucketsStore.createBucket(bucketName.value);
+            await bucketsStore.getBuckets(1, projectID);
+            bucketsStore.setFileComponentBucketName(bucketName.value);
+
             analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
             analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
             await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
@@ -180,9 +180,9 @@ async function onCreate(): Promise<void> {
             return;
         }
 
-        if (gatewayCredentialsForCreate.value.accessKeyId) {
-            await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET_WITH_NO_PASSPHRASE, bucketName.value);
-            await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        if (edgeCredentialsForCreate.value.accessKeyId) {
+            await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
+            await bucketsStore.getBuckets(1, projectID);
             analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
             closeModal();
 
@@ -196,7 +196,7 @@ async function onCreate(): Promise<void> {
         if (!apiKey.value) {
             await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
             const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
-            await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+            bucketsStore.setApiKey(cleanAPIKey.secret);
         }
 
         const now = new Date();
@@ -246,10 +246,10 @@ async function onCreate(): Promise<void> {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-        await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_CREATE, gatewayCredentials);
-        await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET_WITH_NO_PASSPHRASE, bucketName.value);
-        await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+        const creds: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
+        bucketsStore.setEdgeCredentialsForCreate(creds);
+        await bucketsStore.createBucketWithNoPassphrase(bucketName.value);
+        await bucketsStore.getBuckets(1, projectID);
         analytics.eventTriggered(AnalyticsEvent.BUCKET_CREATED);
 
         closeModal();
@@ -310,7 +310,7 @@ onMounted(async (): Promise<void> => {
     setWorker();
 
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        await bucketsStore.getAllBucketsNames(store.getters.selectedProject.id);
         bucketName.value = allBucketNames.value.length > 0 ? '' : 'demo-bucket';
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.BUCKET_CREATION_NAME_STEP);

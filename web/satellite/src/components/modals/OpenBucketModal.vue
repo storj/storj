@@ -54,13 +54,13 @@
 import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { OBJECTS_ACTIONS, OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -69,6 +69,7 @@ import VButton from '@/components/common/VButton.vue';
 import OpenBucketIcon from '@/../static/images/buckets/openBucket.svg';
 import OpenWarningIcon from '@/../static/images/objects/openWarning.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const store = useStore();
 const router = useRouter();
@@ -86,14 +87,14 @@ const isWarningState = ref<boolean>(false);
  * Returns chosen bucket name from store.
  */
 const bucketName = computed((): string => {
-    return store.state.objectsModule.fileComponentBucketName;
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**
  * Returns selected bucket name object count.
  */
 const bucketObjectCount = computed((): number => {
-    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find(
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find(
         (bucket: Bucket) => bucket.name === bucketName.value,
     );
 
@@ -107,7 +108,7 @@ async function onContinue(): Promise<void> {
     if (isLoading.value) return;
 
     if (isWarningState.value) {
-        store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        bucketsStore.setPromptForPassphrase(false);
 
         closeModal();
         analytics.pageVisit(RouteConfig.Buckets.with(RouteConfig.UploadFile).path);
@@ -126,15 +127,15 @@ async function onContinue(): Promise<void> {
     isLoading.value = true;
 
     try {
-        store.commit(OBJECTS_MUTATIONS.SET_PASSPHRASE, passphrase.value);
-        await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-        const count: number = await store.dispatch(OBJECTS_ACTIONS.GET_OBJECTS_COUNT, bucketName.value);
+        bucketsStore.setPassphrase(passphrase.value);
+        await bucketsStore.setS3Client(store.getters.selectedProject.id);
+        const count: number = await bucketsStore.getObjectsCount(bucketName.value);
         if (bucketObjectCount.value > count && bucketObjectCount.value <= NUMBER_OF_DISPLAYED_OBJECTS) {
             isWarningState.value = true;
             isLoading.value = false;
             return;
         }
-        store.commit(OBJECTS_MUTATIONS.SET_PROMPT_FOR_PASSPHRASE, false);
+        bucketsStore.setPromptForPassphrase(false);
         isLoading.value = false;
 
         closeModal();

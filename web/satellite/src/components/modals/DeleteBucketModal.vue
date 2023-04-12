@@ -31,17 +31,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
-import { FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
+import { useBucketsStore, FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -49,6 +47,7 @@ import VInput from '@/components/common/VInput.vue';
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const store = useStore();
@@ -62,7 +61,7 @@ const isLoading = ref<boolean>(false);
  * Returns apiKey from store.
  */
 const apiKey = computed((): string => {
-    return store.state.objectsModule.apiKey;
+    return bucketsStore.state.apiKey;
 });
 
 /**
@@ -84,7 +83,7 @@ async function onDelete(): Promise<void> {
         if (!apiKey.value) {
             await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
             const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
-            await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+            bucketsStore.setApiKey(cleanAPIKey.secret);
         }
 
         const now = new Date();
@@ -134,9 +133,9 @@ async function onDelete(): Promise<void> {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-        await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_DELETE, gatewayCredentials);
-        await store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, name.value);
+        const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
+        bucketsStore.setEdgeCredentialsForDelete(edgeCredentials);
+        await bucketsStore.deleteBucket(name.value);
         analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
         await fetchBuckets();
     } catch (error) {
@@ -154,7 +153,7 @@ async function onDelete(): Promise<void> {
  */
 async function fetchBuckets(page = 1): Promise<void> {
     try {
-        await store.dispatch(BUCKET_ACTIONS.FETCH, page);
+        await bucketsStore.getBuckets(page, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch buckets. ${error.message}`, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);
     }

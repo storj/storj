@@ -113,8 +113,6 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { LocalData } from '@/utils/localData';
@@ -127,6 +125,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -143,6 +142,8 @@ const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 const store = useStore();
 const notify = useNotify();
+
+const bucketsStore = useBucketsStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
@@ -361,8 +362,7 @@ async function handleInactive(): Promise<void> {
         agStore.stopWorker(),
         agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),

@@ -164,8 +164,6 @@ import { computed, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { NavigationLink } from '@/types/navigation';
 import { Project } from '@/types/projects';
@@ -181,6 +179,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -218,6 +217,7 @@ const navigation: NavigationLink[] = [
     RouteConfig.Users.withIcon(UsersIcon),
 ];
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
@@ -381,7 +381,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
     isProjectDropdownShown.value = false;
 
     if (isBucketsView.value) {
-        await store.dispatch(OBJECTS_ACTIONS.CLEAR);
+        bucketsStore.clear();
         analytics.pageVisit(RouteConfig.Buckets.path);
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
     }
@@ -389,10 +389,10 @@ async function onProjectSelected(projectID: string): Promise<void> {
     try {
         await Promise.all([
             billingStore.getProjectUsageAndChargesCurrentRollup(),
-            pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
-            agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id),
-            store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
-            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
+            pmStore.getProjectMembers(FIRST_PAGE, projectID),
+            agStore.getAccessGrants(FIRST_PAGE, projectID),
+            bucketsStore.getBuckets(FIRST_PAGE, projectID),
+            store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID),
         ]);
     } catch (error) {
         await notify.error(`Unable to select project. ${error.message}`, AnalyticsErrorEventSource.MOBILE_NAVIGATION);
@@ -471,8 +471,7 @@ async function onLogout(): Promise<void> {
         agStore.stopWorker(),
         agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
-        store.dispatch(BUCKET_ACTIONS.CLEAR),
-        store.dispatch(OBJECTS_ACTIONS.CLEAR),
+        bucketsStore.clear(),
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),

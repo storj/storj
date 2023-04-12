@@ -66,10 +66,8 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
 import { APP_STATE_DROPDOWNS, MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -77,6 +75,7 @@ import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -87,6 +86,7 @@ import PassphraseIcon from '@/../static/images/navigation/passphrase.svg';
 import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
@@ -202,10 +202,14 @@ async function onProjectSelected(projectID: string): Promise<void> {
     pmStore.setSearchQuery('');
     closeDropdown();
 
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
     appStore.updateActiveModal(MODALS.enterPassphrase);
 
     if (isBucketsView.value) {
+        if (router.currentRoute.name === RouteConfig.BucketsManagement.name) {
+            await bucketsStore.getBuckets(FIRST_PAGE, projectID);
+        }
+
         await router.push(RouteConfig.Buckets.path).catch(() => {return; });
 
         return;
@@ -220,8 +224,8 @@ async function onProjectSelected(projectID: string): Promise<void> {
             await Promise.all([
                 store.dispatch(PROJECTS_ACTIONS.FETCH_DAILY_DATA, { since: past, before: now }),
                 billingStore.getProjectUsageAndChargesCurrentRollup(),
-                store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
-                store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
+                store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, projectID),
+                bucketsStore.getBuckets(FIRST_PAGE, projectID),
             ]);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);

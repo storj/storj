@@ -31,15 +31,16 @@ import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
 import WarningIcon from '@/../static/images/objects/cancelWarning.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
 const router = useRouter();
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
@@ -48,7 +49,7 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Returns leave attempt's route path from store.
  */
 const leaveRoute = computed((): string => {
-    return store.state.objectsModule.leaveRoute;
+    return bucketsStore.state.leaveRoute;
 });
 
 /**

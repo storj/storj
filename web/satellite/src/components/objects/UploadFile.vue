@@ -20,15 +20,15 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const store = useStore();
@@ -50,35 +50,35 @@ const isCancelUploadPopupVisible = computed((): boolean => {
  * Returns passphrase from store.
  */
 const passphrase = computed((): string => {
-    return store.state.objectsModule.passphrase;
+    return bucketsStore.state.passphrase;
 });
 
 /**
  * Returns apiKey from store.
  */
 const apiKey = computed((): string => {
-    return store.state.objectsModule.apiKey;
+    return bucketsStore.state.apiKey;
 });
 
 /**
  * Returns bucket name from store.
  */
 const bucket = computed((): string => {
-    return store.state.objectsModule.fileComponentBucketName;
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**
  * Returns current bucket page from store.
  */
 const bucketPage = computed((): BucketPage => {
-    return store.state.bucketUsageModule.page;
+    return bucketsStore.state.page;
 });
 
 /**
  * Returns edge credentials from store.
  */
 const edgeCredentials = computed((): EdgeCredentials => {
-    return store.state.objectsModule.gatewayCredentials;
+    return bucketsStore.state.edgeCredentials;
 });
 
 /**
@@ -231,8 +231,10 @@ watch(passphrase, async () => {
         return;
     }
 
+    const projectID = store.getters.selectedProject.id;
+
     try {
-        await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+        await bucketsStore.setS3Client(projectID);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
         return;
@@ -246,7 +248,7 @@ watch(passphrase, async () => {
     });
     try {
         await Promise.all([
-            store.dispatch(BUCKET_ACTIONS.FETCH, bucketPage.value.currentPage),
+            bucketsStore.getBuckets(bucketPage.value.currentPage, projectID),
             store.dispatch('files/list', ''),
             store.dispatch('files/getObjectCount'),
         ]);

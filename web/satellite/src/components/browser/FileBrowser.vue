@@ -208,6 +208,7 @@ import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BrowserObject } from '@/store/modules/files';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import BucketSettingsNav from '@/components/objects/BucketSettingsNav.vue';
@@ -219,6 +220,7 @@ import FileIcon from '@/../static/images/objects/file.svg';
 import BlackArrowExpand from '@/../static/images/common/BlackArrowExpand.svg';
 import UploadIcon from '@/../static/images/browser/upload.svg';
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const store = useStore();
 const nativeRouter = useRouter();
@@ -277,7 +279,7 @@ const lockedFilesNumber = computed((): number => {
  */
 const objectsCount = computed((): number => {
     const name: string = store.state.files.bucket;
-    const data: Bucket | undefined = store.state.bucketUsageModule.page.buckets.find((bucket: Bucket) => bucket.name === name);
+    const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
 });
@@ -368,7 +370,7 @@ const routePath = ref(calculateRoutePath());
  * Returns bucket name from store.
  */
 const bucket = computed((): string => {
-    return store.state.objectsModule.fileComponentBucketName;
+    return bucketsStore.state.fileComponentBucketName;
 });
 
 /**

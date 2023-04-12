@@ -27,10 +27,10 @@
 </template>
 
 <script setup lang="ts">
-import { useNotify, useStore } from '@/utils/hooks';
-import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import { useNotify } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -40,15 +40,15 @@ const props = withDefaults(defineProps<{
     onCancel: () => () => {},
 });
 
+const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
 const notify = useNotify();
 
 /**
  * Clears passphrase and edge credentials.
  */
 function onClear(): void {
-    store.commit(OBJECTS_MUTATIONS.CLEAR);
+    bucketsStore.clearS3Data();
     appStore.updateActiveModal(MODALS.manageProjectPassphrase);
     notify.success('Passphrase was cleared successfully');
 }
