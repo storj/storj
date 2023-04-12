@@ -7,10 +7,10 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { FilesState } from '@/store/modules/files';
 import { StoreModule } from '@/types/store';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
@@ -218,16 +218,22 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
                 commit(SET_S3_CLIENT_FOR_CREATE);
             },
             setS3Client: async function({ commit, dispatch, state, rootGetters }: ObjectsContext): Promise<void> {
+                const agStore = useAccessGrantsStore();
+
                 if (!state.apiKey) {
-                    await dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME, { root: true });
-                    const cleanAPIKey: AccessGrant = await dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME, { root: true });
+                    await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, rootGetters.selectedProject.id);
+                    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, rootGetters.selectedProject.id);
                     commit(SET_API_KEY, cleanAPIKey.secret);
                 }
 
                 const now = new Date();
                 const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
-                const worker = rootGetters.worker;
+                const worker = agStore.state.accessGrantsWebWorker;
+                if (!worker) {
+                    throw new Error ('Worker is not set');
+                }
+
                 worker.onerror = (error: ErrorEvent) => {
                     throw new Error(error.message);
                 };
@@ -270,9 +276,7 @@ export function makeObjectsModule(): StoreModule<ObjectsState, ObjectsContext> {
 
                 const accessGrant = accessGrantEvent.data.value;
 
-                const gatewayCredentials: EdgeCredentials = await dispatch(
-                    ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant }, { root: true },
-                );
+                const gatewayCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
                 commit(SET_GATEWAY_CREDENTIALS, gatewayCredentials);
                 commit(SET_S3_CLIENT);
             },

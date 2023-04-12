@@ -164,7 +164,6 @@ import { computed, ref } from 'vue';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -182,6 +181,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -220,6 +220,7 @@ const navigation: NavigationLink[] = [
 ];
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -390,7 +391,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
         await Promise.all([
             billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
-            store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
+            agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id),
             store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
             store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
         ]);
@@ -468,8 +469,8 @@ async function onLogout(): Promise<void> {
         pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        agStore.stopWorker(),
+        agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),

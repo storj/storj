@@ -58,10 +58,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useStore } from '@/utils/hooks';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -70,6 +70,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
 const FIRST_PAGE = 1;
 
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -81,7 +82,7 @@ const emit = defineEmits(['resetPagination', 'close']);
  * Returns list of selected access grants from store.
  */
 const selectedAccessGrants = computed((): AccessGrant[] => {
-    return store.getters.selectedAccessGrants;
+    return agStore.selectedAccessGrants;
 });
 
 /**
@@ -100,15 +101,15 @@ async function onDeleteClick(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
+        await agStore.deleteAccessGrants();
         await notify.success(`Access Grant deleted successfully`);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
     }
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
+        agStore.clearSelection();
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CONFIRM_DELETE_AG_MODAL);
     }

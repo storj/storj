@@ -55,7 +55,6 @@ import { RouteConfig } from '@/router';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import {
@@ -70,6 +69,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import AccountIcon from '@/../static/images/navigation/account.svg';
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
@@ -87,6 +87,7 @@ const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -157,8 +158,8 @@ async function onLogout(): Promise<void> {
         pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        agStore.stopWorker(),
+        agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),

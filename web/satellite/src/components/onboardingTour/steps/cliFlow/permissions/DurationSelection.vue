@@ -25,15 +25,15 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import DurationPicker from '@/components/onboardingTour/steps/cliFlow/permissions/DurationPicker.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 const appStore = useAppStore();
-const store = useStore();
+const agStore = useAccessGrantsStore();
 
 const dateRangeLabel = ref<string>('Forever');
 
@@ -48,14 +48,14 @@ const isDurationPickerVisible = computed((): boolean => {
  * Returns not before date permission from store.
  */
 const notBeforePermission = computed((): Date | null => {
-    return store.state.accessGrantsModule.permissionNotBefore;
+    return agStore.state.permissionNotBefore;
 });
 
 /**
  * Returns not after date permission from store.
  */
 const notAfterPermission = computed((): Date | null => {
-    return store.state.accessGrantsModule.permissionNotAfter;
+    return agStore.state.permissionNotAfter;
 });
 
 /**

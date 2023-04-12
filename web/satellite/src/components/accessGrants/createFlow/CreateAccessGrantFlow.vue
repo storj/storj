@@ -124,10 +124,10 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { LocalData } from '@/utils/localData';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { MetaUtils } from '@/utils/meta';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { OBJECTS_MUTATIONS } from '@/store/modules/objects';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import CreateNewAccessStep from '@/components/accessGrants/createFlow/steps/CreateNewAccessStep.vue';
@@ -145,6 +145,7 @@ const router = useRouter();
 const route = useRoute();
 const notify = useNotify();
 const store = useStore();
+const agStore = useAccessGrantsStore();
 
 const initPermissions = [
     Permission.Read,
@@ -439,7 +440,7 @@ function closeModal(): void {
  * Also sets worker's onmessage and onerror logic.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
             notify.error(error.message, AnalyticsErrorEventSource.CREATE_AG_MODAL);
@@ -455,11 +456,13 @@ async function createCLIAccess(): Promise<void> {
         throw new Error('Web worker is not initialized.');
     }
 
+    const projectID = store.getters.selectedProject.id;
+
     // creates fresh new API key.
-    const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, accessName.value);
+    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(accessName.value, projectID);
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+        await agStore.getAccessGrants(FIRST_PAGE, projectID);
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.CREATE_AG_MODAL);
     }
@@ -553,9 +556,7 @@ async function createAccessGrant(): Promise<void> {
  * Generates edge credentials.
  */
 async function createEdgeCredentials(): Promise<void> {
-    edgeCredentials.value = await store.dispatch(
-        ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: accessGrant.value },
-    );
+    edgeCredentials.value = await agStore.getEdgeCredentials(accessGrant.value);
     analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 }
 

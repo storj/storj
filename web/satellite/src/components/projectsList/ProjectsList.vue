@@ -49,7 +49,6 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project, ProjectsPage } from '@/types/projects';
@@ -63,6 +62,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
 import VTable from '@/components/common/VTable.vue';
@@ -77,6 +77,7 @@ const FIRST_PAGE = 1;
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
@@ -143,7 +144,7 @@ async function onProjectSelected(project: Project): Promise<void> {
         await Promise.all([
             billingStore.getProjectUsageAndChargesCurrentRollup(),
             pmStore.getProjectMembers(FIRST_PAGE, store.getters.selectedProject.id),
-            store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE),
+            agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id),
             store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE),
             store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, store.getters.selectedProject.id),
         ]);

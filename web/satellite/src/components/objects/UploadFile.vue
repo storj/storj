@@ -15,7 +15,6 @@ import { computed, onBeforeMount, ref, watch } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -26,11 +25,13 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -108,7 +109,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
     path = `${bucket.value}/${path}`;
     const now = new Date();
     const LINK_SHARING_AG_NAME = `${path}_shared-object_${now.toISOString()}`;
-    const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
+    const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, store.getters.selectedProject.id);
 
     try {
         const credentials: EdgeCredentials = await generateCredentials(cleanAPIKey.secret, path, true);
@@ -129,7 +130,7 @@ async function generateShareLinkUrl(path: string): Promise<string> {
  * Sets local worker with worker instantiated in store.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
             notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);
@@ -199,7 +200,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
         return new EdgeCredentials();
     }
 
-    return await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
+    return await agStore.getEdgeCredentials(data.value, undefined, true);
 }
 
 /**

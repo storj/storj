@@ -102,7 +102,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { CouponType } from '@/types/coupons';
 import { Project } from '@/types/projects';
@@ -123,6 +122,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import InactivityModal from '@/components/modals/InactivityModal.vue';
@@ -137,6 +137,7 @@ import ProjectLimitBanner from '@/components/notifications/ProjectLimitBanner.vu
 import BrandedLoader from '@/components/common/BrandedLoader.vue';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
 const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
@@ -482,8 +483,8 @@ async function handleInactive(): Promise<void> {
         pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        agStore.stopWorker(),
+        agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
@@ -602,8 +603,8 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        agStore.stopWorker();
+        await agStore.startWorker();
     } catch (error) {
         await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
     }

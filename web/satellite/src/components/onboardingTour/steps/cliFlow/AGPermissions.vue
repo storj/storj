@@ -47,6 +47,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import PermissionsSelect from '@/components/onboardingTour/steps/cliFlow/PermissionsSelect.vue';
@@ -58,6 +59,7 @@ import DurationSelection from '@/components/onboardingTour/steps/cliFlow/permiss
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 const nativeRouter = useRouter();
@@ -73,7 +75,7 @@ const isLoading = ref<boolean>(true);
  * Returns selected bucket names.
  */
 const selectedBucketNames = computed((): string[] => {
-    return store.state.accessGrantsModule.selectedBucketNames;
+    return agStore.state.selectedBucketNames;
 });
 
 /**
@@ -87,42 +89,42 @@ const cleanAPIKey = computed((): string => {
  * Returns download permission from store.
  */
 const storedIsDownload = computed((): boolean => {
-    return store.state.accessGrantsModule.isDownload;
+    return agStore.state.isDownload;
 });
 
 /**
  * Returns upload permission from store.
  */
 const storedIsUpload = computed((): boolean => {
-    return store.state.accessGrantsModule.isUpload;
+    return agStore.state.isUpload;
 });
 
 /**
  * Returns list permission from store.
  */
 const storedIsList = computed((): boolean => {
-    return store.state.accessGrantsModule.isList;
+    return agStore.state.isList;
 });
 
 /**
  * Returns delete permission from store.
  */
 const storedIsDelete = computed((): boolean => {
-    return store.state.accessGrantsModule.isDelete;
+    return agStore.state.isDelete;
 });
 
 /**
  * Returns not before date permission from store.
  */
 const notBeforePermission = computed((): Date | null => {
-    return store.state.accessGrantsModule.permissionNotBefore;
+    return agStore.state.permissionNotBefore;
 });
 
 /**
  * Returns not after date permission from store.
  */
 const notAfterPermission = computed((): Date | null => {
-    return store.state.accessGrantsModule.permissionNotAfter;
+    return agStore.state.permissionNotAfter;
 });
 
 /**
@@ -130,7 +132,7 @@ const notAfterPermission = computed((): Date | null => {
  * Also sets worker's onmessage and onerror logic.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
 
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {

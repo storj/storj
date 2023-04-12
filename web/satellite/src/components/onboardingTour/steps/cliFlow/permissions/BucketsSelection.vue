@@ -21,15 +21,15 @@
 import { computed } from 'vue';
 
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import BucketsDropdown from '@/components/onboardingTour/steps/cliFlow/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 const appStore = useAppStore();
-const store = useStore();
+const agStore = useAccessGrantsStore();
 
 /**
  * Indicates if dropdown is shown.
@@ -55,7 +55,7 @@ const selectionLabel = computed((): string => {
  * Returns stored selected bucket names.
  */
 const storedBucketNames = computed((): string[] => {
-    return store.state.accessGrantsModule.selectedBucketNames;
+    return agStore.state.selectedBucketNames;
 });
 
 /**

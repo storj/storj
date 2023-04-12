@@ -63,7 +63,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.isAccessGrantsWebWorkerReady = false;
     }
 
-    async function fetchAccessGrants(projectID: string, pageNumber: number): Promise<AccessGrantsPage> {
+    async function getAccessGrants(pageNumber: number, projectID: string): Promise<AccessGrantsPage> {
         state.cursor.page = pageNumber;
 
         const accessGrantsPage: AccessGrantsPage = await api.get(projectID, state.cursor);
@@ -80,7 +80,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         return accessGrantsPage;
     }
 
-    async function createAccessGrant(projectID: string, name: string): Promise<AccessGrant> {
+    async function createAccessGrant(name: string, projectID: string): Promise<AccessGrant> {
         return await api.create(projectID, name);
     }
 
@@ -88,7 +88,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         await api.delete(state.selectedAccessGrantsIds);
     }
 
-    async function deleteAccessGrantByNameAndProjectID(projectID: string, name: string): Promise<void> {
+    async function deleteAccessGrantByNameAndProjectID(name: string, projectID: string): Promise<void> {
         await api.deleteByNameAndProjectID(name, projectID);
     }
 
@@ -100,24 +100,20 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         return credentials;
     }
 
-    function setAccessGrantsSearchQuery(query: string): void {
+    function setSearchQuery(query: string): void {
         state.cursor.search = query;
     }
 
-    function setAccessGrantsSortingBy(order: AccessGrantsOrderBy): void {
+    function setSortingBy(order: AccessGrantsOrderBy): void {
         state.cursor.order = order;
     }
 
-    function setAccessGrantsSortingDirection(direction: SortDirection): void {
-        state.cursor.orderDirection = direction;
-    }
-
-    function setAccessGrantsDurationPermission(permission: DurationPermission): void {
+    function setDurationPermission(permission: DurationPermission): void {
         state.permissionNotBefore = permission.notBefore;
         state.permissionNotAfter = permission.notAfter;
     }
 
-    function toggleAccessGrantsSelection(accessGrant: AccessGrant): void {
+    function toggleSelection(accessGrant: AccessGrant): void {
         if (!state.selectedAccessGrantsIds.includes(accessGrant.id)) {
             state.page.accessGrants.forEach((grant: AccessGrant) => {
                 if (grant.id === accessGrant.id) {
@@ -151,6 +147,18 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         });
     }
 
+    function setSortingDirection(direction: SortDirection): void {
+        state.cursor.orderDirection = direction;
+    }
+
+    function toggleSortingDirection(): void {
+        let direction = SortDirection.DESCENDING;
+        if (state.cursor.orderDirection === SortDirection.DESCENDING) {
+            direction = SortDirection.ASCENDING;
+        }
+        state.cursor.orderDirection = direction;
+    }
+
     function toggleIsDownloadPermission(): void {
         state.isDownload = !state.isDownload;
     }
@@ -167,7 +175,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         state.isDelete = !state.isDelete;
     }
 
-    function clearAccessGrantsSelection(): void {
+    function clearSelection(): void {
         state.selectedBucketNames = [];
         state.selectedAccessGrantsIds = [];
         state.page.accessGrants = state.page.accessGrants.map((accessGrant: AccessGrant) => {
@@ -177,7 +185,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         });
     }
 
-    function clearAccessGrants(): void {
+    function clear(): void {
         state.cursor = new AccessGrantCursor();
         state.page = new AccessGrantsPage();
         state.selectedAccessGrantsIds = [];
@@ -198,26 +206,27 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
     });
 
     return {
-        accessGrantsState: state,
+        state,
+        selectedAccessGrants,
         startWorker,
         stopWorker,
-        fetchAccessGrants,
+        getAccessGrants,
         createAccessGrant,
         deleteAccessGrants,
         deleteAccessGrantByNameAndProjectID,
         getEdgeCredentials,
-        setAccessGrantsSearchQuery,
-        setAccessGrantsSortingBy,
-        setAccessGrantsSortingDirection,
-        setAccessGrantsDurationPermission,
-        toggleAccessGrantsSelection,
+        setSearchQuery,
+        setSortingBy,
+        setSortingDirection,
+        toggleSortingDirection,
+        setDurationPermission,
+        toggleSelection,
         toggleBucketSelection,
         toggleIsDownloadPermission,
         toggleIsUploadPermission,
         toggleIsListPermission,
         toggleIsDeletePermission,
-        clearAccessGrantsSelection,
-        clearAccessGrants,
-        selectedAccessGrants,
+        clearSelection,
+        clear,
     };
 });

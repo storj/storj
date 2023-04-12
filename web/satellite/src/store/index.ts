@@ -5,11 +5,9 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 import { RouteRecord } from 'vue-router';
 
-import { AccessGrantsApiGql } from '@/api/accessGrants';
 import { BucketsApiGql } from '@/api/buckets';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, RouteConfig, router } from '@/router';
-import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { BucketsState, makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
@@ -20,21 +18,11 @@ import { useAppStore } from '@/store/modules/appStore';
 
 Vue.use(Vuex);
 
-const accessGrantsApi = new AccessGrantsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectsApi = new ProjectsApiGql();
 
-// We need to use a WebWorker factory because jest testing does not support
-// WebWorkers yet. This is a way to avoid a direct dependency to `new Worker`.
-const webWorkerFactory = {
-    create(): Worker {
-        return new Worker(new URL('@/utils/accessGrant.worker.js', import.meta.url), { type: 'module' });
-    },
-};
-
 export interface ModulesState {
     notificationsModule: NotificationsState;
-    accessGrantsModule: AccessGrantsState;
     projectsModule: ProjectsState;
     objectsModule: ObjectsState;
     bucketUsageModule: BucketsState;
@@ -45,7 +33,6 @@ export interface ModulesState {
 export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
-        accessGrantsModule: makeAccessGrantsModule(accessGrantsApi, webWorkerFactory),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),

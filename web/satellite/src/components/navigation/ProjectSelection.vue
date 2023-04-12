@@ -66,7 +66,6 @@ import { RouteConfig } from '@/router';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Project } from '@/types/projects';
 import { User } from '@/types/users';
@@ -77,6 +76,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -88,6 +88,7 @@ import ManageIcon from '@/../static/images/navigation/manage.svg';
 import CreateProjectIcon from '@/../static/images/navigation/createProject.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const pmStore = useProjectMembersStore();
 const billingStore = useBillingStore();
 const userStore = useUsersStore();
@@ -231,7 +232,7 @@ async function onProjectSelected(projectID: string): Promise<void> {
 
     if (router.currentRoute.name === RouteConfig.AccessGrants.name) {
         try {
-            await store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+            await agStore.getAccessGrants(FIRST_PAGE, projectID);
         } catch (error) {
             await notify.error(error.message, AnalyticsErrorEventSource.NAVIGATION_PROJECT_SELECTION);
         }

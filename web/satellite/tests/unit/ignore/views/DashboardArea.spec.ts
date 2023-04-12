@@ -4,14 +4,11 @@
 import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-import { AccessGrantsMock } from '../../mock/api/accessGrants';
 import { BucketsMock } from '../../mock/api/buckets';
 
 import { RouteConfig, router } from '@/router';
-import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
-import { FetchState } from '@/utils/constants/fetchStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import DashboardArea from '@/views/DashboardArea.vue';
@@ -19,7 +16,6 @@ import DashboardArea from '@/views/DashboardArea.vue';
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
 
@@ -27,7 +23,6 @@ const store = new Vuex.Store({
     modules: {
         notificationsModule,
         bucketsModule,
-        accessGrantsModule,
     },
 });
 

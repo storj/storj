@@ -165,12 +165,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import AccessGrantsHeader from './AccessGrantsHeader.vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant } from '@/types/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AccessType } from '@/types/createAccessGrant';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
 import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
@@ -183,16 +183,11 @@ import AccessGrantsIcon from '@/../static/images/accessGrants/accessGrantsIcon.s
 import CLIIcon from '@/../static/images/accessGrants/cli.svg';
 import S3Icon from '@/../static/images/accessGrants/s3.svg';
 
-const {
-    FETCH,
-    TOGGLE_SELECTION,
-    CLEAR_SELECTION,
-    SET_SEARCH_QUERY,
-} = ACCESS_GRANTS_ACTIONS;
-
 const FIRST_PAGE = 1;
 
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -205,35 +200,35 @@ const areGrantsFetching = ref<boolean>(true);
  * Returns access grants pages count from store.
  */
 const totalPageCount = computed((): number => {
-    return store.state.accessGrantsModule.page.pageCount;
+    return agStore.state.page.pageCount;
 });
 
 /**
  * Returns access grants total page count from store.
  */
 const accessGrantsTotalCount = computed((): number => {
-    return store.state.accessGrantsModule.page.totalCount;
+    return agStore.state.page.totalCount;
 });
 
 /**
  * Returns access grants limit from store.
  */
 const accessGrantLimit = computed((): number => {
-    return store.state.accessGrantsModule.page.limit;
+    return agStore.state.page.limit;
 });
 
 /**
  * Returns access grants from store.
  */
 const accessGrantsList = computed((): AccessGrant[] => {
-    return store.state.accessGrantsModule.page.accessGrants;
+    return agStore.state.page.accessGrants;
 });
 
 /**
  * Returns search query from store.
  */
 const searchQuery = computed((): string => {
-    return store.state.accessGrantsModule.cursor.search;
+    return agStore.state.cursor.search;
 });
 
 /**
@@ -252,7 +247,7 @@ const emptyStateLabel = computed((): string => {
  */
 async function onPageClick(index: number): Promise<void> {
     try {
-        await store.dispatch(FETCH, index);
+        agStore.getAccessGrants(index, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
@@ -274,27 +269,27 @@ function openDropdown(key: number): void {
 /**
  * Holds on button click login for deleting access grant process.
  */
-async function onDeleteClick(grant: AccessGrant): Promise<void> {
-    await store.dispatch(TOGGLE_SELECTION, grant);
+function onDeleteClick(grant: AccessGrant): void {
+    agStore.toggleSelection(grant);
     isDeleteClicked.value = true;
 }
 
 /**
  * Clears access grants selection.
  */
-async function onClearSelection(): Promise<void> {
+function onClearSelection(): void {
     isDeleteClicked.value = false;
-    await store.dispatch(CLEAR_SELECTION);
+    agStore.clearSelection();
 }
 
 /**
  * Fetches Access records by name depending on search query.
  */
 async function fetch(searchQuery: string): Promise<void> {
-    await store.dispatch(SET_SEARCH_QUERY, searchQuery);
+    agStore.setSearchQuery(searchQuery);
 
     try {
-        await store.dispatch(FETCH, 1);
+        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch accesses: ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }
@@ -345,7 +340,7 @@ function trackPageVisit(link: string): void {
 
 onMounted(async () => {
     try {
-        await store.dispatch(FETCH, FIRST_PAGE);
+        await agStore.getAccessGrants(FIRST_PAGE, store.getters.selectedProject.id);
         areGrantsFetching.value = false;
     } catch (error) {
         await notify.error(`Unable to fetch Access Grants. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);

@@ -59,13 +59,14 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { Validator } from '@/utils/validation';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -75,6 +76,7 @@ import VButton from '@/components/common/VButton.vue';
 import CreateBucketIcon from '@/../static/images/buckets/createBucket.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 const router = useRouter();
@@ -86,8 +88,6 @@ const nameError = ref<string>('');
 const bucketNamesLoading = ref<boolean>(true);
 const isLoading = ref<boolean>(false);
 const worker = ref<Worker | null>(null);
-
-const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 
 /**
  * Returns all bucket names from store.
@@ -160,6 +160,8 @@ async function onCreate(): Promise<void> {
     isLoading.value = true;
 
     try {
+        const projectID = store.getters.selectedProject.id;
+
         if (!promptForPassphrase.value) {
             if (!edgeCredentials.value.accessKeyId) {
                 await store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
@@ -193,8 +195,8 @@ async function onCreate(): Promise<void> {
         }
 
         if (!apiKey.value) {
-            await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME);
-            const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME);
+            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
             await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
         }
 
@@ -245,7 +247,7 @@ async function onCreate(): Promise<void> {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
+        const gatewayCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
         await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_CREATE, gatewayCredentials);
         await store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET_WITH_NO_PASSPHRASE, bucketName.value);
         await store.dispatch(BUCKET_ACTIONS.FETCH, 1);
@@ -281,7 +283,7 @@ function closeModal(): void {
  * Sets local worker with worker instantiated in store.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
             notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);

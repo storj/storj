@@ -113,7 +113,6 @@ import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -128,6 +127,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -148,6 +148,7 @@ const pmStore = useProjectMembersStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
+const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
 
 const analytics = new AnalyticsHttpApi();
@@ -340,8 +341,8 @@ async function handleInactive(): Promise<void> {
         pmStore.clear(),
         store.dispatch(PROJECTS_ACTIONS.CLEAR),
         usersStore.clear(),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER),
-        store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR),
+        agStore.stopWorker(),
+        agStore.clear(),
         store.dispatch(NOTIFICATION_ACTIONS.CLEAR),
         store.dispatch(BUCKET_ACTIONS.CLEAR),
         store.dispatch(OBJECTS_ACTIONS.CLEAR),
@@ -544,8 +545,8 @@ onMounted(async () => {
     }
 
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        agStore.stopWorker();
+        await agStore.startWorker();
     } catch (error) {
         await notify.error(`Unable to set access grants wizard. ${error.message}`, AnalyticsErrorEventSource.ALL_PROJECT_DASHBOARD);
     }

@@ -48,20 +48,14 @@ import { computed, ref } from 'vue';
 
 import { useNotify, useStore } from '@/utils/hooks';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsOrderBy } from '@/types/accessGrants';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import AscIcon from '@/../static/images/objects/asc.svg';
 import DescIcon from '@/../static/images/objects/desc.svg';
 
-const {
-    FETCH,
-    SET_SORT_BY,
-    SET_SORT_DIRECTION,
-    TOGGLE_SORT_DIRECTION,
-} = ACCESS_GRANTS_ACTIONS;
-
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 const hover = ref<AccessGrantsOrderBy>();
@@ -84,14 +78,14 @@ const dateSortData = computed((): { isHidden: boolean, isDesc: boolean } => {
  * Check if a heading is sorted in descending order.
  */
 function isDesc(sortOrder: AccessGrantsOrderBy): boolean {
-    return store.state.accessGrantsModule.cursor.order === sortOrder && store.state.accessGrantsModule.cursor.orderDirection === SortDirection.DESCENDING;
+    return agStore.state.cursor.order === sortOrder && agStore.state.cursor.orderDirection === SortDirection.DESCENDING;
 }
 
 /**
  * Check if sorting arrow should be displayed.
  */
 function showArrow(heading: AccessGrantsOrderBy): boolean {
-    return store.state.accessGrantsModule.cursor.order === heading || hover.value === heading;
+    return agStore.state.cursor.order === heading || hover.value === heading;
 }
 
 /**
@@ -106,16 +100,15 @@ function mouseOver(heading: AccessGrantsOrderBy): void {
  * @param sortBy
  */
 async function sortBy(sortBy: AccessGrantsOrderBy): Promise<void> {
-    if (sortBy === store.state.accessGrantsModule.cursor.order) {
-        await store.dispatch(TOGGLE_SORT_DIRECTION);
+    if (sortBy === agStore.state.cursor.order) {
+        agStore.toggleSortingDirection();
     } else {
-        await store.dispatch(SET_SORT_BY, sortBy);
-        await store.dispatch(SET_SORT_DIRECTION, SortDirection.ASCENDING);
-
+        agStore.setSortingBy(sortBy);
+        agStore.setSortingDirection(SortDirection.ASCENDING);
     }
 
     try {
-        await store.dispatch(FETCH, store.state.accessGrantsModule.page.currentPage);
+        await agStore.getAccessGrants(agStore.state.page.currentPage, store.getters.selectedProject.id);
     } catch (error) {
         await notify.error(`Unable to fetch accesses. ${error.message}`, AnalyticsErrorEventSource.ACCESS_GRANTS_PAGE);
     }

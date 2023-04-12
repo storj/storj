@@ -9,12 +9,11 @@
 </template>
 
 <script setup lang="ts">
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { useStore } from '@/utils/hooks';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
-const store = useStore();
+const agStore = useAccessGrantsStore();
 
 const props = withDefaults(defineProps<{
     name: string,
@@ -26,7 +25,7 @@ const props = withDefaults(defineProps<{
  * Toggles bucket selection.
  */
 function toggleBucketSelection(name: string): void {
-    store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
+    agStore.toggleBucketSelection(name);
 }
 </script>
 

@@ -42,7 +42,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
@@ -50,6 +49,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -64,6 +64,7 @@ enum ButtonStates {
 }
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -112,7 +113,7 @@ async function setShareLink(): Promise<void> {
         let path = `${bucketName.value}`;
         const now = new Date();
         const LINK_SHARING_AG_NAME = `${path}_shared-bucket_${now.toISOString()}`;
-        const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
+        const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(LINK_SHARING_AG_NAME, store.getters.selectedProject.id);
 
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
         const salt = await store.dispatch(PROJECTS_ACTIONS.GET_SALT, store.getters.selectedProject.id);
@@ -157,8 +158,7 @@ async function setShareLink(): Promise<void> {
             return;
         }
 
-        const credentials: EdgeCredentials =
-            await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant: data.value, isPublic: true });
+        const credentials: EdgeCredentials = await agStore.getEdgeCredentials(data.value, undefined, true);
 
         path = encodeURIComponent(path.trim());
 
@@ -176,7 +176,7 @@ async function setShareLink(): Promise<void> {
  * Sets local worker with worker instantiated in store.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
             notify.error(error.message, AnalyticsErrorEventSource.SHARE_BUCKET_MODAL);

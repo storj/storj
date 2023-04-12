@@ -44,14 +44,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { ACCESS_GRANTS_MUTATIONS } from '@/store/modules/accessGrants';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
 import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 
 const isLoading = ref<boolean>(true);
@@ -67,28 +68,28 @@ const isDropdownVisible = computed((): boolean => {
  * Returns download permission from store.
  */
 const storedIsDownload = computed((): boolean => {
-    return store.state.accessGrantsModule.isDownload;
+    return agStore.state.isDownload;
 });
 
 /**
  * Returns upload permission from store.
  */
 const storedIsUpload = computed((): boolean => {
-    return store.state.accessGrantsModule.isUpload;
+    return agStore.state.isUpload;
 });
 
 /**
  * Returns list permission from store.
  */
 const storedIsList = computed((): boolean => {
-    return store.state.accessGrantsModule.isList;
+    return agStore.state.isList;
 });
 
 /**
  * Returns delete permission from store.
  */
 const storedIsDelete = computed((): boolean => {
-    return store.state.accessGrantsModule.isDelete;
+    return agStore.state.isDelete;
 });
 
 /**
@@ -116,28 +117,28 @@ function closeDropdown(): void {
  * Sets is download permission.
  */
 function toggleIsDownload(): void {
-    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DOWNLOAD_PERMISSION);
+    agStore.toggleIsDownloadPermission();
 }
 
 /**
  * Sets is upload permission.
  */
 function toggleIsUpload(): void {
-    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_UPLOAD_PERMISSION);
+    agStore.toggleIsUploadPermission();
 }
 
 /**
  * Sets is list permission.
  */
 function toggleIsList(): void {
-    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_LIST_PERMISSION);
+    agStore.toggleIsListPermission();
 }
 
 /**
  * Sets is delete permission.
  */
 function toggleIsDelete(): void {
-    store.commit(ACCESS_GRANTS_MUTATIONS.TOGGLE_IS_DELETE_PERMISSION);
+    agStore.toggleIsDeletePermission();
 }
 </script>
 

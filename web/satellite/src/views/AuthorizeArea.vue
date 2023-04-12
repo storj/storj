@@ -97,12 +97,12 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OAuthClient, OAuthClientsAPI } from '@/api/oauthClients';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VInput from '@/components/common/VInput.vue';
 
@@ -118,6 +118,7 @@ const validPerms = {
 };
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const usersStore = useUsersStore();
 const store = useStore();
 const notify = useNotify();
@@ -203,14 +204,14 @@ async function ensureLogin(): Promise<void> {
 
 async function ensureWorker(): Promise<void> {
     try {
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
-        await store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        agStore.stopWorker();
+        await agStore.startWorker();
     } catch (error) {
         await notify.error(`Unable to set access grants wizard. ${error.message}`, null);
         return;
     }
 
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => notify.error(error.message, null);
     }

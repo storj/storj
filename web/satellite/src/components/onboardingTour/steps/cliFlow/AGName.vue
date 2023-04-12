@@ -29,11 +29,11 @@ import { computed, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
 import { AccessGrant } from '@/types/accessGrants';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify, useRouter, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import CLIFlowContainer from '@/components/onboardingTour/steps/common/CLIFlowContainer.vue';
 import VInput from '@/components/common/VInput.vue';
@@ -41,6 +41,7 @@ import VInput from '@/components/common/VInput.vue';
 import Icon from '@/../static/images/onboardingTour/accessGrant.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const router = useRouter();
 const notify = useNotify();
@@ -95,7 +96,7 @@ async function onNextClick(): Promise<void> {
 
     let createdAccessGrant: AccessGrant;
     try {
-        createdAccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, name.value);
+        createdAccessGrant = await agStore.createAccessGrant(name.value, store.getters.selectedProject.id);
 
         await notify.success('New clean access grant was generated successfully.');
     } catch (error) {

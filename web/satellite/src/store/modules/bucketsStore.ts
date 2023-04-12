@@ -116,23 +116,18 @@ export const useBucketsStore = defineStore('buckets', () => {
     }
 
     async function setS3Client(projectID: string): Promise<void> {
-        const {
-            createAccessGrant,
-            deleteAccessGrantByNameAndProjectID,
-            accessGrantsState,
-            getEdgeCredentials,
-        } = useAccessGrantsStore();
+        const agStore = useAccessGrantsStore();
 
         if (!state.apiKey) {
-            await deleteAccessGrantByNameAndProjectID(projectID, FILE_BROWSER_AG_NAME);
-            const cleanAPIKey: AccessGrant = await createAccessGrant(projectID, FILE_BROWSER_AG_NAME);
+            await agStore.deleteAccessGrantByNameAndProjectID(projectID, FILE_BROWSER_AG_NAME);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(projectID, FILE_BROWSER_AG_NAME);
             setApiKey(cleanAPIKey.secret);
         }
 
         const now = new Date();
         const inThreeDays = new Date(now.setDate(now.getDate() + 3));
 
-        const worker = accessGrantsState.accessGrantsWebWorker;
+        const worker = agStore.state.accessGrantsWebWorker;
         if (!worker) {
             throw new Error('Worker is not defined');
         }
@@ -180,7 +175,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
 
         const accessGrant = accessGrantEvent.data.value;
-        state.edgeCredentials = await getEdgeCredentials(accessGrant);
+        state.edgeCredentials = await agStore.getEdgeCredentials(accessGrant);
 
         const s3Config = {
             accessKeyId: state.edgeCredentials.accessKeyId,

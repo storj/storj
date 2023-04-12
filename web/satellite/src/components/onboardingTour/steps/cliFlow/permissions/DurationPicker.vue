@@ -23,17 +23,16 @@
 </template>
 
 <script setup lang="ts">
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { DurationPermission } from '@/types/accessGrants';
-import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import VDateRangePicker from '@/components/common/VDateRangePicker.vue';
 
 const emit = defineEmits(['setLabel']);
 
 const appStore = useAppStore();
-const store = useStore();
+const agStore = useAccessGrantsStore();
 
 /**
  * onCustomRangePick holds logic for choosing custom date range.
@@ -48,7 +47,7 @@ function onCustomRangePick(dateRange: Date[]): void {
     const toFormattedString = after.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
     const rangeLabel = `${fromFormattedString} - ${toFormattedString}`;
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', rangeLabel);
 }
 
@@ -58,7 +57,7 @@ function onCustomRangePick(dateRange: Date[]): void {
 function onForeverClick(): void {
     const permission = new DurationPermission(null, null);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', 'Forever');
     closePicker();
 }
@@ -71,7 +70,7 @@ function onOneMonthClick(): void {
     const inAMonth = new Date(now.setMonth(now.getMonth() + 1));
     const permission = new DurationPermission(new Date(), inAMonth);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', '1 Month');
     closePicker();
 }
@@ -84,7 +83,7 @@ function onOneDayClick(): void {
     const inADay = new Date(now.setDate(now.getDate() + 1));
     const permission = new DurationPermission(new Date(), inADay);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', '24 Hours');
     closePicker();
 }
@@ -97,7 +96,7 @@ function onOneWeekClick(): void {
     const inAWeek = new Date(now.setDate(now.getDate() + 7));
     const permission = new DurationPermission(new Date(), inAWeek);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', '1 Week');
     closePicker();
 }
@@ -110,7 +109,7 @@ function onSixMonthsClick(): void {
     const inSixMonth = new Date(now.setMonth(now.getMonth() + 6));
     const permission = new DurationPermission(new Date(), inSixMonth);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', '6 Months');
     closePicker();
 }
@@ -123,7 +122,7 @@ function onOneYearClick(): void {
     const inOneYear = new Date(now.setFullYear(now.getFullYear() + 1));
     const permission = new DurationPermission(new Date(), inOneYear);
 
-    store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
+    agStore.setDurationPermission(permission);
     emit('setLabel', '1 Year');
     closePicker();
 }

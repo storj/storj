@@ -34,7 +34,6 @@ import { computed, onMounted, ref } from 'vue';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { MetaUtils } from '@/utils/meta';
@@ -42,15 +41,17 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useNotify, useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import { FILE_BROWSER_AG_NAME } from '@/store/modules/bucketsStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VInput from '@/components/common/VInput.vue';
 
-const FILE_BROWSER_AG_NAME = 'Web file browser API key';
 const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 const notify = useNotify();
 
@@ -78,10 +79,12 @@ async function onDelete(): Promise<void> {
 
     isLoading.value = true;
 
+    const projectID = store.getters.selectedProject.id;
+
     try {
         if (!apiKey.value) {
-            await store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE_BY_NAME_AND_PROJECT_ID, FILE_BROWSER_AG_NAME);
-            const cleanAPIKey: AccessGrant = await store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, FILE_BROWSER_AG_NAME);
+            await agStore.deleteAccessGrantByNameAndProjectID(FILE_BROWSER_AG_NAME, projectID);
+            const cleanAPIKey: AccessGrant = await agStore.createAccessGrant(FILE_BROWSER_AG_NAME, projectID);
             await store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
         }
 
@@ -132,7 +135,7 @@ async function onDelete(): Promise<void> {
 
         const accessGrant = accessGrantEvent.data.value;
 
-        const gatewayCredentials: EdgeCredentials = await store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, { accessGrant });
+        const gatewayCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
         await store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS_FOR_DELETE, gatewayCredentials);
         await store.dispatch(OBJECTS_ACTIONS.DELETE_BUCKET, name.value);
         analytics.eventTriggered(AnalyticsEvent.BUCKET_DELETED);
@@ -162,7 +165,7 @@ async function fetchBuckets(page = 1): Promise<void> {
  * Sets local worker with worker instantiated in store.
  */
 function setWorker(): void {
-    worker.value = store.state.accessGrantsModule.accessGrantsWebWorker;
+    worker.value = agStore.state.accessGrantsWebWorker;
     if (worker.value) {
         worker.value.onerror = (error: ErrorEvent) => {
             notify.error(error.message, AnalyticsErrorEventSource.DELETE_BUCKET_MODAL);

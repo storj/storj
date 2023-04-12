@@ -47,14 +47,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
 const appStore = useAppStore();
+const agStore = useAccessGrantsStore();
 const store = useStore();
 
 const bucketSearch = ref<string>('');
@@ -75,14 +76,14 @@ const bucketsList = computed((): string[] => {
  * Returns stored selected bucket names.
  */
 const selectedBucketNames = computed((): string[] => {
-    return store.state.accessGrantsModule.selectedBucketNames;
+    return agStore.state.selectedBucketNames;
 });
 
 /**
  * Clears selection of specific buckets and closes dropdown.
  */
 function clearSelectedBuckets(): void {
-    store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+    agStore.clearSelection();
     closeDropdown();
 }
 
@@ -90,7 +91,7 @@ function clearSelectedBuckets(): void {
  * Toggles bucket selection.
  */
 function toggleBucketSelection(name: string): void {
-    store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
+    agStore.toggleBucketSelection(name);
 }
 
 /**
