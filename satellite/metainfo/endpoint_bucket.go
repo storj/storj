@@ -38,7 +38,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 
 	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
 		endpoint.log.Error("internal", zap.Error(err))
@@ -46,7 +46,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+	convBucket, err := convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 	if err != nil {
 		return resp, err
 	}
@@ -123,7 +123,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(buckets.Bucket{
+	convBucket, err := convertMinimalBucketToProto(buckets.MinimalBucket{
 		Name:      []byte(bucket.Name),
 		CreatedAt: bucket.Created,
 	}, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
@@ -184,20 +184,20 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	}
 
 	var (
-		bucket     buckets.Bucket
+		bucket     buckets.MinimalBucket
 		convBucket *pb.Bucket
 	)
 	if canRead || canList {
 		// Info about deleted bucket is returned only if either Read, or List permission is granted.
 		bucket, err = endpoint.buckets.GetMinimalBucket(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
-			if storj.ErrBucketNotFound.Has(err) {
+			if buckets.ErrBucketNotFound.Has(err) {
 				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 			}
 			return nil, err
 		}
 
-		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
+		convBucket, err = convertMinimalBucketToProto(bucket, endpoint.defaultRS, endpoint.config.MaxSegmentSize)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +222,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: deletedObjCount}, nil
 		}
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
 		endpoint.log.Error("internal", zap.Error(err))
@@ -270,7 +270,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 		if ErrBucketNotEmpty.Has(err) {
 			return nil, deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
 		}
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return bucketName, 0, nil
 		}
 		endpoint.log.Error("internal", zap.Error(err))
@@ -318,7 +318,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		return nil, err
 	}
 
-	listOpts := storj.BucketListOptions{
+	listOpts := buckets.ListOptions{
 		Cursor:    string(req.Cursor),
 		Limit:     int(req.Limit),
 		Direction: storj.ListDirection(req.Direction),
@@ -365,10 +365,10 @@ func getAllowedBuckets(ctx context.Context, header *pb.RequestHeader, action mac
 	return allowedBuckets, err
 }
 
-func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket storj.Bucket, err error) {
+func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket buckets.Bucket, err error) {
 	bucketID, err := uuid.New()
 	if err != nil {
-		return storj.Bucket{}, err
+		return buckets.Bucket{}, err
 	}
 
 	// TODO: resolve partner id
@@ -381,7 +381,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 		return bucket, errs.New("Invalid uuid")
 	}
 
-	return storj.Bucket{
+	return buckets.Bucket{
 		ID:        bucketID,
 		Name:      string(req.GetName()),
 		ProjectID: projectID,
@@ -389,7 +389,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	}, nil
 }
 
-func convertBucketToProto(bucket buckets.Bucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
+func convertMinimalBucketToProto(bucket buckets.MinimalBucket, rs *pb.RedundancyScheme, maxSegmentSize memory.Size) (pbBucket *pb.Bucket, err error) {
 	if len(bucket.Name) == 0 {
 		return nil, nil
 	}

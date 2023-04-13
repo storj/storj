@@ -11,12 +11,12 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
@@ -278,7 +278,7 @@ func Test_GetProjectTotalByPartner(t *testing.T) {
 			for _, name := range partnerNames {
 				total := expectedTotal{}
 
-				bucket := storj.Bucket{
+				bucket := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      testrand.BucketName(),
 					ProjectID: project.ID,

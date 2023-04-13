@@ -856,15 +856,15 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		t.Run("begin commit", func(t *testing.T) {
 			defer ctx.Check(deleteBucket(bucketName))
 
-			buckets := planet.Satellites[0].API.Buckets.Service
+			bucketsService := planet.Satellites[0].API.Buckets.Service
 
-			bucket := storj.Bucket{
+			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Placement: storj.EU,
 			}
 
-			_, err := buckets.CreateBucket(ctx, bucket)
+			_, err := bucketsService.CreateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			params := metaclient.BeginObjectParams{
@@ -1264,14 +1264,14 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 			fmt.Println(apiKey)
-			buckets := planet.Satellites[0].API.Buckets.Service
+			bucketsService := planet.Satellites[0].API.Buckets.Service
 
-			bucket := storj.Bucket{
+			bucket := buckets.Bucket{
 				Name:      bucketName,
 				ProjectID: planet.Uplinks[0].Projects[0].ID,
 				Placement: storj.EU,
 			}
-			_, err := buckets.CreateBucket(ctx, bucket)
+			_, err := bucketsService.CreateBucket(ctx, bucket)
 			require.NoError(t, err)
 
 			// this should be bigger than the max inline segment
@@ -1518,13 +1518,13 @@ func TestMoveObject_Geofencing(t *testing.T) {
 	)
 }
 
-func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, buckets *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
+func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, service *buckets.Service, projectID uuid.UUID, bucketName string, placement storj.PlacementConstraint) {
 	// generate the bucket id
 	bucketID, err := uuid.New()
 	require.NoError(t, err)
 
 	// create the bucket
-	_, err = buckets.CreateBucket(ctx, storj.Bucket{
+	_, err = service.CreateBucket(ctx, buckets.Bucket{
 		ID:        bucketID,
 		Name:      bucketName,
 		ProjectID: projectID,
@@ -1533,7 +1533,7 @@ func createGeofencedBucket(t *testing.T, ctx *testcontext.Context, buckets *buck
 	require.NoError(t, err)
 
 	// check that the bucket placement is correct
-	bucket, err := buckets.GetBucket(ctx, []byte(bucketName), projectID)
+	bucket, err := service.GetBucket(ctx, []byte(bucketName), projectID)
 	require.NoError(t, err)
 	require.Equal(t, placement, bucket.Placement)
 }

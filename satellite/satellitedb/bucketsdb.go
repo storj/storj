@@ -23,7 +23,7 @@ type bucketsDB struct {
 }
 
 // CreateBucket creates a new bucket.
-func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	optionalFields := dbx.BucketMetainfo_Create_Fields{}
@@ -52,18 +52,18 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		optionalFields,
 	)
 	if err != nil {
-		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 
 	bucket, err = convertDBXtoBucket(row)
 	if err != nil {
-		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 	return bucket, nil
 }
 
 // GetBucket returns a bucket.
-func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
+func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -71,9 +71,9 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storj.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
+			return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
 }
@@ -87,9 +87,9 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return storj.EveryCountry, storj.ErrBucketNotFound.New("%s", bucketName)
+			return storj.EveryCountry, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return storj.EveryCountry, storj.ErrBucket.Wrap(err)
+		return storj.EveryCountry, buckets.ErrBucket.Wrap(err)
 	}
 	placement = storj.EveryCountry
 	if dbxPlacement.Placement != nil {
@@ -100,7 +100,7 @@ func (db *bucketsDB) GetBucketPlacement(ctx context.Context, bucketName []byte, 
 }
 
 // GetMinimalBucket returns existing bucket with minimal number of fields.
-func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.Bucket, err error) {
+func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ buckets.MinimalBucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	row, err := db.db.Get_BucketMetainfo_CreatedAt_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -108,11 +108,11 @@ func (db *bucketsDB) GetMinimalBucket(ctx context.Context, bucketName []byte, pr
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return buckets.Bucket{}, storj.ErrBucketNotFound.New("%s", bucketName)
+			return buckets.MinimalBucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return buckets.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.MinimalBucket{}, buckets.ErrBucket.Wrap(err)
 	}
-	return buckets.Bucket{
+	return buckets.MinimalBucket{
 		Name:      bucketName,
 		CreatedAt: row.CreatedAt,
 	}, nil
@@ -126,7 +126,7 @@ func (db *bucketsDB) HasBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
-	return exists, storj.ErrBucket.Wrap(err)
+	return exists, buckets.ErrBucket.Wrap(err)
 }
 
 // GetBucketID returns an existing bucket id.
@@ -138,20 +138,20 @@ func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLoca
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, storj.ErrBucketNotFound.New("%s", bucket.BucketName)
+			return uuid.UUID{}, buckets.ErrBucketNotFound.New("%s", bucket.BucketName)
 		}
-		return uuid.UUID{}, storj.ErrBucket.Wrap(err)
+		return uuid.UUID{}, buckets.ErrBucket.Wrap(err)
 	}
 
 	id, err := uuid.FromBytes(dbxID.Id)
 	if err != nil {
-		return id, storj.ErrBucket.Wrap(err)
+		return id, buckets.ErrBucket.Wrap(err)
 	}
 	return id, err
 }
 
 // UpdateBucket updates a bucket.
-func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var updateFields dbx.BucketMetainfo_Update_Fields
@@ -167,7 +167,7 @@ func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 
 	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
 	if err != nil {
-		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
 }
@@ -180,16 +180,16 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
-		return storj.ErrBucket.Wrap(err)
+		return buckets.ErrBucket.Wrap(err)
 	}
 	if !deleted {
-		return storj.ErrBucketNotFound.New("%s", bucketName)
+		return buckets.ErrBucketNotFound.New("%s", bucketName)
 	}
 	return nil
 }
 
 // ListBuckets returns a list of buckets for a project.
-func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
+func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts buckets.ListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList buckets.List, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const defaultListLimit = 10000
@@ -222,7 +222,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			return bucketList, errors.New("unknown list direction")
 		}
 		if err != nil {
-			return bucketList, storj.ErrBucket.Wrap(err)
+			return bucketList, buckets.ErrBucket.Wrap(err)
 		}
 
 		bucketList.More = len(dbxBuckets) > listOpts.Limit
@@ -234,7 +234,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		}
 
 		if bucketList.Items == nil {
-			bucketList.Items = make([]storj.Bucket, 0, len(dbxBuckets))
+			bucketList.Items = make([]buckets.Bucket, 0, len(dbxBuckets))
 		}
 
 		for _, dbxBucket := range dbxBuckets {
@@ -243,7 +243,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			if bucketAllowed || allowedBuckets.All {
 				item, err := convertDBXtoBucket(dbxBucket)
 				if err != nil {
-					return bucketList, storj.ErrBucket.Wrap(err)
+					return bucketList, buckets.ErrBucket.Wrap(err)
 				}
 				bucketList.Items = append(bucketList.Items, item)
 			}
@@ -252,7 +252,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		if len(bucketList.Items) < listOpts.Limit && bucketList.More {
 			// If we filtered out disallowed buckets, then get more buckets
 			// out of database so that we return `limit` number of buckets
-			listOpts = storj.BucketListOptions{
+			listOpts = buckets.ListOptions{
 				Cursor:    string(dbxBuckets[len(dbxBuckets)-1].Name),
 				Limit:     listOpts.Limit,
 				Direction: storj.After,
@@ -274,17 +274,17 @@ func (db *bucketsDB) CountBuckets(ctx context.Context, projectID uuid.UUID) (cou
 	return int(count64), nil
 }
 
-func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
+func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket buckets.Bucket, err error) {
 	id, err := uuid.FromBytes(dbxBucket.Id)
 	if err != nil {
-		return bucket, storj.ErrBucket.Wrap(err)
+		return bucket, buckets.ErrBucket.Wrap(err)
 	}
 	project, err := uuid.FromBytes(dbxBucket.ProjectId)
 	if err != nil {
-		return bucket, storj.ErrBucket.Wrap(err)
+		return bucket, buckets.ErrBucket.Wrap(err)
 	}
 
-	bucket = storj.Bucket{
+	bucket = buckets.Bucket{
 		ID:                  id,
 		Name:                string(dbxBucket.Name),
 		ProjectID:           project,
@@ -312,7 +312,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	if dbxBucket.PartnerId != nil {
 		partnerID, err := uuid.FromBytes(dbxBucket.PartnerId)
 		if err != nil {
-			return bucket, storj.ErrBucket.Wrap(err)
+			return bucket, buckets.ErrBucket.Wrap(err)
 		}
 		bucket.PartnerID = partnerID
 	}
@@ -339,7 +339,7 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 			ORDER BY (project_id, name) ASC LIMIT $3
 	`, projectID, bucketName, moreLimit)
 	if err != nil {
-		return false, storj.ErrBucket.New("BatchBuckets query error: %s", err)
+		return false, buckets.ErrBucket.New("BatchBuckets query error: %s", err)
 	}
 	defer func() {
 		err = errs.Combine(err, Error.Wrap(rows.Close()))
@@ -349,14 +349,14 @@ func (db *bucketsDB) IterateBucketLocations(ctx context.Context, projectID uuid.
 		var bucketLocation metabase.BucketLocation
 
 		if err = rows.Scan(&bucketLocation.ProjectID, &bucketLocation.BucketName); err != nil {
-			return false, storj.ErrBucket.New("bucket location scan error: %s", err)
+			return false, buckets.ErrBucket.New("bucket location scan error: %s", err)
 		}
 
 		result = append(result, bucketLocation)
 	}
 
 	if err = rows.Err(); err != nil {
-		return false, storj.ErrBucket.Wrap(err)
+		return false, buckets.ErrBucket.Wrap(err)
 	}
 
 	if len(result) == 0 {

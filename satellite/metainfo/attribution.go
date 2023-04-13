@@ -12,11 +12,11 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
-	"storj.io/common/storj"
 	"storj.io/common/useragent"
 	"storj.io/common/uuid"
 	"storj.io/drpc/drpccache"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 )
 
@@ -142,7 +142,7 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	// checks if bucket exists before updates it or makes a new entry
 	bucket, err := endpoint.buckets.GetBucket(ctx, bucketName, projectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
+		if buckets.ErrBucketNotFound.Has(err) {
 			return rpcstatus.Errorf(rpcstatus.NotFound, "bucket %q does not exist", bucketName)
 		}
 		endpoint.log.Error("error while getting bucket", zap.ByteString("bucketName", bucketName), zap.Error(err))

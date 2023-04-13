@@ -2485,7 +2485,7 @@ func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_
 		return nil, Error.Wrap(err)
 	}
 
-	listOptions := storj.BucketListOptions{
+	listOptions := buckets.ListOptions{
 		Direction: storj.Forward,
 	}
 

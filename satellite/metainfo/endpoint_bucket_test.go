@@ -21,6 +21,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 )
@@ -42,14 +43,14 @@ func TestBucketExistenceCheck(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
 
 		_, _, err = metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 			Bucket: []byte("non-existing-bucket"),
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
-		require.Equal(t, storj.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
+		require.Equal(t, buckets.ErrBucketNotFound.New("%s", "non-existing-bucket").Error(), errs.Unwrap(err).Error())
 	})
 }
 

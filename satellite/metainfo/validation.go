@@ -26,6 +26,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/metabase"
@@ -250,7 +251,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(bucket) == 0 {
-		return Error.Wrap(storj.ErrNoBucket.New(""))
+		return Error.Wrap(buckets.ErrNoBucket.New(""))
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {

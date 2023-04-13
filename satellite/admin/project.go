@@ -20,6 +20,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments/stripe"
 )
@@ -464,7 +465,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	options := storj.BucketListOptions{Limit: 1, Direction: storj.Forward}
+	options := buckets.ListOptions{Limit: 1, Direction: storj.Forward}
 	buckets, err := server.buckets.ListBuckets(ctx, projectUUID, options, macaroon.AllowedBuckets{All: true})
 	if err != nil {
 		sendJSONError(w, "unable to list buckets",
@@ -580,7 +581,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	return server.checkInvoicing(ctx, w, projectID)
 }
 
-func bucketNames(buckets []storj.Bucket) []string {
+func bucketNames(buckets []buckets.Bucket) []string {
 	var xs []string
 	for _, b := range buckets {
 		xs = append(xs, b.Name)

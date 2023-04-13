@@ -19,7 +19,6 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -27,6 +26,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
@@ -609,7 +609,7 @@ func TestProjectUsagePrice(t *testing.T) {
 				project, err := sat.AddProject(ctx, user.ID, "testproject")
 				require.NoError(t, err)
 
-				bucket, err := sat.DB.Buckets().CreateBucket(ctx, storj.Bucket{
+				bucket, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      testrand.BucketName(),
 					ProjectID: project.ID,

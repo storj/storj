@@ -22,6 +22,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink/private/metaclient"
 )
@@ -835,8 +836,8 @@ func TestCommitSegment_RejectRetryDuplicate(t *testing.T) {
 	})
 }
 
-func createTestBucket(ctx context.Context, tb testing.TB, planet *testplanet.Planet) storj.Bucket {
-	bucket, err := planet.Satellites[0].API.Buckets.Service.CreateBucket(ctx, storj.Bucket{
+func createTestBucket(ctx context.Context, tb testing.TB, planet *testplanet.Planet) buckets.Bucket {
+	bucket, err := planet.Satellites[0].API.Buckets.Service.CreateBucket(ctx, buckets.Bucket{
 		Name:      "test",
 		ProjectID: planet.Uplinks[0].Projects[0].ID,
 	})

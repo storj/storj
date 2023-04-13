@@ -21,13 +21,13 @@ import (
 	"storj.io/common/currency"
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/blockchain"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"
@@ -380,13 +380,13 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("GetAllBucketNames", func(t *testing.T) {
-				bucket1 := storj.Bucket{
+				bucket1 := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      "testBucket1",
 					ProjectID: up2Pro1.ID,
 				}
 
-				bucket2 := storj.Bucket{
+				bucket2 := buckets.Bucket{
 					ID:        testrand.UUID(),
 					Name:      "testBucket2",
 					ProjectID: up2Pro1.ID,
