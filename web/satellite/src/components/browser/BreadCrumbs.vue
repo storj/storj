@@ -50,9 +50,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
-const store = useStore();
+const obStore = useObjectBrowserStore();
 const router = useRouter();
 
 const emit = defineEmits(['onUpdate', 'bucketClick']);
@@ -61,14 +62,14 @@ const emit = defineEmits(['onUpdate', 'bucketClick']);
  * Retrieves the current bucket name from the store.
  */
 const bucketName = computed((): string => {
-    return store.state.files.bucket;
+    return obStore.state.bucket;
 });
 
 /**
  * Retrieves the current path from the store and creates an array of folders for the bread crumbs that the user can click on.
  */
 const crumbs = computed((): string[] => {
-    let path: string[] = store.state.files.path.split('/');
+    let path: string[] = obStore.state.path.split('/');
     path =
         path.length > 1
             ? [bucketName.value, ...path.slice(0, path.length - 1)]
@@ -84,7 +85,7 @@ function bucketClick() {
  * Redirects to partial upload to bucket buckets path.
  */
 async function redirectToCrumb(idx: number): Promise<void> {
-    await router.push(link(idx)).catch(err => {});
+    await router.push(link(idx)).catch(_ => {});
     emit('onUpdate');
 }
 
@@ -96,7 +97,7 @@ function link(idx: number): string {
 
     if (idx > 0) path = crumbs.value.slice(1, idx + 1).join('/') + '/';
 
-    return store.state.files.browserRoot + path;
+    return obStore.state.browserRoot + path;
 }
 
 /**

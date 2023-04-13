@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { Download } from '@/utils/download';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -92,7 +92,6 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
-const store = useStore();
 const notify = useNotify();
 
 const isPassphraseSaved = ref<boolean>(false);

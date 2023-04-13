@@ -34,11 +34,11 @@
 import { computed } from 'vue';
 
 import { Bucket } from '@/types/buckets';
-import { useStore } from '@/utils/hooks';
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import LockedIcon from '@/../static/images/browser/locked.svg';
 import CloseIcon from '@/../static/images/browser/close.svg';
@@ -51,7 +51,7 @@ const props = withDefaults(defineProps<{
 
 const appStore = useAppStore();
 const bucketsStore = useBucketsStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
 
 const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
 
@@ -59,7 +59,7 @@ const NUMBER_OF_DISPLAYED_OBJECTS = 1000;
  * Returns locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjectsCount = store.state.files.objectsCount;
+    const ownObjectsCount = obStore.state.objectsCount;
 
     return objectsCount.value - ownObjectsCount;
 });
@@ -68,7 +68,7 @@ const lockedFilesNumber = computed((): number => {
  * Returns bucket objects count from store.
  */
 const objectsCount = computed((): number => {
-    const name: string = store.state.files.bucket;
+    const name: string = obStore.state.bucket;
     const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;

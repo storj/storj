@@ -203,10 +203,10 @@ import BreadCrumbs from './BreadCrumbs.vue';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { RouteConfig } from '@/router';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { Bucket } from '@/types/buckets';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { BrowserObject } from '@/store/modules/files';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 
@@ -222,7 +222,8 @@ import UploadIcon from '@/../static/images/browser/upload.svg';
 
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
+
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 const notify = useNotify();
@@ -241,35 +242,35 @@ const analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
  * Check if the s3 client has been initialized in the store.
  */
 const isInitialized = computed((): boolean => {
-    return store.getters['files/isInitialized'];
+    return obStore.isInitialized;
 });
 
 /**
  * Retrieve the current path from the store.
  */
 const path = computed((): string => {
-    return store.state.files.path;
+    return obStore.state.path;
 });
 
 /**
  * Return files that are currently being uploaded from the store.
  */
 const filesUploading = computed((): BrowserObject[] => {
-    return store.state.files.uploading;
+    return obStore.state.uploading;
 });
 
 /**
  * Return file browser path from store.
  */
 const currentPath = computed((): string => {
-    return store.state.files.path;
+    return obStore.state.path;
 });
 
 /**
  * Return locked files number.
  */
 const lockedFilesNumber = computed((): number => {
-    const ownObjectsCount = store.state.files.objectsCount;
+    const ownObjectsCount = obStore.state.objectsCount;
 
     return objectsCount.value - ownObjectsCount;
 });
@@ -278,7 +279,7 @@ const lockedFilesNumber = computed((): number => {
  * Returns bucket objects count from store.
  */
 const objectsCount = computed((): number => {
-    const name: string = store.state.files.bucket;
+    const name: string = obStore.state.bucket;
     const data: Bucket | undefined = bucketsStore.state.page.buckets.find((bucket: Bucket) => bucket.name === name);
 
     return data?.objectCount || 0;
@@ -319,7 +320,7 @@ const formattedFilesWaitingToBeUploaded = computed((): string => {
 });
 
 const bucketName = computed((): string => {
-    return store.state.files.bucket;
+    return obStore.state.bucket;
 });
 
 /**
@@ -329,9 +330,9 @@ const allFilesSelected = computed((): boolean => {
     if (files.value.length === 0) {
         return false;
     }
-    const shiftSelectedFiles = store.state.files.shiftSelectedFiles;
-    const selectedFiles = store.state.files.selectedFiles;
-    const selectedAnchorFile = store.state.files.selectedAnchorFile;
+    const shiftSelectedFiles = obStore.state.shiftSelectedFiles;
+    const selectedFiles = obStore.state.selectedFiles;
+    const selectedAnchorFile = obStore.state.selectedAnchorFile;
     const allSelectedFiles = [
         ...selectedFiles,
         ...shiftSelectedFiles,
@@ -344,7 +345,7 @@ const allFilesSelected = computed((): boolean => {
 });
 
 const files = computed((): BrowserObject[] => {
-    return store.getters['files/sortedFiles'];
+    return obStore.sortedFiles;
 });
 
 /**
@@ -395,7 +396,7 @@ async function onBack(): Promise<void> {
 
 async function onRouteChange(): Promise<void> {
     routePath.value = calculateRoutePath();
-    await store.dispatch('files/closeDropdown');
+    obStore.closeDropdown();
     await list(routePath.value);
 }
 
@@ -403,11 +404,11 @@ async function onRouteChange(): Promise<void> {
  * Close modal, file share modal, dropdown, and remove all selected files from the store.
  */
 function closeModalDropdown(): void {
-    if (store.state.files.openedDropdown) {
-        store.dispatch('files/closeDropdown');
+    if (obStore.state.openedDropdown) {
+        obStore.closeDropdown();
     }
 
-    store.dispatch('files/clearAllSelectedFiles');
+    obStore.clearAllSelectedFiles();
 }
 
 /**
@@ -430,7 +431,7 @@ function filename(file: BrowserObject): string {
  * Upload the current selected or dragged-and-dropped file.
  */
 async function upload(e: Event): Promise<void> {
-    await store.dispatch('files/upload', { e });
+    await obStore.upload({ e });
     await analytics.eventTriggered(AnalyticsEvent.OBJECT_UPLOADED);
     const target = e.target as HTMLInputElement;
     target.value = '';
@@ -440,7 +441,7 @@ async function upload(e: Event): Promise<void> {
  * Cancel the upload of the current file that's passed in as an argument.
  */
 function cancelUpload(fileName: string): void {
-    store.dispatch('files/cancelUpload', fileName);
+    obStore.cancelUpload(fileName);
 }
 
 /**
@@ -448,9 +449,7 @@ function cancelUpload(fileName: string): void {
  */
 async function list(path: string): Promise<void> {
     try {
-        await store.dispatch('files/list', path, {
-            root: true,
-        });
+        await obStore.list(path);
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
     }
@@ -503,16 +502,17 @@ async function goToBuckets(): Promise<void> {
 /**
  * Toggles the selection of all files.
  * */
-async function toggleSelectAllFiles(): Promise<void> {
+function toggleSelectAllFiles(): void {
     if (files.value.length === 0) {
         return;
     }
+
     if (allFilesSelected.value) {
-        await store.dispatch('files/clearAllSelectedFiles');
+        obStore.clearAllSelectedFiles();
     } else {
-        await store.dispatch('files/clearAllSelectedFiles');
-        store.commit('files/setSelectedAnchorFile', files.value[0]);
-        await store.dispatch('files/updateSelectedFiles', files.value.slice(1, files.value.length));
+        obStore.clearAllSelectedFiles();
+        obStore.setSelectedAnchorFile(files.value[0]);
+        obStore.updateSelectedFiles(files.value.slice(1, files.value.length));
     }
 }
 
@@ -531,7 +531,7 @@ onBeforeMount(async () => {
     }
 
     // clear previous file selections.
-    store.dispatch('files/clearAllSelectedFiles');
+    obStore.clearAllSelectedFiles();
 
     // display the spinner while files are being fetched
     fetchingFilesSpinner.value = true;
@@ -539,7 +539,7 @@ onBeforeMount(async () => {
     try {
         await Promise.all([
             list(''),
-            store.dispatch('files/getObjectCount'),
+            obStore.getObjectCount(),
         ]);
     } catch (err) {
         await notify.error(err.message, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);

@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import MyAccountButton from '@/views/all-dashboard/components/MyAccountButton.vue';
 import {
     AnalyticsErrorEventSource,
@@ -112,6 +112,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import VButton from '@/components/common/VButton.vue';
 
@@ -129,7 +130,6 @@ import ArrowIcon from '@/../static/images/navigation/arrowExpandRight.svg';
 import CrossIcon from '@/../static/images/common/closeCross.svg';
 import MenuIcon from '@/../static/images/navigation/menu.svg';
 
-const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 
@@ -142,6 +142,7 @@ const abTestingStore = useABTestingStore();
 const billingStore = useBillingStore();
 const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth = new AuthHttpApi();
@@ -242,7 +243,7 @@ async function onLogout(): Promise<void> {
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
-        store.dispatch('files/clear'),
+        obStore.clear(),
     ]);
 
     try {

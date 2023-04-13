@@ -33,7 +33,7 @@ import { ref } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 
@@ -42,7 +42,6 @@ import ValidationMessage from '@/components/common/ValidationMessage.vue';
 import VButton from '@/components/common/VButton.vue';
 
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 

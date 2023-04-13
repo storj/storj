@@ -119,8 +119,8 @@ import prettyBytes from 'pretty-bytes';
 
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
-import { BrowserObject } from '@/store/modules/files';
+import { useNotify } from '@/utils/hooks';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAppStore } from '@/store/modules/appStore';
 
 import VModal from '@/components/common/VModal.vue';
@@ -130,7 +130,7 @@ import VLoader from '@/components/common/VLoader.vue';
 import PlaceholderImage from '@/../static/images/browser/placeholder.svg';
 
 const appStore = useAppStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(false);
@@ -144,7 +144,7 @@ const copyText = ref<string>('Copy Link');
  * Retrieve the file object that the modal is set to from the store.
  */
 const file = computed((): BrowserObject | undefined => {
-    return store.state.files.files.find(
+    return obStore.state.files.find(
         (file) => file.Key === filePath.value.split('/').slice(-1)[0],
     );
 });
@@ -153,7 +153,7 @@ const file = computed((): BrowserObject | undefined => {
  * Retrieve the filepath of the modal from the store.
  */
 const filePath = computed((): string => {
-    return store.state.files.objectPathForModal;
+    return obStore.state.objectPathForModal;
 });
 
 /**
@@ -161,7 +161,7 @@ const filePath = computed((): string => {
  */
 const size = computed((): string => {
     return prettyBytes(
-        store.state.files.files.find((f) => f.Key === file.value?.Key)?.Size || 0,
+        obStore.state.files.find((f) => f.Key === file.value?.Key)?.Size || 0,
     );
 });
 
@@ -233,7 +233,7 @@ const placeHolderDisplayable = computed((): boolean => {
 async function fetchPreviewAndMapUrl(): Promise<void> {
     isLoading.value = true;
 
-    const url: string = await store.state.files.fetchPreviewAndMapUrl(
+    const url: string = await obStore.state.fetchPreviewAndMapUrl(
         filePath.value,
     );
 
@@ -263,7 +263,7 @@ async function fetchPreviewAndMapUrl(): Promise<void> {
  */
 function download(): void {
     try {
-        store.dispatch('files/download', file.value);
+        obStore.download(file.value);
         notify.warning('Do not share download link with other people. If you want to share this data better use "Share" option.');
     } catch (error) {
         notify.error('Can not download your file', AnalyticsErrorEventSource.OBJECT_DETAILS_MODAL);
@@ -294,7 +294,7 @@ async function copy(): Promise<void> {
  * Get the share link of the current opened file.
  */
 async function getSharedLink(): Promise<void> {
-    objectLink.value = await store.state.files.fetchSharedLink(
+    objectLink.value = await obStore.state.fetchSharedLink(
         filePath.value,
     );
 }

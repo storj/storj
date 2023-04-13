@@ -161,7 +161,7 @@
 <script setup lang="ts">
 import VueRecaptcha from 'vue-recaptcha';
 import VueHcaptcha from '@hcaptcha/vue-hcaptcha';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 
 import { AuthHttpApi } from '@/api/auth';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
@@ -173,7 +173,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { TokenInfo } from '@/types/users';
 import { LocalData } from '@/utils/localData';
-import { useNotify, useRoute, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { MultiCaptchaConfig, PartneredSatellite } from '@/types/config';
@@ -224,9 +224,9 @@ const analytics = new AnalyticsHttpApi();
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const router = useRouter();
 const notify = useNotify();
-const route = useRoute();
+const nativeRouter = useRouter();
+const router = reactive(nativeRouter);
 
 /**
  * Name of the current satellite.
@@ -254,14 +254,14 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  * Makes activated banner visible on successful account activation.
  */
 onMounted(() => {
-    isActivatedBannerShown.value = !!route.query.activated;
-    isActivatedError.value = route.query.activated === 'false';
+    isActivatedBannerShown.value = !!router.currentRoute.query.activated;
+    isActivatedError.value = router.currentRoute.query.activated === 'false';
 
     if (appStore.state.config.allProjectsDashboard) {
         returnURL.value = RouteConfig.AllProjectsDashboard.path;
     }
 
-    returnURL.value = route.query.return_url as string || returnURL.value;
+    returnURL.value = router.currentRoute.query.return_url as string || returnURL.value;
 });
 
 /**

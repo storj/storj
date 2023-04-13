@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { Download } from '@/utils/download';
 import { AnalyticsHttpApi } from '@/api/analytics';
@@ -83,7 +83,6 @@ const props = defineProps<{
     onContinue: () => void;
 }>();
 
-const store = useStore();
 const notify = useNotify();
 const router = useRouter();
 

@@ -45,7 +45,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-import { useStore } from '@/utils/hooks';
 import { LocalData } from '@/utils/localData';
 import { AnalyticsHttpApi } from '@/api/analytics';
 
@@ -57,8 +56,6 @@ const props = defineProps<{
     onBack: () => void;
     onContinue: () => void;
 }>();
-
-const store = useStore();
 
 const isDontShow = ref<boolean>(false);
 

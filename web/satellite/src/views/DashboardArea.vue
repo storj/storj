@@ -139,7 +139,7 @@ import { User } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -150,6 +150,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import UploadNotification from '@/components/notifications/UploadNotification.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -177,7 +178,8 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
+
 const notify = useNotify();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
@@ -493,7 +495,7 @@ function restartSessionTimers(): void {
     }, sessionRefreshInterval.value);
 
     inactivityTimerId.value = setTimeout(async () => {
-        if (store.getters['files/uploadingLength']) {
+        if (obStore.uploadingLength) {
             await refreshSession();
             return;
         }
@@ -584,7 +586,7 @@ async function handleInactive(): Promise<void> {
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
-        store.dispatch('files/clear'),
+        obStore.clear(),
     ]);
 
     resetActivityEvents.forEach((eventName: string) => {

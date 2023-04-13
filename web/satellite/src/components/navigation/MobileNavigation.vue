@@ -170,7 +170,7 @@ import { User } from '@/types/users';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -180,6 +180,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import ResourcesLinks from '@/components/navigation/ResourcesLinks.vue';
 import QuickStartLinks from '@/components/navigation/QuickStartLinks.vue';
@@ -226,7 +227,8 @@ const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
 const notificationsStore = useNotificationsStore();
 const projectsStore = useProjectsStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
+
 const router = useRouter();
 const notify = useNotify();
 
@@ -477,7 +479,7 @@ async function onLogout(): Promise<void> {
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
-        store.dispatch('files/clear'),
+        obStore.clear(),
     ]);
 
     try {

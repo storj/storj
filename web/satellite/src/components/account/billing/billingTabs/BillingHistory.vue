@@ -31,7 +31,7 @@ import {
     PaymentsHistoryItemType,
 } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import BillingHistoryHeader
@@ -41,7 +41,6 @@ import BillingHistoryItem
 import VTable from '@/components/common/VTable.vue';
 
 const billingStore = useBillingStore();
-const store = useStore();
 const notify = useNotify();
 
 async function fetchHistory(): Promise<void> {

@@ -30,17 +30,18 @@
 import { computed, reactive, ref } from 'vue';
 
 import { RouteConfig } from '@/router';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { useAppStore } from '@/store/modules/appStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import ArrowDownIcon from '@/../static/images/common/dropIcon.svg';
 import DetailsIcon from '@/../static/images/objects/details.svg';
 import ShareIcon from '@/../static/images/objects/share.svg';
 import GearIcon from '@/../static/images/common/gearIcon.svg';
 
+const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
-const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 
@@ -55,7 +56,7 @@ const isHoveredOver = ref(false);
  * Returns files amount from store.
  */
 const filesCount = computed((): number => {
-    return store.getters['files/sortedFiles'].length;
+    return obStore.sortedFiles.length;
 });
 
 function closeDropdown(): void {

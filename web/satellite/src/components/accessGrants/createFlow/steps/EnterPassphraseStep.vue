@@ -48,8 +48,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { useStore } from '@/utils/hooks';
-
 import ButtonsContainer from '@/components/accessGrants/createFlow/components/ButtonsContainer.vue';
 import Toggle from '@/components/accessGrants/createFlow/components/Toggle.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -63,8 +61,6 @@ const props = defineProps<{
     onBack: () => void;
     onContinue: () => void;
 }>();
-
-const store = useStore();
 
 const isPassphraseSaved = ref<boolean>(false);
 

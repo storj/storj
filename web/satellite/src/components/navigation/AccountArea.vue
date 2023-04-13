@@ -56,7 +56,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
@@ -66,6 +66,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import BillingIcon from '@/../static/images/navigation/billing.svg';
 import InfoIcon from '@/../static/images/navigation/info.svg';
@@ -77,14 +78,14 @@ import LogoutIcon from '@/../static/images/navigation/logout.svg';
 import TierBadgeFree from '@/../static/images/navigation/tierBadgeFree.svg';
 import TierBadgePro from '@/../static/images/navigation/tierBadgePro.svg';
 
+const router = useRouter();
+const notify = useNotify();
+
+const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
-const router = useRouter();
-const notify = useNotify();
-
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
 const abTestingStore = useABTestingStore();
@@ -165,7 +166,7 @@ async function onLogout(): Promise<void> {
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
-        store.dispatch('files/clear'),
+        obStore.clear(),
     ]);
 
     try {

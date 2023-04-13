@@ -7,7 +7,6 @@ import { createPinia, setActivePinia, PiniaVuePlugin } from 'pinia';
 
 import App from './App.vue';
 import { router } from './router';
-import { store } from './store';
 
 import { Size } from '@/utils/bytesSize';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -95,7 +94,6 @@ Vue.filter('leadingZero', (value: number): string => {
 
 new Vue({
     router,
-    store,
     pinia,
     render: (h) => h(App),
 }).$mount('#app');

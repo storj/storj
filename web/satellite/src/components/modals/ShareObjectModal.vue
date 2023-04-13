@@ -43,8 +43,9 @@
 import { computed, onMounted, ref } from 'vue';
 
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -59,7 +60,7 @@ enum ButtonStates {
 }
 
 const appStore = useAppStore();
-const store = useStore();
+const obStore = useObjectBrowserStore();
 const notify = useNotify();
 
 const isLoading = ref<boolean>(true);
@@ -70,7 +71,7 @@ const copyButtonState = ref<ButtonStates>(ButtonStates.Copy);
  * Retrieve the path to the current file that has the fileShareModal opened from the store.
  */
 const filePath = computed((): string => {
-    return store.state.files.objectPathForModal;
+    return obStore.state.objectPathForModal;
 });
 
 /**
@@ -101,7 +102,7 @@ function closeModal(): void {
  * Sets share link.
  */
 onMounted(async (): Promise<void> => {
-    link.value = await store.state.files.fetchSharedLink(
+    link.value = await obStore.state.fetchSharedLink(
         filePath.value,
     );
 

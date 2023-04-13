@@ -36,7 +36,7 @@ export class FilesState {
     uploadChain: Promise<void> = Promise.resolve();
     uploading: BrowserObject[] = [];
     selectedAnchorFile: BrowserObject | null = null;
-    unselectedAnchorFile: null | string = null;
+    unselectedAnchorFile: BrowserObject | null = null;
     selectedFiles: BrowserObject[] = [];
     shiftSelectedFiles: BrowserObject[] = [];
     filesToBeDeleted: BrowserObject[] = [];
@@ -75,7 +75,7 @@ declare global {
     }
 }
 
-export const useFilesStore = defineStore('files', () => {
+export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     const state = reactive<FilesState>(new FilesState());
 
     const sortedFiles = computed(() => {
@@ -128,7 +128,7 @@ export const useFilesStore = defineStore('files', () => {
         bucket: string;
         endpoint: string;
         browserRoot: string;
-        openModalOnFirstUpload: boolean;
+        openModalOnFirstUpload?: boolean;
         fetchSharedLink: (arg0: string) => Promisable<string>;
         fetchPreviewAndMapUrl: (arg0: string) => Promisable<string>;
     }): void {
@@ -182,7 +182,7 @@ export const useFilesStore = defineStore('files', () => {
         state.files = files;
     }
 
-    async function list(path = state.path) {
+    async function list(path = state.path): Promise<void> {
         if (listCache.has(path)) {
             updateFiles(path, listCache.get(path));
         }
@@ -274,7 +274,7 @@ export const useFilesStore = defineStore('files', () => {
         list(getParentDirectory(state.path));
     }
 
-    async function getObjectCount() {
+    async function getObjectCount(): Promise<void> {
         assertIsInitialized(state);
 
         const responseV2 = await state.s3
@@ -286,12 +286,12 @@ export const useFilesStore = defineStore('files', () => {
         state.objectsCount = responseV2.KeyCount === undefined ? 0 : responseV2.KeyCount;
     }
 
-    async function upload({ e }: { e: DragEvent }) {
+    async function upload({ e }: { e: DragEvent | Event }): Promise<void> {
         assertIsInitialized(state);
 
         type Item = DataTransferItem | FileSystemEntry;
 
-        const items: Item[] = e.dataTransfer
+        const items: Item[] = 'dataTransfer' in e && e.dataTransfer
             ? [...e.dataTransfer.items]
             : e.target !== null
                 ? ((e.target as unknown) as { files: FileSystemEntry[] }).files
@@ -362,6 +362,8 @@ export const useFilesStore = defineStore('files', () => {
             return fileName;
         }
 
+        const appStore = useAppStore();
+
         for await (const { path, file } of traverse(iterator)) {
             const directories = path.split('/');
             directories[0] = getUniqueFileName(directories[0]);
@@ -373,6 +375,11 @@ export const useFilesStore = defineStore('files', () => {
                 Key: state.path + fileName,
                 Body: file,
             };
+
+            // If file size exceeds 1 GB, show warning notification
+            if (file.size > (1024 * 1024 * 1024)) {
+                appStore.setLargeUploadWarningNotification(true);
+            }
 
             const upload = state.s3.upload(
                 { ...params },
@@ -425,7 +432,6 @@ export const useFilesStore = defineStore('files', () => {
 
                 if (uploadedFiles.length === 1 && !path && state.openModalOnFirstUpload) {
                     state.objectPathForModal = params.Key;
-                    const appStore = useAppStore();
                     appStore.updateActiveModal(MODALS.objectDetails);
                 }
 
@@ -434,7 +440,7 @@ export const useFilesStore = defineStore('files', () => {
         }
     }
 
-    async function createFolder(name) {
+    async function createFolder(name): Promise<void> {
         assertIsInitialized(state);
 
         await state.s3
@@ -447,7 +453,7 @@ export const useFilesStore = defineStore('files', () => {
         list();
     }
 
-    async function deleteObject(path: string, file?: S3.Object | BrowserObject, isFolder = false) {
+    async function deleteObject(path: string, file?: S3.Object | BrowserObject, isFolder = false): Promise<void> {
         if (!file) {
             return;
         }
@@ -467,7 +473,7 @@ export const useFilesStore = defineStore('files', () => {
         }
     }
 
-    async function deleteFolder(file: BrowserObject, path: string) {
+    async function deleteFolder(file: BrowserObject, path: string): Promise<void> {
         assertIsInitialized(state);
 
         async function recurse(filePath) {
@@ -520,7 +526,7 @@ export const useFilesStore = defineStore('files', () => {
         await list();
     }
 
-    async function deleteSelected() {
+    async function deleteSelected(): Promise<void> {
         const filesToDelete = [
             ...state.selectedFiles,
             ...state.shiftSelectedFiles,
@@ -545,7 +551,7 @@ export const useFilesStore = defineStore('files', () => {
         clearAllSelectedFiles();
     }
 
-    async function download(file) {
+    function download(file): void {
         assertIsInitialized(state);
 
         const url = state.s3.getSignedUrl('getObject', {
@@ -562,25 +568,25 @@ export const useFilesStore = defineStore('files', () => {
         downloadURL(url, file.Key);
     }
 
-    function updateSelectedFiles(files) {
+    function updateSelectedFiles(files): void {
         state.selectedFiles = [...files];
     }
 
-    function updateShiftSelectedFiles(files) {
+    function updateShiftSelectedFiles(files): void {
         state.shiftSelectedFiles = files;
     }
 
-    function addFileToBeDeleted(file) {
+    function addFileToBeDeleted(file): void {
         state.filesToBeDeleted = [...state.filesToBeDeleted, file];
     }
 
-    function removeFileFromToBeDeleted(file) {
+    function removeFileFromToBeDeleted(file): void {
         state.filesToBeDeleted = state.filesToBeDeleted.filter(
             (singleFile) => singleFile.Key !== file.Key,
         );
     }
 
-    function clearAllSelectedFiles() {
+    function clearAllSelectedFiles(): void {
         if (state.selectedAnchorFile || state.unselectedAnchorFile) {
             state.selectedAnchorFile = null;
             state.unselectedAnchorFile = null;
@@ -589,20 +595,20 @@ export const useFilesStore = defineStore('files', () => {
         }
     }
 
-    function openDropdown(id) {
+    function openDropdown(id): void {
         clearAllSelectedFiles();
         state.openedDropdown = id;
     }
 
-    function closeDropdown() {
+    function closeDropdown(): void {
         state.openedDropdown = null;
     }
 
-    function openFileBrowserDropdown() {
+    function openFileBrowserDropdown(): void {
         state.openedDropdown = 'FileBrowser';
     }
 
-    function cancelUpload(key) {
+    function cancelUpload(key): void {
         const file = state.uploading.find((file) => file.Key === key);
 
         if (typeof file === 'object') {
@@ -616,7 +622,26 @@ export const useFilesStore = defineStore('files', () => {
         }
     }
 
-    function closeAllInteractions() {
+    function sort(headingSorted: string): void {
+        const flip = (orderBy) => (orderBy === 'asc' ? 'desc' : 'asc');
+
+        state.orderBy = state.headingSorted === headingSorted ? flip(state.orderBy) : 'asc';
+        state.headingSorted = headingSorted;
+    }
+
+    function setObjectPathForModal(path: string): void {
+        state.objectPathForModal = path;
+    }
+
+    function setSelectedAnchorFile(file: BrowserObject | null): void {
+        state.selectedAnchorFile = file;
+    }
+
+    function setUnselectedAnchorFile(file: BrowserObject | null): void {
+        state.unselectedAnchorFile = file;
+    }
+
+    function closeAllInteractions(): void {
         if (state.openedDropdown) {
             closeDropdown();
         }
@@ -626,7 +651,7 @@ export const useFilesStore = defineStore('files', () => {
         }
     }
 
-    function clear() {
+    function clear(): void {
         state.s3 = null;
         state.accessKey = null;
         state.path = '';
@@ -650,6 +675,36 @@ export const useFilesStore = defineStore('files', () => {
     }
 
     return {
-        filesState: state,
+        state,
+        sortedFiles,
+        isInitialized,
+        uploadingLength,
+        init,
+        reinit,
+        updateFiles,
+        list,
+        back,
+        sort,
+        getObjectCount,
+        upload,
+        createFolder,
+        deleteObject,
+        deleteFolder,
+        deleteSelected,
+        download,
+        updateSelectedFiles,
+        updateShiftSelectedFiles,
+        addFileToBeDeleted,
+        removeFileFromToBeDeleted,
+        clearAllSelectedFiles,
+        setObjectPathForModal,
+        openDropdown,
+        closeDropdown,
+        openFileBrowserDropdown,
+        setSelectedAnchorFile,
+        setUnselectedAnchorFile,
+        cancelUpload,
+        closeAllInteractions,
+        clear,
     };
 });

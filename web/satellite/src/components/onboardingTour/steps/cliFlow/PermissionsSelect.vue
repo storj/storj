@@ -45,7 +45,6 @@
 import { computed, ref } from 'vue';
 
 import { APP_STATE_DROPDOWNS } from '@/utils/constants/appStatePopUps';
-import { useStore } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
@@ -53,7 +52,6 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
-const store = useStore();
 
 const isLoading = ref<boolean>(true);
 

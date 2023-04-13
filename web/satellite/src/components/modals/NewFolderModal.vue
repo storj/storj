@@ -40,19 +40,19 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 
-import { BrowserFile } from '@/types/browser';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
+import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import VModal from '@/components/common/VModal.vue';
 import VButton from '@/components/common/VButton.vue';
 import VLoader from '@/components/common/VLoader.vue';
 import VInput from '@/components/common/VInput.vue';
 
+const obStore = useObjectBrowserStore();
 const appStore = useAppStore();
-const store = useStore();
 const notify = useNotify();
 
 const createFolderName = ref<string>('');
@@ -62,8 +62,8 @@ const isLoading = ref<boolean>(false);
 /**
  * Retrieve all the files sorted from the store.
  */
-const files = computed((): BrowserFile[] => {
-    return store.getters['files/sortedFiles'];
+const files = computed((): BrowserObject[] => {
+    return obStore.sortedFiles;
 });
 
 /**
@@ -123,7 +123,7 @@ async function createFolder(): Promise<void> {
     isLoading.value = true;
 
     try {
-        await store.dispatch('files/createFolder', createFolderName.value.trim());
+        await obStore.createFolder(createFolderName.value.trim());
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.CREATE_FOLDER_MODAL);
     }

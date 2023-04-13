@@ -121,7 +121,7 @@ import {
     AnalyticsErrorEventSource,
 } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { RouteConfig } from '@/router';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { FetchState } from '@/utils/constants/fetchStateEnum';
@@ -138,6 +138,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import InactivityModal from '@/components/modals/InactivityModal.vue';
 import BetaSatBar from '@/components/infoBars/BetaSatBar.vue';
@@ -152,7 +153,6 @@ import LoaderImage from '@/../static/images/common/loadIcon.svg';
 
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
-const store = useStore();
 const notify = useNotify();
 
 const bucketsStore = useBucketsStore();
@@ -164,6 +164,7 @@ const agStore = useAccessGrantsStore();
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const notificationsStore = useNotificationsStore();
+const obStore = useObjectBrowserStore();
 
 const analytics = new AnalyticsHttpApi();
 const auth: AuthHttpApi = new AuthHttpApi();
@@ -387,7 +388,7 @@ async function handleInactive(): Promise<void> {
         appStore.clear(),
         billingStore.clear(),
         abTestingStore.reset(),
-        store.dispatch('files/clear'),
+        obStore.clear(),
     ]);
 
     resetActivityEvents.forEach((eventName: string) => {
@@ -482,7 +483,7 @@ function restartSessionTimers(): void {
     }, sessionRefreshInterval.value);
 
     inactivityTimerId.value = setTimeout(async () => {
-        if (store.getters['files/uploadingLength']) {
+        if (obStore.uploadingLength) {
             await refreshSession();
             return;
         }

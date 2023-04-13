@@ -19,20 +19,21 @@ import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { BucketPage } from '@/types/buckets';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
+import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 
 import FileBrowser from '@/components/browser/FileBrowser.vue';
 import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
 
+const obStore = useObjectBrowserStore();
 const bucketsStore = useBucketsStore();
 const appStore = useAppStore();
 const agStore = useAccessGrantsStore();
 const projectsStore = useProjectsStore();
-const store = useStore();
 const router = useRouter();
 const notify = useNotify();
 
@@ -215,7 +216,7 @@ async function generateCredentials(cleanApiKey: string, path: string, areEndless
 onBeforeMount(() => {
     setWorker();
 
-    store.commit('files/init', {
+    obStore.init({
         endpoint: edgeCredentials.value.endpoint,
         accessKey: edgeCredentials.value.accessKeyId,
         secretKey: edgeCredentials.value.secretKey,
@@ -241,17 +242,18 @@ watch(passphrase, async () => {
         return;
     }
 
-    await router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
-    store.commit('files/reinit', {
+    router.push(RouteConfig.Buckets.with(RouteConfig.UploadFile).path).catch(() => {return;});
+    obStore.reinit({
         endpoint: edgeCredentials.value.endpoint,
         accessKey: edgeCredentials.value.accessKeyId,
         secretKey: edgeCredentials.value.secretKey,
     });
+
     try {
         await Promise.all([
             bucketsStore.getBuckets(bucketPage.value.currentPage, projectID),
-            store.dispatch('files/list', ''),
-            store.dispatch('files/getObjectCount'),
+            obStore.list(''),
+            obStore.getObjectCount(),
         ]);
     } catch (error) {
         await notify.error(error.message, AnalyticsErrorEventSource.UPLOAD_FILE_VIEW);

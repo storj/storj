@@ -69,7 +69,7 @@ import { computed, reactive, ref } from 'vue';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { useRouter, useStore } from '@/utils/hooks';
+import { useRouter } from '@/utils/hooks';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import VInput from '@/components/common/VInput.vue';
@@ -79,7 +79,6 @@ import VButton from '@/components/common/VButton.vue';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 const billingStore = useBillingStore();
-const store = useStore();
 const nativeRouter = useRouter();
 const router = reactive(nativeRouter);
 

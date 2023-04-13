@@ -72,7 +72,7 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import { BucketPage } from '@/types/buckets';
 import { RouteConfig } from '@/router';
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { useNotify, useRouter, useStore } from '@/utils/hooks';
+import { useNotify, useRouter } from '@/utils/hooks';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
 import { EdgeCredentials } from '@/types/accessGrants';

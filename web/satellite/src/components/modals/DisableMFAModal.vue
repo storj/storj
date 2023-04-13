@@ -46,7 +46,7 @@ import { ref } from 'vue';
 import { DisableMFARequest } from '@/types/users';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { MODALS } from '@/utils/constants/appStatePopUps';
-import { useNotify, useStore } from '@/utils/hooks';
+import { useNotify } from '@/utils/hooks';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 
@@ -60,7 +60,6 @@ interface ClearInput {
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
-const store = useStore();
 const notify = useNotify();
 
 const isError = ref<boolean>(false);
