@@ -44,7 +44,7 @@ import { useAppStore } from '@/store/modules/appStore';
 const appStore = useAppStore();
 
 const props = withDefaults(defineProps<{
-    isInstallStep: boolean;
+    isInstallStep?: boolean;
 }>(), {
     isInstallStep: false,
 });

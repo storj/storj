@@ -1,7 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
@@ -9,17 +8,11 @@ import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import CreateProject from '@/components/project/CreateProject.vue';
 
 const localVue = createLocalVue();
-
-localVue.use(Vuex);
-
-const store = new Vuex.Store({});
-
 localVue.use(new NotificatorPlugin());
 
 describe('CreateProject.vue', (): void => {
     it('renders correctly', (): void => {
         const wrapper = shallowMount<CreateProject>(CreateProject, {
-            store,
             localVue,
         });
 
@@ -28,7 +21,6 @@ describe('CreateProject.vue', (): void => {
 
     it('renders correctly with project name', async (): Promise<void> => {
         const wrapper = shallowMount<CreateProject>(CreateProject, {
-            store,
             localVue,
         });
 

@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { RouteConfig, router } from '@/router';
@@ -10,10 +9,6 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import DashboardArea from '@/views/DashboardArea.vue';
 
 const localVue = createLocalVue();
-localVue.use(Vuex);
-
-const store = new Vuex.Store({});
-
 localVue.use(new NotificatorPlugin());
 
 describe('Dashboard', () => {
@@ -24,7 +19,6 @@ describe('Dashboard', () => {
 
     it('renders correctly when data is loading', () => {
         const wrapper = shallowMount(DashboardArea, {
-            store,
             localVue,
             router,
         });
@@ -36,7 +30,6 @@ describe('Dashboard', () => {
 
     it('renders correctly when data is loaded', () => {
         const wrapper = shallowMount(DashboardArea, {
-            store,
             localVue,
             router,
         });
@@ -56,7 +49,6 @@ describe('Dashboard', () => {
             const wrapper = await shallowMount(DashboardArea, {
                 localVue,
                 router,
-                store,
             });
 
             setTimeout(() => {
@@ -78,7 +70,6 @@ describe('Dashboard', () => {
             const wrapper = await shallowMount(DashboardArea, {
                 localVue,
                 router,
-                store,
             });
 
             setTimeout(() => {
@@ -90,7 +81,6 @@ describe('Dashboard', () => {
 
     it('loads routes correctly when not authorithed', () => {
         const wrapper = shallowMount(DashboardArea, {
-            store,
             localVue,
             router,
         });

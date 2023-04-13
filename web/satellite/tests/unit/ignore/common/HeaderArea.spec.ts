@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectMemberHeaderState } from '@/types/projectMembers';
@@ -9,14 +8,10 @@ import { ProjectMemberHeaderState } from '@/types/projectMembers';
 import HeaderArea from '@/components/team/HeaderArea.vue';
 
 const localVue = createLocalVue();
-localVue.use(Vuex);
-
-const store = new Vuex.Store({});
 
 describe('Team HeaderArea', () => {
     it('renders correctly', () => {
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            store,
             localVue,
         });
 
@@ -32,7 +27,6 @@ describe('Team HeaderArea', () => {
 
     it('renders correctly with opened Add team member popup', () => {
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            store,
             localVue,
         });
 
@@ -47,7 +41,6 @@ describe('Team HeaderArea', () => {
         const selectedUsersCount = 2;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            store,
             localVue,
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,
@@ -68,7 +61,6 @@ describe('Team HeaderArea', () => {
         const selectedUsersCount = 2;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            store,
             localVue,
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,
@@ -93,7 +85,6 @@ describe('Team HeaderArea', () => {
         const selectedUsersCount = 1;
 
         const wrapper = shallowMount<HeaderArea>(HeaderArea, {
-            store,
             localVue,
             propsData: {
                 selectedProjectMembersCount: selectedUsersCount,

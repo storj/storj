@@ -14,12 +14,3 @@ export function useRouter() {
 export function useNotify() {
     return getCurrentInstance()?.proxy.$notify || {} as Notificator;
 }
-
-export function useCopy() {
-    return getCurrentInstance()?.proxy.$copyText || {} as (text: string, container?: object | HTMLElement) => Promise<{
-        action: string,
-        text: string,
-        trigger: string | HTMLElement | HTMLCollection | NodeList,
-        clearSelection: () => void
-    }>;
-}
