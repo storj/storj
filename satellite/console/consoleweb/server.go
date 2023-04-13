@@ -138,9 +138,8 @@ type Server struct {
 }
 
 type templates struct {
-	index               *template.Template
-	notFound            *template.Template
-	internalServerError *template.Template
+	index *template.Template
+	error *template.Template
 }
 
 // apiAuth exposes methods to control authentication process for each generated API endpoint.
@@ -858,27 +857,16 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
-	switch status {
-	case http.StatusInternalServerError:
-		templates, err := server.loadTemplates()
-		if err != nil {
-			server.log.Error("unable to load templates", zap.Error(err))
-			return
-		}
-		err = templates.internalServerError.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse internalServerError template", zap.Error(err))
-		}
-	case http.StatusNotFound:
-		templates, err := server.loadTemplates()
-		if err != nil {
-			server.log.Error("unable to load templates", zap.Error(err))
-			return
-		}
-		err = templates.notFound.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse pageNotFound template", zap.Error(err))
-		}
+	templates, err := server.loadTemplates()
+	if err != nil {
+		server.log.Error("unable to load templates", zap.Error(err))
+		return
+	}
+
+	data := struct{ StatusCode int }{StatusCode: status}
+	err = templates.error.Execute(w, data)
+	if err != nil {
+		server.log.Error("cannot parse error template", zap.Error(err))
 	}
 }
 
@@ -955,12 +943,7 @@ func (server *Server) parseTemplates() (_ *templates, err error) {
 		// Loading index is optional.
 	}
 
-	t.notFound, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "404.html"))
-	if err != nil {
-		return &t, Error.Wrap(err)
-	}
-
-	t.internalServerError, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "500.html"))
+	t.error, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "errors", "error.html"))
 	if err != nil {
 		return &t, Error.Wrap(err)
 	}
