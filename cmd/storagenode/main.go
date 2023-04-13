@@ -10,6 +10,7 @@ import (
 
 	"storj.io/private/process"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"storj.io/storj/storagenode/pieces/lazyfilewalker"
 )
 
 func main() {
@@ -23,7 +24,7 @@ func main() {
 	rootCmd, _ := newRootCmd(allowDefaults)
 
 	loggerFunc := func(logger *zap.Logger) *zap.Logger {
-		return logger.With(zap.String("Process", rootCmd.Use))
+		return logger.With(zap.String("process", rootCmd.Use))
 	}
 
 	process.ExecWithCustomOptions(rootCmd, process.ExecOptions{
@@ -36,5 +37,5 @@ func main() {
 }
 
 func isFilewalkerCommand() bool {
-	return len(os.Args) > 1 && os.Args[1] == usedSpaceFilewalkerCmd
+	return len(os.Args) > 1 && (os.Args[1] == lazyfilewalker.UsedSpaceFilewalkerCmdName || os.Args[1] == lazyfilewalker.GCFilewalkerCmdName)
 }
