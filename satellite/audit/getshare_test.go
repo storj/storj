@@ -118,9 +118,9 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		mock := &mockConnector{}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
-		require.NoError(t, err)
+		share := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, share.Error)
+		require.Equal(t, audit.NoFailure, share.FailurePhase)
 
 		// we expect that the cached IP and port was actually dialed
 		require.Contains(t, mock.addressesDialed, cachedIPAndPort)
@@ -183,9 +183,9 @@ func TestGetSharePrefers(t *testing.T) {
 		}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
-		require.NoError(t, err)
+		share := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, share.Error)
+		require.Equal(t, audit.NoFailure, share.FailurePhase)
 
 		// we expect that the cached IP and port was actually dialed
 		require.Contains(t, mock.addressesDialed, cachedIPAndPort)
